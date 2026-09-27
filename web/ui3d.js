@@ -156,7 +156,7 @@ function profileWin(p) {
     <div class="ptiles">
       ${tile('treasury', 'smallicon/coin_gold.png', 'Пополнить Казну', true)}
       ${tile('rep', 'smallicon/plus.png', 'Поднять Репутацию', p.self || p.repToday)}
-      ${tile('gift', 'smallicon/surprize.png', 'Отправить Подарок', true)}
+      ${tile('gift', 'smallicon/surprize.png', 'Отправить Подарок', p.self)}
       ${tile('friend', 'smallicon/status/online.png', p.friend ? 'Убрать из друзей' : 'Добавить в друзья', p.self)}
       ${tile('msg', 'smallicon/unmes.png', 'Сообщение', p.self)}
       ${tile('map', 'ground/castle_small.png', 'На карте')}
@@ -164,6 +164,7 @@ function profileWin(p) {
       ${tile('info', 'units/human/general.png', 'Личная информация')}
       ${tile('attack', 'smallicon/swordred.png', 'Атаковать', p.self)}
     </div>
+    ${ribbon(`Подарки - ${(p.gifts || []).length}`)}${(p.gifts || []).length ? `<div class="pgifts">${p.gifts.map((g) => { const G = S.cat.gifts[g.gift] || {}; return `<button class="pgift" data-cprof="${g.fromId}" title="${esc(G.name || '')}"><img src="${GFX}${G.img}" alt=""><small>от ${esc(g.from)}</small>${g.text ? `<i>«${esc(g.text)}»</i>` : ''}</button>`; }).join('')}</div>` : '<div class="parch-note">Подарков пока нет.</div>'}
     ${ribbon('Зал Славы')}<div class="pmedals">${medals}</div><button class="pbar" data-hof>Посмотреть</button>
     ${ribbon('Награждения')}<div class="parch-note">Пока нет — награды выдаются по итогам месяца.</div>
     ${ribbon(`Замки - ${p.castles.length}`)}
@@ -299,6 +300,7 @@ $('#sheetBody').addEventListener('click', (e) => {
     if (t.classList.contains('off')) return;
     const p = S.lastProfile, id = Number(d.pid);
     if (d.ptile === 'rep') return send({ t: 'rep', id });
+    if (d.ptile === 'gift') { S.giftTo = p; return openSheet(giftsWin); }
     if (d.ptile === 'friend') { send({ t: 'friend', op: p.friend ? 'del' : 'add', id }); return send({ t: 'profile', id }); }
     if (d.ptile === 'msg') return openCompose(p.login);
     if (d.ptile === 'map') { closeAllSheets(); S.world = null; setTab('world'); return send({ t: 'world', cx: p.castles[0].x, cy: p.castles[0].y }); }
@@ -345,4 +347,26 @@ $('#sheetBody').addEventListener('click', (e) => {
   const t = e.target.closest('[data-avatar]'); if (!t) return;
   if (t.dataset.avatar === 'set') return avInput.click();
   if (confirm('Удалить аватар?')) send({ t: 'avatar', op: 'del' });
+});
+
+// ---------- Подарки: каталог «Все / Новые», отправка игроку ----------
+function giftsWin() {
+  const p = S.giftTo, list = Object.entries(S.cat.gifts || {});
+  return `${ribbon('🎁 Подарки')}
+    <div class="combo"><select><option>Все</option></select></div>
+    <div class="center bwline">Все <span class="plink">Новые</span></div>
+    <div class="pager"><button>◀◀</button><button>◀</button><span>1</span><button>▶</button><button>▶▶</button></div>
+    <div class="bwline center">Кому: <b>${esc(p.login)}</b> · у вас ${gimg('smallicon/coin_gold.png', 'ri')} ${fmtFull(S.st.user.gold || 0)}</div>
+    ${list.map(([id, g]) => `<div class="giftrow"><img src="${GFX}${g.img}" alt="">
+      ${g.premium ? '<div class="gprem">Премиум подарок</div>' : ''}
+      <div class="bwline center">${esc(g.name)} ( ${gimg('smallicon/coin_gold.png', 'ri')} ${g.gold})</div>
+      <div class="center bwline">🎁 <a class="plink" data-giftsend="${id}">Отправить</a> игроку!</div></div>`).join('')}`;
+}
+$('#sheetBody').addEventListener('click', (e) => {
+  const t = e.target.closest('[data-giftsend]'); if (!t) return;
+  const p = S.giftTo, g = S.cat.gifts[t.dataset.giftsend];
+  const text = prompt(`Подарок «${g.name}» игроку ${p.login} за ${g.gold} золота. Подпись (необязательно):`, '');
+  if (text === null) return;
+  send({ t: 'gift', to: p.id, gift: t.dataset.giftsend, text });
+  closeSheet();
 });

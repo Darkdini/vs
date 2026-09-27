@@ -25,7 +25,7 @@ function client() {
   const ws = new WebSocket(`ws://127.0.0.1:${WEB_PORT}/ws`);
   const inbox = []; const waiters = [];
   const opened = new Promise((r) => { ws.onopen = r; }); // подписываемся сразу, иначе событие можно пропустить
-  ws.onmessage = (e) => { inbox.push(JSON.parse(e.data)); flush(); };
+  ws.onmessage = (e) => { const m = JSON.parse(e.data); if (process.env.DBG && (m.t === 'toast' || m.t === 'error')) console.log('  <', m.t, m.msg); inbox.push(m); flush(); };
   function flush() {
     for (const w of [...waiters]) {
       const i = inbox.findIndex(w.pred);
@@ -242,6 +242,15 @@ function client() {
     adm.send({ t: 'forge', unit: 221, kind: 'a' });
     await adm.expect('error', (m) => /нельзя улучшить/.test(m.msg));
     console.log('✓ Кузница: улучшения 20/20, торговца улучшить нельзя');
+
+    // ---- подарки: админ дарит «Большой диамант» игроку webby, подарок виден в профиле ----
+    adm.send({ t: 'gift', to: s3.user.id, gift: 'diamond', text: 'Удачи!' });
+    await adm.expect('toast', (m) => /Подарок «Большой диамант» отправлен игроку webby/.test(m.msg));
+    const gp = (await adm.expect('profile', (m) => m.refresh)).profile;
+    assert.ok(gp.gifts[0].gift === 'diamond' && gp.gifts[0].from === 'admin' && gp.gifts[0].text === 'Удачи!');
+    adm.send({ t: 'gift', to: as.user.id, gift: 'diamond' });
+    await adm.expect('error', (m) => /Себе подарок/.test(m.msg));
+    console.log('✓ подарки: «Большой диамант» за 3 золота виден в профиле получателя');
 
     // ---- генерал: очки опыта, распределение, сброс, имя, убить ----
     adm.send({ t: 'admin', op: 'general', level: 50 });

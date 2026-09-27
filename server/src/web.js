@@ -14,7 +14,7 @@ const ARMY = require('./army');
 
 const WEB_ROOT = path.join(__dirname, '..', '..', 'web');
 const WS_MAX = 256 * 1024;
-const MIME = { '.webmanifest': 'application/manifest+json', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml' };
+const MIME = { '.webmanifest': 'application/manifest+json', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml' };
 
 // ---------- WebSocket ----------
 function wsAccept(req, socket) {
@@ -92,6 +92,7 @@ function catalogJson() {
     raceOrder: C.RACES,
     units: C.UNITS,
     army: armyJson(),
+    gifts: require('./social').GIFTS,
     mil: ARMY.catalogJson(), // юниты игры, науки, религии, артефакты, NPC-лагеря
     lands: { base: G.LANDS_BASE, decor: G.LANDS_DECOR, edge: G.LANDS_EDGE },
     landOptions: G.LANDS_BASE.map((row, y) => row.map((_, x) => G.landOptions(x, y))),
@@ -200,6 +201,14 @@ const API = {
     const lim = (v) => Math.max(R, Math.min(G.WORLD - 1 - R, Math.round(v))); // не за край карты
     const cx = lim(Number.isFinite(m.cx) ? m.cx : c.x), cy = lim(Number.isFinite(m.cy) ? m.cy : c.y);
     this.send({ t: 'world', cx, cy, radius: R, objects: this.game.worldObjects(cx - R, cy - R, 2 * R + 1, 2 * R + 1), home: { x: c.x, y: c.y } });
+  },
+  gift(m) {
+    const r = this.game.sendGift(this.user, m.to, m.gift, m.text);
+    if (r.error) return this.error(r.error);
+    this.toast(r.msg);
+    const to = this.game.userById(Number(m.to));
+    for (const s of WebSession.all || []) if (s.user && to && s.user.id === to.id) s.pushState(); // получателю — оповещение сразу
+    this.send({ t: 'profile', refresh: true, profile: this.game.profileOf(to, this.user) });
   },
   profile(m) {
     const u = this.game.userById(Number(m.id) || this.user.id);

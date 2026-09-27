@@ -16,6 +16,10 @@ const HALLS = {
 };
 const PLACE_ICON = ['gold', 'silver', 'bronze'];
 
+// подарки в профиле: игроки дарят друг другу за золото
+const GIFTS = { diamond: { name: 'Большой диамант', img: 'gifts/diamond.jpg', gold: 3, premium: true } };
+const GIFTS_DAY = 20; // сколько подарков игрок может отправить за сутки
+
 function install(Game) {
   const P = Game.prototype;
 
@@ -60,6 +64,21 @@ function install(Game) {
   };
 
   // полный профиль для окна «Профиль»
+  P.sendGift = function sendGift(user, toId, giftId, text) {
+    const g = GIFTS[giftId]; if (!g) return { error: 'Нет такого подарка.' };
+    const to = this.userById(Number(toId)); if (!to) return { error: 'Игрок не найден.' };
+    if (to.id === user.id) return { error: 'Себе подарок отправить нельзя.' };
+    const now = Date.now();
+    user.giftLog = (user.giftLog || []).filter((t) => t > now - 86400000);
+    if (user.giftLog.length >= GIFTS_DAY) return { error: `Не больше ${GIFTS_DAY} подарков в сутки.` };
+    if ((user.gold || 0) < g.gold) return { error: `Нужно ${g.gold} золота (у вас ${user.gold || 0}).` };
+    user.gold -= g.gold; user.giftLog.push(now);
+    (to.gifts = to.gifts || []).push({ gift: giftId, from: user.id, at: now, text: String(text || '').trim().slice(0, 100) });
+    if (to.gifts.length > 200) to.gifts = to.gifts.slice(-200);
+    this.event(to.id, `${user.login} подарил Вам: ${g.name}!`);
+    this.store.save();
+    return { ok: true, msg: `Подарок «${g.name}» отправлен игроку ${to.login}.` };
+  };
   P.profileOf = function profileOf(u, viewer) {
     const al = this.allianceOf(u);
     return {
@@ -72,7 +91,8 @@ function install(Game) {
       self: u.id === viewer.id,
       friend: (viewer.friends || []).includes(u.id),
       repToday: ((viewer.repGiven || {})[u.id] || 0) > Date.now() - 86400000,
-      about: u.about || '', avatar: u.avatar || 0,
+      about: u.about || '', avatar: u.avatar || 0, gold: u.id === viewer.id ? u.gold || 0 : undefined,
+      gifts: (u.gifts || []).slice(-50).reverse().map((g) => ({ gift: g.gift, from: (this.userById(g.from) || { login: '—' }).login, fromId: g.from, at: g.at, text: g.text || '' })),
       online: u.id === viewer.id || viewer.admin ? !!u.online : false,
     };
   };
@@ -157,4 +177,4 @@ function install(Game) {
   };
 }
 
-module.exports = { install, HALLS };
+module.exports = { GIFTS, install, HALLS };

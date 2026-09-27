@@ -24,7 +24,7 @@ function install(Game) {
       this.maxOut(c);
     }
     u.admin = true;
-    if (u.gold === undefined) u.gold = 1000000;
+    if (!u.adminGold) { u.gold = Math.max(u.gold || 0, 1000000); u.adminGold = true; } // миллион золота админу — один раз
     if (!u.royal) { u.royal = 1000000; u.royalAt = Date.now(); u.captures = u.captures || ADMIN_CASTLES - 1; }
     this.adminAddCastles(u, ADMIN_CASTLES - this.castlesOf(u).length);
     this.store.save();
