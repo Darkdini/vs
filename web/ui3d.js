@@ -156,7 +156,7 @@ function profileWin(p) {
     ${p.alliance ? `<div class="pline">Звание в альянсе: ${esc(p.alliance.role)}</div>` : ''}
     <div class="ptiles">
       ${tile('treasury', 'smallicon/coin_gold.png', 'Пополнить Казну', true)}
-      ${tile('rep', 'smallicon/plus.png', 'Поднять Репутацию', p.self)}
+      ${tile('rep', 'smallicon/plus.png', 'Поднять Репутацию')}
       ${tile('gift', 'smallicon/surprize.png', 'Отправить Подарок')}
       ${tile('friend', 'smallicon/status/online.png', p.friend ? 'Убрать из друзей' : 'Добавить в друзья', p.self)}
       ${tile('msg', 'smallicon/unmes.png', 'Сообщение', p.self)}

@@ -139,7 +139,6 @@ function install(Game) {
   P.giveReputation = function giveReputation(from, toId, coins) {
     const to = this.userById(Number(toId));
     if (!to) return { error: 'Игрок не найден.' };
-    if (to.id === from.id) return { error: 'Себе репутацию поднять нельзя.' };
     coins = Math.floor(Number(coins));
     if (!(coins >= 1) || coins > 100000) return { error: 'Укажите количество монет.' };
     if ((from.gold || 0) < coins) return { error: `Не хватает золота (у вас ${from.gold || 0}).` };
@@ -148,7 +147,7 @@ function install(Game) {
     to.reputation = (to.reputation ?? START_REP) + add;
     this.cache = {};
     this.store.save();
-    this.event(to.id, `${from.login} поднял вам репутацию на ${add}!`);
+    if (to.id !== from.id) this.event(to.id, `${from.login} поднял вам репутацию на ${add}!`);
     return { ok: true, add, rep: to.reputation };
   };
 
