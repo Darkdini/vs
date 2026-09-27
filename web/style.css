@@ -569,3 +569,23 @@ input.num { width: 76px; padding: 7px; text-align: center; }
 #menuWin { bottom: calc(126px + var(--safe-b)); }
 #menubar span { font-size: 10.5px; }
 #menubar button { padding-left: 1px; padding-right: 1px; }
+
+/* боковая панель локаций как в оригинале: кожа, золотая окантовка, язычок со стрелкой, красные кнопки */
+:root { --leather: radial-gradient(circle at 20% 30%, #ffffff0a 0 1px, transparent 2px) 0 0 / 7px 7px,
+  radial-gradient(circle at 70% 60%, #0000002e 0 1.5px, transparent 2.5px) 0 0 / 9px 9px, linear-gradient(135deg, #4a1c0a, #34120a 50%, #2a0e06); }
+#locs { transform: translate(calc(100% - 4px), -50%); }
+#locs.open { transform: translate(0, -50%); }
+#locs .lbtns { display: grid; gap: 12px; padding: 14px 10px 14px 12px; border: 3px solid #e0b060; border-right: 0; border-image: none;
+  border-radius: 16px 0 0 16px; background: var(--leather); box-shadow: -3px 0 8px #0008, inset 0 0 12px #0008; }
+#locs .lbtns button { width: 76px; height: 76px; border: 3px solid #e7ba64; border-radius: 16px; padding: 6px;
+  background: linear-gradient(#8e2414, #5a0c06 60%, #3e0604); box-shadow: inset 0 2px 0 #ffffff30, inset 0 -3px 6px #0007, 0 2px 3px #000a; }
+#locs .lbtns button.on { background: linear-gradient(#f0664a, #c42a1c 55%, #8a120a); }
+#locs .lbtns img { width: 58px; height: 58px; max-width: none; max-height: none; object-fit: contain; image-rendering: auto; }
+#locsTab { left: -40px; width: 44px; height: 110px; border: 3px solid #e0b060; border-right: 0; border-radius: 16px 0 0 16px;
+  background: var(--leather); box-shadow: -3px 0 6px #0008; }
+#locs:not(.open) #locsTab { left: -40px; }
+#locsTab::after { left: 12px; top: 40px; width: 16px; height: 16px; border-color: #e8b05a; border-width: 0 7px 7px 0; }
+#locs.open #locsTab::after { transform: rotate(-45deg); }
+#locs:not(.open) #locsTab::after { transform: rotate(135deg); left: 18px; }
+/* нижнее меню — векторные иконки */
+#menubar img { image-rendering: auto; }

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+<defs>
+<radialGradient id="o" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#9ae0ff"/><stop offset=".45" stop-color="#1e7ae0"/><stop offset="1" stop-color="#062a80"/></radialGradient>
+<radialGradient id="l" cx=".4" cy=".3" r=".9"><stop offset="0" stop-color="#d8ff7a"/><stop offset=".6" stop-color="#4cbc2c"/><stop offset="1" stop-color="#1a6a10"/></radialGradient>
+<radialGradient id="h" cx=".3" cy=".25" r=".35"><stop offset="0" stop-color="#fff" stop-opacity=".85"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+<clipPath id="c"><circle cx="50" cy="50" r="42"/></clipPath>
+</defs>
+<circle cx="50" cy="50" r="42" fill="url(#o)"/>
+<g clip-path="url(#c)" fill="url(#l)" stroke="#2a7a18" stroke-width=".8">
+<path d="M52 14 C62 12 74 18 80 26 C74 30 70 28 66 34 C72 40 68 48 60 46 C58 56 66 60 62 70 C58 80 50 84 46 76 C44 66 40 60 34 58 C28 56 26 48 30 42 C38 44 40 36 46 34 C44 26 46 18 52 14 Z"/>
+<path d="M84 44 C90 48 94 56 90 64 C86 60 82 56 84 44 Z"/>
+<path d="M12 30 C18 24 24 26 22 34 C18 38 12 38 12 30 Z"/>
+</g>
+<circle cx="50" cy="50" r="42" fill="url(#h)"/>
+<circle cx="50" cy="50" r="42" fill="none" stroke="#062a80" stroke-width="2"/>
+</svg>
