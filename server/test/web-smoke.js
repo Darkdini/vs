@@ -178,6 +178,16 @@ function client() {
     assert.ok(sl.some((l) => /Выжило разведчиков: 100%/.test(l)) && sl.some((l) => /^Подкрепления/.test(l)) && sl.some((l) => /^Здания/.test(l)), sl.join('\n'));
     console.log('✓ Центр разведки:', sl[1]);
 
+    // ---- Караульная башня: оповещение о набеге (не о разведке), «Передвижения армий» ----
+    adm.send({ t: 'send', units: { 200: 10 }, x: target.x, y: target.y, mission: 'raid' });
+    await a.expect('toast', (m) => /Караульная башня: Набег на/.test(m.msg));
+    a.send({ t: 'moves' });
+    const mv = (await a.expect('moves')).data;
+    assert.ok(mv.incoming.some((x) => x.mission === 'raid' && x.from === 'admin'));
+    adm.send({ t: 'admin', op: 'finish' });
+    await adm.expect('toast', (m) => /Набег: /.test(m.msg));
+    console.log('✓ Караульная башня: оповещение о набеге, передвижения армий королевства');
+
     // ---- склад как в оригинале, «Разрушить» ----
     adm.send({ t: 'sync' });
     let ds = (await adm.expect('state')).castle;
@@ -215,6 +225,10 @@ function client() {
     assert.ok(rv.royal > 0 && rv.need === 13500 * rv.castles);
     adm.send({ t: 'festival', id: 'feast' });
     await adm.expect('error', (m) => /уже был сегодня/.test(m.msg));
+    adm.send({ t: 'ritual', id: 'mystery' });
+    await adm.expect('toast', (m) => /Великое таинство: бонус лояльности \+20%/.test(m.msg));
+    adm.send({ t: 'ritual', id: 'mystery' });
+    await adm.expect('error', (m) => /ещё действует/.test(m.msg));
     console.log('✓ Резиденция: лояльность населения', rv.royal, '· следующий замок', rv.need, '· праздники раз в сутки');
 
     // ---- генерал: очки опыта, распределение, сброс, имя, убить ----

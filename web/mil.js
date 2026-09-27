@@ -79,6 +79,7 @@ function buildingFunctions(def, lvl) {
   if (!lvl || !S.cat.mil) return '';
   let h = '';
   if (def.id === 46) return residenceHtml(); // Резиденция: лояльность населения (residence.js)
+  if (def.id === 21) return '<button class="rbar" data-moves>Передвижения армий</button>'; // Караульная башня (watch.js)
   if (def.id === 45) return spyButtons(); // Центр разведки: Возможности / Тренировать / Разведка (spy.js)
   if (def.id === HQ) h += hqHtml();
   if (def.id === 4) h += marketHtml();
@@ -133,13 +134,13 @@ function hqHtml() {
       ${unitsListHtml(a.units, '')}<div class="bar"><i data-s="${a.state === 'go' ? a.depart : a.arrive}" data-e="${a.state === 'go' ? a.arrive : a.back}"></i></div></div>
       <span class="cd" data-e="${a.state === 'go' ? a.arrive : a.back}"></span></div>`).join('') || '<p class="muted small">Армий в походе нет.</p>';
   const inc = my.incoming.map((a) => `<div class="card job ${a.mission === 'trade' ? '' : 'danger'}"><div class="grow"><b>${M().missions[a.mission]} от ${esc(a.from)}</b>
-      ${a.units ? unitsListHtml(a.units, '') : '<span class="muted small">состав виден с Караульной башней 5 ур.</span>'}</div><span class="cd" data-e="${a.arrive}"></span></div>`).join('') || '<p class="muted small">Входящих армий нет.</p>';
+      ${a.units ? unitsListHtml(a.units, '') : '<span class="muted small">состав неизвестен</span>'}</div><span class="cd" data-e="${a.arrive}"></span></div>`).join('') || '<p class="muted small">Входящих армий нет.</p>';
   return `<div class="section">Генерал</div><div class="card unit">${gen}</div>
     <div class="section">Войска в замке</div><div class="card">${unitsListHtml(my.units, 'Войск нет — тренируйте их в Казарме, Конюшне, Академии магов…')}
       <p class="small muted">Атака ×${my.bonus.atk.toFixed(2)} · защита ×${my.bonus.def.toFixed(2)}</p>
       <div class="btns"><button class="btn primary" data-armies>Армии в замке</button><button class="btn" data-campaign>Военный поход</button></div><div class="btns" style="margin-top:6px"><button class="btn" data-reports>Отчёты${my.unreadReports ? ` (${my.unreadReports})` : ''}</button></div></div>
     <div class="section">Армии в пути</div>${armies}
-    <div class="section">Входящие</div>${inc}`;
+    <div class="section">Входящие</div>${MY().watch ? '' : '<p class="small muted">Постройте Караульную башню — она сообщит о надвигающихся атаках.</p>'}${inc}`;
 }
 
 function marketHtml() {
@@ -172,10 +173,17 @@ function loyaltyHtml() {
   return `<div class="section">Лояльность замка</div><div class="card"><div class="bloy"><div class="bar"><i style="width:${loy}%"></i></div><b>${loy} / 100</b></div>
       <p class="small muted">${S.st.castle.capital ? 'Столицу захватить нельзя.' : 'Если лояльность упадёт до 0 от вражеских Бунтарей — замок захватят.'} Восстанавливается сама, тем быстрее, чем выше уровень Храма.</p></div>`;
 }
+// Храм как в оригинале: «Бонус лояльности +N%» с полоской, кнопки «Бунт» и «Ритуалы» (temple.js)
 function templeHtml() {
+  const r = MY().royal, pct = r ? Math.round(r.bonus * 100) : 0, cap = r ? Math.round(r.bonusCap * 100) : 0;
+  return `<div class="bwline">Бонус <img class="crown" src="${GFX}smallicon/bonus_status/coronalgold.png" alt=""> лояльности + ${pct}%</div>
+    <div class="tbar"><i style="width:${cap ? Math.min(100, pct / cap * 100) : 0}%"></i></div>
+    <button class="rbar" data-temple="riot">Бунт</button><button class="rbar" data-temple="rituals">Ритуалы</button>`;
+}
+function religionHtml() {
   const rel = MY().religion, L = buildingLevel(25);
-  if (rel) return loyaltyHtml() + `<div class="section">Религия</div><div class="card"><b>${esc(M().religions[rel].name)}</b><p class="small">${esc(M().religions[rel].desc)} — сейчас +${L}%.</p></div>`;
-  return loyaltyHtml() + `<div class="section">Выбор религии (один раз)</div>${Object.entries(M().religions).map(([k, r]) => `<div class="card"><b>${esc(r.name)}</b><p class="small">${esc(r.desc)}</p><button class="btn primary small" data-religion="${k}">Принять</button></div>`).join('')}`;
+  if (rel) return `<div class="section">Вера</div><div class="card"><b>${esc(M().religions[rel].name)}</b><p class="small">${esc(M().religions[rel].desc)} — сейчас +${L}%.</p></div>`;
+  return `<div class="section">Выбор веры (один раз)</div>${Object.entries(M().religions).map(([k, r]) => `<div class="card"><b>${esc(r.name)}</b><p class="small">${esc(r.desc)}</p><button class="btn primary small" data-religion="${k}">Принять</button></div>`).join('')}`;
 }
 
 function artifactsHtml() {

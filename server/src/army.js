@@ -432,6 +432,7 @@ function install(Game, helpers) {
       squad: squad ? { id: squad.id, name: squad.name } : from === 'castle' ? { id: 0, name: 'Замковая армия' } : null, portal: !!portal };
     if (general) { g.away = army.id; delete g.squad; }
     castle.armies.push(army);
+    if (army.state === 'go') this.warnIncoming(castle, army);
     this.store.save();
     return { army, sec };
   };
@@ -442,7 +443,7 @@ function install(Game, helpers) {
     for (const c of Object.values(this.db.castles)) {
       if (!c.armies || !c.armies.length) continue; // замки без армий в пути 
       for (const a of c.armies) {
-        if (a.state === 'wait' && a.depart <= now) a.state = 'go'; // расписание: время выхода наступило
+        if (a.state === 'wait' && a.depart <= now) { a.state = 'go'; this.warnIncoming(c, a); } // расписание: время выхода наступило
         if ((a.state === 'go' && a.arrive <= now) || (a.state === 'back' && a.back <= now)) due.push([c, a]);
       }
     }
@@ -639,7 +640,7 @@ function install(Game, helpers) {
         loyalty = { from, to: Math.round(target.loyalty) };
         if (target.loyalty <= 0) {
           if (this.royalCanCapture(att)) { this.royalSpend(att); captured = this.captureCastle(att, target); }
-          else { target.loyalty = 1; royalBlocked = { have: Math.floor(att.royal), need: this.royalNeed(att) }; } // не хватает лояльности населения (Резиденция)
+          else { target.loyalty = 1; royalBlocked = { have: Math.floor(att.royal), need: this.royalNeed(att), wait: this.royalWaitDays(att) }; } // не хватает лояльности населения (Резиденция)
         }
       } else if (npc && npc.ruins) {
         const st = (this.db.npc = this.db.npc || {})[where] || (this.db.npc[where] = {});
@@ -647,7 +648,7 @@ function install(Game, helpers) {
         loyalty = { from, to: st.loyalty };
         if (st.loyalty <= 0) {
           if (this.royalCanCapture(att)) { this.royalSpend(att); delete this.db.npc[where]; captured = this.foundCaptured(att, a.x, a.y); }
-          else { st.loyalty = 1; royalBlocked = { have: Math.floor(att.royal), need: this.royalNeed(att) }; }
+          else { st.loyalty = 1; royalBlocked = { have: Math.floor(att.royal), need: this.royalNeed(att), wait: this.royalWaitDays(att) }; }
         }
       }
     }
@@ -676,7 +677,7 @@ function install(Game, helpers) {
       ...siege,
     ];
     if (loyalty) lines.push(`Лояльность: ${loyalty.from} → ${loyalty.to}`);
-    if (royalBlocked) lines.push(`Захват не удался: не хватает лояльности населения (есть ${royalBlocked.have}, нужно ${royalBlocked.need}) — см. Резиденцию.`);
+    if (royalBlocked) lines.push(royalBlocked.wait ? `Захват не удался: первый замок можно захватить только через ${royalBlocked.wait} дн. игры.` : `Захват не удался: не хватает лояльности населения (есть ${royalBlocked.have}, нужно ${royalBlocked.need}) — см. Резиденцию.`);
     if (capitalBlocked) lines.push('Столицу захватить нельзя — бунтари бессильны.');
     if (captured) lines.push(`Замок захвачен! Теперь это ваш замок «${captured.name}».`);
     if (genDied) lines.push('Генерал пал в бою — воскресите его в Военном штабе.');
@@ -803,16 +804,38 @@ function install(Game, helpers) {
   };
 
   // входящие армии к замку
+  // Караульная башня (хоть в одном замке королевства): видны армии, идущие на замки короля, кроме разведки;
+  // без башни видны только торговцы и подкрепления союзников
+  P.hasWatch = function hasWatch(user) { return !!user && this.castlesOf(user).some((c) => this.buildingLevel(c, B.WATCHTOWER) > 0); };
   P.incoming = function incoming(castle) {
-    const out = [], watch = this.bonus(castle).watch;
+    const out = [], watch = this.hasWatch(this.ownerOf(castle));
     for (const c of Object.values(this.db.castles)) {
       if (c === castle || !c.armies) continue;
       for (const a of c.armies) {
-        if (a.state !== 'go' || a.x !== castle.x || a.y !== castle.y) continue;
-        out.push({ from: this.ownerOf(c).login, mission: a.mission, arrive: a.arrive, units: watch >= 5 || a.mission === 'trade' ? a.units : null });
+        if (a.state !== 'go' || a.x !== castle.x || a.y !== castle.y || a.mission === 'scout') continue;
+        const friendly = a.mission === 'trade' || a.mission === 'reinforce';
+        if (!friendly && !watch) continue;
+        out.push({ from: this.ownerOf(c).login, castle: c.name, to: castle.name, mission: a.mission, arrive: a.arrive, units: friendly ? a.units : null });
       }
     }
     return out.sort((p, q) => p.arrive - q.arrive);
+  };
+  // «Передвижения армий» королевства (окно Караульной башни): свои армии из всех замков и идущие на все замки
+  P.kingdomMoves = function kingdomMoves(user) {
+    const mine = [], inc = [];
+    for (const c of this.castlesOf(user)) {
+      for (const a of c.armies || []) mine.push({ castle: c.name, mission: a.mission, x: a.x, y: a.y, state: a.state, depart: a.depart, arrive: a.arrive, back: a.back, stayName: a.state === 'stay' && this.db.castles[a.stayAt] ? this.db.castles[a.stayAt].name : null, n: Object.values(a.units).reduce((s, k) => s + k, 0) });
+      inc.push(...this.incoming(c));
+    }
+    return { mine, incoming: inc.sort((p, q) => p.arrive - q.arrive) };
+  };
+  // оповещение при выходе армии: нападение/набег на замок короля с Караульной башней
+  P.warnIncoming = function warnIncoming(c, a) {
+    if (!['attack', 'raid'].includes(a.mission)) return;
+    const t = this.castleAt(a.x, a.y), owner = t && this.ownerOf(t);
+    if (!t || t.owner === c.owner || !this.hasWatch(owner)) return;
+    const min = Math.max(1, Math.round((a.arrive - Date.now()) / 60000));
+    this.event(owner.id, `Караульная башня: ${MISSIONS[a.mission]} на «${t.name}» от ${this.ownerOf(c).login}, прибытие через ${min} мин.`);
   };
 
   // ----- рынок -----
@@ -1037,7 +1060,7 @@ function install(Game, helpers) {
         members: al.members.map((id) => { const m = this.userById(id); return m ? m.login : '?'; }),
         requests: al.leader === user.id ? (al.requests || []).map((id) => { const m = this.userById(id); return m ? { id, login: m.login, rating: this.userRating(m) } : null; }).filter(Boolean) : [] } : null,
       invites: (user.invites || []).map((id) => this.db.alliances && this.db.alliances[id]).filter(Boolean).map((a) => ({ id: a.id, name: a.name, tag: a.tag })),
-      admin: !!user.admin, royal: this.royalView(user, castle),
+      admin: !!user.admin, royal: this.royalView(user, castle), watch: this.hasWatch(user),
       unreadReports: (this.db.reports || []).filter((r) => r.owner === user.id && !r.read).length,
     };
   };

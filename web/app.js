@@ -452,7 +452,7 @@ function costChips(cost) {
 
 // строка «Текущая …» в окне здания (как в оригинале: «Текущая вместимость склада: 5000 ед.»)
 function currentLine(def, lvl) {
-  if (def.id === 13 || def.id === 46) return ''; // в оригинале у Дипломатического центра и Резиденции этой строки нет
+  if ([13, 21, 25, 46].includes(def.id)) return ''; // в оригинале у Дипломатического центра и Резиденции этой строки нет
   if (def.id === 1) return `Текущая вместимость склада: <b>${fmtFull(R().store.levels[lvl])} ед.</b>`;
   const e = effect(def, lvl).text;
   return e && e !== '—' ? `Сейчас даёт: <b>${esc(e)}</b>` : '';

@@ -23,15 +23,21 @@ g.royalTick(u, away + 30 * DAY);
 assert.ok(u.royal < before, 'лояльность падает при долгом отсутствии');
 assert.ok(g.castlesOf(u)[0].loyalty <= 100 - 5 * 8, 'население бунтует после 3 недель');
 console.log(`✓ отсутствие 30 дней: лояльность ${before} → ${u.royal}, лояльность замка ${g.castlesOf(u)[0].loyalty}%`);
-// Храм во втором замке ускоряет прирост лояльности населения (Храм столицы не считается)
+// Храм: +12 в сутки за каждый замок с Храмом (1 ед. в 2 часа)
 const v = g.register({ login: 'templetest', password: '123', race: 0 }).user, T = Date.now();
 v.royal = 0; v.royalAt = T; v.lastSeen = T;
-g.castlesOf(v)[0].grid[0][0] = 25; g.castlesOf(v)[0].levels[0][0] = 10; // Храм в столице — не даёт
 g.royalTick(v, T + 86400000); const noTemple = v.royal;
-const c2 = g.createCastle(v, { x: 3, y: 3 }); v.castleIds = [...g.castlesOf(v).map((k) => k.id), c2.id];
-c2.grid[0][0] = 25; c2.levels[0][0] = 10;
+g.castlesOf(v)[0].grid[0][0] = 25; g.castlesOf(v)[0].levels[0][0] = 10;
 g.royalTick(v, T + 2 * 86400000);
-assert.equal(noTemple, 50); assert.equal(v.royal - noTemple, 150);
-console.log('✓ Храм 10 ур. во втором замке: прирост лояльности населения 50 → 150 в сутки');
+assert.equal(noTemple, 50); assert.equal(v.royal - noTemple, 62);
+// ритуал «Молебен» (+5%) — ко всему приросту
+v.rituals = [{ id: 'prayer', pct: 0.05, until: T + 10 * 86400000 }];
+const b = v.royal; g.royalTick(v, T + 3 * 86400000);
+assert.equal(v.royal - b, Math.round(62 * 1.05));
+// строгий баланс: даже с лояльностью первый захват — не раньше 30-го дня игры
+v.royal = 1e6; v.created = T;
+assert.ok(!g.royalCanCapture(v) && g.royalWaitDays(v, T) === 30);
+v.created = T - 31 * 86400000; assert.ok(g.royalCanCapture(v));
+console.log('✓ Храм: +12 в сутки; ритуал +5%; первый захват не раньше 30-го дня игры');
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);

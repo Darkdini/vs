@@ -718,3 +718,9 @@ img[src$="?orc"] { filter: hue-rotate(85deg) saturate(1.5) brightness(0.92) cont
 .fest { border-bottom: 1px solid #0002; padding: 8px 0; font: min(20px, 4.6vw) var(--serif); }
 .fest .pbtn { margin-top: 4px; }
 .obar { display: block; width: 100%; margin: 6px 0 0; padding: 4px; border: 0; background: linear-gradient(#a0501a, #7a3810); color: #fff; font: min(24px, 5.4vw) var(--serif); }
+
+/* ---------- Храм ---------- */
+.tbar { height: 16px; margin: 6px 0 10px; border: 3px solid #6a4020; border-radius: 10px; background: #3a2410; box-shadow: 0 0 0 1px #c8963e; overflow: hidden; }
+.tbar i { display: block; height: 100%; background: linear-gradient(#f0d060, #b08010); }
+.tbar.red i { background: linear-gradient(#e05030, #901808); }
+.mrow.danger b { color: #a01808; }
