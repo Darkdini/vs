@@ -589,3 +589,6 @@ input.num { width: 76px; padding: 7px; text-align: center; }
 #locs:not(.open) #locsTab::after { transform: rotate(135deg); left: 18px; }
 /* нижнее меню — векторные иконки */
 #menubar img { image-rendering: auto; }
+/* подписи нижнего меню не налезают друг на друга: размер от ширины экрана, без переноса и обрезки внутри своей кнопки */
+#menubar span { font-size: min(11px, 2.3vw); letter-spacing: -0.02em; max-width: 100%; overflow: hidden; text-overflow: clip; }
+#menubar button { min-width: 0; overflow: visible; }
