@@ -101,7 +101,7 @@ function install(Game) {
     if (r.cost) for (const k of Object.keys(r.cost)) if (castle.res[k] < r.cost[k]) return { error: 'Недостаточно ресурсов.' };
     if (r.gold && (user.gold || 0) < r.gold) return { error: `Нужно ${r.gold} золота.` };
     if (r.cost) for (const k of Object.keys(r.cost)) castle.res[k] -= r.cost[k];
-    if (r.gold) user.gold -= r.gold;
+    if (r.gold) this.goldChange(user, -r.gold, `Ритуал «${r.name}»`);
     user.rituals.push({ id, pct: r.pct, until: now + r.hours * 3600000 });
     this.store.save();
     return { ok: true, msg: `${r.name}: бонус лояльности +${Math.round(this.ritualBonus(user, now) * 100)}% на сутки.` };
@@ -129,7 +129,7 @@ function install(Game) {
     if (f.cost) for (const r of Object.keys(f.cost)) if (castle.res[r] < f.cost[r]) return { error: 'Недостаточно ресурсов.' };
     if (f.gold && (user.gold || 0) < f.gold) return { error: `Нужно ${f.gold} золота.` };
     if (f.cost) for (const r of Object.keys(f.cost)) castle.res[r] -= f.cost[r];
-    if (f.gold) user.gold -= f.gold;
+    if (f.gold) this.goldChange(user, -f.gold, `Праздник «${f.name}»`);
     user.festAt[id] = now;
     const got = this.royalGain(user, f.gain, now);
     this.store.save();

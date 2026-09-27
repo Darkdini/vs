@@ -320,6 +320,16 @@ function client() {
     await a.expect('toast', (m) => /Готово/.test(m.msg));
     console.log('✓ модератор форума: удаление сообщения, бан в чате на 2 ч, админа забанить нельзя');
 
+    // ---- казна: админ выдаёт монеты — игроку письмо «Ваша казна пополнена 50 монетами», история трат ----
+    adm.send({ t: 'admin', op: 'gold', login: 'webby', n: 50 });
+    await a.expect('toast', (m) => /Ваша казна пополнена 50 монетами/.test(m.msg));
+    const gl = (await a.expect('state', (m) => (m.user.goldLog || []).some((x) => x.delta === 50))).user.goldLog;
+    assert.ok(gl[0].reason === 'Пополнение казны администрацией' && gl.some((x) => /казны альянса/.test(x.reason)), JSON.stringify(gl));
+    a.send({ t: 'mail', folder: 'in' });
+    const mb = await a.expect('mail');
+    assert.ok(mb.list.some((x) => x.subject === 'Казна пополнена' && x.other === 'admin'));
+    console.log('✓ казна: пополнение админом, письмо игроку, история трат');
+
     // ---- генерал: очки опыта, распределение, сброс, имя, убить ----
     adm.send({ t: 'admin', op: 'general', level: 50 });
     let gs = (await adm.expect('state', (m) => m.castle.mil.general && m.castle.mil.general.level === 50)).castle.mil.general;

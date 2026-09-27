@@ -67,7 +67,13 @@ function install(Game) {
       // --- ресурсы, золото ---
       case 'fill': for (const c of castles) { this.tick(c); const cap = this.capacity(c); for (const r of C.RES) c.res[r] = cap[r]; } msg = 'Склады заполнены.'; break;
       case 'res': for (const c of castles) { this.tick(c); const cap = this.capacity(c); for (const r of C.RES) c.res[r] = Math.min(cap[r], Math.max(0, c.res[r] + num(arg.n, 10000))); } msg = `Ресурсы ${num(arg.n, 10000) >= 0 ? '+' : ''}${num(arg.n, 10000)}.`; break;
-      case 'gold': target.gold = Math.max(0, (target.gold || 0) + num(arg.n, 1000)); msg = `Золото: ${target.gold}.`; break;
+      case 'gold': {
+        const n = num(arg.n, 1000);
+        this.goldChange(target, n, n >= 0 ? 'Пополнение казны администрацией' : 'Списание администрацией');
+        if (n > 0) this.sendMail(user, target.login, 'Казна пополнена', `Ваша казна пополнена ${n} монетами.`);
+        this.event(target.id, n >= 0 ? `Ваша казна пополнена ${n} монетами.` : `С вашей казны списано ${-n} монет.`);
+        msg = `${target.login}: монет ${target.gold}.`; break;
+      }
       // --- стройки и время ---
       case 'finish':
         for (const c of castles) {

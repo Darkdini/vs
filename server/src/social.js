@@ -110,7 +110,7 @@ function install(Game) {
     user.giftLog = (user.giftLog || []).filter((t) => t > now - 86400000);
     if (user.giftLog.length >= GIFTS_DAY) return { error: `Не больше ${GIFTS_DAY} подарков в сутки.` };
     if ((user.gold || 0) < g.gold) return { error: `Нужно ${g.gold} золота (у вас ${user.gold || 0}).` };
-    user.gold -= g.gold; user.giftLog.push(now);
+    this.goldChange(user, -g.gold, `Подарок «${g.name}» игроку ${to.login}`); user.giftLog.push(now);
     (to.gifts = to.gifts || []).push({ gift: giftId, from: user.id, at: now, text: String(text || '').trim().slice(0, 100) });
     if (to.gifts.length > 200) to.gifts = to.gifts.slice(-200);
     if (to.id !== user.id) this.event(to.id, `${user.login} подарил Вам: ${g.name}!`);
@@ -143,7 +143,7 @@ function install(Game) {
     coins = Math.floor(Number(coins));
     if (!(coins >= 1) || coins > 100000) return { error: 'Укажите количество монет.' };
     if ((from.gold || 0) < coins) return { error: `Не хватает золота (у вас ${from.gold || 0}).` };
-    from.gold -= coins;
+    this.goldChange(from, -coins, `Репутация +${coins * REP_PER_GOLD} игроку ${to.login}`);
     const add = coins * REP_PER_GOLD;
     to.reputation = (to.reputation ?? START_REP) + add;
     this.cache = {};

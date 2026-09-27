@@ -396,7 +396,7 @@ function install(Game, helpers) {
       const spent = GEN_STATS.reduce((s, k) => s + g.pts[k], 0);
       if (!spent) return { error: 'Очки ещё не распределены.' };
       if (g.resets > 0) g.resets--;
-      else { if ((user.gold || 0) < GEN.resetGold) return { error: `Нужно ${GEN.resetGold} золота.` }; user.gold -= GEN.resetGold; }
+      else { if ((user.gold || 0) < GEN.resetGold) return { error: `Нужно ${GEN.resetGold} золота.` }; this.goldChange(user, -GEN.resetGold, 'Сброс очков генерала'); }
       for (const k of GEN_STATS) g.pts[k] = 0;
       g.free += spent;
     } else if (op === 'kill') {

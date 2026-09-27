@@ -221,7 +221,7 @@ function profileWin(p) {
     <div class="pline">Альянс: ${p.alliance ? `<b>${esc(p.alliance.name)} [${esc(p.alliance.tag)}]</b>` : '—'}</div>
     ${p.alliance ? `<div class="pline">Звание в альянсе: ${esc(p.alliance.role)}</div>` : ''}
     <div class="ptiles">
-      ${tile('treasury', 'smallicon/coin_gold.png', 'Пополнить Казну', true)}
+      ${tile('treasury', 'smallicon/coin_gold.png', 'Пополнить Казну', !p.self)}
       ${tile('rep', 'smallicon/plus.png', 'Поднять Репутацию')}
       ${tile('gift', 'smallicon/surprize.png', 'Отправить Подарок')}
       ${tile('friend', 'smallicon/status/online.png', p.friend ? 'Убрать из друзей' : 'Добавить в друзья', p.self)}
@@ -307,8 +307,12 @@ function castleWin(o, x, y) {
 }
 
 // ---------- Казна: золото игрока ----------
-const treasuryWin = () => `${ribbon('Казна')}<div class="cwin"><img class="cwimg" src="${GFX}smallicon/coin_gold.png" alt=""><div><div class="cwname">Золото</div><b>${fmtFull(S.st.user.gold)}</b></div></div>
-  <p class="parch-note">Золото — премиум-валюта: выдаётся администрацией и за достижения.</p>`;
+const treasuryWin = () => {
+  const log = S.st.user.goldLog || [];
+  return `${ribbon('Казна')}<div class="cwin"><img class="cwimg" src="${GFX}smallicon/coin_gold.png" alt=""><div><div class="cwname">Монеты</div><b>${fmtFull(S.st.user.gold)}</b></div></div>
+  <p class="parch-note">Монеты выдаёт администрация. Тратятся на подарки, репутацию, праздники, ритуалы и казну альянса.</p>
+  ${ribbon('История')}${log.map((x) => `<div class="glog"><span class="${x.delta > 0 ? 'plus' : 'minus'}">${x.delta > 0 ? '+' : ''}${fmtFull(x.delta)}</span><span>${esc(x.reason)}<br><small>${new Date(x.at).toLocaleString('ru-RU')} · осталось ${fmtFull(x.left)}</small></span></div>`).join('') || '<p class="parch-note">Операций пока не было.</p>'}`;
+};
 
 // ---------- прочие окна ----------
 const notesWin = () => `${ribbon('Блокнот')}${S.notes === null ? '<p class="parch-note">Загрузка…</p>' : `<form class="stack" data-form="notes"><textarea name="text" rows="14" placeholder="Заметки видите только вы">${esc(S.notes)}</textarea><button class="btn primary">Сохранить</button></form>`}`;
@@ -376,6 +380,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.ptile) {
     if (t.classList.contains('off')) return;
     const p = S.lastProfile, id = Number(d.pid);
+    if (d.ptile === 'treasury') return openSheet(treasuryWin);
     if (d.ptile === 'rep') { S.repTo = p; S.repCoins = 1; return openSheet(repWin); }
     if (d.ptile === 'gift') { S.giftTo = p; return openSheet(giftsWin); }
     if (d.ptile === 'friend') { send({ t: 'friend', op: p.friend ? 'del' : 'add', id }); return send({ t: 'profile', id }); }

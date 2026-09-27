@@ -185,6 +185,13 @@ class Game {
   }
 
   // активный замок игрока (все старые места работают через него); у игрока может быть несколько замков
+  // золото (монеты) игрока: все изменения — через goldChange, с историей для окна «Казна»
+  goldChange(user, delta, reason) {
+    delta = Math.round(delta); if (!delta) return;
+    user.gold = Math.max(0, (user.gold || 0) + delta);
+    (user.goldLog = user.goldLog || []).push({ at: Date.now(), delta, reason, left: user.gold });
+    if (user.goldLog.length > 200) user.goldLog.splice(0, user.goldLog.length - 200);
+  }
   castleOf(user) { return this.db.castles[user.castleId]; }
   castlesOf(user) { if (!user.castleIds) user.castleIds = [user.castleId]; return user.castleIds.map((id) => this.db.castles[id]).filter(Boolean); }
   isCapital(castle) { const u = this.userById(castle.owner); return !!u && this.castlesOf(u)[0] === castle; }

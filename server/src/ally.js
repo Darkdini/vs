@@ -106,12 +106,12 @@ function install(Game) {
           const e = need('treasury'); if (e) return e;
           const t = member(m.to); if (!t) return { error: 'Игрок не в альянсе.' };
           if ((al.treasury || 0) < n) return { error: 'В казне столько нет.' };
-          al.treasury -= n; t.gold = (t.gold || 0) + n;
+          al.treasury -= n; this.goldChange(t, n, `Выдано из казны альянса [${al.tag}]`);
           this.allyLog(al, `${user.login} выдал из казны ${t.login}: ${n} золота`, 'store');
           return done(`Выдано ${n} золота: ${t.login}.`);
         }
         if ((user.gold || 0) < n) return { error: 'Не хватает золота.' };
-        user.gold -= n; al.treasury = (al.treasury || 0) + n;
+        this.goldChange(user, -n, `Взнос в казну альянса [${al.tag}]`); al.treasury = (al.treasury || 0) + n;
         this.allyLog(al, `${user.login} внёс в казну ${n} золота`, 'store');
         return done(`Внесено в казну: ${n} золота.`);
       }
