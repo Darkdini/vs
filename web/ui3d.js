@@ -148,7 +148,7 @@ function profileWin(p) {
     <div class="pinfo"><div class="avatar">${avatarImg(p)}</div><div>
       Никнейм: <b>${esc(p.login)}</b>${p.online ? ' <span class="online">в игре</span>' : ''}<br>Ранг: ${p.rank}<br>Рейтинг: ${fmtFull(p.rating)}<br>Раса: ${raceIcon(p.race)} ${esc(p.raceName)}</div></div>
     ${p.self ? `<div class="avbtns"><button class="pbtn small" data-avatar="set">Загрузить аватар</button>${p.avatar ? '<button class="pbtn small" data-avatar="del">Удалить</button>' : ''}</div>` : ''}
-    <div class="pline">Репутация (${fmtFull(p.reputation)}): ${gimg('smallicon/plus.png', 'ri')}</div>
+    <button class="pline plink2" data-reptable>Репутация (${fmtFull(p.reputation)}): ${repIcons(p.reputation)}</button>
     <div class="pline">Зал Славы: ${medals}</div>
     ${p.title ? `<div class="ptitle">Звание: ${gimg('smallicon/status/f_gold.png', 'ri')} ${esc(p.title)}</div>` : ''}
     <div class="pline">Альянс: ${p.alliance ? `<b>${esc(p.alliance.name)} [${esc(p.alliance.tag)}]</b>` : '—'}</div>
@@ -195,7 +195,7 @@ function ratingWin() {
     const place = i < 3 ? `<img src="${GFX}smallicon/status/f_${['gold', 'silver', 'bronze'][i]}.png" alt="">` : i + 1;
     if (k === 'alliances') return `<div class="rrow"><span class="rk">${place}</span><span class="rn"><b>${esc(r.name)} [${esc(r.tag)}]</b><small>участников ${r.members}</small></span><span class="rv">${fmtFull(r.rating)}</span></div>`;
     if (k === 'castles') return `<button class="rrow" data-goworld="${r.x},${r.y}"><span class="rk">${place}</span><span class="rn"><b>${esc(r.name)}</b><small>${esc(r.login)} · X:${r.x} Y:${r.y}</small></span><span class="rv">${fmtFull(r.rating)}</span></button>`;
-    return `<button class="rrow ${r.id === me() ? 'me' : ''}" data-cprof="${r.id}"><span class="rk">${place}</span><span class="rn"><b>${esc(r.login)}</b><small>${esc(r.race || r.raceName || '')}${r.online ? ' · в игре' : ''}</small></span><span class="rv">${fmtFull(r.rating)}</span></button>`;
+    return `<button class="rrow ${r.id === me() ? 'me' : ''}" data-cprof="${r.id}"><span class="rk">${place}</span><span class="rn"><b>${esc(r.login)}${k === 'reputation' ? ` ${repIcons(r.rating ?? r.reputation)}` : ''}</b><small>${esc(r.race || r.raceName || '')}${r.online ? ' · в игре' : ''}</small></span><span class="rv">${fmtFull(r.rating)}</span></button>`;
   }).join('') || '<p class="parch-note">Пусто.</p>'}</div>`;
 }
 
@@ -370,3 +370,31 @@ $('#sheetBody').addEventListener('click', (e) => {
   send({ t: 'gift', to: p.id, gift: t.dataset.giftsend, text });
   closeSheet();
 });
+
+// ---------- Таблица репутации (как в оригинале): мечи, якоря, топоры по порогам ----------
+// [название, пороги; картинка — gfx/rep/<key>.png; у топоров рас каждый следующий значок свой: <key>_1…_5]
+const REP_TIERS = [
+  ['bronze', 'Бронзовые мечи', [10, 50, 100, 150, 200]], ['silver', 'Серебряные мечи', [250, 320, 390, 460, 530]],
+  ['gold', 'Золотые мечи', [600, 700, 800, 900, 1000]], ['plat', 'Платиновые мечи', [1100, 1350, 1600, 1850, 2100]],
+  ['anchor', 'Якоря', [2350, 2750, 3150, 3550, 3950]], ['thunder', 'Грозовые мечи', [4350, 5100, 5850, 6600]],
+  ['fire', 'Огненные мечи', [7350, 8350, 9350, 10350]], ['winged', 'Крылатые мечи', [11350, 12500, 13750, 14950]],
+  ['axe_bronze', 'Бронзовые топоры', [16150, 17650, 19150, 20650]], ['axe_silver', 'Серебряные топоры', [22150, 24150, 26150, 28150]],
+  ['axe_gold', 'Золотые топоры', [30150, 32650, 35150, 37650]], ['axe_gnome', 'Топоры гномов', [40150, 45150, 50150, 55150, 60150], true],
+  ['axe_orc', 'Топоры орков', [65150, 80150, 95150, 110150, 125150], true], ['axe_elf', 'Топоры эльфов', [140150, 165150, 190150, 215150, 240150], true],
+  ['axe_human', 'Топоры людей', [265150, 295150, 325150, 355150, 385150], true], ['crystal', 'Хрустальные мечи', [418000]],
+];
+function repTier(rep) {
+  let res = null;
+  for (const [key, name, th, multi] of REP_TIERS) th.forEach((t, i) => { if (rep >= t) res = { key, name, n: i + 1, multi }; });
+  return res;
+}
+function repIcons(rep) {
+  const t = repTier(Number(rep) || 0); if (!t) return '';
+  const src = (i) => `${GFX}rep/${t.multi ? `${t.key}_${i + 1}` : t.key}.png`;
+  return `<span class="repi" title="${esc(t.name)}: ${t.n}">${Array.from({ length: t.n }, (_, i) => `<img src="${src(i)}" alt="">`).join('')}</span>`;
+}
+function repTableWin() {
+  return `${ribbon('Таблица репутации')}${REP_TIERS.map(([key, name, th, multi]) => `<div class="section">${esc(name)}:</div>
+    ${th.map((t, i) => `<div class="reprow"><span>${i + 1}-${t}</span><span class="repi">${Array.from({ length: i + 1 }, (_, j) => `<img src="${GFX}rep/${multi ? `${key}_${j + 1}` : key}.png" alt="">`).join('')}</span></div>`).join('')}`).join('')}`;
+}
+$('#sheetBody').addEventListener('click', (e) => { if (e.target.closest('[data-reptable]')) openSheet(repTableWin); });
