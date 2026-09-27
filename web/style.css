@@ -702,3 +702,12 @@ img[src$="?orc"] { filter: hue-rotate(85deg) saturate(1.5) brightness(0.92) cont
 .pbtn.small { font-size: 16px; padding: 2px 10px; }
 .pinfo .avatar img[src^="avatar/"] { width: 92px; height: 92px; object-fit: cover; image-rendering: auto; }
 .avbtns { display: flex; gap: 8px; margin: 6px 0; }
+
+/* ---------- Центр разведки ---------- */
+.plink { color: #8a1a0a; font: min(24px, 5.4vw) var(--serif); text-decoration: underline; text-decoration-color: #8a1a0a66; cursor: pointer; }
+.spyrow { border-bottom: 1px solid #0002; padding: 4px 0; font: min(21px, 4.8vw)/1.35 var(--serif); }
+.spyrow .st { display: flex; align-items: center; gap: 8px; }
+.spyrow .st img { width: 34px; height: 34px; object-fit: contain; }
+.spyrow b { font-size: 1.1em; }
+.spyrow.off { opacity: .55; }
+.spyrow .lock { color: #8a1a0a; font-size: .85em; }

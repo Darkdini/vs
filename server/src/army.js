@@ -28,14 +28,14 @@ const B = {
 const UNIT_LIST = [
   [200, 'Мечник', 'humans', 'human/swordman', 'atk_inf', B.BARRACKS, 1],
   [201, 'Копейщик', 'humans', 'human/javelineer', 'def_inf', B.BARRACKS, 1],
-  [202, 'Разведчик', 'humans', 'human/scout', 'scout', B.STABLE, 1],
+  [202, 'Разведчик', 'humans', 'human/scout', 'scout', B.SPY, 1],
   [203, 'Чародей', 'humans', 'human/mage', 'mage', B.MAGE_ACADEMY, 1],
   [204, 'Рыцарь', 'humans', 'human/knight', 'elite_inf', B.BARRACKS, 10, { [B.SMITH]: 5 }],
   [205, 'Паладин', 'humans', 'human/paladin', 'heavy_cav', B.STABLE, 10, { [B.SMITH]: 10 }],
   [206, 'Джин', 'humans', 'human/jin', 'legendary', B.PORTAL, 1],
   [207, 'Эльф лучник', 'elves', 'elf/archer', 'ranged', B.BARRACKS, 1],
   [208, 'Танцующий', 'elves', 'elf/fighter', 'atk_inf', B.BARRACKS, 1],
-  [209, 'Скаут', 'elves', 'elf/scout', 'scout', B.STABLE, 1],
+  [209, 'Скаут', 'elves', 'elf/scout', 'scout', B.SPY, 1],
   [210, 'Созидающая', 'elves', 'elf/create', 'mage', B.MAGE_ACADEMY, 1],
   [211, 'Кентавр', 'elves', 'elf/kenaur', 'light_cav', B.STABLE, 3],
   [212, 'Единорог', 'elves', 'elf/edinorog', 'heavy_cav', B.STABLE, 10, { [B.SMITH]: 10 }],
@@ -56,6 +56,7 @@ const UNIT_LIST = [
   [247, 'Бугай', 'orcs', 'dwarv/fighter', 'elite_inf', B.BARRACKS, 10, { [B.SMITH]: 5 }],
   [249, 'Кулак Ярости', 'orcs', 'human/knight', 'heavy_cav', B.STABLE, 10, { [B.SMITH]: 10 }],
   [251, 'Изувер', 'orcs', 'dwarv/yeti', 'legendary', B.PORTAL, 1],
+  [252, 'Орк загонщик', 'orcs', 'human/scout', 'scout', B.SPY, 1, {}, 'orc_scout'],
   // специальные — у каждой расы своя картинка (units/<раса>/torg.png и т.д.)
   [221, 'Торговец', 'all', 'torg', 'merchant', B.MARKET, 1],
   [224, 'Путешественник', 'all', 'traveler', 'settler', B.TRAVELER, 1],
@@ -73,6 +74,8 @@ const UNIT_LIST = [
 ];
 // роли, которых нет в GDD, — свой баланс в том же формате
 const CUSTOM = {
+  // Орк загонщик — характеристики оригинала (атака 25, защита 20, скорость 14; цена без акции −50%)
+  orc_scout: { type: 'cavalry', attack: 25, magicAttack: 0, defense: { infantry: 20, cavalry: 20, magic: 0 }, speed: 14, carry: 0, upkeepFoodPerHour: 1, population: 1, cost: { wood: 80, stone: 74, iron: 84, food: 170 }, trainTimeSec: 880 },
   tyrant: { type: 'infantry', attack: 30, magicAttack: 0, defense: { infantry: 30, cavalry: 30, magic: 20 }, speed: 9, carry: 12, upkeepFoodPerHour: 2, population: 1, cost: { wood: 120, stone: 120, iron: 120, food: 290 }, trainTimeSec: 700 },
   sage: { type: 'special', attack: 0, magicAttack: 0, defense: { infantry: 5, cavalry: 5, magic: 5 }, speed: 5, carry: 0, upkeepFoodPerHour: 1, population: 1, cost: { wood: 150, stone: 150, iron: 150, food: 300 }, trainTimeSec: 900 },
   giant: { type: 'infantry', attack: 180, magicAttack: 0, defense: { infantry: 120, cavalry: 100, magic: 40 }, speed: 5, carry: 150, upkeepFoodPerHour: 6, population: 5, cost: { wood: 1500, stone: 1500, iron: 2500, food: 1500 }, trainTimeSec: 7200 },
@@ -81,8 +84,8 @@ const CUSTOM = {
   shadow: { type: 'infantry', attack: 110, magicAttack: 0, defense: { infantry: 20, cavalry: 20, magic: 60 }, speed: 15, carry: 30, upkeepFoodPerHour: 2, population: 2, cost: { wood: 500, stone: 400, iron: 800, food: 300 }, trainTimeSec: 2400 },
 };
 
-function buildUnit([id, name, race, img, role, building, level, req = {}]) {
-  const src = CUSTOM[role] || GDD.units.find((u) => u.race === (race === 'all' ? 'humans' : race) && u.role === role);
+function buildUnit([id, name, race, img, role, building, level, req = {}, stats]) {
+  const src = CUSTOM[stats] || CUSTOM[role] || GDD.units.find((u) => u.race === (race === 'all' ? 'humans' : race) && u.role === role);
   return {
     id, name, race, img, role, type: src.type, attack: src.attack, magic: src.magicAttack || 0,
     def: { inf: src.defense.infantry, cav: src.defense.cavalry, mag: src.defense.magic },
@@ -141,6 +144,14 @@ const NPC = {
 const NPC_REGEN_SEC = 3600;
 const NEWBIE_RATING = Number(process.env.NEWBIE_RATING || 100); // защита новичка: на слабых игроков нападать нельзя
 
+// Центр разведки: какой уровень здания открывает пункт и какая доля разведчиков должна выжить
+const SPY_OPEN = {
+  armies: { name: 'Армий в замке', level: 1, survive: 0, cond: 'выжил хотя-бы 1 разведчик' },
+  res: { name: 'Ресурсов', level: 4, survive: 0.5, cond: 'выжило больше 50% разведчиков' },
+  build: { name: 'Зданий', level: 8, survive: 0.7, cond: 'выжило больше 70% разведчиков' },
+  riot: { name: 'Бунта', level: 12, survive: 0.85, cond: 'выжило больше 85% разведчиков' },
+  reinf: { name: 'Подкреплений', level: 16, survive: 0.9, cond: 'выжило больше 90% разведчиков' },
+};
 const MISSIONS = { raid: 'Набег', attack: 'Нападение', reinforce: 'Подкрепление', scout: 'Разведка', expedition: 'Экспедиция', trade: 'Торговля' };
 
 function install(Game, helpers) {
@@ -704,7 +715,9 @@ function install(Game, helpers) {
   };
 
   // разведка: бой разведчиков (GDD 9.6)
+  // что узнаёт разведка (Центр разведки → «Возможности»): открывается уровнем Центра, видно, если выжила нужная доля разведчиков
   P.scout = function scout(c, a, t, target) {
+    const sent = Object.values(a.units).reduce((s, n) => s + n, 0) || 1;
     const spies = Object.entries(a.units).reduce((s, [id, n]) => s + n * (UNIT[id].spy || 1), 0);
     let dPow = 0;
     if (target) {
@@ -722,12 +735,23 @@ function install(Game, helpers) {
     const lines = [`Разведка ${target ? target.name : where}. Потери: ${unitsLine(a.units, lost)}`];
     if (!alive) lines.push('Разведчики не вернулись.');
     else if (target) {
-      const b = this.bonus(target);
-      lines.push(`Ресурсы: дерево ${Math.floor(target.res.wood)}, камень ${Math.floor(target.res.stone)}, железо ${Math.floor(target.res.iron)}, еда ${Math.floor(target.res.food)}`);
-      lines.push(`Войска: ${unitsLine(mergeUnits(this.defenders(target)))}`);
-      lines.push(`Забор ${b.wall} ур., Тайник прячет ${b.hidden}, рейтинг ${this.rating(target)}`);
-      if (target.general && !target.general.dead) lines.push(`Генерал ${target.general.level} ур.`);
-      lines.push(`Лояльность замка: ${Math.round(target.loyalty ?? 100)}${this.isCapital(target) ? ' (столица — захватить нельзя)' : ''}`);
+      const b = this.bonus(target), lvl = this.buildingLevel(c, B.SPY) || 1;
+      const alivePart = Object.values(a.units).reduce((s, n) => s + n, 0) / sent;
+      const can = (k) => lvl >= SPY_OPEN[k].level && alivePart > SPY_OPEN[k].survive;
+      lines.push(`Выжило разведчиков: ${Math.round(alivePart * 100)}%. Центр разведки ${lvl} ур.`);
+      if (can('armies')) {
+        lines.push(`Армии в замке: ${unitsLine(mergeUnits([target.units, ...target.squads.map((q) => q.units)]))}`);
+        if (target.general && !target.general.dead) lines.push(`Генерал ${target.general.level} ур.`);
+      }
+      if (can('res')) lines.push(`Ресурсы: дерево ${Math.floor(target.res.wood)}, камень ${Math.floor(target.res.stone)}, железо ${Math.floor(target.res.iron)}, еда ${Math.floor(target.res.food)}`);
+      if (can('build')) {
+        const list = []; target.grid[0].forEach((id, i) => { if (id >= 0 && target.levels[0][i]) list.push(`${C.BY_ID[id].name} ${target.levels[0][i]}`); });
+        lines.push(`Здания: ${list.join(', ') || '—'}. Забор ${b.wall} ур., Тайник прячет ${b.hidden}.`);
+      }
+      if (can('riot')) lines.push(`Бунт: лояльность замка ${Math.round(target.loyalty ?? 100)}${this.isCapital(target) ? ' (столица — захватить нельзя)' : ''}`);
+      if (can('reinf')) { const g = this.guestsOf(target); lines.push(`Подкрепления: ${g.length ? g.map((x) => `${this.ownerOf(x.c).login}: ${unitsLine(x.a.units)}`).join('; ') : 'нет'}`); }
+      const hidden = Object.keys(SPY_OPEN).filter((k) => !can(k)).map((k) => SPY_OPEN[k].name);
+      if (hidden.length) lines.push(`Не удалось узнать: ${hidden.join(', ')}.`);
     } else {
       const obj = this.worldObjects(a.x, a.y, 1, 1)[0];
       const npc = obj && NPC[obj.img];
@@ -1024,7 +1048,7 @@ function install(Game, helpers) {
 
 const catalogJson = () => ({
   units: UNITS, generalId: GENERAL_ID, sciences: SCIENCES, religions: RELIGIONS, artifacts: ART_TYPES, rarity: RARITY,
-  npc: NPC, missions: MISSIONS, raceDir: RACE_DIR, scienceCost: Array.from({ length: 21 }, (_, l) => (l ? scienceCost(l) : null)),
+  npc: NPC, missions: MISSIONS, raceDir: RACE_DIR, spyOpen: SPY_OPEN, scienceCost: Array.from({ length: 21 }, (_, l) => (l ? scienceCost(l) : null)),
   scienceTime: Array.from({ length: 21 }, (_, l) => (l ? scienceTime(l) : 0)),
 });
 

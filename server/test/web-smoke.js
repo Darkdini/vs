@@ -163,6 +163,21 @@ function client() {
     await a.expect('state', (m) => m.castle.mil.alliance && m.castle.mil.alliance.tag === 'KRL');
     console.log('✓ Дипломатический центр: приглашения, исключение, заявка и одобрение');
 
+    // ---- Центр разведки: разведчики тренируются в нём, отчёт зависит от уровня и выживших ----
+    assert.ok(mil.units.find((u) => u.id === 202).building === 45 && mil.units.some((u) => u.name === 'Орк загонщик'));
+    assert.ok(mil.spyOpen && mil.spyOpen.reinf.level > mil.spyOpen.armies.level);
+    adm.send({ t: 'admin', op: 'noarmy', login: 'webby', all: true }); // без охраны — выживут все, видно всё
+    adm.send({ t: 'send', units: { 202: 300 }, x: target.x, y: target.y, mission: 'scout' });
+    await adm.expect('toast', (m) => /Армия выступила: Разведка/.test(m.msg));
+    adm.send({ t: 'admin', op: 'finish' });
+    await adm.expect('toast', (m) => /Разведка/.test(m.msg) && !/выступила/.test(m.msg));
+    adm.send({ t: 'reports' });
+    const srep = (await adm.expect('reports')).list.find((x) => /^Разведка/.test(x.title));
+    adm.send({ t: 'report', id: srep.id });
+    const sl = (await adm.expect('report')).report.lines;
+    assert.ok(sl.some((l) => /Выжило разведчиков: 100%/.test(l)) && sl.some((l) => /^Подкрепления/.test(l)) && sl.some((l) => /^Здания/.test(l)), sl.join('\n'));
+    console.log('✓ Центр разведки:', sl[1]);
+
     // ---- склад как в оригинале, «Разрушить» ----
     adm.send({ t: 'sync' });
     let ds = (await adm.expect('state')).castle;

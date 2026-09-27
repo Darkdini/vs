@@ -63,7 +63,7 @@ function install(Game) {
   P.profileOf = function profileOf(u, viewer) {
     const al = this.allianceOf(u);
     return {
-      id: u.id, login: u.login, race: u.race, raceName: C.RACE_NAMES[u.race], created: u.created, lastSeen: u.lastSeen || u.created,
+      id: u.id, login: u.login, race: u.race, raceName: C.RACE_NAMES[u.race], created: u.created, lastSeen: u.id === viewer.id || viewer.admin ? u.lastSeen || u.created : null, // кто когда в игре — видно только себе и админу
       rating: this.userRating(u), rank: this.rankOf(u.id), reputation: u.reputation ?? START_REP,
       title: u.admin ? 'Администратор' : null,
       alliance: al ? { name: al.name, tag: al.tag, role: al.leader === u.id ? 'Глава' : 'Участник' } : null,
@@ -73,7 +73,7 @@ function install(Game) {
       friend: (viewer.friends || []).includes(u.id),
       repToday: ((viewer.repGiven || {})[u.id] || 0) > Date.now() - 86400000,
       about: u.about || '', avatar: u.avatar || 0,
-      online: !!u.online,
+      online: u.id === viewer.id || viewer.admin ? !!u.online : false,
     };
   };
 
@@ -104,7 +104,7 @@ function install(Game) {
   };
   P.playerRow = function playerRow(u, from) {
     const c = this.castlesOf(u)[0]; // столица
-    const row = { id: u.id, login: u.login, race: u.race, raceName: C.RACE_NAMES[u.race], rating: this.userRating(u), x: c.x, y: c.y, online: !!u.online };
+    const row = { id: u.id, login: u.login, race: u.race, raceName: C.RACE_NAMES[u.race], rating: this.userRating(u), x: c.x, y: c.y };
     if (from) row.dist = Math.round(Math.hypot(c.x - from.x, c.y - from.y) * 10) / 10;
     return row;
   };
