@@ -67,7 +67,6 @@ function install(Game) {
   P.sendGift = function sendGift(user, toId, giftId, text) {
     const g = GIFTS[giftId]; if (!g) return { error: 'Нет такого подарка.' };
     const to = this.userById(Number(toId)); if (!to) return { error: 'Игрок не найден.' };
-    if (to.id === user.id) return { error: 'Себе подарок отправить нельзя.' };
     const now = Date.now();
     user.giftLog = (user.giftLog || []).filter((t) => t > now - 86400000);
     if (user.giftLog.length >= GIFTS_DAY) return { error: `Не больше ${GIFTS_DAY} подарков в сутки.` };
@@ -75,7 +74,7 @@ function install(Game) {
     user.gold -= g.gold; user.giftLog.push(now);
     (to.gifts = to.gifts || []).push({ gift: giftId, from: user.id, at: now, text: String(text || '').trim().slice(0, 100) });
     if (to.gifts.length > 200) to.gifts = to.gifts.slice(-200);
-    this.event(to.id, `${user.login} подарил Вам: ${g.name}!`);
+    if (to.id !== user.id) this.event(to.id, `${user.login} подарил Вам: ${g.name}!`);
     this.store.save();
     return { ok: true, msg: `Подарок «${g.name}» отправлен игроку ${to.login}.` };
   };

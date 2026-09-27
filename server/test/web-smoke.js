@@ -248,8 +248,8 @@ function client() {
     await adm.expect('toast', (m) => /Подарок «Большой диамант» отправлен игроку webby/.test(m.msg));
     const gp = (await adm.expect('profile', (m) => m.refresh)).profile;
     assert.ok(gp.gifts[0].gift === 'diamond' && gp.gifts[0].from === 'admin' && gp.gifts[0].text === 'Удачи!');
-    adm.send({ t: 'gift', to: as.user.id, gift: 'diamond' });
-    await adm.expect('error', (m) => /Себе подарок/.test(m.msg));
+    adm.send({ t: 'gift', to: as.user.id, gift: 'diamond' }); // себе — тоже можно
+    await adm.expect('toast', (m) => /отправлен игроку admin/.test(m.msg));
     console.log('✓ подарки: «Большой диамант» за 3 золота виден в профиле получателя');
 
     // ---- генерал: очки опыта, распределение, сброс, имя, убить ----

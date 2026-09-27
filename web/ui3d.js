@@ -156,7 +156,7 @@ function profileWin(p) {
     <div class="ptiles">
       ${tile('treasury', 'smallicon/coin_gold.png', 'Пополнить Казну', true)}
       ${tile('rep', 'smallicon/plus.png', 'Поднять Репутацию', p.self || p.repToday)}
-      ${tile('gift', 'smallicon/surprize.png', 'Отправить Подарок', p.self)}
+      ${tile('gift', 'smallicon/surprize.png', 'Отправить Подарок')}
       ${tile('friend', 'smallicon/status/online.png', p.friend ? 'Убрать из друзей' : 'Добавить в друзья', p.self)}
       ${tile('msg', 'smallicon/unmes.png', 'Сообщение', p.self)}
       ${tile('map', 'ground/castle_small.png', 'На карте')}

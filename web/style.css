@@ -738,7 +738,8 @@ img[src$="?orc"] { filter: hue-rotate(85deg) saturate(1.5) brightness(0.92) cont
 .giftrow { border-bottom: 1px solid #0002; padding: 10px 0; text-align: center; }
 .giftrow > img { width: 64%; max-width: 280px; border-radius: 12px; }
 .gprem { color: #d01818; font: min(26px, 6vw) var(--serif); }
-.pgifts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 6px 0; }
+.pgifts { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 6px 0; }
+.pgifts .pgift { width: calc(33.3% - 6px); }
 .pgift { border: 0; background: none; padding: 0; display: flex; flex-direction: column; align-items: center; color: inherit; font: 13px var(--serif); min-width: 0; }
 .pgift img { width: 100%; aspect-ratio: 1; object-fit: contain; border-radius: 8px; }
 .pgift i { font-size: 12px; opacity: .8; overflow-wrap: anywhere; }
