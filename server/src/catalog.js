@@ -94,8 +94,13 @@ function levelTimeSec(b, level, townhallLevel) {
   return Math.max(TIME.min, Math.round(t.base * t.growth ** (level - 1) * TIME.townhallFactor ** townhallLevel));
 }
 
-// рейтинг: каждый уровень здания в замке даёт 10 очков, на землях — 5
-const RATING = { castle: 10, lands: 5 };
+// рейтинг: полностью отстроенный замок = 2300 (замок до 1300 + земли до 1000).
+// Полный замок: 49 клеток — все виды зданий замка на максимуме, остальные клетки — Склады 20 ур.;
+// полные земли: 173 застраиваемые клетки × 20 ур. Очки за уровень — доля от этих максимумов.
+const CASTLE_TYPES = BUILDINGS.filter((b) => b.layer === 'castle');
+const CASTLE_FULL_LEVELS = CASTLE_TYPES.reduce((s, b) => s + (b.max || 20), 0) + (49 - CASTLE_TYPES.length) * 20;
+const LANDS_FULL_LEVELS = 173 * 20;
+const RATING = { max: 2300, castleMax: 1300, landsMax: 1000, castle: 1300 / CASTLE_FULL_LEVELS, lands: 1000 / LANDS_FULL_LEVELS };
 
 // Какую картинку показывать для уровня (земли «растут»: маленькое → среднее → большое здание)
 function displayId(b, level) {

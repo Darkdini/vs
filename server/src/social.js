@@ -60,14 +60,12 @@ function install(Game) {
   // полный профиль для окна «Профиль»
   P.profileOf = function profileOf(u, viewer) {
     const al = this.allianceOf(u);
-    const s = this.stats(u);
     return {
       id: u.id, login: u.login, race: u.race, raceName: C.RACE_NAMES[u.race], created: u.created, lastSeen: u.lastSeen || u.created,
       rating: this.userRating(u), rank: this.rankOf(u.id), reputation: u.reputation || 0,
       title: u.admin ? 'Администратор' : null,
       alliance: al ? { name: al.name, tag: al.tag, role: al.leader === u.id ? 'Глава' : 'Участник' } : null,
       medals: this.medalsOf(u.id),
-      stats: s,
       castles: this.castlesOf(u).map((k, i) => ({ id: k.id, name: k.name, x: k.x, y: k.y, capital: i === 0, rating: this.rating(k) })),
       self: u.id === viewer.id,
       friend: (viewer.friends || []).includes(u.id),

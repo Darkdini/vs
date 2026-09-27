@@ -37,7 +37,7 @@ const TIME_IC = gimg('res/time.png', 'ri');
 const RES_NAME = { wood: 'Дерево', stone: 'Камень', iron: 'Железо', food: 'Еда', people: 'Люди' };
 const VIEW = { CASTLE: 0, LANDS: 1 };
 const WORLD_NAME_IMG = (o) => `ground/${GROUND[o.kind === 'castle' ? castleTile(o.rating) : o.img]}.png`;
-const castleTile = (rating) => (rating < 300 ? 28 : rating < 1000 ? 10 : 29);
+const castleTile = (rating) => (rating < 400 ? 28 : rating < 1500 ? 10 : 29); // маленький / средний / большой замок (из 2300)
 
 const S = {
   ws: null, cat: null, by: {}, st: null, offset: 0, tab: 'castle', sub: null, world: null,
@@ -93,6 +93,7 @@ function buildSec(def, level, townhall) {
   return Math.max(R().minBuildSec, Math.round(raw / S.cat.speed));
 }
 const ratingPer = (def) => (def.layer === 'lands' ? R().rating.lands : R().rating.castle);
+const fr = (v) => (Math.round(v * 100) / 100).toLocaleString('ru-RU'); // дробные очки рейтинга
 // что даёт здание на уровне level: {text, short}
 function effect(def, level) {
   if (level <= 0) return { text: '—', short: '—' };
@@ -293,7 +294,7 @@ function summaryHtml(view) {
   return `<h3 style="margin:4px 0 10px">${view === VIEW.CASTLE ? 'Здания замка' : 'Постройки на землях'} (${list.length})</h3><div class="list">${list.map(([b, l, i]) => {
     const def = S.by[b], q = queueAt(view, i);
     return `<button class="row" data-view="${view}" data-cell="${i}"><span class="ic">${bimg(displayId(def, l))}</span>
-      <div class="grow"><b>${esc(def.name)} · ${l} ур.</b><span>${q ? `строится ${q.level} ур. · <span class="cd" data-e="${q.end}"></span>` : `${effect(def, l).text} · ★ ${l * ratingPer(def)}`}</span></div>›</button>`;
+      <div class="grow"><b>${esc(def.name)} · ${l} ур.</b><span>${q ? `строится ${q.level} ур. · <span class="cd" data-e="${q.end}"></span>` : `${effect(def, l).text} · ★ ${fr(l * ratingPer(def))}`}</span></div>›</button>`;
   }).join('')}</div>`;
 }
 
@@ -312,7 +313,7 @@ const SUBPAGES = {
     const group = (layer, title) => `<div class="section">${title}</div><div class="list">${S.cat.buildings.filter((b) => b.layer === layer).map((b) => {
       const lvl = buildingLevel(b.id), req = Object.entries(b.req).map(([id, l]) => `${S.by[id].name} ${l}`).join(', ');
       return `<button class="row" data-book="${b.id}"><span class="ic">${bimg(b.id)}</span><div class="grow"><b>${esc(b.name)}</b>
-        <span>до ${b.max} ур. · ★ ${ratingPer(b)} за уровень${req ? ` · нужно: ${esc(req)}` : ''}${lvl ? ` · у вас ${lvl} ур.` : ''}</span></div>›</button>`;
+        <span>до ${b.max} ур. · ★ ${fr(ratingPer(b))} за уровень${req ? ` · нужно: ${esc(req)}` : ''}${lvl ? ` · у вас ${lvl} ур.` : ''}</span></div>›</button>`;
     }).join('')}</div>`;
     return `<div class="vhead"><button class="iconbtn" data-back>‹</button><h2>Справочник зданий</h2></div>
       <div class="pad" style="padding-top:0">${group('castle', 'Замок (сетка 7×7)')}${group('lands', 'Земли (сетка 15×15)')}</div>`;
@@ -326,7 +327,7 @@ const SUBPAGES = {
       <div class="section">Время стройки</div>
       <div class="formula">Замок: ${T.castle.base} с × ${T.castle.growth}^(ур−1)<br>Земли: ${T.lands.base} с × ${T.lands.growth}^(ур−1)<br>× ${T.townhallFactor}^(ур. Ратуши) ÷ скорость мира (×${S.cat.speed})</div>
       <div class="section">Рейтинг</div>
-      <div class="formula">Каждый уровень здания в замке: ★ ${R().rating.castle}<br>Каждый уровень на землях: ★ ${R().rating.lands}</div>
+      <div class="formula">Полностью отстроенный замок — ★ ${R().rating.max}: постройки замка до ${R().rating.castleMax}, земли до ${R().rating.landsMax}.<br>Уровень здания в замке: ★ ${fr(R().rating.castle)}<br>Уровень на землях: ★ ${fr(R().rating.lands)}</div>
       <div class="section">Добыча и склад</div>
       <div class="formula">Базово ${R().baseRate.wood}/ч каждого ресурса + добыча зданий земель по таблице × скорость мира<br>
       Склад: ${st.base} + ${st.perStore} × ${st.growth}^ур за каждый Склад<br>Люди: ${st.people} + ${st.peoplePerHut} мест за уровень Хибары</div>
@@ -464,7 +465,7 @@ function buildingSheet(def, lvl, ctx) {
     <div class="muted small">${lvl ? `Уровень ${lvl} из ${def.max}` : `Не построено · до ${def.max} ур.`} · ${layerName}${def.unique ? ' · одно на замок' : ''}</div></div></div>
     <p class="desc">${esc(def.desc)}</p>
     <div class="stats"><div class="stat"><small>Сейчас даёт</small><b>${esc(effect(def, lvl).text)}</b></div>
-    <div class="stat"><small>Рейтинг от здания</small><b>★ ${lvl * w}</b> <span class="muted small">(+${w} за ур.)</span></div></div>`;
+    <div class="stat"><small>Рейтинг от здания</small><b>★ ${fr(lvl * w)}</b> <span class="muted small">(+${fr(w)} за ур.)</span></div></div>`;
   if (q) {
     h += `<div class="card next"><h4>Строится ${q.level} уровень</h4><div class="bar"><i data-s="${q.start}" data-e="${q.end}"></i></div>
       <p class="small" style="margin:6px 0 0">Осталось: <span class="cd" data-e="${q.end}"></span></p></div>`;
@@ -489,7 +490,7 @@ function levelsTable(def, lvl, th) {
   for (let l = 1; l <= def.max; l++) {
     const c = def.costs[l];
     rows += `<tr class="${l === lvl ? 'cur' : l < lvl ? 'done' : ''}"><td>${l}</td>${RES.map((r) => `<td>${fmtFull(c[r])}</td>`).join('')}
-      <td>${fmtT(buildSec(def, l, th))}</td><td>${esc(effect(def, l).short)}</td><td>+${w} / ${l * w}</td></tr>`;
+      <td>${fmtT(buildSec(def, l, th))}</td><td>${esc(effect(def, l).short)}</td><td>+${fr(w)} / ${fr(l * w)}</td></tr>`;
   }
   return `<div class="section">Все уровни</div><div class="tbl"><table><thead><tr><th>Ур.</th>${RES.map((r) => `<th>${RES_IC[r]}</th>`).join('')}
     <th>${TIME_IC}</th><th>Даёт</th><th>★</th></tr></thead><tbody>${rows}</tbody></table></div>
@@ -515,16 +516,16 @@ function emptySheet(view, cell) {
     ${!items.length ? '<p class="muted">Здесь нечего строить.</p>' : `<div class="list">${items.map(({ def, blk }) => `
       <button class="row ${blk.length ? 'locked' : ''}" data-pick="${view},${cell},${def.id}"><span class="ic">${bimg(def.id)}</span>
       <div class="grow"><b>${esc(def.name)}</b>${costChips(def.costs[1]).replace('class="chips"', 'class="chips small"')}
-      <span>${TIME_IC} ${fmtT(buildSec(def, 1, th))} · ★ +${ratingPer(def)} · ${esc(effect(def, 1).text)}</span>
+      <span>${TIME_IC} ${fmtT(buildSec(def, 1, th))} · ★ +${fr(ratingPer(def))} · ${esc(effect(def, 1).text)}</span>
       ${blk.length ? `<span class="bad">${esc(blk[0])}</span>` : ''}</div>›</button>`).join('')}</div>`}`;
 }
 
 function ratingInfoSheet() {
   const c = S.st.castle, sum = (a) => a.reduce((x, y) => x + y, 0);
   const lc = sum(c.levels[0]), ll = sum(c.levels[1]), rc = R().rating.castle, rl = R().rating.lands;
-  return `<div class="sh-head"><div class="big">${gimg('smallicon/status/f_gold.png')}</div><div><h3>Рейтинг: ${fmtFull(c.rating)}</h3><div class="muted small">Сумма уровней всех зданий</div></div></div>
-    <dl class="kv"><dt>Замок: ${lc} ур. × ${rc}</dt><dd>★ ${lc * rc}</dd><dt>Земли: ${ll} ур. × ${rl}</dt><dd>★ ${ll * rl}</dd><dt><b>Итого</b></dt><dd><b>★ ${c.rating}</b></dd></dl>
-    <p class="muted small">Каждый новый уровень здания в замке даёт +${rc} к рейтингу, на землях — +${rl}. Во вкладке «Рейтинг» — таблица игроков.</p>`;
+  return `${ribbon(`Рейтинг замка: ${fmtFull(c.rating)}`)}
+    <dl class="kv"><dt>Замок: ${lc} ур.</dt><dd>★ ${Math.min(R().rating.castleMax, Math.round(lc * rc))} из ${R().rating.castleMax}</dd><dt>Земли: ${ll} ур.</dt><dd>★ ${Math.min(R().rating.landsMax, Math.round(ll * rl))} из ${R().rating.landsMax}</dd><dt><b>Итого</b></dt><dd><b>★ ${c.rating} из ${R().rating.max}</b></dd></dl>
+    <p class="muted small">Полностью отстроенный замок даёт ${R().rating.max}. Уровень здания в замке: +${fr(rc)}, на землях: +${fr(rl)}.</p>`;
 }
 
 function profileSheet(p) {
@@ -571,15 +572,7 @@ $('#view').addEventListener('click', (e) => { const b = e.target.closest('.infob
 function openWorldCell(x, y) {
   const o = S.world.objects.find((v) => v.x === x && v.y === y);
   if (!o) return toast(`Пустая земля ${x}:${y}. Основание новых замков — позже.`);
-  if (o.kind === 'castle') {
-    const me = o.ownerId === S.st.user.id;
-    return openSheet(() => `<div class="sh-head"><div class="big">${gimg(WORLD_NAME_IMG(o))}</div><div><h3>${esc(o.name)}</h3>
-      <div class="muted small">${x}:${y} · ${esc(o.owner)} · ${esc(S.cat.races[o.race] || '')}</div></div></div>
-      <dl class="kv"><dt>Рейтинг</dt><dd>★ ${fmtFull(o.rating)}</dd><dt>Альянс</dt><dd>${esc(o.alliance || '—')}</dd></dl>
-      ${worldActions(o, x, y)}
-      <div class="btns" style="margin-top:8px"><button class="btn" data-profile="${o.ownerId}">Профиль</button>
-      ${me ? '' : `<button class="btn" data-write="${esc(o.owner)}">Написать</button>`}</div>`);
-  }
+  if (o.kind === 'castle') return openSheet(() => castleWin(o, x, y)); // окно «Замок» как в клиенте (ui3d.js)
   openSheet(() => `<div class="sh-head"><div class="big">${gimg(WORLD_NAME_IMG(o))}</div><div><h3>${esc(o.name)}</h3><div class="muted small">${x}:${y}</div></div></div>
     ${worldActions(o, x, y)}`);
 }

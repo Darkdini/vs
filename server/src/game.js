@@ -160,10 +160,11 @@ class Game {
     return { ok: true };
   }
 
-  // рейтинг = сумма уровней зданий (замок ×10, земли ×5 — C.RATING)
+  // рейтинг замка: до 2300 при полной застройке (C.RATING)
   rating(castle) {
     const sum = (a) => a.reduce((x, y) => x + y, 0);
-    return sum(castle.levels[0]) * C.RATING.castle + sum(castle.levels[1]) * C.RATING.lands;
+    const R = C.RATING;
+    return Math.min(R.max, Math.min(R.castleMax, Math.round(sum(castle.levels[0]) * R.castle)) + Math.min(R.landsMax, Math.round(sum(castle.levels[1]) * R.lands)));
   }
 
   buildingLevel(castle, buildingId) {

@@ -535,3 +535,12 @@ input.num { width: 76px; padding: 7px; text-align: center; }
 .pcastle.active { box-shadow: 0 0 0 3px #f0c060; }
 .pcsub { font-size: 15px; opacity: .9; }
 .pcastle .btns { margin-top: 6px; justify-content: center; } .pcastle .btn { flex: 0 1 auto; }
+
+/* окно «Замок» на карте */
+.cwin { display: flex; gap: 12px; align-items: center; font: 22px/1.35 var(--serif); padding: 6px 0; }
+.cwimg { width: 120px; height: 100px; object-fit: contain; image-rendering: pixelated; }
+.cwname { font-size: 24px; }
+.cwrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; font: 21px var(--serif); padding: 4px 0; }
+.cwplayer { width: auto; flex: 1; margin: 0; }
+.cwhr { border: 0; border-top: 1px solid #b08a5a; margin: 6px 0; }
+.cwsave { width: 70%; margin: 4px auto; }

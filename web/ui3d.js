@@ -159,7 +159,6 @@ function profileWin(p) {
     </div>
     ${ribbon('Зал Славы')}<div class="pmedals">${medals}</div><button class="pbar" data-hof>Посмотреть</button>
     ${ribbon('Награждения')}<div class="parch-note">Пока нет — награды выдаются по итогам месяца.</div>
-    ${ribbon('Статистика')}<div class="pstats">Вынесено ресурсов: <b>${fmtFull(p.stats.loot)}</b><br>Уничтожено врагов: <b>${fmtFull(p.stats.kills)}</b><br>Отбито при обороне: <b>${fmtFull(p.stats.defKills)}</b><br>Найдено артефактов: <b>${p.stats.arts}</b></div>
     ${ribbon(`Замки - ${p.castles.length}`)}
     ${p.castles.map((c) => `<button class="pcastle" data-goworld="${c.x},${c.y}"><img src="${GFX}ground/castle_small.png" alt=""> ${esc(c.name)}<br>X: ${c.x}, Y: ${c.y}${c.capital ? ' (Столица)' : ''}</button>`).join('')}`;
 }
@@ -202,6 +201,26 @@ function playersWin() {
     <div class="rlist">${!S.plist ? '<p class="parch-note">Загрузка…</p>' : S.plist.map((r) => `<button class="rrow" data-cprof="${r.id}"><span class="rk">${raceIcon(r.race)}</span>
       <span class="rn"><b>${esc(r.login)}</b><small>${esc(r.raceName)} · X:${r.x} Y:${r.y}${r.dist !== undefined ? ` · ${r.dist} кл.` : ''}${r.online ? ' · в игре' : ''}</small></span><span class="rv">${fmtFull(r.rating)}</span></button>`).join('')
       || `<p class="parch-note">${S.pk === 'friends' ? 'Друзей пока нет — добавляйте их из профиля игрока.' : 'Никого не найдено.'}</p>`}</div>`;
+}
+
+// ---------- окно «Замок» на карте мира (как в клиенте: имя, координаты, рейтинг, игрок, раса, 3 плитки) ----------
+function castleWin(o, x, y) {
+  const mine = o.ownerId === me();
+  const tile = (attr, icon, text) => `<button class="ptile" ${attr}><img src="${GFX}${icon}" alt=""><span>${text}</span></button>`;
+  const saved = (S.places || []).some((p) => p.x === x && p.y === y);
+  return `${ribbon('Замок')}
+    <div class="cwin"><img class="cwimg" src="${GFX}${WORLD_NAME_IMG(o)}" alt=""><div>
+      <div class="cwname">${esc(o.name)}</div><div>X: ${x} Y: ${y}</div><div>Рейтинг: ${gimg('ground/castle_small.png', 'rico')} ${fmtFull(o.rating)}</div></div></div>
+    <div class="cwrow"><span>Игрок:</span><button class="pbar cwplayer" data-cprof="${o.ownerId}">${esc(o.owner)}</button></div>
+    <div class="cwrow"><span>Раса:</span><span>${raceIcon(o.race)} ${esc(S.cat.races[o.race] || '')}</span></div>
+    ${o.alliance ? `<div class="cwrow"><span>Альянс:</span><span>[${esc(o.alliance)}]</span></div>` : ''}
+    <hr class="cwhr">
+    <div class="ptiles">
+      ${mine ? tile(`data-switchxy="${x},${y}"`, 'build/castle.png', 'Войти в замок') : tile(`data-write="${esc(o.owner)}"`, 'smallicon/unmes.png', 'Сообщение')}
+      ${tile(`data-armyopen="trade" data-ax="${x}" data-ay="${y}"`, 'build/storage.png', 'Торговля')}
+      ${mine ? '' : tile(`data-armyopen="attack" data-ax="${x}" data-ay="${y}"`, 'smallicon/swordred.png', 'Война')}
+    </div>
+    <button class="pbar cwsave" data-saveplace="${x},${y}">${saved ? 'Место запомнено' : 'Запомнить место'}</button>`;
 }
 
 // ---------- прочие окна ----------
@@ -257,9 +276,11 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
 profileSheet = function (p) { S.lastProfile = p; return profileWin(p); }; // eslint-disable-line no-global-assign
 
 $('#sheetBody').addEventListener('click', (e) => {
-  const t = e.target.closest('[data-cprof],[data-ptile],[data-hof],[data-soon],[data-switch]'); if (!t) return;
+  const t = e.target.closest('[data-cprof],[data-ptile],[data-hof],[data-soon],[data-switch],[data-switchxy],[data-saveplace]'); if (!t) return;
   const d = t.dataset;
-  if (d.switch) { closeAllSheets(); Iso.cams = {}; return send({ t: 'switch', id: Number(d.switch) }); }
+  if (d.switch) { closeAllSheets(); Iso.cams = {}; S.switchTo = true; return send({ t: 'switch', id: Number(d.switch) }); }
+  if (d.switchxy) { const [x, y] = d.switchxy.split(',').map(Number); const c = (S.st.castles || []).find((k) => k.x === x && k.y === y); if (c) { closeAllSheets(); Iso.cams = {}; S.switchTo = true; send({ t: 'switch', id: c.id }); } return; }
+  if (d.saveplace) { const [x, y] = d.saveplace.split(',').map(Number); S.places = S.places || []; if (!S.places.some((p) => p.x === x && p.y === y)) S.places.push({ x, y }); store.set('tw.places', S.places); toast('Место запомнено.'); return refreshSheet(); }
   if (d.cprof) return send({ t: 'profile', id: Number(d.cprof) });
   if (d.hof !== undefined) { S.halls = null; send({ t: 'halls' }); return openSheet(hallsWin); }
   if (d.soon) return openSoon(d.soon);
@@ -284,4 +305,8 @@ $('#sheetBody').addEventListener('submit', (e) => {
 
 // после входа — лента чата
 const prevOnState = onState;
-onState = function (m) { const first = !S.st; prevOnState(m); if (first) { send({ t: 'chatlog' }); chatLine(); } }; // eslint-disable-line no-global-assign
+onState = function (m) {
+  const first = !S.st; prevOnState(m);
+  if (first) { S.places = store.get('tw.places') || []; send({ t: 'chatlog' }); chatLine(); }
+  if (S.switchTo) { S.switchTo = false; setTab('castle'); } // переход в другой замок — показать его
+}; // eslint-disable-line no-global-assign

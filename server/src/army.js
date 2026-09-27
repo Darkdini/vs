@@ -123,7 +123,7 @@ const NPC = {
   24: { name: 'Заброшенный замок', def: { inf: 6000, cav: 5500, mag: 2500 }, loot: { wood: 4000, stone: 4000, iron: 4000, food: 4000 }, ruins: true },
 };
 const NPC_REGEN_SEC = 3600;
-const NEWBIE_RATING = Number(process.env.NEWBIE_RATING || 300); // защита новичка: на слабых игроков нападать нельзя
+const NEWBIE_RATING = Number(process.env.NEWBIE_RATING || 100); // защита новичка: на слабых игроков нападать нельзя
 
 const MISSIONS = { attack: 'Атака', raid: 'Набег', scout: 'Разведка', expedition: 'Экспедиция', trade: 'Торговля' };
 
