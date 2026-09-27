@@ -667,3 +667,26 @@ img[src$="?orc"] { filter: hue-rotate(85deg) saturate(1.5) brightness(0.92) cont
 .rsline img { width: 44px; height: 44px; object-fit: contain; flex: none; }
 .rsclose { text-align: center; margin: 8px 0; }
 .pbtn { border: 2px solid #c8963e; border-radius: 6px; background: linear-gradient(#8a5a30, #4a2410); color: #fff; font: 24px var(--serif); padding: 2px 14px; box-shadow: 0 0 0 1px #3a1a08, 0 2px 3px #0006; }
+
+/* ---------- окно здания как в оригинале ---------- */
+.bwhead { display: flex; align-items: center; gap: 10px; margin: 4px 0 6px; }
+.bframe { width: 56%; max-width: 240px; aspect-ratio: 1; flex: none; display: grid; place-items: center; padding: 14px;
+  background: radial-gradient(#7a5a3a, #5a3a20); border: 10px solid #6a4020; border-radius: 6px;
+  box-shadow: 0 0 0 3px #e8c050, 0 0 0 5px #8a5a10, inset 0 0 0 3px #e8c050, inset 0 0 12px #000a; }
+.bframe img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(0 3px 3px #0008); }
+.bwright { flex: 1; text-align: center; font: min(24px, 5.4vw)/1.35 var(--serif); }
+.bwright b { font-size: 1.05em; }
+.upar { width: 22px; height: 22px; vertical-align: middle; }
+.bwline { font: min(21px, 4.8vw)/1.35 var(--serif); margin: 4px 0; }
+.bwline.center { text-align: center; }
+.rbar { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; margin: 6px 0; padding: 10px; border: 2px solid #c8963e; border-radius: 6px;
+  background: linear-gradient(#7a1a10, #4a0a06); color: #fff; font: min(24px, 5.6vw) var(--serif); box-shadow: 0 0 0 1px #2a0804, 0 2px 3px #0006; }
+.rbar img { width: 30px; height: 30px; object-fit: contain; }
+.costbox { margin: 8px 0; border: 3px solid #d8a850; border-radius: 6px; background: linear-gradient(#8a9a78, #6e7e5a); color: #fff; padding: 6px; text-align: center; text-shadow: 0 1px 1px #000; }
+.costbox .cbt { font: min(22px, 5vw) var(--serif); }
+.costbox .cbg { display: grid; grid-template-columns: repeat(5, 1fr) 1.8fr; align-items: end; margin-top: 4px; }
+.costbox .cbg div { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.costbox .cbg img { width: 30px; height: 30px; }
+.costbox .cbg b { font: 400 min(20px, 4.4vw) var(--serif); white-space: nowrap; }
+.reqbar { margin: 4px 0; padding: 6px 12px; border: 2px solid #c8963e; border-radius: 6px; background: linear-gradient(#7a4a2a, #4a2410); color: #fff; font: min(22px, 5vw) var(--serif); }
+.reqbar.no { color: #ffb0a0; }

@@ -60,10 +60,10 @@ function landOptions(x, y) {
 }
 
 // вместимость: база 1500 + каждый Склад 1000×1.25^ур.; люди: 60 + 20 за уровень каждой Хибары
-// склад как в оригинале: вместимость даёт лучший Склад (1 ур. — 1 000, 20 ур. — 100 000) + 200 базово → полный замок 100 200;
-// места для людей: 35 + 4.728 за уровень Хибары → полный замок 5 425
-const STORE = { base: 200, perStore: 1000, maxStore: 100000, people: 35, peoplePerHut: 4.728 };
-const storeBonus = (level) => (level > 0 ? Math.round(STORE.perStore * (STORE.maxStore / STORE.perStore) ** ((level - 1) / 19)) : 0);
+// склад как в оригинале: вместимость каждого Склада по уровням (1–10 ур.), склады суммируются + 200 базово
+// → 20 складов 10 ур. = 100 200; места для людей: 35 + 4.728 за уровень Хибары → полный замок 5 425
+const STORE = { base: 200, levels: [0, 100, 300, 500, 800, 1000, 1500, 2000, 3000, 4000, 5000], people: 35, peoplePerHut: 4.728 };
+const storeBonus = (level) => STORE.levels[Math.max(0, Math.min(10, level))];
 // добыча ресурсов не ускоряется скоростью мира (числа как в оригинале); RES_SPEED — отдельный множитель для тестов
 const RES_SPEED = Number(process.env.RES_SPEED || 1);
 // базовая добыча замка в час (без зданий); Хибара даёт людей с коэффициентом 0.2 от таблицы PROD
@@ -169,7 +169,7 @@ class Game {
       id, owner: user.id, name: `Замок ${user.login}`, x, y,
       grid: { 0: castleGrid, 1: landsGrid },
       levels: { 0: new Int8Array(49), 1: new Int8Array(225) },
-      res: { wood: 750, stone: 750, iron: 750, food: 750, people: 40 },
+      res: { wood: 300, stone: 300, iron: 300, food: 300, people: 40 },
       resAt: Date.now(),
       queue: [],
     };
@@ -209,9 +209,8 @@ class Game {
   }
 
   capacity(castle) {
-    let best = 0;
-    castle.grid[0].forEach((b, i) => { if (b === 1) best = Math.max(best, castle.levels[0][i]); });
-    const store = STORE.base + storeBonus(best);
+    let store = STORE.base;
+    castle.grid[0].forEach((b, i) => { if (b === 1) store += storeBonus(castle.levels[0][i]); });
     let huts = 0;
     castle.grid[1].forEach((b, i) => { if (b === 6) huts += castle.levels[1][i]; });
     const people = Math.round(STORE.people + STORE.peoplePerHut * huts);
@@ -298,6 +297,24 @@ class Game {
     if (current === -1) castle.grid[view][cell] = -1; // клетка помечается клиентом как -2 (стройка)
     this.store.save();
     return { item };
+  }
+
+  // «Разрушить»: здание убирается с клетки целиком (ресурсы не возвращаются). Ратушу разрушить нельзя.
+  demolish(castle, view, cell) {
+    this.tick(castle);
+    const size = GRID[view];
+    if (!size || !(cell >= 0 && cell < size * size)) return { error: 'Неверная клетка.' };
+    const b = castle.grid[view][cell];
+    if (b < 0 || !castle.levels[view][cell]) return { error: 'Здесь нет здания.' };
+    if (b === 0) return { error: 'Ратушу разрушить нельзя.' };
+    if (castle.queue.some((q) => q.view === view && q.cell === cell)) return { error: 'Здание сейчас строится.' };
+    const name = C.BY_ID[b].name;
+    castle.grid[view][cell] = -1; castle.levels[view][cell] = 0;
+    const cap = this.capacity(castle);
+    for (const r of C.RES) castle.res[r] = Math.min(castle.res[r], cap[r]); // склад стал меньше — лишнее пропадает
+    this.cache = {};
+    this.store.save();
+    return { ok: true, name };
   }
 
   // Объекты карты мира в прямоугольнике: замки игроков + процедурные объекты (детерминированно по координатам).

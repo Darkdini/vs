@@ -88,7 +88,7 @@ const send = (m) => { if (S.ws && S.ws.readyState === 1) S.ws.send(JSON.stringif
 // ---------- правила игры (те же формулы, что на сервере: server/src/catalog.js, game.js) ----------
 const R = () => S.cat.rules;
 function buildSec(def, level, townhall) {
-  const T = R().time, t = def.layer === 'lands' ? T.lands : T.castle;
+  const T = R().time, t = def.time ? { base: def.time, growth: T.castle.growth } : def.layer === 'lands' ? T.lands : T.castle;
   const raw = Math.max(T.min, Math.round(t.base * t.growth ** (level - 1) * T.townhallFactor ** townhall));
   return Math.max(R().minBuildSec, Math.round(raw / S.cat.speed));
 }
@@ -104,7 +104,7 @@ function effect(def, level) {
   }
   const GEN = { wood: 'дерева', stone: 'камня', iron: 'железа', food: 'еды' }; // текст (экранируется в окнах), без HTML-иконок
   if (def.produces) { const p = Math.round(S.cat.prod[level] * (K[def.produces] || 1) * sp); return { text: `+${fmtFull(p)} ${GEN[def.produces]} в час`, short: `+${fmtN(p)}/ч` }; }
-  if (def.id === 1) { const st = R().store, c = Math.round(st.perStore * (st.maxStore / st.perStore) ** ((level - 1) / 19)); return { text: `вместимость ${fmtFull(c + st.base)} каждого ресурса`, short: fmtN(c + st.base) }; }
+  if (def.id === 1) { const c = R().store.levels[level]; return { text: `вместимость склада ${fmtFull(c)} ед.`, short: fmtN(c) }; }
   if (def.id === 0) { const p = Math.round((1 - R().time.townhallFactor ** level) * 100); return { text: `стройки быстрее на ${p}%`, short: `−${p}%` }; }
   const m = typeof milEffect === 'function' && S.st && milEffect(def, level); // функции зданий (mil.js)
   return m || { text: '—', short: '' };
@@ -326,7 +326,7 @@ const SUBPAGES = {
       <div class="formula">Полностью отстроенный замок — ★ ${R().rating.max}: постройки замка до ${R().rating.castleMax}, земли до ${R().rating.landsMax}.<br>Уровень здания в замке: ★ ${fr(R().rating.castle)}<br>Уровень на землях: ★ ${fr(R().rating.lands)}</div>
       <div class="section">Добыча и склад</div>
       <div class="formula">Базово ${R().baseRate.wood}/ч дерева, камня и железа + добыча зданий земель по таблице (еда ×${S.cat.prodK.food}, люди ×${S.cat.prodK.people})<br>
-      Склад: ${st.base} + лучший Склад (1 ур. — ${fmtFull(st.perStore)}, 20 ур. — ${fmtFull(st.maxStore)})<br>Люди: ${st.people} + ${st.peoplePerHut} мест за уровень Хибары</div>
+      Склад: ${st.base} + сумма всех Складов (по уровням: ${st.levels.slice(1).join(', ')})<br>Люди: ${st.people} + ${st.peoplePerHut} мест за уровень Хибары</div>
       <div class="section">Добыча по уровням (в час, ×1)</div>
       <div class="formula">${S.cat.prod.slice(1).map((p, i) => `${i + 1}: ${p}`).join(' · ')}</div></div>`;
   },
@@ -450,16 +450,24 @@ function costChips(cost) {
   return `<div class="chips">${RES.map((r) => `<span data-need="${r}:${cost[r]}">${RES_IC[r]} ${fmtFull(cost[r])}</span>`).join('')}</div>`;
 }
 
+// строка «Текущая …» в окне здания (как в оригинале: «Текущая вместимость склада: 5000 ед.»)
+function currentLine(def, lvl) {
+  if (def.id === 1) return `Текущая вместимость склада: <b>${fmtFull(R().store.levels[lvl])} ед.</b>`;
+  const e = effect(def, lvl).text;
+  return e && e !== '—' ? `Сейчас даёт: <b>${esc(e)}</b>` : '';
+}
+// шапка окна здания: картинка в золотой рамке, справа название, уровень, рейтинг
+function bwinHead(def, lvl, right) {
+  return `${ribbon(def.name)}<div class="bwhead"><div class="bframe">${bimg(displayId(def, Math.max(1, lvl)))}</div><div class="bwright">${right}</div></div>`;
+}
 // карточка здания; ctx = {view, cell} — можно строить, null — только справочник
 function buildingSheet(def, lvl, ctx) {
   const th = S.st.castle.townhall, w = ratingPer(def);
   const q = ctx && queueAt(ctx.view, ctx.cell);
-  const layerName = def.layer === 'lands' ? 'Земли' : 'Замок';
-  let h = `<div class="sh-head"><div class="big">${bimg(displayId(def, Math.max(1, lvl)))}</div><div><h3>${esc(def.name)}</h3>
-    <div class="muted small">${lvl ? `Уровень ${lvl} из ${def.max}` : `Не построено · до ${def.max} ур.`} · ${layerName}${def.unique ? ' · одно на замок' : ''}</div></div></div>
-    <p class="desc">${esc(def.desc)}</p>
-    <div class="stats"><div class="stat"><small>Сейчас даёт</small><b>${esc(effect(def, lvl).text)}</b></div>
-    <div class="stat"><small>Рейтинг от здания</small><b>★ ${fr(lvl * w)}</b> <span class="muted small">(+${fr(w)} за ур.)</span></div></div>`;
+  const cur = currentLine(def, lvl);
+  let h = bwinHead(def, lvl, `<b>${esc(def.name)}</b><div>${lvl ? `${lvl} уровень` : 'не построено'}</div><div>Рейтинг ★ : ${fr(lvl * w)}</div>`) +
+    `${lvl ? `<div class="bwline center">Текущая прочность здания: ${fmtFull(def.hp * lvl)}</div>` : ''}
+    <div class="bwline">${esc(def.desc)}</div>${cur ? `<hr class="cwhr"><div class="bwline">${cur}</div>` : ''}`;
   if (q) {
     h += `<div class="card next"><h4>Строится ${q.level} уровень</h4><div class="bar"><i data-s="${q.start}" data-e="${q.end}"></i></div>
       <p class="small" style="margin:6px 0 0">Осталось: <span class="cd" data-e="${q.end}"></span></p></div>`;
@@ -472,10 +480,32 @@ function buildingSheet(def, lvl, ctx) {
       ${reqs.length ? `<ul class="reqs">${reqs.map(([id, l]) => { const ok = buildingLevel(Number(id)) >= l; return `<li class="${ok ? 'ok' : 'bad'}">${ok ? '✓' : '✗'} ${esc(S.by[id].name)} ${l} ур.</li>`; }).join('')}</ul>` : ''}
       ${ctx ? `${blk.length ? `<p class="reasons">${blk.map(esc).join('<br>')}</p>` : ''}
       <button class="btn primary" data-build="${ctx.view},${ctx.cell},${def.id}" ${blk.length ? 'disabled' : ''}>${lvl ? 'Развить' : 'Построить'}</button>` : ''}</div>`;
-  } else h += '<div class="card next"><h4>Максимальный уровень</h4></div>';
+  }
+  if (ctx) h += `${lvl > 0 && def.id !== 0 && !q ? `<button class="rbar" data-demolish="${ctx.view},${ctx.cell}"><img src="${GFX}smallicon/upgrade.png" alt=""> Разрушить</button>` : ''}
+    <button class="rbar" data-about="${def.id}"><img src="${GFX}smallicon/soft_help.png" alt=""> О здании</button>`;
   if (ctx && lvl > 0) h += buildingFunctions(def, lvl); // тренировка, армия, рынок, науки… (mil.js)
   return h;
 }
+
+// «О здании»: максимальный уровень, прочность, стоимость постройки, описание, необходимые здания
+function aboutSheet(def) {
+  const cost = def.costs[1], th = S.st.castle.townhall, sec = buildSec(def, 1, th);
+  const clock = `${String(Math.floor(sec / 3600)).padStart(2, '0')}:${String(Math.floor(sec / 60) % 60).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
+  const table = def.id === 1 ? R().store.levels.slice(1).map((c, i) => `${i + 1} уровень - ${c}.`)
+    : def.produces ? Array.from({ length: def.max }, (_, i) => `${i + 1} уровень - ${effect(def, i + 1).text}.`) : [];
+  const reqs = Object.entries(def.req);
+  return `${bwinHead(def, def.max, `<b>${esc(def.name)}</b><div>Максимальный уровень: <img class="upar" src="${GFX}smallicon/maxupgrade.png" alt=""> ${def.max}</div>`)}
+    <div class="bwline">Прочность на первом уровне: ${fmtFull(def.hp)}</div>
+    <div class="costbox"><div class="cbt">Стоимость постройки:</div><div class="cbg">${RES.map((r) => `<div>${RES_IC[r]}<b>${fmtFull(cost[r])}</b></div>`).join('')}<div>${TIME_IC}<b>${clock}</b></div></div></div>
+    ${ribbon('Описание:')}<div class="bwline">${esc(def.about || def.desc)}${table.length ? `<br>${table.map(esc).join('<br>')}` : ''}</div>
+    ${ribbon('Необходимые здания:')}${reqs.length ? reqs.map(([id, l]) => `<div class="reqbar ${buildingLevel(Number(id)) >= l ? '' : 'no'}">${esc(S.by[id].name)} ${l} ур.</div>`).join('') : '<div class="bwline">Нет.</div>'}`;
+}
+$('#sheetBody').addEventListener('click', (e) => {
+  const t = e.target.closest('[data-demolish],[data-about]'); if (!t) return;
+  if (t.dataset.about) return openSheet(() => aboutSheet(S.by[t.dataset.about]));
+  const [view, cell] = t.dataset.demolish.split(',').map(Number), def = S.by[S.st.castle.grid[view][cell]];
+  if (def && confirm(`Разрушить «${def.name}» ${S.st.castle.levels[view][cell]} ур.? Здание пропадёт, ресурсы не вернутся.`)) { send({ t: 'demolish', view, cell }); closeSheet(); }
+});
 
 
 function emptySheet(view, cell) {

@@ -144,6 +144,21 @@ function client() {
     await b.expect('error', (m) => /Военный штаб/.test(m.msg));
     console.log('✓ рынок, альянс, проверки миссий');
 
+    // ---- склад как в оригинале, «Разрушить» ----
+    adm.send({ t: 'sync' });
+    let ds = (await adm.expect('state')).castle;
+    assert.equal(ds.cap.wood, 100200);
+    const storeCell = ds.grid[0].indexOf(1);
+    adm.send({ t: 'demolish', view: 0, cell: storeCell });
+    await adm.expect('toast', (m) => /Здание разрушено: Склад/.test(m.msg));
+    ds = (await adm.expect('state', (m) => m.castle.grid[0][storeCell] === -1)).castle;
+    assert.equal(ds.cap.wood, 95200);
+    adm.send({ t: 'demolish', view: 0, cell: ds.grid[0].indexOf(0) });
+    await adm.expect('error', (m) => /Ратушу разрушить нельзя/.test(m.msg));
+    adm.send({ t: 'admin', op: 'max' });
+    await adm.expect('state', (m) => m.castle.cap.wood === 100200);
+    console.log('✓ склады: 20 × 5000 + 200 = 100 200, «Разрушить»');
+
     // ---- генерал: очки опыта, распределение, сброс, имя, убить ----
     adm.send({ t: 'admin', op: 'general', level: 50 });
     let gs = (await adm.expect('state', (m) => m.castle.mil.general && m.castle.mil.general.level === 50)).castle.mil.general;

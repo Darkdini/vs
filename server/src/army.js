@@ -863,13 +863,14 @@ function install(Game, helpers) {
   P.maxOut = function maxOut(castle) {
     this.mil(castle);
     const race = this.raceOf(castle);
-    const castleBuildings = C.BUILDINGS.filter((b) => b.layer === 'castle' && b.id !== 0);
+    const castleBuildings = C.BUILDINGS.filter((b) => b.layer === 'castle' && b.id !== 0 && b.id !== 1);
     const cells = [...Array(49).keys()].filter((i) => i !== 24);
     castle.grid[0] = new Int8Array(49).fill(-1); castle.levels[0] = new Int8Array(49);
     castle.grid[0][24] = 0; castle.levels[0][24] = C.BY_ID[0].max;
     let k = 0;
     for (const b of castleBuildings) { const i = cells[k++]; castle.grid[0][i] = b.id; castle.levels[0][i] = b.max; }
-    while (k < cells.length) { const i = cells[k++]; castle.grid[0][i] = 1; castle.levels[0][i] = C.BY_ID[1].max; } // остальное — склады
+    for (let n = 0; n < 20 && k < cells.length; n++) { const i = cells[k++]; castle.grid[0][i] = 1; castle.levels[0][i] = C.BY_ID[1].max; } // 20 складов = 100 200
+    while (k < cells.length) { const i = cells[k++]; castle.grid[0][i] = 14; castle.levels[0][i] = C.BY_ID[14].max; } // оставшиеся клетки — Дом мудрецов
     for (let i = 0; i < 225; i++) {
       const opts = helpers.landOptions(i % 15, Math.floor(i / 15));
       if (!opts.length) { castle.grid[1][i] = -1; castle.levels[1][i] = 0; continue; }

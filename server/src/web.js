@@ -81,7 +81,7 @@ function catalogJson() {
     },
     buildings: C.BUILDINGS.map((b) => ({
       id: b.id, name: b.name, desc: b.desc, layer: b.layer, max: b.max || 20, unique: !!b.unique, req: b.req || {},
-      produces: b.produces || null, tiers: b.tiers || null,
+      produces: b.produces || null, tiers: b.tiers || null, about: b.about || '', hp: C.durability(b, 1), time: b.time || 0,
       costs: Array.from({ length: (b.max || 20) + 1 }, (_, l) => (l === 0 ? null : C.levelCost(b, l))),
     })),
     prod: C.PROD, prodK: C.PROD_K, resSpeed: G.RES_SPEED,
@@ -171,6 +171,11 @@ const API = {
     const res = this.game.startBuild(this.castle, Number(m.view), Number(m.cell), Number(m.building));
     if (res.error) return this.error(res.error);
     this.pushState();
+  },
+  demolish(m) {
+    const r = this.game.demolish(this.castle, Number(m.view), Number(m.cell));
+    if (r.error) return this.error(r.error);
+    this.toast(`Здание разрушено: ${r.name}`); this.pushState();
   },
   world(m) {
     const c = this.castle, R = 7;

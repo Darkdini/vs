@@ -13,7 +13,8 @@ const B = (id, name, desc, layer, extra = {}) => ({ id, name, desc, layer, ...ex
 
 const BUILDINGS = [
   B(0, 'Ратуша', 'Главное здание Вашего королевства. Уровень развития здания влияет на скорость возведения новых зданий.', 'castle', { max: 20, unique: true }),
-  B(1, 'Склад', 'Хранит ресурсы производимые данным замком. Развивая здание увеличивается его вместимость.', 'castle', { max: 20 }),
+  B(1, 'Склад', 'Служит для хранения добытых в замке ресурсов.', 'castle', { max: 10, req: { 0: 1 }, base: { wood: 25, stone: 18, iron: 20, food: 17, people: 1 }, time: 60,
+    about: 'Хранилище ресурсов, добытых в Вашем замке (за исключением ресурса «население», которое живет там же, где производится, то есть в «хибарах», «коттеджах», «усадьбах»). Уровень развития напрямую влияет на вместимость склада:' }),
   B(2, 'Военный штаб', 'Производит управления всеми военными операциями.', 'castle', { max: 20, unique: true, req: { 0: 3 } }),
   B(3, 'Казарма', 'Позволяет тренеровать легких воинов.', 'castle', { max: 20, unique: true, req: { 0: 3 } }),
   B(4, 'Рынок', 'Позволяет Вам совершать действия купли/продажи ресурсов.', 'castle', { max: 20, unique: true, req: { 0: 3, 1: 1 } }),
@@ -81,28 +82,31 @@ const PROD_K = { wood: 1, stone: 1, iron: 1, food: 0.5788, people: 1.5163 };
 
 function levelCost(b, level) {
   const growth = b.layer === 'lands' ? 1.45 : 1.3;
-  const base = b.layer === 'lands'
+  const base = b.base ? { ...b.base } : b.layer === 'lands'
     ? { wood: 60, stone: 50, iron: 40, food: 30, people: 1 }
     : { wood: 120, stone: 110, iron: 80, food: 60, people: 2 };
   if (b.produces) base[b.produces === 'people' ? 'food' : b.produces] = Math.round(base.wood * 0.5);
   const k = growth ** (level - 1);
   const cost = {};
-  for (const r of RES) cost[r] = r === 'people' ? Math.ceil(base.people * level) : Math.round((base[r] * k) / 5) * 5;
+  for (const r of RES) cost[r] = r === 'people' ? Math.ceil(base.people * level) : b.base ? Math.round(base[r] * k) : Math.round((base[r] * k) / 5) * 5;
   return cost;
 }
 
 // время: база × рост^(ур-1) × 0.95^ур.Ратуши (Ратуша ускоряет стройки на 5% за уровень)
 const TIME = { lands: { base: 60, growth: 1.45 }, castle: { base: 180, growth: 1.25 }, townhallFactor: 0.95, min: 5 };
 function levelTimeSec(b, level, townhallLevel) {
-  const t = b.layer === 'lands' ? TIME.lands : TIME.castle;
+  const t = b.time ? { base: b.time, growth: TIME.castle.growth } : b.layer === 'lands' ? TIME.lands : TIME.castle;
   return Math.max(TIME.min, Math.round(t.base * t.growth ** (level - 1) * TIME.townhallFactor ** townhallLevel));
 }
 
 // рейтинг: полностью отстроенный замок = 2300 (замок до 1300 + земли до 1000).
-// Полный замок: 49 клеток — все виды зданий замка на максимуме, остальные клетки — Склады 20 ур.;
+// Полный замок: 49 клеток — все виды зданий замка на максимуме, остальные клетки — Склады 10 ур.;
 // полные земли: 225 клеток × 20 ур. Очки за уровень — доля от этих максимумов.
+const BY_ID_MAX_STORE = BUILDINGS.find((b) => b.id === 1).max;
+// прочность здания (как в оригинале: Склад — 589 на 1 ур., растёт линейно с уровнем)
+const durability = (b, level) => Math.round((b.base ? ['wood', 'stone', 'iron', 'food'].reduce((s, r) => s + b.base[r], 0) : b.layer === 'lands' ? 180 : 370) * 7.3625) * level;
 const CASTLE_TYPES = BUILDINGS.filter((b) => b.layer === 'castle');
-const CASTLE_FULL_LEVELS = CASTLE_TYPES.reduce((s, b) => s + (b.max || 20), 0) + (49 - CASTLE_TYPES.length) * 20;
+const CASTLE_FULL_LEVELS = CASTLE_TYPES.reduce((s, b) => s + (b.max || 20), 0) + (49 - CASTLE_TYPES.length) * BY_ID_MAX_STORE;
 const LANDS_FULL_LEVELS = 225 * 20; // все клетки земель застраиваемые
 const RATING = { max: 2300, castleMax: 1300, landsMax: 1000, castle: 1300 / CASTLE_FULL_LEVELS, lands: 1000 / LANDS_FULL_LEVELS };
 
@@ -112,4 +116,4 @@ function displayId(b, level) {
   return level >= 10 ? b.tiers[2] : level >= 5 ? b.tiers[1] : b.tiers[0];
 }
 
-module.exports = { TIME, RATING, RES, RES_ICON, TIME_ICON, BUILDINGS, BY_ID, UNITS, RACES, RACE_NAMES, PROD, PROD_K, levelCost, levelTimeSec, displayId };
+module.exports = { TIME, RATING, RES, RES_ICON, TIME_ICON, BUILDINGS, BY_ID, UNITS, RACES, RACE_NAMES, PROD, PROD_K, durability, levelCost, levelTimeSec, displayId };
