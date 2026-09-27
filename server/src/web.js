@@ -13,6 +13,7 @@ const G = require('./game');
 const ARMY = require('./army');
 
 const WEB_ROOT = path.join(__dirname, '..', '..', 'web');
+const WS_MAX = 256 * 1024;
 const MIME = { '.webmanifest': 'application/manifest+json', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml' };
 
 // ---------- WebSocket ----------
@@ -35,6 +36,8 @@ class WsReader {
   constructor() { this.buf = Buffer.alloc(0); this.parts = []; }
   push(chunk) {
     this.buf = Buffer.concat([this.buf, chunk]);
+    // защита от переполнения памяти: сообщение больше WS_MAX (аватар ~49 КБ) — соединение рвётся
+    if (this.buf.length > WS_MAX || this.parts.reduce((s, p) => s + p.length, 0) > WS_MAX) throw new Error('frame too big');
     const out = [];
     for (;;) {
       if (this.buf.length < 2) break;
@@ -172,6 +175,12 @@ const API = {
     if (res.error) return this.error(res.error);
     this.pushState();
   },
+  avatar(m) {
+    const r = m.op === 'del' ? this.game.removeAvatar(this.user) : this.game.setAvatar(this.user, m.px);
+    if (r.error) return this.error(r.error);
+    this.toast(m.op === 'del' ? 'Аватар удалён.' : 'Аватар сохранён.');
+    this.send({ t: 'profile', refresh: true, profile: this.game.profileOf(this.user, this.user) });
+  },
   demolish(m) {
     const r = this.game.demolish(this.castle, Number(m.view), Number(m.cell));
     if (r.error) return this.error(r.error);
@@ -301,6 +310,12 @@ function staticFile(file) {
 function startWeb(game, sessions, { port, host, log }) {
   const server = http.createServer((req, res) => {
     let url; try { url = decodeURIComponent(req.url.split('?')[0]); } catch { url = '/'; }
+    const ava = /^\/avatar\/(\d{1,9})\.png$/.exec(url); // аватары: только цифры → data/avatars/<id>.png (PNG собран сервером)
+    if (ava) {
+      let body; try { body = fs.readFileSync(game.avatarFile(ava[1])); } catch { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('no avatar'); }
+      res.writeHead(200, { 'Content-Type': 'image/png', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'", 'Cache-Control': 'public, max-age=86400' });
+      return res.end(body);
+    }
     const file = path.normalize(path.join(WEB_ROOT, url === '/' ? 'index.html' : url));
     const f = file.startsWith(WEB_ROOT) && staticFile(file);
     if (!f) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('not found'); }
@@ -320,7 +335,9 @@ function startWeb(game, sessions, { port, host, log }) {
     sessions.add(session);
     const reader = new WsReader();
     socket.on('data', (chunk) => {
-      for (const f of reader.push(chunk)) {
+      let frames;
+      try { frames = reader.push(chunk); } catch { slog('слишком большое сообщение — соединение закрыто'); return socket.destroy(); }
+      for (const f of frames) {
         if (f.opcode === 8) { socket.end(wsFrame(8, Buffer.alloc(0))); return; }
         if (f.opcode === 9) { socket.write(wsFrame(10, f.data)); continue; }
         if (f.opcode !== 1) continue;

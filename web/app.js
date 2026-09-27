@@ -165,7 +165,7 @@ function onMsg(m) {
     case 'state': onState(m); break;
     case 'world': if (!S.world || S.world.cx !== m.cx || S.world.cy !== m.cy) { delete Iso.cams.world; if (Iso.sel && Iso.sel.tab === 'world') Iso.sel = null; } S.world = m; if (S.tab === 'world') renderView(); break;
     case 'rating': S.ratingRows = m.rows; refreshSheet(); break;
-    case 'profile': openSheet(() => profileSheet(m.profile)); break;
+    case 'profile': if (m.refresh && S.sheets.length) { S.sheets[S.sheets.length - 1] = () => profileSheet(m.profile); showSheet(false); } else openSheet(() => profileSheet(m.profile)); break;
     case 'mail': S.mail = m; refreshSheet(); break;
     case 'letter': openSheet(() => letterSheet(m.letter)); break;
     case 'toast':

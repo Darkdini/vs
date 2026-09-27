@@ -59,6 +59,7 @@ function playerCard(p) {
       <button class="btn small" data-goworld="${c.x},${c.y}">карта</button></div>`).join('')}</div>
     <div class="ptiles">
       ${p.banned ? aBtn('unban', 'Разблокировать', 'smallicon/greenball.png') : aBtn('ban', 'Заблокировать', 'smallicon/grayball.png', 'data-confirm="Заблокировать игрока?"')}
+      ${aBtn('noavatar', 'Удалить аватар', 'smallicon/destroy.png', 'data-confirm="Удалить аватар игрока?"')}
       ${aBtn('makeadmin', 'Сделать админом', 'smallicon/status/f_gold.png', 'data-confirm="Дать права администратора?"')}
       ${aBtn('delete', 'Удалить игрока', 'smallicon/destroy.png', 'data-confirm="Удалить игрока и все его замки навсегда?"')}
     </div>

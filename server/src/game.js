@@ -375,5 +375,6 @@ require('./army').install(Game, { buildTime, landOptions });
 require('./social').install(Game);
 // администратор: 20 замков и все админ-команды (server/src/admin.js)
 require('./admin').install(Game);
+require('./avatar').install(Game);
 
 module.exports = { WORLD, Game, Store, STORE, BASE_RATE, PEOPLE_FACTOR, storeBonus, RES_SPEED, buildTime, VIEW, GRID, landOptions, SPEED, MAX_QUEUE, LANDS_BASE, LANDS_DECOR, LANDS_EDGE };

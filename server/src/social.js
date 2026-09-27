@@ -72,7 +72,7 @@ function install(Game) {
       self: u.id === viewer.id,
       friend: (viewer.friends || []).includes(u.id),
       repToday: ((viewer.repGiven || {})[u.id] || 0) > Date.now() - 86400000,
-      about: u.about || '',
+      about: u.about || '', avatar: u.avatar || 0,
       online: !!u.online,
     };
   };

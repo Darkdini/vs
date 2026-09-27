@@ -136,6 +136,8 @@ const chatWin = () => `${ribbon('Чат')}<div id="chatList" class="chatlist">${
   <form class="chatform" data-form="chat"><input name="text" maxlength="300" placeholder="Сообщение всем игрокам" autocomplete="off"><button class="sendbtn" aria-label="Отправить"></button></form>`;
 
 // ---------- профиль (как «Профиль» в клиенте: пергамент, красные ленты) ----------
+// аватар игрока (PNG 96×96, собранный сервером) или картинка расы
+const avatarImg = (p, cls = '') => (p.avatar ? `<img class="${cls}" src="avatar/${p.id}.png?v=${p.avatar}" alt="">` : raceIcon(p.race));
 function profileWin(p) {
   const tile = (key, icon, text, off) => `<button class="ptile ${off ? 'off' : ''}" data-ptile="${key}" data-pid="${p.id}"><img src="${GFX}${icon}" alt=""><span>${text}</span></button>`;
   const medals = p.medals.length ? p.medals.map((m) => `<img class="medal" src="${GFX}${m.icon}" alt="" title="${esc(m.name)} — ${m.place} место">`).join('') : '<span class="muted">нет</span>';
@@ -143,8 +145,9 @@ function profileWin(p) {
     <div class="pauth"><img src="${GFX}smallicon/bonus_status/coronalgold.png" alt=""><div>Авторитет Вашего города:<br><b>Здесь может быть Ваше имя!</b></div></div>
     <button class="pbar" data-soon="Авторитет города">Стать Авторитетом!</button>
     ${ribbon('Информация')}
-    <div class="pinfo"><div class="avatar">${raceIcon(p.race)}</div><div>
+    <div class="pinfo"><div class="avatar">${avatarImg(p)}</div><div>
       Никнейм: <b>${esc(p.login)}</b>${p.online ? ' <span class="online">в игре</span>' : ''}<br>Ранг: ${p.rank}<br>Рейтинг: ${fmtFull(p.rating)}<br>Раса: ${raceIcon(p.race)} ${esc(p.raceName)}</div></div>
+    ${p.self ? `<div class="avbtns"><button class="pbtn small" data-avatar="set">Загрузить аватар</button>${p.avatar ? '<button class="pbtn small" data-avatar="del">Удалить</button>' : ''}</div>` : ''}
     <div class="pline">Репутация (${fmtFull(p.reputation)}): ${gimg('smallicon/plus.png', 'ri')}</div>
     <div class="pline">Зал Славы: ${medals}</div>
     ${p.title ? `<div class="ptitle">Звание: ${gimg('smallicon/status/f_gold.png', 'ri')} ${esc(p.title)}</div>` : ''}
@@ -318,3 +321,28 @@ onState = function (m) {
   if (first) { S.places = store.get('tw.places') || []; send({ t: 'chatlog' }); chatLine(); }
   if (S.switchTo) { S.switchTo = false; setTab('castle'); } // переход в другой замок — показать его
 }; // eslint-disable-line no-global-assign
+
+// ---------- загрузка аватара ----------
+// Картинка не уходит на сервер как файл: браузер вырезает квадрат, уменьшает до 96×96
+// и отправляет только пиксели RGBA; сервер сам собирает из них PNG (server/src/avatar.js).
+const AVA = 96;
+const avInput = Object.assign(document.createElement('input'), { type: 'file', accept: 'image/png,image/jpeg,image/webp,image/gif' });
+avInput.addEventListener('change', async () => {
+  const f = avInput.files[0]; avInput.value = '';
+  if (!f) return;
+  if (!/^image\/(png|jpeg|webp|gif)$/.test(f.type)) return toast('Нужна картинка PNG, JPG, WEBP или GIF.', 'err');
+  if (f.size > 15 * 1024 * 1024) return toast('Файл больше 15 МБ.', 'err');
+  let bmp;
+  try { bmp = await createImageBitmap(f); } catch { return toast('Не удалось открыть картинку.', 'err'); }
+  const side = Math.min(bmp.width, bmp.height), cv = document.createElement('canvas'); cv.width = cv.height = AVA;
+  const g = cv.getContext('2d'); g.imageSmoothingQuality = 'high';
+  g.drawImage(bmp, (bmp.width - side) / 2, (bmp.height - side) / 2, side, side, 0, 0, AVA, AVA);
+  const px = g.getImageData(0, 0, AVA, AVA).data;
+  let bin = ''; for (let i = 0; i < px.length; i += 0x8000) bin += String.fromCharCode.apply(null, px.subarray(i, i + 0x8000));
+  send({ t: 'avatar', op: 'set', px: btoa(bin) });
+});
+$('#sheetBody').addEventListener('click', (e) => {
+  const t = e.target.closest('[data-avatar]'); if (!t) return;
+  if (t.dataset.avatar === 'set') return avInput.click();
+  if (confirm('Удалить аватар?')) send({ t: 'avatar', op: 'del' });
+});

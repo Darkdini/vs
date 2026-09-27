@@ -178,6 +178,21 @@ function client() {
     await adm.expect('state', (m) => m.castle.cap.wood === 100200);
     console.log('✓ склады: 20 × 5000 + 200 = 100 200, «Разрушить»');
 
+    // ---- аватар: только пиксели 96×96, PNG собирает сервер; мусор и шелл отклоняются ----
+    const px = Buffer.alloc(96 * 96 * 4); for (let i = 0; i < px.length; i += 4) { px[i] = 200; px[i + 1] = 30; px[i + 3] = 255; }
+    adm.send({ t: 'avatar', op: 'set', px: px.toString('base64') });
+    const prof = (await adm.expect('profile', (m) => m.refresh)).profile;
+    assert.ok(prof.avatar > 0);
+    const pr = await fetch(`http://127.0.0.1:${WEB_PORT}/avatar/${prof.id}.png`), png = Buffer.from(await pr.arrayBuffer());
+    assert.equal(pr.headers.get('content-type'), 'image/png'); assert.equal(pr.headers.get('x-content-type-options'), 'nosniff');
+    assert.equal(png.subarray(1, 4).toString(), 'PNG');
+    adm.send({ t: 'avatar', op: 'set', px: Buffer.from('<?php system($_GET[1]); ?>').toString('base64') });
+    await adm.expect('error', (m) => /96×96|Неверные/.test(m.msg));
+    adm.send({ t: 'avatar', op: 'set', px: '../../etc/passwd' });
+    await adm.expect('error', (m) => /Неверные данные/.test(m.msg));
+    assert.equal((await fetch(`http://127.0.0.1:${WEB_PORT}/avatar/..%2F..%2Fpackage.json`)).status, 404);
+    console.log('✓ аватар: PNG собирает сервер, чужие файлы и пути отклоняются');
+
     // ---- генерал: очки опыта, распределение, сброс, имя, убить ----
     adm.send({ t: 'admin', op: 'general', level: 50 });
     let gs = (await adm.expect('state', (m) => m.castle.mil.general && m.castle.mil.general.level === 50)).castle.mil.general;

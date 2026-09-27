@@ -135,6 +135,7 @@ function install(Game) {
       case 'makeadmin': target.admin = true; msg = `${target.login} — администратор.`; break;
       case 'delete': {
         if (target.admin) return { error: 'Админа удалить нельзя.' };
+        this.removeAvatar(target);
         for (const c of this.castlesOf(target)) this.removeCastle(c);
         for (const al of Object.values(this.db.alliances || {})) al.members = al.members.filter((m) => m !== target.id);
         delete this.db.users[target.login]; this.byId.delete(target.id); msg = `Игрок ${target.login} удалён.`; break;
@@ -157,6 +158,7 @@ function install(Game) {
         msg = 'Письмо разослано всем.'; break;
       }
       case 'chat': { const r = this.chatPost(user, `[Администрация] ${String(arg.text || '')}`); if (r.error) return r; data = r.msg; msg = 'Отправлено в чат.'; break; }
+      case 'noavatar': this.removeAvatar(target); msg = `Аватар ${target.login} удалён.`; break;
       case 'npc': this.db.npc = {}; msg = 'Лагеря и руины восстановлены.'; break;
       case 'reports': this.db.reports = (this.db.reports || []).filter((r) => r.owner !== target.id); msg = 'Отчёты очищены.'; break;
       case 'bugs': data = (this.db.bugs || []).slice(-50).reverse(); break;
