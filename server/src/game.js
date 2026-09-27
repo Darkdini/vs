@@ -45,8 +45,8 @@ const LANDS_EDGE = [
 
 // Какие здания можно ставить на клетку земель
 function landOptions(x, y) {
-  if (LANDS_EDGE[y][x] >= 0) return [];
-  if (LANDS_BASE[y][x] === 9) return [37];
+  // края дорог и берегов (LANDS_EDGE) — только рисунок, застраивать можно все 225 клеток
+  if (LANDS_BASE[y][x] === 9 || LANDS_EDGE[y][x] >= 12) return [37]; // вода и берег — Рыболовная заводь
   switch (LANDS_DECOR[y][x]) {
     case 0: return [7];
     case 1: return [8];

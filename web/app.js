@@ -102,7 +102,8 @@ function effect(def, level) {
     const cap = R().store.peoplePerHut * level, p = Math.round(S.cat.prod[level] * R().peopleFactor * sp);
     return { text: `+${cap} мест для людей, +${p} людей/ч`, short: `+${cap} мест` };
   }
-  if (def.produces) { const p = Math.round(S.cat.prod[level] * sp); return { text: `+${fmtFull(p)} ${RES_IC[def.produces]} в час`, short: `+${fmtN(p)}/ч` }; }
+  const GEN = { wood: 'дерева', stone: 'камня', iron: 'железа', food: 'еды' }; // текст (экранируется в окнах), без HTML-иконок
+  if (def.produces) { const p = Math.round(S.cat.prod[level] * sp); return { text: `+${fmtFull(p)} ${GEN[def.produces]} в час`, short: `+${fmtN(p)}/ч` }; }
   if (def.id === 1) { const c = Math.round(R().store.perStore * R().store.growth ** level); return { text: `+${fmtFull(c)} к вместимости`, short: `+${fmtN(c)}` }; }
   if (def.id === 0) { const p = Math.round((1 - R().time.townhallFactor ** level) * 100); return { text: `стройки быстрее на ${p}%`, short: `−${p}%` }; }
   const m = typeof milEffect === 'function' && S.st && milEffect(def, level); // функции зданий (mil.js)
@@ -443,10 +444,6 @@ $('#sheetBody').addEventListener('submit', (e) => {
 
 // ---------- содержимое шторок ----------
 function openCell(view, cell) {
-  if (view === VIEW.LANDS) {
-    const x = cell % 15, y = Math.floor(cell / 15);
-    if (S.cat.lands.edge[y][x] >= 0 && S.st.castle.grid[1][cell] < 0) return toast(S.cat.lands.base[y][x] === 9 ? 'Берег — здесь строить нельзя.' : 'Дорога — здесь строить нельзя.');
-  }
   openSheet(() => {
     const c = S.st.castle, b = c.grid[view][cell], q = queueAt(view, cell);
     if (b < 0 && !q) return emptySheet(view, cell);
@@ -601,7 +598,7 @@ function screenToTile(px, py) {
   return { x: Math.round((a - b) / 2), y: Math.round((a + b) / 2) };
 }
 // участки замка сдвинуты к центру (KC) и меньше клетки (PLOT): промежутки между ними и отступ от стены
-const KC = 0.8, PLOT = 0.7, BK = 0.8, CC = CASTLE_OFF + 3; // шаг сетки, размер участка, масштаб зданий
+const KC = 0.8, PLOT = 0.62, BK = 0.72, CC = CASTLE_OFF + 3; // шаг сетки, размер участка, масштаб зданий
 const cellAt = (cx, cy) => tileScreen(CC + (CASTLE_OFF + cx - CC) * KC, CC + (CASTLE_OFF + cy - CC) * KC);
 function screenToTileF(px, py) { const a = (px - TW / 2) / (TW / 2), b = (py - TH / 2) / (TH / 2); return { x: (a - b) / 2, y: (a + b) / 2 }; }
 // ромб (участок) уменьшенного размера k с центром в центре клетки p
