@@ -330,6 +330,16 @@ function client() {
     assert.ok(mb.list.some((x) => x.subject === 'Казна пополнена' && x.other === 'admin'));
     console.log('✓ казна: пополнение админом, письмо игроку, история трат');
 
+    // ---- премиум: покупка за монеты, звание VIP ----
+    adm.send({ t: 'admin', op: 'gold', login: 'webby', n: 150 });
+    await a.expect('toast', (m) => /пополнена 150/.test(m.msg));
+    a.send({ t: 'premium', days: 30 });
+    await a.expect('toast', (m) => /Премиум активен до/.test(m.msg));
+    a.send({ t: 'profile', id: s3.user.id });
+    const pv = (await a.expect('profile', (m) => m.profile.premium > 0)).profile; // webby — модератор, поэтому звание «Модератор форума»
+    assert.ok(pv.premium > Date.now() + 29 * 86400000);
+    console.log('✓ премиум: куплен за 150 монет на 30 дней, премиум в профиле');
+
     // ---- генерал: очки опыта, распределение, сброс, имя, убить ----
     adm.send({ t: 'admin', op: 'general', level: 50 });
     let gs = (await adm.expect('state', (m) => m.castle.mil.general && m.castle.mil.general.level === 50)).castle.mil.general;

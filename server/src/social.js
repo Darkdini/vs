@@ -122,7 +122,7 @@ function install(Game) {
     return {
       id: u.id, login: u.login, race: u.race, raceName: C.RACE_NAMES[u.race], created: u.created, lastSeen: u.id === viewer.id || viewer.admin ? u.lastSeen || u.created : null, // кто когда в игре — видно только себе и админу
       rating: this.userRating(u), rank: this.rankOf(u.id), reputation: u.reputation ?? START_REP,
-      title: u.admin ? 'Администратор' : u.mod ? 'Модератор форума' : null,
+      title: u.admin ? 'Администратор' : u.mod ? 'Модератор форума' : this.isPremium(u) ? 'VIP' : null, premium: this.isPremium(u) && !u.admin ? u.premium : 0,
       chatBan: viewer.admin || viewer.mod || u.id === viewer.id ? u.chatBan || 0 : undefined,
       alliance: al ? { name: al.name, tag: al.tag, role: al.leader === u.id ? 'Глава' : 'Участник' } : null,
       medals: this.medalsOf(u.id), awards: (u.allyAwards || []).slice().reverse(),
@@ -144,7 +144,7 @@ function install(Game) {
     if (!(coins >= 1) || coins > 100000) return { error: 'Укажите количество монет.' };
     if ((from.gold || 0) < coins) return { error: `Не хватает золота (у вас ${from.gold || 0}).` };
     this.goldChange(from, -coins, `Репутация +${coins * REP_PER_GOLD} игроку ${to.login}`);
-    const add = coins * REP_PER_GOLD;
+    const add = coins * REP_PER_GOLD + (to.id === from.id && this.isPremium(from) ? 1 : 0); // премиум: +1 себе
     to.reputation = (to.reputation ?? START_REP) + add;
     this.cache = {};
     this.store.save();

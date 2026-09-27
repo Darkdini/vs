@@ -17,7 +17,7 @@ function festivalsWin() {
   const r = MY().royal;
   return `${ribbon('Праздники')}<div class="bwline">Праздник радует население и приносит лояльность (в пределах дневного лимита ${r.dayCap} ед.). Каждый праздник — раз в сутки.</div>
     ${r.festivals.map((f) => `<div class="fest"><b>${esc(f.name)}</b> — ${CROWN()} +${f.gain}<div class="small">${esc(f.desc)}</div>
-      <div class="chips">${f.cost ? RES4.map((k) => `<span>${RES_IC[k]} ${fmtFull(f.cost[k])}</span>`).join('') : ''}${f.gold ? `<span>${gimg('smallicon/coin_gold.png', 'ri')} ${f.gold}</span>` : ''}</div>
+      <div class="chips">${f.cost ? RES4.map((k) => `<span>${RES_IC[k]} ${fmtFull(f.cost[k])}</span>`).join('') : ''}${f.gold ? `<span>${gimg('coins_s.png', 'ri')} ${f.gold}</span>` : ''}</div>
       ${f.ready ? `<button class="pbtn" data-fest="${f.id}">Устроить</button>` : `<div class="small muted">Снова через <span class="cd" data-e="${f.readyAt}"></span></div>`}</div>`).join('')}`;
 }
 // справка «Лояльность» — страницы как в оригинале (Далее / В начало / В содержание)

@@ -231,6 +231,7 @@ class Game {
       const def = C.BY_ID[b];
       if (def && def.produces) r[def.produces] += C.PROD[castle.levels[1][i]] * C.PROD_K[def.produces];
     });
+    if (this.isPremium(this.userById(castle.owner))) r.people *= 1.5; // премиум: население +50%
     const prod = this.bonus(castle).prod; // наука Экономика, религия Природа, артефакты
     for (const k of ['wood', 'stone', 'iron', 'food']) r[k] *= prod;
     for (const k of Object.keys(r)) r[k] = Math.round(r[k] * RES_SPEED + 1e-9);
@@ -270,7 +271,8 @@ class Game {
     const def = C.BY_ID[buildingId];
     if (!def) return { error: 'Неизвестное здание.' };
     if (castle.queue.some((q) => q.view === view && q.cell === cell)) return { error: 'Здесь уже идёт строительство.', state: 1 };
-    if (castle.queue.length >= MAX_QUEUE) return { error: `Одновременно можно строить не больше ${MAX_QUEUE} зданий.` };
+    const maxQ = this.isPremium(this.userById(castle.owner)) ? 5 : MAX_QUEUE; // премиум — 5 строек
+    if (castle.queue.length >= maxQ) return { error: `Одновременно можно строить не больше ${maxQ} зданий.${maxQ < 5 ? ' С премиумом — 5.' : ''}` };
     const current = castle.grid[view][cell];
     let level;
     if (current === -1) {
@@ -386,5 +388,6 @@ require('./admin').install(Game);
 require('./avatar').install(Game);
 require('./royal').install(Game);
 require('./ally').install(Game);
+require('./premium').install(Game);
 
 module.exports = { WORLD, Game, Store, STORE, BASE_RATE, PEOPLE_FACTOR, storeBonus, RES_SPEED, buildTime, VIEW, GRID, landOptions, SPEED, MAX_QUEUE, LANDS_BASE, LANDS_DECOR, LANDS_EDGE };

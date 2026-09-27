@@ -17,7 +17,7 @@ function ritualsWin() {
   return `${ribbon('Ритуалы')}
     <div class="bwline">Ритуал на сутки увеличивает весь прирост лояльности населения. Сейчас бонус +${Math.round(r.bonus * 100)}% (максимум +${Math.round(r.bonusCap * 100)}% — 5% за уровень Храма).</div>
     ${r.rituals.map((x) => `<div class="fest"><b>${esc(x.name)}</b> — +${Math.round(x.pct * 100)}% на ${x.hours} ч<div class="small">${esc(x.desc)}</div>
-      <div class="chips">${x.cost ? RES4.map((k) => `<span>${RES_IC[k]} ${fmtFull(x.cost[k])}</span>`).join('') : ''}${x.gold ? `<span>${gimg('smallicon/coin_gold.png', 'ri')} ${x.gold}</span>` : ''}</div>
+      <div class="chips">${x.cost ? RES4.map((k) => `<span>${RES_IC[k]} ${fmtFull(x.cost[k])}</span>`).join('') : ''}${x.gold ? `<span>${gimg('coins_s.png', 'ri')} ${x.gold}</span>` : ''}</div>
       ${x.until > Date.now() ? `<div class="small muted">Действует ещё <span class="cd" data-e="${x.until}"></span></div>` : `<button class="pbtn" data-ritual="${x.id}">Провести</button>`}</div>`).join('')}
     ${religionHtml()}`;
 }

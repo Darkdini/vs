@@ -818,3 +818,19 @@ textarea.ainput { resize: vertical; }
 .glog { display: flex; gap: 10px; align-items: center; border-bottom: 1px solid #0002; padding: 6px 0; font: min(19px, 4.4vw) var(--serif); }
 .glog > span:first-child { min-width: 70px; text-align: right; font-weight: 700; } .glog .plus { color: #2f7a10; } .glog .minus { color: #b01010; }
 .glog small { opacity: .7; font-size: 13px; }
+
+/* ---------- Премиум ---------- */
+.premrow { display: flex; gap: 10px; align-items: flex-start; margin: 6px 0; }
+.premcard { width: 40%; max-width: 180px; flex: none; }
+.premside { flex: 1; min-width: 0; }
+.premname { text-align: center; font: 700 min(26px, 6vw)/1.2 var(--serif); color: #3a1a08; margin-bottom: 6px; }
+.bwline.big2 { font-size: min(24px, 5.4vw); }
+.pbar.big { font-size: min(26px, 6vw); display: flex; align-items: center; justify-content: center; gap: 8px; }
+.coinimg { height: 40px; }
+.premf { border-bottom: 1px solid #0002; padding: 6px 0; font: min(21px, 4.8vw)/1.35 var(--serif); }
+.premf .chk { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #2fa02f; color: #fff; font-size: 15px; }
+.premf.soon { opacity: .55; } .premf.soon .chk { background: #999; }
+.good2 { color: #2f7a10; }
+.admbadge.crownp { height: 40px; margin: -6px 4px; }
+img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !important; object-fit: contain; }
+.ri[src$="coins_s.png"] { height: 1.4em; width: auto; }

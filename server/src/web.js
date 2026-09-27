@@ -92,7 +92,7 @@ function catalogJson() {
     raceOrder: C.RACES,
     units: C.UNITS,
     army: armyJson(),
-    gifts: require('./social').GIFTS, repPerGold: require('./social').REP_PER_GOLD,
+    premiumPlans: require('./premium').PLANS, gifts: require('./social').GIFTS, repPerGold: require('./social').REP_PER_GOLD,
     mil: ARMY.catalogJson(), // юниты игры, науки, религии, артефакты, NPC-лагеря
     lands: { base: G.LANDS_BASE, decor: G.LANDS_DECOR, edge: G.LANDS_EDGE },
     landOptions: G.LANDS_BASE.map((row, y) => row.map((_, x) => G.landOptions(x, y))),
@@ -116,7 +116,7 @@ class WebSession {
     this.send({
       t: 'state',
       now: Date.now(),
-      user: { id: u.id, login: u.login, race: u.race, raceName: C.RACE_NAMES[u.race], gold: u.gold || 0, goldLog: (u.goldLog || []).slice(-50).reverse(), admin: !!u.admin, mod: !!u.mod },
+      user: { id: u.id, login: u.login, race: u.race, raceName: C.RACE_NAMES[u.race], premium: u.premium || 0, gold: u.gold || 0, goldLog: (u.goldLog || []).slice(-50).reverse(), admin: !!u.admin, mod: !!u.mod },
       castle: {
         id: c.id, name: c.name, x: c.x, y: c.y, grid: { 0: Array.from(c.grid[0]), 1: Array.from(c.grid[1]) }, levels: { 0: Array.from(c.levels[0]), 1: Array.from(c.levels[1]) },
         res: c.res, rate: this.game.rates(c), cap: this.game.capacity(c),
@@ -248,6 +248,7 @@ const API = {
     const r = this.game.chatPost(this.user, m.text); if (r.error) return this.error(r.error);
     for (const s of WebSession.all || []) if (s.user && s.sendChat) s.sendChat(r.msg);
   },
+  premium(m) { const r = this.game.buyPremium(this.user, m.days, m.to); if (r.error) return this.error(r.error); this.toast(r.msg); this.pushState(); },
   chatmod(m) {
     const r = m.op === 'del' ? this.game.chatDelete(this.user, m.id) : this.game.chatBanUser(this.user, m.login, m.hours);
     if (r.error) return this.error(r.error);

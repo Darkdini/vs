@@ -16,7 +16,8 @@ const MENUS = {
     ...(S.st.user.admin ? [['Админ-панель', 'smallicon/status/f_gold.png', () => openSheet(adminHtml)]] : []),
     ['Профиль', 'units/human/general.png', () => send({ t: 'profile', id: me() })],
     ['Советник', `units/${S.cat.mil.raceDir[S.st.user.race]}/wisdom.png${S.st.user.race === 'orcs' ? '?orc' : ''}`, () => openSheet(advisorWin)],
-    ['Казна', 'smallicon/coin_gold.png', () => openSheet(treasuryWin)],
+    ['Казна', 'coins_s.png', () => openSheet(treasuryWin)],
+    ['Премиум', 'premium_crown.png', () => openPremium()],
     ['Премиум', 'smallicon/status/f_gold.png', () => openSoon('Премиум')],
     ['Уведомления', 'smallicon/upgrade.png', () => openReports()],
     ['Фотоальбомы', 'smallicon/magattak.png', () => openSoon('Фотоальбомы')],
@@ -61,7 +62,7 @@ const MENUS = {
   ] },
   games: { label: 'Игры', title: 'Игры', icon: 'menu/games.svg', items: () => [
     ['Кости', 'smallicon/surprize.png', () => openSoon('Кости')],
-    ['Лотерея', 'smallicon/coin_gold.png', () => openSoon('Лотерея')],
+    ['Лотерея', 'coins_s.png', () => openSoon('Лотерея')],
   ] },
   info: { label: 'Инфо', title: 'Информация', icon: 'menu/info.svg', items: () => [
     ['Новости', 'smallicon/upgrade.png', () => openSheet(newsWin)],
@@ -217,17 +218,17 @@ function profileWin(p) {
     ${p.self ? `<div class="avbtns"><button class="pbtn small" data-avatar="set">Загрузить аватар</button>${p.avatar ? '<button class="pbtn small" data-avatar="del">Удалить</button>' : ''}</div>` : ''}
     <button class="pline plink2" data-reptable>Репутация (${fmtFull(p.reputation)}): ${repIcons(p.reputation)}</button>
     <div class="pline">Зал Славы: ${medals}</div>
-    ${p.title ? `<div class="ptitle">Звание: ${p.title === 'Администратор' ? `<img class="admbadge" src="${GFX}admin_badge.png" alt="">` : p.title === 'Модератор форума' ? `<img class="admbadge" src="${GFX}mod_badge.png" alt="">` : gimg('smallicon/status/f_gold.png', 'ri')} ${esc(p.title)}</div>` : ''}
+    ${p.title ? `<div class="ptitle">Звание: ${p.title === 'Администратор' ? `<img class="admbadge" src="${GFX}admin_badge.png" alt="">` : p.title === 'Модератор форума' ? `<img class="admbadge" src="${GFX}mod_badge.png" alt="">` : p.title === 'VIP' ? `<img class="admbadge crownp" src="${GFX}premium_crown.png" alt="">` : gimg('smallicon/status/f_gold.png', 'ri')} ${esc(p.title)}</div>` : ''}
     <div class="pline">Альянс: ${p.alliance ? `<b>${esc(p.alliance.name)} [${esc(p.alliance.tag)}]</b>` : '—'}</div>
     ${p.alliance ? `<div class="pline">Звание в альянсе: ${esc(p.alliance.role)}</div>` : ''}
     <div class="ptiles">
-      ${tile('treasury', 'smallicon/coin_gold.png', 'Пополнить Казну', !p.self)}
+      ${tile('treasury', 'coins_s.png', 'Пополнить Казну', !p.self)}
       ${tile('rep', 'smallicon/plus.png', 'Поднять Репутацию')}
       ${tile('gift', 'smallicon/surprize.png', 'Отправить Подарок')}
       ${tile('friend', 'smallicon/status/online.png', p.friend ? 'Убрать из друзей' : 'Добавить в друзья', p.self)}
       ${tile('msg', 'smallicon/unmes.png', 'Сообщение')}
       ${tile('map', 'ground/castle_small.png', 'На карте')}
-      ${tile('premium', 'smallicon/status/f_gold.png', 'Подарить Премиум', true)}
+      ${tile('premium', 'premium_crown.png', p.self ? 'Премиум' : 'Подарить Премиум')}
       ${tile('info', 'units/human/general.png', 'Личная информация')}
       ${tile('attack', 'smallicon/swordred.png', 'Атаковать', p.self)}
     </div>
@@ -309,7 +310,7 @@ function castleWin(o, x, y) {
 // ---------- Казна: золото игрока ----------
 const treasuryWin = () => {
   const log = S.st.user.goldLog || [];
-  return `${ribbon('Казна')}<div class="cwin"><img class="cwimg" src="${GFX}smallicon/coin_gold.png" alt=""><div><div class="cwname">Монеты</div><b>${fmtFull(S.st.user.gold)}</b></div></div>
+  return `${ribbon('Казна')}<div class="cwin"><img class="cwimg" src="${GFX}coins.png" alt=""><div><div class="cwname">Монеты</div><b>${fmtFull(S.st.user.gold)}</b></div></div>
   <p class="parch-note">Монеты выдаёт администрация. Тратятся на подарки, репутацию, праздники, ритуалы и казну альянса.</p>
   ${ribbon('История')}${log.map((x) => `<div class="glog"><span class="${x.delta > 0 ? 'plus' : 'minus'}">${x.delta > 0 ? '+' : ''}${fmtFull(x.delta)}</span><span>${esc(x.reason)}<br><small>${new Date(x.at).toLocaleString('ru-RU')} · осталось ${fmtFull(x.left)}</small></span></div>`).join('') || '<p class="parch-note">Операций пока не было.</p>'}`;
 };
@@ -381,6 +382,7 @@ $('#sheetBody').addEventListener('click', (e) => {
     if (t.classList.contains('off')) return;
     const p = S.lastProfile, id = Number(d.pid);
     if (d.ptile === 'treasury') return openSheet(treasuryWin);
+    if (d.ptile === 'premium') return openPremium(p.self ? null : p.login);
     if (d.ptile === 'rep') { S.repTo = p; S.repCoins = 1; return openSheet(repWin); }
     if (d.ptile === 'gift') { S.giftTo = p; return openSheet(giftsWin); }
     if (d.ptile === 'friend') { send({ t: 'friend', op: p.friend ? 'del' : 'add', id }); return send({ t: 'profile', id }); }
@@ -438,10 +440,10 @@ function giftsWin() {
     <div class="combo"><select><option>Все</option></select></div>
     <div class="center bwline">Все <span class="plink">Новые</span></div>
     <div class="pager"><button>◀◀</button><button>◀</button><span>1</span><button>▶</button><button>▶▶</button></div>
-    <div class="bwline center">Кому: <b>${esc(p.login)}</b> · у вас ${gimg('smallicon/coin_gold.png', 'ri')} ${fmtFull(S.st.user.gold || 0)}</div>
+    <div class="bwline center">Кому: <b>${esc(p.login)}</b> · у вас ${gimg('coins_s.png', 'ri')} ${fmtFull(S.st.user.gold || 0)}</div>
     ${list.map(([id, g]) => `<div class="giftrow"><img src="${GFX}${g.img}" alt="">
       ${g.premium ? '<div class="gprem">Премиум подарок</div>' : ''}
-      <div class="bwline center">${esc(g.name)} ( ${gimg('smallicon/coin_gold.png', 'ri')} ${g.gold})</div>
+      <div class="bwline center">${esc(g.name)} ( ${gimg('coins_s.png', 'ri')} ${g.gold})</div>
       <div class="center bwline">🎁 <a class="plink" data-giftsend="${id}">Отправить</a> игроку!</div></div>`).join('')}`;
 }
 $('#sheetBody').addEventListener('click', (e) => {
@@ -487,7 +489,7 @@ function repWin() {
   return `${ribbon('Поднять Репутацию')}
     <div class="bwline center">Игрок: <b>${esc(p.login)}</b></div>
     <div class="bwline center">Репутация (${fmtFull(p.reputation)}): ${repIcons(p.reputation)}</div>
-    <div class="bwline center">1 ${gimg('smallicon/coin_gold.png', 'ri')} = ${k} 👍 · у вас ${gimg('smallicon/coin_gold.png', 'ri')} ${fmtFull(gold)}</div>
+    <div class="bwline center">1 ${gimg('coins_s.png', 'ri')} = ${k} 👍 · у вас ${gimg('coins_s.png', 'ri')} ${fmtFull(gold)}</div>
     <div class="arow"><span>Монет:</span><input class="anum" type="number" inputmode="numeric" min="1" value="${c}" data-repcoins></div>
     <div class="bwline center">Станет: <b data-repafter>${fmtFull(p.reputation + c * k)}</b> <span data-repicons>${repIcons(p.reputation + c * k)}</span></div>
     <button class="pbar" data-repgo>Поднять на <span data-repadd>${c * k}</span></button>`;

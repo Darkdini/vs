@@ -69,7 +69,7 @@ function allyTitlesWin() {
 function allyManageWin() {
   const a = S.ally; if (!a) return loading('Управ. альянсом');
   return `${ribbon('Управ. альянсом')}<div class="ptiles">
-    ${aTile('data-aw="gold"', `${GFX}smallicon/coin_gold.png`, 'Казна Альянса')}
+    ${aTile('data-aw="gold"', `${GFX}coins_s.png`, 'Казна Альянса')}
     ${aTile('data-aw="store"', AI('basket'), 'Кладовая')}
     ${aTile('data-aw="titles"', `${GFX}smallicon/status/f_gold.png`, 'Звания и погоны')}
     ${aTile('data-aw="mail"', `${GFX}smallicon/unmes.png`, 'Рассылки', !can('mail'))}
@@ -135,7 +135,7 @@ function allyReqWin() {
 
 function allyGoldWin() {
   const a = S.ally; if (!a) return loading('Казна Альянса');
-  return `${ribbon('Казна Альянса')}<div class="bwline center">В казне: ${gimg('smallicon/coin_gold.png', 'ri')} <b>${fmtFull(a.treasury)}</b> · у вас ${fmtFull(S.st.user.gold || 0)}</div>
+  return `${ribbon('Казна Альянса')}<div class="bwline center">В казне: ${gimg('coins_s.png', 'ri')} <b>${fmtFull(a.treasury)}</b> · у вас ${fmtFull(S.st.user.gold || 0)}</div>
     <form class="chatform" data-aform="gold"><input name="n" type="number" min="1" placeholder="Сколько внести" required><button class="pbtn small">Внести</button></form>
     ${can('treasury') ? `${ribbon('Выдать из казны')}<form class="aform" data-aform="goldto"><div class="combo"><select name="to">${a.members.map((m) => `<option>${esc(m.login)}</option>`).join('')}</select></div><input class="ainput" name="n" type="number" min="1" placeholder="Сколько" required><div class="center"><button class="pbtn">Выдать</button></div></form>` : ''}`;
 }

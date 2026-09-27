@@ -373,7 +373,7 @@ function install(Game, helpers) {
   P.addGeneralExp = function addGeneralExp(castle, exp) {
     const g = castle.general; if (!g || g.dead) return;
     this.normGeneral(g, castle);
-    g.exp += Math.round(exp * (1 + GEN.career * g.pts.career));
+    g.exp += Math.round(exp * (1 + GEN.career * g.pts.career) * (this.isPremium(this.userById(castle.owner)) ? 2 : 1)); // премиум — опыт ×2
     while (g.level < GEN.maxLevel && g.exp >= this.generalNeed(g.level)) { g.level++; g.free += GEN.perLevel; this.event(castle.owner, `Генерал достиг ${g.level} уровня!`); }
   };
   // окно «Генерал»: rename, dist (распределить очки), reset (сбросить очки), kill (убить)
@@ -498,6 +498,7 @@ function install(Game, helpers) {
     }
     let sec = this.travelSec(castle, clean, general, x, y, mission === 'trade');
     if (portal) sec = Math.max(5, Math.round(sec / 4));
+    if (at && Number(at) > Date.now() + 3000 && !this.isPremium(this.userById(castle.owner))) return { error: 'Расписание отправки доступно с премиумом.' };
     const now = Date.now(), start = at && Number(at) > now + 3000 ? Number(at) : now;
     const army = { id: this.db.nextId++, units: clean, general: !!general, mission, x, y, depart: start, arrive: start + sec * 1000, sec, state: start > now ? 'wait' : 'go', loot: null, cargo,
       squad: squad ? { id: squad.id, name: squad.name } : from === 'castle' ? { id: 0, name: 'Замковая армия' } : null, portal: !!portal };
