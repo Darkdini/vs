@@ -411,8 +411,10 @@ function refreshSheet() {
   if (!S.sheets.length || document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
   const sc = $('#sheetBody').scrollTop; showSheet(false); $('#sheetBody').scrollTop = sc;
 }
-function closeSheet() { if (!S.sheets.length) return; S.sheets.pop(); showSheet(true); popOverlay(); }
-function closeAllSheets() { if (!S.sheets.length) return; S.sheets = []; showSheet(); popOverlay(); }
+function closeSheet() { if (!S.sheets.length) return; S.sheets.pop(); showSheet(true); popOverlay(); unselect(); }
+function closeAllSheets() { if (!S.sheets.length) return; S.sheets = []; showSheet(); popOverlay(); unselect(); }
+// окно закрыто — снять подсветку клетки в замке и на землях
+function unselect() { if (!S.sheets.length && Iso.sel && Iso.sel.tab !== 'world') { Iso.sel = null; isoDraw(); } }
 $('#backdrop').addEventListener('click', closeAllSheets);
 $('#sheetClose').addEventListener('click', closeAllSheets);
 $('#sheetBack').addEventListener('click', closeSheet);
@@ -480,22 +482,9 @@ function buildingSheet(def, lvl, ctx) {
       <button class="btn primary" data-build="${ctx.view},${ctx.cell},${def.id}" ${blk.length ? 'disabled' : ''}>${lvl ? 'Развить' : 'Построить'}</button>` : ''}</div>`;
   } else h += '<div class="card next"><h4>Максимальный уровень</h4></div>';
   if (ctx && lvl > 0) h += buildingFunctions(def, lvl); // тренировка, армия, рынок, науки… (mil.js)
-  h += levelsTable(def, lvl, th);
   return h;
 }
 
-function levelsTable(def, lvl, th) {
-  const w = ratingPer(def);
-  let rows = '';
-  for (let l = 1; l <= def.max; l++) {
-    const c = def.costs[l];
-    rows += `<tr class="${l === lvl ? 'cur' : l < lvl ? 'done' : ''}"><td>${l}</td>${RES.map((r) => `<td>${fmtFull(c[r])}</td>`).join('')}
-      <td>${fmtT(buildSec(def, l, th))}</td><td>${esc(effect(def, l).short)}</td><td>+${fr(w)} / ${fr(l * w)}</td></tr>`;
-  }
-  return `<div class="section">Все уровни</div><div class="tbl"><table><thead><tr><th>Ур.</th>${RES.map((r) => `<th>${RES_IC[r]}</th>`).join('')}
-    <th>${TIME_IC}</th><th>Даёт</th><th>★</th></tr></thead><tbody>${rows}</tbody></table></div>
-    <p class="tblnote">Время — при Ратуше ${th} ур. и скорости мира ×${S.cat.speed}. ★ — рейтинг за уровень / всего от здания.</p>`;
-}
 
 function emptySheet(view, cell) {
   let opts, title, sub;
@@ -611,6 +600,21 @@ function screenToTile(px, py) {
   const a = (px - TW / 2) / (TW / 2), b = (py - TH / 2) / (TH / 2);
   return { x: Math.round((a - b) / 2), y: Math.round((a + b) / 2) };
 }
+// участки замка сдвинуты к центру (KC) и меньше клетки (PLOT): промежутки между ними и отступ от стены
+const KC = 0.8, PLOT = 0.7, BK = 0.8, CC = CASTLE_OFF + 3; // шаг сетки, размер участка, масштаб зданий
+const cellAt = (cx, cy) => tileScreen(CC + (CASTLE_OFF + cx - CC) * KC, CC + (CASTLE_OFF + cy - CC) * KC);
+function screenToTileF(px, py) { const a = (px - TW / 2) / (TW / 2), b = (py - TH / 2) / (TH / 2); return { x: (a - b) / 2, y: (a + b) / 2 }; }
+// ромб (участок) уменьшенного размера k с центром в центре клетки p
+function plotDiamond(p, k, fill, stroke, lw = 2.5) {
+  const x = ictx, cx = p.sx + TW / 2, cy = p.sy + TH / 2, hw = TW * k / 2, hh = TH * k / 2;
+  x.beginPath(); x.moveTo(cx, cy - hh); x.lineTo(cx + hw, cy); x.lineTo(cx, cy + hh); x.lineTo(cx - hw, cy); x.closePath();
+  if (fill) { x.fillStyle = fill; x.fill(); }
+  if (stroke) { x.save(); x.shadowColor = '#ffd84a'; x.shadowBlur = 8; x.strokeStyle = stroke; x.lineWidth = lw; x.stroke(); x.restore(); }
+}
+function plotImage(path, p, k) { const im = pic(path); if (!im) return; const w = im.width * k, h = im.height * k; ictx.drawImage(im, p.sx + TW / 2 - w / 2, p.sy + TH - TH * (1 - k) / 2 - h, w, h); }
+// подсветка выбранной клетки
+const isSel = (x, y) => Iso.sel && Iso.sel.tab === S.tab && Iso.sel.x === x && Iso.sel.y === y;
+const glow = (p, k) => plotDiamond(p, k, 'rgba(255, 214, 80, 0.38)', '#ffe27a', 2.5);
 const gridN = () => (S.tab === 'castle' ? 17 : S.tab === 'lands' ? 15 : S.world ? 2 * S.world.radius + 1 : 15);
 const cam = () => Iso.cams[S.tab] || (Iso.cams[S.tab] = isoFit());
 
@@ -682,9 +686,10 @@ function isoZoom(k, mx, my) {
 function isoTap(px, py) {
   const c = cam(), t = screenToTile((px - c.x) / c.z, (py - c.y) / c.z);
   if (S.tab === 'castle') {
-    const x = t.x - CASTLE_OFF, y = t.y - CASTLE_OFF;
+    const f = screenToTileF((px - c.x) / c.z, (py - c.y) / c.z);
+    const x = Math.round(CC + (f.x - CC) / KC) - CASTLE_OFF, y = Math.round(CC + (f.y - CC) / KC) - CASTLE_OFF;
     if (x < 0 || x >= 7 || y < 0 || y >= 7) return;
-    Iso.sel = { tab: 'castle', x: t.x, y: t.y }; isoDraw();
+    Iso.sel = { tab: 'castle', x, y }; isoDraw();
     openCell(VIEW.CASTLE, y * 7 + x);
   } else if (S.tab === 'lands') {
     if (t.x < 0 || t.x >= 15 || t.y < 0 || t.y >= 15) return;
@@ -733,13 +738,16 @@ function bar(sx, sy, frac) {
     if (pct > i * 10) { ictx.fillStyle = '#4eff00'; ictx.fillRect(sx + 1, y + 1, 2, 2); }
   }
 }
-// курсор-рука на выбранной клетке (cursor.png, рисуется в левый верхний угол ромба)
-function cursor() { if (Iso.sel && Iso.sel.tab === S.tab) { const p = tileScreen(Iso.sel.x, Iso.sel.y); raw('cursor.png', p.sx, p.sy); } }
 // здание на клетке (с учётом стройки): спрайт, уровень, полоса прогресса
-function drawCellBuilding(view, cell, b, lvl, p) {
+function drawCellBuilding(view, cell, b, lvl, p, k = 1, sel = false) {
   const q = queueAt(view, cell);
-  if (q && q.level === 1) sprite('build/build.png', p.sx, p.sy);
-  else if (b >= 0 && BUILD_IMG[displayId(S.by[b], lvl)]) sprite(`build/${BUILD_IMG[displayId(S.by[b], lvl)]}.png`, p.sx, p.sy);
+  const path = q && q.level === 1 ? 'build/build.png' : b >= 0 && BUILD_IMG[displayId(S.by[b], lvl)] ? `build/${BUILD_IMG[displayId(S.by[b], lvl)]}.png` : null;
+  if (path) {
+    if (sel) { ictx.save(); ictx.filter = 'brightness(1.25) drop-shadow(0 0 3px #ffd84a) drop-shadow(0 0 2px #ffd84a)'; }
+    if (k === 1) sprite(path, p.sx, p.sy);
+    else { const im = pic(path); if (im) { const w = im.width * k, h = im.height * k; ictx.drawImage(im, p.sx + TW / 2 - w / 2, p.sy + TH / 2 + TH * PLOT / 2 - h + 2, w, h); } }
+    if (sel) ictx.restore();
+  }
   if (q) bar(p.sx, p.sy, (now() - q.start) / (q.end - q.start));
 }
 
@@ -788,15 +796,19 @@ function isoDrawNow() {
   x.imageSmoothingEnabled = false;
   const st = S.st.castle;
   if (S.tab === 'castle') { // порядок как в клиенте: земля → ров → ограда сзади → здания → ограда спереди → курсор
-    groundField(17, (xx, y) => `ground/${GROUND[CASTLE_BASE[y][xx]]}.png`);
+    // внутри стен — трава, на ней 49 каменных участков с промежутками
+    groundField(17, (xx, y) => (xx >= CASTLE_OFF && xx < CASTLE_OFF + 7 && y >= CASTLE_OFF && y < CASTLE_OFF + 7 ? 'ground/grass.png' : `ground/${GROUND[CASTLE_BASE[y][xx]]}.png`));
     moat();
     const fence = buildingLevel(22) > 0; // Забор построен — вокруг замка стена
     if (fence) fenceBack();
     for (let y = 0; y < 7; y++) for (let xx = 6; xx >= 0; xx--) {
-      const cell = y * 7 + xx; drawCellBuilding(0, cell, st.grid[0][cell], st.levels[0][cell], tileScreen(xx + CASTLE_OFF, y + CASTLE_OFF));
+      const p = cellAt(xx, y); plotImage('ground/stone.png', p, PLOT); plotDiamond(p, PLOT, null, null);
+      if (isSel(xx, y)) glow(p, PLOT);
+    }
+    for (let y = 0; y < 7; y++) for (let xx = 6; xx >= 0; xx--) {
+      const cell = y * 7 + xx; drawCellBuilding(0, cell, st.grid[0][cell], st.levels[0][cell], cellAt(xx, y), BK, isSel(xx, y));
     }
     if (fence) fenceFront();
-    cursor();
   } else if (S.tab === 'lands') {
     const L = S.cat.lands;
     groundField(15, (xx, y) => `ground/${GROUND[L.base[y][xx]]}.png`);
@@ -804,12 +816,12 @@ function isoDrawNow() {
       const e = L.edge[y][xx]; if (e < 0) continue;
       const p = tileScreen(xx, y); raw(`gborder/${e < 12 ? 'ground' : 'water'}/${EDGE[e % 12]}.png`, p.sx, p.sy);
     }
+    if (Iso.sel && Iso.sel.tab === 'lands') glow(tileScreen(Iso.sel.x, Iso.sel.y), 0.92);
     for (let y = 0; y < 15; y++) for (let xx = 14; xx >= 0; xx--) {
       const cell = y * 15 + xx, b = st.grid[1][cell], p = tileScreen(xx, y), d = L.decor[y][xx];
       if (b < 0 && !queueAt(1, cell) && d >= 0) sprite(`ground/${DECOR[d]}.png`, p.sx, p.sy, d === 1 ? 3 : d === 2 ? -2 : 0);
-      else drawCellBuilding(1, cell, b, st.levels[1][cell], p);
+      else drawCellBuilding(1, cell, b, st.levels[1][cell], p, 1, isSel(xx, y));
     }
-    cursor();
   } else if (S.world) {
     const w = S.world, R0 = w.radius, n = 2 * R0 + 1, objs = new Map(w.objects.map((o) => [`${o.x}:${o.y}`, o]));
     for (let y = 0; y < n; y++) for (let xx = n - 1; xx >= 0; xx--) {
@@ -819,12 +831,12 @@ function isoDrawNow() {
     for (const [ax, ay, img] of [[mid, -1, 'arrowup'], [n, mid, 'arrowright'], [mid, n, 'arrowdown'], [-1, mid, 'arrowleft']]) {
       const p = tileScreen(ax, ay); ground(`ground/${img}.png`, p.sx, p.sy);
     }
+    if (Iso.sel && Iso.sel.tab === 'world') glow(tileScreen(Iso.sel.x, Iso.sel.y), 0.92);
     for (let y = 0; y < n; y++) for (let xx = n - 1; xx >= 0; xx--) {
       const o = objs.get(`${w.cx - R0 + xx}:${w.cy - R0 + y}`); if (!o) continue;
       const p = tileScreen(xx, y);
       ground(WORLD_NAME_IMG(o), p.sx, p.sy);
     }
-    cursor();
   }
 }
 
