@@ -1,0 +1,14 @@
+{
+  "name": "third-world-test-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Тестовый сервер для оригинального J2ME-клиента «Третий Мир: Война Королей» (протокол FLAP/SNAC)",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "debug": "DEBUG=1 node src/index.js",
+    "test": "node test/smoke.js"
+  },
+  "engines": { "node": ">=16" },
+  "license": "UNLICENSED"
+}

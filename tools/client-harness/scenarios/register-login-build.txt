@@ -1,0 +1,72 @@
+# Полный путь нового игрока: регистрация → вход → стройка в замке → земли → мир → меню.
+# Строки/столбцы форм — см. docs/04-protocol.md (или команду dump).
+wait 4500
+shot 01-login.png
+# форма входа: 1 логин, 2 пароль, 3 «Вход», 4 «Регистрация»
+select 4 0
+key 53
+wait 800
+# форма регистрации: 2 имя, 4 пароль, 6 e-mail, 9 раса, 11 вопрос, 13 ответ, 15 «Принимаю», 16 «Продолжить»
+select 2 0
+key 53
+text Arka
+select 4 0
+key 53
+text Secret1
+select 6 0
+key 53
+text arka@test.ru
+select 11 0
+key 53
+text Cat
+select 13 0
+key 53
+text Barsik
+select 15 0
+key 53
+shot 02-registration.png
+select 16 0
+key 53
+wait 1500
+shot 03-registered.png
+key 53
+wait 500
+select 1 0
+key 53
+text arka
+select 2 0
+key 53
+text secret1
+select 3 0
+key 53
+wait 3000
+shot 04-castle.png
+# курсор стоит на Ратуше (3,3); влево — пустая клетка
+key 52
+key 53
+wait 1500
+shot 05-build-menu.png
+select 2 0
+key 53
+wait 700
+shot 06-construction.png
+wait 3500
+shot 07-built.png
+key 35
+wait 800
+shot 08-resources.png
+key -6
+wait 400
+key 42
+wait 2000
+shot 09-lands.png
+key 42
+wait 2500
+shot 10-world.png
+key -7
+wait 700
+shot 11-menu.png
+key 56
+key 53
+wait 1500
+shot 12-cabinet.png
