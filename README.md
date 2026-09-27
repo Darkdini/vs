@@ -12,6 +12,7 @@
 | [docs/03-architecture.md](docs/03-architecture.md) | Архитектура клиент-сервер: стек, модель времени, схема БД, API, WebSocket, анти-чит, план спринтов |
 
 | [docs/04-protocol.md](docs/04-protocol.md) | **Сетевой протокол оригинального клиента** (восстановлен декомпиляцией): FLAP/SNAC/TLV, вход, регистрация, сетки Замка/Земель, ресурсы, карта мира, серверные окна, картинки, справочники ID зданий и юнитов |
+| [docs/06-protocol-3d.md](docs/06-protocol-3d.md) | **Android 3D-клиент 2.0.112**: движок-«мини-браузер», протокол v56, типы объектов, разметка окон, ввод текста |
 | [docs/05-local-testing.md](docs/05-local-testing.md) | Как поднять тестовый сервер в **Termux** и подключить оригинальный клиент через J2ME Loader |
 
 ## Тестовый сервер (первые шаги)
@@ -22,7 +23,8 @@
 
 ```bash
 cd server && npm test && npm start                                         # сервер на :2500
-python3 tools/patch_client.py original.jar tw_local.jar --host 127.0.0.1   # клиент → наш сервер
+python3 tools/patch_client.py original.jar tw_local.jar --host 127.0.0.1   # J2ME-клиент → наш сервер
+python3 tools/repack_apk.py original3d.apk tw3d_local.apk --host 127.0.0.1  # Android 3D-клиент → наш сервер (порт 5005)
 ```
 
 ## Данные баланса

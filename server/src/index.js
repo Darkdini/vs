@@ -2,7 +2,7 @@
 // Тестовый сервер для оригинального J2ME-клиента «Третий Мир: Война Королей» (2009).
 // Запуск:  node server/src/index.js        (порт 2500 — как в клиенте)
 // Переменные окружения: PORT, HOST, SPEED (скорость мира), DB (путь к JSON), DEBUG=1 (hex-дамп пакетов),
-// WEB_PORT (браузерный клиент, 8080), CLIENT_JAR (оригинальный jar — источник графики для браузера)
+// WEB_PORT (браузерный клиент, 8080), PORT3D (Android 3D-клиент, 5005), CLIENT_JAR (оригинальный jar — источник графики для браузера)
 
 const net = require('net');
 const path = require('path');
@@ -10,6 +10,7 @@ const { FlapReader } = require('./protocol');
 const { Game, Store } = require('./game');
 const { Session } = require('./handlers');
 const { startWeb, WebSession } = require('./web');
+const { startServer3D } = require('./tw3d/server3d');
 
 const PORT = Number(process.env.PORT || 2500);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -65,6 +66,9 @@ const JAR = process.env.CLIENT_JAR || (() => { // оригинальный jar �
   const f = require('fs').existsSync(dir) && require('fs').readdirSync(dir).find((n) => n.endsWith('.jar'));
   return f ? path.join(dir, f) : null;
 })();
+// Android-клиент «Третий Мир 3D» (протокол v56); PORT3D=0 — выключить
+const PORT3D = Number(process.env.PORT3D === undefined ? 5005 : process.env.PORT3D);
+if (PORT3D) startServer3D(game, sessions, { port: PORT3D, host: HOST, debug: DEBUG, log: (m) => console.log(`[${new Date().toISOString().slice(11, 19)}] ${m}`) });
 if (WEB_PORT) startWeb(game, sessions, { port: WEB_PORT, host: HOST, jarPath: JAR, log: (m) => console.log(m) });
 
 const shutdown = () => { store.flush(); process.exit(0); };

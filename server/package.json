@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node src/index.js",
     "debug": "DEBUG=1 node src/index.js",
-    "test": "node test/smoke.js && node test/web-smoke.js"
+    "test": "node test/smoke.js && node test/web-smoke.js && node test/smoke3d.js"
   },
   "engines": { "node": ">=16" },
   "license": "UNLICENSED"

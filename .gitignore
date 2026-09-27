@@ -7,3 +7,4 @@ server/data/
 tools/client-harness/.work/
 shots/
 rms/
+*.apk
