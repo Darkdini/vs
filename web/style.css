@@ -558,3 +558,14 @@ input.num { width: 76px; padding: 7px; text-align: center; }
 #sheetBody .bad { color: #b8200a; }
 .chatform input { min-width: 0; width: auto; flex: 1; }
 .chatform .btn.small { flex: none; white-space: nowrap; }
+
+/* нижняя полоса меню как в оригинале: иконки над тёмно-коричневой полосой с кантом, золотые подписи */
+#menubar { height: calc(118px + var(--safe-b)); background: linear-gradient(transparent 0 58px, #0f0200 58px 60px, #7c5a3c 60px 66px, #4e1b00 66px); }
+#menubar button { justify-content: flex-end; padding-bottom: 8px; }
+#menubar img { width: 100%; max-width: 64px; height: 70px; object-fit: contain; image-rendering: auto; filter: drop-shadow(0 3px 3px #000a); margin-bottom: -4px; }
+#menubar span { font: 700 12px var(--serif); color: #ffd35a; text-shadow: 0 2px 0 #3a1200, 0 0 3px #000; letter-spacing: 0; margin-top: 2px; }
+#menubar button.on img { transform: translateY(-10px) scale(1.12); }
+#menubar button.on span { transform: none; color: #fff1b0; }
+#menuWin { bottom: calc(126px + var(--safe-b)); }
+#menubar span { font-size: 10.5px; }
+#menubar button { padding-left: 1px; padding-right: 1px; }

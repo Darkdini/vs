@@ -12,7 +12,7 @@ const raceIcon = (race) => gimg(RACE_IMG[race] || 'units/human/general.png', 'ri
 
 // ---------- меню ----------
 const MENUS = {
-  cabinet: { label: 'Кабинет', icon: 'smallicon/bonus_status/coronalgold.png', items: () => [
+  cabinet: { label: 'Кабинет', icon: 'menu/cabinet.png', items: () => [
     ...(S.st.user.admin ? [['Админ-панель', 'smallicon/status/f_gold.png', () => openSheet(adminHtml)]] : []),
     ['Профиль', 'units/human/general.png', () => send({ t: 'profile', id: me() })],
     ['Советник', `units/${S.cat.mil.raceDir[S.st.user.race]}/wisdom.png`, () => openSheet(advisorWin)],
@@ -31,7 +31,7 @@ const MENUS = {
     ['Поиск друзей', 'user_search.png', () => openPlayers('search')],
     ['Блокнот', 'smallicon/softedit.png', () => { S.notes = null; send({ t: 'notes' }); openSheet(notesWin); }],
   ] },
-  locations: { label: 'Локации', title: 'Локации', icon: 'build/castle.png', items: () => [
+  locations: { label: 'Локации', title: 'Локации', icon: 'menu/locations.png', items: () => [
     ['Замок', 'build/castle.png', () => setTab('castle')],
     ['Земли', 'ground/wood.png', () => setTab('lands')],
     ['Мир', 'ground/castle_big.png', () => setTab('world')],
@@ -41,11 +41,11 @@ const MENUS = {
     ['Здания замка', 'build/build.png', () => openSheet(() => ribbon('Здания замка') + summaryHtml(VIEW.CASTLE))],
     ['Постройки на землях', 'build/farm_big.png', () => openSheet(() => ribbon('Постройки на землях') + summaryHtml(VIEW.LANDS))],
   ] },
-  alliance: { label: 'Альянс', title: 'Альянс', icon: 'build/diplomat.png', items: () => [
+  alliance: { label: 'Альянс', title: 'Альянс', icon: 'menu/alliance.png', items: () => [
     ['Мой альянс', 'build/diplomat.png', () => { const i = S.st.castle.grid[0].indexOf(13); if (i < 0) return toast('Нужно Посольство — постройте его в замке.', 'err'); openCell(VIEW.CASTLE, i); }],
     ['Рейтинг альянсов', 'smallicon/status/f_gold.png', () => openRating('alliances')],
   ] },
-  mail: { label: 'Почта', title: 'Почта', icon: 'smallicon/unmes.png', items: () => [
+  mail: { label: 'Почта', title: 'Почта', icon: 'menu/mail.png', items: () => [
     ['Новое', 'smallicon/softedit.png', () => openCompose('')],
     ['Сообщения', 'smallicon/unmes.png', () => ACTS.mail()],
     ['Отчеты', 'smallicon/swordgreen.png', () => openReports()],
@@ -56,18 +56,18 @@ const MENUS = {
     ['Блог', 'smallicon/softedit.png', () => openSoon('Блог')],
     ['События', 'smallicon/swordred.png', () => openReports()],
   ] },
-  games: { label: 'Игры', title: 'Игры', icon: 'smallicon/surprize.png', items: () => [
+  games: { label: 'Игры', title: 'Игры', icon: 'menu/games.png', items: () => [
     ['Кости', 'smallicon/surprize.png', () => openSoon('Кости')],
     ['Лотерея', 'smallicon/coin_gold.png', () => openSoon('Лотерея')],
   ] },
-  info: { label: 'Инфо', title: 'Информация', icon: 'build/university.png', items: () => [
+  info: { label: 'Инфо', title: 'Информация', icon: 'menu/info.png', items: () => [
     ['Новости', 'smallicon/upgrade.png', () => openSheet(newsWin)],
     ['Служба поддержки', 'smallicon/soft_help.png', () => ACTS.bug()],
     ['Справка', 'build/university.png', () => openSheet(helpWin)],
     ['Контакты', 'smallicon/unmes.png', () => openSheet(contactsWin)],
     ['Описание меню', 'smallicon/soft_help.png', () => openSheet(menuDescWin)],
   ] },
-  rating: { label: 'Рейтинг', title: 'Рейтинги', icon: 'smallicon/status/f_gold.png', items: () => [
+  rating: { label: 'Рейтинг', title: 'Рейтинги', icon: 'menu/rating.png', items: () => [
     ['Зал Славы', 'smallicon/bonus_status/ranggold.png', () => { S.halls = null; send({ t: 'halls' }); openSheet(hallsWin); }],
     ['Игрок', 'units/human/general.png', () => openRating('players')],
     ['Замок', 'ground/castle_small.png', () => openRating('castles')],
@@ -86,7 +86,8 @@ function renderMenu() {
   $('#menuWin').innerHTML = `${m.title ? ribbon(m.title) : ''}<div class="mitems">${items.map((it, i) => (it
     ? `<button class="mitem" data-mi="${i}"><img src="${GFX}${it[1]}" alt=""><span>${esc(it[0])}</span></button>` : '<hr>')).join('')}
     ${m.title ? '<button class="mitem close" data-mclose><i class="xic"></i><span>Закрыть</span></button>' : ''}</div>`;
-  $('#menubar').innerHTML = Object.entries(MENUS).map(([k, v]) => `<button data-menu="${k}" class="${k === S.menu ? 'on' : ''}"><img src="${GFX}${v.icon}" alt=""><span>${v.label}</span></button>`).join('');
+  // иконки нижней полосы — из оригинального клиента (web/gfx3d/menu)
+  $('#menubar').innerHTML = Object.entries(MENUS).map(([k, v]) => `<button data-menu="${k}" class="${k === S.menu ? 'on' : ''}"><img src="${G3}${v.icon}" alt=""><span>${v.label}</span></button>`).join('');
 }
 function openMenu(k = 'cabinet') {
   S.menu = k; renderMenu(); $('#menu').classList.remove('hidden');
