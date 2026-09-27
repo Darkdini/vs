@@ -13,7 +13,7 @@ const B = (id, name, desc, layer, extra = {}) => ({ id, name, desc, layer, ...ex
 
 const BUILDINGS = [
   B(0, 'Ратуша', 'Главное здание Вашего королевства. Уровень развития здания влияет на скорость возведения новых зданий.', 'castle', { max: 20, unique: true }),
-  B(1, 'Склад', 'Служит для хранения добытых в замке ресурсов.', 'castle', { max: 10, req: { 0: 1 }, base: { wood: 25, stone: 18, iron: 20, food: 17, people: 1 }, time: 60,
+  B(1, 'Склад', 'Служит для хранения добытых в замке ресурсов.', 'castle', { max: 10, hp: 589, req: { 0: 1 }, base: { wood: 25, stone: 18, iron: 20, food: 17, people: 1 }, time: 60,
     about: 'Хранилище ресурсов, добытых в Вашем замке (за исключением ресурса «население», которое живет там же, где производится, то есть в «хибарах», «коттеджах», «усадьбах»). Уровень развития напрямую влияет на вместимость склада:' }),
   B(2, 'Военный штаб', 'Производит управления всеми военными операциями.', 'castle', { max: 20, unique: true, req: { 0: 3 } }),
   B(3, 'Казарма', 'Позволяет тренеровать легких воинов.', 'castle', { max: 20, unique: true, req: { 0: 3 } }),
@@ -26,7 +26,8 @@ const BUILDINGS = [
   B(10, '-Строимся-', 'Здание строится', 'none'),
   B(11, 'Кузнец', 'Служит для увеличения брони и вооружения войск', 'castle', { max: 20, unique: true, req: { 3: 3 } }),
   B(12, 'Конюшня', 'Позволяет тренировать кавалерию', 'castle', { max: 20, unique: true, req: { 3: 5, 11: 3 } }),
-  B(13, 'Посольство', 'Позволяет вступать и создавать альянсы', 'castle', { max: 20, unique: true, req: { 0: 1 } }),
+  B(13, 'Дипломатический центр', 'Служит для управления альянсом', 'castle', { max: 10, unique: true, req: { 0: 3 }, base: { wood: 60, stone: 58, iron: 55, food: 50, people: 1 }, time: 120, hp: 672,
+    about: 'Позволяет создать новый альянс или вступить в существующий альянс, управлять Вашим альянсом, а также просмотреть объявления о наборе в альянсы на рекламной площадке.' }),
   B(14, 'Дом мудрецов', 'Жилой дом ученых', 'castle', { max: 20, req: { 0: 5 } }),
   B(15, 'Университет', 'Святилище науки, позволяет изучать науки', 'castle', { max: 20, unique: true, req: { 0: 5, 14: 1 } }),
   B(16, 'Лагерь археологов', 'Жилой дом археологов', 'castle', { max: 10, req: { 15: 5 } }),
@@ -104,7 +105,7 @@ function levelTimeSec(b, level, townhallLevel) {
 // полные земли: 225 клеток × 20 ур. Очки за уровень — доля от этих максимумов.
 const BY_ID_MAX_STORE = BUILDINGS.find((b) => b.id === 1).max;
 // прочность здания (как в оригинале: Склад — 589 на 1 ур., растёт линейно с уровнем)
-const durability = (b, level) => Math.round((b.base ? ['wood', 'stone', 'iron', 'food'].reduce((s, r) => s + b.base[r], 0) : b.layer === 'lands' ? 180 : 370) * 7.3625) * level;
+const durability = (b, level) => (b.hp ? b.hp * level : 0) || Math.round((b.base ? ['wood', 'stone', 'iron', 'food'].reduce((s, r) => s + b.base[r], 0) : b.layer === 'lands' ? 180 : 370) * 7.3625) * level;
 const CASTLE_TYPES = BUILDINGS.filter((b) => b.layer === 'castle');
 const CASTLE_FULL_LEVELS = CASTLE_TYPES.reduce((s, b) => s + (b.max || 20), 0) + (49 - CASTLE_TYPES.length) * BY_ID_MAX_STORE;
 const LANDS_FULL_LEVELS = 225 * 20; // все клетки земель застраиваемые

@@ -824,37 +824,88 @@ function install(Game, helpers) {
     return { ok: true };
   };
 
-  // ----- альянсы (Посольство) -----
+  // ----- альянсы (Дипломатический центр): приглашения, заявки, создание, управление -----
   P.allianceOf = function allianceOf(user) { return user && user.alliance && (this.db.alliances || {})[user.alliance]; };
-  P.alliance = function alliance(user, castle, { op, name, tag }) {
+  P.allianceSlots = function allianceSlots(al) {
+    const leader = this.userById(al.leader), lc = leader && this.castleOf(leader);
+    return 3 * Math.max(1, lc ? this.buildingLevel(lc, B.EMBASSY) : 1); // 3 места за уровень центра главы (10 ур. — 30)
+  };
+  P.joinAlliance = function joinAlliance(user, al) {
+    if (al.members.length >= this.allianceSlots(al)) return { error: `В альянсе нет мест (${this.allianceSlots(al)}).` };
+    al.members.push(user.id); user.alliance = al.id;
+    user.invites = []; // вступил — остальные приглашения больше не нужны
+    for (const a of Object.values(this.db.alliances)) if (a.requests) a.requests = a.requests.filter((id) => id !== user.id);
+    for (const id of al.members) if (id !== user.id) this.event(id, `${user.login} вступил в альянс [${al.tag}].`);
+    this.store.save(); return { ok: true };
+  };
+  P.alliance = function alliance(user, castle, { op, name, tag, id, login }) {
     this.db.alliances = this.db.alliances || {};
     const emb = this.buildingLevel(castle, B.EMBASSY);
-    const cur = this.allianceOf(user);
+    const cur = this.allianceOf(user), A = this.db.alliances;
+    id = Number(id);
+    // приглашения игроку
+    if (op === 'decline') { user.invites = (user.invites || []).filter((x) => x !== id); this.store.save(); return { ok: true }; }
+    if (op === 'declineall') { user.invites = []; this.store.save(); return { ok: true }; }
+    if (op === 'accept') {
+      if (!(user.invites || []).includes(id) || !A[id]) { user.invites = (user.invites || []).filter((x) => x !== id); return { error: 'Приглашение устарело.' }; }
+      if (!emb) return { error: 'Нужен Дипломатический центр.' };
+      if (cur) return { error: 'Сначала выйдите из текущего альянса.' };
+      return this.joinAlliance(user, A[id]);
+    }
+    if (op === 'request') { // заявка на вступление («Альянсы» → «Вступить»)
+      if (!emb) return { error: 'Нужен Дипломатический центр.' };
+      if (cur) return { error: 'Вы уже в альянсе.' };
+      const al = A[id]; if (!al) return { error: 'Альянс не найден.' };
+      al.requests = al.requests || [];
+      if (!al.requests.includes(user.id)) { al.requests.push(user.id); this.event(al.leader, `Заявка в альянс от ${user.login}.`); }
+      this.store.save(); return { ok: true, msg: `Заявка отправлена в [${al.tag}].` };
+    }
+    // управление своим альянсом (глава)
+    if (['invite', 'approve', 'reject', 'kick'].includes(op)) {
+      if (!cur) return { error: 'Вы не в альянсе.' };
+      if (cur.leader !== user.id) return { error: 'Это может только глава альянса.' };
+      const t = login !== undefined ? this.db.users[String(login).trim().toLowerCase()] : this.userById(id);
+      if (!t) return { error: 'Игрок не найден.' };
+      if (op === 'invite') {
+        if (t.alliance) return { error: 'Игрок уже в альянсе.' };
+        t.invites = t.invites || [];
+        if (!t.invites.includes(cur.id)) t.invites.push(cur.id);
+        this.event(t.id, `Приглашение в альянс [${cur.tag}] — Дипломатический центр → Приглашения.`);
+        this.store.save(); return { ok: true, msg: `Приглашение отправлено: ${t.login}.` };
+      }
+      if (op === 'reject') { cur.requests = (cur.requests || []).filter((x) => x !== t.id); this.store.save(); return { ok: true }; }
+      if (op === 'approve') {
+        cur.requests = (cur.requests || []).filter((x) => x !== t.id);
+        if (t.alliance) { this.store.save(); return { error: 'Игрок уже в другом альянсе.' }; }
+        return this.joinAlliance(t, cur);
+      }
+      if (op === 'kick') {
+        if (t.id === user.id || !cur.members.includes(t.id)) return { error: 'Нельзя исключить.' };
+        cur.members = cur.members.filter((m) => m !== t.id); delete t.alliance;
+        this.event(t.id, `Вас исключили из альянса [${cur.tag}].`); this.store.save(); return { ok: true };
+      }
+    }
     if (op === 'leave') {
       if (!cur) return { error: 'Вы не в альянсе.' };
       cur.members = cur.members.filter((m) => m !== user.id); delete user.alliance;
       if (!cur.members.length) delete this.db.alliances[cur.id]; else if (cur.leader === user.id) cur.leader = cur.members[0];
       this.store.save(); return { ok: true };
     }
-    if (!emb) return { error: 'Нужно Посольство.' };
+    if (!emb) return { error: 'Нужен Дипломатический центр.' };
     if (cur) return { error: 'Сначала выйдите из текущего альянса.' };
     tag = String(tag || '').trim().toUpperCase().slice(0, 5);
     if (op === 'create') {
-      if (emb < 3) return { error: 'Создать альянс можно с Посольством 3 ур.' };
       name = String(name || '').trim().slice(0, 24);
       if (name.length < 3 || tag.length < 2) return { error: 'Название от 3 символов, тег 2–5.' };
       if (Object.values(this.db.alliances).some((x) => x.tag === tag)) return { error: 'Такой тег уже занят.' };
       const id = this.db.nextId++;
       this.db.alliances[id] = { id, name, tag, leader: user.id, members: [user.id], created: Date.now() };
-      user.alliance = id; this.store.save(); return { ok: true };
+      user.alliance = id; user.invites = []; this.store.save(); return { ok: true };
     }
     if (op === 'join') {
       const al = Object.values(this.db.alliances).find((x) => x.tag === tag);
       if (!al) return { error: 'Альянс не найден.' };
-      const leader = this.userById(al.leader), lc = leader && this.castleOf(leader);
-      const slots = 3 * Math.max(1, lc ? this.buildingLevel(lc, B.EMBASSY) : 1);
-      if (al.members.length >= slots) return { error: `В альянсе нет мест (${slots}).` };
-      al.members.push(user.id); user.alliance = al.id; this.store.save(); return { ok: true };
+      return this.joinAlliance(user, al);
     }
     return { error: 'Неизвестное действие.' };
   };
@@ -949,7 +1000,10 @@ function install(Game, helpers) {
       incoming: this.incoming(castle), sciences: castle.sciences, research: castle.research, religion: castle.religion,
       artifacts: castle.artifacts, upkeep: Math.round(this.upkeep(castle) * SPEED),
       bonus: { atk: b.atk, def: b.def, magic: b.magic, prod: b.prod, speed: b.speed, train: b.train, build: b.build, wall: b.wall, wallPer: b.wallPer, hidden: b.hidden, marketRate: b.marketRate, artSlots: b.artSlots, artStore: b.artStore, tradeCarry: b.tradeCarry },
-      alliance: al ? { id: al.id, name: al.name, tag: al.tag, leader: al.leader, members: al.members.map((id) => { const m = this.userById(id); return m ? m.login : '?'; }) } : null,
+      alliance: al ? { id: al.id, name: al.name, tag: al.tag, leader: al.leader, leaderLogin: (this.userById(al.leader) || {}).login, lead: al.leader === user.id, slots: this.allianceSlots(al),
+        members: al.members.map((id) => { const m = this.userById(id); return m ? m.login : '?'; }),
+        requests: al.leader === user.id ? (al.requests || []).map((id) => { const m = this.userById(id); return m ? { id, login: m.login, rating: this.userRating(m) } : null; }).filter(Boolean) : [] } : null,
+      invites: (user.invites || []).map((id) => this.db.alliances && this.db.alliances[id]).filter(Boolean).map((a) => ({ id: a.id, name: a.name, tag: a.tag })),
       admin: !!user.admin,
       unreadReports: (this.db.reports || []).filter((r) => r.owner === user.id && !r.read).length,
     };

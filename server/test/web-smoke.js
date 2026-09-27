@@ -144,6 +144,25 @@ function client() {
     await b.expect('error', (m) => /Военный штаб/.test(m.msg));
     console.log('✓ рынок, альянс, проверки миссий');
 
+    // ---- Дипломатический центр: приглашение, принятие, исключение, заявка и одобрение ----
+    adm.send({ t: 'admin', op: 'max', login: 'webby', all: true });
+    await a.expect('state', (m) => m.castle.grid[0].includes(13));
+    adm.send({ t: 'alliance', op: 'invite', login: 'webby' });
+    await adm.expect('toast', (m) => /Приглашение отправлено: webby/.test(m.msg));
+    const inv = (await a.expect('state', (m) => (m.castle.mil.invites || []).length === 1)).castle.mil.invites[0];
+    assert.equal(inv.tag, 'KRL');
+    a.send({ t: 'alliance', op: 'accept', id: inv.id });
+    await a.expect('state', (m) => m.castle.mil.alliance && m.castle.mil.alliance.tag === 'KRL' && !m.castle.mil.invites.length);
+    adm.send({ t: 'alliance', op: 'kick', login: 'webby' });
+    await a.expect('state', (m) => !m.castle.mil.alliance);
+    a.send({ t: 'alliance', op: 'request', id: inv.id });
+    await a.expect('toast', (m) => /Заявка отправлена в \[KRL\]/.test(m.msg));
+    adm.send({ t: 'sync' });
+    const rq = (await adm.expect('state', (m) => m.castle.mil.alliance && m.castle.mil.alliance.requests.length === 1)).castle.mil.alliance.requests[0];
+    adm.send({ t: 'alliance', op: 'approve', id: rq.id });
+    await a.expect('state', (m) => m.castle.mil.alliance && m.castle.mil.alliance.tag === 'KRL');
+    console.log('✓ Дипломатический центр: приглашения, исключение, заявка и одобрение');
+
     // ---- склад как в оригинале, «Разрушить» ----
     adm.send({ t: 'sync' });
     let ds = (await adm.expect('state')).castle;

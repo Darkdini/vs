@@ -246,9 +246,16 @@ const API = {
   research(m) { this.result(this.game.research(this.castle, m.sci)); },
   religion(m) { this.result(this.game.setReligion(this.castle, m.id)); },
   artifact(m) { this.result(this.game.activateArtifact(this.castle, m.id, !!m.on)); },
-  alliance(m) { this.result(this.game.alliance(this.user, this.castle, m)); },
+  alliance(m) {
+    const r = this.game.alliance(this.user, this.castle, m);
+    if (r && r.msg) this.toast(r.msg);
+    this.result(r);
+    if (r && r.ok && ['approve', 'kick', 'invite'].includes(m.op)) for (const s of WebSession.all || []) if (s !== this && s.user) s.pushState(); // новичку/исключённому — сразу новое состояние
+  },
   alliances() {
-    const list = Object.values(this.game.db.alliances || {}).map((a) => ({ id: a.id, name: a.name, tag: a.tag, members: a.members.length, leader: (this.game.userById(a.leader) || {}).login }));
+    // «Альянсы, подходящие вам»: где есть свободные места, крупные сверху
+    const list = Object.values(this.game.db.alliances || {}).map((a) => ({ id: a.id, name: a.name, tag: a.tag, members: a.members.length, slots: this.game.allianceSlots(a),
+      leader: (this.game.userById(a.leader) || {}).login, requested: (a.requests || []).includes(this.user.id) })).sort((x, y) => y.members - x.members);
     this.send({ t: 'alliances', list });
   },
   reports() { this.send({ t: 'reports', list: this.game.reportsOf(this.user.id).map((x) => ({ id: x.id, at: x.at, kind: x.kind, title: x.title, read: x.read })) }); },

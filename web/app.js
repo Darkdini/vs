@@ -452,13 +452,14 @@ function costChips(cost) {
 
 // строка «Текущая …» в окне здания (как в оригинале: «Текущая вместимость склада: 5000 ед.»)
 function currentLine(def, lvl) {
+  if (def.id === 13) return ''; // в оригинале у Дипломатического центра строки нет
   if (def.id === 1) return `Текущая вместимость склада: <b>${fmtFull(R().store.levels[lvl])} ед.</b>`;
   const e = effect(def, lvl).text;
   return e && e !== '—' ? `Сейчас даёт: <b>${esc(e)}</b>` : '';
 }
 // шапка окна здания: картинка в золотой рамке, справа название, уровень, рейтинг
-function bwinHead(def, lvl, right) {
-  return `${ribbon(def.name)}<div class="bwhead"><div class="bframe">${bimg(displayId(def, Math.max(1, lvl)))}</div><div class="bwright">${right}</div></div>`;
+function bwinHead(def, lvl, right, title = def.name) {
+  return `${title ? ribbon(title) : ''}<div class="bwhead"><div class="bframe">${bimg(displayId(def, Math.max(1, lvl)))}</div><div class="bwright">${right}</div></div>`;
 }
 // карточка здания; ctx = {view, cell} — можно строить, null — только справочник
 function buildingSheet(def, lvl, ctx) {
@@ -481,9 +482,9 @@ function buildingSheet(def, lvl, ctx) {
       ${ctx ? `${blk.length ? `<p class="reasons">${blk.map(esc).join('<br>')}</p>` : ''}
       <button class="btn primary" data-build="${ctx.view},${ctx.cell},${def.id}" ${blk.length ? 'disabled' : ''}>${lvl ? 'Развить' : 'Построить'}</button>` : ''}</div>`;
   }
+  if (ctx && lvl > 0) h += buildingFunctions(def, lvl); // функции здания (mil.js) — как в оригинале, над «Разрушить»
   if (ctx) h += `${lvl > 0 && def.id !== 0 && !q ? `<button class="rbar" data-demolish="${ctx.view},${ctx.cell}"><img src="${GFX}smallicon/upgrade.png" alt=""> Разрушить</button>` : ''}
     <button class="rbar" data-about="${def.id}"><img src="${GFX}smallicon/soft_help.png" alt=""> О здании</button>`;
-  if (ctx && lvl > 0) h += buildingFunctions(def, lvl); // тренировка, армия, рынок, науки… (mil.js)
   return h;
 }
 
@@ -494,7 +495,7 @@ function aboutSheet(def) {
   const table = def.id === 1 ? R().store.levels.slice(1).map((c, i) => `${i + 1} уровень - ${c}.`)
     : def.produces ? Array.from({ length: def.max }, (_, i) => `${i + 1} уровень - ${effect(def, i + 1).text}.`) : [];
   const reqs = Object.entries(def.req);
-  return `${bwinHead(def, def.max, `<b>${esc(def.name)}</b><div>Максимальный уровень: <img class="upar" src="${GFX}smallicon/maxupgrade.png" alt=""> ${def.max}</div>`)}
+  return `${bwinHead(def, def.max, `<b>${esc(def.name)}</b><div>Рейтинг ★: +${fr(ratingPer(def))}</div><div>Максимальный уровень: <img class="upar" src="${GFX}smallicon/maxupgrade.png" alt=""> ${def.max}</div>`, 'Справка')}
     <div class="bwline">Прочность на первом уровне: ${fmtFull(def.hp)}</div>
     <div class="costbox"><div class="cbt">Стоимость постройки:</div><div class="cbg">${RES.map((r) => `<div>${RES_IC[r]}<b>${fmtFull(cost[r])}</b></div>`).join('')}<div>${TIME_IC}<b>${clock}</b></div></div></div>
     ${ribbon('Описание:')}<div class="bwline">${esc(def.about || def.desc)}${table.length ? `<br>${table.map(esc).join('<br>')}` : ''}</div>

@@ -51,7 +51,7 @@ function milEffect(def, L) {
     3: train, 12: train, 20: train, 23: train,
     4: () => ({ text: `обмен по курсу ${Math.min(1, 0.7 + 0.015 * L).toFixed(2)}, торговцы`, short: `курс ${Math.min(1, 0.7 + 0.015 * L).toFixed(2)}` }),
     11: () => ({ text: `+${pct(0.015 * L)} атаки и защиты войск`, short: `+${pct(0.015 * L)}` }),
-    13: () => ({ text: `альянс: вступление с 1 ур., создание с 3 ур., мест ${3 * L}`, short: `${3 * L} мест` }),
+    13: () => ({ text: `мест в альянсе: ${3 * L}`, short: `${3 * L} мест` }),
     14: () => ({ text: 'обучение мудрецов (ускоряют науку)', short: 'мудрецы' }),
     15: () => ({ text: `науки до ${L} уровня`, short: `науки ${L}` }),
     16: () => ({ text: `археологи, +${3 * L}% к находке артефакта`, short: `+${3 * L}%` }),
@@ -81,7 +81,7 @@ function buildingFunctions(def, lvl) {
   let h = '';
   if (def.id === HQ) h += hqHtml();
   if (def.id === 4) h += marketHtml();
-  if (def.id === 13) h += embassyHtml();
+  if (def.id === 13) h += diplomacyButtons();
   if (def.id === 15 || def.id === 14) h += universityHtml(def.id);
   if (def.id === 25) h += templeHtml();
   if (def.id === 17) h += `<div class="section">Экспедиции</div><div class="card"><p class="small">Археологи ищут артефакты в руинах. На карте мира нажмите на <b>Заброшенный замок</b> → «Экспедиция».
@@ -152,16 +152,6 @@ function marketHtml() {
       <button class="btn" data-armyopen="trade">Отправить ресурсы</button></div>`;
 }
 
-function embassyHtml() {
-  const al = MY().alliance, L = buildingLevel(13);
-  if (!S.alliances) { S.alliances = []; send({ t: 'alliances' }); }
-  if (al) return `<div class="section">Альянс</div><div class="card"><h4 style="margin:0 0 6px">${esc(al.name)} [${esc(al.tag)}]</h4>
-    <p class="small">Участники: ${al.members.map(esc).join(', ')}</p><button class="btn" data-alleave>Выйти из альянса</button></div>`;
-  return `<div class="section">Альянсы</div>
-    <form class="card stack" data-form="aljoin"><input name="tag" placeholder="Тег альянса (например KRL)" autocapitalize="characters" required><button class="btn primary">Вступить</button></form>
-    ${L >= 3 ? `<form class="card stack" data-form="alcreate"><input name="name" placeholder="Название" required><input name="tag" placeholder="Тег (2–5 букв)" autocapitalize="characters" required><button class="btn">Создать альянс</button></form>` : '<p class="small muted">Создать свой альянс можно с Посольством 3 ур.</p>'}
-    <div class="list">${(S.alliances || []).map((a) => `<div class="row"><div class="grow"><b>${esc(a.name)} [${esc(a.tag)}]</b><span>глава ${esc(a.leader)} · участников ${a.members}</span></div></div>`).join('')}</div>`;
-}
 
 function universityHtml(id) {
   const my = MY(), uni = buildingLevel(15), sages = my.units[227] || 0;
@@ -261,7 +251,7 @@ function armyBookHtml() {
 
 // ---------- события ----------
 function milMsg(m) {
-  if (m.t === 'alliances') { S.alliances = m.list; refreshSheet(); }
+  if (m.t === 'alliances') { S.alliances = m.list; S.alFound = m.list; refreshSheet(); }
   if (m.t === 'reports') { S.reports = m.list; refreshSheet(); }
   if (m.t === 'report') openSheet(() => reportHtml(m.report));
 }

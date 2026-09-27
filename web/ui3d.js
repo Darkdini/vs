@@ -45,7 +45,7 @@ const MENUS = {
     ['Постройки на землях', 'build/farm_big.png', () => openSheet(() => ribbon('Постройки на землях') + summaryHtml(VIEW.LANDS))],
   ] },
   alliance: { label: 'Альянс', title: 'Альянс', icon: 'menu/alliance.svg', items: () => [
-    ['Мой альянс', 'build/diplomat.png', () => { const i = S.st.castle.grid[0].indexOf(13); if (i < 0) return toast('Нужно Посольство — постройте его в замке.', 'err'); openCell(VIEW.CASTLE, i); }],
+    ['Мой альянс', 'build/diplomat.png', () => { const i = S.st.castle.grid[0].indexOf(13); if (i < 0) return toast('Нужен Дипломатический центр — постройте его в замке.', 'err'); openCell(VIEW.CASTLE, i); }],
     ['Рейтинг альянсов', 'smallicon/status/f_gold.png', () => openRating('alliances')],
   ] },
   mail: { label: 'Почта', title: 'Почта', icon: 'menu/mail.svg', items: () => [
