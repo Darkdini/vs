@@ -812,3 +812,5 @@ textarea.ainput { resize: vertical; }
 .cpop-nick { text-align: center; font: min(22px, 5vw) var(--serif); margin-bottom: 10px; }
 .cpop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .admbadge { height: 56px; width: auto; vertical-align: middle; margin: -8px 4px; } .admbadge.s { height: 24px; margin: -4px 2px; }
+.cpop-mod { text-align: center; font: min(18px, 4.2vw) var(--serif); margin: 12px 0 6px; color: #5a2a10; }
+.cpop-ban { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; } .cpop-ban .pbtn { font-size: 18px; }

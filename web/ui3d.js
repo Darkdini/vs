@@ -143,13 +143,17 @@ function chatWin() {
   return `${ribbon('Главный чат')}
     <div class="chattop"><button class="lbar" data-chatexit><img src="${GFX}smallicon/softclose.png" alt=""> Выход</button><button class="lbar" data-chatusers><img src="${GFX}units/human/general.png" alt=""> Игроки (${n})</button></div>
     <div id="chatList" class="chatlist ${S.smileOpen ? 'short' : ''}">${S.chat.map((m) => { const hit = m.fromId !== me() && m.text.toLowerCase().includes(my);
-      return `<div class="cm ${hit ? 'hit' : ''} ${m.fromId === me() ? 'mine' : ''}" data-chatpop="${m.fromId}" data-nick="${esc(m.from)}" data-mid="${m.id}"><small>${new Date(m.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</small> <b>[${esc(m.from)}]</b>${m.rep >= 10 ? ` ${repIcons(m.rep)}` : ''} ${smiles(esc(m.text))}</div>`; }).join('') || '<p class="parch-note">Сообщений пока нет — напишите первым.</p>'}</div>
+      return `<div class="cm ${hit ? 'hit' : ''} ${m.fromId === me() ? 'mine' : ''}" data-chatpop="${m.fromId}" data-nick="${esc(m.from)}" data-mid="${m.id}"><small>${new Date(m.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</small> <b>[${esc(m.from)}]</b>${m.role ? ` <img class="admbadge s" src="${GFX}${m.role === 'admin' ? 'admin' : 'mod'}_badge_s.png" alt="">` : ''}${m.rep >= 10 ? ` ${repIcons(m.rep)}` : ''} ${smiles(esc(m.text))}</div>`; }).join('') || '<p class="parch-note">Сообщений пока нет — напишите первым.</p>'}</div>
     ${S.smileOpen ? `<div class="smilebox">${SMILES.map((k) => `<button data-smile="${k}"><img src="${GFX}smallicon/smiles/${k}.png" alt=""></button>`).join('')}</div>` : ''}
     ${S.chatPop ? `<div class="cpop-bg" data-cpopclose><div class="cpop"><button class="cpop-x" data-cpopclose aria-label="Закрыть">✕</button><div class="cpop-nick">${esc(S.chatPop.nick)}</div>
       <div class="cpop-grid"><button class="ptile" data-cpop="reply"><img src="${AI('mail')}" alt=""><span>Обратиться</span></button>
       <button class="ptile" data-cpop="profile"><img src="${GFX}units/human/general.png" alt=""><span>Профиль</span></button>
       <button class="ptile" data-cpop="report"><img src="${GFX}smallicon/soft_help.png" alt=""><span>Жалоба</span></button>
-      <button class="ptile" data-cpop="private"><img src="${GFX}smallicon/unmes.png" alt=""><span>Лично</span></button></div></div></div>` : ''}
+      <button class="ptile" data-cpop="private"><img src="${GFX}smallicon/unmes.png" alt=""><span>Лично</span></button></div>
+      ${S.st.user.admin || S.st.user.mod ? `<div class="cpop-mod">Модерация:</div><div class="cpop-grid">
+        <button class="ptile" data-cpop="del"><img src="${GFX}smallicon/destroy.png" alt=""><span>Удалить</span></button>
+        <button class="ptile" data-cpop="ban"><img src="${GFX}smallicon/grayball.png" alt=""><span>Бан в чате</span></button></div>
+        ${S.chatPop.ban ? `<div class="cpop-ban">${[[1, '1 час'], [2, '2 часа'], [8, '8 часов'], [-1, 'Навсегда'], [0, 'Снять бан']].map(([h, t]) => `<button class="pbtn" data-cban="${h}">${t}</button>`).join('')}</div>` : ''}` : ''}</div></div>` : ''}
     <form class="chatbar" data-form="chat"><button type="button" class="smilebtn" data-smiletoggle aria-label="Смайлы"></button><input name="text" maxlength="300" autocomplete="off" value="${esc(S.chatDraft || '')}"><button class="sendbtn" aria-label="Отправить"></button></form>`;
 }
 // обновить только ленту сообщений (поле ввода не трогаем — можно печатать, пока приходят сообщения)
@@ -163,13 +167,17 @@ function chatUsersWin() {
   return `${ribbon(`Игроки в игре (${l.length})`)}${l.map((u) => `<button class="rrow" data-cprof="${u.id}"><span class="rn"><b>${esc(u.login)} ${repIcons(u.rep)}</b></span></button>`).join('')}`;
 }
 $('#sheetBody').addEventListener('click', (e) => {
-  const t = e.target.closest('[data-cpop],[data-cpopclose],[data-chatpop],[data-chatexit],[data-chatusers],[data-smile],[data-smiletoggle]'); if (!t) return;
+  const t = e.target.closest('[data-cban],[data-cpop],[data-cpopclose],[data-chatpop],[data-chatexit],[data-chatusers],[data-smile],[data-smiletoggle]'); if (!t) return;
   const d = t.dataset, inp = $('.chatbar input');
+  if (d.cban !== undefined) { const pp = S.chatPop; S.chatPop = null; send({ t: 'chatmod', op: 'ban', login: pp.nick, hours: Number(d.cban) }); return refreshSheet(); }
   if (d.cpopclose !== undefined && (e.target === t || t.classList.contains('cpop-x'))) { S.chatPop = null; return refreshSheet(); }
   if (d.cpopclose !== undefined) return;
   if (d.chatpop) { if (inp) S.chatDraft = inp.value; S.chatPop = { id: Number(d.chatpop), nick: d.nick, mid: Number(d.mid) }; return refreshSheet(); }
   if (d.cpop) {
-    const pp = S.chatPop; S.chatPop = null;
+    const pp = S.chatPop;
+    if (d.cpop === 'ban') { pp.ban = !pp.ban; return refreshSheet(); }
+    S.chatPop = null;
+    if (d.cpop === 'del') { if (confirm('Удалить сообщение?')) send({ t: 'chatmod', op: 'del', id: pp.mid }); return refreshSheet(); }
     if (d.cpop === 'profile') { refreshSheet(); return send({ t: 'profile', id: pp.id }); }
     if (d.cpop === 'private') { refreshSheet(); return openCompose(pp.nick); }
     if (d.cpop === 'report') {
@@ -209,7 +217,7 @@ function profileWin(p) {
     ${p.self ? `<div class="avbtns"><button class="pbtn small" data-avatar="set">Загрузить аватар</button>${p.avatar ? '<button class="pbtn small" data-avatar="del">Удалить</button>' : ''}</div>` : ''}
     <button class="pline plink2" data-reptable>Репутация (${fmtFull(p.reputation)}): ${repIcons(p.reputation)}</button>
     <div class="pline">Зал Славы: ${medals}</div>
-    ${p.title ? `<div class="ptitle">Звание: ${p.title === 'Администратор' ? `<img class="admbadge" src="${GFX}admin_badge.png" alt="">` : gimg('smallicon/status/f_gold.png', 'ri')} ${esc(p.title)}</div>` : ''}
+    ${p.title ? `<div class="ptitle">Звание: ${p.title === 'Администратор' ? `<img class="admbadge" src="${GFX}admin_badge.png" alt="">` : p.title === 'Модератор форума' ? `<img class="admbadge" src="${GFX}mod_badge.png" alt="">` : gimg('smallicon/status/f_gold.png', 'ri')} ${esc(p.title)}</div>` : ''}
     <div class="pline">Альянс: ${p.alliance ? `<b>${esc(p.alliance.name)} [${esc(p.alliance.tag)}]</b>` : '—'}</div>
     ${p.alliance ? `<div class="pline">Звание в альянсе: ${esc(p.alliance.role)}</div>` : ''}
     <div class="ptiles">
@@ -217,7 +225,7 @@ function profileWin(p) {
       ${tile('rep', 'smallicon/plus.png', 'Поднять Репутацию')}
       ${tile('gift', 'smallicon/surprize.png', 'Отправить Подарок')}
       ${tile('friend', 'smallicon/status/online.png', p.friend ? 'Убрать из друзей' : 'Добавить в друзья', p.self)}
-      ${tile('msg', 'smallicon/unmes.png', 'Сообщение', p.self)}
+      ${tile('msg', 'smallicon/unmes.png', 'Сообщение')}
       ${tile('map', 'ground/castle_small.png', 'На карте')}
       ${tile('premium', 'smallicon/status/f_gold.png', 'Подарить Премиум', true)}
       ${tile('info', 'units/human/general.png', 'Личная информация')}
@@ -343,6 +351,7 @@ const settingsWin = () => `${ribbon('Настройки')}<div class="pstats">И
 const prevMilMsg = milMsg;
 milMsg = function (m) { // eslint-disable-line no-global-assign
   if (m.t === 'profile') return; // обрабатывается в app.js
+  if (m.t === 'chatdel') { S.chat = S.chat.filter((x) => x.id !== m.id); chatLine(); chatListUpdate(); return; }
   if (m.t === 'chatusers') { S.chatUsers = m.list; const b = $('[data-chatusers]'); if (b) b.innerHTML = `<img src="${GFX}units/human/general.png" alt=""> Игроки (${m.list.length})`; return refreshSheet(); }
   if (m.t === 'chatlog') { S.chat = m.list; chatLine(); refreshSheet(); const l = $('#chatList'); if (l) l.scrollTop = l.scrollHeight; return; }
   if (m.t === 'chatmsg') { S.chat.push(m.msg); if (S.chat.length > 50) S.chat.shift(); chatLine(); chatListUpdate(); return; }
@@ -370,7 +379,7 @@ $('#sheetBody').addEventListener('click', (e) => {
     if (d.ptile === 'rep') { S.repTo = p; S.repCoins = 1; return openSheet(repWin); }
     if (d.ptile === 'gift') { S.giftTo = p; return openSheet(giftsWin); }
     if (d.ptile === 'friend') { send({ t: 'friend', op: p.friend ? 'del' : 'add', id }); return send({ t: 'profile', id }); }
-    if (d.ptile === 'msg') return openCompose(p.login);
+    if (d.ptile === 'msg') { if (p.self) { closeAllSheets(); return ACTS.mail(); } return openCompose(p.login); }
     if (d.ptile === 'map') { closeAllSheets(); S.world = null; setTab('world'); return send({ t: 'world', cx: p.castles[0].x, cy: p.castles[0].y }); }
     if (d.ptile === 'info') return openSheet(() => profileInfoWin(p));
     if (d.ptile === 'attack') return openArmySheet({ mission: 'attack', x: p.castles[0].x, y: p.castles[0].y });

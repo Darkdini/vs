@@ -116,7 +116,7 @@ class WebSession {
     this.send({
       t: 'state',
       now: Date.now(),
-      user: { id: u.id, login: u.login, race: u.race, raceName: C.RACE_NAMES[u.race], gold: u.gold || 0, admin: !!u.admin },
+      user: { id: u.id, login: u.login, race: u.race, raceName: C.RACE_NAMES[u.race], gold: u.gold || 0, admin: !!u.admin, mod: !!u.mod },
       castle: {
         id: c.id, name: c.name, x: c.x, y: c.y, grid: { 0: Array.from(c.grid[0]), 1: Array.from(c.grid[1]) }, levels: { 0: Array.from(c.levels[0]), 1: Array.from(c.levels[1]) },
         res: c.res, rate: this.game.rates(c), cap: this.game.capacity(c),
@@ -243,6 +243,12 @@ const API = {
   chat(m) {
     const r = this.game.chatPost(this.user, m.text); if (r.error) return this.error(r.error);
     for (const s of WebSession.all || []) if (s.user && s.sendChat) s.sendChat(r.msg);
+  },
+  chatmod(m) {
+    const r = m.op === 'del' ? this.game.chatDelete(this.user, m.id) : this.game.chatBanUser(this.user, m.login, m.hours);
+    if (r.error) return this.error(r.error);
+    if (m.op === 'del') for (const s of WebSession.all || []) if (s.user) s.send({ t: 'chatdel', id: Number(m.id) });
+    this.toast(r.msg || 'Сообщение удалено.');
   },
   chatlog() { this.send({ t: 'chatlog', list: this.game.chatLog() }); },
   // «Игроки (N)» в главном чате: кто сейчас в игре (только ники)

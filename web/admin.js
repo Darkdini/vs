@@ -42,7 +42,7 @@ function adminHtml() {
 
     ${ribbon('Игроки')}
     <button class="pbar" data-adm="players">Показать всех игроков</button>
-    ${a.players ? `<div class="rlist">${a.players.map((p) => `<button class="rrow" data-apick="${esc(p.login)}"><span class="rn"><b>${esc(p.login)}${p.admin ? ` <img class="admbadge s" src="${GFX}admin_badge_s.png" alt="">` : ''}${p.banned ? ' <span class="bad">[бан]</span>' : ''}</b>
+    ${a.players ? `<div class="rlist">${a.players.map((p) => `<button class="rrow" data-apick="${esc(p.login)}"><span class="rn"><b>${esc(p.login)}${p.admin ? ` <img class="admbadge s" src="${GFX}admin_badge_s.png" alt="">` : p.mod ? ` <img class="admbadge s" src="${GFX}mod_badge_s.png" alt="">` : ''}${p.banned ? ' <span class="bad">[бан]</span>' : ''}</b>
       <small>${esc(p.race)} · замков ${p.castles} · золото ${fmtFull(p.gold)} · ${p.online ? 'в игре' : `был ${fmtDate(p.lastSeen)}`}</small></span><span class="rv">${fmtFull(p.rating)}</span></button>`).join('')}</div>` : ''}
     ${a.player ? playerCard(a.player) : ''}
 
@@ -62,6 +62,7 @@ function playerCard(p) {
     <div class="ptiles">
       ${p.banned ? aBtn('unban', 'Разблокировать', 'smallicon/greenball.png') : aBtn('ban', 'Заблокировать', 'smallicon/grayball.png', 'data-confirm="Заблокировать игрока?"')}
       ${aBtn('noavatar', 'Удалить аватар', 'smallicon/destroy.png', 'data-confirm="Удалить аватар игрока?"')}
+      ${aBtn('mod', p.mod ? 'Снять модератора' : 'Модератор форума', 'mod_badge_s.png', `data-confirm="${p.mod ? 'Снять с игрока права модератора?' : 'Назначить модератором форума (удаление сообщений и бан в чате)?'}"`)}
       ${aBtn('makeadmin', 'Сделать админом', 'smallicon/status/f_gold.png', 'data-confirm="Дать права администратора?"')}
       ${aBtn('delete', 'Удалить игрока', 'smallicon/destroy.png', 'data-confirm="Удалить игрока и все его замки навсегда?"')}
     </div>

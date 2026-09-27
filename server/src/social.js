@@ -122,7 +122,8 @@ function install(Game) {
     return {
       id: u.id, login: u.login, race: u.race, raceName: C.RACE_NAMES[u.race], created: u.created, lastSeen: u.id === viewer.id || viewer.admin ? u.lastSeen || u.created : null, // кто когда в игре — видно только себе и админу
       rating: this.userRating(u), rank: this.rankOf(u.id), reputation: u.reputation ?? START_REP,
-      title: u.admin ? 'Администратор' : null,
+      title: u.admin ? 'Администратор' : u.mod ? 'Модератор форума' : null,
+      chatBan: viewer.admin || viewer.mod || u.id === viewer.id ? u.chatBan || 0 : undefined,
       alliance: al ? { name: al.name, tag: al.tag, role: al.leader === u.id ? 'Глава' : 'Участник' } : null,
       medals: this.medalsOf(u.id), awards: (u.allyAwards || []).slice().reverse(),
       castles: this.castlesOf(u).map((k, i) => ({ id: k.id, name: k.name, x: k.x, y: k.y, capital: i === 0, rating: this.rating(k) })),
@@ -186,18 +187,39 @@ function install(Game) {
   };
 
   // общий чат (последние 100 сообщений)
+  // модерация главного чата: удалить сообщение, запрет писать (часы или навсегда — -1)
+  P.canModerate = (u) => !!(u && (u.admin || u.mod));
+  P.chatDelete = function chatDelete(user, id) {
+    if (!this.canModerate(user)) return { error: 'Нет прав.' };
+    const n = (this.db.chat || []).length;
+    this.db.chat = (this.db.chat || []).filter((m) => m.id !== Number(id));
+    if (this.db.chat.length === n) return { error: 'Сообщение не найдено.' };
+    this.store.save(); return { ok: true };
+  };
+  P.chatBanUser = function chatBanUser(user, login, hours) {
+    if (!this.canModerate(user)) return { error: 'Нет прав.' };
+    const t = this.db.users[String(login || '').trim().toLowerCase()]; if (!t) return { error: 'Игрок не найден.' };
+    if (t.admin || (t.mod && !user.admin)) return { error: 'Этого игрока забанить нельзя.' };
+    hours = Number(hours);
+    t.chatBan = hours === 0 ? 0 : hours < 0 ? -1 : Date.now() + hours * 3600000;
+    this.event(t.id, hours === 0 ? 'Бан в чате снят.' : `Вам запрещено писать в чат ${hours < 0 ? 'навсегда' : `на ${hours} ч.`} (модератор ${user.login}).`);
+    this.store.save();
+    return { ok: true, msg: hours === 0 ? `Бан снят: ${t.login}.` : `${t.login}: бан в чате ${hours < 0 ? 'навсегда' : `на ${hours} ч.`}` };
+  };
   P.chatPost = function chatPost(user, text) {
+    if (user.chatBan === -1) return { error: 'Вам запрещено писать в чат навсегда.' };
+    if (user.chatBan > Date.now()) return { error: `Вам запрещено писать в чат ещё ${Math.ceil((user.chatBan - Date.now()) / 60000)} мин.` };
     text = String(text || '').trim().slice(0, 300);
     if (!text) return { error: 'Пустое сообщение.' };
     this.db.chat = this.db.chat || [];
-    const m = { id: this.db.nextId++, from: user.login, fromId: user.id, text, at: Date.now(), rep: user.reputation ?? START_REP };
+    const m = { id: this.db.nextId++, from: user.login, fromId: user.id, text, at: Date.now(), rep: user.reputation ?? START_REP, role: user.admin ? 'admin' : user.mod ? 'mod' : '' };
     this.db.chat.push(m);
     if (this.db.chat.length > 100) this.db.chat.splice(0, this.db.chat.length - 100);
     this.store.save();
     return { msg: m };
   };
   // репутация — текущая (мечи/топоры рядом с ником в чате)
-  P.chatLog = function chatLog() { return (this.db.chat || []).slice(-50).map((m) => { const u = this.userById(m.fromId); return { ...m, rep: u ? u.reputation ?? START_REP : m.rep }; }); };
+  P.chatLog = function chatLog() { return (this.db.chat || []).slice(-50).map((m) => { const u = this.userById(m.fromId); return { ...m, rep: u ? u.reputation ?? START_REP : m.rep, role: u ? (u.admin ? 'admin' : u.mod ? 'mod' : '') : m.role }; }); };
 
   P.setNotes = function setNotes(user, text) { user.notes = String(text || '').slice(0, 5000); this.store.save(); return { ok: true }; };
   P.setAbout = function setAbout(user, text) { user.about = String(text || '').slice(0, 500); this.store.save(); return { ok: true }; };

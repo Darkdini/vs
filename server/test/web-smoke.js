@@ -295,6 +295,24 @@ function client() {
     assert.ok(aw.length > 0 && aw[0].at > 0 && aw[0].month, JSON.stringify(hl.list.map((h) => h.top)) + ' id ' + s3.user.id);
     console.log('✓ Зал Славы: итоги месяца, награды топ-3 с датой получения:', aw.map((m) => `${m.name} ${m.place}`).join(', '));
 
+    // ---- модератор форума: удаление сообщений и бан в чате ----
+    adm.send({ t: 'admin', op: 'mod', login: 'webby' });
+    await adm.expect('toast', (m) => /webby — модератор форума/.test(m.msg));
+    adm.send({ t: 'register', login: 'spammer', password: '123', race: 0 });
+    const sp = client(); await sp.open(); sp.send({ t: 'login', login: 'spammer', password: '123' }); await sp.expect('state');
+    sp.send({ t: 'chat', text: 'СПАМ' });
+    const spm = (await a.expect('chatmsg', (m) => m.msg.text === 'СПАМ')).msg;
+    a.send({ t: 'chatmod', op: 'del', id: spm.id });
+    await sp.expect('chatdel', (m) => m.id === spm.id);
+    a.send({ t: 'chatmod', op: 'ban', login: 'spammer', hours: 2 });
+    await a.expect('toast', (m) => /spammer: бан в чате на 2 ч/.test(m.msg));
+    sp.send({ t: 'chat', text: 'ещё' });
+    await sp.expect('error', (m) => /запрещено писать в чат/.test(m.msg));
+    adm.send({ t: 'chatmod', op: 'ban', login: 'admin', hours: -1 });
+    await adm.expect('error', (m) => /забанить нельзя/.test(m.msg));
+    sp.close();
+    console.log('✓ модератор форума: удаление сообщения, бан в чате на 2 ч, админа забанить нельзя');
+
     // ---- генерал: очки опыта, распределение, сброс, имя, убить ----
     adm.send({ t: 'admin', op: 'general', level: 50 });
     let gs = (await adm.expect('state', (m) => m.castle.mil.general && m.castle.mil.general.level === 50)).castle.mil.general;

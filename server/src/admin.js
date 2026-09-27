@@ -51,7 +51,7 @@ function install(Game) {
   P.playerInfo = function playerInfo(u) {
     const cs = this.castlesOf(u);
     return { id: u.id, login: u.login, race: C.RACE_NAMES[u.race], castles: cs.length, rating: this.userRating(u), gold: u.gold || 0,
-      online: !!u.online, banned: !!u.banned, admin: !!u.admin, created: u.created, lastSeen: u.lastSeen || u.created, x: cs[0] && cs[0].x, y: cs[0] && cs[0].y };
+      online: !!u.online, banned: !!u.banned, admin: !!u.admin, mod: !!u.mod, created: u.created, lastSeen: u.lastSeen || u.created, x: cs[0] && cs[0].x, y: cs[0] && cs[0].y };
   };
 
   // все админ-команды. arg.login — над каким игроком (пусто — над собой); arg.all — над всеми его замками
@@ -135,6 +135,7 @@ function install(Game) {
         const crypto = require('crypto'), salt = crypto.randomBytes(8).toString('hex');
         target.pass = `${salt}:${crypto.scryptSync(p, salt, 32).toString('hex')}`; msg = `Пароль ${target.login} изменён.`; break;
       }
+      case 'mod': target.mod = !target.mod; msg = `${target.login} — ${target.mod ? 'модератор форума' : 'больше не модератор'}.`; if (target.mod) this.event(target.id, 'Вас назначили модератором форума.'); break;
       case 'makeadmin': target.admin = true; msg = `${target.login} — администратор.`; break;
       case 'delete': {
         if (target.admin) return { error: 'Админа удалить нельзя.' };
