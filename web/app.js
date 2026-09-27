@@ -823,7 +823,7 @@ function isoDrawNow() {
   const st = S.st.castle;
   if (S.tab === 'castle') { // порядок как в клиенте: земля → ров → ограда сзади → здания → ограда спереди → курсор
     // внутри стен — трава, на ней 49 каменных участков с промежутками
-    const onPath = (xx, y) => (S.cat.castlePath || []).includes(y * 7 + xx); // тропинка от ворот к Ратуше — не застраивается
+    const onPath = (xx, y) => (S.cat.castlePath || []).includes(y * 7 + xx) || (xx === 3 && y === 3); // и клетка Ратуши — на развилке // тропинка от ворот к Ратуше — не застраивается
     groundField(17, (xx, y) => (xx >= CASTLE_OFF && xx < CASTLE_OFF + 7 && y >= CASTLE_OFF && y < CASTLE_OFF + 7 && !onPath(xx - CASTLE_OFF, y - CASTLE_OFF) ? 'ground/grass.png' : `ground/${GROUND[CASTLE_BASE[y][xx]]}.png`));
     moat();
     const fence = buildingLevel(22) > 0; // Забор построен — вокруг замка стена
