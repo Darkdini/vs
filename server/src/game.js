@@ -7,7 +7,11 @@ const path = require('path');
 const crypto = require('crypto');
 const C = require('./catalog');
 
-const SPEED = Number(process.env.SPEED || 10); // множитель скорости мира для тестов
+const SPEED = Number(process.env.SPEED || 10);
+// мир: карта WORLD×WORLD клеток (как в оригинале — координаты до ~10 000), рассчитан на 50 000+ игроков
+const WORLD = Number(process.env.WORLD_SIZE || 10000);
+const SPAWN_DENSITY = 30; // клеток карты на один замок в зоне заселения — соседи рядом, но не впритык
+const SAVE_MS = Number(process.env.SAVE_MS || 30000); // автосохранение раз в 30 с (и при остановке) // множитель скорости мира для тестов
 const MAX_QUEUE = Number(process.env.MAX_QUEUE || 3); // оригинал: 3 стройки одновременно (премиум — 5)
 
 // ---------- рельеф «Земель» 15×15: массивы j/k/l из клиента (класс k) ----------
@@ -66,20 +70,28 @@ const VIEW = { CASTLE: 0, LANDS: 1, WORLD: 2 };
 const GRID = { [VIEW.CASTLE]: 7, [VIEW.LANDS]: 15 };
 
 // ---------- хранилище ----------
+// сетки замков (здания и уровни) — байтовые массивы Int8Array: в памяти в ~8 раз меньше обычных массивов,
+// в файле — строка «~base64»
+const pack = (a) => `~${Buffer.from(a.buffer, a.byteOffset, a.byteLength).toString('base64')}`;
+const unpack = (s) => { const b = Buffer.from(s.slice(1), 'base64'); return new Int8Array(b.buffer, b.byteOffset, b.length).slice(); };
+const packCastle = (c) => { for (const v of [0, 1]) { if (!ArrayBuffer.isView(c.grid[v])) c.grid[v] = Int8Array.from(c.grid[v]); if (!ArrayBuffer.isView(c.levels[v])) c.levels[v] = Int8Array.from(c.levels[v]); } return c; };
+
 class Store {
   constructor(file) {
     this.file = file;
     this.data = { nextId: 1, users: {}, castles: {} };
-    if (fs.existsSync(file)) this.data = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (fs.existsSync(file)) this.data = JSON.parse(fs.readFileSync(file, 'utf8'), (k, v) => (typeof v === 'string' && v[0] === '~' ? unpack(v) : v));
     this.timer = null;
   }
+  // запись не чаще раза в SAVE_MS (на 50 тыс. игроков база — десятки МБ), компактный JSON
   save() {
-    clearTimeout(this.timer);
-    this.timer = setTimeout(() => this.flush(), 300);
+    if (this.timer) return;
+    this.timer = setTimeout(() => { this.timer = null; this.flush(); }, SAVE_MS);
   }
   flush() {
+    clearTimeout(this.timer); this.timer = null;
     fs.mkdirSync(path.dirname(this.file), { recursive: true });
-    fs.writeFileSync(this.file + '.tmp', JSON.stringify(this.data, null, 1));
+    fs.writeFileSync(this.file + '.tmp', JSON.stringify(this.data, (k, v) => (ArrayBuffer.isView(v) ? pack(v) : v)));
     fs.renameSync(this.file + '.tmp', this.file);
   }
 }
@@ -92,7 +104,21 @@ const checkPassword = (pass, stored) => hashPassword(pass, stored.split(':')[0])
 const buildTime = (def, level, townhall) => Math.max(3, Math.round(C.levelTimeSec(def, level, townhall) / SPEED));
 
 class Game {
-  constructor(store) { this.store = store; this.db = store.data; }
+  constructor(store) {
+    this.store = store; this.db = store.data;
+    this.byXY = new Map(); // индекс замков по координатам: карта мира и поиск цели без перебора всех
+    this.byId = new Map(); // игроки по id
+    for (const c of Object.values(this.db.castles)) { packCastle(c); this.byXY.set(c.x * WORLD + c.y, c); }
+    for (const u of Object.values(this.db.users)) this.byId.set(u.id, u);
+    this.cache = {};
+  }
+  castleAt(x, y) { return this.byXY.get(x * WORLD + y); }
+  moveCastle(c, x, y) { this.byXY.delete(c.x * WORLD + c.y); c.x = x; c.y = y; this.byXY.set(x * WORLD + y, c); }
+  removeCastle(c) { this.byXY.delete(c.x * WORLD + c.y); delete this.db.castles[c.id]; }
+  // кэш тяжёлых выборок по всем игрокам (рейтинги, Зал Славы) — пересчёт раз в ttl мс
+  cached(key, ttl, fn) { const e = this.cache[key]; if (e && Date.now() - e.at < ttl) return e.v; const v = fn(); this.cache[key] = { at: Date.now(), v }; return v; }
+  // таблица рейтинга игроков (кэш 15 с)
+  leaderboard() { return this.cached('lb', 15000, () => Object.values(this.db.users).map((u) => ({ u, r: this.userRating(u) })).sort((a, b) => b.r - a.r)); }
 
   // ----- аккаунты -----
   register({ login, password, email, race }) {
@@ -104,6 +130,7 @@ class Game {
     const id = this.db.nextId++;
     const raceId = C.RACES[Number(race)] || 'humans';
     this.db.users[login] = { id, login, pass: hashPassword(password), email: email || '', race: raceId, created: Date.now(), castleId: null };
+    this.byId.set(id, this.db.users[login]);
     const castle = this.createCastle(this.db.users[login]);
     this.db.users[login].castleId = castle.id;
     this.db.users[login].castleIds = [castle.id]; // первый — столица
@@ -117,24 +144,27 @@ class Game {
     return u;
   }
 
-  userById(id) { return Object.values(this.db.users).find((u) => u.id === id); }
+  userById(id) { return this.byId.get(id); }
 
   // ----- замки -----
   createCastle(user, at = null) {
     const id = this.db.nextId++;
-    const taken = new Set(Object.values(this.db.castles).map((c) => `${c.x}:${c.y}`));
-    let x, y, r = 0;
+    let x, y;
     if (at) ({ x, y } = at);
-    else do { // по спирали вокруг центра карты
-      const a = Math.random() * Math.PI * 2;
-      x = 200 + Math.round(Math.cos(a) * (3 + r)); y = 200 + Math.round(Math.sin(a) * (3 + r)); r += 0.5;
-    } while (taken.has(`${x}:${y}`));
-    const castleGrid = Array(49).fill(-1);
-    const landsGrid = Array(225).fill(-1);
+    else { // новые игроки — в круге вокруг центра карты, круг растёт с числом замков (плотность SPAWN_DENSITY)
+      const n = this.byXY.size, R = Math.max(12, Math.sqrt((n + 1) * SPAWN_DENSITY / Math.PI)), C0 = WORLD / 2;
+      for (let k = 0; ; k++) {
+        const a = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * (R + k * 0.2);
+        x = Math.round(C0 + Math.cos(a) * d); y = Math.round(C0 + Math.sin(a) * d);
+        if (x >= 0 && y >= 0 && x < WORLD && y < WORLD && !this.byXY.has(x * WORLD + y)) break;
+      }
+    }
+    const castleGrid = new Int8Array(49).fill(-1);
+    const landsGrid = new Int8Array(225).fill(-1);
     const castle = {
       id, owner: user.id, name: `Замок ${user.login}`, x, y,
       grid: { 0: castleGrid, 1: landsGrid },
-      levels: { 0: Array(49).fill(0), 1: Array(225).fill(0) },
+      levels: { 0: new Int8Array(49), 1: new Int8Array(225) },
       res: { wood: 750, stone: 750, iron: 750, food: 750, people: 40 },
       resAt: Date.now(),
       queue: [],
@@ -146,6 +176,7 @@ class Game {
       landsGrid[by * 15 + bx] = b; castle.levels[1][by * 15 + bx] = 1;
     }
     this.db.castles[id] = castle;
+    this.byXY.set(x * WORLD + y, castle);
     return castle;
   }
 
@@ -268,7 +299,8 @@ class Game {
   // img — номер тайла клиента: 10 замок, 1 камни, 9 озеро, 24 заброшенный замок, 25 дикари, 26 лесорубы, 27 рудник троллей
   worldObjects(x0, y0, w, h) {
     const out = [];
-    const castles = Object.values(this.db.castles).filter((c) => c.x >= x0 && c.x < x0 + w && c.y >= y0 && c.y < y0 + h);
+    const castles = [];
+    for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) { const c = this.castleAt(x, y); if (c) castles.push(c); }
     const occupied = new Set(castles.map((c) => `${c.x}:${c.y}`));
     for (const c of castles) {
       const owner = this.userById(c.owner);
@@ -277,7 +309,7 @@ class Game {
     }
     for (let y = y0; y < y0 + h; y++) {
       for (let x = x0; x < x0 + w; x++) {
-        if (occupied.has(`${x}:${y}`)) continue;
+        if (occupied.has(`${x}:${y}`) || x < 0 || y < 0 || x >= WORLD || y >= WORLD) continue;
         const roll = (((x * 73856093) ^ (y * 19349663)) >>> 0) % 100;
         const obj = roll < 8 ? [1, 'Камни'] : roll < 11 ? [9, 'Озеро'] : roll < 13 ? [25, 'Дикари'] : roll < 15 ? [26, 'Лесорубы']
           : roll < 16 ? [27, 'Рудник троллей'] : roll < 18 ? [24, 'Заброшенный замок'] : null;
@@ -322,4 +354,4 @@ require('./social').install(Game);
 // администратор: 20 замков и все админ-команды (server/src/admin.js)
 require('./admin').install(Game);
 
-module.exports = { Game, Store, STORE, BASE_RATE, PEOPLE_FACTOR, storeBonus, buildTime, VIEW, GRID, landOptions, SPEED, MAX_QUEUE, LANDS_BASE, LANDS_DECOR, LANDS_EDGE };
+module.exports = { WORLD, Game, Store, STORE, BASE_RATE, PEOPLE_FACTOR, storeBonus, buildTime, VIEW, GRID, landOptions, SPEED, MAX_QUEUE, LANDS_BASE, LANDS_DECOR, LANDS_EDGE };

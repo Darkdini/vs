@@ -32,13 +32,11 @@ function install(Game) {
   // новые замки рядом со столицей (свободные клетки по спирали), сразу на полной прокачке
   P.adminAddCastles = function adminAddCastles(user, n) {
     const cap = this.castlesOf(user)[0];
-    const taken = new Set(Object.values(this.db.castles).map((c) => `${c.x}:${c.y}`));
     let r = 2, a = 0, made = 0;
     while (made < n && r < 200) {
       const x = cap.x + Math.round(Math.cos(a) * r), y = cap.y + Math.round(Math.sin(a) * r);
       a += 0.9; if (a > Math.PI * 2) { a = 0; r += 2; }
-      if (taken.has(`${x}:${y}`)) continue;
-      taken.add(`${x}:${y}`);
+      if (this.castleAt(x, y)) continue;
       const c = this.createCastle(user, { x, y });
       c.name = `Королевский замок ${this.castlesOf(user).length + 1}`;
       user.castleIds = [...this.castlesOf(user).map((k) => k.id), c.id];
@@ -100,7 +98,28 @@ function install(Game) {
       case 'sciences': for (const c of castles) { this.mil(c); c.sciences = { eco: 20, eng: 20, fhi: 20, war: 20 }; } msg = 'Все науки 20 ур.'; break;
       case 'loyalty': for (const c of castles) { this.mil(c); c.loyalty = Math.max(0, Math.min(100, num(arg.value, 100))); c.loyAt = now; } msg = `Лояльность ${num(arg.value, 100)}.`; break;
       // --- игроки ---
-      case 'players': data = Object.values(this.db.users).map((u) => this.playerInfo(u)).sort((a, b) => b.rating - a.rating); break;
+      case 'players': { // первые 100 по рейтингу (+ поиск по части логина)
+        const q = String(arg.q || '').trim().toLowerCase();
+        data = (q ? Object.values(this.db.users).filter((u) => u.login.includes(q)) : this.leaderboard().slice(0, 100).map((x) => x.u)).slice(0, 100).map((u) => this.playerInfo(u));
+        break;
+      }
+      case 'bots': { // заселить мир ботами (проверка нагрузки): игроки с замками и случайным развитием
+        const n = Math.max(1, Math.min(100000, num(arg.n, 1000))), t0 = Date.now();
+        const races = C.RACES; let made = 0;
+        for (let i = 0; i < n; i++) {
+          const id = this.db.nextId++, login = `bot${id}`;
+          if (this.db.users[login]) continue;
+          const u = { id, login, pass: 'bot:-', race: races[i % races.length], created: now, castleId: null, bot: true };
+          this.db.users[login] = u; this.byId.set(id, u);
+          const c = this.createCastle(u); u.castleId = c.id; u.castleIds = [c.id];
+          const lv = 1 + Math.floor(Math.random() * 12);
+          c.levels[0][24] = lv; c.levels[0][8] = Math.max(1, lv - 2); // Ратуша и Склад
+          for (let k = 0; k < 225; k++) if (c.grid[1][k] >= 0) c.levels[1][k] = Math.max(1, Math.floor(Math.random() * lv));
+          made++;
+        }
+        this.cache = {};
+        msg = `Создано ботов: ${made} за ${((Date.now() - t0) / 1000).toFixed(1)} с. Игроков всего: ${Object.keys(this.db.users).length}.`; break;
+      }
       case 'player': data = { ...this.playerInfo(target), castlesList: this.castlesOf(target).map((c) => ({ id: c.id, name: c.name, x: c.x, y: c.y, rating: this.rating(c), loyalty: Math.round(c.loyalty ?? 100) })) }; break;
       case 'rep': target.reputation = Math.max(0, (target.reputation || 0) + num(arg.n, 10)); msg = `Репутация: ${target.reputation}.`; break;
       case 'ban': if (target.admin) return { error: 'Админа заблокировать нельзя.' }; target.banned = true; target.online = false; msg = `${target.login} заблокирован.`; break;
@@ -114,9 +133,9 @@ function install(Game) {
       case 'makeadmin': target.admin = true; msg = `${target.login} — администратор.`; break;
       case 'delete': {
         if (target.admin) return { error: 'Админа удалить нельзя.' };
-        for (const c of this.castlesOf(target)) delete this.db.castles[c.id];
+        for (const c of this.castlesOf(target)) this.removeCastle(c);
         for (const al of Object.values(this.db.alliances || {})) al.members = al.members.filter((m) => m !== target.id);
-        delete this.db.users[target.login]; msg = `Игрок ${target.login} удалён.`; break;
+        delete this.db.users[target.login]; this.byId.delete(target.id); msg = `Игрок ${target.login} удалён.`; break;
       }
       case 'rename': {
         const c = this.castleAt(num(arg.x, NaN), num(arg.y, NaN)) || this.castleOf(target);
@@ -127,7 +146,7 @@ function install(Game) {
         const x = num(arg.x, NaN), y = num(arg.y, NaN);
         if (!Number.isFinite(x) || !Number.isFinite(y)) return { error: 'Укажите X и Y.' };
         if (this.castleAt(x, y)) return { error: 'Клетка занята замком.' };
-        const c = this.castleOf(target); c.x = x; c.y = y; msg = `Замок перенесён на ${x}:${y}.`; break;
+        this.moveCastle(this.castleOf(target), x, y); msg = `Замок перенесён на ${x}:${y}.`; break;
       }
       // --- мир, связь ---
       case 'mailall': {

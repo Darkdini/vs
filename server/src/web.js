@@ -113,7 +113,7 @@ class WebSession {
       now: Date.now(),
       user: { id: u.id, login: u.login, race: u.race, raceName: C.RACE_NAMES[u.race], gold: u.gold || 0, admin: !!u.admin },
       castle: {
-        id: c.id, name: c.name, x: c.x, y: c.y, grid: c.grid, levels: c.levels,
+        id: c.id, name: c.name, x: c.x, y: c.y, grid: { 0: Array.from(c.grid[0]), 1: Array.from(c.grid[1]) }, levels: { 0: Array.from(c.levels[0]), 1: Array.from(c.levels[1]) },
         res: c.res, rate: this.game.rates(c), cap: this.game.capacity(c),
         queue: c.queue.map((q) => ({ view: q.view, cell: q.cell, building: q.building, level: q.level, start: q.start, end: q.end })),
         rating: this.game.rating(c), townhall: this.game.buildingLevel(c, 0),
@@ -173,7 +173,8 @@ const API = {
   },
   world(m) {
     const c = this.castle, R = 7;
-    const cx = Number.isFinite(m.cx) ? m.cx : c.x, cy = Number.isFinite(m.cy) ? m.cy : c.y;
+    const lim = (v) => Math.max(R, Math.min(G.WORLD - 1 - R, Math.round(v))); // не за край карты
+    const cx = lim(Number.isFinite(m.cx) ? m.cx : c.x), cy = lim(Number.isFinite(m.cy) ? m.cy : c.y);
     this.send({ t: 'world', cx, cy, radius: R, objects: this.game.worldObjects(cx - R, cy - R, 2 * R + 1, 2 * R + 1), home: { x: c.x, y: c.y } });
   },
   profile(m) {
@@ -202,8 +203,7 @@ const API = {
   },
   halls() { this.send({ t: 'halls', list: this.game.halls() }); },
   rating() {
-    const rows = Object.values(this.game.db.users).map((u) => ({ id: u.id, login: u.login, race: C.RACE_NAMES[u.race], raceId: u.race, online: !!u.online, rating: this.game.userRating(u) }))
-      .sort((a, b) => b.rating - a.rating).slice(0, 50);
+    const rows = this.game.leaderboard().slice(0, 50).map(({ u, r }) => ({ id: u.id, login: u.login, race: C.RACE_NAMES[u.race], raceId: u.race, online: !!u.online, rating: r }));
     this.send({ t: 'rating', rows });
   },
   mail(m) {

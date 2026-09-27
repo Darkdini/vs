@@ -26,7 +26,7 @@ const UNIT_IMG = {
   207: 'elf/archer', 208: 'elf/fighter', 209: 'elf/scout', 210: 'elf/create', 211: 'elf/kenaur', 212: 'elf/edinorog', 213: 'elf/ent',
   214: 'dwarv/fighter', 215: 'dwarv/arbalet', 216: 'dwarv/elder', 217: 'dwarv/gryphon', 218: 'dwarv/defender', 219: 'dwarv/revolver', 220: 'dwarv/yeti',
 };
-const RACE_IMG = { humans: 'units/human/knight.png', elves: 'units/elf/archer.png', dwarves: 'units/dwarv/fighter.png' };
+const RACE_IMG = { humans: 'units/human/knight.png', elves: 'units/elf/archer.png', dwarves: 'units/dwarv/fighter.png', orcs: 'units/dwarv/fighter.png?orc' }; // ?orc — зелёный оттенок (style.css)
 const displayId = (def, level) => (!def.tiers ? def.id : level >= 10 ? def.tiers[2] : level >= 5 ? def.tiers[1] : def.tiers[0]);
 // у Забора (22) картинки здания в клиенте нет — он виден оградой вокруг замка; в списках — кусок ограды
 const bsrc = (id) => (id === 22 ? `${GFX}fence/fence1.png` : `${GFX}build/${BUILD_IMG[id] || 'build'}.png`);

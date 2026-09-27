@@ -37,7 +37,8 @@ function install(Game) {
     }
   };
   // текущие призёры каждого зала
-  P.halls = function halls() {
+  P.halls = function halls() { return this.cached('halls', 60000, () => this.hallsCalc()); }; // кэш 1 мин
+  P.hallsCalc = function hallsCalc() {
     const users = Object.values(this.db.users);
     return Object.entries(HALLS).map(([id, h]) => {
       const top = users.map((u) => ({ id: u.id, login: u.login, value: this.hallValue(u, id) }))
@@ -53,8 +54,8 @@ function install(Game) {
 
   // место в общем рейтинге
   P.rankOf = function rankOf(userId) {
-    const rows = Object.values(this.db.users).map((u) => ({ id: u.id, r: this.userRating(u) })).sort((a, b) => b.r - a.r);
-    return rows.findIndex((x) => x.id === userId) + 1;
+    const rank = this.cached('rank', 15000, () => new Map(this.leaderboard().map((x, i) => [x.u.id, i + 1])));
+    return rank.get(userId) || 0;
   };
 
   // полный профиль для окна «Профиль»
@@ -109,13 +110,17 @@ function install(Game) {
   P.friendsOf = function friendsOf(user) { return (user.friends || []).map((id) => this.userById(id)).filter(Boolean).map((u) => this.playerRow(u)); };
   P.searchPlayers = function searchPlayers(q) {
     q = String(q || '').trim().toLowerCase();
-    return Object.values(this.db.users).filter((u) => !q || u.login.includes(q)).slice(0, 30).map((u) => this.playerRow(u));
+    const list = q ? Object.values(this.db.users).filter((u) => u.login.includes(q)) : this.leaderboard().slice(0, 30).map((x) => x.u);
+    return list.slice(0, 30).map((u) => this.playerRow(u));
   };
   // земляки — игроки в радиусе от замка
-  P.nearby = function nearby(user, radius = 25) {
-    const c = this.castleOf(user);
-    return Object.values(this.db.users).filter((u) => u.id !== user.id).map((u) => this.playerRow(u, c))
-      .filter((r) => r.dist <= radius).sort((a, b) => a.dist - b.dist).slice(0, 30);
+  P.nearby = function nearby(user, radius = 25) { // земляки — по индексу карты вокруг замка
+    const c = this.castleOf(user), seen = new Set([user.id]), out = [];
+    for (let y = c.y - radius; y <= c.y + radius; y++) for (let x = c.x - radius; x <= c.x + radius; x++) {
+      const k = this.castleAt(x, y); if (!k || seen.has(k.owner)) continue; seen.add(k.owner);
+      const u = this.userById(k.owner); if (u) out.push(this.playerRow(u, c));
+    }
+    return out.filter((r) => r.dist <= radius).sort((a, b) => a.dist - b.dist).slice(0, 30);
   };
 
   // общий чат (последние 100 сообщений)
@@ -135,7 +140,8 @@ function install(Game) {
   P.setAbout = function setAbout(user, text) { user.about = String(text || '').slice(0, 500); this.store.save(); return { ok: true }; };
 
   // рейтинги по разделам «Рейтинг»
-  P.ratingCastles = function ratingCastles() {
+  P.ratingCastles = function ratingCastles() { return this.cached('rc', 15000, () => this.ratingCastlesCalc()); };
+  P.ratingCastlesCalc = function ratingCastlesCalc() {
     return Object.values(this.db.castles).map((c) => { const u = this.userById(c.owner); return { id: u.id, login: u.login, name: c.name, x: c.x, y: c.y, rating: this.rating(c) }; })
       .sort((a, b) => b.rating - a.rating).slice(0, 50);
   };

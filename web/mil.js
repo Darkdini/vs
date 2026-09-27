@@ -8,7 +8,8 @@ const RES4 = ['wood', 'stone', 'iron', 'food'];
 const HQ = 2;
 let UNIT_BY = null;
 const unitById = (id) => { if (!UNIT_BY) UNIT_BY = Object.fromEntries(M().units.map((u) => [u.id, u])); return UNIT_BY[id]; };
-const unitSrc = (u, race = S.st.user.race) => `${GFX}units/${u.race === 'all' && !u.img.includes('/') ? `${M().raceDir[race]}/${u.img}` : u.img}.png`;
+// у орков нет своих спрайтов в клиенте: берутся похожие, ?orc красит их в зелёный (style.css)
+const unitSrc = (u, race = S.st.user.race) => `${GFX}units/${u.race === 'all' && !u.img.includes('/') ? `${M().raceDir[race]}/${u.img}` : u.img}.png${u.race === 'orcs' || (u.race === 'all' && race === 'orcs' && !u.img.includes('/')) ? '?orc' : ''}`;
 const uimg = (u, cls = 'ui') => `<img class="${cls}" src="${unitSrc(u)}" alt="">`;
 const myUnitList = () => M().units.filter((u) => u.race === S.st.user.race || u.race === 'all');
 const ART_ICON = { atk: 'smallicon/artefacts/artefakt_dragon.png', def: 'smallicon/artefacts/artefakt_spider.png', prod: 'smallicon/artefacts/artefakt_wampire_blood.png', speed: 'smallicon/artefacts/artefakt_bat.png', train: 'smallicon/magattack.png' };
@@ -280,7 +281,7 @@ function worldActions(o, x, y) {
 
 // ---------- справочник войск (Ещё → Войска) ----------
 function armyBookHtml() {
-  const races = ['humans', 'elves', 'dwarves', 'all'];
+  const races = ['humans', 'elves', 'dwarves', 'orcs', 'all'];
   S.bookRace = S.bookRace || S.st.user.race;
   const list = M().units.filter((u) => u.race === S.bookRace);
   return `<div class="vhead"><button class="iconbtn" data-back>‹</button><h2>Войска</h2></div>

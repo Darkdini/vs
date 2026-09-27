@@ -15,7 +15,7 @@ const MENUS = {
   cabinet: { label: 'Кабинет', icon: 'menu/cabinet.svg', items: () => [
     ...(S.st.user.admin ? [['Админ-панель', 'smallicon/status/f_gold.png', () => openSheet(adminHtml)]] : []),
     ['Профиль', 'units/human/general.png', () => send({ t: 'profile', id: me() })],
-    ['Советник', `units/${S.cat.mil.raceDir[S.st.user.race]}/wisdom.png`, () => openSheet(advisorWin)],
+    ['Советник', `units/${S.cat.mil.raceDir[S.st.user.race]}/wisdom.png${S.st.user.race === 'orcs' ? '?orc' : ''}`, () => openSheet(advisorWin)],
     ['Казна', 'smallicon/coin_gold.png', () => openSheet(treasuryWin)],
     ['Премиум', 'smallicon/status/f_gold.png', () => openSoon('Премиум')],
     ['Уведомления', 'smallicon/upgrade.png', () => openReports()],
@@ -251,7 +251,7 @@ function advisorWin() {
   if (!L(22)) tips.push('Забор даёт бонус к защите замка и всех войск в нём.');
   if (!L(26)) tips.push('Тайник прячет часть ресурсов от грабителей.');
   if (!tips.length) tips.push('Замок развивается отлично! Грабьте лагеря Дикарей и Лесорубов на карте мира и поднимайтесь в Зале Славы.');
-  return `${ribbon('Советник')}<div class="advisor"><img src="${GFX}units/${S.cat.mil.raceDir[S.st.user.race]}/wisdom.png" alt=""><div>${tips.map((t) => `<p>${esc(t)}</p>`).join('')}</div></div>`;
+  return `${ribbon('Советник')}<div class="advisor"><img src="${GFX}units/${S.cat.mil.raceDir[S.st.user.race]}/wisdom.png${S.st.user.race === 'orcs' ? '?orc' : ''}" alt=""><div>${tips.map((t) => `<p>${esc(t)}</p>`).join('')}</div></div>`;
 }
 const newsWin = () => `${ribbon('Новости')}<div class="pstats"><b>Тестовый сервер</b><br>Работают: постройки и таблицы уровней, армии и генералы, бои и набеги, разведка, экспедиции и артефакты,
   рынок, альянсы, науки, религия, чат, друзья, репутация, Зал Славы.<br><br>Скорость мира ×${S.cat.speed}.</div>`;

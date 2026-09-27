@@ -13,7 +13,7 @@ const C = require('./catalog');
 const SPEED = Number(process.env.SPEED || 10);
 const GDD = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'data', 'units.json'), 'utf8'));
 const RES4 = ['wood', 'stone', 'iron', 'food'];
-const RACE_DIR = { humans: 'human', elves: 'elf', dwarves: 'dwarv' };
+const RACE_DIR = { humans: 'human', elves: 'elf', dwarves: 'dwarv', orcs: 'dwarv' }; // у орков своих спрайтов в клиенте нет — гномьи с зелёным оттенком (клиент)
 
 // ---------- здания с функциями (id из клиента) ----------
 const B = {
@@ -47,6 +47,15 @@ const UNIT_LIST = [
   [218, 'Защитник гор', 'dwarves', 'dwarv/defender', 'def_inf', B.BARRACKS, 1],
   [219, 'Револьверщик', 'dwarves', 'dwarv/revolver', 'elite_inf', B.WORKSHOP, 5],
   [220, 'Йетти', 'dwarves', 'dwarv/yeti', 'legendary', B.PORTAL, 1],
+  // орки: имена из оригинала (армия игрока в 3D-клиенте); статы — роли GDD (атака ×2.5, цена ×1.8, еда ×2),
+  // Тиран — характеристики оригинала (атака 30, защита 30/30, маг. защита 20, груз 12, скорость 9)
+  [245, 'Мародёр', 'orcs', 'human/swordman', 'atk_inf', B.BARRACKS, 1],
+  [246, 'Урук-хай', 'orcs', 'dwarv/defender', 'def_inf', B.BARRACKS, 1],
+  [250, 'Тиран', 'orcs', 'human/javelineer', 'tyrant', B.BARRACKS, 3],
+  [248, 'Шаман', 'orcs', 'dwarv/elder', 'mage', B.MAGE_ACADEMY, 1],
+  [247, 'Бугай', 'orcs', 'dwarv/fighter', 'elite_inf', B.BARRACKS, 10, { [B.SMITH]: 5 }],
+  [249, 'Кулак Ярости', 'orcs', 'human/knight', 'heavy_cav', B.STABLE, 10, { [B.SMITH]: 10 }],
+  [251, 'Изувер', 'orcs', 'dwarv/yeti', 'legendary', B.PORTAL, 1],
   // специальные — у каждой расы своя картинка (units/<раса>/torg.png и т.д.)
   [221, 'Торговец', 'all', 'torg', 'merchant', B.MARKET, 1],
   [224, 'Путешественник', 'all', 'traveler', 'settler', B.TRAVELER, 1],
@@ -64,6 +73,7 @@ const UNIT_LIST = [
 ];
 // роли, которых нет в GDD, — свой баланс в том же формате
 const CUSTOM = {
+  tyrant: { type: 'infantry', attack: 30, magicAttack: 0, defense: { infantry: 30, cavalry: 30, magic: 20 }, speed: 9, carry: 12, upkeepFoodPerHour: 2, population: 1, cost: { wood: 120, stone: 120, iron: 120, food: 290 }, trainTimeSec: 700 },
   sage: { type: 'special', attack: 0, magicAttack: 0, defense: { infantry: 5, cavalry: 5, magic: 5 }, speed: 5, carry: 0, upkeepFoodPerHour: 1, population: 1, cost: { wood: 150, stone: 150, iron: 150, food: 300 }, trainTimeSec: 900 },
   giant: { type: 'infantry', attack: 180, magicAttack: 0, defense: { infantry: 120, cavalry: 100, magic: 40 }, speed: 5, carry: 150, upkeepFoodPerHour: 6, population: 5, cost: { wood: 1500, stone: 1500, iron: 2500, food: 1500 }, trainTimeSec: 7200 },
   valkyrie: { type: 'cavalry', attack: 150, magicAttack: 40, defense: { infantry: 90, cavalry: 110, magic: 80 }, speed: 12, carry: 120, upkeepFoodPerHour: 5, population: 4, cost: { wood: 1200, stone: 1000, iron: 2000, food: 1200 }, trainTimeSec: 6000 },
@@ -158,7 +168,7 @@ function install(Game, helpers) {
     for (const a of castle.artifacts) if (a.active) art[a.type] += RARITY[a.rarity].bonus;
     const gen = castle.general && !castle.general.dead && !castle.general.away ? castle.general.level : 0;
     const race = this.raceOf(castle);
-    const wallPer = { humans: 0.03, elves: 0.035, dwarves: 0.02 }[race] || 0.03;
+    const wallPer = { humans: 0.03, elves: 0.035, dwarves: 0.02, orcs: 0.025 }[race] || 0.03;
     return {
       atk: (1 + 0.015 * L(B.SMITH)) * (1 + SCIENCES.war.per * sci.war) * (1 + 0.01 * L(B.BREWERY)) * (1 + (rel === 'war' ? 0.01 * templeL : 0)) * (1 + art.atk),
       def: (1 + 0.015 * L(B.SMITH)) * (1 + SCIENCES.war.per * sci.war) * (1 + (rel === 'light' ? 0.01 * templeL : 0)) * (1 + art.def) * (1 + 0.01 * gen),
@@ -269,7 +279,7 @@ function install(Game, helpers) {
   };
 
   // ----- марши -----
-  P.castleAt = function castleAt(x, y) { return Object.values(this.db.castles).find((c) => c.x === x && c.y === y); };
+  // castleAt(x, y) — индекс по координатам в game.js
   P.travelSec = function travelSec(castle, units, general, x, y, merchants = false) {
     const speeds = Object.keys(units).filter((id) => units[id] > 0).map((id) => UNIT[id].speed);
     if (general) speeds.push(UNIT[GENERAL_ID].speed);
@@ -333,7 +343,7 @@ function install(Game, helpers) {
   P.tickWorld = function tickWorld(now = Date.now()) {
     const due = [];
     for (const c of Object.values(this.db.castles)) {
-      this.mil(c);
+      if (!c.armies || !c.armies.length) continue; // замки без армий в пути (на 50 тыс. игроков — почти все)
       for (const a of c.armies) if ((a.state === 'go' && a.arrive <= now) || (a.state === 'back' && a.back <= now)) due.push([c, a]);
     }
     due.sort((p, q) => (p[1].state === 'go' ? p[1].arrive : p[1].back) - (q[1].state === 'go' ? q[1].arrive : q[1].back));
@@ -476,7 +486,7 @@ function install(Game, helpers) {
       while (wallL > 0 && ram >= Math.round(2 * 1.25 ** wallL)) { ram -= Math.round(2 * 1.25 ** wallL); wallL--; }
       if (wallL < b.wall) { this.setBuildingLevel(target, B.FENCE, wallL); siege.push(`Забор: ${b.wall} → ${wallL} ур.`); }
       let cat = (a.units[240] || 0) * UNIT[240].attack / (1 + 0.05 * b.mason);
-      const cells = target.grid[0].map((id, i) => [id, i]).filter(([id, i]) => id > 0 && target.levels[0][i] > 0);
+      const cells = Array.from(target.grid[0], (id, i) => [id, i]).filter(([id, i]) => id > 0 && target.levels[0][i] > 0);
       if (cat > 0 && cells.length) {
         const [bid, cell] = cells[Math.floor(Math.random() * cells.length)];
         let L = target.levels[0][cell]; const L0 = L;
@@ -732,7 +742,7 @@ function install(Game, helpers) {
     const race = this.raceOf(castle);
     const castleBuildings = C.BUILDINGS.filter((b) => b.layer === 'castle' && b.id !== 0);
     const cells = [...Array(49).keys()].filter((i) => i !== 24);
-    castle.grid[0] = Array(49).fill(-1); castle.levels[0] = Array(49).fill(0);
+    castle.grid[0] = new Int8Array(49).fill(-1); castle.levels[0] = new Int8Array(49);
     castle.grid[0][24] = 0; castle.levels[0][24] = C.BY_ID[0].max;
     let k = 0;
     for (const b of castleBuildings) { const i = cells[k++]; castle.grid[0][i] = b.id; castle.levels[0][i] = b.max; }

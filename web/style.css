@@ -592,3 +592,6 @@ input.num { width: 76px; padding: 7px; text-align: center; }
 /* подписи нижнего меню не налезают друг на друга: размер от ширины экрана, без переноса и обрезки внутри своей кнопки */
 #menubar span { font-size: min(11px, 2.3vw); letter-spacing: -0.02em; max-width: 100%; overflow: hidden; text-overflow: clip; }
 #menubar button { min-width: 0; overflow: visible; }
+
+/* орки: спрайты гномов/людей с зелёной кожей (своих картинок орков в клиенте нет) */
+img[src$="?orc"] { filter: hue-rotate(85deg) saturate(1.5) brightness(0.92) contrast(1.1); }

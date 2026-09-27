@@ -15,7 +15,7 @@ const DB = path.join(os.tmpdir(), `tw-web-smoke-${process.pid}.json`);
 
 function startServer() {
   const child = spawn(process.execPath, [path.join(__dirname, '..', 'src', 'index.js')], {
-    env: { ...process.env, WEB_PORT: String(WEB_PORT), HOST: '127.0.0.1', DB, SPEED: '2000' },
+    env: { ...process.env, WEB_PORT: String(WEB_PORT), HOST: '127.0.0.1', DB, SPEED: '2000', SAVE_MS: '500' },
     stdio: ['ignore', 'pipe', 'inherit'],
   });
   return new Promise((resolve) => child.stdout.on('data', (d) => { if (String(d).includes('браузерный клиент')) resolve(child); }));
