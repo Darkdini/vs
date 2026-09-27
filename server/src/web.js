@@ -238,7 +238,7 @@ const API = {
     if (!list) return API.rating.call(this);
     this.send({ t: 'ratings', kind: k, list });
   },
-  halls() { this.send({ t: 'halls', list: this.game.halls() }); },
+  halls() { const list = this.game.halls(), s = this.game.season(); this.send({ t: 'halls', list, season: { key: s.key, end: s.end }, last: (this.game.db.hallHistory || []).slice(-1)[0] || null }); },
   rating() {
     const rows = this.game.leaderboard().slice(0, 50).map(({ u, r }) => ({ id: u.id, login: u.login, race: C.RACE_NAMES[u.race], raceId: u.race, rating: r }));
     this.send({ t: 'rating', rows });

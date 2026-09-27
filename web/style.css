@@ -749,3 +749,6 @@ img[src$="?orc"] { filter: hue-rotate(85deg) saturate(1.5) brightness(0.92) cont
 .pline.plink2 { display: block; width: 100%; border: 0; border-bottom: 1px solid #b08a5a44; background: none; padding: 3px 0; text-align: left; color: inherit; font: 20px/1.5 var(--serif); }
 .reprow { display: flex; align-items: center; gap: 12px; font: min(24px, 5.4vw) var(--serif); padding: 3px 0; }
 .reprow > span:first-child { width: 42%; }
+.award { display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #0002; padding: 6px 0; font: min(20px, 4.6vw) var(--serif); }
+.award img { width: 40px; height: 40px; object-fit: contain; }
+.award small { display: block; font-size: 14px; opacity: .8; }

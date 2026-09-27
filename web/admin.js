@@ -36,6 +36,7 @@ function adminHtml() {
       ${aBtn('arts', '5 артефактов', 'smallicon/artefacts/artefakt_dragon.png')}
       ${aBtn('noarmy', 'Убрать войска', 'smallicon/destroy.png', 'data-confirm="Убрать все войска?"')}
       ${aBtn('npc', 'Восстановить лагеря', 'ground/dikari.png')}
+      ${aBtn('season', 'Подвести месяц (Зал Славы)', 'smallicon/bonus_status/ranggold.png', 'data-confirm="Подвести итоги месяца досрочно и выдать награды топ-3?"')}
     </div>
     <div class="arow">${aNum('loyalty', 100, '0–100')}${aBtn('loyalty', 'Лояльность', 'smallicon/bonus_status/coronalgold.png', 'data-arg="loyalty:value"')}</div>
 

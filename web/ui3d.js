@@ -140,7 +140,8 @@ const chatWin = () => `${ribbon('Чат')}<div id="chatList" class="chatlist">${
 const avatarImg = (p, cls = '') => (p.avatar ? `<img class="${cls}" src="avatar/${p.id}.png?v=${p.avatar}" alt="">` : raceIcon(p.race));
 function profileWin(p) {
   const tile = (key, icon, text, off) => `<button class="ptile ${off ? 'off' : ''}" data-ptile="${key}" data-pid="${p.id}"><img src="${GFX}${icon}" alt=""><span>${text}</span></button>`;
-  const medals = p.medals.length ? p.medals.map((m) => `<img class="medal" src="${GFX}${m.icon}" alt="" title="${esc(m.name)} — ${m.place} место">`).join('') : '<span class="muted">нет</span>';
+  const medals = p.medals.length ? p.medals.map((m) => `<img class="medal" src="${GFX}${m.icon}" alt="" title="Зал ${esc(m.name)} — ${m.place} место, получено ${fmtDay(m.at)}">`).join('') : '<span class="muted">нет</span>';
+  const awards = p.medals.length ? p.medals.map((m) => `<div class="award"><img src="${GFX}${m.icon}" alt=""><div><b>Зал ${esc(m.name)} — ${['I', 'II', 'III'][m.place - 1]} место</b><small>за ${monthName(m.month)} · получено ${fmtDay(m.at)}</small></div></div>`).join('') : '<div class="parch-note">Пока нет — награды получают топ-3 игрока каждого зала в конце соревновательного месяца.</div>';
   return `${ribbon('Профиль')}
     <div class="pauth"><img src="${GFX}smallicon/bonus_status/coronalgold.png" alt=""><div>Авторитет Вашего города:<br><b>Здесь может быть Ваше имя!</b></div></div>
     <button class="pbar" data-soon="Авторитет города">Стать Авторитетом!</button>
@@ -166,7 +167,7 @@ function profileWin(p) {
     </div>
     ${ribbon(`Подарки - ${(p.gifts || []).length}`)}${(p.gifts || []).length ? `<div class="pgifts">${p.gifts.map((g) => { const G = S.cat.gifts[g.gift] || {}; return `<button class="pgift" data-cprof="${g.fromId}" title="${esc(G.name || '')}"><img src="${GFX}${G.img}" alt=""><small>от ${esc(g.from)}</small>${g.text ? `<i>«${esc(g.text)}»</i>` : ''}</button>`; }).join('')}</div>` : '<div class="parch-note">Подарков пока нет.</div>'}
     ${ribbon('Зал Славы')}<div class="pmedals">${medals}</div><button class="pbar" data-hof>Посмотреть</button>
-    ${ribbon('Награждения')}<div class="parch-note">Пока нет — награды выдаются по итогам месяца.</div>
+    ${ribbon(`Награждения - ${p.medals.length}`)}${awards}
     ${ribbon(`Замки - ${p.castles.length}`)}
     ${p.castles.map((c) => `<button class="pcastle" data-goworld="${c.x},${c.y}"><img src="${GFX}ground/castle_small.png" alt=""> ${esc(c.name)}<br>X: ${c.x}, Y: ${c.y}${c.capital ? ' (Столица)' : ''}</button>`).join('')}`;
 }
@@ -179,11 +180,18 @@ function profileInfoWin(p) {
 function hallsWin() {
   if (!S.halls) return `${ribbon('Зал Славы')}<p class="parch-note">Загрузка…</p>`;
   const place = ['I', 'II', 'III'], col = ['gold', 'silver', 'bronze'];
-  return `${ribbon('Зал Славы')}${S.halls.map((h) => `<div class="hall"><img class="hallic" src="${GFX}smallicon/bonus_status/${h.icon}gold.png" alt="">
+  const ss = S.hallSeason, last = S.hallLast;
+  return `${ribbon('Зал Славы')}
+    ${ss ? `<div class="bwline center">Соревнование за <b>${monthName(ss.key)}</b><br><small>итоги через <span class="cd" data-e="${ss.end}"></span> — награды получат топ-3 каждого зала</small></div>` : ''}
+    ${S.halls.map((h) => `<div class="hall"><img class="hallic" src="${GFX}smallicon/bonus_status/${h.icon}gold.png" alt="">
     <div><b class="hname">Зал ${esc(h.name)}</b><div class="hdesc">${esc(h.desc)}</div>
     ${h.top.length ? h.top.map((x, i) => `<div class="hrow"><img src="${GFX}smallicon/bonus_status/${h.icon}${col[i] === 'silver' && h.icon === 'medal' ? 'siver' : col[i]}.png" alt=""> ${place[i]} место — <a data-cprof="${x.id}">${esc(x.login)}</a> (${fmtFull(x.value)})</div>`).join('') : '<div class="hdesc">Пока никто не отличился.</div>'}
-    </div></div>`).join('')}`;
+    </div></div>`).join('')}
+    ${last ? `${ribbon(`Победители за ${monthName(last.key)}`)}${last.halls.map((h) => `<div class="hrow"><b>${esc(h.name)}:</b> ${h.top.map((x, i) => `<img src="${GFX}smallicon/bonus_status/${h.icon}${['gold', 'silver', 'bronze'][i] === 'silver' && h.icon === 'medal' ? 'siver' : ['gold', 'silver', 'bronze'][i]}.png" alt=""> <a data-cprof="${x.id}">${esc(x.login)}</a>`).join(' ') || '—'}</div>`).join('')}` : ''}`;
 }
+const MONTHS = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
+const monthName = (key) => { const [y, m] = String(key || '').split('-'); return m ? `${MONTHS[Number(m) - 1]} ${y}` : ''; };
+const fmtDay = (t) => new Date(t).toLocaleDateString('ru-RU');
 
 // ---------- рейтинги ----------
 function openRating(kind) { S.rk = kind; S.rlist = null; send(kind === 'players' ? { t: 'rating' } : { t: 'ratings', kind }); openSheet(ratingWin); }
@@ -278,7 +286,7 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
   if (m.t === 'profile') return; // обрабатывается в app.js
   if (m.t === 'chatlog') { S.chat = m.list; chatLine(); refreshSheet(); const l = $('#chatList'); if (l) l.scrollTop = l.scrollHeight; return; }
   if (m.t === 'chatmsg') { S.chat.push(m.msg); if (S.chat.length > 50) S.chat.shift(); chatLine(); const l = $('#chatList'); if (l) { refreshSheet(); const l2 = $('#chatList'); l2.scrollTop = l2.scrollHeight; } return; }
-  if (m.t === 'halls') { S.halls = m.list; return refreshSheet(); }
+  if (m.t === 'halls') { S.halls = m.list; S.hallSeason = m.season; S.hallLast = m.last; return refreshSheet(); }
   if (m.t === 'ratings') { S.rlist = m.list; return refreshSheet(); }
   if (m.t === 'players') { S.plist = m.list; return refreshSheet(); }
   if (m.t === 'notes') { S.notes = m.text; return refreshSheet(); }

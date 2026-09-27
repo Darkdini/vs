@@ -28,34 +28,72 @@ function install(Game) {
     if (!user.stats) user.stats = { loot: 0, kills: 0, defKills: 0, arts: 0 };
     return user.stats;
   };
-  P.addStat = function addStat(userId, key, v) { const u = this.userById(userId); if (u && v > 0) { this.stats(u)[key] += Math.round(v); } };
-
+  // ----- соревновательный месяц: считаются только достижения за текущий месяц; в конце месяца топ-3 каждого зала
+  // получают награду (медаль с датой получения) — она навсегда остаётся в профиле -----
+  const monthKey = (t) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
+  const monthEnd = (t) => { const d = new Date(t); return new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime(); };
+  P.season = function season() {
+    if (!this.db.season) this.db.season = { key: monthKey(Date.now()), start: Date.now(), end: monthEnd(Date.now()), n: 1 };
+    return this.db.season;
+  };
+  P.mstats = function mstats(u) {
+    const s = this.season();
+    if (!u.mstats || u.mstats.season !== s.n) u.mstats = { season: s.n, loot: 0, kills: 0, defKills: 0, arts: 0 };
+    return u.mstats;
+  };
+  P.addStat = function addStat(userId, key, v) {
+    const u = this.userById(userId); if (!u || !(v > 0)) return;
+    this.stats(u)[key] += Math.round(v); // за всё время
+    this.mstats(u)[key] += Math.round(v); // за соревновательный месяц
+  };
+  // база на начало месяца (рейтинг, репутация) — прирост за месяц
+  P.mbase = function mbase(u) { const s = this.season(); return u.mbase && u.mbase.season === s.n ? u.mbase : { rating: 0, rep: START_REP }; };
   P.hallValue = function hallValue(u, hall) {
-    const s = this.stats(u);
+    const s = this.mstats(u), b = this.mbase(u);
     switch (hall) {
-      case 'growth': return this.userRating(u);
+      case 'growth': return Math.max(0, this.userRating(u) - b.rating);
       case 'loot': return s.loot;
       case 'doom': return s.kills;
       case 'defense': return s.defKills;
       case 'archaeology': return s.arts;
-      case 'rule': return u.reputation ?? START_REP;
+      case 'rule': return Math.max(0, (u.reputation ?? START_REP) - b.rep);
       default: return 0;
     }
   };
-  // текущие призёры каждого зала
-  P.halls = function halls() { return this.cached('halls', 60000, () => this.hallsCalc()); }; // кэш 1 мин
+  // текущее положение в залах (за идущий месяц)
+  P.halls = function halls() { this.seasonCheck(); return this.cached('halls', 60000, () => this.hallsCalc()); }; // кэш 1 мин
   P.hallsCalc = function hallsCalc() {
-    const users = Object.values(this.db.users);
+    const users = Object.values(this.db.users).filter((u) => !u.bot && !u.admin);
     return Object.entries(HALLS).map(([id, h]) => {
       const top = users.map((u) => ({ id: u.id, login: u.login, value: this.hallValue(u, id) }))
         .filter((x) => x.value > 0).sort((a, b) => b.value - a.value).slice(0, 3);
       return { id, ...h, top };
     });
   };
+  const hallIcon = (h, i) => `smallicon/bonus_status/${h.icon}${PLACE_ICON[i] === 'silver' && h.icon === 'medal' ? 'siver' : PLACE_ICON[i]}.png`;
+  // конец месяца (или досрочно админом): награды топ-3 каждого зала, новый месяц
+  P.seasonClose = function seasonClose(now = Date.now()) {
+    const s = this.season(), res = this.hallsCalc(), winners = [];
+    for (const h of res) h.top.forEach((x, i) => {
+      const u = this.userById(x.id); if (!u) return;
+      (u.awards = u.awards || []).push({ hall: h.id, name: h.name, place: i + 1, value: x.value, month: s.key, at: now, icon: hallIcon(h, i) });
+      this.event(u.id, `Зал Славы «${h.name}»: ${i + 1} место по итогам месяца! Награда — в Вашем профиле.`);
+      winners.push({ hall: h.name, place: i + 1, login: u.login });
+    });
+    (this.db.hallHistory = this.db.hallHistory || []).push({ key: s.key, at: now, halls: res.map((h) => ({ id: h.id, name: h.name, icon: h.icon, top: h.top })) });
+    if (this.db.hallHistory.length > 24) this.db.hallHistory.shift();
+    const n = s.n + 1;
+    this.db.season = { key: monthKey(now), start: now, end: monthEnd(now), n };
+    for (const u of Object.values(this.db.users)) u.mbase = { season: n, rating: this.userRating(u), rep: u.reputation ?? START_REP };
+    this.cache = {};
+    this.store.save();
+    return winners;
+  };
+  P.seasonCheck = function seasonCheck(now = Date.now()) { if (now >= this.season().end) this.seasonClose(now); };
+  // награды игрока (медали прошлых месяцев) — с датой получения
   P.medalsOf = function medalsOf(userId) {
-    const out = [];
-    for (const h of this.halls()) h.top.forEach((x, i) => { if (x.id === userId) out.push({ hall: h.id, name: h.name, place: i + 1, icon: `smallicon/bonus_status/${h.icon}${PLACE_ICON[i] === 'silver' && h.icon === 'medal' ? 'siver' : PLACE_ICON[i]}.png` }); });
-    return out;
+    const u = this.userById(userId);
+    return (u && u.awards ? u.awards : []).slice().reverse();
   };
 
   // место в общем рейтинге

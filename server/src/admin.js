@@ -162,6 +162,7 @@ function install(Game) {
       }
       case 'chat': { const r = this.chatPost(user, `[Администрация] ${String(arg.text || '')}`); if (r.error) return r; data = r.msg; msg = 'Отправлено в чат.'; break; }
       case 'noavatar': this.removeAvatar(target); msg = `Аватар ${target.login} удалён.`; break;
+      case 'season': { const w = this.seasonClose(); msg = `Месяц подведён досрочно, награждено: ${w.length}.`; break; }
       case 'npc': this.db.npc = {}; msg = 'Лагеря и руины восстановлены.'; break;
       case 'reports': this.db.reports = (this.db.reports || []).filter((r) => r.owner !== target.id); msg = 'Отчёты очищены.'; break;
       case 'bugs': data = (this.db.bugs || []).slice(-50).reverse(); break;

@@ -18,7 +18,7 @@ WebSession.all = sessions;
 
 // раз в секунду: армии в мире (прибытие, бой, возврат), очереди онлайн-игроков, уведомления
 setInterval(() => {
-  try { game.tickWorld(); } catch (e) { console.error(e); }
+  try { game.tickWorld(); game.seasonCheck(); } catch (e) { console.error(e); }
   for (const s of sessions) { try { s.onTick(); } catch (e) { console.error(e); } }
   for (const ev of game.drainEvents()) for (const s of sessions) if (s.user && s.user.id === ev.userId && s.notify) s.notify(ev.msg);
 }, 1000);

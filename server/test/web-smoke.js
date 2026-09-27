@@ -255,6 +255,17 @@ function client() {
     console.log('✓ репутация за золото: 50 монет = +100');
     console.log('✓ подарки: «Большой диамант» за 3 золота виден в профиле получателя');
 
+    // ---- Зал Славы: соревновательный месяц, награды топ-3 с датой ----
+    adm.send({ t: 'halls' });
+    const hl = await adm.expect('halls');
+    assert.ok(hl.season && hl.season.end > Date.now());
+    adm.send({ t: 'admin', op: 'season' });
+    await adm.expect('toast', (m) => /Месяц подведён досрочно/.test(m.msg));
+    adm.send({ t: 'profile', id: s3.user.id });
+    const aw = (await adm.expect('profile', (m) => m.profile.medals.length > 0)).profile.medals;
+    assert.ok(aw.length > 0 && aw[0].at > 0 && aw[0].month, JSON.stringify(hl.list.map((h) => h.top)) + ' id ' + s3.user.id);
+    console.log('✓ Зал Славы: итоги месяца, награды топ-3 с датой получения:', aw.map((m) => `${m.name} ${m.place}`).join(', '));
+
     // ---- генерал: очки опыта, распределение, сброс, имя, убить ----
     adm.send({ t: 'admin', op: 'general', level: 50 });
     let gs = (await adm.expect('state', (m) => m.castle.mil.general && m.castle.mil.general.level === 50)).castle.mil.general;
