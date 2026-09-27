@@ -21,7 +21,6 @@ const BUILD_IMG = ['castle', 'storage', 'mbases', 'baraks', 'market', 'farm_smal
   'guard_tower', null, 'workshop', 'traveler', 'temple', 'secret', 'sawmill_avg', 'stone_avg', 'iron_avg', 'farm_avg', 'house_avg',
   'sawmill_big', 'stone_big', 'iron_big', 'farm_big', 'house_big', 'chip', 'portal', 'magscool', 'builder', 'beer', 'gendel',
   'alchimia', 'reasury', 'spycentr', 'resident'];
-BUILD_IMG[22] = 'guard_tower'; // у Забора своей картинки в клиенте нет (рисуется оградой fence/*)
 const UNIT_IMG = {
   200: 'human/swordman', 201: 'human/javelineer', 202: 'human/scout', 203: 'human/mage', 204: 'human/knight', 205: 'human/paladin', 206: 'human/jin',
   207: 'elf/archer', 208: 'elf/fighter', 209: 'elf/scout', 210: 'elf/create', 211: 'elf/kenaur', 212: 'elf/edinorog', 213: 'elf/ent',
@@ -29,14 +28,15 @@ const UNIT_IMG = {
 };
 const RACE_IMG = { humans: 'units/human/knight.png', elves: 'units/elf/archer.png', dwarves: 'units/dwarv/fighter.png' };
 const displayId = (def, level) => (!def.tiers ? def.id : level >= 10 ? def.tiers[2] : level >= 5 ? def.tiers[1] : def.tiers[0]);
-const bsrc = (id) => `${GFX}build/${BUILD_IMG[id] || 'build'}.png`;
+// у Забора (22) картинки здания в клиенте нет — он виден оградой вокруг замка; в списках — кусок ограды
+const bsrc = (id) => (id === 22 ? `${GFX}fence/fence1.png` : `${GFX}build/${BUILD_IMG[id] || 'build'}.png`);
 const bimg = (id, cls = 'bi') => `<img class="${cls}" src="${bsrc(id)}" alt="">`;
 const gimg = (path, cls = 'gi') => `<img class="${cls}" src="${GFX}${path}" alt="">`;
 const RES_IC = Object.fromEntries(['wood', 'stone', 'iron', 'food', 'people'].map((r) => [r, gimg(`res/${r}.png`, 'ri')]));
 const TIME_IC = gimg('res/time.png', 'ri');
 const RES_NAME = { wood: 'Дерево', stone: 'Камень', iron: 'Железо', food: 'Еда', people: 'Люди' };
 const VIEW = { CASTLE: 0, LANDS: 1 };
-const WORLD_NAME_IMG = (o) => (o.kind !== 'castle' && o.img === 1 ? 'ground/walun.png' : `ground/${GROUND[o.kind === 'castle' ? castleTile(o.rating) : o.img]}.png`); // «Камни» — валуны
+const WORLD_NAME_IMG = (o) => `ground/${GROUND[o.kind === 'castle' ? castleTile(o.rating) : o.img]}.png`;
 const castleTile = (rating) => (rating < 300 ? 28 : rating < 1000 ? 10 : 29);
 
 const S = {
@@ -49,25 +49,37 @@ const S = {
 const now = () => Date.now() + S.offset;
 const fmtN = (n) => { n = Math.floor(n); return n >= 100000 ? `${Math.round(n / 1000)}k` : n >= 10000 ? `${(n / 1000).toFixed(1)}k` : String(n); };
 const fmtFull = (n) => Math.floor(n).toLocaleString('ru-RU');
+// время как в клиенте: 0:00:01 (часы:минуты:секунды), больше суток — «2д 3:04:05»
 function fmtT(sec) {
   sec = Math.max(0, Math.ceil(sec));
-  if (sec < 60) return `${sec} с`;
   const d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
-  if (d) return `${d} д ${h} ч`;
-  if (h) return `${h} ч ${String(m).padStart(2, '0')} м`;
-  return `${m}:${String(s).padStart(2, '0')}`;
+  return `${d ? `${d}д ` : ''}${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 const fmtDate = (t) => new Date(t).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
 const store = {
   get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
   set(k, v) { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* приватный режим */ } },
 };
+// сообщения — в верхней полосе вместо часов, как в клиенте («Готово: Склад 1 ур.»); на экране входа — всплывающие
+const statusQ = [];
 function toast(msg, cls = '') {
-  const el = document.createElement('div'); el.textContent = msg; if (cls) el.className = cls;
-  $('#toast').append(el);
-  setTimeout(() => el.remove(), 2500);
-  while ($('#toast').children.length > 3) $('#toast').firstChild.remove();
+  if ($('#game').classList.contains('hidden')) {
+    const el = document.createElement('div'); el.textContent = msg; if (cls) el.className = cls;
+    $('#toast').append(el); setTimeout(() => el.remove(), 2500);
+    return;
+  }
+  statusQ.push({ msg, cls, until: 0 });
+  if (statusQ.length > 4) statusQ.shift();
 }
+function statusTick() {
+  const el = $('#status'), t = Date.now();
+  if (statusQ.length && statusQ[0].until && statusQ[0].until < t) statusQ.shift();
+  const m = statusQ[0];
+  if (m) { if (!m.until) m.until = t + 2600; el.textContent = m.msg; el.className = m.cls || 'msg'; return; }
+  const d = new Date(now()); el.className = '';
+  el.textContent = [d.getHours(), d.getMinutes(), d.getSeconds()].map((v) => String(v).padStart(2, '0')).join(':');
+}
+setInterval(statusTick, 250);
 const send = (m) => { if (S.ws && S.ws.readyState === 1) S.ws.send(JSON.stringify(m)); };
 
 // ---------- правила игры (те же формулы, что на сервере: server/src/catalog.js, game.js) ----------
@@ -145,7 +157,7 @@ function onMsg(m) {
       $('#auth').classList.add('hidden'); $('#game').classList.remove('hidden');
       break;
     case 'state': onState(m); break;
-    case 'world': if (!S.world || S.world.cx !== m.cx || S.world.cy !== m.cy) delete Iso.cams.world; S.world = m; if (S.tab === 'world' && !S.sub) renderView(); break;
+    case 'world': if (!S.world || S.world.cx !== m.cx || S.world.cy !== m.cy) { delete Iso.cams.world; if (Iso.sel && Iso.sel.tab === 'world') Iso.sel = null; } S.world = m; if (S.tab === 'world' && !S.sub) renderView(); break;
     case 'rating': S.ratingRows = m.rows; if (S.tab === 'rating') renderView(); break;
     case 'profile': openSheet(() => profileSheet(m.profile)); break;
     case 'mail': S.mail = m; if (S.sub === 'mail') renderView(); break;
@@ -175,7 +187,7 @@ function onState(m) {
     S.pendingBuild = null; closeAllSheets();
   }
   renderTop();
-  if (first) setTab('castle'); else if (!S.sub && ['castle', 'lands'].includes(S.tab)) { $('#view .vhead .muted').textContent = S.tab === 'castle' ? `X:${m.castle.x} Y:${m.castle.y} · Ратуша ${m.castle.townhall} ур.` : $('#view .vhead .muted').textContent; isoDraw(); }
+  if (first) setTab('castle'); else if (!S.sub && ['castle', 'lands'].includes(S.tab)) { ($('#view .vhead .muted') || {}).textContent = S.tab === 'castle' ? `X:${m.castle.x} Y:${m.castle.y} · Ратуша ${m.castle.townhall} ур.` : $('#view .vhead .muted').textContent; isoDraw(); }
   refreshSheet();
 }
 
@@ -278,10 +290,10 @@ function renderView() {
   const v = $('#view'), keep = v.scrollTop;
   v.innerHTML = S.sub ? SUBPAGES[S.sub]() : TABS[S.tab]();
   const wrap = $('.mapwrap', v);
-  if (wrap) isoMount(wrap); else v.scrollTop = keep;
+  if (wrap) { isoMount(wrap); if (S.tab === 'world') worldInfo(); } else v.scrollTop = keep;
   tick();
 }
-const MAPWRAP = '<div class="mapwrap"><div class="zoom"><button data-zoom="1">＋</button><button data-zoom="-1">－</button></div></div>';
+const MAPWRAP = '<div class="mapwrap"><div class="infobox hidden"></div><div class="zoom"><button data-zoom="1">＋</button><button data-zoom="-1">－</button></div></div>';
 
 const TABS = {
   castle() {
@@ -450,6 +462,7 @@ window.addEventListener('popstate', () => {
   if (S.sub) { S.sub = null; renderView(); }
 });
 $('#backdrop').addEventListener('click', closeAllSheets);
+$('#sheetClose').addEventListener('click', closeAllSheets);
 // смахивание шторки вниз
 (() => {
   const sh = $('#sheet'); let y0 = null, dy = 0;
@@ -516,11 +529,11 @@ function buildingSheet(def, lvl, ctx) {
     const n = lvl + 1, cost = def.costs[n];
     const reqs = Object.entries(def.req);
     const blk = ctx ? blockers(def, n, ctx.view, ctx.cell) : [];
-    h += `<div class="card next"><h4>${lvl ? `Улучшение до ${n} ур.` : 'Постройка (1 ур.)'}</h4>${costChips(cost)}
+    h += `<div class="card next"><h4>${lvl ? `Развить до ${n} ур.` : 'Построить (1 ур.)'}</h4>${costChips(cost)}
       <div class="chips"><span>${TIME_IC} ${fmtT(buildSec(def, n, th))}</span><span>★ +${w}</span><span>${esc(effect(def, n).text)}</span></div>
       ${reqs.length ? `<ul class="reqs">${reqs.map(([id, l]) => { const ok = buildingLevel(Number(id)) >= l; return `<li class="${ok ? 'ok' : 'bad'}">${ok ? '✓' : '✗'} ${esc(S.by[id].name)} ${l} ур.</li>`; }).join('')}</ul>` : ''}
       ${ctx ? `${blk.length ? `<p class="reasons">${blk.map(esc).join('<br>')}</p>` : ''}
-      <button class="btn primary" data-build="${ctx.view},${ctx.cell},${def.id}" ${blk.length ? 'disabled' : ''}>${lvl ? 'Улучшить' : 'Построить'}</button>` : ''}</div>`;
+      <button class="btn primary" data-build="${ctx.view},${ctx.cell},${def.id}" ${blk.length ? 'disabled' : ''}>${lvl ? 'Развить' : 'Построить'}</button>` : ''}</div>`;
   } else h += '<div class="card next"><h4>Максимальный уровень</h4></div>';
   h += levelsTable(def, lvl, th);
   return h;
@@ -545,10 +558,10 @@ function emptySheet(view, cell) {
     const x = cell % 15, y = Math.floor(cell / 15), L = S.cat.lands;
     opts = S.cat.landOptions[y][x];
     title = ['Лес', 'Валуны', 'Горы'][L.decor[y][x]] || { 0: 'Луг', 7: 'Пашня', 8: 'Каменистая земля', 9: 'Вода' }[L.base[y][x]] || 'Земля';
-    sub = `Клетка ${x + 1}:${y + 1} земель`;
+    sub = `Земли: строительство · клетка ${x + 1}:${y + 1}`;
   } else {
     opts = S.cat.buildings.filter((b) => b.layer === 'castle').map((b) => b.id);
-    title = 'Свободное место'; sub = 'Замок — выберите здание';
+    title = 'Замок: строительство'; sub = 'Свободное место — выберите здание';
   }
   const items = opts.map((id) => S.by[id]).map((def) => ({ def, blk: blockers(def, 1, view, cell) }))
     .filter(({ blk }) => !blk.includes('Такое здание уже есть.'))
@@ -595,6 +608,20 @@ function openCompose(to, subject = '') {
     <input name="subject" placeholder="Тема" value="${esc(subject)}"><textarea name="text" rows="6" placeholder="Текст" required></textarea>
     <button class="btn primary">Отправить</button></form>`);
 }
+
+// инфо-окно выбранной клетки мира (s.i в клиенте): координаты, замок, игрок, альянс, рейтинг
+function worldInfo() {
+  const box = $('#view .infobox'); if (!box) return;
+  const w = S.world;
+  if (!Iso.sel || Iso.sel.tab !== 'world' || !w) { box.classList.add('hidden'); return; }
+  const x = w.cx - w.radius + Iso.sel.x, y = w.cy - w.radius + Iso.sel.y;
+  const o = w.objects.find((v) => v.x === x && v.y === y);
+  box.innerHTML = `X:${x} Y:${y}` + (!o ? '' : o.kind === 'castle'
+    ? `<br>Замок:${esc(o.name)}<br>Игрок:${esc(o.owner)}<br>Альянс:-<br>Рейтинг:${o.rating}` : `<br>${esc(o.name)}`)
+    + '<small>нажмите ещё раз — действия</small>';
+  box.classList.remove('hidden');
+}
+$('#view').addEventListener('click', (e) => { const b = e.target.closest('.infobox'); if (b && Iso.sel && S.world) openWorldCell(S.world.cx - S.world.radius + Iso.sel.x, S.world.cy - S.world.radius + Iso.sel.y); });
 
 function openWorldCell(x, y) {
   const o = S.world.objects.find((v) => v.x === x && v.y === y);
@@ -661,7 +688,7 @@ function isoResize() {
 window.addEventListener('resize', () => { if (Iso.cv.isConnected) { isoResize(); isoDraw(); } });
 // начальная камера: замок целиком, земли и мир — примерно 8 клеток по ширине экрана, по центру
 function isoFit() {
-  const r = Iso.cv.getBoundingClientRect(), n = gridN(), vis = S.tab === 'castle' ? 7.3 : 8;
+  const r = Iso.cv.getBoundingClientRect(), n = gridN(), vis = S.tab === 'castle' ? 9.5 : 8; // замок — вместе со рвом
   const z = Math.max(0.35, Math.min(2.5, Math.min(r.width / (vis * TW), r.height / (vis * TH + 60))));
   const c = tileScreen(n / 2 - 0.5, n / 2 - 0.5);
   return { z, x: r.width / 2 - (c.sx + TW / 2) * z, y: r.height / 2 - (c.sy + TH / 2) * z + 18 * z };
@@ -726,10 +753,15 @@ function isoTap(px, py) {
     Iso.sel = { tab: 'lands', x: t.x, y: t.y }; isoDraw();
     openCell(VIEW.LANDS, t.y * 15 + t.x);
   } else if (S.tab === 'world' && S.world) {
-    const R0 = S.world.radius;
-    if (t.x < 0 || t.x > 2 * R0 || t.y < 0 || t.y > 2 * R0) return;
-    Iso.sel = { tab: 'world', x: t.x, y: t.y }; isoDraw();
-    openWorldCell(S.world.cx - R0 + t.x, S.world.cy - R0 + t.y);
+    const R0 = S.world.radius, n = 2 * R0 + 1, w = S.world;
+    // стрелки за краем карты: сдвиг мира (вверх — y−, вправо — x+, вниз — y+, влево — x−)
+    const arrows = [[R0, -1, 0, -R0], [n, R0, R0, 0], [R0, n, 0, R0], [-1, R0, -R0, 0]];
+    for (const [ax, ay, dx, dy] of arrows) if (t.x === ax && t.y === ay) { Iso.sel = null; return send({ t: 'world', cx: w.cx + dx, cy: w.cy + dy }); }
+    if (t.x < 0 || t.x >= n || t.y < 0 || t.y >= n) return;
+    const wx = w.cx - R0 + t.x, wy = w.cy - R0 + t.y;
+    // первое нажатие — курсор и инфо-окно, повторное по той же клетке — действия
+    if (Iso.sel && Iso.sel.tab === 'world' && Iso.sel.x === t.x && Iso.sel.y === t.y) return openWorldCell(wx, wy);
+    Iso.sel = { tab: 'world', x: t.x, y: t.y }; isoDraw(); worldInfo();
   }
 }
 
@@ -745,24 +777,68 @@ function diamond(sx, sy, fill, stroke) {
 }
 function ground(path, sx, sy) { const im = pic(path); if (im) ictx.drawImage(im, sx, sy - (im.height - TH)); else diamond(sx, sy, '#3f7d2c'); }
 function sprite(path, sx, sy, dy = 0) { const im = pic(path); if (im) ictx.drawImage(im, sx + TW / 2 - im.width / 2, sy - (im.height - TH) + dy); }
+// картинка без смещения (как graphics.drawImage(img, x, y, 0) в клиенте)
+function raw(path, x, y) { const im = pic(path); if (im) ictx.drawImage(im, x, y); return im; }
+const imH = (path) => { const im = pic(path); return im ? im.height : 0; };
 function label(text, sx, sy, color = '#ffd27a') {
   const x = ictx; x.font = 'bold 11px system-ui, sans-serif'; x.textAlign = 'center';
   const w = x.measureText(text).width + 8;
   x.fillStyle = '#000a'; x.fillRect(sx + TW / 2 - w / 2, sy + TH - 4, w, 14);
   x.fillStyle = color; x.fillText(text, sx + TW / 2, sy + TH + 7);
 }
+// полоса стройки как в клиенте: 10 квадратиков 4×4 столбиком над клеткой, заполненные — зелёные (#4EFF00)
 function bar(sx, sy, frac) {
-  ictx.fillStyle = '#000b'; ictx.fillRect(sx + 11, sy - 30, 40, 7);
-  ictx.fillStyle = '#ffd27a'; ictx.fillRect(sx + 12, sy - 29, 38 * Math.max(0, Math.min(1, frac)), 5);
+  const pct = Math.max(0, Math.min(1, frac)) * 100;
+  for (let i = 0; i < 10; i++) {
+    const y = sy + 16 - 4 * i;
+    ictx.fillStyle = '#424939'; ictx.fillRect(sx, y, 4, 4);
+    if (pct > i * 10) { ictx.fillStyle = '#4eff00'; ictx.fillRect(sx + 1, y + 1, 2, 2); }
+  }
 }
-function highlight(x, y) { if (Iso.sel && Iso.sel.tab === S.tab && Iso.sel.x === x && Iso.sel.y === y) { const p = tileScreen(x, y); diamond(p.sx, p.sy, '#ffd00033', '#ffd000'); } }
+// курсор-рука на выбранной клетке (cursor.png, рисуется в левый верхний угол ромба)
+function cursor() { if (Iso.sel && Iso.sel.tab === S.tab) { const p = tileScreen(Iso.sel.x, Iso.sel.y); raw('cursor.png', p.sx, p.sy); } }
 // здание на клетке (с учётом стройки): спрайт, уровень, полоса прогресса
 function drawCellBuilding(view, cell, b, lvl, p) {
   const q = queueAt(view, cell);
   if (q && q.level === 1) sprite('build/build.png', p.sx, p.sy);
-  else if (b >= 0) sprite(`build/${BUILD_IMG[displayId(S.by[b], lvl)] || 'build'}.png`, p.sx, p.sy);
-  if (b >= 0) label(String(lvl), p.sx, p.sy);
+  else if (b >= 0 && BUILD_IMG[displayId(S.by[b], lvl)]) sprite(`build/${BUILD_IMG[displayId(S.by[b], lvl)]}.png`, p.sx, p.sy);
   if (q) bar(p.sx, p.sy, (now() - q.start) / (q.end - q.start));
+}
+
+const D = (x, y) => tileScreen(x, y).sx, E = (x, y) => tileScreen(x, y).sy;
+const CG = CASTLE_OFF, CH = CASTLE_OFF, CN = 7;
+function moat() {
+  for (let i = -1; i < CN; i++) raw('ground/rov1.png', D(CG + i, CH) - 10, E(CG + i, CH) - imH('ground/rov1.png') + 5);
+  raw('ground/rov6.png', D(CG + 2, CH), E(CG + 2, CH) - 32);
+  for (let i = -1; i < CN; i++) raw('ground/rov0.png', D(CG + 6, CH + i) + 36, E(CG + 6, CH + i) - 15);
+  raw('ground/rov7.png', D(CG + 7, CH - 1) + 1, E(CG + 7, CH - 1) - 1);
+  for (let i = -1; i < CN; i++) raw('ground/rov0.png', D(CG - 2, CH + i) + 36, E(CG - 2, CH + i) - 15);
+  for (let i = -1; i < CN; i++) raw('ground/rov1.png', D(CG + i, CH + 8) - 10, E(CG + i, CH + 8) - imH('ground/rov1.png') + 5);
+  raw('ground/rov3.png', D(CG + 6, CH + 6) + 63, E(CG + 5, CH + 4) + 15);
+  raw('ground/rov2.png', D(CG - 1, CH + 6) + 32, E(CG - 1, CH + 6) + 15);
+  raw('ground/rov5.png', D(CG - 1, CH + 2) + 32, E(CG - 1, CH + 3) - 1);
+  raw('ground/rov4.png', D(CG - 2, CH - 2) + 63, E(CG - 2, CH - 2) - 1);
+}
+function fenceBack() {
+  for (const i of [0, 1, 2, 4, 5, 6]) raw('fence/fence2.png', D(CG + i, CH) - 5, E(CG + i, CH) - 26);
+  for (let i = 0; i < CN; i++) raw('fence/fence0.png', D(CG + 6, CH + i) + 25, E(CG + 6, CH + i) - 25);
+  raw('fence/fence3.png', D(CG + 6, CH - 1) + 53, E(CG + 6, CH - 1) + 19 - imH('fence/fence3.png'));
+  raw('fence/fence4.png', D(CG + 3, CH), E(CG + 3, CH) - 20);
+}
+function fenceFront() {
+  for (const i of [0, 1, 2, 4, 5, 6]) raw('fence/fence0.png', D(CG - 1, CH + i) + 25, E(CG - 1, CH + i) - 25);
+  for (let i = 0; i < CN; i++) raw('fence/fence2.png', D(CG + i, CH + 7) - 3, E(CG + i, CH + 7) - 24);
+  raw('fence/fence3.png', D(CG - 1, CH - 1) + 52, E(CG - 1, CH - 1) + 18 - imH('fence/fence3.png'));
+  raw('fence/fence3.png', D(CG - 1, CH + 6) + 55, E(CG - 1, CH + 6) + 21 - imH('fence/fence3.png'));
+  raw('fence/fence3.png', D(CG + 6, CH + 6) + 54, E(CG + 6, CH + 6) + 20 - imH('fence/fence3.png'));
+  raw('fence/fence1.png', D(CG - 1, CH + 3) + 25, E(CG - 1, CH + 3) - 25);
+}
+// земля сетки + поле grass1 на 5 клеток вокруг (s.a(g, true) в клиенте)
+function groundField(n, at) {
+  for (let y = -5; y < n + 5; y++) for (let x = n + 4; x >= -5; x--) {
+    const p = tileScreen(x, y);
+    ground(x >= 0 && x < n && y >= 0 && y < n ? at(x, y) : 'ground/grass1.png', p.sx, p.sy);
+  }
 }
 
 function isoDrawNow() {
@@ -773,35 +849,44 @@ function isoDrawNow() {
   x.setTransform(c.z * dpr, 0, 0, c.z * dpr, c.x * dpr, c.y * dpr);
   x.imageSmoothingEnabled = false;
   const st = S.st.castle;
-  if (S.tab === 'castle') {
-    for (let y = 0; y < 17; y++) for (let xx = 16; xx >= 0; xx--) { const p = tileScreen(xx, y); ground(`ground/${GROUND[CASTLE_BASE[y][xx]]}.png`, p.sx, p.sy); highlight(xx, y); }
+  if (S.tab === 'castle') { // порядок как в клиенте: земля → ров → ограда сзади → здания → ограда спереди → курсор
+    groundField(17, (xx, y) => `ground/${GROUND[CASTLE_BASE[y][xx]]}.png`);
+    moat();
+    const fence = buildingLevel(22) > 0; // Забор построен — вокруг замка стена
+    if (fence) fenceBack();
     for (let y = 0; y < 7; y++) for (let xx = 6; xx >= 0; xx--) {
       const cell = y * 7 + xx; drawCellBuilding(0, cell, st.grid[0][cell], st.levels[0][cell], tileScreen(xx + CASTLE_OFF, y + CASTLE_OFF));
     }
+    if (fence) fenceFront();
+    cursor();
   } else if (S.tab === 'lands') {
     const L = S.cat.lands;
-    for (let y = 0; y < 15; y++) for (let xx = 14; xx >= 0; xx--) {
-      const p = tileScreen(xx, y), e = L.edge[y][xx];
-      ground(`ground/${GROUND[L.base[y][xx]]}.png`, p.sx, p.sy);
-      if (e >= 0) ground(`gborder/${e < 12 ? 'ground' : 'water'}/${EDGE[e % 12]}.png`, p.sx, p.sy);
-      highlight(xx, y);
+    groundField(15, (xx, y) => `ground/${GROUND[L.base[y][xx]]}.png`);
+    for (let y = 0; y < 15; y++) for (let xx = 0; xx < 15; xx++) { // края дорог и берегов (s.c)
+      const e = L.edge[y][xx]; if (e < 0) continue;
+      const p = tileScreen(xx, y); raw(`gborder/${e < 12 ? 'ground' : 'water'}/${EDGE[e % 12]}.png`, p.sx, p.sy);
     }
     for (let y = 0; y < 15; y++) for (let xx = 14; xx >= 0; xx--) {
       const cell = y * 15 + xx, b = st.grid[1][cell], p = tileScreen(xx, y), d = L.decor[y][xx];
       if (b < 0 && !queueAt(1, cell) && d >= 0) sprite(`ground/${DECOR[d]}.png`, p.sx, p.sy, d === 1 ? 3 : d === 2 ? -2 : 0);
       else drawCellBuilding(1, cell, b, st.levels[1][cell], p);
     }
+    cursor();
   } else if (S.world) {
     const w = S.world, R0 = w.radius, n = 2 * R0 + 1, objs = new Map(w.objects.map((o) => [`${o.x}:${o.y}`, o]));
     for (let y = 0; y < n; y++) for (let xx = n - 1; xx >= 0; xx--) {
-      const p = tileScreen(xx, y); ground('ground/grass.png', p.sx, p.sy); highlight(xx, y);
+      const p = tileScreen(xx, y); ground('ground/grass.png', p.sx, p.sy);
+    }
+    const mid = R0; // стрелки перехода по краям, как в клиенте
+    for (const [ax, ay, img] of [[mid, -1, 'arrowup'], [n, mid, 'arrowright'], [mid, n, 'arrowdown'], [-1, mid, 'arrowleft']]) {
+      const p = tileScreen(ax, ay); ground(`ground/${img}.png`, p.sx, p.sy);
     }
     for (let y = 0; y < n; y++) for (let xx = n - 1; xx >= 0; xx--) {
       const o = objs.get(`${w.cx - R0 + xx}:${w.cy - R0 + y}`); if (!o) continue;
       const p = tileScreen(xx, y);
-      if (o.kind !== 'castle' && o.img === 1) sprite(WORLD_NAME_IMG(o), p.sx, p.sy, 3); else ground(WORLD_NAME_IMG(o), p.sx, p.sy);
-      if (o.kind === 'castle') label(o.owner, p.sx, p.sy, o.ownerId === S.st.user.id ? '#ffd27a' : '#fff');
+      ground(WORLD_NAME_IMG(o), p.sx, p.sy);
     }
+    cursor();
   }
 }
 

@@ -39,6 +39,7 @@
 <!-- игра -->
 <section id="game" class="screen hidden">
   <header id="top">
+    <div id="statusbar"><span id="status"></span></div>
     <div class="row1">
       <button id="castleName" class="plain"></button>
       <span id="ratingBadge" class="badge">★ 0</span>
@@ -46,7 +47,11 @@
     <div id="resbar"></div>
     <div id="queue"></div>
   </header>
-  <main id="view"></main>
+  <div id="stage">
+    <main id="view"></main>
+    <!-- рамка карты как в клиенте: цепи по бокам и уголки -->
+    <div id="frame"><i class="fl"></i><i class="fr"></i><i class="fb"></i><i class="a tl"></i><i class="a tr"></i><i class="a bl"></i><i class="a br"></i></div>
+  </div>
   <nav id="nav">
     <button data-tab="castle" class="on"><i><img src="gfx/build/castle.png" alt=""></i>Замок</button>
     <button data-tab="lands"><i><img src="gfx/build/farm_big.png" alt=""></i>Земли</button>
@@ -57,7 +62,7 @@
 </section>
 
 <div id="backdrop"></div>
-<div id="sheet" role="dialog"><div class="grab"></div><div id="sheetBody"></div></div>
+<div id="sheet" role="dialog"><div class="grab"></div><button id="sheetClose" aria-label="Закрыть"></button><div id="sheetBody"></div></div>
 <div id="toast"></div>
 <div id="offline">Нет связи с сервером… переподключение</div>
 

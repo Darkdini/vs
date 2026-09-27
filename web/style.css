@@ -215,3 +215,110 @@ img { image-rendering: pixelated; }
 .sh-head .big img { max-width: 54px; max-height: 54px; }
 .iso { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 .qi > span:first-child { width: 26px; text-align: center; }
+
+/* ======================================================================
+   Скин оригинального клиента «Третий Мир» (картинки web/gfx из jar):
+   дерево background.png, цепи border_*, уголки angle_*, полоса bgtop,
+   красные заголовки/поля theme.png, кнопки button.png, крестик softclose.png.
+   Цвета инфо-окна — из кода клиента: 0x221400, 0xB1A47F, 0xE1B96B.
+   ====================================================================== */
+:root {
+  --bg: #1d0c05; --panel: #3a1a0b; --panel2: #4a2412; --line: #b1a47f;
+  --text: #f6eed8; --muted: #d8c9a2; --gold: #e1b96b; --gold2: #b1a47f; --ok: #7cff4a;
+  --wood: url(gfx/smallicon/background.png);
+  --red: url(gfx/smallicon/theme.png);
+}
+body { font-size: 14px; }
+.btn, input, textarea, .card, .row, .stat, .res, .qi, .badge, .seg, .seg button, .race, .pills button, .tbl, .letter, .formula, .iconbtn, .zoom button { border-radius: 2px; }
+
+/* кнопки — оливковые, как в окнах клиента */
+.btn { background: var(--wood); border: 1px solid #000; box-shadow: inset 0 0 0 1px var(--gold2); color: var(--text); }
+.btn.primary, .btn.small { background: url(gfx/smallicon/button.png) 0 0 / 100% 100%; color: #120c00; border: 1px solid #000;
+  box-shadow: inset 0 1px 0 #fff6, 0 1px 0 #0008; text-shadow: 0 1px 0 #fff4; }
+.btn.primary:active, .btn.small:active { background-image: url(gfx/smallicon/button2.png); }
+.btn:disabled { filter: grayscale(1) brightness(.7); opacity: 1; }
+input, textarea { background: var(--red) 0 0 / 100% 100%; border: 1px solid var(--gold2); color: #fff; }
+input:focus, textarea:focus { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
+
+/* вход — деревянная доска */
+#auth { background: var(--wood); }
+.auth-box h1 { color: var(--gold); text-shadow: 0 2px 0 #000; }
+.seg { background: #0005; border: 1px solid var(--gold2); }
+.seg button.on { background: var(--red) 0 0 / 100% 100%; color: #fff; }
+.race { background: #0004; border: 1px solid #b1a47f55; }
+.race.on { border: 1px solid var(--gold); background: var(--red) 0 0 / 100% 100%; }
+.auth-box label { color: var(--muted); }
+
+/* верхняя полоса с часами/сообщениями (bgtop.png) */
+#top { background: var(--wood); border-bottom: 0; padding: 0 0 4px; }
+#statusbar { height: 22px; background: url(gfx/border/bgtop.png) 0 0 / 38px 100% repeat-x; text-align: center;
+  font: 600 13px/19px system-ui, sans-serif; color: #fff; padding-top: env(safe-area-inset-top, 0px); box-sizing: content-box; }
+#status.msg { color: var(--ok); } #status.err { color: #ff6a55; }
+.row1 { padding: 4px 8px 0; }
+#castleName { color: #fff; text-shadow: 0 1px 0 #000; }
+.badge { background: #221400; border: 1px solid var(--gold2); color: var(--gold); }
+#resbar { padding: 0 6px; }
+.res { background: #221400; border: 1px solid #b1a47f88; }
+.res small { color: var(--ok); }
+#queue { padding: 0 6px; }
+.qi { background: #221400; border: 1px solid #b1a47f88; }
+.bar { background: #424939; border-radius: 0; height: 6px; }
+.bar > i { background: repeating-linear-gradient(90deg, #4eff00 0 4px, #2a8a00 4px 5px); border-radius: 0; }
+.cd { color: var(--ok); }
+
+/* сцена с рамкой-цепью */
+#stage { flex: 1; position: relative; min-height: 0; }
+#stage main#view { position: absolute; inset: 0; padding: 0 7px 7px; background: #16240f; }
+#frame { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
+#frame i { position: absolute; display: block; }
+#frame .fl { left: 0; top: 0; bottom: 0; width: 7px; background: url(gfx/border/border_left.png) repeat-y; }
+#frame .fr { right: 0; top: 0; bottom: 0; width: 7px; background: url(gfx/border/border_right.png) repeat-y; }
+#frame .fb { left: 0; right: 0; bottom: 0; height: 7px; background: url(gfx/border/border_bottom.png) repeat-x; }
+#frame .a { width: 28px; height: 28px; }
+#frame .tl { left: 0; top: 0; background: url(gfx/border/angle_top_left.png); }
+#frame .tr { right: 0; top: 0; background: url(gfx/border/angle_top_right.png); }
+#frame .bl { left: 0; bottom: 0; background: url(gfx/border/angle_bottom_left.png); }
+#frame .br { right: 0; bottom: 0; background: url(gfx/border/angle_bottom_right.png); }
+.vhead { background: #221400e6; border-bottom: 1px solid var(--gold2); padding: 6px 30px; }
+.vhead h2 { color: var(--gold); font-size: 16px; text-shadow: 0 1px 0 #000; }
+.pad, .hint { background: transparent; }
+#stage main#view:has(.pad) { background: var(--wood); }
+
+/* нижнее меню — дерево с цепью сверху */
+#nav { background: url(gfx/border/border_top.png) 0 0 repeat-x, var(--wood); border-top: 0; padding-top: 7px; }
+#nav button { color: var(--muted); }
+#nav button.on { color: var(--gold); text-shadow: 0 1px 0 #000; }
+#nav button.on i { filter: drop-shadow(0 0 3px #e1b96b); }
+
+/* инфо-окно мира (s.i: заливка 0x221400, рамки 0xB1A47F / 0xE1B96B / чёрная) */
+.infobox { position: absolute; top: 34px; right: 12px; z-index: 3; background: #221400; color: #fff; font-size: 13px; line-height: 1.35;
+  padding: 7px 9px; min-width: 150px; box-shadow: inset 0 0 0 1px #221400, inset 0 0 0 2px #b1a47f, inset 0 0 0 3px #221400, inset 0 0 0 4px #e1b96b, inset 0 0 0 5px #000; }
+.infobox small { display: block; color: var(--muted); font-size: 10px; margin-top: 3px; }
+.zoom button { background: url(gfx/smallicon/button.png) 0 0 / 100% 100%; color: #120c00; border: 1px solid #000; border-radius: 50%; font-weight: 700; }
+
+/* окна (шторка) — дерево, цепь сверху, красный заголовок, крестик */
+#sheet { background: url(gfx/border/border_top.png) 0 0 repeat-x, var(--wood); border-top: 0; border-radius: 0; padding-top: 7px;
+  box-shadow: 0 -2px 0 #000, 0 -6px 18px #000a; }
+.grab { background: var(--gold2); }
+#sheetClose { position: absolute; right: 8px; top: 12px; width: 34px; height: 34px; border: 0; z-index: 2;
+  background: url(gfx/smallicon/softclose.png) center / 22px no-repeat; }
+.sh-head { background: var(--red) 0 0 / 100% 100%; border: 1px solid var(--gold); padding: 6px 44px 6px 6px; margin-top: 2px; }
+.sh-head h3 { color: #fff; font-size: 16px; text-shadow: 0 1px 0 #000; }
+.sh-head .muted { color: var(--gold); }
+.sh-head .big { background: #221400; border: 1px solid var(--gold2); border-radius: 0; width: 54px; height: 54px; }
+.desc { color: var(--text); }
+.card, .row, .stat { background: #0000004d; border: 1px solid #b1a47f66; }
+.row.me { border-color: var(--gold); background: #e1b96b22; }
+.stat small, .row .grow span, .muted { color: var(--muted); }
+.next h4, .section { color: var(--gold); text-shadow: 0 1px 0 #000; }
+.tbl { border: 1px solid var(--gold2); background: #0000004d; }
+.tbl th { background: #5a0000; color: #fff; }
+.tbl th:first-child { background: #5a0000; }
+.tbl td:first-child { background: #2a1208; }
+.tbl tr.cur td { background: #e1b96b33; } .tbl tr.cur td:first-child { background: #6a4a10; color: #fff; }
+.pills button { background: #0004; border: 1px solid var(--gold2); color: var(--text); }
+.pills button.on { background: var(--red) 0 0 / 100% 100%; color: #fff; border-color: var(--gold); }
+.letter, .formula { background: #221400; border: 1px solid #b1a47f66; }
+.iconbtn { background: url(gfx/smallicon/button.png) 0 0 / 100% 100%; border: 1px solid #000; color: #120c00; }
+#toast div { background: #000; border: 1px solid var(--gold2); color: var(--ok); border-radius: 0; }
+#toast div.err { color: #ff6a55; }
