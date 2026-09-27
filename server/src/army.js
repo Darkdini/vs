@@ -1064,8 +1064,8 @@ function install(Game, helpers) {
     castle.grid[0][24] = 0; castle.levels[0][24] = C.BY_ID[0].max;
     let k = 0;
     for (const b of castleBuildings) { const i = cells[k++]; castle.grid[0][i] = b.id; castle.levels[0][i] = b.max; }
-    for (let n = 0; n < 20 && k < cells.length; n++) { const i = cells[k++]; castle.grid[0][i] = 1; castle.levels[0][i] = C.BY_ID[1].max; } // 20 складов = 100 200
-    while (k < cells.length) { const i = cells[k++]; castle.grid[0][i] = 14; castle.levels[0][i] = C.BY_ID[14].max; } // оставшиеся клетки — Дом мудрецов
+
+    while (k < cells.length) { const i = cells[k++]; castle.grid[0][i] = 1; castle.levels[0][i] = C.BY_ID[1].max; } // оставшиеся клетки — тоже склады (повторяться может только Склад)
     for (let i = 0; i < 225; i++) {
       const opts = helpers.landOptions(i % 15, Math.floor(i / 15));
       if (!opts.length) { castle.grid[1][i] = -1; castle.levels[1][i] = 0; continue; }

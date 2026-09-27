@@ -224,6 +224,8 @@ function client() {
     await adm.expect('toast', (m) => /Здание разрушено: Склад/.test(m.msg));
     ds = (await adm.expect('state', (m) => m.castle.grid[0][storeCell] === -1)).castle;
     assert.equal(ds.cap.wood, 65200);
+    adm.send({ t: 'build', view: 0, cell: storeCell, building: 25 }); // второй Храм нельзя — повторяться может только Склад
+    await adm.expect('error', (m) => /Такое здание уже есть/.test(m.msg));
     adm.send({ t: 'demolish', view: 0, cell: ds.grid[0].indexOf(0) });
     await adm.expect('error', (m) => /Ратушу разрушить нельзя/.test(m.msg));
     adm.send({ t: 'admin', op: 'max' });
