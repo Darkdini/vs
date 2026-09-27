@@ -141,6 +141,7 @@ function install(Game, helpers) {
     if (castle.general === undefined) castle.general = null;
     if (castle.research === undefined) castle.research = null;
     if (castle.religion === undefined) castle.religion = null;
+    if (castle.loyalty === undefined) { castle.loyalty = 100; castle.loyAt = Date.now(); }
     return castle;
   };
   P.ownerOf = function ownerOf(castle) { return this.userById(castle.owner); };
@@ -222,6 +223,9 @@ function install(Game, helpers) {
   };
   P.tickTraining = function tickTraining(castle, now) {
     this.mil(castle);
+    // лояльность восстанавливается: (2 + ур. Храма) в час × скорость мира, до 100
+    if (castle.loyalty < 100) castle.loyalty = Math.min(100, castle.loyalty + (2 + this.buildingLevel(castle, B.TEMPLE)) * SPEED * Math.max(0, now - castle.loyAt) / 3600000);
+    castle.loyAt = now;
     const owner = castle.owner;
     castle.training = castle.training.filter((t) => {
       const ready = Math.max(0, Math.min(t.count, Math.floor((now - t.start) / t.each)));
@@ -389,9 +393,10 @@ function install(Game, helpers) {
   const unitsLine = (units, lost) => Object.entries(units).filter(([id]) => UNIT[id]).map(([id, n]) => `${UNIT[id].name}: ${n + (lost ? lost[id] || 0 : 0)}${lost && lost[id] ? ` (−${lost[id]})` : ''}`).join(', ') || '—';
   const popOf = (units) => Object.entries(units).reduce((s, [id, n]) => s + (UNIT[id] ? UNIT[id].pop * n : 0), 0);
 
-  P.report = function report(userId, title, lines, kind = 'battle') {
+  // отчёт: title и lines — текстом, data — для оформленного окна отчёта в клиенте (стороны, потери, добыча, захват)
+  P.report = function report(userId, title, lines, kind = 'battle', data = null) {
     this.db.reports = this.db.reports || [];
-    this.db.reports.push({ id: this.db.nextId++, owner: userId, at: Date.now(), kind, title, lines, read: false });
+    this.db.reports.push({ id: this.db.nextId++, owner: userId, at: Date.now(), kind, title, lines, data, read: false });
     if (this.db.reports.length > 2000) this.db.reports.splice(0, this.db.reports.length - 2000);
     this.event(userId, title);
   };
@@ -479,34 +484,87 @@ function install(Game, helpers) {
         if (L < L0) { target.levels[0][cell] = L; if (!L) target.grid[0][cell] = -1; siege.push(`${C.BY_ID[bid].name}: ${L0} → ${L} ур.`); }
       }
     }
+    // бунтари: выжившие в победной атаке снижают лояльность, при 0 — захват (GDD §10–11)
+    let loyalty = null, captured = null, capitalBlocked = false;
+    const rebels = a.mission === 'attack' && win ? (a.units[233] || 0) : 0;
+    if (rebels) {
+      let drop = 0;
+      for (let k = 0; k < Math.min(rebels, 10); k++) drop += 20 + Math.floor(Math.random() * 11);
+      if (target && this.isCapital(target)) capitalBlocked = true;
+      else if (target) {
+        const from = Math.round(target.loyalty); target.loyalty = Math.max(0, target.loyalty - drop); target.loyAt = t;
+        loyalty = { from, to: Math.round(target.loyalty) };
+        if (target.loyalty <= 0) captured = this.captureCastle(att, target);
+      } else if (npc && npc.ruins) {
+        const st = (this.db.npc = this.db.npc || {})[where] || (this.db.npc[where] = {});
+        const from = Math.round(st.loyalty ?? 100); st.loyalty = Math.max(0, from - drop);
+        loyalty = { from, to: st.loyalty };
+        if (st.loyalty <= 0) { delete this.db.npc[where]; captured = this.foundCaptured(att, a.x, a.y); }
+      }
+    }
     a.loot = loot;
     // статистика для Зала Славы (social.js)
     if (loot) this.addStat(c.owner, 'loot', RES4.reduce((q, k) => q + loot[k], 0));
     this.addStat(c.owner, 'kills', target ? popOf(dLost) : (npc ? Math.round(npc.def.inf / 20 * dLoss) : 0));
     if (target) this.addStat(target.owner, 'defKills', popOf(aLost));
-    const tname = target ? `${target.name} (${this.ownerOf(target).login})` : `${npc.name} ${where}`;
+    const defUser = target && this.ownerOf(target);
+    const tname = target ? `${target.name} (${captured ? captured.prevLogin : defUser.login})` : `${npc.name} ${where}`;
+    const side = (units, lost) => Object.fromEntries(Object.entries(units).map(([id, n]) => [id, { was: n + (lost[id] || 0), lost: lost[id] || 0 }]).filter(([, v]) => v.was > 0));
+    const genDied = !!(c.general && c.general.dead && a.general === false && aLoss >= 1);
+    const data = {
+      type: 'battle', mission: a.mission, win, x: a.x, y: a.y, power: { att: Math.round(aSum), def: Math.round(Dsum) },
+      att: { login: att.login, race: att.race, castle: c.name, units: side(a.units, aLost), general: a.general || genDied ? (c.general ? c.general.level : 0) : 0, generalDied: genDied },
+      def: target ? { login: captured ? captured.prevLogin : defUser.login, race: captured ? captured.prevRace : defUser.race, castle: target.name, units: side(target.units, dLost), wall: this.bonus(target).wall }
+        : { npc: npc.name, img: obj.img, lossPct: Math.round(dLoss * 100) },
+      loot, siege, loyalty, capitalBlocked, captured: captured ? { name: captured.name, x: a.x, y: a.y } : null,
+    };
     const lines = [
       `${MISSIONS[a.mission]} на ${tname}. ${win ? 'Победа!' : 'Поражение.'}`,
       `Сила: атака ${Math.round(aSum)} против обороны ${Math.round(Dsum)}`,
       `Ваши войска: ${unitsLine(a.units, aLost)}${a.general ? ` + генерал ${c.general ? c.general.level : ''} ур.` : ''}`,
-      target ? `Защитники: ${unitsLine(target.units, dLost)}${this.bonus(target).wall ? `, Забор ${this.bonus(target).wall} ур.` : ''}` : `Охрана лагеря потеряла ${Math.round(dLoss * 100)}%`,
+      target ? `Защитники: ${unitsLine(target.units, dLost)}` : `Охрана лагеря потеряла ${Math.round(dLoss * 100)}%`,
       loot ? `Добыча: дерево ${loot.wood}, камень ${loot.stone}, железо ${loot.iron}, еда ${loot.food}` : 'Добычи нет — армия погибла.',
       ...siege,
     ];
-    if (c.general && c.general.dead && a.mission) lines.push('Генерал пал в бою — воскресите его в Военном штабе.');
-    this.report(c.owner, `${MISSIONS[a.mission]}: ${tname} — ${win ? 'победа' : 'поражение'}`, lines);
+    if (loyalty) lines.push(`Лояльность: ${loyalty.from} → ${loyalty.to}`);
+    if (capitalBlocked) lines.push('Столицу захватить нельзя — бунтари бессильны.');
+    if (captured) lines.push(`Замок захвачен! Теперь это ваш замок «${captured.name}».`);
+    if (genDied) lines.push('Генерал пал в бою — воскресите его в Военном штабе.');
+    const title = captured ? `Захват: ${captured.name} ${where} — замок ваш!` : `${MISSIONS[a.mission]}: ${tname} — ${win ? 'победа' : 'поражение'}`;
+    this.report(c.owner, title, lines, 'battle', { ...data, side: 'att' });
     if (target) {
-      this.report(target.owner, `На ваш замок напал ${att.login}: ${win ? 'поражение' : 'отбились'}`, [
+      this.report(captured ? captured.prevOwner : target.owner, captured ? `Ваш замок ${target.name} захвачен игроком ${att.login}!` : `На ваш замок напал ${att.login}: ${win ? 'поражение' : 'отбились'}`, [
         `${MISSIONS[a.mission]} от ${att.login} (${c.name}).`,
         `Атакующие: ${unitsLine(a.units, aLost)}`,
         `Ваши войска: ${unitsLine(target.units, dLost)}`,
         loot ? `Унесено: дерево ${loot.wood}, камень ${loot.stone}, железо ${loot.iron}, еда ${loot.food}` : 'Враг разбит, ничего не унесено.',
-        ...siege,
-      ]);
-      void dBefore;
+        ...siege, ...(loyalty ? [`Лояльность: ${loyalty.from} → ${loyalty.to}`] : []),
+      ], 'battle', { ...data, side: 'def' });
     }
-    void aBefore;
     this.goBack(c, a, t);
+  };
+
+  // захват чужого (не столичного) замка: переходит к нападающему, войска и очереди прежнего хозяина пропадают
+  P.captureCastle = function captureCastle(att, castle) {
+    const prev = this.ownerOf(castle);
+    prev.castleIds = this.castlesOf(prev).filter((k) => k !== castle).map((k) => k.id);
+    if (prev.castleId === castle.id) prev.castleId = prev.castleIds[0];
+    castle.owner = att.id;
+    castle.units = {}; castle.training = []; castle.armies = []; castle.general = null; castle.research = null;
+    castle.loyalty = 30; castle.loyAt = Date.now();
+    att.castleIds = [...this.castlesOf(att).map((k) => k.id), castle.id];
+    this.store.save();
+    return { name: castle.name, prevOwner: prev.id, prevLogin: prev.login, prevRace: prev.race };
+  };
+  // захват руин (Заброшенный замок) — на их месте появляется новый замок нападающего
+  P.foundCaptured = function foundCaptured(att, x, y) {
+    const n = this.castlesOf(att).length + 1;
+    const castle = this.createCastle(att, { x, y });
+    castle.name = `Замок ${att.login} ${n}`;
+    this.mil(castle); castle.loyalty = 30;
+    att.castleIds = [...this.castlesOf(att).map((k) => k.id), castle.id];
+    this.store.save();
+    return { name: castle.name };
   };
 
   P.setBuildingLevel = function setBuildingLevel(castle, id, level) {
@@ -536,10 +594,12 @@ function install(Game, helpers) {
       lines.push(`Войска: ${unitsLine(target.units)}`);
       lines.push(`Забор ${b.wall} ур., Тайник прячет ${b.hidden}, рейтинг ${this.rating(target)}`);
       if (target.general && !target.general.dead) lines.push(`Генерал ${target.general.level} ур.`);
+      lines.push(`Лояльность замка: ${Math.round(target.loyalty ?? 100)}${this.isCapital(target) ? ' (столица — захватить нельзя)' : ''}`);
     } else {
       const obj = this.worldObjects(a.x, a.y, 1, 1)[0];
       const npc = obj && NPC[obj.img];
       lines.push(npc ? `${npc.name}: охрана ~${npc.def.inf}, запас ${RES4.map((r) => npc.loot[r]).join('/')}` : 'Здесь пусто.');
+      if (npc && npc.ruins) lines.push(`Лояльность руин: ${Math.round(((this.db.npc || {})[where] || {}).loyalty ?? 100)} — захват атакой с Бунтарями.`);
     }
     this.report(c.owner, `Разведка ${target ? target.name : where}${alive ? '' : ' — провал'}`, lines, 'scout');
     if (target && lossFrac > 0) this.report(target.owner, 'Замечены вражеские разведчики', [`Разведчики игрока ${this.ownerOf(c).login} у вашего замка. Уничтожено: ${Math.round(lossFrac * 100)}%.`], 'scout');
@@ -722,6 +782,11 @@ function install(Game, helpers) {
       this.tickWorld(now);
     } else if (op === 'units') { for (const u of unitsForRace(this.raceOf(c))) if (u.id !== GENERAL_ID) c.units[u.id] = (c.units[u.id] || 0) + (Number(arg.n) || 100); }
     else if (op === 'max') this.maxOut(c);
+    else if (op === 'maxuser') { // прокачать другого игрока (для тестов боёв)
+      const u = this.db.users[String(arg.login || '').trim().toLowerCase()];
+      if (!u) return { error: 'Игрок не найден.' };
+      this.maxOut(this.castleOf(u));
+    }
     else return { error: 'Неизвестная команда.' };
     this.store.save();
     return { ok: true };

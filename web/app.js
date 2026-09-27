@@ -41,7 +41,7 @@ const castleTile = (rating) => (rating < 300 ? 28 : rating < 1000 ? 10 : 29);
 
 const S = {
   ws: null, cat: null, by: {}, st: null, offset: 0, tab: 'castle', sub: null, world: null,
-  sheets: [], ignorePop: 0, mode: 'login', race: 0, creds: null, auto: false, pendingBuild: null, mailFolder: 0,
+  sheets: [], mode: 'login', race: 0, creds: null, auto: false, pendingBuild: null, mailFolder: 0,
   
 };
 
@@ -371,11 +371,31 @@ const ACTS = {
 };
 function openSub(name) { openSheet(() => SUBPAGES[name]()); } // разделы открываются окнами поверх карты
 
-// ---------- шторка ----------
+// ---------- окна и кнопка «Назад» Android ----------
+// Пока открыто окно или меню, в истории браузера лежит ровно одна наша запись: «Назад» закрывает верхнее окно.
+// Так история не расходится при быстрых нажатиях (раньше каждое окно добавляло запись, и go(-n) мог уйти со страницы).
+S.hist = false; S.backPending = false; S.pushAfter = false;
+function overlayOpen() { return S.sheets.length > 0 || !!S.menu; }
+function pushOverlay() {
+  if (S.hist) return;
+  if (S.backPending) { S.pushAfter = true; return; }
+  history.pushState({ tw: 1 }, ''); S.hist = true;
+}
+function popOverlay() { if (!S.hist || overlayOpen()) return; S.hist = false; S.backPending = true; history.back(); }
+window.addEventListener('popstate', () => {
+  if (S.backPending) { // наш собственный history.back()
+    S.backPending = false;
+    if (S.pushAfter || overlayOpen()) { S.pushAfter = false; history.pushState({ tw: 1 }, ''); S.hist = true; }
+    return;
+  }
+  S.hist = false; // «Назад» пользователя
+  if (S.sheets.length) { S.sheets.pop(); showSheet(true); }
+  else if (S.menu && typeof closeMenu === 'function') closeMenu(true);
+  if (overlayOpen()) pushOverlay();
+});
 function openSheet(render) {
   S.sheets.push(render);
-  if (S.menuEntry) { S.menuEntry = false; history.replaceState({ sheet: S.sheets.length }, ''); } // окно из меню занимает место меню в истории
-  else history.pushState({ sheet: S.sheets.length }, '');
+  pushOverlay();
   showSheet(true);
 }
 function showSheet(scrollTop) {
@@ -390,15 +410,8 @@ function refreshSheet() {
   if (!S.sheets.length || document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
   const sc = $('#sheetBody').scrollTop; showSheet(false); $('#sheetBody').scrollTop = sc;
 }
-function closeSheet() { if (S.sheets.length) history.back(); }
-function closeAllSheets() {
-  const n = S.sheets.length; if (!n) return;
-  S.sheets = []; showSheet(); S.ignorePop += 1; history.go(-n); // go(-n) даёт одно событие popstate
-}
-window.addEventListener('popstate', () => {
-  if (S.ignorePop > 0) { S.ignorePop--; return; }
-  if (S.sheets.length) { S.sheets.pop(); showSheet(true); return; }
-});
+function closeSheet() { if (!S.sheets.length) return; S.sheets.pop(); showSheet(true); popOverlay(); }
+function closeAllSheets() { if (!S.sheets.length) return; S.sheets = []; showSheet(); popOverlay(); }
 $('#backdrop').addEventListener('click', closeAllSheets);
 $('#sheetClose').addEventListener('click', closeAllSheets);
 $('#sheetBack').addEventListener('click', closeSheet);

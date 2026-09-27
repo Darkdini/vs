@@ -106,6 +106,7 @@ class Game {
     this.db.users[login] = { id, login, pass: hashPassword(password), email: email || '', race: raceId, created: Date.now(), castleId: null };
     const castle = this.createCastle(this.db.users[login]);
     this.db.users[login].castleId = castle.id;
+    this.db.users[login].castleIds = [castle.id]; // первый — столица
     this.store.save();
     return { user: this.db.users[login] };
   }
@@ -119,11 +120,12 @@ class Game {
   userById(id) { return Object.values(this.db.users).find((u) => u.id === id); }
 
   // ----- замки -----
-  createCastle(user) {
+  createCastle(user, at = null) {
     const id = this.db.nextId++;
     const taken = new Set(Object.values(this.db.castles).map((c) => `${c.x}:${c.y}`));
     let x, y, r = 0;
-    do { // по спирали вокруг центра карты
+    if (at) ({ x, y } = at);
+    else do { // по спирали вокруг центра карты
       const a = Math.random() * Math.PI * 2;
       x = 200 + Math.round(Math.cos(a) * (3 + r)); y = 200 + Math.round(Math.sin(a) * (3 + r)); r += 0.5;
     } while (taken.has(`${x}:${y}`));
@@ -147,7 +149,16 @@ class Game {
     return castle;
   }
 
+  // активный замок игрока (все старые места работают через него); у игрока может быть несколько замков
   castleOf(user) { return this.db.castles[user.castleId]; }
+  castlesOf(user) { if (!user.castleIds) user.castleIds = [user.castleId]; return user.castleIds.map((id) => this.db.castles[id]).filter(Boolean); }
+  isCapital(castle) { const u = this.userById(castle.owner); return !!u && this.castlesOf(u)[0] === castle; }
+  userRating(user) { return this.castlesOf(user).reduce((s, c) => s + this.rating(c), 0); }
+  switchCastle(user, id) {
+    if (!this.castlesOf(user).some((c) => c.id === Number(id))) return { error: 'Это не ваш замок.' };
+    user.castleId = Number(id); this.store.save();
+    return { ok: true };
+  }
 
   // рейтинг = сумма уровней зданий (замок ×10, земли ×5 — C.RATING)
   rating(castle) {
@@ -269,7 +280,12 @@ class Game {
         const roll = (((x * 73856093) ^ (y * 19349663)) >>> 0) % 100;
         const obj = roll < 8 ? [1, 'Камни'] : roll < 11 ? [9, 'Озеро'] : roll < 13 ? [25, 'Дикари'] : roll < 15 ? [26, 'Лесорубы']
           : roll < 16 ? [27, 'Рудник троллей'] : roll < 18 ? [24, 'Заброшенный замок'] : null;
-        if (obj) out.push({ kind: 'object', x, y, img: obj[0], name: obj[1] });
+        if (obj) {
+          const o = { kind: 'object', x, y, img: obj[0], name: obj[1] };
+          const st = (this.db.npc || {})[`${x}:${y}`];
+          if (obj[0] === 24) o.loyalty = Math.round(st && st.loyalty !== undefined ? st.loyalty : 100); // руины: захват бунтарями
+          out.push(o);
+        }
       }
     }
     return out;

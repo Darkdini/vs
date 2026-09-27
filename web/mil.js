@@ -131,7 +131,10 @@ function hqHtml() {
       <span class="cd" data-e="${a.state === 'go' ? a.arrive : a.back}"></span></div>`).join('') || '<p class="muted small">Армий в походе нет.</p>';
   const inc = my.incoming.map((a) => `<div class="card job ${a.mission === 'trade' ? '' : 'danger'}"><div class="grow"><b>${M().missions[a.mission]} от ${esc(a.from)}</b>
       ${a.units ? unitsListHtml(a.units, '') : '<span class="muted small">состав виден с Караульной башней 5 ур.</span>'}</div><span class="cd" data-e="${a.arrive}"></span></div>`).join('') || '<p class="muted small">Входящих армий нет.</p>';
-  return `<div class="section">Генерал</div><div class="card unit">${gen}</div>
+  const loy = S.st.castle.loyalty;
+  return `<div class="section">Лояльность замка</div><div class="card"><div class="bloy"><div class="bar"><i style="width:${loy}%"></i></div><b>${loy} / 100</b></div>
+      <p class="small muted">${S.st.castle.capital ? 'Столицу захватить нельзя.' : 'Если лояльность упадёт до 0 от вражеских Бунтарей — замок захватят.'} Восстанавливается сама, быстрее с Храмом.</p></div>
+    <div class="section">Генерал</div><div class="card unit">${gen}</div>
     <div class="section">Войска в замке</div><div class="card">${unitsListHtml(my.units, 'Войск нет — тренируйте их в Казарме, Конюшне, Академии магов…')}
       <p class="small muted">Содержание: ${fmtFull(my.upkeep)} еды/ч · атака ×${my.bonus.atk.toFixed(2)} · защита ×${my.bonus.def.toFixed(2)}</p>
       <div class="btns"><button class="btn primary" data-armyopen>Отправить войска</button><button class="btn" data-reports>Отчёты${my.unreadReports ? ` (${my.unreadReports})` : ''}</button></div></div>
@@ -230,15 +233,41 @@ function reportsHtml() {
   return `<div class="sh-head"><div class="big">${gimg('smallicon/swordgreen.png')}</div><div><h3>Отчёты</h3><div class="muted small">Бои, разведка, торговля, экспедиции</div></div></div>
     <div class="list">${!S.reports ? '<p class="muted">Загрузка…</p>' : S.reports.map((r) => `<button class="row" data-report="${r.id}"><div class="grow"><b style="${r.read ? 'font-weight:400' : ''}">${esc(r.title)}</b><span>${fmtDate(r.at)}</span></div>›</button>`).join('') || '<p class="muted">Отчётов пока нет.</p>'}</div>`;
 }
-const reportHtml = (r) => `<div class="sh-head"><div class="big">${gimg('smallicon/swordgreen.png')}</div><div><h3>${esc(r.title)}</h3><div class="muted small">${fmtDate(r.at)}</div></div></div>
-  <div class="letter">${r.lines.map(esc).join('\n')}</div>`;
+// боевой отчёт: результат, стороны с потерями по юнитам, добыча, разрушения, лояльность и захват
+function reportHtml(r) {
+  const d = r.data;
+  if (!d || d.type !== 'battle') return `${ribbon(r.title)}<div class="rep-date">${fmtDate(r.at)}</div><div class="letter">${r.lines.map(esc).join('\n')}</div>`;
+  const mine = d.side === 'att' ? d.win : !d.win; // победа с точки зрения читателя отчёта
+  const unitsTable = (units, race) => {
+    const rows = Object.entries(units).map(([id, v]) => { const u = unitById(id); return u ? `<tr><td>${`<img class="ui xs" src="${unitSrc(u, race)}" alt="">`}</td><td class="un">${esc(u.name)}</td><td>${fmtFull(v.was)}</td><td class="bad">${v.lost ? `−${fmtFull(v.lost)}` : '0'}</td><td><b>${fmtFull(v.was - v.lost)}</b></td></tr>` : ''; }).join('');
+    return rows ? `<table class="btab"><thead><tr><th></th><th>Юнит</th><th>Было</th><th>Погибло</th><th>Осталось</th></tr></thead><tbody>${rows}</tbody></table>` : '<p class="parch-note">Войск не было.</p>';
+  };
+  const side = (s, who) => `<div class="bside"><div class="bwho">${gimg(RACE_IMG[s.race] || 'units/human/general.png', 'rico')} <b>${who}: ${esc(s.login)}</b><small>${esc(s.castle || '')}</small></div>`;
+  const loot = d.loot ? `<div class="bloot">${RES4.map((k) => `<span>${RES_IC[k]} ${fmtFull(d.loot[k])}</span>`).join('')}</div>` : '<p class="parch-note">Ничего не унесено.</p>';
+  return `${ribbon(d.captured ? 'Захват замка' : r.data.side === 'def' ? 'Оборона' : M().missions[d.mission])}
+    <div class="rep-date">${fmtDate(r.at)} · X: ${d.x} Y: ${d.y}</div>
+    <div class="bres ${mine ? 'win' : 'lose'}">${mine ? 'ПОБЕДА' : 'ПОРАЖЕНИЕ'}</div>
+    <div class="bpow">Сила атаки <b>${fmtFull(d.power.att)}</b> — сила обороны <b>${fmtFull(d.power.def)}</b></div>
+    ${d.captured ? `<div class="bcap"><img src="${GFX}ground/castle.png" alt=""><div><b>Замок захвачен!</b><br>${esc(d.captured.name)} (X: ${d.captured.x}, Y: ${d.captured.y}) ${d.side === 'att' ? 'теперь ваш' : 'перешёл к врагу'}.</div></div>` : ''}
+    <div class="section">Нападающий</div>${side(d.att, 'Игрок')}</div>
+    ${unitsTable(d.att.units, d.att.race)}
+    ${d.att.general ? `<p class="bgen">${gimg('units/human/general.png', 'rico')} Генерал ${d.att.general} ур. ${d.att.generalDied ? '<span class="bad">— пал в бою</span>' : '— в строю'}</p>` : ''}
+    <div class="section">Защитник</div>
+    ${d.def.npc ? `<div class="bside"><div class="bwho"><img class="rico" src="${GFX}ground/${GROUND[d.def.img] || 'grass'}.png" alt=""> <b>${esc(d.def.npc)}</b></div></div><p class="parch-note">Охрана потеряла ${d.def.lossPct}%.</p>`
+      : `${side(d.def, 'Игрок')}</div>${unitsTable(d.def.units, d.def.race)}${d.def.wall ? `<p class="bgen">${gimg('fence/fence1.png', 'rico')} Забор ${d.def.wall} ур.</p>` : ''}`}
+    <div class="section">Добыча</div>${loot}
+    ${d.siege && d.siege.length ? `<div class="section">Разрушения</div><div class="pstats">${d.siege.map(esc).join('<br>')}</div>` : ''}
+    ${d.loyalty ? `<div class="section">Лояльность</div><div class="bloy"><div class="bar"><i style="width:${d.loyalty.to}%"></i></div><b>${d.loyalty.from} → ${d.loyalty.to}</b></div>` : ''}
+    ${d.capitalBlocked ? '<p class="parch-note">Столицу захватить нельзя — бунтари бессильны.</p>' : ''}`;
+}
 
 // ---------- админ ----------
 const adminHtml = () => `<div class="sh-head"><div class="big">${gimg('smallicon/status/f_gold.png')}</div><div><h3>Админ-панель</h3><div class="muted small">Только для admin</div></div></div>
   <div class="list"><button class="row" data-admin="fill"><div class="grow"><b>Ресурсы до максимума</b><span>заполнить склады</span></div></button>
   <button class="row" data-admin="finish"><div class="grow"><b>Завершить всё сейчас</b><span>стройки, тренировка, наука, марши</span></div></button>
   <button class="row" data-admin="units"><div class="grow"><b>+100 каждого юнита</b><span>войска своей расы</span></div></button>
-  <button class="row" data-admin="max"><div class="grow"><b>Полная прокачка</b><span>все здания и земли на максимум</span></div></button></div>`;
+  <button class="row" data-admin="max"><div class="grow"><b>Полная прокачка</b><span>все здания и земли на максимум</span></div></button></div>
+  <form class="card stack" data-form="maxuser" style="margin-top:10px"><b>Прокачать игрока</b><input name="login" placeholder="Логин игрока" autocapitalize="none" required><button class="btn primary">Прокачать</button></form>`;
 
 // ---------- мир: действия с объектом ----------
 function worldActions(o, x, y) {
@@ -251,7 +280,8 @@ function worldActions(o, x, y) {
   if (!npc) return '<p class="muted small">Здесь пусто.</p>';
   return `<dl class="kv"><dt>Охрана</dt><dd>~${fmtFull(npc.def.inf)}</dd><dt>Запас</dt><dd>${RES4.map((r) => fmtN(npc.loot[r])).join(' / ')}</dd></dl>
     <div class="btns" style="margin-top:8px">${b('attack', 'Атака')}${b('raid', 'Набег')}${b('scout', 'Разведка')}</div>
-    ${npc.ruins ? `<div class="btns" style="margin-top:8px">${b('expedition', 'Экспедиция')}</div>` : ''}`;
+    ${npc.ruins ? `<p class="small">Лояльность руин: <b>${o.loyalty ?? 100}</b>. Захват — <b>атака с Бунтарями</b>: каждый выживший бунтарь снижает лояльность на 20–30, при 0 руины станут вашим замком.</p>
+      <div class="btns" style="margin-top:8px">${b('expedition', 'Экспедиция')}</div>` : ''}`;
 }
 
 // ---------- справочник войск (Ещё → Войска) ----------
@@ -308,6 +338,7 @@ $('#sheetBody').addEventListener('change', (e) => { if (e.target.dataset.agen !=
 $('#sheetBody').addEventListener('submit', (e) => {
   const f = e.target, k = f.dataset.form;
   if (k === 'exchange') send({ t: 'exchange', from: f.from.value, to: f.to.value, amount: Number(f.amount.value) });
+  if (k === 'maxuser') send({ t: 'admin', op: 'maxuser', login: f.login.value });
   if (k === 'aljoin') send({ t: 'alliance', op: 'join', tag: f.tag.value });
   if (k === 'alcreate') send({ t: 'alliance', op: 'create', name: f.name.value, tag: f.tag.value });
   if (['aljoin', 'alcreate'].includes(k)) S.alliances = null;

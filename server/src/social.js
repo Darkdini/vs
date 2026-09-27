@@ -27,7 +27,7 @@ function install(Game) {
   P.hallValue = function hallValue(u, hall) {
     const s = this.stats(u);
     switch (hall) {
-      case 'growth': return this.rating(this.castleOf(u));
+      case 'growth': return this.userRating(u);
       case 'loot': return s.loot;
       case 'doom': return s.kills;
       case 'defense': return s.defKills;
@@ -53,23 +53,22 @@ function install(Game) {
 
   // место в общем рейтинге
   P.rankOf = function rankOf(userId) {
-    const rows = Object.values(this.db.users).map((u) => ({ id: u.id, r: this.rating(this.castleOf(u)) })).sort((a, b) => b.r - a.r);
+    const rows = Object.values(this.db.users).map((u) => ({ id: u.id, r: this.userRating(u) })).sort((a, b) => b.r - a.r);
     return rows.findIndex((x) => x.id === userId) + 1;
   };
 
   // полный профиль для окна «Профиль»
   P.profileOf = function profileOf(u, viewer) {
-    const c = this.castleOf(u);
     const al = this.allianceOf(u);
     const s = this.stats(u);
     return {
       id: u.id, login: u.login, race: u.race, raceName: C.RACE_NAMES[u.race], created: u.created, lastSeen: u.lastSeen || u.created,
-      rating: this.rating(c), rank: this.rankOf(u.id), reputation: u.reputation || 0,
+      rating: this.userRating(u), rank: this.rankOf(u.id), reputation: u.reputation || 0,
       title: u.admin ? 'Администратор' : null,
       alliance: al ? { name: al.name, tag: al.tag, role: al.leader === u.id ? 'Глава' : 'Участник' } : null,
       medals: this.medalsOf(u.id),
       stats: s,
-      castles: [{ name: c.name, x: c.x, y: c.y, capital: true, rating: this.rating(c) }],
+      castles: this.castlesOf(u).map((k, i) => ({ id: k.id, name: k.name, x: k.x, y: k.y, capital: i === 0, rating: this.rating(k) })),
       self: u.id === viewer.id,
       friend: (viewer.friends || []).includes(u.id),
       repToday: ((viewer.repGiven || {})[u.id] || 0) > Date.now() - 86400000,
@@ -104,8 +103,8 @@ function install(Game) {
     return { ok: true };
   };
   P.playerRow = function playerRow(u, from) {
-    const c = this.castleOf(u);
-    const row = { id: u.id, login: u.login, race: u.race, raceName: C.RACE_NAMES[u.race], rating: this.rating(c), x: c.x, y: c.y, online: !!u.online };
+    const c = this.castlesOf(u)[0]; // столица
+    const row = { id: u.id, login: u.login, race: u.race, raceName: C.RACE_NAMES[u.race], rating: this.userRating(u), x: c.x, y: c.y, online: !!u.online };
     if (from) row.dist = Math.round(Math.hypot(c.x - from.x, c.y - from.y) * 10) / 10;
     return row;
   };
@@ -144,7 +143,7 @@ function install(Game) {
   };
   P.ratingAlliances = function ratingAlliances() {
     return Object.values(this.db.alliances || {}).map((a) => ({ id: a.id, name: a.name, tag: a.tag, members: a.members.length,
-      rating: a.members.reduce((s, id) => { const u = this.userById(id); return s + (u ? this.rating(this.castleOf(u)) : 0); }, 0) }))
+      rating: a.members.reduce((s, id) => { const u = this.userById(id); return s + (u ? this.userRating(u) : 0); }, 0) }))
       .sort((a, b) => b.rating - a.rating);
   };
   P.ratingReputation = function ratingReputation() {

@@ -299,7 +299,7 @@ const ROUTES = {
   '11,18'() { this.profileWindow(this.user); }, // Кабинет
   '11,15'(p, t) { const id = t[10] ? t[10].readUInt32BE(0) : this.user.id; const u = this.game.userById(id); if (u) this.profileWindow(u); },
   '11,17'() { // Рейтинг
-    const rows = Object.values(this.game.db.users).map((u) => ({ u, r: this.game.rating(this.game.castleOf(u)) }))
+    const rows = Object.values(this.game.db.users).map((u) => ({ u, r: this.game.userRating(u) }))
       .sort((a, b) => b.r - a.r).slice(0, 20);
     const w = new Window().title('Рейтинг игроков');
     rows.forEach(({ u, r }, i) => w.text(`${i + 1}. {u11|15|10|${u.id}|${u.login}} - ${r}`).endRow());

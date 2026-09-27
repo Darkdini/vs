@@ -89,11 +89,10 @@ function renderMenu() {
   $('#menubar').innerHTML = Object.entries(MENUS).map(([k, v]) => `<button data-menu="${k}" class="${k === S.menu ? 'on' : ''}"><img src="${GFX}${v.icon}" alt=""><span>${v.label}</span></button>`).join('');
 }
 function openMenu(k = 'cabinet') {
-  if (!S.menu) history.pushState({ menu: 1 }, '');
   S.menu = k; renderMenu(); $('#menu').classList.remove('hidden');
+  pushOverlay();
 }
-function closeMenu(fromPop) { if (!S.menu) return; S.menu = null; $('#menu').classList.add('hidden'); if (!fromPop) { S.ignorePop += 1; history.back(); } }
-window.addEventListener('popstate', () => { if (S.menu && !S.sheets.length) closeMenu(true); });
+function closeMenu(fromPop) { if (!S.menu) return; S.menu = null; $('#menu').classList.add('hidden'); if (!fromPop) popOverlay(); }
 $('#btnMenu').addEventListener('click', () => (S.menu ? closeMenu() : openMenu()));
 $('#menu').addEventListener('click', (e) => {
   const b = e.target.closest('button');
@@ -102,9 +101,9 @@ $('#menu').addEventListener('click', (e) => {
   if (b.dataset.mclose !== undefined) return closeMenu();
   if (b.dataset.mi !== undefined) {
     const it = S.menuItems[Number(b.dataset.mi)];
-    closeMenu(true); S.menuEntry = true; // запись меню в истории займёт открытое окно
+    closeMenu(true); // запись в истории остаётся за окном, которое откроет пункт
     it[2]();
-    if (S.menuEntry) { S.menuEntry = false; S.ignorePop += 1; history.back(); } // окна не открылось (сменили локацию) — убрать запись меню
+    popOverlay(); // окна не открылось (сменили локацию) — запись убирается
   }
 });
 
@@ -208,9 +207,11 @@ function playersWin() {
 // ---------- прочие окна ----------
 const notesWin = () => `${ribbon('Блокнот')}${S.notes === null ? '<p class="parch-note">Загрузка…</p>' : `<form class="stack" data-form="notes"><textarea name="text" rows="14" placeholder="Заметки видите только вы">${esc(S.notes)}</textarea><button class="btn primary">Сохранить</button></form>`}`;
 function castlesWin() {
-  const c = S.st.castle;
-  return `${ribbon('Мои замки - 1')}<button class="pcastle" data-goworld="${c.x},${c.y}"><img src="${GFX}ground/castle_small.png" alt=""> ${esc(c.name)}<br>X: ${c.x}, Y: ${c.y} (Столица)</button>
-    <p class="parch-note">Рейтинг замка ${fmtFull(c.rating)}, Ратуша ${c.townhall} ур. Новые замки основывают Путешественники (в разработке).</p>`;
+  const list = S.st.castles || [];
+  return `${ribbon(`Мои замки - ${list.length}`)}${list.map((c) => `<div class="pcastle ${c.active ? 'active' : ''}"><img src="${GFX}ground/castle_small.png" alt=""> ${esc(c.name)}<br>X: ${c.x}, Y: ${c.y}${c.capital ? ' (Столица)' : ''}
+    <div class="pcsub">★ ${fmtFull(c.rating)} · лояльность ${c.loyalty}${c.active ? ' · вы здесь' : ''}</div>
+    <div class="btns">${c.active ? '' : `<button class="btn primary small" data-switch="${c.id}">Перейти в замок</button>`}<button class="btn small" data-goworld="${c.x},${c.y}">На карте</button></div></div>`).join('')}
+    <p class="parch-note">Новые замки захватывают: атака с Бунтарями на Заброшенный замок или на не-столичный замок игрока.</p>`;
 }
 function advisorWin() {
   const c = S.st.castle, tips = [];
@@ -256,8 +257,9 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
 profileSheet = function (p) { S.lastProfile = p; return profileWin(p); }; // eslint-disable-line no-global-assign
 
 $('#sheetBody').addEventListener('click', (e) => {
-  const t = e.target.closest('[data-cprof],[data-ptile],[data-hof],[data-soon]'); if (!t) return;
+  const t = e.target.closest('[data-cprof],[data-ptile],[data-hof],[data-soon],[data-switch]'); if (!t) return;
   const d = t.dataset;
+  if (d.switch) { closeAllSheets(); Iso.cams = {}; return send({ t: 'switch', id: Number(d.switch) }); }
   if (d.cprof) return send({ t: 'profile', id: Number(d.cprof) });
   if (d.hof !== undefined) { S.halls = null; send({ t: 'halls' }); return openSheet(hallsWin); }
   if (d.soon) return openSoon(d.soon);

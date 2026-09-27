@@ -514,3 +514,24 @@ input.num { width: 76px; padding: 7px; text-align: center; }
 .chatform { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
 .chatform input { flex: 1; }
 .sendbtn { width: 70px; height: 44px; border: 0; background: url(gfx3d/chat/tosend_button.png) 0 0 / 100% 100%; flex: none; }
+
+/* боевой отчёт */
+.rep-date { text-align: center; font: 15px var(--serif); color: var(--ink2); margin-bottom: 6px; }
+.bres { text-align: center; font: 700 30px var(--serif); letter-spacing: 3px; padding: 6px; border: 2px solid; border-radius: 8px; margin: 4px 0; }
+.bres.win { color: #1f6a08; border-color: #6aa84f; background: #6aa84f22; }
+.bres.lose { color: #9a1206; border-color: #c0392b; background: #c0392b18; }
+.bpow { text-align: center; font: 16px var(--serif); margin: 4px 0; }
+.bside { margin: 4px 0; } .bwho { font: 19px var(--serif); } .bwho small { display: block; color: var(--ink2); font-size: 14px; margin-left: 26px; }
+.btab { width: 100%; border-collapse: collapse; font: 15px var(--serif); margin: 4px 0; }
+.btab th { font-size: 12px; color: var(--ink2); font-weight: 400; text-align: right; border-bottom: 1px solid #b08a5a; padding: 3px; }
+.btab td { text-align: right; padding: 3px; border-bottom: 1px solid #b08a5a44; }
+.btab td.un { text-align: left; } .btab td:first-child { width: 28px; }
+.btab .bad { color: #b8200a; }
+.bgen { font: 16px var(--serif); margin: 4px 0; } .bgen .bad { color: #b8200a; }
+.bloot { display: flex; flex-wrap: wrap; gap: 6px 16px; font: 18px var(--serif); justify-content: center; padding: 6px; }
+.bloy { display: flex; gap: 10px; align-items: center; font: 17px var(--serif); } .bloy .bar { flex: 1; height: 12px; }
+.bcap { display: flex; gap: 10px; align-items: center; background: #e9b24a55; border: 2px solid #c8963e; border-radius: 8px; padding: 8px; font: 18px var(--serif); margin: 8px 0; }
+.bcap img { width: 64px; image-rendering: pixelated; }
+.pcastle.active { box-shadow: 0 0 0 3px #f0c060; }
+.pcsub { font-size: 15px; opacity: .9; }
+.pcastle .btns { margin-top: 6px; justify-content: center; } .pcastle .btn { flex: 0 1 auto; }

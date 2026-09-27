@@ -120,7 +120,9 @@ class WebSession {
         queue: c.queue.map((q) => ({ view: q.view, cell: q.cell, building: q.building, level: q.level, start: q.start, end: q.end })),
         rating: this.game.rating(c), townhall: this.game.buildingLevel(c, 0),
         mil: this.game.milState(c, u),
+        loyalty: Math.round(c.loyalty ?? 100), capital: this.game.isCapital(c),
       },
+      castles: this.game.castlesOf(u).map((k, i) => ({ id: k.id, name: k.name, x: k.x, y: k.y, capital: i === 0, active: k.id === c.id, rating: this.game.rating(k), loyalty: Math.round(k.loyalty ?? 100) })),
       unread: (this.game.db.messages || []).filter((m) => m.to === u.id && !m.read).length,
     });
   }
@@ -164,6 +166,7 @@ const API = {
     this.pushState();
   },
   sync() { this.pushState(); },
+  switch(m) { const r = this.game.switchCastle(this.user, m.id); if (r.error) return this.error(r.error); this.toast(`Замок: ${this.castle.name}`); this.pushState(); },
   build(m) {
     const res = this.game.startBuild(this.castle, Number(m.view), Number(m.cell), Number(m.building));
     if (res.error) return this.error(res.error);
@@ -200,7 +203,7 @@ const API = {
   },
   halls() { this.send({ t: 'halls', list: this.game.halls() }); },
   rating() {
-    const rows = Object.values(this.game.db.users).map((u) => ({ id: u.id, login: u.login, race: C.RACE_NAMES[u.race], raceId: u.race, online: !!u.online, rating: this.game.rating(this.game.castleOf(u)) }))
+    const rows = Object.values(this.game.db.users).map((u) => ({ id: u.id, login: u.login, race: C.RACE_NAMES[u.race], raceId: u.race, online: !!u.online, rating: this.game.userRating(u) }))
       .sort((a, b) => b.rating - a.rating).slice(0, 50);
     this.send({ t: 'rating', rows });
   },
