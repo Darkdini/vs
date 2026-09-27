@@ -171,7 +171,7 @@ function onMsg(m) {
     case 'toast':
       toast(m.msg);
       if (/отправлено/.test(m.msg) && S.sheets.length && S.composing) { S.composing = false; closeSheet(); }
-      if (/Армия выступила/.test(m.msg) && S.army) { S.army = null; closeAllSheets(); }
+      if (/Армия выступила|Поход запланирован/.test(m.msg) && (S.army || S.cmp)) { S.army = null; S.cmp = null; closeAllSheets(); }
       break;
     case 'error':
       if (S.auto || !S.st) { // ошибка входа — показать форму

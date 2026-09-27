@@ -138,7 +138,7 @@ function hqHtml() {
     <div class="section">Генерал</div><div class="card unit">${gen}</div>
     <div class="section">Войска в замке</div><div class="card">${unitsListHtml(my.units, 'Войск нет — тренируйте их в Казарме, Конюшне, Академии магов…')}
       <p class="small muted">Содержание: ${fmtFull(my.upkeep)} еды/ч · атака ×${my.bonus.atk.toFixed(2)} · защита ×${my.bonus.def.toFixed(2)}</p>
-      <div class="btns"><button class="btn primary" data-armyopen>Отправить войска</button><button class="btn" data-reports>Отчёты${my.unreadReports ? ` (${my.unreadReports})` : ''}</button></div></div>
+      <div class="btns"><button class="btn primary" data-armies>Армии в замке</button><button class="btn" data-campaign>Военный поход</button></div><div class="btns" style="margin-top:6px"><button class="btn" data-reports>Отчёты${my.unreadReports ? ` (${my.unreadReports})` : ''}</button></div></div>
     <div class="section">Армии в пути</div>${armies}
     <div class="section">Входящие</div>${inc}`;
 }
@@ -192,41 +192,7 @@ function artifactsHtml() {
       <button class="btn small ${a.active ? '' : 'primary'}" data-art="${a.id}" data-on="${a.active ? 0 : 1}">${a.active ? 'Снять' : 'Активировать'}</button></div></div>`; }).join('') || '<p class="muted small">Артефактов нет — их находят экспедиции археологов.</p>'}`;
 }
 
-// ---------- отправка войск ----------
-const MISSION_ROLES = {
-  attack: (u) => !['merchant', 'archaeologist', 'sage', 'settler'].includes(u.role),
-  raid: (u) => !['merchant', 'archaeologist', 'sage', 'settler'].includes(u.role),
-  scout: (u) => ['scout', 'eye'].includes(u.role),
-  expedition: (u) => u.role === 'archaeologist',
-  trade: (u) => u.role === 'merchant',
-};
-function openArmySheet(pre = {}) {
-  S.army = { x: pre.x ?? '', y: pre.y ?? '', mission: pre.mission || 'raid', units: {}, general: false, res: {} };
-  openSheet(armyHtml);
-}
-function armySec() {
-  const a = S.army, c = S.st.castle, speeds = [];
-  for (const [id, n] of Object.entries(a.units)) if (n > 0) speeds.push(unitById(id).speed);
-  if (a.general) speeds.push(unitById(M().generalId).speed);
-  if (!speeds.length || a.x === '' || a.y === '') return null;
-  const b = MY().bonus, v = Math.min(...speeds) * b.speed * (a.mission === 'trade' ? b.tradeCarry : 1);
-  return Math.max(5, Math.round(Math.hypot(Number(a.x) - c.x, Number(a.y) - c.y) / v * 3600 / S.cat.speed));
-}
-function armyHtml() {
-  const a = S.army, my = MY(), g = my.general;
-  const avail = Object.entries(my.units).map(([id, n]) => [unitById(id), n]).filter(([u, n]) => u && n > 0 && MISSION_ROLES[a.mission](u));
-  const sec = armySec();
-  return `<div class="sh-head"><div class="big">${bimg(HQ)}</div><div><h3>Военный штаб: отправка</h3><div class="muted small">Из замка ${S.st.castle.x}:${S.st.castle.y}</div></div></div>
-    <div class="pills">${Object.entries(M().missions).map(([k, t]) => `<button data-mission="${k}" class="${a.mission === k ? 'on' : ''}">${t}</button>`).join('')}</div>
-    <div class="row2" style="margin:10px 0"><label>X<input type="number" inputmode="numeric" data-af="x" value="${esc(a.x)}"></label><label>Y<input type="number" inputmode="numeric" data-af="y" value="${esc(a.y)}"></label></div>
-    <div class="list">${avail.map(([u, n]) => `<div class="row">${uimg(u, 'ui s')}<div class="grow"><b>${esc(u.name)}</b><span>в замке ${fmtFull(n)}</span></div>
-      <input class="num" type="number" inputmode="numeric" min="0" max="${n}" value="${a.units[u.id] || ''}" placeholder="0" data-au="${u.id}"><button class="btn small" data-amax="${u.id}">все</button></div>`).join('') || '<p class="muted small">Нет подходящих войск для этой миссии.</p>'}</div>
-    ${['attack', 'raid'].includes(a.mission) && g && !g.dead && !g.away ? `<label class="check"><input type="checkbox" data-agen ${a.general ? 'checked' : ''}> Генерал ${g.level} ур. идёт с армией</label>` : ''}
-    ${a.mission === 'trade' ? `<div class="row2">${RES4.map((r) => `<label>${RES_IC[r]}<input type="number" inputmode="numeric" min="0" data-ares="${r}" value="${a.res[r] || ''}" placeholder="0"></label>`).join('')}</div>` : ''}
-    <p class="small">В пути: <b id="armyTime">${sec ? fmtT(sec) : '—'}</b></p>
-    <button class="btn primary" data-asend>Отправить</button>`;
-}
-function armyPreview() { const el = $('#armyTime'); if (el) { const s = armySec(); el.textContent = s ? fmtT(s) : '—'; } }
+// ---------- отправка войск — окно «Военный поход» в armies.js ----------
 
 // ---------- отчёты ----------
 function openReports() { S.reports = null; send({ t: 'reports' }); openSheet(reportsHtml); }
@@ -308,12 +274,6 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.armyopen !== undefined) return openArmySheet({ mission: d.armyopen || 'raid', x: d.ax !== undefined ? Number(d.ax) : '', y: d.ay !== undefined ? Number(d.ay) : '' });
   if (d.reports !== undefined) return openReports();
   if (d.report) return send({ t: 'report', id: Number(d.report) });
-  if (d.mission) { S.army.mission = d.mission; S.army.units = {}; S.army.general = false; return refreshSheet(); }
-  if (d.amax) { S.army.units[d.amax] = MY().units[d.amax] || 0; const i = $(`[data-au="${d.amax}"]`); if (i) i.value = S.army.units[d.amax]; return armyPreview(); }
-  if (d.asend !== undefined) {
-    const a = S.army;
-    return send({ t: 'send', units: a.units, general: a.general, x: Number(a.x), y: Number(a.y), mission: a.mission, res: a.res });
-  }
   if (d.sci) return send({ t: 'research', sci: d.sci });
   if (d.religion) return send({ t: 'religion', id: d.religion });
   if (d.art) return send({ t: 'artifact', id: Number(d.art), on: d.on === '1' });
@@ -322,13 +282,7 @@ $('#sheetBody').addEventListener('click', (e) => {
 $('#sheetBody').addEventListener('input', (e) => {
   const d = e.target.dataset, v = e.target.value;
   if (d.cntInput) S.cnt[d.cntInput] = Math.max(1, Math.floor(Number(v)) || 1);
-  if (!S.army) return;
-  if (d.au) S.army.units[d.au] = Math.max(0, Math.floor(Number(v)) || 0);
-  if (d.af) S.army[d.af] = v === '' ? '' : Number(v);
-  if (d.ares) S.army.res[d.ares] = Math.max(0, Math.floor(Number(v)) || 0);
-  armyPreview();
 });
-$('#sheetBody').addEventListener('change', (e) => { if (e.target.dataset.agen !== undefined && S.army) { S.army.general = e.target.checked; armyPreview(); } });
 $('#sheetBody').addEventListener('submit', (e) => {
   const f = e.target, k = f.dataset.form;
   if (k === 'exchange') send({ t: 'exchange', from: f.from.value, to: f.to.value, amount: Number(f.amount.value) });

@@ -143,6 +143,24 @@ function client() {
     b.send({ t: 'send', units: {}, x: 1, y: 1, mission: 'attack' }); // у «a» висит ожидание любой ошибки из Promise.race выше
     await b.expect('error', (m) => /Военный штаб/.test(m.msg));
     console.log('✓ рынок, альянс, проверки миссий');
+
+    // ---- армии в замке, военный поход, подкрепление ----
+    adm.send({ t: 'squad', op: 'regroup', from: 'castle', to: 'new', units: { 200: 100 } });
+    let st2 = await adm.expect('state', (m) => (m.castle.mil.squads || []).length === 1);
+    const sq = st2.castle.mil.squads[0];
+    adm.send({ t: 'squad', op: 'rename', id: sq.id, name: 'Гвардия' });
+    await adm.expect('state', (m) => m.castle.mil.squads[0] && m.castle.mil.squads[0].name === 'Гвардия');
+    adm.send({ t: 'send', from: sq.id, mission: 'reinforce', x: target.x, y: target.y });
+    await adm.expect('toast', (m) => /Армия выступила: Подкрепление/.test(m.msg));
+    adm.send({ t: 'admin', op: 'finish' });
+    st2 = await adm.expect('state', (m) => m.castle.mil.armies.some((a) => a.state === 'stay'));
+    const stay = st2.castle.mil.armies.find((a) => a.state === 'stay');
+    adm.send({ t: 'squad', op: 'recall', id: stay.id });
+    adm.send({ t: 'admin', op: 'finish' });
+    await adm.expect('state', (m) => (m.castle.mil.squads || []).some((q) => q.name === 'Гвардия') && !m.castle.mil.armies.length);
+    adm.send({ t: 'send', from: 'castle', mission: 'raid', x: target.x, y: target.y, at: Date.now() + 3600000 });
+    await adm.expect('toast', (m) => /Поход запланирован/.test(m.msg));
+    console.log('✓ армии в замке: отряд, переименование, подкрепление и отзыв, поход по расписанию');
     adm.close();
     console.log('\nВЕБ: ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ');
   } catch (e) {

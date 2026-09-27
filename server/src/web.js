@@ -230,10 +230,11 @@ const API = {
   // ---- функции зданий и армия (server/src/army.js) ----
   train(m) { this.result(this.game.train(this.castle, Number(m.unit), Number(m.count))); },
   send(m) {
-    const r = this.game.sendArmy(this.castle, { units: m.units || {}, general: !!m.general, x: m.x, y: m.y, mission: m.mission, res: m.res });
-    if (!r.error) this.toast(`Армия выступила: ${ARMY.MISSIONS[m.mission]} ${m.x}:${m.y}`);
+    const r = this.game.sendArmy(this.castle, { units: m.units || {}, general: !!m.general, x: m.x, y: m.y, mission: m.mission, res: m.res, from: m.from, portal: !!m.portal, at: Number(m.at) || 0 });
+    if (!r.error) this.toast(r.army.state === 'wait' ? `Поход запланирован: ${ARMY.MISSIONS[m.mission]} ${m.x}:${m.y}` : `Армия выступила: ${ARMY.MISSIONS[m.mission]} ${m.x}:${m.y}`);
     this.result(r);
   },
+  squad(m) { this.result(this.game.squadOp(this.castle, m)); },
   general(m) { if (m.op === 'revive') this.result(this.game.reviveGeneral(this.castle)); },
   exchange(m) { const r = this.game.exchange(this.castle, m.from, m.to, m.amount); if (!r.error) this.toast(`Обмен: получено ${r.got}`); this.result(r); },
   research(m) { this.result(this.game.research(this.castle, m.sci)); },

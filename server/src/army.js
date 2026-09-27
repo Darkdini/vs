@@ -135,7 +135,7 @@ const NPC = {
 const NPC_REGEN_SEC = 3600;
 const NEWBIE_RATING = Number(process.env.NEWBIE_RATING || 100); // защита новичка: на слабых игроков нападать нельзя
 
-const MISSIONS = { attack: 'Атака', raid: 'Набег', scout: 'Разведка', expedition: 'Экспедиция', trade: 'Торговля' };
+const MISSIONS = { raid: 'Набег', attack: 'Нападение', reinforce: 'Подкрепление', scout: 'Разведка', expedition: 'Экспедиция', trade: 'Торговля' };
 
 function install(Game, helpers) {
   const P = Game.prototype;
@@ -151,6 +151,7 @@ function install(Game, helpers) {
     if (castle.general === undefined) castle.general = null;
     if (castle.research === undefined) castle.research = null;
     if (castle.religion === undefined) castle.religion = null;
+    if (!castle.squads) castle.squads = []; // отряды в замке («Армия: …»); castle.units — «Замковая армия»
     if (castle.loyalty === undefined) { castle.loyalty = 100; castle.loyAt = Date.now(); }
     return castle;
   };
@@ -193,6 +194,7 @@ function install(Game, helpers) {
     let s = 0;
     const add = (units) => { for (const [id, n] of Object.entries(units)) s += (UNIT[id] ? UNIT[id].upkeep : 0) * n; };
     add(castle.units);
+    for (const q of castle.squads) add(q.units);
     for (const a of castle.armies) add(a.units);
     if (castle.general && !castle.general.dead) s += UNIT[GENERAL_ID].upkeep;
     return s;
@@ -288,8 +290,24 @@ function install(Game, helpers) {
     const v = Math.min(...speeds) * b.speed * (merchants ? b.tradeSpeed : 1);
     return Math.max(5, Math.round(Math.hypot(x - castle.x, y - castle.y) / v * 3600 / SPEED));
   };
-  P.sendArmy = function sendArmy(castle, { units = {}, general = false, x, y, mission, res = null }) {
-    this.tick(castle);
+  // отправка: from = 'castle' (вся Замковая армия) или id отряда (весь отряд), как в оригинале; либо units — выборочно.
+  // portal — через Портал (в 4 раза быстрее), at — расписание отправки (время, мс)
+  P.sendArmy = function sendArmy(castle, { units = {}, general = false, x, y, mission, res = null, from = null, portal = false, at = 0 }) {
+    this.tick(castle); this.mil(castle);
+    let squad = null;
+    if (from !== null && from !== undefined && from !== '') {
+      if (from === 'castle') { units = { ...castle.units }; general = !!(castle.general && !castle.general.dead && !castle.general.away && !castle.general.squad); }
+      else {
+        squad = castle.squads.find((q) => q.id === Number(from));
+        if (!squad) return { error: 'Армия не найдена.' };
+        units = { ...squad.units }; general = !!(castle.general && castle.general.squad === squad.id && !castle.general.dead);
+      }
+      // армия идёт целиком, но в поход берутся только подходящие юниты — остальные остаются в замке
+      const fits = { scout: (r) => ['scout', 'eye'].includes(r), expedition: (r) => r === 'archaeologist', trade: (r) => r === 'merchant' }[mission]
+        || ((r) => !['merchant', 'archaeologist', 'sage', 'settler'].includes(r));
+      units = Object.fromEntries(Object.entries(units).filter(([u]) => UNIT[u] && fits(UNIT[u].role)));
+      if (mission !== 'attack' && mission !== 'raid') general = false;
+    }
     x = Math.round(Number(x)); y = Math.round(Number(y));
     if (!MISSIONS[mission]) return { error: 'Неизвестная миссия.' };
     if (!Number.isFinite(x) || !Number.isFinite(y)) return { error: 'Укажите координаты цели.' };
@@ -298,13 +316,14 @@ function install(Game, helpers) {
     const clean = {};
     for (const [id, n0] of Object.entries(units)) {
       const n = Math.floor(Number(n0)); if (!(n > 0)) continue;
-      if (!UNIT[id] || (castle.units[id] || 0) < n) return { error: `Не хватает: ${UNIT[id] ? UNIT[id].name : id}.` };
+      if (!UNIT[id] || ((squad ? squad.units : castle.units)[id] || 0) < n) return { error: `Не хватает: ${UNIT[id] ? UNIT[id].name : id}.` };
       clean[id] = n;
     }
     const roles = Object.keys(clean).map((id) => UNIT[id].role);
     const g = castle.general;
     if (general && (!g || g.dead || g.away)) return { error: 'Генерал недоступен.' };
-    if (!roles.length && !general) return { error: 'Выберите войска.' };
+    if (!roles.length && !general) return { error: from ? 'В этой армии нет войск.' : 'Выберите войска.' };
+    if (portal && !this.buildingLevel(castle, B.PORTAL)) return { error: 'Нужен Портал.' };
     const target = this.castleAt(x, y);
     const obj = target ? null : this.worldObjects(x, y, 1, 1)[0];
     let cargo = null;
@@ -325,15 +344,24 @@ function install(Game, helpers) {
       for (const r of RES4) castle.res[r] -= cargo[r];
     }
     if (['attack', 'raid'].includes(mission) && roles.some((r) => r === 'merchant')) return { error: 'Торговцы не воюют.' };
-    if (target && target.owner === castle.owner && mission !== 'trade') return { error: 'Это ваш замок.' };
+    if (mission === 'reinforce' && !target) return { error: 'Подкрепление отправляют в замок.' };
+    if (mission === 'reinforce' && roles.some((r) => r === 'merchant')) return { error: 'Торговцы не воюют.' };
+    if (target && target.owner === castle.owner && !['trade', 'reinforce'].includes(mission)) return { error: 'Это ваш замок.' };
     const me = this.ownerOf(castle);
     if (target && ['attack', 'raid', 'scout'].includes(mission) && !me.admin && this.rating(target) < NEWBIE_RATING) return { error: `Игрок под защитой новичка (рейтинг ниже ${NEWBIE_RATING}).` };
     if (!target && (!obj || (!NPC[obj.img] && mission !== 'scout'))) return { error: 'Здесь некого атаковать.' };
-    for (const [id, n] of Object.entries(clean)) { castle.units[id] -= n; if (!castle.units[id]) delete castle.units[id]; }
-    const sec = this.travelSec(castle, clean, general, x, y, mission === 'trade');
-    const now = Date.now();
-    const army = { id: this.db.nextId++, units: clean, general: !!general, mission, x, y, depart: now, arrive: now + sec * 1000, state: 'go', loot: null, cargo };
-    if (general) g.away = army.id;
+    const src = squad ? squad.units : castle.units;
+    for (const [id, n] of Object.entries(clean)) { src[id] -= n; if (!src[id]) delete src[id]; }
+    if (squad) { // то, что не пошло в поход, остаётся в Замковой армии
+      for (const [u, n] of Object.entries(squad.units)) if (n > 0) castle.units[u] = (castle.units[u] || 0) + n;
+      castle.squads = castle.squads.filter((q) => q !== squad);
+    }
+    let sec = this.travelSec(castle, clean, general, x, y, mission === 'trade');
+    if (portal) sec = Math.max(5, Math.round(sec / 4));
+    const now = Date.now(), start = at && Number(at) > now + 3000 ? Number(at) : now;
+    const army = { id: this.db.nextId++, units: clean, general: !!general, mission, x, y, depart: start, arrive: start + sec * 1000, sec, state: start > now ? 'wait' : 'go', loot: null, cargo,
+      squad: squad ? { id: squad.id, name: squad.name } : from === 'castle' ? { id: 0, name: 'Замковая армия' } : null, portal: !!portal };
+    if (general) { g.away = army.id; delete g.squad; }
     castle.armies.push(army);
     this.store.save();
     return { army, sec };
@@ -344,7 +372,10 @@ function install(Game, helpers) {
     const due = [];
     for (const c of Object.values(this.db.castles)) {
       if (!c.armies || !c.armies.length) continue; // замки без армий в пути 
-      for (const a of c.armies) if ((a.state === 'go' && a.arrive <= now) || (a.state === 'back' && a.back <= now)) due.push([c, a]);
+      for (const a of c.armies) {
+        if (a.state === 'wait' && a.depart <= now) a.state = 'go'; // расписание: время выхода наступило
+        if ((a.state === 'go' && a.arrive <= now) || (a.state === 'back' && a.back <= now)) due.push([c, a]);
+      }
     }
     due.sort((p, q) => (p[1].state === 'go' ? p[1].arrive : p[1].back) - (q[1].state === 'go' ? q[1].arrive : q[1].back));
     for (const [c, a] of due) {
@@ -356,8 +387,15 @@ function install(Game, helpers) {
   };
   P.returnHome = function returnHome(c, a) {
     this.tick(c);
-    for (const [id, n] of Object.entries(a.units)) if (n > 0) c.units[id] = (c.units[id] || 0) + n;
-    if (a.general && c.general && c.general.away === a.id) delete c.general.away;
+    this.mil(c);
+    const units = Object.fromEntries(Object.entries(a.units).filter(([, n]) => n > 0));
+    if (a.squad && a.squad.id) { // отряд возвращается отдельной армией
+      c.squads.push({ id: a.squad.id, name: a.squad.name, units });
+      if (a.general && c.general && c.general.away === a.id) { delete c.general.away; c.general.squad = a.squad.id; }
+    } else {
+      for (const [id, n] of Object.entries(units)) c.units[id] = (c.units[id] || 0) + n;
+      if (a.general && c.general && c.general.away === a.id) delete c.general.away;
+    }
     const cap = this.capacity(c);
     if (a.loot) for (const r of RES4) c.res[r] = Math.min(cap[r], c.res[r] + (a.loot[r] || 0));
     c.armies = c.armies.filter((x) => x !== a);
@@ -386,11 +424,19 @@ function install(Game, helpers) {
     return { inf: inf * k, cav: cav * k, mag: mag * b.magic * b.atk, gl };
   };
   // сила обороны замка против атаки с долями пехоты/кавалерии
+  // армии, стоящие в замке d подкреплением (из других замков)
+  P.guestsOf = function guestsOf(d) {
+    const out = [];
+    for (const c of Object.values(this.db.castles)) if (c.armies && c.armies.length) for (const a of c.armies) if (a.state === 'stay' && a.stayAt === d.id) out.push({ c, a });
+    return out;
+  };
+  // все войска, защищающие замок: Замковая армия, отряды в замке, подкрепления
+  P.defenders = function defenders(d) { this.mil(d); return [d.units, ...d.squads.map((q) => q.units), ...this.guestsOf(d).map((g) => g.a.units)]; };
   P.defensePower = function defensePower(d, pInf, pCav) {
     const b = this.bonus(d);
     let phys = 0, mag = 0;
     const add = (id, n) => { const u = UNIT[id]; if (!u || !n) return; phys += (u.def.inf * pInf + u.def.cav * pCav) * n; mag += u.def.mag * n; };
-    for (const [id, n] of Object.entries(d.units)) add(id, n);
+    for (const m of this.defenders(d)) for (const [id, n] of Object.entries(m)) add(id, n);
     if (d.general && !d.general.dead && !d.general.away) add(GENERAL_ID, 1);
     phys = (phys * b.def + 10 * b.wall) * (1 + b.wallPer * b.wall);
     return { phys, mag: mag * b.def * b.magic };
@@ -401,6 +447,7 @@ function install(Game, helpers) {
     return lost;
   };
   const unitsLine = (units, lost) => Object.entries(units).filter(([id]) => UNIT[id]).map(([id, n]) => `${UNIT[id].name}: ${n + (lost ? lost[id] || 0 : 0)}${lost && lost[id] ? ` (−${lost[id]})` : ''}`).join(', ') || '—';
+  const mergeUnits = (maps) => { const o = {}; for (const m of maps) for (const [id, n] of Object.entries(m)) if (n > 0) o[id] = (o[id] || 0) + n; return o; };
   const popOf = (units) => Object.entries(units).reduce((s, [id, n]) => s + (UNIT[id] ? UNIT[id].pop * n : 0), 0);
 
   // отчёт: title и lines — текстом, data — для оформленного окна отчёта в клиенте (стороны, потери, добыча, захват)
@@ -424,6 +471,14 @@ function install(Game, helpers) {
       a.cargo = null; return this.goBack(c, a, t);
     }
     if (a.mission === 'expedition') return this.expedition(c, a, t);
+    if (a.mission === 'reinforce') { // подкрепление встаёт в замке и защищает его, пока его не отзовут
+      if (!target) return this.goBack(c, a, t);
+      a.state = 'stay'; a.stayAt = target.id;
+      const to = this.ownerOf(target);
+      this.report(c.owner, `Подкрепление прибыло в ${target.name}`, [`Армия встала в замке ${target.name} (${a.x}:${a.y}) и защищает его. Отозвать — «Армии в замке».`, `Войска: ${unitsLine(a.units)}`], 'reinforce');
+      if (to && to.id !== c.owner) this.report(to.id, `Подкрепление от ${att.login}`, [`В ваш замок ${target.name} прибыло подкрепление игрока ${att.login}.`, `Войска: ${unitsLine(a.units)}`], 'reinforce');
+      return;
+    }
     if (a.mission === 'scout') return this.scout(c, a, t, target);
 
     // бой: атака или набег
@@ -445,7 +500,15 @@ function install(Game, helpers) {
     const aBefore = { ...a.units };
     const aLost = applyLoss(a.units, aLoss);
     let dLost = {}, dBefore = {};
-    if (target) { dBefore = { ...target.units }; dLost = applyLoss(target.units, dLoss); for (const id of Object.keys(target.units)) if (!target.units[id]) delete target.units[id]; }
+    let dAll = {};
+    if (target) {
+      for (const m of this.defenders(target)) {
+        const l = applyLoss(m, dLoss);
+        for (const [id, n] of Object.entries(l)) dLost[id] = (dLost[id] || 0) + n;
+        for (const id of Object.keys(m)) { if (m[id]) dAll[id] = (dAll[id] || 0) + m[id]; else delete m[id]; }
+      }
+      dBefore = dAll;
+    }
     const win = aSum > Dsum;
     const aliveAfter = Object.values(a.units).some((n) => n > 0);
     // генералы
@@ -454,7 +517,7 @@ function install(Game, helpers) {
       else this.addGeneralExp(c, target ? popOf(dLost) * 10 : (npc ? Math.round(npc.def.inf / 20 * dLoss) : 0));
     }
     if (target && target.general && !target.general.dead && !target.general.away) {
-      if (dLoss >= 1 && !Object.keys(target.units).length) target.general.dead = true; else this.addGeneralExp(target, popOf(aLost) * 10);
+      if (dLoss >= 1 && !Object.keys(dAll).length) target.general.dead = true; else this.addGeneralExp(target, popOf(aLost) * 10);
     }
     // добыча
     let loot = null;
@@ -524,7 +587,7 @@ function install(Game, helpers) {
     const data = {
       type: 'battle', mission: a.mission, win, x: a.x, y: a.y, power: { att: Math.round(aSum), def: Math.round(Dsum) },
       att: { login: att.login, race: att.race, castle: c.name, units: side(a.units, aLost), general: a.general || genDied ? (c.general ? c.general.level : 0) : 0, generalDied: genDied },
-      def: target ? { login: captured ? captured.prevLogin : defUser.login, race: captured ? captured.prevRace : defUser.race, castle: target.name, units: side(target.units, dLost), wall: this.bonus(target).wall }
+      def: target ? { login: captured ? captured.prevLogin : defUser.login, race: captured ? captured.prevRace : defUser.race, castle: target.name, units: side(dAll, dLost), wall: this.bonus(target).wall }
         : { npc: npc.name, img: obj.img, lossPct: Math.round(dLoss * 100) },
       loot, siege, loyalty, capitalBlocked, captured: captured ? { name: captured.name, x: a.x, y: a.y } : null,
     };
@@ -532,7 +595,7 @@ function install(Game, helpers) {
       `${MISSIONS[a.mission]} на ${tname}. ${win ? 'Победа!' : 'Поражение.'}`,
       `Сила: атака ${Math.round(aSum)} против обороны ${Math.round(Dsum)}`,
       `Ваши войска: ${unitsLine(a.units, aLost)}${a.general ? ` + генерал ${c.general ? c.general.level : ''} ур.` : ''}`,
-      target ? `Защитники: ${unitsLine(target.units, dLost)}` : `Охрана лагеря потеряла ${Math.round(dLoss * 100)}%`,
+      target ? `Защитники: ${unitsLine(dAll, dLost)}` : `Охрана лагеря потеряла ${Math.round(dLoss * 100)}%`,
       loot ? `Добыча: дерево ${loot.wood}, камень ${loot.stone}, железо ${loot.iron}, еда ${loot.food}` : 'Добычи нет — армия погибла.',
       ...siege,
     ];
@@ -546,7 +609,7 @@ function install(Game, helpers) {
       this.report(captured ? captured.prevOwner : target.owner, captured ? `Ваш замок ${target.name} захвачен игроком ${att.login}!` : `На ваш замок напал ${att.login}: ${win ? 'поражение' : 'отбились'}`, [
         `${MISSIONS[a.mission]} от ${att.login} (${c.name}).`,
         `Атакующие: ${unitsLine(a.units, aLost)}`,
-        `Ваши войска: ${unitsLine(target.units, dLost)}`,
+        `Ваши войска: ${unitsLine(dAll, dLost)}`,
         loot ? `Унесено: дерево ${loot.wood}, камень ${loot.stone}, железо ${loot.iron}, еда ${loot.food}` : 'Враг разбит, ничего не унесено.',
         ...siege, ...(loyalty ? [`Лояльность: ${loyalty.from} → ${loyalty.to}`] : []),
       ], 'battle', { ...data, side: 'def' });
@@ -560,7 +623,8 @@ function install(Game, helpers) {
     prev.castleIds = this.castlesOf(prev).filter((k) => k !== castle).map((k) => k.id);
     if (prev.castleId === castle.id) prev.castleId = prev.castleIds[0];
     castle.owner = att.id;
-    castle.units = {}; castle.training = []; castle.armies = []; castle.general = null; castle.research = null;
+    for (const g of this.guestsOf(castle)) this.goBack(g.c, g.a, Date.now()); // чужие подкрепления уходят домой
+    castle.units = {}; castle.squads = []; castle.training = []; castle.armies = []; castle.general = null; castle.research = null;
     castle.loyalty = 30; castle.loyAt = Date.now();
     att.castleIds = [...this.castlesOf(att).map((k) => k.id), castle.id];
     this.store.save();
@@ -588,7 +652,8 @@ function install(Game, helpers) {
     if (target) {
       this.tick(target); this.mil(target);
       const b = this.bonus(target);
-      const own = Object.entries(target.units).reduce((s, [id, n]) => s + n * (UNIT[id] ? UNIT[id].spy : 0), 0);
+      const all = mergeUnits(this.defenders(target));
+      const own = Object.entries(all).reduce((s, [id, n]) => s + n * (UNIT[id] ? UNIT[id].spy : 0), 0);
       dPow = own * 20 * (1 + 0.05 * b.watch + 0.05 * b.spyCenter);
     }
     const aPow = spies * 35;
@@ -601,7 +666,7 @@ function install(Game, helpers) {
     else if (target) {
       const b = this.bonus(target);
       lines.push(`Ресурсы: дерево ${Math.floor(target.res.wood)}, камень ${Math.floor(target.res.stone)}, железо ${Math.floor(target.res.iron)}, еда ${Math.floor(target.res.food)}`);
-      lines.push(`Войска: ${unitsLine(target.units)}`);
+      lines.push(`Войска: ${unitsLine(mergeUnits(this.defenders(target)))}`);
       lines.push(`Забор ${b.wall} ур., Тайник прячет ${b.hidden}, рейтинг ${this.rating(target)}`);
       if (target.general && !target.general.dead) lines.push(`Генерал ${target.general.level} ур.`);
       lines.push(`Лояльность замка: ${Math.round(target.loyalty ?? 100)}${this.isCapital(target) ? ' (столица — захватить нельзя)' : ''}`);
@@ -766,6 +831,50 @@ function install(Game, helpers) {
   };
   // админ и его команды — server/src/admin.js
 
+  // ----- армии в замке: переформирование, переименование, роспуск, генерал, отзыв подкрепления -----
+  P.squadOp = function squadOp(castle, { op, from, to, units = {}, id, name }) {
+    this.tick(castle); this.mil(castle);
+    const pick = (k) => (k === 'castle' ? { units: castle.units, castle: true } : castle.squads.find((q) => q.id === Number(k)));
+    if (op === 'regroup') { // перенести войска из from в to ('castle', id отряда или 'new')
+      const src = pick(from); if (!src) return { error: 'Армия не найдена.' };
+      let dst = to === 'new' ? null : pick(to);
+      if (to !== 'new' && !dst) return { error: 'Армия не найдена.' };
+      const move = {};
+      for (const [u, n0] of Object.entries(units)) { const n = Math.floor(Number(n0)); if (!(n > 0)) continue; if ((src.units[u] || 0) < n) return { error: `Не хватает: ${UNIT[u] ? UNIT[u].name : u}.` }; move[u] = n; }
+      if (!Object.keys(move).length) return { error: 'Укажите, сколько войск перевести.' };
+      if (!dst) {
+        if (castle.squads.length >= 20) return { error: 'Не больше 20 армий в замке.' };
+        const sid = this.db.nextId++;
+        dst = { id: sid, name: `${castle.id}.${sid}`, units: {} }; castle.squads.push(dst);
+      }
+      if (dst === src) return { error: 'Выберите другую армию.' };
+      for (const [u, n] of Object.entries(move)) { src.units[u] -= n; if (!src.units[u]) delete src.units[u]; dst.units[u] = (dst.units[u] || 0) + n; }
+      if (!src.castle && !Object.keys(src.units).length) castle.squads = castle.squads.filter((q) => q !== src); // пустой отряд распускается
+      this.store.save(); return { ok: true, id: dst.castle ? 'castle' : dst.id };
+    }
+    if (op === 'rename') {
+      const q = pick(id); if (!q || q.castle) return { error: 'Армия не найдена.' };
+      name = String(name || '').trim().slice(0, 20); if (!name) return { error: 'Введите название.' };
+      q.name = name; this.store.save(); return { ok: true };
+    }
+    if (op === 'disband') { // распустить отряд в Замковую армию
+      const q = pick(id); if (!q || q.castle) return { error: 'Армия не найдена.' };
+      for (const [u, n] of Object.entries(q.units)) castle.units[u] = (castle.units[u] || 0) + n;
+      if (castle.general && castle.general.squad === q.id) delete castle.general.squad;
+      castle.squads = castle.squads.filter((x) => x !== q); this.store.save(); return { ok: true };
+    }
+    if (op === 'general') { // генерал переходит в армию id ('castle' — в Замковую)
+      const g = castle.general; if (!g || g.dead || g.away) return { error: 'Генерал недоступен.' };
+      if (id === 'castle') delete g.squad; else { const q = pick(id); if (!q || q.castle) return { error: 'Армия не найдена.' }; g.squad = q.id; }
+      this.store.save(); return { ok: true };
+    }
+    if (op === 'recall') { // отозвать подкрепление домой
+      const a = castle.armies.find((x) => x.id === Number(id) && x.state === 'stay'); if (!a) return { error: 'Армия не найдена.' };
+      this.goBack(castle, a, Date.now()); a.back = Date.now() + (a.sec || 60) * 1000; this.store.save(); return { ok: true };
+    }
+    return { error: 'Неизвестное действие.' };
+  };
+
   // ----- всё военное/функциональное состояние замка для клиента -----
   P.milState = function milState(castle, user) {
     this.mil(castle);
@@ -773,7 +882,10 @@ function install(Game, helpers) {
     const al = this.allianceOf(user);
     return {
       units: castle.units, training: castle.training.map((t) => ({ id: t.id, unit: t.unit, building: t.building, count: t.count, done: t.done, each: t.each, start: t.start })),
-      general: castle.general, armies: castle.armies.map((a) => ({ id: a.id, units: a.units, general: a.general, mission: a.mission, x: a.x, y: a.y, depart: a.depart, arrive: a.arrive, back: a.back, state: a.state, loot: a.loot, cargo: a.cargo })),
+      general: castle.general, armies: castle.armies.map((a) => ({ id: a.id, units: a.units, general: a.general, mission: a.mission, x: a.x, y: a.y, depart: a.depart, arrive: a.arrive, back: a.back, state: a.state, loot: a.loot, cargo: a.cargo, squad: a.squad, portal: a.portal,
+        stayName: a.state === 'stay' && this.db.castles[a.stayAt] ? this.db.castles[a.stayAt].name : null })),
+      squads: castle.squads,
+      guests: this.guestsOf(castle).map((g) => ({ id: g.a.id, from: this.ownerOf(g.c).login, castle: g.c.name, units: g.a.units })),
       incoming: this.incoming(castle), sciences: castle.sciences, research: castle.research, religion: castle.religion,
       artifacts: castle.artifacts, upkeep: Math.round(this.upkeep(castle) * SPEED),
       bonus: { atk: b.atk, def: b.def, magic: b.magic, prod: b.prod, speed: b.speed, train: b.train, build: b.build, wall: b.wall, wallPer: b.wallPer, hidden: b.hidden, marketRate: b.marketRate, artSlots: b.artSlots, artStore: b.artStore, tradeCarry: b.tradeCarry },
