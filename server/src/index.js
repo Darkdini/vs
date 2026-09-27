@@ -52,8 +52,16 @@ const server = net.createServer((sock) => {
   session.hello();
 });
 
-// завершение строек: раз в секунду проверяем очереди онлайн-игроков
-setInterval(() => { for (const s of sessions) { try { s.onTick(); } catch (e) { console.error(e); } } }, 1000);
+// раз в секунду: армии в мире (прибытие, бой, возврат), очереди онлайн-игроков, уведомления
+setInterval(() => {
+  try { game.tickWorld(); } catch (e) { console.error(e); }
+  for (const s of sessions) { try { s.onTick(); } catch (e) { console.error(e); } }
+  for (const ev of game.drainEvents()) for (const s of sessions) if (s.user && s.user.id === ev.userId && s.notify) s.notify(ev.msg);
+}, 1000);
+
+// администратор: логин admin, пароль ADMIN_PASS (по умолчанию admin) — замок на полной прокачке
+const admin = game.ensureAdmin();
+if (admin) console.log('Админ: логин admin (пароль — ADMIN_PASS, по умолчанию admin)');
 
 server.listen(PORT, HOST, () => {
   console.log(`Третий Мир — тестовый сервер слушает ${HOST}:${PORT}, скорость x${process.env.SPEED || 10}, база ${DB}`);

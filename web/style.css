@@ -322,3 +322,28 @@ input:focus, textarea:focus { border-color: var(--gold); box-shadow: 0 0 0 1px v
 .iconbtn { background: url(gfx/smallicon/button.png) 0 0 / 100% 100%; border: 1px solid #000; color: #120c00; }
 #toast div { background: #000; border: 1px solid var(--gold2); color: var(--ok); border-radius: 0; }
 #toast div.err { color: #ff6a55; }
+
+/* ---------- функции зданий, армия (mil.js) ---------- */
+.ui { width: 48px; height: 48px; object-fit: contain; flex: none; background: #221400; border: 1px solid #b1a47f66; }
+.ui.s { width: 34px; height: 34px; } .ui.xs { width: 22px; height: 22px; border: 0; background: none; vertical-align: middle; }
+.unit .top { display: flex; gap: 10px; align-items: center; }
+.unit .top .grow { flex: 1; min-width: 0; } .unit .top .grow b { display: block; }
+.unit .grid4 div { background: #221400; }
+.trainrow { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
+.trainrow input { width: 70px; padding: 7px 6px; text-align: center; }
+.trainrow .btn.small { padding: 8px 10px; }
+.trainrow .btn.primary { flex: 1; }
+.card.job { display: flex; gap: 10px; align-items: center; margin-bottom: 6px; }
+.card.job .grow { flex: 1; min-width: 0; } .card.job .grow b { display: block; }
+.card.job .bar { margin-top: 5px; }
+.card.danger { border-color: #ff6a55; background: #5a000066; }
+.ulist { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; margin: 4px 0; }
+.uc { white-space: nowrap; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.row2 label, #sheetBody label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+#sheetBody label.check { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text); margin: 8px 0; }
+#sheetBody label.check input { width: auto; }
+select { font: inherit; color: #fff; background: var(--red) 0 0 / 100% 100%; border: 1px solid var(--gold2); padding: 9px; border-radius: 2px; width: 100%; }
+input.num { width: 76px; padding: 7px; text-align: center; }
+.row .ui.s { margin-right: 2px; }
+.card + .card { margin-top: 8px; }

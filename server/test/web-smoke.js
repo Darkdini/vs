@@ -100,10 +100,50 @@ function client() {
     console.log('✓ почта между игроками');
 
     a.send({ t: 'rating' });
-    assert.equal((await a.expect('rating')).rows.length, 2);
+    const rows = (await a.expect('rating')).rows;
+    assert.equal(rows.length, 3);
+    assert.equal(rows[0].login, 'admin'); // админ на полной прокачке — первый
     a.send({ t: 'profile', id: 0 });
     assert.equal((await a.expect('profile')).profile.login, 'webby');
     console.log('✓ рейтинг и кабинет');
+
+    // ---- админ, армия, бой, функции зданий ----
+    const adm = client(); await adm.open();
+    adm.send({ t: 'hello' }); const mil = (await adm.expect('catalog')).catalog.mil;
+    assert.ok(mil.units.length >= 30 && mil.units.some((u) => u.name === 'Генерал'));
+    adm.send({ t: 'login', login: 'admin', password: 'admin' });
+    await adm.expect('auth');
+    let as = await adm.expect('state');
+    assert.ok(as.castle.mil.admin && as.castle.mil.general.level === 20 && as.castle.mil.units[200] >= 1000);
+    assert.equal(as.castle.levels[0][24], 20);
+    console.log('✓ админ: полная прокачка, генерал 20 ур., войска', Object.keys(as.castle.mil.units).length, 'видов');
+
+    adm.send({ t: 'train', unit: 200, count: 3 });
+    await adm.expect('toast', (m) => /Готово: Мечник ×3/.test(m.msg));
+    console.log('✓ тренировка в Казарме');
+
+    const target = s3.castle;
+    adm.send({ t: 'send', units: { 200: 50, 202: 5 }, general: true, x: target.x, y: target.y, mission: 'raid' });
+    await adm.expect('toast', (m) => /Армия выступила/.test(m.msg));
+    adm.send({ t: 'admin', op: 'finish' });
+    await adm.expect('toast', (m) => /Набег: Замок webby/.test(m.msg));
+    await a.expect('toast', (m) => /напал admin/.test(m.msg));
+    adm.send({ t: 'reports' });
+    const reps = (await adm.expect('reports')).list;
+    adm.send({ t: 'report', id: reps.find((x) => /Набег/.test(x.title)).id });
+    const rep = (await adm.expect('report')).report;
+    assert.ok(rep.lines.some((l) => /Добыча/.test(l)));
+    console.log('✓ набег на игрока с генералом, отчёты у обеих сторон:', rep.lines[4]);
+
+    adm.send({ t: 'exchange', from: 'wood', to: 'iron', amount: 1000 });
+    await adm.expect('toast', (m) => /Обмен/.test(m.msg));
+    adm.send({ t: 'alliance', op: 'create', name: 'Короли', tag: 'KRL' });
+    adm.send({ t: 'alliances' });
+    assert.equal((await adm.expect('alliances')).list[0].tag, 'KRL');
+    b.send({ t: 'send', units: {}, x: 1, y: 1, mission: 'attack' }); // у «a» висит ожидание любой ошибки из Promise.race выше
+    await b.expect('error', (m) => /Военный штаб/.test(m.msg));
+    console.log('✓ рынок, альянс, проверки миссий');
+    adm.close();
     console.log('\nВЕБ: ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ');
   } catch (e) {
     console.error('FAIL:', e.message);

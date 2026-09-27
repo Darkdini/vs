@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const C = require('./catalog');
 const G = require('./game');
 const { openJar } = require('./jarassets');
+const ARMY = require('./army');
 
 const WEB_ROOT = path.join(__dirname, '..', '..', 'web');
 const OWN_ASSETS = path.join(__dirname, '..', 'assets', 'images');
@@ -89,6 +90,7 @@ function catalogJson() {
     raceOrder: C.RACES,
     units: C.UNITS,
     army: armyJson(),
+    mil: ARMY.catalogJson(), // юниты игры, науки, религии, артефакты, NPC-лагеря
     lands: { base: G.LANDS_BASE, decor: G.LANDS_DECOR, edge: G.LANDS_EDGE },
     landOptions: G.LANDS_BASE.map((row, y) => row.map((_, x) => G.landOptions(x, y))),
   };
@@ -117,6 +119,7 @@ class WebSession {
         res: c.res, rate: this.game.rates(c), cap: this.game.capacity(c),
         queue: c.queue.map((q) => ({ view: q.view, cell: q.cell, building: q.building, level: q.level, start: q.start, end: q.end })),
         rating: this.game.rating(c), townhall: this.game.buildingLevel(c, 0),
+        mil: this.game.milState(c, u),
       },
       unread: (this.game.db.messages || []).filter((m) => m.to === u.id && !m.read).length,
     });
@@ -131,6 +134,9 @@ class WebSession {
   }
 
   notifyMail(fromLogin) { this.toast(`Новое письмо от ${fromLogin}`); this.pushState(); }
+  notify(msg) { this.toast(msg); this.pushState(); } // события игры: тренировка, бой, возврат армии, отчёты
+
+  result(r) { if (r && r.error) this.error(r.error); this.pushState(); }
 
   handle(msg) {
     const fn = API[msg.t];
@@ -171,7 +177,8 @@ const API = {
     const u = this.game.userById(Number(m.id) || this.user.id);
     if (!u) return this.error('Игрок не найден.');
     const c = this.game.castleOf(u);
-    this.send({ t: 'profile', profile: { id: u.id, login: u.login, race: C.RACE_NAMES[u.race], created: u.created, rating: this.game.rating(c), castles: [{ name: c.name, x: c.x, y: c.y }], self: u.id === this.user.id } });
+    const al = this.game.allianceOf(u);
+    this.send({ t: 'profile', profile: { id: u.id, login: u.login, race: C.RACE_NAMES[u.race], created: u.created, rating: this.game.rating(c), castles: [{ name: c.name, x: c.x, y: c.y }], self: u.id === this.user.id, alliance: al ? `${al.name} [${al.tag}]` : null, admin: !!u.admin } });
   },
   rating() {
     const rows = Object.values(this.game.db.users).map((u) => ({ id: u.id, login: u.login, race: C.RACE_NAMES[u.race], rating: this.game.rating(this.game.castleOf(u)) }))
@@ -199,6 +206,32 @@ const API = {
     this.toast('Сообщение отправлено.');
     for (const s of WebSession.all || []) if (s.user && s.user.id === res.to.id && s.notifyMail) s.notifyMail(this.user.login);
   },
+  // ---- функции зданий и армия (server/src/army.js) ----
+  train(m) { this.result(this.game.train(this.castle, Number(m.unit), Number(m.count))); },
+  send(m) {
+    const r = this.game.sendArmy(this.castle, { units: m.units || {}, general: !!m.general, x: m.x, y: m.y, mission: m.mission, res: m.res });
+    if (!r.error) this.toast(`Армия выступила: ${ARMY.MISSIONS[m.mission]} ${m.x}:${m.y}`);
+    this.result(r);
+  },
+  general(m) { if (m.op === 'revive') this.result(this.game.reviveGeneral(this.castle)); },
+  exchange(m) { const r = this.game.exchange(this.castle, m.from, m.to, m.amount); if (!r.error) this.toast(`Обмен: получено ${r.got}`); this.result(r); },
+  research(m) { this.result(this.game.research(this.castle, m.sci)); },
+  religion(m) { this.result(this.game.setReligion(this.castle, m.id)); },
+  artifact(m) { this.result(this.game.activateArtifact(this.castle, m.id, !!m.on)); },
+  alliance(m) { this.result(this.game.alliance(this.user, this.castle, m)); },
+  alliances() {
+    const list = Object.values(this.game.db.alliances || {}).map((a) => ({ id: a.id, name: a.name, tag: a.tag, members: a.members.length, leader: (this.game.userById(a.leader) || {}).login }));
+    this.send({ t: 'alliances', list });
+  },
+  reports() { this.send({ t: 'reports', list: this.game.reportsOf(this.user.id).map((x) => ({ id: x.id, at: x.at, kind: x.kind, title: x.title, read: x.read })) }); },
+  report(m) {
+    const x = (this.game.db.reports || []).find((y) => y.id === Number(m.id) && y.owner === this.user.id);
+    if (!x) return this.error('Отчёт не найден.');
+    if (!x.read) { x.read = true; this.game.store.save(); }
+    this.send({ t: 'report', report: x });
+    this.pushState();
+  },
+  admin(m) { const r = this.game.adminOp(this.user, m.op, m); if (!r.error) this.toast('Готово (админ).'); this.result(r); },
   bug(m) {
     const db = this.game.db; db.bugs = db.bugs || [];
     db.bugs.push({ from: this.user.login, text: String(m.text || ''), at: Date.now(), via: 'web' });

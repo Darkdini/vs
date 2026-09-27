@@ -76,6 +76,8 @@ function statusTick() {
   if (statusQ.length && statusQ[0].until && statusQ[0].until < t) statusQ.shift();
   const m = statusQ[0];
   if (m) { if (!m.until) m.until = t + 2600; el.textContent = m.msg; el.className = m.cls || 'msg'; return; }
+  const inc = S.st && S.st.castle.mil && S.st.castle.mil.incoming.find((a) => a.mission !== 'trade' && a.arrive > now());
+  if (inc && (Math.floor(Date.now() / 2000) % 2)) { el.className = 'err'; el.textContent = `⚔ ${S.cat.mil.missions[inc.mission]} от ${inc.from} через ${fmtT((inc.arrive - now()) / 1000)}`; return; }
   const d = new Date(now()); el.className = '';
   el.textContent = [d.getHours(), d.getMinutes(), d.getSeconds()].map((v) => String(v).padStart(2, '0')).join(':');
 }
@@ -101,7 +103,8 @@ function effect(def, level) {
   if (def.produces) { const p = Math.round(S.cat.prod[level] * sp); return { text: `+${fmtFull(p)} ${RES_IC[def.produces]} в час`, short: `+${fmtN(p)}/ч` }; }
   if (def.id === 1) { const c = Math.round(R().store.perStore * R().store.growth ** level); return { text: `+${fmtFull(c)} к вместимости`, short: `+${fmtN(c)}` }; }
   if (def.id === 0) { const p = Math.round((1 - R().time.townhallFactor ** level) * 100); return { text: `стройки быстрее на ${p}%`, short: `−${p}%` }; }
-  return { text: 'открывает новые возможности (в разработке)', short: '' };
+  const m = typeof milEffect === 'function' && S.st && milEffect(def, level); // функции зданий (mil.js)
+  return m || { text: '—', short: '' };
 }
 function buildingLevel(id) {
   const c = S.st.castle; let best = 0;
@@ -165,6 +168,7 @@ function onMsg(m) {
     case 'toast':
       toast(m.msg);
       if (/отправлено/.test(m.msg) && S.sheets.length && S.composing) { S.composing = false; closeSheet(); }
+      if (/Армия выступила/.test(m.msg) && S.army) { S.army = null; closeAllSheets(); }
       break;
     case 'error':
       if (S.auto || !S.st) { // ошибка входа — показать форму
@@ -174,7 +178,7 @@ function onMsg(m) {
       } else toast(m.msg, 'err');
       S.pendingBuild = null;
       break;
-    default: break;
+    default: if (typeof milMsg === 'function') milMsg(m); break;
   }
 }
 
@@ -273,6 +277,7 @@ function resSheet() {
         <span>+${fmtFull(c.rate[r])} в час · ${full ? '<span class="bad">склад полон</span>' : `заполнится через ${fmtT(left)}`}</span>
         <div class="bar" style="margin-top:5px"><i style="width:${Math.min(100, v / c.cap[r] * 100)}%"></i></div></div></div>`;
     }).join('')}</div>
+    <p class="muted small">Войска едят ${fmtFull(c.mil.upkeep)} еды в час (уже учтено в добыче).</p>
     <p class="muted small">Людей занято на стройках: ${busy} из ${c.cap.people}. Вместимость склада растёт со Складом, мест для людей — с Хибарами.</p>`;
 }
 
@@ -325,6 +330,9 @@ const TABS = {
     const item = (act, ic, title, sub) => `<button class="row" data-act="${act}"><span class="ic">${gimg(ic)}</span><div class="grow"><b>${title}</b><span>${sub}</span></div>›</button>`;
     return `<div class="vhead"><h2>Ещё</h2></div><div class="pad list">
       ${item('me', 'smallicon/status/online.png', 'Мой профиль', `${esc(S.st.user.login)} · ${esc(S.st.user.raceName)}`)}
+      ${item('hq', 'build/mbases.png', 'Армия и генерал', 'Военный штаб: войска, походы, входящие')}
+      ${item('reports', 'smallicon/swordgreen.png', `Отчёты${S.st.castle.mil.unreadReports ? ` <span class="badge">${S.st.castle.mil.unreadReports}</span>` : ''}`, 'Бои, разведка, торговля, экспедиции')}
+      ${S.st.castle.mil.admin ? item('adminp', 'smallicon/status/f_gold.png', 'Админ-панель', 'Ресурсы, мгновенные стройки, войска') : ''}
       ${item('mail', 'smallicon/unmes.png', `Почта${u ? ` <span class="badge">${u}</span>` : ''}`, 'Письма другим игрокам')}
       ${item('book', 'build/university.png', 'Справочник зданий', 'Цена, время, добыча и рейтинг по уровням')}
       ${item('army', 'units/human/knight.png', 'Войска', 'Юниты рас: характеристики и цены')}
@@ -366,24 +374,7 @@ const SUBPAGES = {
     return `<div class="vhead"><button class="iconbtn" data-back>‹</button><h2>Справочник зданий</h2></div>
       <div class="pad" style="padding-top:0">${group('castle', 'Замок (сетка 7×7)')}${group('lands', 'Земли (сетка 15×15)')}</div>`;
   },
-  army() {
-    const A = S.cat.army;
-    if (!A) return '<div class="vhead"><button class="iconbtn" data-back>‹</button><h2>Войска</h2></div><div class="pad muted">Нет данных (data/units.json).</div>';
-    const races = Object.keys(A.races);
-    S.armyRace = S.armyRace && races.includes(S.armyRace) ? S.armyRace : S.st.user.race;
-    const units = A.units.filter((u) => u.race === S.armyRace);
-    const rc = A.races[S.armyRace] || {};
-    return `<div class="vhead"><button class="iconbtn" data-back>‹</button><h2>Войска</h2></div>
-      <div class="pad" style="padding-top:0"><div class="pills">${races.map((r) => `<button data-arace="${r}" class="${r === S.armyRace ? 'on' : ''}">${esc(A.races[r].title || r)}</button>`).join('')}</div>
-      ${rc.note ? `<p class="muted small">${esc(rc.note)}</p>` : ''}
-      <p class="muted small">Баланс из дизайн-документа. Тренировка и бои на сервере пока не реализованы.</p>
-      <div class="list">${units.map((u) => `<div class="card unit"><div class="top"><b>${esc(u.name)}</b><span class="muted small">${esc(A.buildingNames[u.building] || u.building || '')}</span></div>
-        <div class="grid4"><div><small>Атака</small>${u.attack}${u.magicAttack ? `/${u.magicAttack}✨` : ''}</div>
-        <div><small>Защ. пех/кав/маг</small>${u.defense ? `${u.defense.infantry}/${u.defense.cavalry}/${u.defense.magic}` : '—'}</div>
-        <div><small>Скорость</small>${u.speed ?? '—'}</div><div><small>Груз</small>${u.carry ?? '—'}</div></div>
-        <div class="chips">${RES.filter((r) => u.cost && u.cost[r]).map((r) => `<span>${RES_IC[r]} ${fmtFull(u.cost[r])}</span>`).join('')}
-        <span>${TIME_IC} ${fmtT(u.trainTimeSec || 0)}</span><span>${RES_IC.food} ${u.upkeepFoodPerHour ?? 0}/ч</span><span>${RES_IC.people} ${u.population ?? 1}</span></div></div>`).join('')}</div></div>`;
-  },
+  army: () => armyBookHtml(), // оригинальные юниты игры (mil.js)
   rules() {
     const T = R().time, st = R().store;
     return `<div class="vhead"><button class="iconbtn" data-back>‹</button><h2>Формулы</h2></div><div class="pad" style="padding-top:0">
@@ -422,6 +413,9 @@ const ACTS = {
   mail: () => { openSub('mail'); send({ t: 'mail', folder: S.mailFolder }); },
   book: () => openSub('book'),
   army: () => openSub('army'),
+  hq: () => { const i = hqCell(); if (i < 0) return toast('Сначала постройте Военный штаб (нужна Ратуша 3 ур.).', 'err'); openCell(VIEW.CASTLE, i); },
+  reports: () => openReports(),
+  adminp: () => openSheet(adminHtml),
   rules: () => openSub('rules'),
   ratinginfo: () => openSheet(ratingInfoSheet),
   blist: () => openSheet(() => summaryHtml(VIEW.CASTLE)),
@@ -535,6 +529,7 @@ function buildingSheet(def, lvl, ctx) {
       ${ctx ? `${blk.length ? `<p class="reasons">${blk.map(esc).join('<br>')}</p>` : ''}
       <button class="btn primary" data-build="${ctx.view},${ctx.cell},${def.id}" ${blk.length ? 'disabled' : ''}>${lvl ? 'Развить' : 'Построить'}</button>` : ''}</div>`;
   } else h += '<div class="card next"><h4>Максимальный уровень</h4></div>';
+  if (ctx && lvl > 0) h += buildingFunctions(def, lvl); // тренировка, армия, рынок, науки… (mil.js)
   h += levelsTable(def, lvl, th);
   return h;
 }
@@ -617,7 +612,7 @@ function worldInfo() {
   const x = w.cx - w.radius + Iso.sel.x, y = w.cy - w.radius + Iso.sel.y;
   const o = w.objects.find((v) => v.x === x && v.y === y);
   box.innerHTML = `X:${x} Y:${y}` + (!o ? '' : o.kind === 'castle'
-    ? `<br>Замок:${esc(o.name)}<br>Игрок:${esc(o.owner)}<br>Альянс:-<br>Рейтинг:${o.rating}` : `<br>${esc(o.name)}`)
+    ? `<br>Замок:${esc(o.name)}<br>Игрок:${esc(o.owner)}<br>Альянс:${esc(o.alliance || '-')}<br>Рейтинг:${o.rating}` : `<br>${esc(o.name)}`)
     + '<small>нажмите ещё раз — действия</small>';
   box.classList.remove('hidden');
 }
@@ -630,13 +625,13 @@ function openWorldCell(x, y) {
     const me = o.ownerId === S.st.user.id;
     return openSheet(() => `<div class="sh-head"><div class="big">${gimg(WORLD_NAME_IMG(o))}</div><div><h3>${esc(o.name)}</h3>
       <div class="muted small">${x}:${y} · ${esc(o.owner)} · ${esc(S.cat.races[o.race] || '')}</div></div></div>
-      <dl class="kv"><dt>Рейтинг</dt><dd>★ ${fmtFull(o.rating)}</dd></dl>
-      <div class="btns" style="margin-top:14px"><button class="btn" data-profile="${o.ownerId}">Профиль</button>
-      ${me ? '' : `<button class="btn primary" data-write="${esc(o.owner)}">Написать</button>`}</div>
-      ${me ? '' : '<p class="muted small">Атака, разведка и торговля появятся вместе с войсками.</p>'}`);
+      <dl class="kv"><dt>Рейтинг</dt><dd>★ ${fmtFull(o.rating)}</dd><dt>Альянс</dt><dd>${esc(o.alliance || '—')}</dd></dl>
+      ${worldActions(o, x, y)}
+      <div class="btns" style="margin-top:8px"><button class="btn" data-profile="${o.ownerId}">Профиль</button>
+      ${me ? '' : `<button class="btn" data-write="${esc(o.owner)}">Написать</button>`}</div>`);
   }
   openSheet(() => `<div class="sh-head"><div class="big">${gimg(WORLD_NAME_IMG(o))}</div><div><h3>${esc(o.name)}</h3><div class="muted small">${x}:${y}</div></div></div>
-    <p class="muted">Объект мира. Походы войск сюда появятся вместе с системой боя.</p>`);
+    ${worldActions(o, x, y)}`);
 }
 
 // ---------- изометрическая карта (как в оригинале: ромб 62×32, тайлы и спрайты из клиента) ----------

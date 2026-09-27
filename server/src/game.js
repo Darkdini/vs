@@ -176,6 +176,9 @@ class Game {
       const def = C.BY_ID[b];
       if (def && def.produces) r[def.produces] += C.PROD[castle.levels[1][i]] * (def.produces === 'people' ? PEOPLE_FACTOR : 1);
     });
+    const prod = this.bonus(castle).prod; // наука Экономика, религия Природа, артефакты
+    for (const k of ['wood', 'stone', 'iron', 'food']) r[k] *= prod;
+    r.food -= this.upkeep(castle); // содержание войск
     for (const k of Object.keys(r)) r[k] = Math.round(r[k] * SPEED);
     return r;
   }
@@ -192,6 +195,7 @@ class Game {
       done.push(item);
     }
     this.accrue(castle, now);
+    this.tickTraining(castle, now); // тренировка войск, исследования, воскрешение генерала (army.js)
     if (done.length) this.store.save();
     return done;
   }
@@ -200,7 +204,7 @@ class Game {
     const dtH = Math.max(0, t - castle.resAt) / 3600000;
     const rate = this.rates(castle);
     const cap = this.capacity(castle);
-    for (const r of C.RES) castle.res[r] = Math.min(cap[r], castle.res[r] + rate[r] * dtH);
+    for (const r of C.RES) castle.res[r] = Math.max(0, Math.min(cap[r], castle.res[r] + rate[r] * dtH));
     castle.resAt = t;
   }
 
@@ -239,7 +243,7 @@ class Game {
     }
     if (busyPeople + cost.people > cap.people) return { error: 'Не хватает свободных людей.', state: 2 };
     for (const r of C.RES) if (r !== 'people') castle.res[r] -= cost[r];
-    const time = buildTime(def, level, this.buildingLevel(castle, 0));
+    const time = Math.max(3, Math.round(buildTime(def, level, this.buildingLevel(castle, 0)) * this.bonus(castle).build)); // наука Инженерия
     const now = Date.now();
     const item = { view, cell, building: buildingId, level, start: now, end: now + time * 1000, cost };
     castle.queue.push(item);
@@ -256,7 +260,8 @@ class Game {
     const occupied = new Set(castles.map((c) => `${c.x}:${c.y}`));
     for (const c of castles) {
       const owner = this.userById(c.owner);
-      out.push({ kind: 'castle', x: c.x, y: c.y, img: 10, castleId: c.id, name: c.name, ownerId: owner.id, owner: owner.login, race: owner.race, rating: this.rating(c) });
+      const al = this.allianceOf(owner);
+      out.push({ kind: 'castle', x: c.x, y: c.y, img: 10, castleId: c.id, name: c.name, ownerId: owner.id, owner: owner.login, race: owner.race, rating: this.rating(c), alliance: al ? al.tag : null });
     }
     for (let y = y0; y < y0 + h; y++) {
       for (let x = x0; x < x0 + w; x++) {
@@ -292,5 +297,8 @@ class Game {
     return t;
   }
 }
+
+// армии, функции зданий, админ (server/src/army.js)
+require('./army').install(Game, { buildTime, landOptions });
 
 module.exports = { Game, Store, STORE, BASE_RATE, PEOPLE_FACTOR, storeBonus, buildTime, VIEW, GRID, landOptions, SPEED, MAX_QUEUE, LANDS_BASE, LANDS_DECOR, LANDS_EDGE };
