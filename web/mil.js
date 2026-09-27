@@ -33,8 +33,11 @@ function unitMax(u) {
   return Math.max(0, n === Infinity ? 0 : n);
 }
 function unitStatsHtml(u) {
-  return `<div class="grid4"><div><small>Атака</small>${u.attack}${u.magic ? `<br>маг ${u.magic}` : ''}</div>
-    <div><small>Защита п/к/м</small>${u.def.inf}/${u.def.cav}/${u.def.mag}</div>
+  // улучшения Кузницы: +1 к базовой атаке/защите за уровень — показываем «база +N»
+  const fg = (S.st && MY().forge && MY().forge[u.id]) || {}, fa = u.attack ? fg.a || 0 : 0, fd = fg.d || 0;
+  const plus = (n) => (n ? ` <b class="fplus">+${n}</b>` : '');
+  return `<div class="grid4"><div><small>Атака</small>${u.attack}${plus(fa)}${u.magic ? `<br>маг ${u.magic}` : ''}</div>
+    <div><small>Защита п/к/м</small>${u.def.inf}${plus(fd)}/${u.def.cav}${plus(fd)}/${u.def.mag}</div>
     <div><small>Скорость</small>${u.speed} кл/ч</div><div><small>Груз</small>${u.carry}</div></div>
     <div class="chips">${RES4.map((r) => `<span data-need="${r}:${u.cost[r]}">${RES_IC[r]} ${fmtFull(u.cost[r])}</span>`).join('')}
     <span>${RES_IC.people} ${u.pop}</span><span>${TIME_IC} ${fmtT(unitTrainSec(u))}</span></div>`;
@@ -43,7 +46,7 @@ function unitStatsHtml(u) {
 // ---------- эффекты зданий (что даёт уровень) ----------
 function milEffect(def, L) {
   const pct = (v) => `${Math.round(v * 1000) / 10}%`;
-  const train = () => ({ text: `тренировка быстрее на ${pct(1 - 0.9 ** (L - 1))}`, short: `−${pct(1 - 0.9 ** (L - 1))}` });
+  const train = () => ({ text: `открывает новых воинов по мере роста уровня`, short: `${L} ур.` }); // уровень не ускоряет тренировку (как в оригинале)
   const wallPer = { humans: 0.03, elves: 0.035, dwarves: 0.02 }[S.st.user.race] || 0.03;
   const fx = {
     2: () => ({ text: 'армии, генерал, бунтари; отправка войск', short: 'армии' }),
