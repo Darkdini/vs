@@ -47,16 +47,17 @@ const UNIT_LIST = [
   [218, 'Защитник гор', 'dwarves', 'dwarv/defender', 'def_inf', B.BARRACKS, 1],
   [219, 'Револьверщик', 'dwarves', 'dwarv/revolver', 'elite_inf', B.WORKSHOP, 5],
   [220, 'Йетти', 'dwarves', 'dwarv/yeti', 'legendary', B.PORTAL, 1],
-  // орки: имена из оригинала (армия игрока в 3D-клиенте); статы — роли GDD (атака ×2.5, цена ×1.8, еда ×2),
-  // Тиран — характеристики оригинала (атака 30, защита 30/30, маг. защита 20, груз 12, скорость 9)
+  // орки: имена и характеристики — из оригинала (скрины окна тренировки, таблица ORIG ниже)
   [245, 'Мародёр', 'orcs', 'human/swordman', 'atk_inf', B.BARRACKS, 1],
-  [246, 'Урук-хай', 'orcs', 'dwarv/defender', 'def_inf', B.BARRACKS, 1],
-  [250, 'Тиран', 'orcs', 'human/javelineer', 'tyrant', B.BARRACKS, 3],
-  [248, 'Шаман', 'orcs', 'dwarv/elder', 'mage', B.MAGE_ACADEMY, 1],
-  [247, 'Бугай', 'orcs', 'dwarv/fighter', 'elite_inf', B.BARRACKS, 10, { [B.SMITH]: 5 }],
+  [247, 'Бугай', 'orcs', 'dwarv/fighter', 'def_inf', B.BARRACKS, 1],
+  [246, 'Урук-хай', 'orcs', 'dwarv/defender', 'def_inf', B.BARRACKS, 3],
+  [250, 'Тиран', 'orcs', 'human/javelineer', 'elite_inf', B.BARRACKS, 10, { [B.SMITH]: 5 }],
+  [253, 'Осквернитель', 'orcs', 'human/mage', 'mage', B.MAGE_ACADEMY, 1],
+  [254, 'Чернокнижник', 'orcs', 'elf/create', 'mage', B.MAGE_ACADEMY, 3],
+  [248, 'Шаман', 'orcs', 'dwarv/elder', 'mage', B.MAGE_ACADEMY, 10, { [B.SMITH]: 5 }],
   [249, 'Кулак Ярости', 'orcs', 'human/knight', 'heavy_cav', B.STABLE, 10, { [B.SMITH]: 10 }],
   [251, 'Изувер', 'orcs', 'dwarv/yeti', 'legendary', B.PORTAL, 1],
-  [252, 'Орк загонщик', 'orcs', 'human/scout', 'scout', B.SPY, 1, {}, 'orc_scout'],
+  [252, 'Орк загонщик', 'orcs', 'human/scout', 'scout', B.SPY, 1],
   // специальные — у каждой расы своя картинка (units/<раса>/torg.png и т.д.)
   [221, 'Торговец', 'all', 'torg', 'merchant', B.MARKET, 1],
   [224, 'Путешественник', 'all', 'traveler', 'settler', B.TRAVELER, 1],
@@ -74,9 +75,6 @@ const UNIT_LIST = [
 ];
 // роли, которых нет в GDD, — свой баланс в том же формате
 const CUSTOM = {
-  // Орк загонщик — характеристики оригинала (атака 25, защита 20, скорость 14; цена без акции −50%)
-  orc_scout: { type: 'cavalry', attack: 25, magicAttack: 0, defense: { infantry: 20, cavalry: 20, magic: 0 }, speed: 14, carry: 0, upkeepFoodPerHour: 1, population: 1, cost: { wood: 80, stone: 74, iron: 84, food: 170 }, trainTimeSec: 880 },
-  tyrant: { type: 'infantry', attack: 30, magicAttack: 0, defense: { infantry: 30, cavalry: 30, magic: 20 }, speed: 9, carry: 12, upkeepFoodPerHour: 2, population: 1, cost: { wood: 120, stone: 120, iron: 120, food: 290 }, trainTimeSec: 700 },
   sage: { type: 'special', attack: 0, magicAttack: 0, defense: { infantry: 5, cavalry: 5, magic: 5 }, speed: 5, carry: 0, upkeepFoodPerHour: 1, population: 1, cost: { wood: 150, stone: 150, iron: 150, food: 300 }, trainTimeSec: 900 },
   giant: { type: 'infantry', attack: 180, magicAttack: 0, defense: { infantry: 120, cavalry: 100, magic: 40 }, speed: 5, carry: 150, upkeepFoodPerHour: 6, population: 5, cost: { wood: 1500, stone: 1500, iron: 2500, food: 1500 }, trainTimeSec: 7200 },
   valkyrie: { type: 'cavalry', attack: 150, magicAttack: 40, defense: { infantry: 90, cavalry: 110, magic: 80 }, speed: 12, carry: 120, upkeepFoodPerHour: 5, population: 4, cost: { wood: 1200, stone: 1000, iron: 2000, food: 1200 }, trainTimeSec: 6000 },
@@ -84,14 +82,38 @@ const CUSTOM = {
   shadow: { type: 'infantry', attack: 110, magicAttack: 0, defense: { infantry: 20, cavalry: 20, magic: 60 }, speed: 15, carry: 30, upkeepFoodPerHour: 2, population: 2, cost: { wood: 500, stone: 400, iron: 800, food: 300 }, trainTimeSec: 2400 },
 };
 
+// характеристики оригинала (окно «Постройка юнитов»): ❤ здоровье, ⚔ атака, маг. атака, 🛡 защита, маг. защита, скорость, груз;
+// цена дерево/камень/железо/еда, людей, время (сек)
+const ORIG = {
+  245: { type: 'infantry', hp: 40, atk: 21, mag: 0, def: 16, mdef: 0, speed: 11, carry: 101, cost: [42, 40, 45, 90], pop: 3, time: 266 }, // Мародёр 4:26
+  247: { type: 'infantry', hp: 50, atk: 21, mag: 0, def: 16, mdef: 0, speed: 6, carry: 31, cost: [37, 40, 42, 82], pop: 6, time: 362 }, // Бугай 6:02
+  246: { type: 'infantry', hp: 60, atk: 18, mag: 0, def: 26, mdef: 8, speed: 6, carry: 40, cost: [45, 48, 50, 90], pop: 8, time: 420 }, // Урук-хай (скрина нет — между Бугаем и Тираном)
+  250: { type: 'infantry', hp: 80, atk: 40, mag: 22, def: 50, mdef: 31, speed: 9, carry: 90, cost: [55, 52, 57, 110], pop: 26, time: 688 }, // Тиран 11:28
+  253: { type: 'magic', hp: 25, atk: 0, mag: 11, def: 0, mdef: 26, speed: 7, carry: 60, cost: [42, 42, 45, 85], pop: 4, time: 288 }, // Осквернитель 4:48
+  254: { type: 'magic', hp: 55, atk: 0, mag: 22, def: 0, mdef: 32, speed: 6, carry: 60, cost: [62, 40, 35, 107], pop: 12, time: 499 }, // 8:19
+  248: { type: 'magic', hp: 120, atk: 40, mag: 60, def: 35, mdef: 60, speed: 9, carry: 70, cost: [82, 85, 87, 107], pop: 25, time: 810 }, // Шаман 13:30
+  249: { type: 'infantry', hp: 140, atk: 27, mag: 13, def: 27, mdef: 13, speed: 4, carry: 70, cost: [340, 337, 332, 440], pop: 45, time: 1087 }, // Кулак Ярости 18:07
+  252: { type: 'cavalry', hp: 25, atk: 25, mag: 0, def: 20, mdef: 0, speed: 14, carry: 0, cost: [40, 37, 42, 85], pop: 7, time: 440 }, // Орк загонщик 7:20
+};
+// остальные юниты (люди, эльфы, гномы, общие) переводятся из нашей GDD-таблицы в масштаб оригинала:
+// атака/защита ×0.42 (Мечник 50 → 21, как Мародёр), цена ×0.5, время ×0.45
+const SCALE = { stat: 0.42, cost: 0.5, time: 0.45 };
 function buildUnit([id, name, race, img, role, building, level, req = {}, stats]) {
+  const base = { id, name, race, img, role, building, level, req, spy: role === 'scout' ? 1 : 0 };
+  const o = ORIG[id];
+  if (o) {
+    return { ...base, type: o.type, hp: o.hp, attack: o.atk, magic: o.mag, def: { inf: o.def, cav: o.def, mag: o.mdef }, speed: o.speed, carry: o.carry,
+      upkeep: Math.max(1, Math.round(o.pop / 3)), pop: o.pop, cost: { wood: o.cost[0], stone: o.cost[1], iron: o.cost[2], food: o.cost[3] }, time: o.time };
+  }
   const src = CUSTOM[stats] || CUSTOM[role] || GDD.units.find((u) => u.race === (race === 'all' ? 'humans' : race) && u.role === role);
+  const st = (v) => Math.round((v || 0) * SCALE.stat);
   return {
-    id, name, race, img, role, type: src.type, attack: src.attack, magic: src.magicAttack || 0,
-    def: { inf: src.defense.infantry, cav: src.defense.cavalry, mag: src.defense.magic },
+    ...base, type: src.type, attack: st(src.attack), magic: st(src.magicAttack),
+    def: { inf: st(src.defense.infantry), cav: st(src.defense.cavalry), mag: st(src.defense.magic) },
+    hp: Math.max(10, Math.round((st(src.defense.infantry) + st(src.defense.cavalry)) * 1.2 + 10 * (src.population || 1))),
     speed: src.speed, carry: src.carry, upkeep: src.upkeepFoodPerHour, pop: src.population,
-    cost: { wood: src.cost.wood, stone: src.cost.stone, iron: src.cost.iron, food: src.cost.food },
-    time: src.trainTimeSec, building, level, req, spy: role === 'scout' ? 1 : src.spy || 0,
+    cost: Object.fromEntries(['wood', 'stone', 'iron', 'food'].map((r) => [r, Math.max(5, Math.round(src.cost[r] * SCALE.cost))])),
+    time: Math.max(30, Math.round(src.trainTimeSec * SCALE.time)), spy: role === 'scout' ? 1 : src.spy || 0,
   };
 }
 const UNITS = UNIT_LIST.map(buildUnit);
@@ -136,10 +158,11 @@ const RARITY = [{ name: 'обычный', bonus: 0.10 }, { name: 'редкий',
 // ---------- NPC-объекты мира: охрана и добыча ----------
 // img — тайл клиента; def — сила охраны против пехоты/кавалерии/магии; loot — запас ресурсов (восстанавливается)
 const NPC = {
-  25: { name: 'Дикари', def: { inf: 600, cav: 500, mag: 250 }, loot: { wood: 600, stone: 600, iron: 400, food: 900 } },
-  26: { name: 'Лесорубы', def: { inf: 350, cav: 400, mag: 150 }, loot: { wood: 2500, stone: 200, iron: 100, food: 400 } },
-  27: { name: 'Рудник троллей', def: { inf: 2500, cav: 2200, mag: 900 }, loot: { wood: 300, stone: 2500, iron: 4000, food: 500 } },
-  24: { name: 'Заброшенный замок', def: { inf: 6000, cav: 5500, mag: 2500 }, loot: { wood: 4000, stone: 4000, iron: 4000, food: 4000 }, ruins: true },
+  // охрана — в том же масштабе, что и юниты (×0.42 от прежних значений)
+  25: { name: 'Дикари', def: { inf: 250, cav: 210, mag: 105 }, loot: { wood: 600, stone: 600, iron: 400, food: 900 } },
+  26: { name: 'Лесорубы', def: { inf: 150, cav: 170, mag: 65 }, loot: { wood: 2500, stone: 200, iron: 100, food: 400 } },
+  27: { name: 'Рудник троллей', def: { inf: 1050, cav: 925, mag: 380 }, loot: { wood: 300, stone: 2500, iron: 4000, food: 500 } },
+  24: { name: 'Заброшенный замок', def: { inf: 2520, cav: 2310, mag: 1050 }, loot: { wood: 4000, stone: 4000, iron: 4000, food: 4000 }, ruins: true },
 };
 const NPC_REGEN_SEC = 3600;
 const NEWBIE_RATING = Number(process.env.NEWBIE_RATING || 100); // защита новичка: на слабых игроков нападать нельзя

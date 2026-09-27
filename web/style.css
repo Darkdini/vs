@@ -732,3 +732,4 @@ img[src$="?orc"] { filter: hue-rotate(85deg) saturate(1.5) brightness(0.92) cont
 .fi { width: 20px; height: 20px; vertical-align: middle; object-fit: contain; }
 .fbig { width: 110px; height: 110px; object-fit: contain; }
 .fplus { color: #2f7a10; font-weight: 700; }
+.grid4.g5 { grid-template-columns: repeat(5, 1fr); } .grid4.g5 > div { min-width: 0; font-size: 14px; }

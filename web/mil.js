@@ -36,7 +36,7 @@ function unitStatsHtml(u) {
   // улучшения Кузницы: +1 к базовой атаке/защите за уровень — показываем «база +N»
   const fg = (S.st && MY().forge && MY().forge[u.id]) || {}, fa = u.attack ? fg.a || 0 : 0, fd = fg.d || 0;
   const plus = (n) => (n ? ` <b class="fplus">+${n}</b>` : '');
-  return `<div class="grid4"><div><small>Атака</small>${u.attack}${plus(fa)}${u.magic ? `<br>маг ${u.magic}` : ''}</div>
+  return `<div class="grid4 g5"><div><small>Здоровье</small>${u.hp || '—'}</div><div><small>Атака</small>${u.attack}${plus(fa)}${u.magic ? `<br>маг ${u.magic}` : ''}</div>
     <div><small>Защита п/к/м</small>${u.def.inf}${plus(fd)}/${u.def.cav}${plus(fd)}/${u.def.mag}</div>
     <div><small>Скорость</small>${u.speed} кл/ч</div><div><small>Груз</small>${u.carry}</div></div>
     <div class="chips">${RES4.map((r) => `<span data-need="${r}:${u.cost[r]}">${RES_IC[r]} ${fmtFull(u.cost[r])}</span>`).join('')}
