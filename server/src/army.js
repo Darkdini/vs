@@ -343,7 +343,7 @@ function install(Game, helpers) {
   P.tickWorld = function tickWorld(now = Date.now()) {
     const due = [];
     for (const c of Object.values(this.db.castles)) {
-      if (!c.armies || !c.armies.length) continue; // замки без армий в пути (на 50 тыс. игроков — почти все)
+      if (!c.armies || !c.armies.length) continue; // замки без армий в пути 
       for (const a of c.armies) if ((a.state === 'go' && a.arrive <= now) || (a.state === 'back' && a.back <= now)) due.push([c, a]);
     }
     due.sort((p, q) => (p[1].state === 'go' ? p[1].arrive : p[1].back) - (q[1].state === 'go' ? q[1].arrive : q[1].back));

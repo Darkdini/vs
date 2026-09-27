@@ -8,10 +8,10 @@ const crypto = require('crypto');
 const C = require('./catalog');
 
 const SPEED = Number(process.env.SPEED || 10);
-// мир: карта WORLD×WORLD клеток (как в оригинале — координаты до ~10 000), рассчитан на 50 000+ игроков
-const WORLD = Number(process.env.WORLD_SIZE || 10000);
+// мир: карта WORLD×WORLD клеток, рассчитан на ~5 000 игроков (заселённый круг ~220 клеток)
+const WORLD = Number(process.env.WORLD_SIZE || 1000);
 const SPAWN_DENSITY = 30; // клеток карты на один замок в зоне заселения — соседи рядом, но не впритык
-const SAVE_MS = Number(process.env.SAVE_MS || 30000); // автосохранение раз в 30 с (и при остановке) // множитель скорости мира для тестов
+const SAVE_MS = Number(process.env.SAVE_MS || 10000); // автосохранение раз в 10 с (и при остановке)
 const MAX_QUEUE = Number(process.env.MAX_QUEUE || 3); // оригинал: 3 стройки одновременно (премиум — 5)
 
 // ---------- рельеф «Земель» 15×15: массивы j/k/l из клиента (класс k) ----------
@@ -83,7 +83,7 @@ class Store {
     if (fs.existsSync(file)) this.data = JSON.parse(fs.readFileSync(file, 'utf8'), (k, v) => (typeof v === 'string' && v[0] === '~' ? unpack(v) : v));
     this.timer = null;
   }
-  // запись не чаще раза в SAVE_MS (на 50 тыс. игроков база — десятки МБ), компактный JSON
+  // запись не чаще раза в SAVE_MS, компактный JSON
   save() {
     if (this.timer) return;
     this.timer = setTimeout(() => { this.timer = null; this.flush(); }, SAVE_MS);

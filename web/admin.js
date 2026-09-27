@@ -47,6 +47,7 @@ function adminHtml() {
     ${ribbon('Связь и мир')}
     <form class="stack" data-aform="mailall"><input name="subject" placeholder="Тема письма" value="Сообщение администрации"><textarea name="text" rows="3" placeholder="Письмо всем игрокам" required></textarea><button class="btn primary">Разослать всем</button></form>
     <form class="chatform" data-aform="chat"><input name="text" placeholder="Объявление в общий чат" required><button class="btn primary small">В чат</button></form>
+    <div class="arow">${aNum('bots', 1000, 'сколько ботов')}${aBtn('bots', 'Заселить мир ботами', 'ground/castle_small.png', 'data-arg="bots:n"')}</div>
     <div class="ptiles">${aBtn('reports', 'Очистить отчёты', 'smallicon/swordgreen.png')}${aBtn('bugs', 'Сообщения об ошибках', 'smallicon/soft_help.png')}</div>
     ${a.bugs ? `<div class="pstats">${a.bugs.length ? a.bugs.map((b) => `<b>${esc(b.from)}</b> · ${fmtDate(b.at)}<br>${esc(b.text)}`).join('<hr>') : 'Сообщений нет.'}</div>${a.bugs.length ? '<button class="pbar" data-adm="bugsclear">Очистить список ошибок</button>' : ''}` : ''}`;
 }
