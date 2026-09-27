@@ -18,7 +18,6 @@ const MENUS = {
     ['Советник', `units/${S.cat.mil.raceDir[S.st.user.race]}/wisdom.png${S.st.user.race === 'orcs' ? '?orc' : ''}`, () => openSheet(advisorWin)],
     ['Казна', 'coins_s.png', () => openSheet(treasuryWin)],
     ['Премиум', 'premium_crown.png', () => openPremium()],
-    ['Премиум', 'smallicon/status/f_gold.png', () => openSoon('Премиум')],
     ['Уведомления', 'smallicon/upgrade.png', () => openReports()],
     ['Фотоальбомы', 'smallicon/magattak.png', () => openSoon('Фотоальбомы')],
     ['ЗАГС', 'smallicon/health.png', () => openSoon('ЗАГС')],
