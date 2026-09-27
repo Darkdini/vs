@@ -22,7 +22,7 @@ S.alFound = null;
 function alliancesWin() {
   const my = MY();
   const rows = (S.alFound || []).map((a) => `<div class="invite"><div class="itag">${esc(a.name)} [${esc(a.tag)}]</div>
-      <small>глава ${esc(a.leader || '—')} · участников ${a.members} из ${a.slots}</small>
+      <small>глава ${esc(a.leader || '—')} · участников ${a.members} из ${a.slots} · очки ${fmtFull(a.score || 0)}</small>
       ${my.alliance ? '' : a.requested ? '<div class="small muted">Заявка отправлена</div>' : a.members >= a.slots ? '<div class="small muted">Мест нет</div>' : `<div class="center"><button class="pbtn" data-al="request" data-id="${a.id}">Подать заявку</button></div>`}</div>`).join('');
   return `${ribbon('Альянсы')}<div class="bwline center">Альянсы, подходящие вам:</div>
     <button class="pbar" data-alfind>Найти</button>
@@ -42,8 +42,9 @@ function myAllianceWin() {
   const me = S.st.user.login;
   return `${ribbon(`${al.name} [${al.tag}]`)}
     <div class="bwline center">Участников: ${al.members.length} из ${al.slots}</div>
-    ${al.members.map((m) => `<div class="mrow"><span>${esc(m)}${m === (al.leaderLogin || '') ? ' ★' : ''}</span>
-      ${al.lead && m !== me ? `<button class="pbtn small" data-al="kick" data-login="${esc(m)}">Исключить</button>` : ''}</div>`).join('')}
+    <div class="bwline center">Очки альянса (рейтинг + репутация): <b>${fmtFull(al.score)}</b></div>
+    ${(al.info || []).map((u) => `<div class="mrow"><span><b data-cprof="${u.id}">${esc(u.login)}</b>${u.login === (al.leaderLogin || '') ? ' ★' : ''} ${repIcons(u.rep)}<br><small>рейтинг ${fmtFull(u.rating)} + репутация ${fmtFull(u.rep)} = ${fmtFull(u.rating + u.rep)}</small></span>
+      ${al.lead && u.login !== me ? `<button class="pbtn small" data-al="kick" data-login="${esc(u.login)}">Исключить</button>` : ''}</div>`).join('')}
     ${al.lead ? `${ribbon('Заявки')}${al.requests.length ? al.requests.map((r) => `<div class="mrow"><span>${esc(r.login)} <small>★ ${fmtFull(r.rating)}</small></span>
         <span><button class="pbtn small" data-al="approve" data-id="${r.id}">Принять</button> <button class="pbtn small" data-al="reject" data-id="${r.id}">Отклонить</button></span></div>`).join('') : '<p class="parch-note">Заявок нет.</p>'}
       ${ribbon('Пригласить игрока')}<form class="chatform" data-alform="invite"><input name="login" placeholder="Логин игрока" autocapitalize="none" required><button class="pbtn small">Пригласить</button></form>` : ''}

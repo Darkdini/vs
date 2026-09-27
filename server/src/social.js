@@ -190,13 +190,14 @@ function install(Game) {
     text = String(text || '').trim().slice(0, 300);
     if (!text) return { error: 'Пустое сообщение.' };
     this.db.chat = this.db.chat || [];
-    const m = { id: this.db.nextId++, from: user.login, fromId: user.id, text, at: Date.now() };
+    const m = { id: this.db.nextId++, from: user.login, fromId: user.id, text, at: Date.now(), rep: user.reputation ?? START_REP };
     this.db.chat.push(m);
     if (this.db.chat.length > 100) this.db.chat.splice(0, this.db.chat.length - 100);
     this.store.save();
     return { msg: m };
   };
-  P.chatLog = function chatLog() { return (this.db.chat || []).slice(-50); };
+  // репутация — текущая (мечи/топоры рядом с ником в чате)
+  P.chatLog = function chatLog() { return (this.db.chat || []).slice(-50).map((m) => { const u = this.userById(m.fromId); return { ...m, rep: u ? u.reputation ?? START_REP : m.rep }; }); };
 
   P.setNotes = function setNotes(user, text) { user.notes = String(text || '').slice(0, 5000); this.store.save(); return { ok: true }; };
   P.setAbout = function setAbout(user, text) { user.about = String(text || '').slice(0, 500); this.store.save(); return { ok: true }; };
@@ -207,9 +208,11 @@ function install(Game) {
     return Object.values(this.db.castles).map((c) => { const u = this.userById(c.owner); return { id: u.id, login: u.login, name: c.name, x: c.x, y: c.y, rating: this.rating(c) }; })
       .sort((a, b) => b.rating - a.rating).slice(0, 50);
   };
+  // очки альянса = сумма (рейтинг + репутация) всех участников
+  P.allianceScore = function allianceScore(a) { return a.members.reduce((s, id) => { const u = this.userById(id); return s + (u ? this.userRating(u) + (u.reputation ?? START_REP) : 0); }, 0); };
   P.ratingAlliances = function ratingAlliances() {
     return Object.values(this.db.alliances || {}).map((a) => ({ id: a.id, name: a.name, tag: a.tag, members: a.members.length,
-      rating: a.members.reduce((s, id) => { const u = this.userById(id); return s + (u ? this.userRating(u) : 0); }, 0) }))
+      rating: this.allianceScore(a) }))
       .sort((a, b) => b.rating - a.rating);
   };
   P.ratingReputation = function ratingReputation() {

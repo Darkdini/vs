@@ -285,7 +285,7 @@ const API = {
   },
   alliances() {
     // «Альянсы, подходящие вам»: где есть свободные места, крупные сверху
-    const list = Object.values(this.game.db.alliances || {}).map((a) => ({ id: a.id, name: a.name, tag: a.tag, members: a.members.length, slots: this.game.allianceSlots(a),
+    const list = Object.values(this.game.db.alliances || {}).map((a) => ({ id: a.id, name: a.name, tag: a.tag, members: a.members.length, slots: this.game.allianceSlots(a), score: this.game.allianceScore(a),
       leader: (this.game.userById(a.leader) || {}).login, requested: (a.requests || []).includes(this.user.id) })).sort((x, y) => y.members - x.members);
     this.send({ t: 'alliances', list });
   },

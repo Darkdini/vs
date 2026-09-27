@@ -129,10 +129,10 @@ $('#btnGear').addEventListener('click', () => openSheet(settingsWin));
 S.chat = [];
 function chatLine() {
   const m = S.chat[S.chat.length - 1];
-  $('#chatmsg').innerHTML = m ? `<b>${esc(m.from)}</b> ${esc(m.text)}` : '<span class="muted">Чат пуст — напишите первым</span>';
+  $('#chatmsg').innerHTML = m ? `<b>${esc(m.from)}</b> ${repIcons(m.rep)} ${esc(m.text)}` : '<span class="muted">Чат пуст — напишите первым</span>';
 }
 function openChat() { send({ t: 'chatlog' }); openSheet(chatWin); setTimeout(() => { const l = $('#chatList'); if (l) l.scrollTop = l.scrollHeight; }, 50); }
-const chatWin = () => `${ribbon('Чат')}<div id="chatList" class="chatlist">${S.chat.map((m) => `<div class="cm ${m.fromId === me() ? 'mine' : ''}"><b data-cprof="${m.fromId}">${esc(m.from)}</b> <small>${new Date(m.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</small><div>${esc(m.text)}</div></div>`).join('') || '<p class="parch-note">Сообщений пока нет.</p>'}</div>
+const chatWin = () => `${ribbon('Чат')}<div id="chatList" class="chatlist">${S.chat.map((m) => `<div class="cm ${m.fromId === me() ? 'mine' : ''}"><b data-cprof="${m.fromId}">${esc(m.from)}</b> ${repIcons(m.rep)} <small>${new Date(m.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</small><div>${esc(m.text)}</div></div>`).join('') || '<p class="parch-note">Сообщений пока нет.</p>'}</div>
   <form class="chatform" data-form="chat"><input name="text" maxlength="300" placeholder="Сообщение всем игрокам" autocomplete="off"><button class="sendbtn" aria-label="Отправить"></button></form>`;
 
 // ---------- профиль (как «Профиль» в клиенте: пергамент, красные ленты) ----------

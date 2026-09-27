@@ -163,6 +163,10 @@ function client() {
     const rq = (await adm.expect('state', (m) => m.castle.mil.alliance && m.castle.mil.alliance.requests.length === 1)).castle.mil.alliance.requests[0];
     adm.send({ t: 'alliance', op: 'approve', id: rq.id });
     await a.expect('state', (m) => m.castle.mil.alliance && m.castle.mil.alliance.tag === 'KRL');
+    adm.send({ t: 'ratings', kind: 'alliances' });
+    { const rl = (await adm.expect('ratings', (m) => m.kind === 'alliances')).list.find((x) => x.tag === 'KRL');
+      adm.send({ t: 'sync' }); const st = (await adm.expect('state', (m) => m.castle.mil.alliance && m.castle.mil.alliance.info.length === 2)).castle.mil.alliance;
+      assert.equal(rl.rating, st.info.reduce((q, u) => q + u.rating + u.rep, 0)); }
     console.log('✓ Дипломатический центр: приглашения, исключение, заявка и одобрение');
 
     // ---- Центр разведки: разведчики тренируются в нём, отчёт зависит от уровня и выживших ----

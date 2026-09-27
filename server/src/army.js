@@ -1132,6 +1132,8 @@ function install(Game, helpers) {
       bonus: { atk: b.atk, def: b.def, magic: b.magic, prod: b.prod, speed: b.speed, train: b.train, build: b.build, wall: b.wall, wallPer: b.wallPer, hidden: b.hidden, marketRate: b.marketRate, artSlots: b.artSlots, artStore: b.artStore, tradeCarry: b.tradeCarry },
       alliance: al ? { id: al.id, name: al.name, tag: al.tag, leader: al.leader, leaderLogin: (this.userById(al.leader) || {}).login, lead: al.leader === user.id, slots: this.allianceSlots(al),
         members: al.members.map((id) => { const m = this.userById(id); return m ? m.login : '?'; }),
+        info: al.members.map((id) => { const m = this.userById(id); return m ? { id, login: m.login, rating: this.userRating(m), rep: m.reputation ?? 10 } : null; }).filter(Boolean),
+        score: this.allianceScore(al),
         requests: al.leader === user.id ? (al.requests || []).map((id) => { const m = this.userById(id); return m ? { id, login: m.login, rating: this.userRating(m) } : null; }).filter(Boolean) : [] } : null,
       invites: (user.invites || []).map((id) => this.db.alliances && this.db.alliances[id]).filter(Boolean).map((a) => ({ id: a.id, name: a.name, tag: a.tag })),
       forge: castle.forge, forgeJob: castle.forgeJob, forgeUnits: this.forgeUnits(castle).map((u) => ({ id: u.id, ...this.forgeCost(u, 0), next: { a: this.forgeCost(u, this.forgeLvl(castle, u.id, 'a') + 1), d: this.forgeCost(u, this.forgeLvl(castle, u.id, 'd') + 1) } })),
