@@ -30,6 +30,7 @@ function unitMax(u) {
   for (const r of RES4) if (u.cost[r]) n = Math.min(n, Math.floor(resNow(r) / u.cost[r]));
   if (u.pop) n = Math.min(n, Math.floor(S.st.castle.res.people / u.pop));
   if (u.id === M().generalId) n = Math.min(n, 1);
+  else if (MY().trainDay) n = Math.min(n, MY().trainDay.max - MY().trainDay.used);
   return Math.max(0, n === Infinity ? 0 : n);
 }
 function unitStatsHtml(u) {
@@ -102,7 +103,9 @@ function buildingFunctions(def, lvl) {
 
 function trainHtml(def, units) {
   const jobs = MY().training.filter((t) => t.building === def.id);
+  const td = MY().trainDay;
   return `<div class="section">Тренировка</div>
+    ${td ? `<p class="small">Обучено за сутки: <b>${td.used} из ${td.max}</b>${td.used >= td.max && td.next ? ` · лимит обновится через <span class="cd" data-e="${td.next}"></span>` : ''}</p>` : ''}
     ${jobs.map((t) => { const u = unitById(t.unit), end = t.start + t.each * t.count; return `<div class="card job">${uimg(u, 'ui s')}
       <div class="grow"><b>${esc(u.name)} ×${t.count}</b> <span class="muted small">готово ${t.done}</span>
       <div class="bar"><i data-s="${t.start}" data-e="${end}"></i></div></div><span class="cd" data-e="${end}"></span></div>`; }).join('')}

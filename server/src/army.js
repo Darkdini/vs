@@ -98,6 +98,10 @@ const ORIG = {
 // остальные юниты (люди, эльфы, гномы, общие) переводятся из нашей GDD-таблицы в масштаб оригинала:
 // атака/защита ×0.42 (Мечник 50 → 21, как Мародёр), цена ×0.5, время ×0.45
 const SCALE = { stat: 0.42, cost: 0.5, time: 0.45 };
+// население: базовые воины ×4, элита/маги/легендарные ×8 (как у орков оригинала: 3–8 и 25–45)
+const POP_K = (role) => (['elite_inf', 'heavy_cav', 'legendary', 'mage', 'valkyrie', 'giant', 'shadow'].includes(role) ? 8 : 4);
+// лимит тренировки: не больше TRAIN_DAY воинов на замок за последние 24 часа (Генерал не считается)
+const TRAIN_DAY = Number(process.env.TRAIN_DAY || 400);
 function buildUnit([id, name, race, img, role, building, level, req = {}, stats]) {
   const base = { id, name, race, img, role, building, level, req, spy: role === 'scout' ? 1 : 0 };
   const o = ORIG[id];
@@ -111,7 +115,7 @@ function buildUnit([id, name, race, img, role, building, level, req = {}, stats]
     ...base, type: src.type, attack: st(src.attack), magic: st(src.magicAttack),
     def: { inf: st(src.defense.infantry), cav: st(src.defense.cavalry), mag: st(src.defense.magic) },
     hp: Math.max(10, Math.round((st(src.defense.infantry) + st(src.defense.cavalry)) * 1.2 + 10 * (src.population || 1))),
-    speed: src.speed, carry: src.carry, upkeep: src.upkeepFoodPerHour, pop: src.population,
+    speed: src.speed, carry: src.carry, upkeep: src.upkeepFoodPerHour, pop: Math.max(1, (src.population || 1) * POP_K(role)),
     cost: Object.fromEntries(['wood', 'stone', 'iron', 'food'].map((r) => [r, Math.max(5, Math.round(src.cost[r] * SCALE.cost))])),
     time: Math.max(30, Math.round(src.trainTimeSec * SCALE.time)), spy: role === 'scout' ? 1 : src.spy || 0,
   };
@@ -256,6 +260,10 @@ function install(Game, helpers) {
     for (const [id, l] of Object.entries(unit.req)) if (this.buildingLevel(castle, Number(id)) < l) return `Нужно: ${C.BY_ID[id].name} ${l} ур.`;
     return null;
   };
+  P.trainedToday = function trainedToday(castle, now = Date.now()) {
+    castle.trainLog = (castle.trainLog || []).filter((x) => x.at > now - 86400000);
+    return castle.trainLog.reduce((s, x) => s + x.n, 0);
+  };
   P.train = function train(castle, unitId, count) {
     this.tick(castle);
     const unit = UNIT[unitId]; count = Math.floor(Number(count));
@@ -266,6 +274,8 @@ function install(Game, helpers) {
       if (castle.general || castle.training.some((t) => t.unit === GENERAL_ID)) return { error: 'Генерал в замке может быть только один.' };
       count = 1;
     }
+    const used = this.trainedToday(castle);
+    if (unit.id !== GENERAL_ID && used + count > TRAIN_DAY) return { error: `За сутки можно обучить не больше ${TRAIN_DAY} воинов в замке. Осталось: ${Math.max(0, TRAIN_DAY - used)}.` };
     for (const r of RES4) if (castle.res[r] < unit.cost[r] * count) return { error: 'Недостаточно ресурсов.' };
     if (castle.res.people < unit.pop * count) return { error: 'Не хватает людей (растут с Хибарами).' };
     for (const r of RES4) castle.res[r] -= unit.cost[r] * count;
@@ -274,6 +284,7 @@ function install(Game, helpers) {
     const last = castle.training.filter((t) => t.building === unit.building).reduce((m, t) => Math.max(m, t.start + t.each * t.count), now);
     const job = { id: this.db.nextId++, unit: unit.id, building: unit.building, count, done: 0, each, start: last };
     castle.training.push(job);
+    if (unit.id !== GENERAL_ID) (castle.trainLog = castle.trainLog || []).push({ at: now, n: count });
     this.store.save();
     return { job };
   };
@@ -1110,6 +1121,7 @@ function install(Game, helpers) {
     const b = this.bonus(castle);
     const al = this.allianceOf(user);
     return {
+      trainDay: { used: this.trainedToday(castle), max: TRAIN_DAY, next: (castle.trainLog || [])[0] ? castle.trainLog[0].at + 86400000 : 0 },
       units: castle.units, training: castle.training.map((t) => ({ id: t.id, unit: t.unit, building: t.building, count: t.count, done: t.done, each: t.each, start: t.start })),
       general: castle.general && this.generalView(castle), armies: castle.armies.map((a) => ({ id: a.id, units: a.units, general: a.general, mission: a.mission, x: a.x, y: a.y, depart: a.depart, arrive: a.arrive, back: a.back, state: a.state, loot: a.loot, cargo: a.cargo, squad: a.squad, portal: a.portal,
         stayName: a.state === 'stay' && this.db.castles[a.stayAt] ? this.db.castles[a.stayAt].name : null })),

@@ -120,7 +120,9 @@ function client() {
 
     adm.send({ t: 'train', unit: 200, count: 3 });
     await adm.expect('toast', (m) => /Готово: Мечник ×3/.test(m.msg));
-    console.log('✓ тренировка в Казарме');
+    adm.send({ t: 'train', unit: 200, count: 1000 });
+    await adm.expect('error', (m) => /За сутки можно обучить не больше 400/.test(m.msg));
+    console.log('✓ тренировка в Казарме, лимит 400 воинов в сутки');
 
     const target = s3.castle;
     adm.send({ t: 'send', units: { 200: 50, 202: 5 }, general: true, x: target.x, y: target.y, mission: 'raid' });
