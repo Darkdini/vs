@@ -171,6 +171,23 @@ function client() {
     await adm.expect('toast', (m) => /Медаль вручена: webby/.test(m.msg));
     adm.send({ t: 'profile', id: s3.user.id });
     { const pr = (await adm.expect('profile', (m) => (m.profile.awards || []).length > 0)).profile; assert.equal(pr.awards[0].tag, 'KRL'); }
+    // окно «Альянс»: права, описание, форум, новости, казна, логи
+    adm.send({ t: 'ally', op: 'rank', login: 'webby', title: 'Казначей', ep: 2, rights: ['treasury', 'logs'] });
+    await adm.expect('toast', (m) => /Права назначены: webby/.test(m.msg));
+    adm.send({ t: 'ally', op: 'desc', tag: 'KRL', name: 'Короли Мира', desc: 'Лучший альянс' });
+    await adm.expect('toast', (m) => /Описание изменено/.test(m.msg));
+    a.send({ t: 'ally', op: 'topic', title: 'Сбор', text: 'Все на штурм' });
+    const tp = (await a.expect('allytopic')).data; assert.equal(tp.posts[0].text, 'Все на штурм');
+    adm.send({ t: 'ally', op: 'post', topic: tp.id, text: 'Иду' });
+    await adm.expect('toast', (m) => /Сообщение добавлено/.test(m.msg));
+    adm.send({ t: 'ally', op: 'gold', n: 100 });
+    await adm.expect('toast', (m) => /Внесено в казну: 100/.test(m.msg));
+    a.send({ t: 'ally', op: 'gold', n: 40, to: 'webby' });
+    await a.expect('toast', (m) => /Выдано 40 золота: webby/.test(m.msg));
+    adm.send({ t: 'ally', op: 'get' });
+    const av = (await adm.expect('ally', (m) => m.data.treasury === 60)).data;
+    assert.ok(av.name === 'Короли Мира' && av.members.find((x) => x.login === 'webby').title === 'Казначей' && av.forum[0].replies === 2 && av.log.length > 0);
+    console.log('✓ окно альянса: права, описание, форум, казна, логи');
     console.log('✓ Дипломатический центр: приглашения, исключение, заявка и одобрение');
 
     // ---- Центр разведки: разведчики тренируются в нём, отчёт зависит от уровня и выживших ----

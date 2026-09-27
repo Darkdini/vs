@@ -961,6 +961,7 @@ function install(Game, helpers) {
   P.joinAlliance = function joinAlliance(user, al) {
     if (al.members.length >= this.allianceSlots(al)) return { error: `В альянсе нет мест (${this.allianceSlots(al)}).` };
     al.members.push(user.id); user.alliance = al.id;
+    this.allyLog(al, `${user.login} вступил в альянс`);
     user.invites = []; // вступил — остальные приглашения больше не нужны
     for (const a of Object.values(this.db.alliances)) if (a.requests) a.requests = a.requests.filter((id) => id !== user.id);
     for (const id of al.members) if (id !== user.id) this.event(id, `${user.login} вступил в альянс [${al.tag}].`);
@@ -991,7 +992,8 @@ function install(Game, helpers) {
     // управление своим альянсом (глава)
     if (['invite', 'approve', 'reject', 'kick', 'award'].includes(op)) {
       if (!cur) return { error: 'Вы не в альянсе.' };
-      if (cur.leader !== user.id) return { error: 'Это может только глава альянса.' };
+      const right = { invite: 'invite', approve: 'invite', reject: 'invite', kick: 'kick', award: 'rights' }[op];
+      if (!this.allyCan(cur, user.id, right)) return { error: 'Нет прав на это действие.' };
       const t = login !== undefined ? this.db.users[String(login).trim().toLowerCase()] : this.userById(id);
       if (!t) return { error: 'Игрок не найден.' };
       if (op === 'invite') {
@@ -1019,13 +1021,16 @@ function install(Game, helpers) {
       }
       if (op === 'kick') {
         if (t.id === user.id || !cur.members.includes(t.id)) return { error: 'Нельзя исключить.' };
-        cur.members = cur.members.filter((m) => m !== t.id); delete t.alliance;
+        if (t.id === cur.leader) return { error: 'Создателя исключить нельзя.' };
+        cur.members = cur.members.filter((m) => m !== t.id); delete t.alliance; if (cur.ranks) delete cur.ranks[t.id];
+        this.allyLog(cur, `${user.login} исключил ${t.login}`);
         this.event(t.id, `Вас исключили из альянса [${cur.tag}].`); this.store.save(); return { ok: true };
       }
     }
     if (op === 'leave') {
       if (!cur) return { error: 'Вы не в альянсе.' };
-      cur.members = cur.members.filter((m) => m !== user.id); delete user.alliance;
+      cur.members = cur.members.filter((m) => m !== user.id); delete user.alliance; if (cur.ranks) delete cur.ranks[user.id];
+      this.allyLog(cur, `${user.login} покинул альянс`);
       if (!cur.members.length) delete this.db.alliances[cur.id]; else if (cur.leader === user.id) cur.leader = cur.members[0];
       this.store.save(); return { ok: true };
     }
@@ -1144,7 +1149,7 @@ function install(Game, helpers) {
         members: al.members.map((id) => { const m = this.userById(id); return m ? m.login : '?'; }),
         info: al.members.map((id) => { const m = this.userById(id); return m ? { id, login: m.login, rating: this.userRating(m), rep: m.reputation ?? 10 } : null; }).filter(Boolean),
         score: this.allianceScore(al),
-        requests: al.leader === user.id ? (al.requests || []).map((id) => { const m = this.userById(id); return m ? { id, login: m.login, rating: this.userRating(m) } : null; }).filter(Boolean) : [] } : null,
+        requests: this.allyCan(al, user.id, 'invite') ? (al.requests || []).map((id) => { const m = this.userById(id); return m ? { id, login: m.login, rating: this.userRating(m) } : null; }).filter(Boolean) : [] } : null,
       invites: (user.invites || []).map((id) => this.db.alliances && this.db.alliances[id]).filter(Boolean).map((a) => ({ id: a.id, name: a.name, tag: a.tag })),
       forge: castle.forge, forgeJob: castle.forgeJob, forgeUnits: this.forgeUnits(castle).map((u) => ({ id: u.id, ...this.forgeCost(u, 0), next: { a: this.forgeCost(u, this.forgeLvl(castle, u.id, 'a') + 1), d: this.forgeCost(u, this.forgeLvl(castle, u.id, 'd') + 1) } })),
       admin: !!user.admin, royal: this.royalView(user, castle), watch: this.hasWatch(user),

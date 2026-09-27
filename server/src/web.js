@@ -189,6 +189,19 @@ const API = {
   ritual(m) { const r = this.game.ritual(this.user, this.castle, m.id); if (r.msg) this.toast(r.msg); this.result(r); },
   calm() { const r = this.game.calmRiot(this.user, this.castle); if (r.msg) this.toast(r.msg); this.result(r); },
   forge(m) { this.result(this.game.forgeOp(this.castle, { unit: Number(m.unit), kind: m.kind })); },
+  ally(m) {
+    const al = this.game.allianceOf(this.user);
+    if (!al) return this.error('Вы не в альянсе.');
+    if (m.op === 'get') return this.send({ t: 'ally', data: this.game.allyView(this.user, al) });
+    if (m.op === 'topicget') return this.send({ t: 'allytopic', data: this.game.allyTopic(this.user, al, m.topic) });
+    const r = this.game.allyOp(this.user, this.castle, m);
+    if (r.error) return this.error(r.error);
+    if (r.msg) this.toast(r.msg);
+    const al2 = this.game.allianceOf(this.user);
+    if (al2) this.send({ t: 'ally', data: this.game.allyView(this.user, al2) });
+    if (al2 && (m.op === 'post' || m.op === 'topic')) this.send({ t: 'allytopic', data: this.game.allyTopic(this.user, al2, m.topic || r.topic) });
+    this.pushState();
+  },
   moves() { this.send({ t: 'moves', data: this.game.kingdomMoves(this.user) }); },
   festival(m) { const r = this.game.festival(this.user, this.castle, m.id); if (r.msg) this.toast(r.msg); this.result(r); },
   demolish(m) {
@@ -286,7 +299,7 @@ const API = {
   alliances() {
     // «Альянсы, подходящие вам»: где есть свободные места, крупные сверху
     const list = Object.values(this.game.db.alliances || {}).map((a) => ({ id: a.id, name: a.name, tag: a.tag, members: a.members.length, slots: this.game.allianceSlots(a), score: this.game.allianceScore(a),
-      leader: (this.game.userById(a.leader) || {}).login, requested: (a.requests || []).includes(this.user.id) })).sort((x, y) => y.members - x.members);
+      leader: (this.game.userById(a.leader) || {}).login, ad: a.ad || '', requested: (a.requests || []).includes(this.user.id) })).sort((x, y) => y.members - x.members);
     this.send({ t: 'alliances', list });
   },
   reports() { this.send({ t: 'reports', list: this.game.reportsOf(this.user.id).map((x) => ({ id: x.id, at: x.at, kind: x.kind, title: x.title, read: x.read })) }); },

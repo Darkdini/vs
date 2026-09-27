@@ -22,7 +22,7 @@ S.alFound = null;
 function alliancesWin() {
   const my = MY();
   const rows = (S.alFound || []).map((a) => `<div class="invite"><div class="itag">${esc(a.name)} [${esc(a.tag)}]</div>
-      <small>глава ${esc(a.leader || '—')} · участников ${a.members} из ${a.slots} · очки ${fmtFull(a.score || 0)}</small>
+      <small>глава ${esc(a.leader || '—')} · участников ${a.members} из ${a.slots} · очки ${fmtFull(a.score || 0)}</small>${a.ad ? `<div class="small">📣 ${esc(a.ad)}</div>` : ''}
       ${my.alliance ? '' : a.requested ? '<div class="small muted">Заявка отправлена</div>' : a.members >= a.slots ? '<div class="small muted">Мест нет</div>' : `<div class="center"><button class="pbtn" data-al="request" data-id="${a.id}">Подать заявку</button></div>`}</div>`).join('');
   return `${ribbon('Альянсы')}<div class="bwline center">Альянсы, подходящие вам:</div>
     <button class="pbar" data-alfind>Найти</button>
@@ -61,11 +61,13 @@ $('#sheetBody').addEventListener('click', (e) => {
     const text = prompt('За что (необязательно):', '') || '';
     return send({ t: 'alliance', op: 'award', login: d.alaward, kind, text });
   }
+  if (d.dip === 'my') return openAlly(); // полное окно альянса (alliance.js)
   if (d.dip) { if (d.dip === 'list') S.alFound = null; return openSheet(DIP_WIN[d.dip]); }
   if (d.alfind !== undefined) return send({ t: 'alliances' });
   if (d.confirm && !confirm(d.confirm)) return;
   send({ t: 'alliance', op: d.al, id: d.id, login: d.login });
   if (d.al === 'request') setTimeout(() => send({ t: 'alliances' }), 150);
+  if (S.ally && ['approve', 'reject', 'kick'].includes(d.al)) setTimeout(() => send({ t: 'ally', op: 'get' }), 150);
   if (d.al === 'leave') closeSheet();
 });
 $('#sheetBody').addEventListener('submit', (e) => {

@@ -378,5 +378,6 @@ require('./social').install(Game);
 require('./admin').install(Game);
 require('./avatar').install(Game);
 require('./royal').install(Game);
+require('./ally').install(Game);
 
 module.exports = { WORLD, Game, Store, STORE, BASE_RATE, PEOPLE_FACTOR, storeBonus, RES_SPEED, buildTime, VIEW, GRID, landOptions, SPEED, MAX_QUEUE, LANDS_BASE, LANDS_DECOR, LANDS_EDGE };
