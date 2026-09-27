@@ -115,16 +115,17 @@ function unitsListHtml(units, empty = 'нет') {
 }
 
 function hqHtml() {
-  const my = MY(), g = my.general, need = (l) => 100 * l * l;
+  const my = MY(), g = my.general;
   const gu = unitById(M().generalId);
   let gen;
   if (!g) gen = '<p class="small">Генерала нет — наймите его ниже. Генерал ведёт армию: +1% к атаке за уровень, опыт — за убитых врагов, только с ним захватываются оазисы.</p>';
   else {
     const st = g.dead ? (g.reviveAt ? `воскресает: <span class="cd" data-e="${g.reviveAt}"></span>` : 'погиб') : g.away ? 'в походе' : 'в замке';
-    gen = `<div class="top">${uimg(gu)}<div class="grow"><b>Генерал ${g.level} ур.</b><span class="muted small">${st} · опыт ${fmtFull(g.exp)} / ${fmtFull(need(g.level))}</span>
-      <div class="bar"><i style="width:${Math.min(100, g.exp / need(g.level) * 100)}%"></i></div></div></div>
-      <p class="small">+${g.level}% к атаке армии, в которой идёт; в замке — +${g.level}% к защите.</p>
-      ${g.dead && !g.reviveAt ? `<div class="chips">${RES4.map((r) => `<span>${RES_IC[r]} ${fmtFull(Math.round(gu.cost[r] * 0.5 * g.level))}</span>`).join('')}</div><button class="btn primary" data-revive>Воскресить</button>` : ''}`;
+    const span = Math.max(1, g.need - g.prevNeed);
+    gen = `<div class="top">${uimg(gu)}<div class="grow"><b>${esc(g.name)} (${esc(g.kind || '')}) · ${fmtFull(g.level)} ур.</b><span class="muted small">${st}${g.free ? ` · <b style="color:#2f7a10">свободных очков: ${g.free}</b>` : ''}</span>
+      <div class="bar"><i style="width:${Math.max(0, Math.min(100, (g.exp - g.prevNeed) / span * 100))}%"></i></div></div></div>
+      <p class="small">Командование атакой +${(g.stats.catk * 100).toFixed(1)}%, защитой +${(g.stats.cdef * 100).toFixed(1)}%.</p>
+      <button class="btn primary" data-general>Генерал</button>`;
   }
   const armies = my.armies.map((a) => `<div class="card job"><div class="grow"><b>${M().missions[a.mission]} → ${a.x}:${a.y}</b>
       <span class="muted small">${a.state === 'go' ? 'идёт к цели' : 'возвращается'}${a.general ? ' · с генералом' : ''}${a.loot ? ` · добыча ${RES4.map((r) => a.loot[r] || 0).join('/')}` : ''}</span>

@@ -46,7 +46,7 @@ function armyWin(k) {
   const g = MY().general;
   const tile = (attr, icon, text) => `<button class="ptile" ${attr}><img src="${icon}" alt=""><span>${text}</span></button>`;
   return `${ribbon(a.name)}${units || '<p class="parch-note">В армии нет войск.</p>'}
-    ${genHere(a) ? `<div class="uline"><img src="${unitSrc(unitById(M().generalId))}" alt=""> Генерал ${g.level} ур.</div>` : ''}
+    ${genHere(a) ? `<button class="uline ulink" data-general><img src="${unitSrc(unitById(M().generalId))}" alt=""> ${esc(g.name)} (${fmtFull(g.level)} ур.)</button>` : ''}
     <hr class="cwhr"><div class="ptiles">
       ${tile(`data-regroup="${a.key}"`, `${G3}Gears/a1.png`, 'Переформировать')}
       ${tile(`data-campaign="${a.key}"`, ICO('swords'), 'В поход')}

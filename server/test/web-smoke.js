@@ -114,9 +114,9 @@ function client() {
     adm.send({ t: 'login', login: 'admin', password: 'admin' });
     await adm.expect('auth');
     let as = await adm.expect('state');
-    assert.ok(as.castle.mil.admin && as.castle.mil.general.level === 20 && as.castle.mil.units[200] >= 1000);
+    assert.ok(as.castle.mil.admin && as.castle.mil.general.level === 100 && as.castle.mil.units[200] >= 1000);
     assert.equal(as.castle.levels[0][24], 20);
-    console.log('✓ админ: полная прокачка, генерал 20 ур., войска', Object.keys(as.castle.mil.units).length, 'видов');
+    console.log('✓ админ: полная прокачка, генерал 100 ур., войска', Object.keys(as.castle.mil.units).length, 'видов');
 
     adm.send({ t: 'train', unit: 200, count: 3 });
     await adm.expect('toast', (m) => /Готово: Мечник ×3/.test(m.msg));
@@ -143,6 +143,26 @@ function client() {
     b.send({ t: 'send', units: {}, x: 1, y: 1, mission: 'attack' }); // у «a» висит ожидание любой ошибки из Promise.race выше
     await b.expect('error', (m) => /Военный штаб/.test(m.msg));
     console.log('✓ рынок, альянс, проверки миссий');
+
+    // ---- генерал: очки опыта, распределение, сброс, имя, убить ----
+    adm.send({ t: 'admin', op: 'general', level: 50 });
+    let gs = (await adm.expect('state', (m) => m.castle.mil.general && m.castle.mil.general.level === 50)).castle.mil.general;
+    assert.equal(gs.free, 98); assert.ok(gs.stats && gs.where.includes('Замковая армия'));
+    adm.send({ t: 'general', op: 'dist', pts: { catk: 60, def: 10 } });
+    gs = (await adm.expect('state', (m) => m.castle.mil.general.free === 28)).castle.mil.general;
+    assert.ok(Math.abs(gs.stats.catk - 0.18) < 1e-9 && gs.pts.def === 10);
+    adm.send({ t: 'general', op: 'dist', pts: { atk: 999 } });
+    await adm.expect('error', (m) => /Свободных очков только 28/.test(m.msg));
+    adm.send({ t: 'general', op: 'reset' });
+    gs = (await adm.expect('state', (m) => m.castle.mil.general.free === 98)).castle.mil.general;
+    assert.equal(gs.resets, 0);
+    adm.send({ t: 'general', op: 'rename', name: 'Решала' });
+    await adm.expect('state', (m) => m.castle.mil.general.name === 'Решала');
+    adm.send({ t: 'general', op: 'kill' });
+    await adm.expect('state', (m) => m.castle.mil.general === null);
+    adm.send({ t: 'admin', op: 'general', level: 100 });
+    await adm.expect('state', (m) => m.castle.mil.general && m.castle.mil.general.level === 100);
+    console.log('✓ генерал: очки опыта, распределение, сброс, имя, убить');
 
     // ---- армии в замке, военный поход, подкрепление ----
     adm.send({ t: 'squad', op: 'regroup', from: 'castle', to: 'new', units: { 200: 100 } });

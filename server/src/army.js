@@ -95,6 +95,12 @@ const UNITS = UNIT_LIST.map(buildUnit);
 const UNIT = Object.fromEntries(UNITS.map((u) => [u.id, u]));
 const GENERAL_ID = 236;
 const unitsForRace = (race) => UNITS.filter((u) => u.race === race || u.race === 'all');
+// генерал как в оригинале: за уровень — очки опыта, игрок распределяет их в окне «Генерал».
+// Личная атака/защита — +1 за очко; командование атакой/защитой — +0,3% к армии; восстановление — быстрее воскрешение; карьера — больше опыта.
+const GEN = { perLevel: 2, maxLevel: 1000, cmd: 0.003, heal: 0.02, career: 0.005, resetGold: 100 };
+const GEN_STATS = ['atk', 'def', 'catk', 'cdef', 'heal', 'career'];
+// звание генерала в скобках — сильнейший боевой юнит расы (у орков «Бугай» и т. п.)
+const genKind = (race) => { const l = UNITS.filter((u) => u.race === race && ['infantry', 'cavalry'].includes(u.type)).sort((a, b) => b.attack - a.attack); return l[0] ? l[0].name : 'Генерал'; };
 const unitImg = (u, race) => `units/${u.race === 'all' && !u.img.includes('/') ? `${RACE_DIR[race]}/${u.img}` : u.img}.png`;
 
 // ---------- науки (Университет; иконки smallicon/*science.png) ----------
@@ -149,6 +155,7 @@ function install(Game, helpers) {
     if (!castle.sciences) castle.sciences = { eco: 0, eng: 0, fhi: 0, war: 0 };
     if (!castle.artifacts) castle.artifacts = [];
     if (castle.general === undefined) castle.general = null;
+    if (castle.general) this.normGeneral(castle.general, castle);
     if (castle.research === undefined) castle.research = null;
     if (castle.religion === undefined) castle.religion = null;
     if (!castle.squads) castle.squads = []; // отряды в замке («Армия: …»); castle.units — «Замковая армия»
@@ -167,12 +174,12 @@ function install(Game, helpers) {
     const sci = castle.sciences, templeL = L(B.TEMPLE), rel = castle.religion;
     const art = { atk: 0, def: 0, prod: 0, speed: 0, train: 0 };
     for (const a of castle.artifacts) if (a.active) art[a.type] += RARITY[a.rarity].bonus;
-    const gen = castle.general && !castle.general.dead && !castle.general.away ? castle.general.level : 0;
+    const gen = castle.general && !castle.general.dead && !castle.general.away && castle.general.pts ? castle.general.pts.cdef : 0;
     const race = this.raceOf(castle);
     const wallPer = { humans: 0.03, elves: 0.035, dwarves: 0.02, orcs: 0.025 }[race] || 0.03;
     return {
       atk: (1 + 0.015 * L(B.SMITH)) * (1 + SCIENCES.war.per * sci.war) * (1 + 0.01 * L(B.BREWERY)) * (1 + (rel === 'war' ? 0.01 * templeL : 0)) * (1 + art.atk),
-      def: (1 + 0.015 * L(B.SMITH)) * (1 + SCIENCES.war.per * sci.war) * (1 + (rel === 'light' ? 0.01 * templeL : 0)) * (1 + art.def) * (1 + 0.01 * gen),
+      def: (1 + 0.015 * L(B.SMITH)) * (1 + SCIENCES.war.per * sci.war) * (1 + (rel === 'light' ? 0.01 * templeL : 0)) * (1 + art.def) * (1 + GEN.cmd * gen),
       magic: 1 + 0.02 * L(B.MAGIC_SCHOOL),
       prod: (1 + SCIENCES.eco.per * sci.eco) * (1 + (rel === 'nature' ? 0.01 * templeL : 0)) * (1 + art.prod),
       speed: (1 + SCIENCES.fhi.per * sci.fhi) * (1 + art.speed),
@@ -243,7 +250,7 @@ function install(Game, helpers) {
       const ready = Math.max(0, Math.min(t.count, Math.floor((now - t.start) / t.each)));
       if (ready > t.done) {
         const n = ready - t.done; t.done = ready;
-        if (t.unit === GENERAL_ID) castle.general = { level: 1, exp: 0, dead: false };
+        if (t.unit === GENERAL_ID) castle.general = this.newGeneral(castle, 1);
         else castle.units[t.unit] = (castle.units[t.unit] || 0) + n;
         if (t.done === t.count) this.event(owner, `Готово: ${UNIT[t.unit].name} ×${t.count}`);
       }
@@ -251,7 +258,7 @@ function install(Game, helpers) {
     });
     // генерал воскрес
     const g = castle.general;
-    if (g && g.dead && g.reviveAt && g.reviveAt <= now) { g.dead = false; delete g.reviveAt; this.event(owner, 'Генерал снова в строю.'); }
+    if (g && g.dead && g.reviveAt && g.reviveAt <= now) { g.dead = false; delete g.reviveAt; delete g.reviveStart; this.event(owner, 'Генерал снова в строю.'); }
     // исследование
     if (castle.research && castle.research.end <= now) {
       castle.sciences[castle.research.sci] = castle.research.level;
@@ -262,20 +269,69 @@ function install(Game, helpers) {
 
   // ----- генерал -----
   P.generalNeed = (level) => 100 * level * level;
+  P.newGeneral = function newGeneral(castle, level = 1) {
+    return this.normGeneral({ name: 'Генерал', level, exp: level > 1 ? this.generalNeed(level - 1) : 0, dead: false }, castle);
+  };
+  // дополняет старые записи генерала полями нового окна (очки, имя, сбросы)
+  P.normGeneral = function normGeneral(g, castle) {
+    if (!g.pts) { g.pts = Object.fromEntries(GEN_STATS.map((k) => [k, 0])); g.free = GEN.perLevel * Math.max(0, g.level - 1); }
+    if (g.free === undefined) g.free = 0;
+    if (!g.name) g.name = 'Генерал';
+    if (g.resets === undefined) g.resets = 1;
+    if (!g.kind && castle) g.kind = genKind(this.raceOf(castle));
+    return g;
+  };
+  P.genStats = function genStats(g) {
+    const base = UNIT[GENERAL_ID];
+    return { atk: base.attack + g.pts.atk, def: base.def.inf + g.pts.def, catk: GEN.cmd * g.pts.catk, cdef: GEN.cmd * g.pts.cdef,
+      heal: GEN.heal * g.pts.heal, career: GEN.career * g.pts.career };
+  };
   P.addGeneralExp = function addGeneralExp(castle, exp) {
     const g = castle.general; if (!g || g.dead) return;
-    g.exp += Math.round(exp);
-    while (g.level < 20 && g.exp >= this.generalNeed(g.level)) { g.level++; this.event(castle.owner, `Генерал достиг ${g.level} уровня!`); }
+    this.normGeneral(g, castle);
+    g.exp += Math.round(exp * (1 + GEN.career * g.pts.career));
+    while (g.level < GEN.maxLevel && g.exp >= this.generalNeed(g.level)) { g.level++; g.free += GEN.perLevel; this.event(castle.owner, `Генерал достиг ${g.level} уровня!`); }
+  };
+  // окно «Генерал»: rename, dist (распределить очки), reset (сбросить очки), kill (убить)
+  P.generalOp = function generalOp(castle, user, { op, name, pts } = {}) {
+    this.tick(castle); this.mil(castle);
+    const g = castle.general;
+    if (op === 'revive') return this.reviveGeneral(castle);
+    if (!g) return { error: 'Генерала нет.' };
+    if (op === 'rename') {
+      name = String(name || '').trim().slice(0, 20); if (!name) return { error: 'Введите имя.' };
+      g.name = name;
+    } else if (op === 'dist') {
+      const add = Object.fromEntries(GEN_STATS.map((k) => [k, Math.max(0, Math.floor(Number(pts && pts[k]) || 0))]));
+      const sum = GEN_STATS.reduce((s, k) => s + add[k], 0);
+      if (!sum) return { error: 'Укажите, сколько очков куда распределить.' };
+      if (sum > g.free) return { error: `Свободных очков только ${g.free}.` };
+      for (const k of GEN_STATS) g.pts[k] += add[k];
+      g.free -= sum;
+    } else if (op === 'reset') {
+      const spent = GEN_STATS.reduce((s, k) => s + g.pts[k], 0);
+      if (!spent) return { error: 'Очки ещё не распределены.' };
+      if (g.resets > 0) g.resets--;
+      else { if ((user.gold || 0) < GEN.resetGold) return { error: `Нужно ${GEN.resetGold} золота.` }; user.gold -= GEN.resetGold; }
+      for (const k of GEN_STATS) g.pts[k] = 0;
+      g.free += spent;
+    } else if (op === 'kill') {
+      if (g.away) return { error: 'Генерал в походе.' };
+      castle.general = null;
+    } else return { error: 'Неизвестное действие.' };
+    this.store.save();
+    return { ok: true };
   };
   P.reviveGeneral = function reviveGeneral(castle) {
     this.tick(castle);
     const g = castle.general;
     if (!g || !g.dead) return { error: 'Генерал жив.' };
     if (g.reviveAt) return { error: 'Воскрешение уже идёт.' };
-    const cost = UNIT[GENERAL_ID].cost, k = 0.5 * g.level;
+    const cost = UNIT[GENERAL_ID].cost, k = 0.5 * Math.min(g.level, 100);
     for (const r of RES4) if (castle.res[r] < cost[r] * k) return { error: 'Недостаточно ресурсов.' };
     for (const r of RES4) castle.res[r] -= Math.round(cost[r] * k);
-    g.reviveAt = Date.now() + Math.max(5, Math.round(g.level * 3600 / SPEED)) * 1000;
+    g.reviveStart = Date.now();
+    g.reviveAt = Date.now() + Math.max(5, Math.round(Math.min(g.level, 100) * 3600 / SPEED / (1 + GEN.heal * g.pts.heal))) * 1000;
     this.store.save();
     return { ok: true };
   };
@@ -419,8 +475,9 @@ function install(Game, helpers) {
       mag += u.magic * n;
     }
     let gl = 0;
-    if (withGeneral && c.general && !c.general.dead) { gl = c.general.level; inf += UNIT[GENERAL_ID].attack; mag += UNIT[GENERAL_ID].magic; }
-    const k = b.atk * (1 + 0.01 * gl);
+    let cmd = 0;
+    if (withGeneral && c.general && !c.general.dead) { const gs = this.genStats(c.general); gl = c.general.level; cmd = gs.catk; inf += gs.atk; mag += UNIT[GENERAL_ID].magic; }
+    const k = b.atk * (1 + cmd);
     return { inf: inf * k, cav: cav * k, mag: mag * b.magic * b.atk, gl };
   };
   // сила обороны замка против атаки с долями пехоты/кавалерии
@@ -437,7 +494,7 @@ function install(Game, helpers) {
     let phys = 0, mag = 0;
     const add = (id, n) => { const u = UNIT[id]; if (!u || !n) return; phys += (u.def.inf * pInf + u.def.cav * pCav) * n; mag += u.def.mag * n; };
     for (const m of this.defenders(d)) for (const [id, n] of Object.entries(m)) add(id, n);
-    if (d.general && !d.general.dead && !d.general.away) add(GENERAL_ID, 1);
+    if (d.general && !d.general.dead && !d.general.away) { add(GENERAL_ID, 1); phys += d.general.pts.def * (pInf + pCav); }
     phys = (phys * b.def + 10 * b.wall) * (1 + b.wallPer * b.wall);
     return { phys, mag: mag * b.def * b.magic };
   };
@@ -820,7 +877,8 @@ function install(Game, helpers) {
     }
     castle.queue = [];
     for (const u of unitsForRace(race)) if (u.id !== GENERAL_ID) castle.units[u.id] = Math.max(castle.units[u.id] || 0, u.role === 'merchant' ? 200 : u.race === 'all' && !['giant', 'valkyrie', 'ram', 'catapult', 'eye', 'shadow'].includes(u.role) ? 20 : 1000);
-    castle.general = { level: 20, exp: this.generalNeed(20), dead: false };
+    castle.general = this.newGeneral(castle, 100); // полная прокачка: очки уже распределены
+    Object.assign(castle.general.pts, { atk: 20, def: 20, catk: 80, cdef: 60, heal: 10, career: 8 }); castle.general.free = 0;
     castle.sciences = { eco: 20, eng: 20, fhi: 20, war: 20 };
     castle.religion = castle.religion || 'war';
     if (castle.artifacts.length < 4) for (const type of ['atk', 'def', 'prod', 'speed']) castle.artifacts.push({ id: this.db.nextId++, type, rarity: 2, active: true, found: Date.now() });
@@ -882,7 +940,7 @@ function install(Game, helpers) {
     const al = this.allianceOf(user);
     return {
       units: castle.units, training: castle.training.map((t) => ({ id: t.id, unit: t.unit, building: t.building, count: t.count, done: t.done, each: t.each, start: t.start })),
-      general: castle.general, armies: castle.armies.map((a) => ({ id: a.id, units: a.units, general: a.general, mission: a.mission, x: a.x, y: a.y, depart: a.depart, arrive: a.arrive, back: a.back, state: a.state, loot: a.loot, cargo: a.cargo, squad: a.squad, portal: a.portal,
+      general: castle.general && this.generalView(castle), armies: castle.armies.map((a) => ({ id: a.id, units: a.units, general: a.general, mission: a.mission, x: a.x, y: a.y, depart: a.depart, arrive: a.arrive, back: a.back, state: a.state, loot: a.loot, cargo: a.cargo, squad: a.squad, portal: a.portal,
         stayName: a.state === 'stay' && this.db.castles[a.stayAt] ? this.db.castles[a.stayAt].name : null })),
       squads: castle.squads,
       guests: this.guestsOf(castle).map((g) => ({ id: g.a.id, from: this.ownerOf(g.c).login, castle: g.c.name, units: g.a.units })),
@@ -893,6 +951,14 @@ function install(Game, helpers) {
       admin: !!user.admin,
       unreadReports: (this.db.reports || []).filter((r) => r.owner === user.id && !r.read).length,
     };
+  };
+
+  P.generalView = function generalView(castle) {
+    const g = castle.general, gs = this.genStats(g), q = g.squad && castle.squads.find((x) => x.id === g.squad), a = g.away && castle.armies.find((x) => x.id === g.away);
+    const where = a ? `армия в походе (${MISSIONS[a.mission]} ${a.x}:${a.y})` : q ? `Армия: ${q.name}` : 'Замковая армия';
+    const health = g.dead ? (g.reviveAt && g.reviveStart ? Math.min(99, Math.floor((Date.now() - g.reviveStart) / (g.reviveAt - g.reviveStart) * 100)) : 0) : 100;
+    return { ...g, stats: gs, need: this.generalNeed(g.level), prevNeed: g.level > 1 ? this.generalNeed(g.level - 1) : 0, where: `${where}, замок ${castle.name}`, health,
+      reviveCost: Object.fromEntries(RES4.map((r) => [r, Math.round(UNIT[GENERAL_ID].cost[r] * 0.5 * Math.min(g.level, 100))])), resetGold: GEN.resetGold, perLevel: GEN.perLevel };
   };
 
   P.reportsOf = function reportsOf(userId) { return (this.db.reports || []).filter((r) => r.owner === userId).slice(-50).reverse(); };
@@ -906,4 +972,4 @@ const catalogJson = () => ({
   scienceTime: Array.from({ length: 21 }, (_, l) => (l ? scienceTime(l) : 0)),
 });
 
-module.exports = { install, UNITS, UNIT, B, GENERAL_ID, SCIENCES, RELIGIONS, NPC, MISSIONS, unitsForRace, unitImg, catalogJson };
+module.exports = { install, UNITS, UNIT, B, GENERAL_ID, GEN, SCIENCES, RELIGIONS, NPC, MISSIONS, unitsForRace, unitImg, catalogJson };

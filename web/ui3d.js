@@ -37,6 +37,7 @@ const MENUS = {
     ['Мир', 'ground/castle_big.png', () => setTab('world')],
     ['Мои замки', 'ground/castle_small.png', () => openSheet(castlesWin)],
     ['Армия и генерал', 'build/mbases.png', () => ACTS.hq()],
+    ['Генерал', 'units/human/general.png', () => openGeneral()],
     ['Армии в замке', 'build/baraks.png', () => openSheet(armiesWin)],
     ['Военный поход', 'smallicon/swordred.png', () => openArmySheet({})],
     ['Ресурсы', 'build/storage.png', () => openSheet(resSheet)],

@@ -30,7 +30,7 @@ function adminHtml() {
     ${ribbon('Армия')}
     <div class="arow"><select data-an="unit"><option value="">Все юниты расы игрока</option>${units.map((u) => `<option value="${u.id}">${esc(u.name)}${u.race !== 'all' ? ` (${esc(S.cat.races[u.race] || '')})` : ''}</option>`).join('')}</select></div>
     <div class="arow">${aNum('army', 1000, 'кол-во (минус — забрать)')}${aBtn('army', '+ Войска', 'units/human/knight.png', 'data-arg="army:n,unit"')}</div>
-    <div class="arow">${aNum('general', 20, 'уровень 1–20')}${aBtn('general', 'Генерал ур.', 'units/human/general.png', 'data-arg="general:level"')}</div>
+    <div class="arow">${aNum('general', 100, 'уровень 1–1000')}${aBtn('general', 'Генерал ур.', 'units/human/general.png', 'data-arg="general:level"')}</div>
     <div class="ptiles">
       ${aBtn('arts', '5 артефактов', 'smallicon/artefacts/artefakt_dragon.png')}
       ${aBtn('noarmy', 'Убрать войска', 'smallicon/destroy.png', 'data-confirm="Убрать все войска?"')}

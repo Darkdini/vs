@@ -235,7 +235,7 @@ const API = {
     this.result(r);
   },
   squad(m) { this.result(this.game.squadOp(this.castle, m)); },
-  general(m) { if (m.op === 'revive') this.result(this.game.reviveGeneral(this.castle)); },
+  general(m) { this.result(this.game.generalOp(this.castle, this.user, { op: m.op, name: m.name, pts: m.pts })); },
   exchange(m) { const r = this.game.exchange(this.castle, m.from, m.to, m.amount); if (!r.error) this.toast(`Обмен: получено ${r.got}`); this.result(r); },
   research(m) { this.result(this.game.research(this.castle, m.sci)); },
   religion(m) { this.result(this.game.setReligion(this.castle, m.id)); },

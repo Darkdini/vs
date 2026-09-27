@@ -3,7 +3,7 @@
 // Подключается к Game после army.js и social.js — см. install().
 
 const C = require('./catalog');
-const { UNIT, GENERAL_ID, unitsForRace } = require('./army');
+const { UNIT, GENERAL_ID, GEN, unitsForRace } = require('./army');
 
 const ADMIN_CASTLES = Number(process.env.ADMIN_CASTLES || 20);
 const START_REP = 10; // стартовая репутация (как в social.js)
@@ -76,6 +76,7 @@ function install(Game) {
           if (c.research) c.research.end = now;
           for (const a of c.armies) { if (a.state === 'go') { const d = a.arrive - a.depart; a.arrive = now; a.depart = now - d; } else a.back = now; }
           if (c.general && c.general.reviveAt) c.general.reviveAt = now;
+          if (c.general && c.general.dead && !c.general.reviveAt) { c.general.dead = false; delete c.general.away; }
           this.tick(c);
         }
         this.tickWorld(now);
@@ -91,8 +92,8 @@ function install(Game) {
       }
       case 'noarmy': for (const c of castles) { this.mil(c); c.units = {}; } msg = 'Войска убраны.'; break;
       case 'general': {
-        const lvl = Math.max(1, Math.min(20, num(arg.level, 20)));
-        for (const c of castles) { this.mil(c); c.general = { level: lvl, exp: this.generalNeed(lvl), dead: false }; }
+        const lvl = Math.max(1, Math.min(GEN.maxLevel, num(arg.level, 100)));
+        for (const c of castles) { this.mil(c); const old = c.general; c.general = this.newGeneral(c, lvl); if (old) { c.general.name = old.name || c.general.name; c.general.squad = old.squad; c.general.away = old.away; } }
         msg = `Генерал ${lvl} ур.`; break;
       }
       case 'arts': for (const c of castles) { this.mil(c); for (const type of ['atk', 'def', 'prod', 'speed', 'train']) c.artifacts.push({ id: this.db.nextId++, type, rarity: 2, active: false, found: now }); } msg = 'Выдано 5 легендарных артефактов.'; break;
