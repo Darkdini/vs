@@ -47,27 +47,28 @@ function install(Game) {
     return {
       id: al.id, tag: al.tag, name: al.name, desc: al.desc || '', charter: al.charter || '', ad: al.ad || '', created: al.created,
       rank: this.allyRank(al), score: this.allianceScore(al), leader: al.leader, leaderLogin: (this.userById(al.leader) || {}).login, slots: this.allianceSlots(al),
-      members, my: { lead: al.leader === me, rights: Object.keys(RIGHTS).filter(can) },
+      members, my: { lead: al.leader === me, rights: Object.keys(RIGHTS).filter(can).concat(this.canModerate(user) && !can('news') ? ['modnews'] : []) },
       requests: can('invite') ? (al.requests || []).map((id) => { const m = this.userById(id); return m ? { id, login: m.login, rating: this.userRating(m) } : null; }).filter(Boolean) : [],
       invited: can('invite') ? Object.values(this.db.users).filter((u) => (u.invites || []).includes(al.id)).map((u) => u.login) : [],
       treasury: al.treasury || 0, storage: al.storage || { wood: 0, stone: 0, iron: 0, food: 0 },
       diplo: Object.entries(al.diplo || {}).map(([id, st]) => (A[id] ? { id: Number(id), tag: A[id].tag, name: A[id].name, status: st, statusName: DIPLO[st] } : null)).filter(Boolean),
       news: (al.news || []).slice().reverse(),
-      forum: (al.forum || []).filter((t) => !t.deleted || can('news')).map((t) => ({ id: t.id, title: t.title, by: t.by, at: t.at, pinned: !!t.pinned, closed: !!t.closed, deleted: !!t.deleted,
+      forum: (al.forum || []).filter((t) => !t.deleted || can('news') || this.canModerate(user)).map((t) => ({ id: t.id, title: t.title, by: t.by, at: t.at, pinned: !!t.pinned, closed: !!t.closed, deleted: !!t.deleted,
         replies: t.posts.length, last: t.posts[t.posts.length - 1] })).sort((a, b) => (b.pinned - a.pinned) || ((b.last ? b.last.at : b.at) - (a.last ? a.last.at : a.at))),
       log: can('logs') ? (al.log || []).slice(-100).reverse() : [], slog: can('logs') ? (al.slog || []).slice(-100).reverse() : [], reports,
-      rightsList: RIGHTS, now,
+      rightsList: RIGHTS, now, foreign: user.alliance !== al.id, modr: this.canModerate(user),
     };
   };
   P.allyTopic = function allyTopic(user, al, id) {
-    const t = (al.forum || []).find((x) => x.id === Number(id)); if (!t || (t.deleted && !this.allyCan(al, user.id, 'news'))) return null;
+    const t = (al.forum || []).find((x) => x.id === Number(id)); if (!t || (t.deleted && !this.allyCan(al, user.id, 'news') && !this.canModerate(user))) return null;
     return { id: t.id, title: t.title, closed: !!t.closed, pinned: !!t.pinned, posts: t.posts.map((p) => { const u = this.userById(p.byId); return { ...p, rep: u ? u.reputation ?? START_REP : START_REP }; }) };
   };
 
   // все операции окна «Альянс»
-  P.allyOp = function allyOp(user, castle, m) {
-    const al = this.allianceOf(user); if (!al) return { error: 'Вы не в альянсе.' };
-    const can = (r) => this.allyCan(al, user.id, r), need = (r) => (can(r) ? null : { error: `Нет права: ${RIGHTS[r]}.` });
+  P.allyOp = function allyOp(user, castle, m, alArg) {
+    const al = alArg || this.allianceOf(user); if (!al) return { error: 'Вы не в альянсе.' };
+    const modr = this.canModerate(user); // модератор форума / админ: удаление тем и сообщений в любом альянсе
+    const can = (r) => this.allyCan(al, user.id, r) || (modr && r === 'news' && ['topicop', 'postdel'].includes(m.op)), need = (r) => (can(r) ? null : { error: `Нет права: ${RIGHTS[r]}.` });
     const find = (login) => this.db.users[String(login || '').trim().toLowerCase()];
     const member = (login) => { const t = find(login); return t && al.members.includes(t.id) ? t : null; };
     const now = Date.now();
@@ -165,6 +166,16 @@ function install(Game) {
         const text = clean(m.text, 2000); if (!text) return { error: 'Введите текст.' };
         t.posts.push({ by: user.login, byId: user.id, at: now, text }); if (t.posts.length > 500) t.posts.shift();
         return done('Сообщение добавлено.');
+      }
+      case 'postdel': { // удалить одно сообщение темы
+        const e = need('news'); if (e) return e;
+        const t = (al.forum || []).find((x) => x.id === Number(m.topic)); if (!t) return { error: 'Тема не найдена.' };
+        const i = Number(m.idx); if (!(i >= 0 && i < t.posts.length)) return { error: 'Сообщение не найдено.' };
+        if (i === 0 && t.posts.length > 1) { t.posts[0] = { ...t.posts[0], text: '[сообщение удалено модератором]', deleted: true }; }
+        else t.posts.splice(i, 1);
+        if (!t.posts.length) t.deleted = true;
+        this.allyLog(al, `${user.login} удалил сообщение в теме «${t.title}»`);
+        return done('Сообщение удалено.');
       }
       case 'topicop': {
         const e = need('news'); if (e) return e;

@@ -814,3 +814,4 @@ textarea.ainput { resize: vertical; }
 .admbadge { height: 56px; width: auto; vertical-align: middle; margin: -8px 4px; } .admbadge.s { height: 24px; margin: -4px 2px; }
 .cpop-mod { text-align: center; font: min(18px, 4.2vw) var(--serif); margin: 12px 0 6px; color: #5a2a10; }
 .cpop-ban { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; } .cpop-ban .pbtn { font-size: 18px; }
+.fpost { position: relative; } .fdel { position: absolute; top: 6px; right: 6px; width: 36px; height: 36px; border: 2px solid #c8a070; border-radius: 6px; background: #ecd4b0; color: #c01010; font-size: 20px; }

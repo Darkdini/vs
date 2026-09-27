@@ -14,10 +14,15 @@ function repCrown(rep) { const c = CROWNS.find(([t]) => rep >= t); return c ? `<
 const CROWN_COLOR = { red: '#c01010', orange: '#d06010', teal: '#108a9a', green: '#1a7a1a', blue: '#1050c0', purple: '#5a1a9a' };
 const nameColor = (rep) => { const c = CROWNS.find(([t]) => rep >= t); return c ? CROWN_COLOR[c[1]] : '#7a1a0a'; };
 const can = (r) => S.ally && S.ally.my.rights.includes(r);
+const canMod = () => can('news') || (S.ally && S.ally.modr); // модератор форума удаляет в любом альянсе
+// в чужом альянсе (модератор) запросы идут с id этого альянса
+S.allyForeign = null;
+const asend = (m) => send({ ...m, ally: S.allyForeign || undefined });
+function openAllyForum(id) { S.allyForeign = id; S.ally = null; asend({ t: 'ally', op: 'get' }); openSheet(allyForumWin); }
 const dt = (t) => { const d = new Date(t), today = new Date(); const hm = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }); return d.toDateString() === today.toDateString() ? `Сегодня, ${hm}` : `${d.toLocaleDateString('ru-RU')} ${hm}`; };
 const loading = (t) => `${ribbon(t)}<p class="parch-note">Загрузка…</p>`;
 
-function openAlly() { S.ally = null; send({ t: 'ally', op: 'get' }); openSheet(allyMainWin); }
+function openAlly() { S.allyForeign = null; S.ally = null; asend({ t: 'ally', op: 'get' }); openSheet(allyMainWin); }
 
 function allyMainWin() {
   const a = S.ally; if (!a) return loading('Альянс');
@@ -153,18 +158,18 @@ function allyDiploWin() {
 function allyForumWin() {
   const a = S.ally; if (!a) return loading('Форум');
   const list = a.forum.filter((t) => S.allyShowDel || !t.deleted);
-  return `${ribbon('Форум')}<button class="lbar" data-aw="newtopic">Создать тему</button>
-    ${can('news') ? `<button class="pbar" data-adel>${S.allyShowDel ? 'Скрыть удалённые' : 'Восстановить'}</button>` : ''}
+  return `${ribbon(a.foreign ? `Форум [${a.tag}]` : 'Форум')}${a.foreign ? '<div class="bwline center small">Вы модератор: можно удалять темы и сообщения.</div>' : '<button class="lbar" data-aw="newtopic">Создать тему</button>'}
+    ${canMod() ? `<button class="pbar" data-adel>${S.allyShowDel ? 'Скрыть удалённые' : 'Восстановить'}</button>` : ''}
     ${list.map((t) => `<div class="ftopic ${t.deleted ? 'del' : ''}"><button class="fmain" data-atopic="${t.id}"><b>${t.pinned ? '📌 ' : ''}${t.closed ? '🔒 ' : ''}${esc(t.title)}</b>
       <span class="fline">${repCrown((a.members.find((m) => m.login === t.by) || {}).rep || 0)} <span style="color:${nameColor((a.members.find((m) => m.login === t.by) || {}).rep || 0)}">${esc(t.by)}</span> <span>Ответов: ${t.replies}</span></span>
       <small>${dt(t.last ? t.last.at : t.at)} от ${esc(t.last ? t.last.by : t.by)}</small></button>
-      ${can('news') ? `<span class="fops"><button data-atopicop="${t.id}" title="Действия"><img src="${G3}Gears/a1.png" alt=""></button><button data-atopicdel="${t.id}" title="${t.deleted ? 'Восстановить' : 'Удалить'}">${t.deleted ? '↺' : '✕'}</button></span>` : ''}</div>`).join('') || '<p class="parch-note">Тем пока нет.</p>'}`;
+      ${canMod() ? `<span class="fops"><button data-atopicop="${t.id}" title="Действия"><img src="${G3}Gears/a1.png" alt=""></button><button data-atopicdel="${t.id}" title="${t.deleted ? 'Восстановить' : 'Удалить'}">${t.deleted ? '↺' : '✕'}</button></span>` : ''}</div>`).join('') || '<p class="parch-note">Тем пока нет.</p>'}`;
 }
 function allyTopicWin() {
   const t = S.allyTopic; if (!t) return loading('Тема');
   return `${ribbon('Тема')}<div class="bwline center"><b>${esc(t.title)}</b>${t.closed ? ' 🔒' : ''}</div>
-    <div class="two2"><button class="lbar" data-aw="post">Написать</button><button class="lbar" data-aw="forum">Темы</button></div>
-    ${t.posts.map((p) => `<div class="fpost"><div class="fauthor">${repCrown(p.rep)} <a data-cprof="${p.byId}" style="color:${nameColor(p.rep)}">${esc(p.by)}</a></div>${repIcons(p.rep)}<div class="ftext">${esc(p.text)}</div><small>${dt(p.at)}</small></div>`).join('')}`;
+    <div class="two2">${S.allyForeign ? '' : '<button class="lbar" data-aw="post">Написать</button>'}<button class="lbar" data-aw="forum">Темы</button></div>
+    ${t.posts.map((p, i) => `<div class="fpost">${canMod() && !p.deleted ? `<button class="fdel" data-apostdel="${i}" title="Удалить">✕</button>` : ''}<div class="fauthor">${repCrown(p.rep)} <a data-cprof="${p.byId}" style="color:${nameColor(p.rep)}">${esc(p.by)}</a></div>${repIcons(p.rep)}<div class="ftext">${esc(p.text)}</div><small>${dt(p.at)}</small></div>`).join('')}`;
 }
 function allyNewTopicWin() { return formWin('Создать тему', '<div class="clabel">Тема:</div><input class="ainput" name="title" maxlength="60" required><div class="clabel">Текст:</div><textarea class="ainput" name="text" rows="5" maxlength="2000" required></textarea><div class="center"><button class="pbtn">Создать</button></div>'); }
 function allyPostWin() { return formWin('Написать', '<textarea class="ainput" name="text" rows="6" maxlength="2000" required></textarea><div class="center"><button class="pbtn">Отправить</button></div>'); }
@@ -195,24 +200,25 @@ const AW = { members: allyMembersWin, titles: allyTitlesWin, manage: allyManageW
 const ALLY_FORMS = { 'Изменить описание': 'desc', Устав: 'charter', Реклама: 'ad', Рассылки: 'mail', 'Изменить отношения': 'diplo', 'Создать тему': 'topic', Написать: 'post', Новость: 'news' };
 
 $('#sheetBody').addEventListener('click', (e) => {
-  const t = e.target.closest('[data-aw],[data-aleave],[data-akick],[data-atransfer],[data-arankgo],[data-atopic],[data-atopicop],[data-atopicdel],[data-adel],[data-anewsdel],[data-alog]'); if (!t) return;
+  const t = e.target.closest('[data-apostdel],[data-aw],[data-aleave],[data-akick],[data-atransfer],[data-arankgo],[data-atopic],[data-atopicop],[data-atopicdel],[data-adel],[data-anewsdel],[data-alog]'); if (!t) return;
   const d = t.dataset;
+  if (d.apostdel !== undefined) { if (confirm('Удалить сообщение?')) asend({ t: 'ally', op: 'postdel', topic: S.allyTopicId, idx: Number(d.apostdel) }); return; }
   if (d.aw) { if (t.classList.contains('off')) return toast('Нет прав на это действие.', 'err'); if (d.aw === 'forum' && S.sheets.length && S.allyTopic) closeSheet(); return openSheet(AW[d.aw]); }
   if (d.aleave !== undefined) { if (confirm('Покинуть альянс?')) { send({ t: 'alliance', op: 'leave' }); closeAllSheets(); } return; }
-  if (d.akick) { if (confirm(`Исключить ${d.akick} из альянса?`)) send({ t: 'alliance', op: 'kick', login: d.akick }); return setTimeout(() => send({ t: 'ally', op: 'get' }), 200); }
-  if (d.atransfer) { if (confirm(`Сделать ${d.atransfer} создателем альянса?`)) send({ t: 'ally', op: 'transfer', login: d.atransfer }); return; }
+  if (d.akick) { if (confirm(`Исключить ${d.akick} из альянса?`)) send({ t: 'alliance', op: 'kick', login: d.akick }); return setTimeout(() => asend({ t: 'ally', op: 'get' }), 200); }
+  if (d.atransfer) { if (confirm(`Сделать ${d.atransfer} создателем альянса?`)) asend({ t: 'ally', op: 'transfer', login: d.atransfer }); return; }
   if (d.arankgo !== undefined) {
     const rights = [...document.querySelectorAll('[data-aright]')].filter((x) => x.checked).map((x) => x.dataset.aright);
-    return send({ t: 'ally', op: 'rank', login: S.allyRankFor, title: $('[data-atitle]').value, ep: Number($('[data-aep]').value), rights });
+    return asend({ t: 'ally', op: 'rank', login: S.allyRankFor, title: $('[data-atitle]').value, ep: Number($('[data-aep]').value), rights });
   }
-  if (d.atopic) { S.allyTopic = null; S.allyTopicId = Number(d.atopic); send({ t: 'ally', op: 'topicget', topic: d.atopic }); return openSheet(allyTopicWin); }
+  if (d.atopic) { S.allyTopic = null; S.allyTopicId = Number(d.atopic); asend({ t: 'ally', op: 'topicget', topic: d.atopic }); return openSheet(allyTopicWin); }
   if (d.atopicop) {
     const act = prompt('Выберите действие: 1 — Закрепить/открепить, 2 — Закрыть/открыть, 3 — Удалить', '1'); if (!act) return;
-    return send({ t: 'ally', op: 'topicop', topic: d.atopicop, act: { 1: 'pin', 2: 'close', 3: 'delete' }[act.trim()] || 'pin' });
+    return asend({ t: 'ally', op: 'topicop', topic: d.atopicop, act: { 1: 'pin', 2: 'close', 3: 'delete' }[act.trim()] || 'pin' });
   }
-  if (d.atopicdel) { const tp = S.ally.forum.find((x) => x.id === Number(d.atopicdel)); if (tp && !tp.deleted && !confirm('Удалить тему?')) return; return send({ t: 'ally', op: 'topicop', topic: d.atopicdel, act: tp && tp.deleted ? 'restore' : 'delete' }); }
+  if (d.atopicdel) { const tp = S.ally.forum.find((x) => x.id === Number(d.atopicdel)); if (tp && !tp.deleted && !confirm('Удалить тему?')) return; return asend({ t: 'ally', op: 'topicop', topic: d.atopicdel, act: tp && tp.deleted ? 'restore' : 'delete' }); }
   if (d.adel !== undefined) { S.allyShowDel = !S.allyShowDel; return refreshSheet(); }
-  if (d.anewsdel) { if (confirm('Удалить новость?')) send({ t: 'ally', op: 'news', del: d.anewsdel }); return; }
+  if (d.anewsdel) { if (confirm('Удалить новость?')) asend({ t: 'ally', op: 'news', del: d.anewsdel }); return; }
   if (d.alog) { S.allyLogKind = d.alog; return refreshSheet(); }
 });
 $('#sheetBody').addEventListener('change', (e) => { if (e.target.dataset.arank !== undefined) { S.allyRankFor = e.target.value; refreshSheet(); } });
@@ -220,12 +226,12 @@ $('#sheetBody').addEventListener('submit', (e) => {
   const f = e.target, k = f.dataset.aform; if (!k) return;
   e.preventDefault(); document.activeElement && document.activeElement.blur();
   const v = (n) => (f[n] ? f[n].value : undefined), res = () => Object.fromEntries(RES4.map((r) => [r, Number(v(r)) || 0]));
-  if (k === 'gold') { send({ t: 'ally', op: 'gold', n: v('n') }); f.reset(); return; }
-  if (k === 'goldto') return send({ t: 'ally', op: 'gold', n: v('n'), to: v('to') });
-  if (k === 'store') { send({ t: 'ally', op: 'store', res: res() }); f.reset(); return; }
-  if (k === 'storeto') return send({ t: 'ally', op: 'store', res: res(), to: v('to') });
+  if (k === 'gold') { asend({ t: 'ally', op: 'gold', n: v('n') }); f.reset(); return; }
+  if (k === 'goldto') return asend({ t: 'ally', op: 'gold', n: v('n'), to: v('to') });
+  if (k === 'store') { asend({ t: 'ally', op: 'store', res: res() }); f.reset(); return; }
+  if (k === 'storeto') return asend({ t: 'ally', op: 'store', res: res(), to: v('to') });
   const op = ALLY_FORMS[k]; if (!op) return;
-  send({ t: 'ally', op, tag: v('tag'), name: v('name'), desc: v('desc'), text: v('text'), title: v('title'), status: v('status'), topic: S.allyTopicId });
+  asend({ t: 'ally', op, tag: v('tag'), name: v('name'), desc: v('desc'), text: v('text'), title: v('title'), status: v('status'), topic: S.allyTopicId });
   if (['topic', 'post', 'news', 'mail'].includes(op)) closeSheet();
 });
 const prevMilA = milMsg;

@@ -23,7 +23,7 @@ function alliancesWin() {
   const my = MY();
   const rows = (S.alFound || []).map((a) => `<div class="invite"><div class="itag">${esc(a.name)} [${esc(a.tag)}]</div>
       <small>глава ${esc(a.leader || '—')} · участников ${a.members} из ${a.slots} · очки ${fmtFull(a.score || 0)}</small>${a.ad ? `<div class="small">📣 ${esc(a.ad)}</div>` : ''}
-      ${my.alliance ? '' : a.requested ? '<div class="small muted">Заявка отправлена</div>' : a.members >= a.slots ? '<div class="small muted">Мест нет</div>' : `<div class="center"><button class="pbtn" data-al="request" data-id="${a.id}">Подать заявку</button></div>`}</div>`).join('');
+      ${S.st.user.admin || S.st.user.mod ? `<div class="center"><button class="pbtn small" data-amodforum="${a.id}">Форум (модерация)</button></div>` : ''}${my.alliance ? '' : a.requested ? '<div class="small muted">Заявка отправлена</div>' : a.members >= a.slots ? '<div class="small muted">Мест нет</div>' : `<div class="center"><button class="pbtn" data-al="request" data-id="${a.id}">Подать заявку</button></div>`}</div>`).join('');
   return `${ribbon('Альянсы')}<div class="bwline center">Альянсы, подходящие вам:</div>
     <button class="pbar" data-alfind>Найти</button>
     ${S.alFound ? rows || '<p class="parch-note">Альянсов пока нет — создайте свой.</p>' : ''}`;
@@ -53,8 +53,9 @@ function myAllianceWin() {
 
 const DIP_WIN = { invites: invitesWin, list: alliancesWin, create: createWin, my: myAllianceWin };
 $('#sheetBody').addEventListener('click', (e) => {
-  const t = e.target.closest('[data-dip],[data-al],[data-alfind],[data-alaward]'); if (!t) return;
+  const t = e.target.closest('[data-amodforum],[data-dip],[data-al],[data-alfind],[data-alaward]'); if (!t) return;
   const d = t.dataset;
+  if (d.amodforum) return openAllyForum(Number(d.amodforum));
   if (d.alaward) {
     const k = prompt(`Медаль за заслуги для ${d.alaward}: 1 — золотая, 2 — серебряная, 3 — бронзовая`, '1'); if (!k) return;
     const kind = { 1: 'gold', 2: 'silver', 3: 'bronze' }[k.trim()] || 'bronze';

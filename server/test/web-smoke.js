@@ -311,6 +311,13 @@ function client() {
     adm.send({ t: 'chatmod', op: 'ban', login: 'admin', hours: -1 });
     await adm.expect('error', (m) => /забанить нельзя/.test(m.msg));
     sp.close();
+    // модератор удаляет сообщение в форуме альянса (права «Новости и форум» у него нет) и может открыть форум чужого альянса
+    adm.send({ t: 'ally', op: 'get' });
+    const fa = (await adm.expect('ally', (m) => m.data.forum.length > 0)).data, ftopic = fa.forum[0];
+    a.send({ t: 'ally', op: 'postdel', topic: ftopic.id, idx: 1 });
+    await a.expect('toast', (m) => /Сообщение удалено/.test(m.msg));
+    a.send({ t: 'ally', op: 'topicop', topic: ftopic.id, act: 'delete' });
+    await a.expect('toast', (m) => /Готово/.test(m.msg));
     console.log('✓ модератор форума: удаление сообщения, бан в чате на 2 ч, админа забанить нельзя');
 
     // ---- генерал: очки опыта, распределение, сброс, имя, убить ----

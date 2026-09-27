@@ -190,14 +190,18 @@ const API = {
   calm() { const r = this.game.calmRiot(this.user, this.castle); if (r.msg) this.toast(r.msg); this.result(r); },
   forge(m) { this.result(this.game.forgeOp(this.castle, { unit: Number(m.unit), kind: m.kind })); },
   ally(m) {
-    const al = this.game.allianceOf(this.user);
-    if (!al) return this.error('Вы не в альянсе.');
+    // модератор форума / админ может открыть форум любого альянса (m.ally) — только просмотр и удаление
+    const mod = this.game.canModerate(this.user), foreign = mod && m.ally && Number(m.ally) !== this.user.alliance;
+    const al = foreign ? (this.game.db.alliances || {})[m.ally] : this.game.allianceOf(this.user);
+    if (!al) return this.error(foreign ? 'Альянс не найден.' : 'Вы не в альянсе.');
+    if (foreign && !['get', 'topicget', 'topicop', 'postdel'].includes(m.op)) return this.error('В чужом альянсе модератор может только удалять.');
     if (m.op === 'get') return this.send({ t: 'ally', data: this.game.allyView(this.user, al) });
     if (m.op === 'topicget') return this.send({ t: 'allytopic', data: this.game.allyTopic(this.user, al, m.topic) });
-    const r = this.game.allyOp(this.user, this.castle, m);
+    const r = this.game.allyOp(this.user, this.castle, m, al);
     if (r.error) return this.error(r.error);
     if (r.msg) this.toast(r.msg);
-    const al2 = this.game.allianceOf(this.user);
+    const al2 = foreign ? al : this.game.allianceOf(this.user);
+    if (al2 && m.op === 'postdel') this.send({ t: 'allytopic', data: this.game.allyTopic(this.user, al2, m.topic) });
     if (al2) this.send({ t: 'ally', data: this.game.allyView(this.user, al2) });
     if (al2 && (m.op === 'post' || m.op === 'topic')) this.send({ t: 'allytopic', data: this.game.allyTopic(this.user, al2, m.topic || r.topic) });
     this.pushState();
