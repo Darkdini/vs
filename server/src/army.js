@@ -97,7 +97,7 @@ const GENERAL_ID = 236;
 const unitsForRace = (race) => UNITS.filter((u) => u.race === race || u.race === 'all');
 // генерал как в оригинале: за уровень — очки опыта, игрок распределяет их в окне «Генерал».
 // Личная атака/защита — +1 за очко; командование атакой/защитой — +0,3% к армии; восстановление — быстрее воскрешение; карьера — больше опыта.
-const GEN = { perLevel: 2, maxLevel: 1000, cmd: 0.003, heal: 0.02, career: 0.005, resetGold: 100 };
+const GEN = { perLevel: 2, maxLevel: 500, revive: 0.5, cmd: 0.003, heal: 0.02, career: 0.005, resetGold: 100 };
 const GEN_STATS = ['atk', 'def', 'catk', 'cdef', 'heal', 'career'];
 // звание генерала в скобках — сильнейший боевой юнит расы (у орков «Бугай» и т. п.)
 const genKind = (race) => { const l = UNITS.filter((u) => u.race === race && ['infantry', 'cavalry'].includes(u.type)).sort((a, b) => b.attack - a.attack); return l[0] ? l[0].name : 'Генерал'; };
@@ -277,6 +277,7 @@ function install(Game, helpers) {
     if (!g.pts) { g.pts = Object.fromEntries(GEN_STATS.map((k) => [k, 0])); g.free = GEN.perLevel * Math.max(0, g.level - 1); }
     if (g.free === undefined) g.free = 0;
     if (!g.name) g.name = 'Генерал';
+    if (g.level > GEN.maxLevel) g.level = GEN.maxLevel;
     if (g.resets === undefined) g.resets = 1;
     if (!g.kind && castle) g.kind = genKind(this.raceOf(castle));
     return g;
@@ -327,7 +328,7 @@ function install(Game, helpers) {
     const g = castle.general;
     if (!g || !g.dead) return { error: 'Генерал жив.' };
     if (g.reviveAt) return { error: 'Воскрешение уже идёт.' };
-    const cost = UNIT[GENERAL_ID].cost, k = 0.5 * Math.min(g.level, 100);
+    const cost = UNIT[GENERAL_ID].cost, k = GEN.revive * g.level; // чем выше уровень, тем дороже
     for (const r of RES4) if (castle.res[r] < cost[r] * k) return { error: 'Недостаточно ресурсов.' };
     for (const r of RES4) castle.res[r] -= Math.round(cost[r] * k);
     g.reviveStart = Date.now();
@@ -958,7 +959,7 @@ function install(Game, helpers) {
     const where = a ? `армия в походе (${MISSIONS[a.mission]} ${a.x}:${a.y})` : q ? `Армия: ${q.name}` : 'Замковая армия';
     const health = g.dead ? (g.reviveAt && g.reviveStart ? Math.min(99, Math.floor((Date.now() - g.reviveStart) / (g.reviveAt - g.reviveStart) * 100)) : 0) : 100;
     return { ...g, stats: gs, need: this.generalNeed(g.level), prevNeed: g.level > 1 ? this.generalNeed(g.level - 1) : 0, where: `${where}, замок ${castle.name}`, health,
-      reviveCost: Object.fromEntries(RES4.map((r) => [r, Math.round(UNIT[GENERAL_ID].cost[r] * 0.5 * Math.min(g.level, 100))])), resetGold: GEN.resetGold, perLevel: GEN.perLevel };
+      reviveCost: Object.fromEntries(RES4.map((r) => [r, Math.round(UNIT[GENERAL_ID].cost[r] * GEN.revive * g.level)])), resetGold: GEN.resetGold, perLevel: GEN.perLevel };
   };
 
   P.reportsOf = function reportsOf(userId) { return (this.db.reports || []).filter((r) => r.owner === userId).slice(-50).reverse(); };

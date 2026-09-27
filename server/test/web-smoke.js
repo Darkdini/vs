@@ -161,7 +161,10 @@ function client() {
     adm.send({ t: 'general', op: 'kill' });
     await adm.expect('state', (m) => m.castle.mil.general === null);
     adm.send({ t: 'admin', op: 'general', level: 100 });
-    await adm.expect('state', (m) => m.castle.mil.general && m.castle.mil.general.level === 100);
+    const g100 = (await adm.expect('state', (m) => m.castle.mil.general && m.castle.mil.general.level === 100)).castle.mil.general;
+    adm.send({ t: 'admin', op: 'general', level: 900 });
+    const g500 = (await adm.expect('state', (m) => m.castle.mil.general && m.castle.mil.general.level === 500)).castle.mil.general;
+    assert.equal(g500.reviveCost.iron, g100.reviveCost.iron * 5); // уровень 500 — максимум, воскрешение в 5 раз дороже, чем на 100
     console.log('✓ генерал: очки опыта, распределение, сброс, имя, убить');
 
     // ---- армии в замке, военный поход, подкрепление ----

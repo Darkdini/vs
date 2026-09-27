@@ -133,10 +133,7 @@ function hqHtml() {
       <span class="cd" data-e="${a.state === 'go' ? a.arrive : a.back}"></span></div>`).join('') || '<p class="muted small">Армий в походе нет.</p>';
   const inc = my.incoming.map((a) => `<div class="card job ${a.mission === 'trade' ? '' : 'danger'}"><div class="grow"><b>${M().missions[a.mission]} от ${esc(a.from)}</b>
       ${a.units ? unitsListHtml(a.units, '') : '<span class="muted small">состав виден с Караульной башней 5 ур.</span>'}</div><span class="cd" data-e="${a.arrive}"></span></div>`).join('') || '<p class="muted small">Входящих армий нет.</p>';
-  const loy = S.st.castle.loyalty;
-  return `<div class="section">Лояльность замка</div><div class="card"><div class="bloy"><div class="bar"><i style="width:${loy}%"></i></div><b>${loy} / 100</b></div>
-      <p class="small muted">${S.st.castle.capital ? 'Столицу захватить нельзя.' : 'Если лояльность упадёт до 0 от вражеских Бунтарей — замок захватят.'} Восстанавливается сама, быстрее с Храмом.</p></div>
-    <div class="section">Генерал</div><div class="card unit">${gen}</div>
+  return `<div class="section">Генерал</div><div class="card unit">${gen}</div>
     <div class="section">Войска в замке</div><div class="card">${unitsListHtml(my.units, 'Войск нет — тренируйте их в Казарме, Конюшне, Академии магов…')}
       <p class="small muted">Содержание: ${fmtFull(my.upkeep)} еды/ч · атака ×${my.bonus.atk.toFixed(2)} · защита ×${my.bonus.def.toFixed(2)}</p>
       <div class="btns"><button class="btn primary" data-armies>Армии в замке</button><button class="btn" data-campaign>Военный поход</button></div><div class="btns" style="margin-top:6px"><button class="btn" data-reports>Отчёты${my.unreadReports ? ` (${my.unreadReports})` : ''}</button></div></div>
@@ -179,10 +176,15 @@ function universityHtml(id) {
       ${n > uni ? `<p class="reasons">Нужен Университет ${n} ур.</p>` : `<button class="btn primary small" data-sci="${k}" ${can ? '' : 'disabled'}>Изучить ${n} ур.</button>`}`}</div>`; }).join('')}`;
 }
 
+function loyaltyHtml() {
+  const loy = S.st.castle.loyalty;
+  return `<div class="section">Лояльность замка</div><div class="card"><div class="bloy"><div class="bar"><i style="width:${loy}%"></i></div><b>${loy} / 100</b></div>
+      <p class="small muted">${S.st.castle.capital ? 'Столицу захватить нельзя.' : 'Если лояльность упадёт до 0 от вражеских Бунтарей — замок захватят.'} Восстанавливается сама, тем быстрее, чем выше уровень Храма.</p></div>`;
+}
 function templeHtml() {
   const rel = MY().religion, L = buildingLevel(25);
-  if (rel) return `<div class="section">Религия</div><div class="card"><b>${esc(M().religions[rel].name)}</b><p class="small">${esc(M().religions[rel].desc)} — сейчас +${L}%.</p></div>`;
-  return `<div class="section">Выбор религии (один раз)</div>${Object.entries(M().religions).map(([k, r]) => `<div class="card"><b>${esc(r.name)}</b><p class="small">${esc(r.desc)}</p><button class="btn primary small" data-religion="${k}">Принять</button></div>`).join('')}`;
+  if (rel) return loyaltyHtml() + `<div class="section">Религия</div><div class="card"><b>${esc(M().religions[rel].name)}</b><p class="small">${esc(M().religions[rel].desc)} — сейчас +${L}%.</p></div>`;
+  return loyaltyHtml() + `<div class="section">Выбор религии (один раз)</div>${Object.entries(M().religions).map(([k, r]) => `<div class="card"><b>${esc(r.name)}</b><p class="small">${esc(r.desc)}</p><button class="btn primary small" data-religion="${k}">Принять</button></div>`).join('')}`;
 }
 
 function artifactsHtml() {
