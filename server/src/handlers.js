@@ -178,7 +178,7 @@ class Session {
     for (const id of options) {
       const def = C.BY_ID[id];
       const cost = C.levelCost(def, 1);
-      const time = Math.round(C.levelTimeSec(def, 1, this.game.buildingLevel(c, 0)) / require('./game').SPEED);
+      const time = require('./game').buildTime(def, 1, this.game.buildingLevel(c, 0));
       const missing = Object.entries(def.req || {}).filter(([r, l]) => this.game.buildingLevel(c, Number(r)) < l)
         .map(([r, l]) => `${C.BY_ID[r].name} ${l}`);
       w.image(100 + C.displayId(def, 1)).text(`${def.name}\n${costLine(cost)} {i5}${fmtTime(time)}${missing.length ? `\nНужно: ${missing.join(', ')}` : ''}`).endRow();
@@ -200,7 +200,7 @@ class Session {
     if (b === 1) w.text(`Вместимость склада: ${Math.round(1000 * 1.25 ** lvl)} каждого ресурса`).endRow();
     if (lvl < (def.max || 20)) {
       const cost = C.levelCost(def, lvl + 1);
-      const time = Math.round(C.levelTimeSec(def, lvl + 1, this.game.buildingLevel(c, 0)) / require('./game').SPEED);
+      const time = require('./game').buildTime(def, lvl + 1, this.game.buildingLevel(c, 0));
       w.text(`Улучшение до ${lvl + 1} ур.:\n${costLine(cost)} {i5}${fmtTime(time)}`).endRow();
       w.buttonParam('Развить', 10, 2, 1, cellParam(view, cell, b)).endRow();
     } else {

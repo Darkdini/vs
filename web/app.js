@@ -1,565 +1,812 @@
 'use strict';
-// Браузерный клиент «Война Королей». Говорит с сервером (server/src/web.js) JSON-сообщениями по WebSocket.
-// Графика: если серверу дали оригинальный jar (CLIENT_JAR), картинки берутся из него (/orig/...),
-// иначе рисуются простые фигуры — потом заменяется своей графикой (см. ASSETS ниже).
+// Война Королей — мобильный браузерный клиент. Без библиотек: WebSocket + JSON (см. server/src/web.js).
+// Экран: шапка (ресурсы, очередь строек) → вид (Замок / Земли / Мир / Рейтинг / Ещё) → нижнее меню.
+// Нажатие на клетку открывает нижнюю шторку: здание, следующий уровень и таблица всех уровней.
 
-// ---------------- справочники графики (пути внутри jar клиента) ----------------
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+const RES = ['wood', 'stone', 'iron', 'food', 'people'];
+// ---------- графика оригинального клиента «Третий Мир» (web/gfx — картинки из jar) ----------
+const GFX = 'gfx/';
 const GROUND = ['grass', 'stone', 'roadS0', 'roadS1', 'roadS2', 'roadG0', 'roadG1', 'ground', 'stone1', 'water', 'castle', 'grass1',
   'arrowup', 'arrowright', 'arrowdown', 'arrowleft', 'rov0', 'rov5', 'rov4', 'rov1', 'rov7', 'rov3', 'rov2', 'rov6',
   'castle_old', 'dikari', 'lumber', 'troll_rudnik', 'castle_small', 'castle_big'];
 const DECOR = ['wood', 'walun', 'mount'];
 const EDGE = ['0', '1', '2', '3', '40', '41', '50', '51', '60', '61', '70', '71'];
+// id здания → build/<имя>.png (порядок картинок клиента: id = номер картинки − 100)
 const BUILD_IMG = ['castle', 'storage', 'mbases', 'baraks', 'market', 'farm_small', 'house_small', 'sawmill_small', 'stone_small', 'iron_small',
   'build', 'smith', 'stables', 'diplomat', 'wisdom_house', 'university', 'arhcamp', 'expedition', 'art_tower', 'commerce', 'magtower',
   'guard_tower', null, 'workshop', 'traveler', 'temple', 'secret', 'sawmill_avg', 'stone_avg', 'iron_avg', 'farm_avg', 'house_avg',
   'sawmill_big', 'stone_big', 'iron_big', 'farm_big', 'house_big', 'chip', 'portal', 'magscool', 'builder', 'beer', 'gendel',
   'alchimia', 'reasury', 'spycentr', 'resident'];
+BUILD_IMG[22] = 'guard_tower'; // у Забора своей картинки в клиенте нет (рисуется оградой fence/*)
 const UNIT_IMG = {
   200: 'human/swordman', 201: 'human/javelineer', 202: 'human/scout', 203: 'human/mage', 204: 'human/knight', 205: 'human/paladin', 206: 'human/jin',
   207: 'elf/archer', 208: 'elf/fighter', 209: 'elf/scout', 210: 'elf/create', 211: 'elf/kenaur', 212: 'elf/edinorog', 213: 'elf/ent',
   214: 'dwarv/fighter', 215: 'dwarv/arbalet', 216: 'dwarv/elder', 217: 'dwarv/gryphon', 218: 'dwarv/defender', 219: 'dwarv/revolver', 220: 'dwarv/yeti',
 };
-const RES = ['wood', 'stone', 'iron', 'food', 'people'];
+const RACE_IMG = { humans: 'units/human/knight.png', elves: 'units/elf/archer.png', dwarves: 'units/dwarv/fighter.png' };
+const displayId = (def, level) => (!def.tiers ? def.id : level >= 10 ? def.tiers[2] : level >= 5 ? def.tiers[1] : def.tiers[0]);
+const bsrc = (id) => `${GFX}build/${BUILD_IMG[id] || 'build'}.png`;
+const bimg = (id, cls = 'bi') => `<img class="${cls}" src="${bsrc(id)}" alt="">`;
+const gimg = (path, cls = 'gi') => `<img class="${cls}" src="${GFX}${path}" alt="">`;
+const RES_IC = Object.fromEntries(['wood', 'stone', 'iron', 'food', 'people'].map((r) => [r, gimg(`res/${r}.png`, 'ri')]));
+const TIME_IC = gimg('res/time.png', 'ri');
 const RES_NAME = { wood: 'Дерево', stone: 'Камень', iron: 'Железо', food: 'Еда', people: 'Люди' };
-const RES_COLOR = { wood: '#b07a3c', stone: '#9a9a9a', iron: '#6f8fae', food: '#d9c24a', people: '#e8a37d' };
+const VIEW = { CASTLE: 0, LANDS: 1 };
+const WORLD_NAME_IMG = (o) => (o.kind !== 'castle' && o.img === 1 ? 'ground/walun.png' : `ground/${GROUND[o.kind === 'castle' ? castleTile(o.rating) : o.img]}.png`); // «Камни» — валуны
+const castleTile = (rating) => (rating < 300 ? 28 : rating < 1000 ? 10 : 29);
 
-// Основание замка 17×17 (массив k.i из клиента): 0 трава, 1 камень, 2-4 дорога, 5-6 дорога; здания — в квадрате 5..11
-const CASTLE_BASE = [
-  [0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 1, 1, 1, 3, 1, 1, 1, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 1, 1, 1, 3, 1, 1, 1, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 1, 1, 1, 3, 1, 1, 1, 0, 0, 0, 0, 0],
-  [5, 5, 5, 5, 5, 2, 2, 2, 4, 1, 1, 1, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-];
-const CASTLE_OFF = 5;
-const TW = 62, TH = 32; // размер ромба, как в оригинале
-
-// ---------------- состояние ----------------
 const S = {
-  ws: null, catalog: null, state: null, clockSkew: 0, original: false,
-  view: 'castle', sel: null, hover: null, world: null,
-  cam: { x: 0, y: 0, z: 1 }, creds: null,
-};
-window.__cam = S.cam; // для автотестов (web/test)
-const $ = (id) => document.getElementById(id);
-const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-
-// ---------------- картинки ----------------
-const imgCache = new Map();
-function img(path) { // path внутри jar, например 'build/castle.png'
-  if (!S.original || !path) return null;
-  let e = imgCache.get(path);
-  if (!e) {
-    e = { im: new Image(), ok: false };
-    e.im.onload = () => { e.ok = true; draw(); };
-    e.im.src = '/orig/' + path;
-    imgCache.set(path, e);
-  }
-  return e.ok ? e.im : null;
-}
-const groundImg = (n) => img(GROUND[n] && `ground/${GROUND[n]}.png`);
-const buildImg = (id) => img(BUILD_IMG[id] && `build/${BUILD_IMG[id]}.png`);
-const buildSrc = (id) => (S.original && BUILD_IMG[id] ? `/orig/build/${BUILD_IMG[id]}.png` : '');
-const resIcon = (r) => (S.original ? `<img class="icon" src="/orig/res/${r === 'time' ? 'time' : r}.png" alt="">` : `<b style="color:${RES_COLOR[r] || '#fff'}">●</b>`);
-
-// ---------------- сеть ----------------
-function connect() {
-  const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`);
-  S.ws = ws;
-  $('conn-state').textContent = 'Подключение…';
-  ws.onopen = () => {
-    $('conn-state').textContent = 'Соединение с сервером установлено';
-    send({ t: 'hello' });
-    if (S.creds) send({ t: 'login', ...S.creds }); // переподключение
-  };
-  ws.onmessage = (ev) => onMessage(JSON.parse(ev.data));
-  ws.onclose = () => {
-    $('conn-state').textContent = 'Нет связи с сервером, переподключаюсь…';
-    if (S.state) toast('Связь потеряна, переподключаюсь…', true);
-    setTimeout(connect, 2000);
-  };
-}
-const send = (m) => S.ws && S.ws.readyState === 1 && S.ws.send(JSON.stringify(m));
-
-function onMessage(m) {
-  switch (m.t) {
-    case 'catalog': S.catalog = m.catalog; break;
-    case 'error':
-      if (!S.state) $('auth-msg').textContent = m.msg; else toast(m.msg, true);
-      break;
-    case 'toast': toast(m.msg); break;
-    case 'registered':
-      $('auth-msg').textContent = `Аккаунт «${m.login}» создан. Теперь войдите.`;
-      switchAuth('login');
-      $('login-form').login.value = m.login;
-      break;
-    case 'auth':
-      $('auth').hidden = true; $('game').hidden = false;
-      try { sessionStorage.setItem('tw-creds', JSON.stringify(S.creds)); } catch (e) { /* приватный режим */ }
-      resize(); fitCamera();
-      break;
-    case 'state':
-      S.state = m; S.clockSkew = m.now - Date.now();
-      renderHeader(); renderPanel(); draw();
-      break;
-    case 'world': S.world = m; if (S.view === 'world') { fitCamera(); draw(); renderPanel(); } break;
-    case 'profile': showProfile(m.profile); break;
-    case 'rating': showRating(m.rows); break;
-    case 'mail': showMail(m.folder, m.list); break;
-    case 'letter': showLetter(m.letter); break;
-  }
-}
-
-// ---------------- вход ----------------
-function switchAuth(which) {
-  document.querySelectorAll('[data-auth]').forEach((b) => b.classList.toggle('active', b.dataset.auth === which));
-  $('login-form').hidden = which !== 'login';
-  $('register-form').hidden = which !== 'register';
-}
-document.querySelectorAll('[data-auth]').forEach((b) => b.onclick = () => { $('auth-msg').textContent = ''; switchAuth(b.dataset.auth); });
-$('login-form').onsubmit = (e) => {
-  e.preventDefault();
-  const f = e.target;
-  S.creds = { login: f.login.value.trim().toLowerCase(), password: f.password.value.toLowerCase() };
-  $('auth-msg').textContent = '';
-  send({ t: 'login', ...S.creds });
-};
-$('register-form').onsubmit = (e) => {
-  e.preventDefault();
-  const f = e.target;
-  send({ t: 'register', login: f.login.value.trim(), password: f.password.value, email: f.email.value, race: f.race.value });
+  ws: null, cat: null, by: {}, st: null, offset: 0, tab: 'castle', sub: null, world: null,
+  sheets: [], ignorePop: 0, mode: 'login', race: 0, creds: null, auto: false, pendingBuild: null, mailFolder: 0,
+  
 };
 
-// ---------------- шапка: ресурсы ----------------
-function liveRes() {
-  const c = S.state.castle, dtH = (Date.now() + S.clockSkew - S.state.now) / 3600000;
-  const r = {};
-  for (const k of RES) r[k] = Math.min(c.cap[k], c.res[k] + c.rate[k] * dtH);
-  return r;
+// ---------- утилиты ----------
+const now = () => Date.now() + S.offset;
+const fmtN = (n) => { n = Math.floor(n); return n >= 100000 ? `${Math.round(n / 1000)}k` : n >= 10000 ? `${(n / 1000).toFixed(1)}k` : String(n); };
+const fmtFull = (n) => Math.floor(n).toLocaleString('ru-RU');
+function fmtT(sec) {
+  sec = Math.max(0, Math.ceil(sec));
+  if (sec < 60) return `${sec} с`;
+  const d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
+  if (d) return `${d} д ${h} ч`;
+  if (h) return `${h} ч ${String(m).padStart(2, '0')} м`;
+  return `${m}:${String(s).padStart(2, '0')}`;
 }
-function renderHeader() {
-  const st = S.state; if (!st) return;
-  $('who-name').textContent = st.user.login;
-  $('who-race').textContent = `· ${st.user.raceName}`;
-  $('who-rating').textContent = `· рейтинг ${st.castle.rating}`;
-  const u = $('unread'); u.hidden = !st.unread; u.textContent = st.unread;
-  const r = liveRes();
-  $('resources').innerHTML = RES.map((k) => {
-    const v = Math.floor(r[k]), full = v >= st.castle.cap[k];
-    return `<span class="res" title="${RES_NAME[k]}: добыча ${st.castle.rate[k]}/час">${resIcon(k)}<span class="amt${full ? ' full' : ''}">${v}</span><span class="muted">/${st.castle.cap[k]}</span><span class="rate">+${st.castle.rate[k]}</span></span>`;
-  }).join('');
+const fmtDate = (t) => new Date(t).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+const store = {
+  get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
+  set(k, v) { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* приватный режим */ } },
+};
+function toast(msg, cls = '') {
+  const el = document.createElement('div'); el.textContent = msg; if (cls) el.className = cls;
+  $('#toast').append(el);
+  setTimeout(() => el.remove(), 2500);
+  while ($('#toast').children.length > 3) $('#toast').firstChild.remove();
 }
+const send = (m) => { if (S.ws && S.ws.readyState === 1) S.ws.send(JSON.stringify(m)); };
 
-// ---------------- выбор вида ----------------
-document.querySelectorAll('[data-view]').forEach((b) => b.onclick = () => setView(b.dataset.view));
-document.querySelectorAll('[data-modal]').forEach((b) => b.onclick = () => openModal(b.dataset.modal));
-document.querySelector('[data-action="logout"]').onclick = () => { try { sessionStorage.removeItem('tw-creds'); } catch (e) { /* ignore */ } location.reload(); };
-
-function setView(v) {
-  S.view = v; S.sel = null; S.hover = null;
-  document.querySelectorAll('[data-view]').forEach((b) => b.classList.toggle('active', b.dataset.view === v));
-  if (v === 'world') send({ t: 'world' });
-  fitCamera(); renderPanel(); draw();
+// ---------- правила игры (те же формулы, что на сервере: server/src/catalog.js, game.js) ----------
+const R = () => S.cat.rules;
+function buildSec(def, level, townhall) {
+  const T = R().time, t = def.layer === 'lands' ? T.lands : T.castle;
+  const raw = Math.max(T.min, Math.round(t.base * t.growth ** (level - 1) * T.townhallFactor ** townhall));
+  return Math.max(R().minBuildSec, Math.round(raw / S.cat.speed));
 }
-
-// ---------------- геометрия изометрии ----------------
-function gridSize() { return S.view === 'castle' ? 17 : 15; }
-function tileScreen(x, y) { return { sx: x * TW / 2 + y * TW / 2, sy: y * TH / 2 - x * TH / 2 }; }
-function screenToTile(px, py) { // px,py — в мировых координатах canvas (до камеры)
-  const a = (px - TW / 2) / (TW / 2), b = (py - TH / 2) / (TH / 2);
-  return { x: Math.round((a - b) / 2), y: Math.round((a + b) / 2) };
-}
-
-const canvas = $('map');
-const ctx = canvas.getContext('2d');
-function resize() {
-  const r = canvas.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
-  canvas.width = Math.max(1, Math.round(r.width * dpr)); canvas.height = Math.max(1, Math.round(r.height * dpr));
-  draw();
-}
-window.addEventListener('resize', () => { resize(); fitCamera(); draw(); });
-function fitCamera() {
-  // в замке показываем квадрат застройки 7×7 с небольшим полем, в остальных видах — всю сетку
-  const n = S.view === 'castle' ? 10 : gridSize(), center = gridSize() / 2 - 0.5, r = canvas.getBoundingClientRect();
-  const w = n * TW, h = n * TH + 80;
-  const z = Math.max(0.5, Math.min(2.5, Math.min(r.width / w, r.height / h) * 0.98));
-  S.cam.z = z;
-  // центр сетки в центр canvas
-  const c = tileScreen(center, center);
-  S.cam.x = r.width / 2 - (c.sx + TW / 2) * z;
-  S.cam.y = r.height / 2 - (c.sy + TH / 2) * z + 20 * z;
-}
-
-// ---------------- мышь / палец ----------------
-let drag = null;
-canvas.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, cx: S.cam.x, cy: S.cam.y, moved: false }; canvas.setPointerCapture(e.pointerId); });
-canvas.addEventListener('pointermove', (e) => {
-  if (drag) {
-    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
-    if (Math.abs(dx) + Math.abs(dy) > 6) drag.moved = true;
-    if (drag.moved) { S.cam.x = drag.cx + dx; S.cam.y = drag.cy + dy; draw(); }
-    return;
+const ratingPer = (def) => (def.layer === 'lands' ? R().rating.lands : R().rating.castle);
+// что даёт здание на уровне level: {text, short}
+function effect(def, level) {
+  if (level <= 0) return { text: '—', short: '—' };
+  const sp = S.cat.speed;
+  if (def.produces === 'people') {
+    const cap = R().store.peoplePerHut * level, p = Math.round(S.cat.prod[level] * R().peopleFactor * sp);
+    return { text: `+${cap} мест для людей, +${p} людей/ч`, short: `+${cap} мест` };
   }
-  const t = pick(e); const key = t ? `${t.x}:${t.y}` : null;
-  if (key !== (S.hover && `${S.hover.x}:${S.hover.y}`)) { S.hover = t; draw(); }
-});
-canvas.addEventListener('pointerup', (e) => {
-  const wasDrag = drag && drag.moved; drag = null;
-  if (wasDrag) return;
-  const t = pick(e);
-  if (t) { S.sel = t; renderPanel(); draw(); }
-});
-canvas.addEventListener('wheel', (e) => {
-  e.preventDefault();
-  const r = canvas.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
-  const k = e.deltaY < 0 ? 1.15 : 1 / 1.15, z = Math.max(0.4, Math.min(3, S.cam.z * k));
-  S.cam.x = mx - (mx - S.cam.x) * (z / S.cam.z); S.cam.y = my - (my - S.cam.y) * (z / S.cam.z); S.cam.z = z;
-  draw();
-}, { passive: false });
-
-// клетка под курсором (только те, где можно что-то сделать)
-function pick(e) {
-  const r = canvas.getBoundingClientRect();
-  const t = screenToTile((e.clientX - r.left - S.cam.x) / S.cam.z, (e.clientY - r.top - S.cam.y) / S.cam.z);
-  if (S.view === 'castle') {
-    const x = t.x - CASTLE_OFF, y = t.y - CASTLE_OFF;
-    return x >= 0 && x < 7 && y >= 0 && y < 7 ? { x, y } : null;
-  }
-  if (S.view === 'lands') return t.x >= 0 && t.x < 15 && t.y >= 0 && t.y < 15 ? t : null;
-  if (S.view === 'world' && S.world) {
-    const R = S.world.radius;
-    return t.x >= 0 && t.x <= 2 * R && t.y >= 0 && t.y <= 2 * R ? { x: t.x, y: t.y, wx: S.world.cx - R + t.x, wy: S.world.cy - R + t.y } : null;
-  }
-  return null;
+  if (def.produces) { const p = Math.round(S.cat.prod[level] * sp); return { text: `+${fmtFull(p)} ${RES_IC[def.produces]} в час`, short: `+${fmtN(p)}/ч` }; }
+  if (def.id === 1) { const c = Math.round(R().store.perStore * R().store.growth ** level); return { text: `+${fmtFull(c)} к вместимости`, short: `+${fmtN(c)}` }; }
+  if (def.id === 0) { const p = Math.round((1 - R().time.townhallFactor ** level) * 100); return { text: `стройки быстрее на ${p}%`, short: `−${p}%` }; }
+  return { text: 'открывает новые возможности (в разработке)', short: '' };
 }
-
-// ---------------- отрисовка ----------------
-let drawQueued = false;
-function draw() {
-  if (drawQueued) return; drawQueued = true;
-  requestAnimationFrame(() => { drawQueued = false; drawNow(); });
-}
-function diamond(sx, sy, fill, stroke) {
-  ctx.beginPath(); ctx.moveTo(sx + TW / 2, sy); ctx.lineTo(sx + TW, sy + TH / 2); ctx.lineTo(sx + TW / 2, sy + TH); ctx.lineTo(sx, sy + TH / 2); ctx.closePath();
-  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
-  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 3; ctx.stroke(); }
-}
-const GROUND_COLOR = { 0: '#3f7d2c', 1: '#8c8c7a', 2: '#9c8a6a', 3: '#9c8a6a', 4: '#9c8a6a', 5: '#8f7c5c', 6: '#8f7c5c', 7: '#6b5232', 8: '#77776a', 9: '#2f6fb3', 11: '#4a8a33' };
-function drawGround(n, sx, sy) {
-  const im = groundImg(n);
-  if (im) ctx.drawImage(im, sx, sy - (im.height - TH));
-  else diamond(sx, sy, GROUND_COLOR[n] || '#3f7d2c', '#0002');
-}
-function drawSprite(im, sx, sy, dy = 0) { ctx.drawImage(im, sx + TW / 2 - im.width / 2, sy - (im.height - TH) + dy); }
-function drawBuilding(id, sx, sy, label) {
-  const im = buildImg(id);
-  if (im) return drawSprite(im, sx, sy);
-  // запасной вариант: «коробка» с подписью
-  ctx.fillStyle = id === 10 ? '#8a6a3a' : '#c9a36b'; ctx.strokeStyle = '#2b1a08'; ctx.lineWidth = 1.5;
-  ctx.fillRect(sx + 16, sy - 12, 30, 28); ctx.strokeRect(sx + 16, sy - 12, 30, 28);
-  ctx.fillStyle = '#8b2a1a'; ctx.beginPath(); ctx.moveTo(sx + 12, sy - 12); ctx.lineTo(sx + 31, sy - 28); ctx.lineTo(sx + 50, sy - 12); ctx.fill();
-  ctx.fillStyle = '#fff'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(label || '', sx + 31, sy + 8);
-}
-function drawBar(sx, sy, frac) {
-  ctx.fillStyle = '#000a'; ctx.fillRect(sx + 11, sy - 34, 40, 6);
-  ctx.fillStyle = '#ffd27a'; ctx.fillRect(sx + 12, sy - 33, 38 * Math.max(0, Math.min(1, frac)), 4);
-}
-
-function drawNow() {
-  const dpr = window.devicePixelRatio || 1;
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.fillStyle = S.view === 'world' ? '#10200b' : '#1b0c04';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  if (!S.state || !S.catalog) return;
-  ctx.setTransform(S.cam.z * dpr, 0, 0, S.cam.z * dpr, S.cam.x * dpr, S.cam.y * dpr);
-  ctx.imageSmoothingEnabled = false;
-  if (S.view === 'castle') drawCastle();
-  else if (S.view === 'lands') drawLands();
-  else drawWorld();
-}
-
-function queueAt(view, cell) { return S.state.castle.queue.find((q) => q.view === view && q.cell === cell); }
-const now = () => Date.now() + S.clockSkew;
-const initials = (name) => name.split(/\s+/).map((w) => w[0]).join('').slice(0, 3);
-
-function drawCastle() {
-  const c = S.state.castle, n = 17;
-  for (let y = 0; y < n; y++) for (let x = n - 1; x >= 0; x--) { const p = tileScreen(x, y); drawGround(CASTLE_BASE[y][x], p.sx, p.sy); }
-  // подсветка
-  for (const [t, color] of [[S.hover, '#ffffffaa'], [S.sel, '#ffd000']]) {
-    if (!t) continue; const p = tileScreen(t.x + CASTLE_OFF, t.y + CASTLE_OFF); diamond(p.sx, p.sy, null, color);
-  }
-  for (let y = 0; y < 7; y++) {
-    for (let x = 6; x >= 0; x--) {
-      const cell = y * 7 + x, b = c.grid[0][cell], q = queueAt(0, cell), p = tileScreen(x + CASTLE_OFF, y + CASTLE_OFF);
-      if (q && q.level === 1) drawBuilding(10, p.sx, p.sy, '…');
-      else if (b >= 0) drawBuilding(displayId(b, c.levels[0][cell]), p.sx, p.sy, initials(S.catalog.buildings[b].name));
-      if (q) drawBar(p.sx, p.sy, (now() - q.start) / (q.end - q.start));
-    }
-  }
-}
-
-function drawLands() {
-  const c = S.state.castle, L = S.catalog.lands;
-  for (let y = 0; y < 15; y++) {
-    for (let x = 14; x >= 0; x--) {
-      const p = tileScreen(x, y); drawGround(L.base[y][x], p.sx, p.sy);
-      const e = L.edge[y][x];
-      if (e >= 0) { const im = img(`gborder/${e < 12 ? 'ground' : 'water'}/${EDGE[e % 12]}.png`); if (im) ctx.drawImage(im, p.sx, p.sy); }
-    }
-  }
-  for (const [t, color] of [[S.hover, '#ffffffaa'], [S.sel, '#ffd000']]) { if (t) { const p = tileScreen(t.x, t.y); diamond(p.sx, p.sy, null, color); } }
-  for (let y = 0; y < 15; y++) {
-    for (let x = 14; x >= 0; x--) {
-      const cell = y * 15 + x, b = c.grid[1][cell], q = queueAt(1, cell), p = tileScreen(x, y);
-      if (q && q.level === 1) drawBuilding(10, p.sx, p.sy, '…');
-      else if (b >= 0) drawBuilding(displayId(b, c.levels[1][cell]), p.sx, p.sy, initials(S.catalog.buildings[b].name));
-      else if (L.decor[y][x] >= 0) {
-        const im = img(`ground/${DECOR[L.decor[y][x]]}.png`);
-        if (im) drawSprite(im, p.sx, p.sy, L.decor[y][x] === 1 ? 3 : L.decor[y][x] === 2 ? -2 : 0);
-        else { ctx.fillStyle = ['#2d5a1e', '#7a7a70', '#5c5c55'][L.decor[y][x]]; ctx.beginPath(); ctx.arc(p.sx + 31, p.sy + 10, 9, 0, 7); ctx.fill(); }
-      }
-      if (q) drawBar(p.sx, p.sy, (now() - q.start) / (q.end - q.start));
-    }
-  }
-}
-
-function worldObjAt(wx, wy) { return S.world && S.world.objects.find((o) => o.x === wx && o.y === wy); }
-function castleTile(rating) { return rating < 300 ? 28 : rating < 1000 ? 10 : 29; }
-function drawWorld() {
-  if (!S.world) return;
-  const R = S.world.radius, n = 2 * R + 1;
-  for (let y = 0; y < n; y++) {
-    for (let x = n - 1; x >= 0; x--) {
-      const wx = S.world.cx - R + x, wy = S.world.cy - R + y, p = tileScreen(x, y);
-      drawGround(0, p.sx, p.sy);
-    }
-  }
-  for (const [t, color] of [[S.hover, '#ffffffaa'], [S.sel, '#ffd000']]) { if (t) { const p = tileScreen(t.x, t.y); diamond(p.sx, p.sy, null, color); } }
-  for (let y = 0; y < n; y++) {
-    for (let x = n - 1; x >= 0; x--) {
-      const wx = S.world.cx - R + x, wy = S.world.cy - R + y, o = worldObjAt(wx, wy), p = tileScreen(x, y);
-      if (!o) continue;
-      const tile = o.kind === 'castle' ? castleTile(o.rating) : o.img;
-      const im = groundImg(tile);
-      if (im) ctx.drawImage(im, p.sx, p.sy - (im.height - TH));
-      else if (o.kind === 'castle') drawBuilding(0, p.sx, p.sy, o.owner.slice(0, 4));
-      else diamond(p.sx, p.sy, GROUND_COLOR[o.img] || '#6b5232', '#0004');
-      if (o.kind === 'castle') {
-        ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
-        ctx.fillStyle = '#000b'; ctx.fillText(o.owner, p.sx + 32, p.sy + TH + 9);
-        ctx.fillStyle = o.ownerId === S.state.user.id ? '#ffd27a' : '#fff'; ctx.fillText(o.owner, p.sx + 31, p.sy + TH + 8);
-      }
-    }
-  }
-}
-
-// ---------------- правила (как на сервере) ----------------
-function displayId(b, level) {
-  const t = S.catalog.buildings[b].tiers;
-  if (!t) return b;
-  return level >= 10 ? t[2] : level >= 5 ? t[1] : t[0];
-}
-function buildTime(def, level) {
-  const lands = def.layer === 'lands', th = S.state.castle.townhall;
-  const t = Math.max(5, Math.round((lands ? 60 : 180) * (lands ? 1.45 : 1.25) ** (level - 1) * 0.95 ** th));
-  return Math.max(3, Math.round(t / S.catalog.speed));
-}
-function haveLevel(id) {
-  const c = S.state.castle; let best = 0;
+function buildingLevel(id) {
+  const c = S.st.castle; let best = 0;
   for (const v of [0, 1]) c.grid[v].forEach((b, i) => { if (b === id) best = Math.max(best, c.levels[v][i]); });
   return best;
 }
-const fmt = (sec) => { sec = Math.max(0, Math.round(sec)); const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60; return `${h ? h + ':' : ''}${String(m).padStart(h ? 2 : 1, '0')}:${String(s).padStart(2, '0')}`; };
-
-function costHtml(cost) {
-  const r = liveRes();
-  return `<div class="cost">${RES.filter((k) => cost[k] > 0).map((k) => `<span class="${k !== 'people' && r[k] < cost[k] ? 'lack' : ''}" title="${RES_NAME[k]}">${resIcon(k)}${cost[k]}</span>`).join('')}</div>`;
+function resNow(r) {
+  const c = S.st.castle, dt = (now() - S.st.now) / 3600000;
+  return Math.min(c.cap[r], c.res[r] + c.rate[r] * dt);
 }
-function canAfford(cost) { const r = liveRes(); return RES.every((k) => k === 'people' || r[k] >= cost[k]); }
-function missingReq(def) { return Object.entries(def.req).filter(([id, l]) => haveLevel(Number(id)) < l).map(([id, l]) => `${S.catalog.buildings[id].name} ${l}`); }
-function picHtml(id) { const src = buildSrc(id); return `<div class="pic">${src ? `<img src="${src}" alt="">` : ''}</div>`; }
-
-// ---------------- правая панель ----------------
-function renderPanel() {
-  if (!S.state || !S.catalog) return;
-  $('selection').innerHTML = S.view === 'world' ? worldPanel() : cellPanel();
-  $('selection').querySelectorAll('[data-build]').forEach((b) => b.onclick = () => {
-    const [view, cell, building] = b.dataset.build.split(':').map(Number);
-    send({ t: 'build', view, cell, building });
-  });
-  $('selection').querySelectorAll('[data-profile]').forEach((a) => a.onclick = () => send({ t: 'profile', id: Number(a.dataset.profile) }));
-  $('selection').querySelectorAll('[data-write]').forEach((a) => a.onclick = () => compose(a.dataset.write));
-  $('selection').querySelectorAll('[data-go]').forEach((a) => a.onclick = () => {
-    const [dx, dy] = a.dataset.go.split(':').map(Number);
-    if (dx === 0 && dy === 0) send({ t: 'world' }); else send({ t: 'world', cx: S.world.cx + dx, cy: S.world.cy + dy });
-    S.sel = null;
-  });
-  renderQueue();
+const queueAt = (view, cell) => S.st.castle.queue.find((q) => q.view === view && q.cell === cell);
+// можно ли строить: список причин, почему нельзя (пусто — можно)
+function blockers(def, level, view, cell) {
+  const c = S.st.castle, out = [];
+  if (level > def.max) return ['Достигнут максимальный уровень.'];
+  if (queueAt(view, cell)) out.push('Здесь уже идёт стройка.');
+  if (c.queue.length >= S.cat.maxQueue) out.push(`Очередь занята (${c.queue.length}/${S.cat.maxQueue}).`);
+  if (level === 1 && def.unique && (buildingLevel(def.id) > 0 || c.queue.some((q) => q.building === def.id))) out.push('Такое здание уже есть.');
+  for (const [id, l] of Object.entries(def.req)) if (buildingLevel(Number(id)) < l) out.push(`Нужно: ${S.by[id].name} ${l} ур.`);
+  const cost = def.costs[level];
+  if (RES.some((r) => resNow(r) < cost[r])) out.push('Не хватает ресурсов.');
+  const busy = c.queue.reduce((s, q) => s + ((S.by[q.building].costs[q.level] || {}).people || 0), 0);
+  if (busy + cost.people > c.cap.people) out.push('Не хватает свободных людей.');
+  return out;
 }
 
-function cellPanel() {
-  const c = S.state.castle, view = S.view === 'castle' ? 0 : 1, size = view === 0 ? 7 : 15;
-  if (!S.sel) {
-    return `<h3>${view === 0 ? 'Замок' : 'Земли'}</h3><p class="desc">${view === 0
-      ? 'Внутри стен строятся Ратуша, склады, казармы, храмы и другие здания. Выберите клетку.'
-      : 'На землях стоят добывающие здания: на лесу — Дровосек, на валунах — Каменьщик, на горах — Рудник, на траве — Огород и Хибара, у воды — Рыболовная заводь.'}</p>`;
+// ---------- связь ----------
+function connect() {
+  const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`);
+  S.ws = ws;
+  ws.onopen = () => {
+    $('#offline').classList.remove('show');
+    send({ t: 'hello' });
+    if (S.creds) { S.auto = true; send({ t: 'login', ...S.creds }); }
+  };
+  ws.onmessage = (e) => { try { onMsg(JSON.parse(e.data)); } catch (err) { console.error(err); } };
+  ws.onclose = () => { if (S.ws !== ws) return; $('#offline').classList.add('show'); setTimeout(connect, 2000); };
+}
+
+function onMsg(m) {
+  switch (m.t) {
+    case 'catalog':
+      S.cat = m.catalog; S.by = Object.fromEntries(S.cat.buildings.map((b) => [b.id, b]));
+      renderRaces(); break;
+    case 'registered':
+      toast('Аккаунт создан!');
+      send({ t: 'login', login: S.pendingCreds.login, password: S.pendingCreds.password });
+      break;
+    case 'auth':
+      S.creds = S.pendingCreds || S.creds;
+      if (S.remember && S.creds) store.set('tw.creds', S.creds);
+      S.auto = false;
+      $('#auth').classList.add('hidden'); $('#game').classList.remove('hidden');
+      break;
+    case 'state': onState(m); break;
+    case 'world': if (!S.world || S.world.cx !== m.cx || S.world.cy !== m.cy) delete Iso.cams.world; S.world = m; if (S.tab === 'world' && !S.sub) renderView(); break;
+    case 'rating': S.ratingRows = m.rows; if (S.tab === 'rating') renderView(); break;
+    case 'profile': openSheet(() => profileSheet(m.profile)); break;
+    case 'mail': S.mail = m; if (S.sub === 'mail') renderView(); break;
+    case 'letter': openSheet(() => letterSheet(m.letter)); break;
+    case 'toast':
+      toast(m.msg);
+      if (/отправлено/.test(m.msg) && S.sheets.length && S.composing) { S.composing = false; closeSheet(); }
+      break;
+    case 'error':
+      if (S.auto || !S.st) { // ошибка входа — показать форму
+        S.auto = false; S.creds = null; store.set('tw.creds', null);
+        $('#auth').classList.remove('hidden'); $('#game').classList.add('hidden');
+        $('#authErr').textContent = m.msg;
+      } else toast(m.msg, 'err');
+      S.pendingBuild = null;
+      break;
+    default: break;
   }
-  const cell = S.sel.y * size + S.sel.x, b = c.grid[view][cell], q = queueAt(view, cell);
+}
+
+function onState(m) {
+  const first = !S.st;
+  S.st = m; S.offset = m.now - Date.now();
+  if (S.pendingBuild && queueAt(S.pendingBuild.view, S.pendingBuild.cell)) {
+    const q = queueAt(S.pendingBuild.view, S.pendingBuild.cell);
+    toast(`Стройка начата: ${S.by[q.building].name}, ${q.level} ур. — ${fmtT((q.end - q.start) / 1000)}`);
+    S.pendingBuild = null; closeAllSheets();
+  }
+  renderTop();
+  if (first) setTab('castle'); else if (!S.sub && ['castle', 'lands'].includes(S.tab)) { $('#view .vhead .muted').textContent = S.tab === 'castle' ? `X:${m.castle.x} Y:${m.castle.y} · Ратуша ${m.castle.townhall} ур.` : $('#view .vhead .muted').textContent; isoDraw(); }
+  refreshSheet();
+}
+
+// ---------- вход / регистрация ----------
+function renderRaces() {
+  const notes = (S.cat.army && S.cat.army.races) || {};
+  $('#races').innerHTML = S.cat.raceOrder.map((r, i) => `
+    <button type="button" class="race ${i === S.race ? 'on' : ''}" data-race="${i}">
+      <i>${gimg(RACE_IMG[r])}</i><div><b>${esc(S.cat.races[r])}</b><span>${esc((notes[r] && notes[r].note) || '')}</span></div>
+    </button>`).join('');
+}
+function setMode(mode) {
+  S.mode = mode;
+  $$('#authTabs button').forEach((b) => b.classList.toggle('on', b.dataset.mode === mode));
+  $('#raceBox').classList.toggle('hidden', mode !== 'reg');
+  $('#authBtn').textContent = mode === 'reg' ? 'Создать аккаунт' : 'Войти';
+  $('#authForm').password.autocomplete = mode === 'reg' ? 'new-password' : 'current-password';
+  $('#authErr').textContent = '';
+}
+$('#authTabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) setMode(b.dataset.mode); });
+$('#races').addEventListener('click', (e) => { const b = e.target.closest('[data-race]'); if (b) { S.race = Number(b.dataset.race); renderRaces(); } });
+$('#authForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const f = e.target, login = f.login.value.trim(), password = f.password.value;
+  $('#authErr').textContent = '';
+  S.remember = f.remember.checked;
+  S.pendingCreds = { login, password };
+  if (S.mode === 'reg') send({ t: 'register', login, password, race: String(S.race) });
+  else send({ t: 'login', login, password });
+});
+
+// ---------- шапка: ресурсы и очередь ----------
+function renderTop() {
+  const c = S.st.castle;
+  $('#castleName').textContent = `${c.name} · ${S.st.user.raceName}`;
+  $('#ratingBadge').textContent = `★ ${fmtFull(c.rating)}`;
+  if (!$('#resbar').children.length) {
+    $('#resbar').innerHTML = RES.map((r) => `<button class="res plain" data-res="${r}"><span class="ic">${RES_IC[r]}</span><b></b><small></small></button>`).join('');
+  }
+  $('#queue').innerHTML = c.queue.map((q) => `
+    <button class="qi" data-view="${q.view}" data-cell="${q.cell}">
+      <span>${bimg(q.level === 1 ? q.building : displayId(S.by[q.building], q.level), 'bi s')}</span><span>${esc(S.by[q.building].name)} → ${q.level} ур.</span>
+      <span class="cd" data-e="${q.end}"></span>
+      <div class="bar"><i data-s="${q.start}" data-e="${q.end}"></i></div>
+    </button>`).join('');
+  const u = S.st.unread;
+  $('#unread').textContent = u; $('#unread').classList.toggle('hidden', !u);
+  tick();
+}
+function tick() {
+  if (!S.st) return;
+  const c = S.st.castle, t = now();
+  $$('#resbar .res').forEach((el) => {
+    const r = el.dataset.res, v = resNow(r);
+    el.querySelector('b').textContent = fmtN(v);
+    el.querySelector('small').textContent = `+${fmtN(c.rate[r])}/ч`;
+    el.classList.toggle('full', v >= c.cap[r]);
+  });
+  $$('[data-e]').forEach((el) => {
+    const e = Number(el.dataset.e);
+    if (el.dataset.s) el.style.width = `${Math.min(100, Math.max(0, ((t - Number(el.dataset.s)) / (e - Number(el.dataset.s))) * 100))}%`;
+    else el.textContent = e > t ? fmtT((e - t) / 1000) : 'готово';
+  });
+  if (Iso.cv.isConnected && c.queue.length) isoDraw(); // полосы строек на карте
+  $$('[data-need]').forEach((el) => { // цены в шторке: красным то, чего не хватает
+    const [r, n] = el.dataset.need.split(':');
+    el.classList.toggle('lack', r !== 'people' && resNow(r) < Number(n));
+  });
+}
+setInterval(tick, 500);
+$('#resbar').addEventListener('click', () => openSheet(resSheet));
+$('#queue').addEventListener('click', (e) => { const b = e.target.closest('.qi'); if (b) openCell(Number(b.dataset.view), Number(b.dataset.cell)); });
+$('#castleName').addEventListener('click', () => send({ t: 'profile', id: S.st.user.id }));
+$('#ratingBadge').addEventListener('click', () => openSheet(ratingInfoSheet));
+
+function resSheet() {
+  const c = S.st.castle;
+  const busy = c.queue.reduce((s, q) => s + ((S.by[q.building].costs[q.level] || {}).people || 0), 0);
+  return `<div class="sh-head"><div class="big">${bimg(1)}</div><div><h3>Ресурсы</h3><div class="muted small">Скорость мира ×${S.cat.speed}</div></div></div>
+    <div class="list">${RES.map((r) => {
+      const v = resNow(r), full = v >= c.cap[r], left = c.rate[r] > 0 ? (c.cap[r] - v) / c.rate[r] * 3600 : Infinity;
+      return `<div class="row"><span class="ic">${RES_IC[r]}</span><div class="grow"><b>${RES_NAME[r]}: ${fmtFull(v)} / ${fmtFull(c.cap[r])}</b>
+        <span>+${fmtFull(c.rate[r])} в час · ${full ? '<span class="bad">склад полон</span>' : `заполнится через ${fmtT(left)}`}</span>
+        <div class="bar" style="margin-top:5px"><i style="width:${Math.min(100, v / c.cap[r] * 100)}%"></i></div></div></div>`;
+    }).join('')}</div>
+    <p class="muted small">Людей занято на стройках: ${busy} из ${c.cap.people}. Вместимость склада растёт со Складом, мест для людей — с Хибарами.</p>`;
+}
+
+// ---------- вкладки ----------
+function setTab(tab) {
+  S.tab = tab; S.sub = null;
+  $$('#nav button').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
+  if (tab === 'world') send({ t: 'world', ...(S.world ? { cx: S.world.cx, cy: S.world.cy } : {}) });
+  if (tab === 'rating') send({ t: 'rating' });
+  renderView();
+}
+$('#nav').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) setTab(b.dataset.tab); });
+
+function renderView() {
+  const v = $('#view'), keep = v.scrollTop;
+  v.innerHTML = S.sub ? SUBPAGES[S.sub]() : TABS[S.tab]();
+  const wrap = $('.mapwrap', v);
+  if (wrap) isoMount(wrap); else v.scrollTop = keep;
+  tick();
+}
+const MAPWRAP = '<div class="mapwrap"><div class="zoom"><button data-zoom="1">＋</button><button data-zoom="-1">－</button></div></div>';
+
+const TABS = {
+  castle() {
+    const c = S.st.castle;
+    return `<div class="mapview"><div class="vhead"><h2>Замок</h2><span class="muted small">X:${c.x} Y:${c.y} · Ратуша ${c.townhall} ур.</span>
+      <button class="btn small" data-act="blist">Здания</button></div>${MAPWRAP}</div>`;
+  },
+  lands() {
+    return `<div class="mapview"><div class="vhead"><h2>Земли</h2><span class="muted small">лес — дровосек, валуны — каменщик, горы — рудник</span>
+      <button class="btn small" data-act="llist">Список</button></div>${MAPWRAP}</div>`;
+  },
+  world() {
+    const w = S.world;
+    return `<div class="mapview"><div class="vhead"><h2>Мир</h2><span class="muted small">${w ? `${w.cx}:${w.cy}` : '…'}</span>
+      <button class="btn small" data-whome>К замку</button></div>${MAPWRAP}</div>`;
+  },
+  rating() {
+    const rows = S.ratingRows;
+    if (!rows) return '<div class="pad muted">Загрузка…</div>';
+    return `<div class="vhead"><h2>Рейтинг игроков</h2><button class="iconbtn" data-act="ratinginfo">?</button></div>
+      <div class="pad list">${rows.map((r, i) => `
+        <button class="row ${r.id === S.st.user.id ? 'me' : ''}" data-profile="${r.id}">
+          <span class="rank ${i < 3 ? 'top' : ''}">${i < 3 ? gimg(`smallicon/status/f_${['gold', 'silver', 'bronze'][i]}.png`) : i + 1}</span>
+          <div class="grow"><b>${esc(r.login)}</b><span>${esc(r.race)}</span></div><b class="badge">★ ${fmtFull(r.rating)}</b>
+        </button>`).join('')}</div>`;
+  },
+  more() {
+    const u = S.st.unread;
+    const item = (act, ic, title, sub) => `<button class="row" data-act="${act}"><span class="ic">${gimg(ic)}</span><div class="grow"><b>${title}</b><span>${sub}</span></div>›</button>`;
+    return `<div class="vhead"><h2>Ещё</h2></div><div class="pad list">
+      ${item('me', 'smallicon/status/online.png', 'Мой профиль', `${esc(S.st.user.login)} · ${esc(S.st.user.raceName)}`)}
+      ${item('mail', 'smallicon/unmes.png', `Почта${u ? ` <span class="badge">${u}</span>` : ''}`, 'Письма другим игрокам')}
+      ${item('book', 'build/university.png', 'Справочник зданий', 'Цена, время, добыча и рейтинг по уровням')}
+      ${item('army', 'units/human/knight.png', 'Войска', 'Юниты рас: характеристики и цены')}
+      ${item('rules', 'smallicon/Ekoscience.png', 'Формулы', 'Как считаются цена, время и рейтинг')}
+      ${item('bug', 'smallicon/soft_help.png', 'Сообщить об ошибке', 'Сохранится на сервере')}
+      ${item('logout', 'smallicon/softclose.png', 'Выйти', 'Сменить аккаунт')}
+      <p class="muted small">Скорость мира ×${S.cat.speed} · одновременно до ${S.cat.maxQueue} строек</p></div>`;
+  },
+};
+
+function summaryHtml(view) {
+  const c = S.st.castle, list = [];
+  c.grid[view].forEach((b, i) => { if (b >= 0) list.push([b, c.levels[view][i], i]); });
+  list.sort((a, b) => b[1] - a[1]);
+  return `<h3 style="margin:4px 0 10px">${view === VIEW.CASTLE ? 'Здания замка' : 'Постройки на землях'} (${list.length})</h3><div class="list">${list.map(([b, l, i]) => {
+    const def = S.by[b], q = queueAt(view, i);
+    return `<button class="row" data-view="${view}" data-cell="${i}"><span class="ic">${bimg(displayId(def, l))}</span>
+      <div class="grow"><b>${esc(def.name)} · ${l} ур.</b><span>${q ? `строится ${q.level} ур. · <span class="cd" data-e="${q.end}"></span>` : `${effect(def, l).text} · ★ ${l * ratingPer(def)}`}</span></div>›</button>`;
+  }).join('')}</div>`;
+}
+
+// ---------- подстраницы «Ещё» ----------
+const SUBPAGES = {
+  mail() {
+    const m = S.mail;
+    return `<div class="vhead"><button class="iconbtn" data-back>‹</button><h2>Почта</h2><button class="btn small primary" data-act="compose">Написать</button></div>
+      <div class="pad"><div class="pills">${['Входящие', 'Отправленные'].map((t, i) => `<button data-folder="${i}" class="${S.mailFolder === i ? 'on' : ''}">${t}</button>`).join('')}</div>
+      <div class="list" style="margin-top:8px">${!m ? '<p class="muted">Загрузка…</p>' : !m.list.length ? '<p class="muted">Писем нет.</p>' : m.list.map((x) => `
+        <button class="row" data-letter="${x.id}"><span class="ic">${gimg(x.read || m.folder === 1 ? 'smallicon/unrep.png' : 'smallicon/unmes.png')}</span>
+        <div class="grow"><b>${esc(x.subject || '(без темы)')}</b><span>${m.folder === 1 ? 'кому' : 'от'} ${esc(x.other)} · ${fmtDate(x.at)}</span></div></button>`).join('')}
+      </div></div>`;
+  },
+  book() {
+    const group = (layer, title) => `<div class="section">${title}</div><div class="list">${S.cat.buildings.filter((b) => b.layer === layer).map((b) => {
+      const lvl = buildingLevel(b.id), req = Object.entries(b.req).map(([id, l]) => `${S.by[id].name} ${l}`).join(', ');
+      return `<button class="row" data-book="${b.id}"><span class="ic">${bimg(b.id)}</span><div class="grow"><b>${esc(b.name)}</b>
+        <span>до ${b.max} ур. · ★ ${ratingPer(b)} за уровень${req ? ` · нужно: ${esc(req)}` : ''}${lvl ? ` · у вас ${lvl} ур.` : ''}</span></div>›</button>`;
+    }).join('')}</div>`;
+    return `<div class="vhead"><button class="iconbtn" data-back>‹</button><h2>Справочник зданий</h2></div>
+      <div class="pad" style="padding-top:0">${group('castle', 'Замок (сетка 7×7)')}${group('lands', 'Земли (сетка 15×15)')}</div>`;
+  },
+  army() {
+    const A = S.cat.army;
+    if (!A) return '<div class="vhead"><button class="iconbtn" data-back>‹</button><h2>Войска</h2></div><div class="pad muted">Нет данных (data/units.json).</div>';
+    const races = Object.keys(A.races);
+    S.armyRace = S.armyRace && races.includes(S.armyRace) ? S.armyRace : S.st.user.race;
+    const units = A.units.filter((u) => u.race === S.armyRace);
+    const rc = A.races[S.armyRace] || {};
+    return `<div class="vhead"><button class="iconbtn" data-back>‹</button><h2>Войска</h2></div>
+      <div class="pad" style="padding-top:0"><div class="pills">${races.map((r) => `<button data-arace="${r}" class="${r === S.armyRace ? 'on' : ''}">${esc(A.races[r].title || r)}</button>`).join('')}</div>
+      ${rc.note ? `<p class="muted small">${esc(rc.note)}</p>` : ''}
+      <p class="muted small">Баланс из дизайн-документа. Тренировка и бои на сервере пока не реализованы.</p>
+      <div class="list">${units.map((u) => `<div class="card unit"><div class="top"><b>${esc(u.name)}</b><span class="muted small">${esc(A.buildingNames[u.building] || u.building || '')}</span></div>
+        <div class="grid4"><div><small>Атака</small>${u.attack}${u.magicAttack ? `/${u.magicAttack}✨` : ''}</div>
+        <div><small>Защ. пех/кав/маг</small>${u.defense ? `${u.defense.infantry}/${u.defense.cavalry}/${u.defense.magic}` : '—'}</div>
+        <div><small>Скорость</small>${u.speed ?? '—'}</div><div><small>Груз</small>${u.carry ?? '—'}</div></div>
+        <div class="chips">${RES.filter((r) => u.cost && u.cost[r]).map((r) => `<span>${RES_IC[r]} ${fmtFull(u.cost[r])}</span>`).join('')}
+        <span>${TIME_IC} ${fmtT(u.trainTimeSec || 0)}</span><span>${RES_IC.food} ${u.upkeepFoodPerHour ?? 0}/ч</span><span>${RES_IC.people} ${u.population ?? 1}</span></div></div>`).join('')}</div></div>`;
+  },
+  rules() {
+    const T = R().time, st = R().store;
+    return `<div class="vhead"><button class="iconbtn" data-back>‹</button><h2>Формулы</h2></div><div class="pad" style="padding-top:0">
+      <div class="section">Стоимость уровня</div>
+      <div class="formula">Замок: база ${RES_IC.wood}120 ${RES_IC.stone}110 ${RES_IC.iron}80 ${RES_IC.food}60 ${RES_IC.people}2 × 1.3^(ур−1)<br>Земли: база ${RES_IC.wood}60 ${RES_IC.stone}50 ${RES_IC.iron}40 ${RES_IC.food}30 ${RES_IC.people}1 × 1.5^(ур−1)<br>Люди: база × уровень (не тратятся, заняты на время стройки)</div>
+      <div class="section">Время стройки</div>
+      <div class="formula">Замок: ${T.castle.base} с × ${T.castle.growth}^(ур−1)<br>Земли: ${T.lands.base} с × ${T.lands.growth}^(ур−1)<br>× ${T.townhallFactor}^(ур. Ратуши) ÷ скорость мира (×${S.cat.speed})</div>
+      <div class="section">Рейтинг</div>
+      <div class="formula">Каждый уровень здания в замке: ★ ${R().rating.castle}<br>Каждый уровень на землях: ★ ${R().rating.lands}</div>
+      <div class="section">Добыча и склад</div>
+      <div class="formula">Базово ${R().baseRate.wood}/ч каждого ресурса + добыча зданий земель по таблице × скорость мира<br>
+      Склад: ${st.base} + ${st.perStore} × ${st.growth}^ур за каждый Склад<br>Люди: ${st.people} + ${st.peoplePerHut} мест за уровень Хибары</div>
+      <div class="section">Добыча по уровням (в час, ×1)</div>
+      <div class="formula">${S.cat.prod.slice(1).map((p, i) => `${i + 1}: ${p}`).join(' · ')}</div></div>`;
+  },
+};
+
+// ---------- обработка нажатий в виде ----------
+$('#view').addEventListener('click', (e) => {
+  const t = e.target.closest('button'); if (!t) return;
+  const d = t.dataset;
+  if (d.cell !== undefined) return openCell(Number(d.view), Number(d.cell));
+  if (d.zoom) return isoZoom(Number(d.zoom) > 0 ? 1.25 : 1 / 1.25);
+  if (d.whome !== undefined) return send({ t: 'world' });
+  if (d.profile) return send({ t: 'profile', id: Number(d.profile) });
+  if (d.back !== undefined) return history.back();
+  if (d.folder) { S.mailFolder = Number(d.folder); S.mail = null; renderView(); return send({ t: 'mail', folder: S.mailFolder }); }
+  if (d.letter) return send({ t: 'read', id: Number(d.letter) });
+  if (d.book) { const def = S.by[d.book]; return openSheet(() => buildingSheet(def, buildingLevel(def.id), null)); }
+  if (d.arace) { S.armyRace = d.arace; return renderView(); }
+  if (d.act) return ACTS[d.act]();
+});
+
+const ACTS = {
+  me: () => send({ t: 'profile', id: S.st.user.id }),
+  mail: () => { openSub('mail'); send({ t: 'mail', folder: S.mailFolder }); },
+  book: () => openSub('book'),
+  army: () => openSub('army'),
+  rules: () => openSub('rules'),
+  ratinginfo: () => openSheet(ratingInfoSheet),
+  blist: () => openSheet(() => summaryHtml(VIEW.CASTLE)),
+  llist: () => openSheet(() => summaryHtml(VIEW.LANDS)),
+  compose: () => openCompose(''),
+  bug: () => openSheet(() => `<div class="sh-head"><div class="big">${gimg('smallicon/soft_help.png')}</div><h3>Сообщить об ошибке</h3></div>
+    <form class="stack" data-form="bug"><textarea name="text" rows="5" placeholder="Что пошло не так?" required></textarea><button class="btn primary">Отправить</button></form>`),
+  logout: () => { store.set('tw.creds', null); location.reload(); },
+};
+function openSub(name) { S.sub = name; history.pushState({ sub: name }, ''); renderView(); $('#view').scrollTop = 0; }
+
+// ---------- шторка ----------
+function openSheet(render) {
+  S.sheets.push(render);
+  history.pushState({ sheet: S.sheets.length }, '');
+  showSheet(true);
+}
+function showSheet(scrollTop) {
+  const top = S.sheets[S.sheets.length - 1];
+  $('#sheet').classList.toggle('show', !!top); $('#backdrop').classList.toggle('show', !!top);
+  if (!top) return;
+  $('#sheetBody').innerHTML = top();
+  if (scrollTop) $('#sheetBody').scrollTop = 0;
+  tick();
+}
+function refreshSheet() {
+  if (!S.sheets.length || document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+  const sc = $('#sheetBody').scrollTop; showSheet(false); $('#sheetBody').scrollTop = sc;
+}
+function closeSheet() { if (S.sheets.length) history.back(); }
+function closeAllSheets() {
+  const n = S.sheets.length; if (!n) return;
+  S.sheets = []; showSheet(); S.ignorePop += 1; history.go(-n); // go(-n) даёт одно событие popstate
+}
+window.addEventListener('popstate', () => {
+  if (S.ignorePop > 0) { S.ignorePop--; return; }
+  if (S.sheets.length) { S.sheets.pop(); showSheet(true); return; }
+  if (S.sub) { S.sub = null; renderView(); }
+});
+$('#backdrop').addEventListener('click', closeAllSheets);
+// смахивание шторки вниз
+(() => {
+  const sh = $('#sheet'); let y0 = null, dy = 0;
+  sh.addEventListener('touchstart', (e) => { if ($('#sheetBody').scrollTop <= 0 || e.target.classList.contains('grab')) { y0 = e.touches[0].clientY; dy = 0; } }, { passive: true });
+  sh.addEventListener('touchmove', (e) => {
+    if (y0 === null) return; dy = e.touches[0].clientY - y0;
+    if (dy > 0) { sh.classList.add('drag'); sh.style.transform = `translateY(${dy}px)`; } else { y0 = null; sh.classList.remove('drag'); sh.style.transform = ''; }
+  }, { passive: true });
+  sh.addEventListener('touchend', () => { sh.classList.remove('drag'); sh.style.transform = ''; if (y0 !== null && dy > 90) closeAllSheets(); y0 = null; });
+})();
+
+$('#sheetBody').addEventListener('click', (e) => {
+  const t = e.target.closest('button'); if (!t) return;
+  const d = t.dataset;
+  if (d.build) {
+    const [view, cell, id] = d.build.split(',').map(Number);
+    S.pendingBuild = { view, cell };
+    return send({ t: 'build', view, cell, building: id });
+  }
+  if (d.pick) { const [view, cell, id] = d.pick.split(',').map(Number); return openSheet(() => buildingSheet(S.by[id], 0, { view, cell })); }
+  if (d.profile) return send({ t: 'profile', id: Number(d.profile) });
+  if (d.write !== undefined) return openCompose(d.write, d.subj || '');
+  if (d.close !== undefined) return closeSheet();
+  if (d.goworld) { closeAllSheets(); const [x, y] = d.goworld.split(',').map(Number); S.world = null; setTab('world'); send({ t: 'world', cx: x, cy: y }); }
+});
+$('#sheetBody').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const f = e.target;
+  if (f.dataset.form === 'mail') { S.composing = true; send({ t: 'sendmail', to: f.to.value.trim(), subject: f.subject.value, text: f.text.value }); }
+  if (f.dataset.form === 'bug') { send({ t: 'bug', text: f.text.value }); closeSheet(); }
+});
+
+// ---------- содержимое шторок ----------
+function openCell(view, cell) {
+  if (view === VIEW.LANDS) {
+    const x = cell % 15, y = Math.floor(cell / 15);
+    if (S.cat.lands.edge[y][x] >= 0 && S.st.castle.grid[1][cell] < 0) return toast(S.cat.lands.base[y][x] === 9 ? 'Берег — здесь строить нельзя.' : 'Дорога — здесь строить нельзя.');
+  }
+  openSheet(() => {
+    const c = S.st.castle, b = c.grid[view][cell], q = queueAt(view, cell);
+    if (b < 0 && !q) return emptySheet(view, cell);
+    return buildingSheet(S.by[b >= 0 ? b : q.building], c.levels[view][cell], { view, cell });
+  });
+}
+
+function costChips(cost) {
+  return `<div class="chips">${RES.map((r) => `<span data-need="${r}:${cost[r]}">${RES_IC[r]} ${fmtFull(cost[r])}</span>`).join('')}</div>`;
+}
+
+// карточка здания; ctx = {view, cell} — можно строить, null — только справочник
+function buildingSheet(def, lvl, ctx) {
+  const th = S.st.castle.townhall, w = ratingPer(def);
+  const q = ctx && queueAt(ctx.view, ctx.cell);
+  const layerName = def.layer === 'lands' ? 'Земли' : 'Замок';
+  let h = `<div class="sh-head"><div class="big">${bimg(displayId(def, Math.max(1, lvl)))}</div><div><h3>${esc(def.name)}</h3>
+    <div class="muted small">${lvl ? `Уровень ${lvl} из ${def.max}` : `Не построено · до ${def.max} ур.`} · ${layerName}${def.unique ? ' · одно на замок' : ''}</div></div></div>
+    <p class="desc">${esc(def.desc)}</p>
+    <div class="stats"><div class="stat"><small>Сейчас даёт</small><b>${esc(effect(def, lvl).text)}</b></div>
+    <div class="stat"><small>Рейтинг от здания</small><b>★ ${lvl * w}</b> <span class="muted small">(+${w} за ур.)</span></div></div>`;
   if (q) {
-    const def = S.catalog.buildings[q.building], left = (q.end - now()) / 1000;
-    return `<h3>${esc(def.name)} → ${q.level} ур.</h3>${picHtml(10)}<p>Идёт строительство, осталось <b data-countdown="${q.end}">${fmt(left)}</b></p>
-      <div class="bar"><i style="width:${100 * (now() - q.start) / (q.end - q.start)}%"></i></div>`;
-  }
-  if (b >= 0) {
-    const def = S.catalog.buildings[b], lvl = c.levels[view][cell];
-    let h = `<h3>${esc(def.name)} — ${lvl} ур.</h3><div class="card">${picHtml(displayId(b, lvl))}<div><div class="desc">${esc(def.desc)}</div></div></div>`;
-    if (def.produces) h += `<p>Добыча: ${resIcon(def.produces)} ${S.catalog.prod[lvl]}${S.catalog.prod[lvl + 1] ? ` → ${S.catalog.prod[lvl + 1]}` : ''} ед/час × скорость мира ${S.catalog.speed}</p>`;
-    if (b === 1) h += `<p>Вместимость: ${Math.round(1000 * 1.25 ** lvl)} каждого ресурса</p>`;
-    if (lvl < def.max) {
-      const cost = def.costs[lvl + 1], miss = missingReq(def);
-      h += `<h4>Развить до ${lvl + 1} ур.</h4>${costHtml(cost)}<div class="cost"><span>${resIcon('time')} ${fmt(buildTime(def, lvl + 1))}</span></div>
-        ${miss.length ? `<div class="req">Нужно: ${esc(miss.join(', '))}</div>` : ''}
-        <button class="btn" data-build="${view}:${cell}:${b}" ${canAfford(cost) && !miss.length ? '' : 'disabled'}>Развить</button>`;
-    } else h += '<p>Максимальный уровень.</p>';
-    if ([3, 12, 20, 23].includes(b)) {
-      const units = S.catalog.units[S.state.user.race] || [];
-      h += `<h4>Войска (тренировка появится позже)</h4><div class="units">${units.map(([id, name]) => `<div class="unit">${S.original && UNIT_IMG[id] ? `<img src="/orig/units/${UNIT_IMG[id]}.png" alt=""><br>` : ''}${esc(name)}</div>`).join('')}</div>`;
-    }
-    return h;
-  }
-  // пустая клетка — список построек
-  let options;
-  if (view === 1) options = S.catalog.landOptions[S.sel.y][S.sel.x];
-  else options = S.catalog.buildings.filter((d) => d.layer === 'castle' && !(d.unique && haveLevel(d.id) > 0)).map((d) => d.id);
-  let h = `<h3>Строительство</h3>`;
-  if (!options.length) return h + '<p class="desc">Здесь строить нельзя (дорога или берег).</p>';
-  for (const id of options) {
-    const def = S.catalog.buildings[id], cost = def.costs[1], miss = missingReq(def);
-    h += `<div class="card">${picHtml(displayId(id, 1))}<div><div class="name">${esc(def.name)}</div>${costHtml(cost)}
-      <div class="cost"><span>${resIcon('time')} ${fmt(buildTime(def, 1))}</span></div>${miss.length ? `<div class="req">Нужно: ${esc(miss.join(', '))}</div>` : ''}</div>
-      <div class="actions"><button class="btn small" data-build="${view}:${S.sel.y * size + S.sel.x}:${id}" ${canAfford(cost) && !miss.length ? '' : 'disabled'}>Построить</button>
-      <span class="desc">${esc(def.desc)}</span></div></div>`;
-  }
+    h += `<div class="card next"><h4>Строится ${q.level} уровень</h4><div class="bar"><i data-s="${q.start}" data-e="${q.end}"></i></div>
+      <p class="small" style="margin:6px 0 0">Осталось: <span class="cd" data-e="${q.end}"></span></p></div>`;
+  } else if (lvl < def.max) {
+    const n = lvl + 1, cost = def.costs[n];
+    const reqs = Object.entries(def.req);
+    const blk = ctx ? blockers(def, n, ctx.view, ctx.cell) : [];
+    h += `<div class="card next"><h4>${lvl ? `Улучшение до ${n} ур.` : 'Постройка (1 ур.)'}</h4>${costChips(cost)}
+      <div class="chips"><span>${TIME_IC} ${fmtT(buildSec(def, n, th))}</span><span>★ +${w}</span><span>${esc(effect(def, n).text)}</span></div>
+      ${reqs.length ? `<ul class="reqs">${reqs.map(([id, l]) => { const ok = buildingLevel(Number(id)) >= l; return `<li class="${ok ? 'ok' : 'bad'}">${ok ? '✓' : '✗'} ${esc(S.by[id].name)} ${l} ур.</li>`; }).join('')}</ul>` : ''}
+      ${ctx ? `${blk.length ? `<p class="reasons">${blk.map(esc).join('<br>')}</p>` : ''}
+      <button class="btn primary" data-build="${ctx.view},${ctx.cell},${def.id}" ${blk.length ? 'disabled' : ''}>${lvl ? 'Улучшить' : 'Построить'}</button>` : ''}</div>`;
+  } else h += '<div class="card next"><h4>Максимальный уровень</h4></div>';
+  h += levelsTable(def, lvl, th);
   return h;
 }
 
-function worldPanel() {
-  if (!S.world) return '<h3>Мир</h3><p>Загрузка карты…</p>';
-  const nav = `<h4>Перемещение по карте</h4><p><button class="btn small" data-go="0:-7">↑ Север</button> <button class="btn small" data-go="-7:0">← Запад</button>
-    <button class="btn small" data-go="7:0">Восток →</button> <button class="btn small" data-go="0:7">↓ Юг</button> <button class="btn small" data-go="0:0">Мой замок</button></p>
-    <p class="muted">Центр: X:${S.world.cx} Y:${S.world.cy}</p>`;
-  if (!S.sel) return `<h3>Мир</h3><p class="desc">Выберите клетку на карте.</p>${nav}`;
-  const o = worldObjAt(S.sel.wx, S.sel.wy);
-  let h = `<h3>X:${S.sel.wx} Y:${S.sel.wy}</h3>`;
-  if (!o) h += '<p class="desc">Свободная земля. Основание новых замков появится позже.</p>';
-  else if (o.kind === 'castle') {
-    h += `<p><b>${esc(o.name)}</b></p><p>Игрок: <a data-profile="${o.ownerId}">${esc(o.owner)}</a><br>Раса: ${esc(S.catalog.races[o.race] || '')}<br>Рейтинг: ${o.rating}</p>`;
-    if (o.ownerId !== S.state.user.id) h += `<button class="btn small" data-write="${esc(o.owner)}">Написать</button> <button class="btn small" disabled title="Скоро">Войска</button> <button class="btn small" disabled title="Скоро">Торговля</button>`;
-    else h += '<p class="muted">Это ваш замок.</p>';
-  } else h += `<p><b>${esc(o.name)}</b></p><p class="desc">Объект карты. Разведка и нападение появятся позже.</p>`;
-  return h + nav;
-}
-
-function renderQueue() {
-  const q = S.state.castle.queue.slice().sort((a, b) => a.end - b.end);
-  $('queue').innerHTML = `<h4>Стройки (${q.length}/${S.catalog.maxQueue})</h4>` + (q.length ? q.map((i) => {
-    const def = S.catalog.buildings[i.building];
-    return `<div class="qitem">${esc(def.name)} → ${i.level} ур. <span class="muted">(${i.view === 0 ? 'замок' : 'земли'})</span> — <b data-countdown="${i.end}">${fmt((i.end - now()) / 1000)}</b>
-      <div class="bar"><i data-progress="${i.start}:${i.end}" style="width:${100 * (now() - i.start) / (i.end - i.start)}%"></i></div></div>`;
-  }).join('') : '<p class="muted">Нет активных строек.</p>');
-}
-
-// ---------------- окна: почта, рейтинг, профиль, баг ----------------
-function openModal(kind, html) {
-  $('modal').hidden = false;
-  if (html !== undefined) { $('modal-body').innerHTML = html; return; }
-  if (kind === 'mail') send({ t: 'mail', folder: 0 });
-  else if (kind === 'rating') send({ t: 'rating' });
-  else if (kind === 'profile') send({ t: 'profile' });
-  else if (kind === 'bug') {
-    $('modal-body').innerHTML = `<h2>Сообщить об ошибке</h2><form id="bug-form"><textarea name="text" rows="6" required placeholder="Что произошло?"></textarea><button class="btn">Отправить</button></form>`;
-    $('bug-form').onsubmit = (e) => { e.preventDefault(); send({ t: 'bug', text: e.target.text.value }); closeModal(); };
+function levelsTable(def, lvl, th) {
+  const w = ratingPer(def);
+  let rows = '';
+  for (let l = 1; l <= def.max; l++) {
+    const c = def.costs[l];
+    rows += `<tr class="${l === lvl ? 'cur' : l < lvl ? 'done' : ''}"><td>${l}</td>${RES.map((r) => `<td>${fmtFull(c[r])}</td>`).join('')}
+      <td>${fmtT(buildSec(def, l, th))}</td><td>${esc(effect(def, l).short)}</td><td>+${w} / ${l * w}</td></tr>`;
   }
-  $('modal-body').innerHTML = $('modal-body').innerHTML || 'Загрузка…';
-}
-function closeModal() { $('modal').hidden = true; $('modal-body').innerHTML = ''; }
-$('modal-close').onclick = closeModal;
-$('modal').onclick = (e) => { if (e.target === $('modal')) closeModal(); };
-
-function mailTabs(folder) {
-  return `<div class="tabs small"><button data-folder="0" class="${folder === 0 ? 'active' : ''}">Входящие</button><button data-folder="1" class="${folder === 1 ? 'active' : ''}">Исходящие</button><button data-compose="">Написать</button></div>`;
-}
-function bindMail() {
-  $('modal-body').querySelectorAll('[data-folder]').forEach((b) => b.onclick = () => send({ t: 'mail', folder: Number(b.dataset.folder) }));
-  $('modal-body').querySelectorAll('[data-compose]').forEach((b) => b.onclick = () => compose(b.dataset.compose));
-  $('modal-body').querySelectorAll('[data-letter]').forEach((b) => b.onclick = () => send({ t: 'read', id: Number(b.dataset.letter) }));
-  $('modal-body').querySelectorAll('[data-profile]').forEach((a) => a.onclick = () => send({ t: 'profile', id: Number(a.dataset.profile) }));
-}
-function showMail(folder, list) {
-  openModal('mail', `<h2>Почта</h2>${mailTabs(folder)}${list.length ? `<table><tr><th>${folder === 1 ? 'Кому' : 'От'}</th><th>Тема</th><th>Дата</th></tr>${list.map((m) =>
-    `<tr class="${!m.read && folder === 0 ? 'unread' : ''}"><td>${esc(m.other)}</td><td><a data-letter="${m.id}">${esc(m.subject || '(без темы)')}</a></td><td class="muted">${new Date(m.at).toLocaleString('ru-RU')}</td></tr>`).join('')}</table>` : '<p class="muted">Писем нет.</p>'}`);
-  bindMail();
-}
-function showLetter(l) {
-  openModal('mail', `<h2>${esc(l.subject || '(без темы)')}</h2>${mailTabs(-1)}<p>От: <b>${esc(l.from)}</b> · Кому: <b>${esc(l.to)}</b><br><span class="muted">${new Date(l.at).toLocaleString('ru-RU')}</span></p>
-    <div class="letter">${esc(l.text)}</div>${l.from !== S.state.user.login ? `<button class="btn" data-compose="${esc(l.from)}">Ответить</button>` : ''}`);
-  bindMail();
-  send({ t: 'sync' });
-}
-function compose(to = '') {
-  openModal('mail', `<h2>Новое письмо</h2>${mailTabs(-1)}<form id="compose-form"><label>Кому <input name="to" required value="${esc(to)}"></label>
-    <label>Тема <input name="subject" maxlength="60"></label><label>Текст <textarea name="text" rows="6" required></textarea></label><button class="btn">Отправить</button></form>`);
-  bindMail();
-  $('compose-form').onsubmit = (e) => { e.preventDefault(); const f = e.target; send({ t: 'sendmail', to: f.to.value, subject: f.subject.value, text: f.text.value }); closeModal(); };
-}
-function showRating(rows) {
-  openModal('rating', `<h2>Рейтинг игроков</h2><table><tr><th>#</th><th>Игрок</th><th>Раса</th><th>Очки</th></tr>${rows.map((r, i) =>
-    `<tr${r.id === S.state.user.id ? ' class="unread"' : ''}><td>${i + 1}</td><td><a data-profile="${r.id}">${esc(r.login)}</a></td><td>${esc(r.race)}</td><td>${r.rating}</td></tr>`).join('')}</table>`);
-  bindMail();
-}
-function showProfile(p) {
-  openModal('profile', `<h2>${p.self ? 'Кабинет' : 'Игрок ' + esc(p.login)}</h2><table>
-    <tr><td>Игрок</td><td><b>${esc(p.login)}</b></td></tr><tr><td>Раса</td><td>${esc(p.race)}</td></tr><tr><td>Альянс</td><td>—</td></tr>
-    <tr><td>Рейтинг</td><td>${p.rating}</td></tr><tr><td>В игре с</td><td>${new Date(p.created).toLocaleDateString('ru-RU')}</td></tr>
-    <tr><td>Замки</td><td>${p.castles.map((c) => `${esc(c.name)} (X:${c.x} Y:${c.y})`).join('<br>')}</td></tr></table>
-    ${p.self ? '' : `<p><button class="btn" data-compose="${esc(p.login)}">Написать</button></p>`}`);
-  bindMail();
+  return `<div class="section">Все уровни</div><div class="tbl"><table><thead><tr><th>Ур.</th>${RES.map((r) => `<th>${RES_IC[r]}</th>`).join('')}
+    <th>${TIME_IC}</th><th>Даёт</th><th>★</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="tblnote">Время — при Ратуше ${th} ур. и скорости мира ×${S.cat.speed}. ★ — рейтинг за уровень / всего от здания.</p>`;
 }
 
-// ---------------- уведомления и таймеры ----------------
-function toast(msg, err = false) {
-  const d = document.createElement('div'); d.className = 'toast' + (err ? ' err' : ''); d.textContent = msg;
-  $('toasts').appendChild(d); setTimeout(() => d.remove(), 4000);
+function emptySheet(view, cell) {
+  let opts, title, sub;
+  if (view === VIEW.LANDS) {
+    const x = cell % 15, y = Math.floor(cell / 15), L = S.cat.lands;
+    opts = S.cat.landOptions[y][x];
+    title = ['Лес', 'Валуны', 'Горы'][L.decor[y][x]] || { 0: 'Луг', 7: 'Пашня', 8: 'Каменистая земля', 9: 'Вода' }[L.base[y][x]] || 'Земля';
+    sub = `Клетка ${x + 1}:${y + 1} земель`;
+  } else {
+    opts = S.cat.buildings.filter((b) => b.layer === 'castle').map((b) => b.id);
+    title = 'Свободное место'; sub = 'Замок — выберите здание';
+  }
+  const items = opts.map((id) => S.by[id]).map((def) => ({ def, blk: blockers(def, 1, view, cell) }))
+    .filter(({ blk }) => !blk.includes('Такое здание уже есть.'))
+    .sort((a, b) => a.blk.length - b.blk.length);
+  const th = S.st.castle.townhall;
+  return `<div class="sh-head"><div class="big">${view === VIEW.LANDS ? gimg(landGroundImg(cell)) : gimg('ground/stone.png')}</div><div><h3>${esc(title)}</h3><div class="muted small">${esc(sub)}</div></div></div>
+    ${!items.length ? '<p class="muted">Здесь нечего строить.</p>' : `<div class="list">${items.map(({ def, blk }) => `
+      <button class="row ${blk.length ? 'locked' : ''}" data-pick="${view},${cell},${def.id}"><span class="ic">${bimg(def.id)}</span>
+      <div class="grow"><b>${esc(def.name)}</b>${costChips(def.costs[1]).replace('class="chips"', 'class="chips small"')}
+      <span>${TIME_IC} ${fmtT(buildSec(def, 1, th))} · ★ +${ratingPer(def)} · ${esc(effect(def, 1).text)}</span>
+      ${blk.length ? `<span class="bad">${esc(blk[0])}</span>` : ''}</div>›</button>`).join('')}</div>`}`;
 }
-setInterval(() => {
-  const d = new Date(now());
-  $('clock').textContent = d.toLocaleTimeString('ru-RU');
-  if (!S.state) return;
-  renderHeader();
-  document.querySelectorAll('[data-countdown]').forEach((e) => { e.textContent = fmt((Number(e.dataset.countdown) - now()) / 1000); });
-  document.querySelectorAll('[data-progress]').forEach((e) => { const [a, b] = e.dataset.progress.split(':').map(Number); e.style.width = `${Math.min(100, 100 * (now() - a) / (b - a))}%`; });
-  if (S.state.castle.queue.length && S.view !== 'world') draw();
-}, 1000);
-// раз в 15 секунд сверяемся с сервером (точные ресурсы)
-setInterval(() => { if (S.state) send({ t: 'sync' }); }, 15000);
 
-// ---------------- старт ----------------
-(async () => {
-  try { S.original = (await (await fetch('/api/assets')).json()).original; } catch (e) { S.original = false; }
-  try { S.creds = JSON.parse(sessionStorage.getItem('tw-creds') || 'null'); } catch (e) { S.creds = null; }
-  resize();
-  connect();
+function ratingInfoSheet() {
+  const c = S.st.castle, sum = (a) => a.reduce((x, y) => x + y, 0);
+  const lc = sum(c.levels[0]), ll = sum(c.levels[1]), rc = R().rating.castle, rl = R().rating.lands;
+  return `<div class="sh-head"><div class="big">${gimg('smallicon/status/f_gold.png')}</div><div><h3>Рейтинг: ${fmtFull(c.rating)}</h3><div class="muted small">Сумма уровней всех зданий</div></div></div>
+    <dl class="kv"><dt>Замок: ${lc} ур. × ${rc}</dt><dd>★ ${lc * rc}</dd><dt>Земли: ${ll} ур. × ${rl}</dt><dd>★ ${ll * rl}</dd><dt><b>Итого</b></dt><dd><b>★ ${c.rating}</b></dd></dl>
+    <p class="muted small">Каждый новый уровень здания в замке даёт +${rc} к рейтингу, на землях — +${rl}. Во вкладке «Рейтинг» — таблица игроков.</p>`;
+}
+
+function profileSheet(p) {
+  const self = p.self;
+  const c = p.castles[0];
+  return `<div class="sh-head"><div class="big">${gimg(RACE_IMG[Object.keys(S.cat.races).find((k) => S.cat.races[k] === p.race)] || 'units/human/general.png')}</div>
+    <div><h3>${esc(p.login)}</h3><div class="muted small">${esc(p.race)}${self ? ' · это вы' : ''}</div></div></div>
+    <dl class="kv"><dt>Рейтинг</dt><dd>★ ${fmtFull(p.rating)}</dd><dt>В игре с</dt><dd>${fmtDate(p.created)}</dd>
+    ${c ? `<dt>Замок</dt><dd>${esc(c.name)} (${c.x}:${c.y})</dd>` : ''}</dl>
+    <div class="btns" style="margin-top:14px">${c ? `<button class="btn" data-goworld="${c.x},${c.y}">На карте</button>` : ''}
+    ${self ? '' : `<button class="btn primary" data-write="${esc(p.login)}">Написать</button>`}</div>`;
+}
+
+function letterSheet(l) {
+  const mine = l.from === S.st.user.login;
+  return `<div class="sh-head"><div class="big">${gimg('smallicon/unmes.png')}</div><div><h3>${esc(l.subject || '(без темы)')}</h3>
+    <div class="muted small">${mine ? `кому: ${esc(l.to)}` : `от: ${esc(l.from)}`} · ${fmtDate(l.at)}</div></div></div>
+    <div class="letter">${esc(l.text)}</div>
+    ${mine ? '' : `<button class="btn primary" data-write="${esc(l.from)}" data-subj="${esc(`Re: ${l.subject || ''}`)}">Ответить</button>`}`;
+}
+
+function openCompose(to, subject = '') {
+  openSheet(() => `<div class="sh-head"><div class="big">${gimg('smallicon/softedit.png')}</div><h3>Новое письмо</h3></div>
+    <form class="stack" data-form="mail"><input name="to" placeholder="Кому (логин)" value="${esc(to)}" autocapitalize="none" required>
+    <input name="subject" placeholder="Тема" value="${esc(subject)}"><textarea name="text" rows="6" placeholder="Текст" required></textarea>
+    <button class="btn primary">Отправить</button></form>`);
+}
+
+function openWorldCell(x, y) {
+  const o = S.world.objects.find((v) => v.x === x && v.y === y);
+  if (!o) return toast(`Пустая земля ${x}:${y}. Основание новых замков — позже.`);
+  if (o.kind === 'castle') {
+    const me = o.ownerId === S.st.user.id;
+    return openSheet(() => `<div class="sh-head"><div class="big">${gimg(WORLD_NAME_IMG(o))}</div><div><h3>${esc(o.name)}</h3>
+      <div class="muted small">${x}:${y} · ${esc(o.owner)} · ${esc(S.cat.races[o.race] || '')}</div></div></div>
+      <dl class="kv"><dt>Рейтинг</dt><dd>★ ${fmtFull(o.rating)}</dd></dl>
+      <div class="btns" style="margin-top:14px"><button class="btn" data-profile="${o.ownerId}">Профиль</button>
+      ${me ? '' : `<button class="btn primary" data-write="${esc(o.owner)}">Написать</button>`}</div>
+      ${me ? '' : '<p class="muted small">Атака, разведка и торговля появятся вместе с войсками.</p>'}`);
+  }
+  openSheet(() => `<div class="sh-head"><div class="big">${gimg(WORLD_NAME_IMG(o))}</div><div><h3>${esc(o.name)}</h3><div class="muted small">${x}:${y}</div></div></div>
+    <p class="muted">Объект мира. Походы войск сюда появятся вместе с системой боя.</p>`);
+}
+
+// ---------- изометрическая карта (как в оригинале: ромб 62×32, тайлы и спрайты из клиента) ----------
+// Основание замка 17×17 (массив k.i клиента): 0 трава, 1 камень, 2-6 дорога; здания — в квадрате 5..11
+const CASTLE_BASE = [
+  [0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 1, 1, 1, 3, 1, 1, 1, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 1, 1, 1, 3, 1, 1, 1, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 1, 1, 1, 3, 1, 1, 1, 0, 0, 0, 0, 0],
+  [5, 5, 5, 5, 5, 2, 2, 2, 4, 1, 1, 1, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+];
+const CASTLE_OFF = 5, TW = 62, TH = 32;
+function landGroundImg(cell) {
+  const x = cell % 15, y = Math.floor(cell / 15), L = S.cat.lands;
+  return L.decor[y][x] >= 0 ? `ground/${DECOR[L.decor[y][x]]}.png` : `ground/${GROUND[L.base[y][x]]}.png`;
+}
+
+const Iso = { cv: document.createElement('canvas'), cams: {}, sel: null, queued: false };
+Iso.cv.className = 'iso';
+window.__iso = { Iso, tileScreen: (x, y) => tileScreen(x, y), cam: () => cam() }; // для автотестов
+const ictx = Iso.cv.getContext('2d');
+const IMGS = new Map();
+function pic(path) {
+  let e = IMGS.get(path);
+  if (!e) { e = { im: new Image(), ok: false }; e.im.onload = () => { e.ok = true; isoDraw(); }; e.im.src = GFX + path; IMGS.set(path, e); }
+  return e.ok ? e.im : null;
+}
+const tileScreen = (x, y) => ({ sx: x * TW / 2 + y * TW / 2, sy: y * TH / 2 - x * TH / 2 });
+function screenToTile(px, py) {
+  const a = (px - TW / 2) / (TW / 2), b = (py - TH / 2) / (TH / 2);
+  return { x: Math.round((a - b) / 2), y: Math.round((a + b) / 2) };
+}
+const gridN = () => (S.tab === 'castle' ? 17 : S.tab === 'lands' ? 15 : S.world ? 2 * S.world.radius + 1 : 15);
+const cam = () => Iso.cams[S.tab] || (Iso.cams[S.tab] = isoFit());
+
+function isoMount(wrap) {
+  wrap.prepend(Iso.cv);
+  isoResize();
+  isoDraw();
+}
+function isoResize() {
+  const r = Iso.cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  Iso.cv.width = Math.max(1, Math.round(r.width * dpr)); Iso.cv.height = Math.max(1, Math.round(r.height * dpr));
+}
+window.addEventListener('resize', () => { if (Iso.cv.isConnected) { isoResize(); isoDraw(); } });
+// начальная камера: замок целиком, земли и мир — примерно 8 клеток по ширине экрана, по центру
+function isoFit() {
+  const r = Iso.cv.getBoundingClientRect(), n = gridN(), vis = S.tab === 'castle' ? 7.3 : 8;
+  const z = Math.max(0.35, Math.min(2.5, Math.min(r.width / (vis * TW), r.height / (vis * TH + 60))));
+  const c = tileScreen(n / 2 - 0.5, n / 2 - 0.5);
+  return { z, x: r.width / 2 - (c.sx + TW / 2) * z, y: r.height / 2 - (c.sy + TH / 2) * z + 18 * z };
+}
+function isoZoom(k, mx, my) {
+  const c = cam(), r = Iso.cv.getBoundingClientRect();
+  if (mx === undefined) { mx = r.width / 2; my = r.height / 2; }
+  const z = Math.max(0.3, Math.min(3, c.z * k));
+  c.x = mx - (mx - c.x) * (z / c.z); c.y = my - (my - c.y) * (z / c.z); c.z = z;
+  isoDraw();
+}
+
+// касания: один палец — двигать карту, два — масштаб, короткое нажатие — выбрать клетку
+(() => {
+  const P = new Map(); let g = null;
+  const cv = Iso.cv, rel = (e) => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  cv.addEventListener('pointerdown', (e) => {
+    cv.setPointerCapture(e.pointerId); P.set(e.pointerId, rel(e));
+    const c = cam();
+    if (P.size === 1) { const p = rel(e); g = { mode: 'pan', x: p.x, y: p.y, cx: c.x, cy: c.y, moved: false }; }
+    else if (P.size === 2) {
+      const [a, b] = [...P.values()], m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      g = { mode: 'pinch', d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, z0: c.z, wx: (m.x - c.x) / c.z, wy: (m.y - c.y) / c.z };
+    }
+  });
+  cv.addEventListener('pointermove', (e) => {
+    if (!P.has(e.pointerId) || !g) return;
+    P.set(e.pointerId, rel(e));
+    const c = cam();
+    if (g.mode === 'pan') {
+      const p = rel(e), dx = p.x - g.x, dy = p.y - g.y;
+      if (Math.abs(dx) + Math.abs(dy) > 8) g.moved = true;
+      if (g.moved) { c.x = g.cx + dx; c.y = g.cy + dy; isoDraw(); }
+    } else if (g.mode === 'pinch' && P.size >= 2) {
+      const [a, b] = [...P.values()], m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      c.z = Math.max(0.3, Math.min(3, g.z0 * Math.hypot(a.x - b.x, a.y - b.y) / g.d0));
+      c.x = m.x - g.wx * c.z; c.y = m.y - g.wy * c.z;
+      isoDraw();
+    }
+  });
+  const up = (e) => {
+    if (!P.has(e.pointerId)) return;
+    const p = rel(e); P.delete(e.pointerId);
+    // нажатие обрабатываем по событию click: иначе этот же click попадёт в фон открытой шторки и закроет её
+    Iso.tap = g && g.mode === 'pan' && !g.moved && P.size === 0 ? p : null;
+    if (P.size === 0) g = null; else if (g && g.mode === 'pinch') g = { mode: 'none' };
+  };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  cv.addEventListener('click', () => { const t = Iso.tap; Iso.tap = null; if (t) isoTap(t.x, t.y); });
+  cv.addEventListener('wheel', (e) => { e.preventDefault(); const p = rel(e); isoZoom(e.deltaY < 0 ? 1.15 : 1 / 1.15, p.x, p.y); }, { passive: false });
 })();
+
+function isoTap(px, py) {
+  const c = cam(), t = screenToTile((px - c.x) / c.z, (py - c.y) / c.z);
+  if (S.tab === 'castle') {
+    const x = t.x - CASTLE_OFF, y = t.y - CASTLE_OFF;
+    if (x < 0 || x >= 7 || y < 0 || y >= 7) return;
+    Iso.sel = { tab: 'castle', x: t.x, y: t.y }; isoDraw();
+    openCell(VIEW.CASTLE, y * 7 + x);
+  } else if (S.tab === 'lands') {
+    if (t.x < 0 || t.x >= 15 || t.y < 0 || t.y >= 15) return;
+    Iso.sel = { tab: 'lands', x: t.x, y: t.y }; isoDraw();
+    openCell(VIEW.LANDS, t.y * 15 + t.x);
+  } else if (S.tab === 'world' && S.world) {
+    const R0 = S.world.radius;
+    if (t.x < 0 || t.x > 2 * R0 || t.y < 0 || t.y > 2 * R0) return;
+    Iso.sel = { tab: 'world', x: t.x, y: t.y }; isoDraw();
+    openWorldCell(S.world.cx - R0 + t.x, S.world.cy - R0 + t.y);
+  }
+}
+
+function isoDraw() {
+  if (Iso.queued) return; Iso.queued = true;
+  requestAnimationFrame(() => { Iso.queued = false; isoDrawNow(); });
+}
+function diamond(sx, sy, fill, stroke) {
+  const x = ictx;
+  x.beginPath(); x.moveTo(sx + TW / 2, sy); x.lineTo(sx + TW, sy + TH / 2); x.lineTo(sx + TW / 2, sy + TH); x.lineTo(sx, sy + TH / 2); x.closePath();
+  if (fill) { x.fillStyle = fill; x.fill(); }
+  if (stroke) { x.strokeStyle = stroke; x.lineWidth = 2.5; x.stroke(); }
+}
+function ground(path, sx, sy) { const im = pic(path); if (im) ictx.drawImage(im, sx, sy - (im.height - TH)); else diamond(sx, sy, '#3f7d2c'); }
+function sprite(path, sx, sy, dy = 0) { const im = pic(path); if (im) ictx.drawImage(im, sx + TW / 2 - im.width / 2, sy - (im.height - TH) + dy); }
+function label(text, sx, sy, color = '#ffd27a') {
+  const x = ictx; x.font = 'bold 11px system-ui, sans-serif'; x.textAlign = 'center';
+  const w = x.measureText(text).width + 8;
+  x.fillStyle = '#000a'; x.fillRect(sx + TW / 2 - w / 2, sy + TH - 4, w, 14);
+  x.fillStyle = color; x.fillText(text, sx + TW / 2, sy + TH + 7);
+}
+function bar(sx, sy, frac) {
+  ictx.fillStyle = '#000b'; ictx.fillRect(sx + 11, sy - 30, 40, 7);
+  ictx.fillStyle = '#ffd27a'; ictx.fillRect(sx + 12, sy - 29, 38 * Math.max(0, Math.min(1, frac)), 5);
+}
+function highlight(x, y) { if (Iso.sel && Iso.sel.tab === S.tab && Iso.sel.x === x && Iso.sel.y === y) { const p = tileScreen(x, y); diamond(p.sx, p.sy, '#ffd00033', '#ffd000'); } }
+// здание на клетке (с учётом стройки): спрайт, уровень, полоса прогресса
+function drawCellBuilding(view, cell, b, lvl, p) {
+  const q = queueAt(view, cell);
+  if (q && q.level === 1) sprite('build/build.png', p.sx, p.sy);
+  else if (b >= 0) sprite(`build/${BUILD_IMG[displayId(S.by[b], lvl)] || 'build'}.png`, p.sx, p.sy);
+  if (b >= 0) label(String(lvl), p.sx, p.sy);
+  if (q) bar(p.sx, p.sy, (now() - q.start) / (q.end - q.start));
+}
+
+function isoDrawNow() {
+  if (!Iso.cv.isConnected || !S.st || !S.cat) return;
+  const dpr = window.devicePixelRatio || 1, c = cam(), x = ictx;
+  x.setTransform(1, 0, 0, 1, 0, 0);
+  x.fillStyle = '#16240f'; x.fillRect(0, 0, Iso.cv.width, Iso.cv.height);
+  x.setTransform(c.z * dpr, 0, 0, c.z * dpr, c.x * dpr, c.y * dpr);
+  x.imageSmoothingEnabled = false;
+  const st = S.st.castle;
+  if (S.tab === 'castle') {
+    for (let y = 0; y < 17; y++) for (let xx = 16; xx >= 0; xx--) { const p = tileScreen(xx, y); ground(`ground/${GROUND[CASTLE_BASE[y][xx]]}.png`, p.sx, p.sy); highlight(xx, y); }
+    for (let y = 0; y < 7; y++) for (let xx = 6; xx >= 0; xx--) {
+      const cell = y * 7 + xx; drawCellBuilding(0, cell, st.grid[0][cell], st.levels[0][cell], tileScreen(xx + CASTLE_OFF, y + CASTLE_OFF));
+    }
+  } else if (S.tab === 'lands') {
+    const L = S.cat.lands;
+    for (let y = 0; y < 15; y++) for (let xx = 14; xx >= 0; xx--) {
+      const p = tileScreen(xx, y), e = L.edge[y][xx];
+      ground(`ground/${GROUND[L.base[y][xx]]}.png`, p.sx, p.sy);
+      if (e >= 0) ground(`gborder/${e < 12 ? 'ground' : 'water'}/${EDGE[e % 12]}.png`, p.sx, p.sy);
+      highlight(xx, y);
+    }
+    for (let y = 0; y < 15; y++) for (let xx = 14; xx >= 0; xx--) {
+      const cell = y * 15 + xx, b = st.grid[1][cell], p = tileScreen(xx, y), d = L.decor[y][xx];
+      if (b < 0 && !queueAt(1, cell) && d >= 0) sprite(`ground/${DECOR[d]}.png`, p.sx, p.sy, d === 1 ? 3 : d === 2 ? -2 : 0);
+      else drawCellBuilding(1, cell, b, st.levels[1][cell], p);
+    }
+  } else if (S.world) {
+    const w = S.world, R0 = w.radius, n = 2 * R0 + 1, objs = new Map(w.objects.map((o) => [`${o.x}:${o.y}`, o]));
+    for (let y = 0; y < n; y++) for (let xx = n - 1; xx >= 0; xx--) {
+      const p = tileScreen(xx, y); ground('ground/grass.png', p.sx, p.sy); highlight(xx, y);
+    }
+    for (let y = 0; y < n; y++) for (let xx = n - 1; xx >= 0; xx--) {
+      const o = objs.get(`${w.cx - R0 + xx}:${w.cy - R0 + y}`); if (!o) continue;
+      const p = tileScreen(xx, y);
+      if (o.kind !== 'castle' && o.img === 1) sprite(WORLD_NAME_IMG(o), p.sx, p.sy, 3); else ground(WORLD_NAME_IMG(o), p.sx, p.sy);
+      if (o.kind === 'castle') label(o.owner, p.sx, p.sy, o.ownerId === S.st.user.id ? '#ffd27a' : '#fff');
+    }
+  }
+}
+
+// ---------- старт ----------
+S.creds = store.get('tw.creds');
+S.remember = true;
+if (S.creds) $('#authForm').login.value = S.creds.login;
+connect();

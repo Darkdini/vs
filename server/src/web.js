@@ -13,7 +13,7 @@ const { openJar } = require('./jarassets');
 
 const WEB_ROOT = path.join(__dirname, '..', '..', 'web');
 const OWN_ASSETS = path.join(__dirname, '..', 'assets', 'images');
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml' };
+const MIME = { '.webmanifest': 'application/manifest+json', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml' };
 
 // ---------- WebSocket ----------
 function wsAccept(req, socket) {
@@ -60,10 +60,25 @@ class WsReader {
 }
 
 // ---------- каталог для клиента ----------
+// Справочник войск (баланс из дизайн-документа, data/units.json) — пока только для просмотра, тренировки на сервере нет
+function armyJson() {
+  try {
+    const dir = path.join(__dirname, '..', '..', 'data');
+    const units = JSON.parse(fs.readFileSync(path.join(dir, 'units.json'), 'utf8'));
+    const blds = JSON.parse(fs.readFileSync(path.join(dir, 'buildings.json'), 'utf8')).buildings;
+    return { races: units.races, units: units.units, buildingNames: Object.fromEntries(blds.map((b) => [b.id, b.name])) };
+  } catch (e) { return null; }
+}
+
+// Всё, что нужно клиенту для таблиц по уровням: стоимость, время, добыча, вместимость, рейтинг.
+// Время в таблицах клиент считает сам по тем же формулам (зависит от уровня Ратуши): rules.time + speed.
 function catalogJson() {
   return {
     speed: G.SPEED,
     maxQueue: G.MAX_QUEUE,
+    rules: {
+      time: C.TIME, rating: C.RATING, store: G.STORE, baseRate: G.BASE_RATE, peopleFactor: G.PEOPLE_FACTOR, minBuildSec: 3,
+    },
     buildings: C.BUILDINGS.map((b) => ({
       id: b.id, name: b.name, desc: b.desc, layer: b.layer, max: b.max || 20, unique: !!b.unique, req: b.req || {},
       produces: b.produces || null, tiers: b.tiers || null,
@@ -73,6 +88,7 @@ function catalogJson() {
     races: C.RACE_NAMES,
     raceOrder: C.RACES,
     units: C.UNITS,
+    army: armyJson(),
     lands: { base: G.LANDS_BASE, decor: G.LANDS_DECOR, edge: G.LANDS_EDGE },
     landOptions: G.LANDS_BASE.map((row, y) => row.map((_, x) => G.landOptions(x, y))),
   };

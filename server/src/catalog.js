@@ -87,11 +87,15 @@ function levelCost(b, level) {
   return cost;
 }
 
+// время: база × рост^(ур-1) × 0.95^ур.Ратуши (Ратуша ускоряет стройки на 5% за уровень)
+const TIME = { lands: { base: 60, growth: 1.45 }, castle: { base: 180, growth: 1.25 }, townhallFactor: 0.95, min: 5 };
 function levelTimeSec(b, level, townhallLevel) {
-  const base = b.layer === 'lands' ? 60 : 180;
-  const growth = b.layer === 'lands' ? 1.45 : 1.25;
-  return Math.max(5, Math.round(base * growth ** (level - 1) * 0.95 ** townhallLevel));
+  const t = b.layer === 'lands' ? TIME.lands : TIME.castle;
+  return Math.max(TIME.min, Math.round(t.base * t.growth ** (level - 1) * TIME.townhallFactor ** townhallLevel));
 }
+
+// рейтинг: каждый уровень здания в замке даёт 10 очков, на землях — 5
+const RATING = { castle: 10, lands: 5 };
 
 // Какую картинку показывать для уровня (земли «растут»: маленькое → среднее → большое здание)
 function displayId(b, level) {
@@ -99,4 +103,4 @@ function displayId(b, level) {
   return level >= 10 ? b.tiers[2] : level >= 5 ? b.tiers[1] : b.tiers[0];
 }
 
-module.exports = { RES, RES_ICON, TIME_ICON, BUILDINGS, BY_ID, UNITS, RACES, RACE_NAMES, PROD, levelCost, levelTimeSec, displayId };
+module.exports = { TIME, RATING, RES, RES_ICON, TIME_ICON, BUILDINGS, BY_ID, UNITS, RACES, RACE_NAMES, PROD, levelCost, levelTimeSec, displayId };

@@ -2,79 +2,64 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1b1610">
+<meta name="mobile-web-app-capable" content="yes">
 <title>Война Королей</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="gfx/build/castle.png" type="image/png">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<!-- ===== вход / регистрация ===== -->
+<!-- вход и регистрация -->
 <section id="auth" class="screen">
   <div class="auth-box">
-    <img class="banner" src="/img/10.png" alt="Война Королей">
-    <div class="tabs small">
-      <button data-auth="login" class="active">Вход</button>
-      <button data-auth="register">Регистрация</button>
+    <div class="logo"><img src="gfx/build/castle.png" alt=""></div>
+    <h1>Война Королей</h1>
+    <p class="muted">Третий Мир · тестовый сервер</p>
+    <div class="seg" id="authTabs">
+      <button data-mode="login" class="on">Вход</button>
+      <button data-mode="reg">Регистрация</button>
     </div>
-    <form id="login-form" autocomplete="on">
-      <label>Логин <input name="login" required maxlength="10" autocomplete="username"></label>
-      <label>Пароль <input name="password" type="password" required autocomplete="current-password"></label>
-      <button class="btn primary" type="submit">Войти</button>
+    <form id="authForm" autocomplete="on">
+      <label>Логин<input name="login" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="10" required></label>
+      <label>Пароль<input name="password" type="password" autocomplete="current-password" required></label>
+      <div id="raceBox" class="hidden">
+        <div class="label">Раса</div>
+        <div id="races" class="races"></div>
+      </div>
+      <label class="check"><input type="checkbox" name="remember" checked> Запомнить меня</label>
+      <div id="authErr" class="err"></div>
+      <button class="btn primary" id="authBtn">Войти</button>
     </form>
-    <form id="register-form" hidden>
-      <label>Логин (3–10 символов) <input name="login" required minlength="3" maxlength="10"></label>
-      <label>Пароль <input name="password" type="password" required minlength="3"></label>
-      <label>E-mail <input name="email" type="email"></label>
-      <label>Раса
-        <select name="race">
-          <option value="0">Люди — баланс, железо</option>
-          <option value="1">Эльфы — защита, дерево</option>
-          <option value="2">Гномы — атака, камень</option>
-        </select>
-      </label>
-      <button class="btn primary" type="submit">Создать аккаунт</button>
-    </form>
-    <p id="auth-msg" class="msg"></p>
-    <p class="hint" id="conn-state">Подключение…</p>
   </div>
 </section>
 
-<!-- ===== игра ===== -->
-<section id="game" class="screen" hidden>
-  <header>
-    <div class="who"><b id="who-name"></b> <span id="who-race"></span> <span id="who-rating" class="muted"></span></div>
-    <div id="resources" class="resources"></div>
-    <div class="clock" id="clock"></div>
+<!-- игра -->
+<section id="game" class="screen hidden">
+  <header id="top">
+    <div class="row1">
+      <button id="castleName" class="plain"></button>
+      <span id="ratingBadge" class="badge">★ 0</span>
+    </div>
+    <div id="resbar"></div>
+    <div id="queue"></div>
   </header>
-  <nav class="tabs" id="tabs">
-    <button data-view="castle" class="active">Замок</button>
-    <button data-view="lands">Земли</button>
-    <button data-view="world">Мир</button>
-    <button data-modal="mail">Почта <span id="unread" class="badge" hidden></span></button>
-    <button data-modal="rating">Рейтинг</button>
-    <button data-modal="profile">Кабинет</button>
-    <button data-modal="bug">Bug!</button>
-    <button data-action="logout" class="right">Выход</button>
+  <main id="view"></main>
+  <nav id="nav">
+    <button data-tab="castle" class="on"><i><img src="gfx/build/castle.png" alt=""></i>Замок</button>
+    <button data-tab="lands"><i><img src="gfx/build/farm_big.png" alt=""></i>Земли</button>
+    <button data-tab="world"><i><img src="gfx/ground/castle_big.png" alt=""></i>Мир</button>
+    <button data-tab="rating"><i><img src="gfx/smallicon/status/f_gold.png" alt=""></i>Рейтинг</button>
+    <button data-tab="more"><i><img src="gfx/smallicon/softmenu.png" alt=""></i>Ещё<b id="unread" class="dot hidden"></b></button>
   </nav>
-  <main>
-    <div id="map-wrap">
-      <canvas id="map"></canvas>
-      <div id="map-hint" class="hint">Клик по клетке — выбрать. Перетаскивание — сдвиг, колесо — масштаб.</div>
-    </div>
-    <aside id="panel">
-      <div id="selection"></div>
-      <div id="queue"></div>
-    </aside>
-  </main>
 </section>
 
-<div id="modal" class="modal" hidden>
-  <div class="modal-box">
-    <button class="close" id="modal-close" title="Закрыть">×</button>
-    <div id="modal-body"></div>
-  </div>
-</div>
-<div id="toasts"></div>
+<div id="backdrop"></div>
+<div id="sheet" role="dialog"><div class="grab"></div><div id="sheetBody"></div></div>
+<div id="toast"></div>
+<div id="offline">Нет связи с сервером… переподключение</div>
 
 <script src="app.js"></script>
 </body>

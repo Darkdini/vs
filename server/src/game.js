@@ -55,6 +55,13 @@ function landOptions(x, y) {
   }
 }
 
+// вместимость: база 1500 + каждый Склад 1000×1.25^ур.; люди: 60 + 20 за уровень каждой Хибары
+const STORE = { base: 1500, perStore: 1000, growth: 1.25, people: 60, peoplePerHut: 20 };
+const storeBonus = (level) => Math.round(STORE.perStore * STORE.growth ** level);
+// базовая добыча замка в час (без зданий); Хибара даёт людей с коэффициентом 0.2 от таблицы PROD
+const BASE_RATE = { wood: 10, stone: 10, iron: 10, food: 10, people: 2 };
+const PEOPLE_FACTOR = 0.2;
+
 const VIEW = { CASTLE: 0, LANDS: 1, WORLD: 2 };
 const GRID = { [VIEW.CASTLE]: 7, [VIEW.LANDS]: 15 };
 
@@ -80,6 +87,9 @@ class Store {
 const hashPassword = (pass, salt = crypto.randomBytes(8).toString('hex')) =>
   `${salt}:${crypto.scryptSync(pass, salt, 32).toString('hex')}`;
 const checkPassword = (pass, stored) => hashPassword(pass, stored.split(':')[0]) === stored;
+
+// реальное время стройки с учётом скорости мира (не меньше 3 с)
+const buildTime = (def, level, townhall) => Math.max(3, Math.round(C.levelTimeSec(def, level, townhall) / SPEED));
 
 class Game {
   constructor(store) { this.store = store; this.db = store.data; }
@@ -139,10 +149,10 @@ class Game {
 
   castleOf(user) { return this.db.castles[user.castleId]; }
 
-  // рейтинг = сумма уровней зданий (замок ×10, земли ×5)
+  // рейтинг = сумма уровней зданий (замок ×10, земли ×5 — C.RATING)
   rating(castle) {
     const sum = (a) => a.reduce((x, y) => x + y, 0);
-    return sum(castle.levels[0]) * 10 + sum(castle.levels[1]) * 5;
+    return sum(castle.levels[0]) * C.RATING.castle + sum(castle.levels[1]) * C.RATING.lands;
   }
 
   buildingLevel(castle, buildingId) {
@@ -152,19 +162,19 @@ class Game {
   }
 
   capacity(castle) {
-    let store = 1500;
-    castle.grid[0].forEach((b, i) => { if (b === 1) store += Math.round(1000 * 1.25 ** castle.levels[0][i]); });
-    let people = 60;
-    castle.grid[1].forEach((b, i) => { if (b === 6) people += 20 * castle.levels[1][i]; });
+    let store = STORE.base;
+    castle.grid[0].forEach((b, i) => { if (b === 1) store += storeBonus(castle.levels[0][i]); });
+    let people = STORE.people;
+    castle.grid[1].forEach((b, i) => { if (b === 6) people += STORE.peoplePerHut * castle.levels[1][i]; });
     return { wood: store, stone: store, iron: store, food: store, people };
   }
 
   // добыча в час (люди — тоже в час; клиенту отдаём «в сутки», см. handlers)
   rates(castle) {
-    const r = { wood: 10, stone: 10, iron: 10, food: 10, people: 2 };
+    const r = { ...BASE_RATE };
     castle.grid[1].forEach((b, i) => {
       const def = C.BY_ID[b];
-      if (def && def.produces) r[def.produces] += C.PROD[castle.levels[1][i]] * (def.produces === 'people' ? 0.2 : 1);
+      if (def && def.produces) r[def.produces] += C.PROD[castle.levels[1][i]] * (def.produces === 'people' ? PEOPLE_FACTOR : 1);
     });
     for (const k of Object.keys(r)) r[k] = Math.round(r[k] * SPEED);
     return r;
@@ -211,7 +221,7 @@ class Game {
         const x = cell % 15, y = Math.floor(cell / 15);
         if (!landOptions(x, y).includes(buildingId)) return { error: 'На этой клетке такое здание не построить.' };
       }
-      if (def.unique && this.buildingLevel(castle, buildingId) > 0) return { error: 'Такое здание уже есть в замке.' };
+      if (def.unique && (this.buildingLevel(castle, buildingId) > 0 || castle.queue.some((q) => q.building === buildingId))) return { error: 'Такое здание уже есть в замке.' };
       level = 1;
     } else {
       if (current !== buildingId) return { error: 'Клетка занята другим зданием.', state: 1 };
@@ -229,7 +239,7 @@ class Game {
     }
     if (busyPeople + cost.people > cap.people) return { error: 'Не хватает свободных людей.', state: 2 };
     for (const r of C.RES) if (r !== 'people') castle.res[r] -= cost[r];
-    const time = Math.max(3, Math.round(C.levelTimeSec(def, level, this.buildingLevel(castle, 0)) / SPEED));
+    const time = buildTime(def, level, this.buildingLevel(castle, 0));
     const now = Date.now();
     const item = { view, cell, building: buildingId, level, start: now, end: now + time * 1000, cost };
     castle.queue.push(item);
@@ -283,4 +293,4 @@ class Game {
   }
 }
 
-module.exports = { Game, Store, VIEW, GRID, landOptions, SPEED, MAX_QUEUE, LANDS_BASE, LANDS_DECOR, LANDS_EDGE };
+module.exports = { Game, Store, STORE, BASE_RATE, PEOPLE_FACTOR, storeBonus, buildTime, VIEW, GRID, landOptions, SPEED, MAX_QUEUE, LANDS_BASE, LANDS_DECOR, LANDS_EDGE };
