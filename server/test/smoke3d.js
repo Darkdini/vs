@@ -11,6 +11,7 @@ const { spawn } = require('child_process');
 const P = require('../src/tw3d/protocol');
 
 const REAL_USER_START = '0041000000000080808011b64d831edd736617000000096639a00041006e00640072006f006900640020007c00200043006c00690065006e0074002000760065007200730069006f006e00200032002e0030002e00310031003266399c005800690061006f006d006900200020007c00200020003200330030003600450050004e00360030004700200020007c00200020003100366609000004c46609000009f3663984006e0075006c006c6631016631016609000068db663984006e0075006c006c';
+const REAL_GCM = '007e812e00000000008080800051bf99de63bf66390e00650071006d004100340038005300530054004e00430051004b004c005a0076004f0052006a006c00720050003a00410050004100390031006200470046002d00370052004a005300570070004c004d0035007800710036004b004a0070006e0039007000560057004b006c00680030006e0046006f005f0064004f004b006c006c006d005900320058007000550035007a0078006b004b006d003300310034004e006b0052005000780049007a003400640077004f006900410038005f0055005a006500770034004400360078007100550070007a006500340053004300690048004e005f00730037005600630078004d00320032006e006b00720032004500630052005900440053004700590036003300720072003700740063';
 const PORT3D = 28000 + Math.floor(Math.random() * 1000);
 const DB = path.join(os.tmpdir(), `tw-3d-smoke-${process.pid}.json`);
 
@@ -40,6 +41,7 @@ class Client {
   parse() {
     if (!this.hs) { if (this.buf.length < 2) return; this.hs = [this.buf[0], this.buf[1]]; this.buf = this.buf.subarray(2); }
     for (;;) {
+      if (this.buf.length && this.buf[0] === 0xff) { this.pongs = (this.pongs || 0) + 1; this.buf = this.buf.subarray(1); continue; }
       if (this.buf.length < 2) return;
       const r = new P.Reader(this.buf);
       const ch = r.u8(), len = r.varint();
@@ -81,9 +83,10 @@ class Client {
   try {
     await c.connect();
     // настоящий USER.START с телефона (Xiaomi, клиент 2.0.112): список скриптовых значений (тип 102)
-    c.sock.write(Buffer.from(REAL_USER_START, 'hex'));
+    c.sock.write(Buffer.concat([Buffer.from([0xff]), Buffer.from(REAL_USER_START, 'hex'), Buffer.from(REAL_GCM, 'hex')])); // + ping и токен GCM
     const win = await c.expect('WIN.ADDDIL');
     assert.deepEqual(c.hs, [56, 56]);
+    assert.equal(c.pongs, 1);
     assert.match(win.arg, /Регистрация/);
     console.log('✓ рукопожатие v56 и приветственное окно');
 

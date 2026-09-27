@@ -200,6 +200,8 @@ class StreamParser {
       this.handshake = false;
     }
     for (;;) {
+      // байт 0xFF вместо номера канала — проверка связи (ping), данных за ним нет
+      if (this.buf.length >= 1 && this.buf[0] === 0xff) { out.push({ ping: true }); this.buf = this.buf.subarray(1); continue; }
       if (this.buf.length < 2) break;
       const r = new Reader(this.buf);
       const channel = r.u8();

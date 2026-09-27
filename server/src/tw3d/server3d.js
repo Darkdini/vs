@@ -55,6 +55,7 @@ class Session3D {
     const name = `${P.nameOf(msg.cat)}.${P.nameOf(msg.cmd)}`;
     this.log(`<< ${name} ${JSON.stringify(msg.arg)}`);
     if (key === CMD.START) return this.welcome();
+    if (msg.cat === N('GCM')) return; // токен push-уведомлений — не нужен
     if (msg.cat !== N('app') && msg.cat !== N('bld')) return this.log(`   (пропущено: ${name})`);
     const fn = ACTIONS[P.nameOf(msg.cmd).toLowerCase()];
     if (!fn) return this.window(`Команда ${name} пока не поддерживается.\n\n${closeLink()}`);
@@ -189,6 +190,7 @@ function startServer3D(game, sessions, { port, host, log, debug }) {
             s.write(Buffer.from([P.PROTO, P.PROTO]));
             continue;
           }
+          if (it.ping) { s.write(Buffer.from([0xff])); continue; } // клиент пропускает байт -1
           if (it.channel !== 0) { slog(`канал ${it.channel}: ${it.payload.length} байт (пока не обрабатывается)`); continue; }
           const { reader } = P.decodePayload(it.payload);
           s.handle(reader.message());
