@@ -124,7 +124,7 @@ function install(Game) {
       rating: this.userRating(u), rank: this.rankOf(u.id), reputation: u.reputation ?? START_REP,
       title: u.admin ? 'Администратор' : null,
       alliance: al ? { name: al.name, tag: al.tag, role: al.leader === u.id ? 'Глава' : 'Участник' } : null,
-      medals: this.medalsOf(u.id),
+      medals: this.medalsOf(u.id), awards: (u.allyAwards || []).slice().reverse(),
       castles: this.castlesOf(u).map((k, i) => ({ id: k.id, name: k.name, x: k.x, y: k.y, capital: i === 0, rating: this.rating(k) })),
       self: u.id === viewer.id,
       friend: (viewer.friends || []).includes(u.id),

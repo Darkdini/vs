@@ -141,7 +141,11 @@ const avatarImg = (p, cls = '') => (p.avatar ? `<img class="${cls}" src="avatar/
 function profileWin(p) {
   const tile = (key, icon, text, off) => `<button class="ptile ${off ? 'off' : ''}" data-ptile="${key}" data-pid="${p.id}"><img src="${GFX}${icon}" alt=""><span>${text}</span></button>`;
   const medals = p.medals.length ? p.medals.map((m) => `<img class="medal" src="${GFX}${m.icon}" alt="" title="Зал ${esc(m.name)} — ${m.place} место, получено ${fmtDay(m.at)}">`).join('') : '<span class="muted">нет</span>';
-  const awards = p.medals.length ? p.medals.map((m) => `<div class="award"><img src="${GFX}${m.icon}" alt=""><div><b>Зал ${esc(m.name)} — ${['I', 'II', 'III'][m.place - 1]} место</b><small>за ${monthName(m.month)} · получено ${fmtDay(m.at)}</small></div></div>`).join('') : '<div class="parch-note">Пока нет — награды получают топ-3 игрока каждого зала в конце соревновательного месяца.</div>';
+  // Зал Славы: медали топ-3 по итогам соревновательного месяца, с датой получения
+  const hof = p.medals.length ? p.medals.map((m) => `<div class="award"><img src="${GFX}${m.icon}" alt=""><div><b>Зал ${esc(m.name)} — ${['I', 'II', 'III'][m.place - 1]} место</b><small>за ${monthName(m.month)} · получено ${fmtDay(m.at)}</small></div></div>`).join('') : '<div class="parch-note">Пока нет — медали получают топ-3 игрока каждого зала в конце соревновательного месяца.</div>';
+  // Награждения: медали от альянса за заслуги
+  const aw = p.awards || [];
+  const awards = aw.length ? aw.map((m) => `<div class="award"><img src="${GFX}smallicon/status/${m.kind}.png" alt=""><div><b>${esc(ALLY_MEDAL[m.kind] || 'Медаль')} от альянса [${esc(m.tag)}]</b><small>${m.text ? `«${esc(m.text)}» · ` : ''}вручил ${esc(m.by)} · получено ${fmtDay(m.at)}</small></div></div>`).join('') : '<div class="parch-note">Пока нет — медали за заслуги вручает глава альянса.</div>';
   return `${ribbon('Профиль')}
     <div class="pauth"><img src="${GFX}smallicon/bonus_status/coronalgold.png" alt=""><div>Авторитет Вашего города:<br><b>Здесь может быть Ваше имя!</b></div></div>
     <button class="pbar" data-soon="Авторитет города">Стать Авторитетом!</button>
@@ -166,8 +170,8 @@ function profileWin(p) {
       ${tile('attack', 'smallicon/swordred.png', 'Атаковать', p.self)}
     </div>
     ${ribbon(`Подарки - ${(p.gifts || []).length}`)}${(p.gifts || []).length ? `<div class="pgifts">${p.gifts.map((g) => { const G = S.cat.gifts[g.gift] || {}; return `<button class="pgift" data-cprof="${g.fromId}" title="${esc(G.name || '')}"><img src="${GFX}${G.img}" alt=""><small>от ${esc(g.from)}</small>${g.text ? `<i>«${esc(g.text)}»</i>` : ''}</button>`; }).join('')}</div>` : '<div class="parch-note">Подарков пока нет.</div>'}
-    ${ribbon('Зал Славы')}<div class="pmedals">${medals}</div><button class="pbar" data-hof>Посмотреть</button>
-    ${ribbon(`Награждения - ${p.medals.length}`)}${awards}
+    ${ribbon(`Зал Славы - ${p.medals.length}`)}${hof}<button class="pbar" data-hof>Посмотреть</button>
+    ${ribbon(`Награждения - ${aw.length}`)}${awards}
     ${ribbon(`Замки - ${p.castles.length}`)}
     ${p.castles.map((c) => `<button class="pcastle" data-goworld="${c.x},${c.y}"><img src="${GFX}ground/castle_small.png" alt=""> ${esc(c.name)}<br>X: ${c.x}, Y: ${c.y}${c.capital ? ' (Столица)' : ''}</button>`).join('')}`;
 }
@@ -189,6 +193,7 @@ function hallsWin() {
     </div></div>`).join('')}
     ${last ? `${ribbon(`Победители за ${monthName(last.key)}`)}${last.halls.map((h) => `<div class="hrow"><b>${esc(h.name)}:</b> ${h.top.map((x, i) => `<img src="${GFX}smallicon/bonus_status/${h.icon}${['gold', 'silver', 'bronze'][i] === 'silver' && h.icon === 'medal' ? 'siver' : ['gold', 'silver', 'bronze'][i]}.png" alt=""> <a data-cprof="${x.id}">${esc(x.login)}</a>`).join(' ') || '—'}</div>`).join('')}` : ''}`;
 }
+const ALLY_MEDAL = { gold: 'Золотая медаль', silver: 'Серебряная медаль', bronze: 'Бронзовая медаль' };
 const MONTHS = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
 const monthName = (key) => { const [y, m] = String(key || '').split('-'); return m ? `${MONTHS[Number(m) - 1]} ${y}` : ''; };
 const fmtDay = (t) => new Date(t).toLocaleDateString('ru-RU');

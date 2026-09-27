@@ -44,7 +44,7 @@ function myAllianceWin() {
     <div class="bwline center">Участников: ${al.members.length} из ${al.slots}</div>
     <div class="bwline center">Очки альянса (рейтинг + репутация): <b>${fmtFull(al.score)}</b></div>
     ${(al.info || []).map((u) => `<div class="mrow"><span><b data-cprof="${u.id}">${esc(u.login)}</b>${u.login === (al.leaderLogin || '') ? ' ★' : ''} ${repIcons(u.rep)}<br><small>рейтинг ${fmtFull(u.rating)} + репутация ${fmtFull(u.rep)} = ${fmtFull(u.rating + u.rep)}</small></span>
-      ${al.lead && u.login !== me ? `<button class="pbtn small" data-al="kick" data-login="${esc(u.login)}">Исключить</button>` : ''}</div>`).join('')}
+      ${al.lead ? `<span>${u.login !== me ? `<button class="pbtn small" data-al="kick" data-login="${esc(u.login)}">Исключить</button> ` : ''}<button class="pbtn small" data-alaward="${esc(u.login)}">Наградить</button></span>` : ''}</div>`).join('')}
     ${al.lead ? `${ribbon('Заявки')}${al.requests.length ? al.requests.map((r) => `<div class="mrow"><span>${esc(r.login)} <small>★ ${fmtFull(r.rating)}</small></span>
         <span><button class="pbtn small" data-al="approve" data-id="${r.id}">Принять</button> <button class="pbtn small" data-al="reject" data-id="${r.id}">Отклонить</button></span></div>`).join('') : '<p class="parch-note">Заявок нет.</p>'}
       ${ribbon('Пригласить игрока')}<form class="chatform" data-alform="invite"><input name="login" placeholder="Логин игрока" autocapitalize="none" required><button class="pbtn small">Пригласить</button></form>` : ''}
@@ -53,8 +53,14 @@ function myAllianceWin() {
 
 const DIP_WIN = { invites: invitesWin, list: alliancesWin, create: createWin, my: myAllianceWin };
 $('#sheetBody').addEventListener('click', (e) => {
-  const t = e.target.closest('[data-dip],[data-al],[data-alfind]'); if (!t) return;
+  const t = e.target.closest('[data-dip],[data-al],[data-alfind],[data-alaward]'); if (!t) return;
   const d = t.dataset;
+  if (d.alaward) {
+    const k = prompt(`Медаль за заслуги для ${d.alaward}: 1 — золотая, 2 — серебряная, 3 — бронзовая`, '1'); if (!k) return;
+    const kind = { 1: 'gold', 2: 'silver', 3: 'bronze' }[k.trim()] || 'bronze';
+    const text = prompt('За что (необязательно):', '') || '';
+    return send({ t: 'alliance', op: 'award', login: d.alaward, kind, text });
+  }
   if (d.dip) { if (d.dip === 'list') S.alFound = null; return openSheet(DIP_WIN[d.dip]); }
   if (d.alfind !== undefined) return send({ t: 'alliances' });
   if (d.confirm && !confirm(d.confirm)) return;

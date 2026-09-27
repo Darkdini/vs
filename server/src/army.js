@@ -966,7 +966,7 @@ function install(Game, helpers) {
     for (const id of al.members) if (id !== user.id) this.event(id, `${user.login} вступил в альянс [${al.tag}].`);
     this.store.save(); return { ok: true };
   };
-  P.alliance = function alliance(user, castle, { op, name, tag, id, login }) {
+  P.alliance = function alliance(user, castle, { op, name, tag, id, login, kind, text }) {
     this.db.alliances = this.db.alliances || {};
     const emb = this.buildingLevel(castle, B.EMBASSY);
     const cur = this.allianceOf(user), A = this.db.alliances;
@@ -989,7 +989,7 @@ function install(Game, helpers) {
       this.store.save(); return { ok: true, msg: `Заявка отправлена в [${al.tag}].` };
     }
     // управление своим альянсом (глава)
-    if (['invite', 'approve', 'reject', 'kick'].includes(op)) {
+    if (['invite', 'approve', 'reject', 'kick', 'award'].includes(op)) {
       if (!cur) return { error: 'Вы не в альянсе.' };
       if (cur.leader !== user.id) return { error: 'Это может только глава альянса.' };
       const t = login !== undefined ? this.db.users[String(login).trim().toLowerCase()] : this.userById(id);
@@ -1006,6 +1006,16 @@ function install(Game, helpers) {
         cur.requests = (cur.requests || []).filter((x) => x !== t.id);
         if (t.alliance) { this.store.save(); return { error: 'Игрок уже в другом альянсе.' }; }
         return this.joinAlliance(t, cur);
+      }
+      if (op === 'award') { // медаль за заслуги от альянса (не больше 5 в сутки от главы)
+        if (!cur.members.includes(t.id)) return { error: 'Игрок не в вашем альянсе.' };
+        kind = ['gold', 'silver', 'bronze'].includes(kind) ? kind : 'bronze';
+        const now = Date.now(); user.awardLog = (user.awardLog || []).filter((x) => x > now - 86400000);
+        if (user.awardLog.length >= 5) return { error: 'Не больше 5 наград в сутки.' };
+        user.awardLog.push(now);
+        (t.allyAwards = t.allyAwards || []).push({ kind, tag: cur.tag, by: user.login, at: now, text: String(text || '').trim().slice(0, 80) });
+        this.event(t.id, `Альянс [${cur.tag}] наградил Вас медалью за заслуги!`);
+        this.store.save(); return { ok: true, msg: `Медаль вручена: ${t.login}.` };
       }
       if (op === 'kick') {
         if (t.id === user.id || !cur.members.includes(t.id)) return { error: 'Нельзя исключить.' };
