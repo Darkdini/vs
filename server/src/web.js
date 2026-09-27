@@ -135,6 +135,7 @@ class WebSession {
 
   notifyMail(fromLogin) { this.toast(`Новое письмо от ${fromLogin}`); this.pushState(); }
   notify(msg) { this.toast(msg); this.pushState(); } // события игры: тренировка, бой, возврат армии, отчёты
+  sendChat(msg) { this.send({ t: 'chatmsg', msg }); }
 
   result(r) { if (r && r.error) this.error(r.error); this.pushState(); }
 
@@ -157,7 +158,7 @@ const API = {
   login(m) {
     const u = this.game.login(m.login, m.password);
     if (!u) return this.error('Неверный логин или пароль.');
-    this.user = u;
+    this.user = u; u.online = true; u.lastSeen = Date.now();
     this.log(`web login ${u.login}`);
     this.send({ t: 'auth' });
     this.pushState();
@@ -176,12 +177,30 @@ const API = {
   profile(m) {
     const u = this.game.userById(Number(m.id) || this.user.id);
     if (!u) return this.error('Игрок не найден.');
-    const c = this.game.castleOf(u);
-    const al = this.game.allianceOf(u);
-    this.send({ t: 'profile', profile: { id: u.id, login: u.login, race: C.RACE_NAMES[u.race], created: u.created, rating: this.game.rating(c), castles: [{ name: c.name, x: c.x, y: c.y }], self: u.id === this.user.id, alliance: al ? `${al.name} [${al.tag}]` : null, admin: !!u.admin } });
+    this.send({ t: 'profile', profile: this.game.profileOf(u, this.user) });
   },
+  // ---- кабинет (server/src/social.js) ----
+  rep(m) { const r = this.game.giveReputation(this.user, m.id); if (r.error) return this.error(r.error); this.toast('Репутация поднята!'); API.profile.call(this, m); },
+  friend(m) { const r = this.game.friendOp(this.user, m.op, m.id); if (r.error) return this.error(r.error); this.toast(m.op === 'add' ? 'Добавлен в друзья.' : 'Удалён из друзей.'); API.friends.call(this); },
+  friends() { this.send({ t: 'players', kind: 'friends', list: this.game.friendsOf(this.user) }); },
+  search(m) { this.send({ t: 'players', kind: 'search', q: m.q || '', list: this.game.searchPlayers(m.q) }); },
+  nearby() { this.send({ t: 'players', kind: 'nearby', list: this.game.nearby(this.user) }); },
+  notes(m) { if (typeof m.text === 'string') { this.game.setNotes(this.user, m.text); this.toast('Блокнот сохранён.'); } this.send({ t: 'notes', text: this.user.notes || '' }); },
+  about(m) { this.game.setAbout(this.user, m.text); this.toast('Сохранено.'); },
+  chat(m) {
+    const r = this.game.chatPost(this.user, m.text); if (r.error) return this.error(r.error);
+    for (const s of WebSession.all || []) if (s.user && s.sendChat) s.sendChat(r.msg);
+  },
+  chatlog() { this.send({ t: 'chatlog', list: this.game.chatLog() }); },
+  ratings(m) {
+    const k = m.kind;
+    const list = k === 'castles' ? this.game.ratingCastles() : k === 'alliances' ? this.game.ratingAlliances() : k === 'reputation' ? this.game.ratingReputation() : null;
+    if (!list) return API.rating.call(this);
+    this.send({ t: 'ratings', kind: k, list });
+  },
+  halls() { this.send({ t: 'halls', list: this.game.halls() }); },
   rating() {
-    const rows = Object.values(this.game.db.users).map((u) => ({ id: u.id, login: u.login, race: C.RACE_NAMES[u.race], rating: this.game.rating(this.game.castleOf(u)) }))
+    const rows = Object.values(this.game.db.users).map((u) => ({ id: u.id, login: u.login, race: C.RACE_NAMES[u.race], raceId: u.race, online: !!u.online, rating: this.game.rating(this.game.castleOf(u)) }))
       .sort((a, b) => b.rating - a.rating).slice(0, 50);
     this.send({ t: 'rating', rows });
   },
@@ -284,7 +303,7 @@ function startWeb(game, sessions, { port, host, jarPath, log }) {
       }
     });
     socket.on('error', () => {});
-    socket.on('close', () => sessions.delete(session));
+    socket.on('close', () => { sessions.delete(session); if (session.user) { session.user.online = [...sessions].some((s) => s.user === session.user); session.user.lastSeen = Date.now(); } });
   });
 
   server.listen(port, host, () => log(`браузерный клиент: http://${host === '0.0.0.0' ? 'localhost' : host}:${port}`));

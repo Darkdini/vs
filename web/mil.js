@@ -312,4 +312,4 @@ $('#sheetBody').addEventListener('submit', (e) => {
   if (k === 'alcreate') send({ t: 'alliance', op: 'create', name: f.name.value, tag: f.tag.value });
   if (['aljoin', 'alcreate'].includes(k)) S.alliances = null;
 });
-$('#view').addEventListener('click', (e) => { const b = e.target.closest('[data-brace]'); if (b) { S.bookRace = b.dataset.brace; renderView(); } });
+$('#sheetBody').addEventListener('click', (e) => { const b = e.target.closest('[data-brace]'); if (b) { S.bookRace = b.dataset.brace; refreshSheet(); } });

@@ -480,6 +480,10 @@ function install(Game, helpers) {
       }
     }
     a.loot = loot;
+    // статистика для Зала Славы (social.js)
+    if (loot) this.addStat(c.owner, 'loot', RES4.reduce((q, k) => q + loot[k], 0));
+    this.addStat(c.owner, 'kills', target ? popOf(dLost) : (npc ? Math.round(npc.def.inf / 20 * dLoss) : 0));
+    if (target) this.addStat(target.owner, 'defKills', popOf(aLost));
     const tname = target ? `${target.name} (${this.ownerOf(target).login})` : `${npc.name} ${where}`;
     const lines = [
       `${MISSIONS[a.mission]} на ${tname}. ${win ? 'Победа!' : 'Поражение.'}`,
@@ -552,6 +556,7 @@ function install(Game, helpers) {
       const roll = Math.random() + 0.02 * this.buildingLevel(c, B.ARCH_CAMP), rarity = roll > 0.95 ? 2 : roll > 0.7 ? 1 : 0;
       const art = { id: this.db.nextId++, type, rarity, active: false, found: t };
       c.artifacts.push(art);
+      this.addStat(c.owner, 'arts', 1);
       lines.push(`Найден артефакт: ${ART_TYPES[type].name} (${RARITY[rarity].name}, +${RARITY[rarity].bonus * 100}% — ${ART_TYPES[type].desc}).`);
       if (c.artifacts.length > this.bonus(c).artStore) lines.push('Сокровищница переполнена — постройте/развейте Сокровищницу.');
     } else lines.push('Ничего не найдено.');

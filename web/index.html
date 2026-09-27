@@ -36,37 +36,47 @@
   </div>
 </section>
 
-<!-- игра -->
+<!-- игра: раскладка как в Android-клиенте «Третий Мир 3D» -->
 <section id="game" class="screen hidden">
   <header id="top">
-    <div id="statusbar"><span id="status"></span></div>
-    <div class="row1">
-      <button id="castleName" class="plain"></button>
-      <span id="ratingBadge" class="badge">★ 0</span>
-    </div>
-    <div id="resbar"></div>
-    <div id="queue"></div>
+    <button id="btnMail" class="env" aria-label="Сообщения"><b id="unread" class="dot hidden"></b></button>
+    <button id="btnRep" class="env" aria-label="Отчёты"><b id="unrep" class="dot hidden"></b></button>
   </header>
   <div id="stage">
     <main id="view"></main>
-    <!-- рамка карты как в клиенте: цепи по бокам и уголки -->
-    <div id="frame"><i class="fl"></i><i class="fr"></i><i class="fb"></i><i class="a tl"></i><i class="a tr"></i><i class="a bl"></i><i class="a br"></i></div>
+    <div id="status"></div>
+    <!-- правая выдвижная панель локаций -->
+    <aside id="locs" class="open">
+      <button id="locsTab" aria-label="Панель локаций"></button>
+      <div class="lbtns">
+        <button data-loc="castle" class="on" aria-label="Замок"><img src="gfx/build/castle.png" alt=""></button>
+        <button data-loc="lands" aria-label="Земли"><img src="gfx/ground/wood.png" alt=""></button>
+        <button data-loc="world" aria-label="Мир"><img src="gfx/ground/castle_big.png" alt=""></button>
+        <button data-loc="castles" aria-label="Мои замки"><img src="gfx/ground/castle_small.png" alt=""></button>
+        <button data-loc="res" aria-label="Ресурсы"><img src="gfx/build/storage.png" alt=""></button>
+      </div>
+    </aside>
   </div>
-  <nav id="nav">
-    <button data-tab="castle" class="on"><i><img src="gfx/build/castle.png" alt=""></i>Замок</button>
-    <button data-tab="lands"><i><img src="gfx/build/farm_big.png" alt=""></i>Земли</button>
-    <button data-tab="world"><i><img src="gfx/ground/castle_big.png" alt=""></i>Мир</button>
-    <button data-tab="rating"><i><img src="gfx/smallicon/status/f_gold.png" alt=""></i>Рейтинг</button>
-    <button data-tab="more"><i><img src="gfx/smallicon/softmenu.png" alt=""></i>Ещё<b id="unread" class="dot hidden"></b></button>
-  </nav>
+  <footer id="bottom">
+    <button id="btnMenu"><img src="gfx/smallicon/softmenu.png" alt=""><span>Меню</span></button>
+    <button id="chatline"><span id="clock"></span><span id="chatmsg"></span></button>
+    <button id="btnGear" aria-label="Настройки"></button>
+  </footer>
 </section>
 
+<!-- меню: окно-список над нижней полосой из 7 кнопок -->
+<div id="menu" class="hidden">
+  <div id="menuWin"></div>
+  <nav id="menubar"></nav>
+</div>
+
 <div id="backdrop"></div>
-<div id="sheet" role="dialog"><div class="grab"></div><button id="sheetClose" aria-label="Закрыть"></button><div id="sheetBody"></div></div>
+<div id="sheet" role="dialog"><div id="sheetBody"></div><button id="sheetBack" aria-label="Назад"></button><button id="sheetClose" aria-label="Закрыть"></button></div>
 <div id="toast"></div>
 <div id="offline">Нет связи с сервером… переподключение</div>
 
 <script src="app.js"></script>
 <script src="mil.js"></script>
+<script src="ui3d.js"></script>
 </body>
 </html>

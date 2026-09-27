@@ -71,15 +71,16 @@ function toast(msg, cls = '') {
   statusQ.push({ msg, cls, until: 0 });
   if (statusQ.length > 4) statusQ.shift();
 }
-function statusTick() {
+function statusTick() { // сообщения — плавающей строкой над картой, часы — над строкой чата
   const el = $('#status'), t = Date.now();
   if (statusQ.length && statusQ[0].until && statusQ[0].until < t) statusQ.shift();
   const m = statusQ[0];
-  if (m) { if (!m.until) m.until = t + 2600; el.textContent = m.msg; el.className = m.cls || 'msg'; return; }
   const inc = S.st && S.st.castle.mil && S.st.castle.mil.incoming.find((a) => a.mission !== 'trade' && a.arrive > now());
-  if (inc && (Math.floor(Date.now() / 2000) % 2)) { el.className = 'err'; el.textContent = `⚔ ${S.cat.mil.missions[inc.mission]} от ${inc.from} через ${fmtT((inc.arrive - now()) / 1000)}`; return; }
-  const d = new Date(now()); el.className = '';
-  el.textContent = [d.getHours(), d.getMinutes(), d.getSeconds()].map((v) => String(v).padStart(2, '0')).join(':');
+  if (m) { if (!m.until) m.until = t + 2600; el.textContent = m.msg; el.className = `show ${m.cls || 'msg'}`; }
+  else if (inc) { el.className = 'show err'; el.textContent = `⚔ ${S.cat.mil.missions[inc.mission]} от ${inc.from} через ${fmtT((inc.arrive - now()) / 1000)}`; }
+  else el.className = '';
+  const d = new Date(now());
+  $('#clock').textContent = [d.getHours(), d.getMinutes(), d.getSeconds()].map((v) => String(v).padStart(2, '0')).join(':');
 }
 setInterval(statusTick, 250);
 const send = (m) => { if (S.ws && S.ws.readyState === 1) S.ws.send(JSON.stringify(m)); };
@@ -160,10 +161,10 @@ function onMsg(m) {
       $('#auth').classList.add('hidden'); $('#game').classList.remove('hidden');
       break;
     case 'state': onState(m); break;
-    case 'world': if (!S.world || S.world.cx !== m.cx || S.world.cy !== m.cy) { delete Iso.cams.world; if (Iso.sel && Iso.sel.tab === 'world') Iso.sel = null; } S.world = m; if (S.tab === 'world' && !S.sub) renderView(); break;
-    case 'rating': S.ratingRows = m.rows; if (S.tab === 'rating') renderView(); break;
+    case 'world': if (!S.world || S.world.cx !== m.cx || S.world.cy !== m.cy) { delete Iso.cams.world; if (Iso.sel && Iso.sel.tab === 'world') Iso.sel = null; } S.world = m; if (S.tab === 'world') renderView(); break;
+    case 'rating': S.ratingRows = m.rows; refreshSheet(); break;
     case 'profile': openSheet(() => profileSheet(m.profile)); break;
-    case 'mail': S.mail = m; if (S.sub === 'mail') renderView(); break;
+    case 'mail': S.mail = m; refreshSheet(); break;
     case 'letter': openSheet(() => letterSheet(m.letter)); break;
     case 'toast':
       toast(m.msg);
@@ -191,7 +192,7 @@ function onState(m) {
     S.pendingBuild = null; closeAllSheets();
   }
   renderTop();
-  if (first) setTab('castle'); else if (!S.sub && ['castle', 'lands'].includes(S.tab)) { ($('#view .vhead .muted') || {}).textContent = S.tab === 'castle' ? `X:${m.castle.x} Y:${m.castle.y} · Ратуша ${m.castle.townhall} ур.` : $('#view .vhead .muted').textContent; isoDraw(); }
+  if (first) setTab('castle'); else if (['castle', 'lands'].includes(S.tab)) isoDraw();
   refreshSheet();
 }
 
@@ -224,32 +225,15 @@ $('#authForm').addEventListener('submit', (e) => {
 });
 
 // ---------- шапка: ресурсы и очередь ----------
-function renderTop() {
-  const c = S.st.castle;
-  $('#castleName').textContent = `${c.name} · ${S.st.user.raceName}`;
-  $('#ratingBadge').textContent = `★ ${fmtFull(c.rating)}`;
-  if (!$('#resbar').children.length) {
-    $('#resbar').innerHTML = RES.map((r) => `<button class="res plain" data-res="${r}"><span class="ic">${RES_IC[r]}</span><b></b><small></small></button>`).join('');
-  }
-  $('#queue').innerHTML = c.queue.map((q) => `
-    <button class="qi" data-view="${q.view}" data-cell="${q.cell}">
-      <span>${bimg(q.level === 1 ? q.building : displayId(S.by[q.building], q.level), 'bi s')}</span><span>${esc(S.by[q.building].name)} → ${q.level} ур.</span>
-      <span class="cd" data-e="${q.end}"></span>
-      <div class="bar"><i data-s="${q.start}" data-e="${q.end}"></i></div>
-    </button>`).join('');
-  const u = S.st.unread;
+function renderTop() { // конверты сообщений и отчётов наверху (как в 3D-клиенте)
+  const u = S.st.unread, rep = S.st.castle.mil.unreadReports;
   $('#unread').textContent = u; $('#unread').classList.toggle('hidden', !u);
+  $('#unrep').textContent = rep; $('#unrep').classList.toggle('hidden', !rep);
   tick();
 }
 function tick() {
   if (!S.st) return;
   const c = S.st.castle, t = now();
-  $$('#resbar .res').forEach((el) => {
-    const r = el.dataset.res, v = resNow(r);
-    el.querySelector('b').textContent = fmtN(v);
-    el.querySelector('small').textContent = `+${fmtN(c.rate[r])}/ч`;
-    el.classList.toggle('full', v >= c.cap[r]);
-  });
   $$('[data-e]').forEach((el) => {
     const e = Number(el.dataset.e);
     if (el.dataset.s) el.style.width = `${Math.min(100, Math.max(0, ((t - Number(el.dataset.s)) / (e - Number(el.dataset.s))) * 100))}%`;
@@ -262,10 +246,7 @@ function tick() {
   });
 }
 setInterval(tick, 500);
-$('#resbar').addEventListener('click', () => openSheet(resSheet));
-$('#queue').addEventListener('click', (e) => { const b = e.target.closest('.qi'); if (b) openCell(Number(b.dataset.view), Number(b.dataset.cell)); });
-$('#castleName').addEventListener('click', () => send({ t: 'profile', id: S.st.user.id }));
-$('#ratingBadge').addEventListener('click', () => openSheet(ratingInfoSheet));
+
 
 function resSheet() {
   const c = S.st.castle;
@@ -283,64 +264,26 @@ function resSheet() {
 
 // ---------- вкладки ----------
 function setTab(tab) {
-  S.tab = tab; S.sub = null;
-  $$('#nav button').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
+  S.tab = tab;
+  $$('#locs [data-loc]').forEach((b) => b.classList.toggle('on', b.dataset.loc === tab));
   if (tab === 'world') send({ t: 'world', ...(S.world ? { cx: S.world.cx, cy: S.world.cy } : {}) });
-  if (tab === 'rating') send({ t: 'rating' });
   renderView();
 }
-$('#nav').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) setTab(b.dataset.tab); });
 
 function renderView() {
-  const v = $('#view'), keep = v.scrollTop;
-  v.innerHTML = S.sub ? SUBPAGES[S.sub]() : TABS[S.tab]();
+  const v = $('#view');
+  v.innerHTML = TABS[S.tab]();
   const wrap = $('.mapwrap', v);
-  if (wrap) { isoMount(wrap); if (S.tab === 'world') worldInfo(); } else v.scrollTop = keep;
+  if (wrap) { isoMount(wrap); if (S.tab === 'world') worldInfo(); }
   tick();
 }
-const MAPWRAP = '<div class="mapwrap"><div class="infobox hidden"></div><div class="zoom"><button data-zoom="1">＋</button><button data-zoom="-1">－</button></div></div>';
+const MAPWRAP = '<div class="mapwrap"><div class="infobox hidden"></div></div>';
 
+// карты локаций на весь экран (панель локаций справа, окна — поверх)
 const TABS = {
-  castle() {
-    const c = S.st.castle;
-    return `<div class="mapview"><div class="vhead"><h2>Замок</h2><span class="muted small">X:${c.x} Y:${c.y} · Ратуша ${c.townhall} ур.</span>
-      <button class="btn small" data-act="blist">Здания</button></div>${MAPWRAP}</div>`;
-  },
-  lands() {
-    return `<div class="mapview"><div class="vhead"><h2>Земли</h2><span class="muted small">лес — дровосек, валуны — каменщик, горы — рудник</span>
-      <button class="btn small" data-act="llist">Список</button></div>${MAPWRAP}</div>`;
-  },
-  world() {
-    const w = S.world;
-    return `<div class="mapview"><div class="vhead"><h2>Мир</h2><span class="muted small">${w ? `${w.cx}:${w.cy}` : '…'}</span>
-      <button class="btn small" data-whome>К замку</button></div>${MAPWRAP}</div>`;
-  },
-  rating() {
-    const rows = S.ratingRows;
-    if (!rows) return '<div class="pad muted">Загрузка…</div>';
-    return `<div class="vhead"><h2>Рейтинг игроков</h2><button class="iconbtn" data-act="ratinginfo">?</button></div>
-      <div class="pad list">${rows.map((r, i) => `
-        <button class="row ${r.id === S.st.user.id ? 'me' : ''}" data-profile="${r.id}">
-          <span class="rank ${i < 3 ? 'top' : ''}">${i < 3 ? gimg(`smallicon/status/f_${['gold', 'silver', 'bronze'][i]}.png`) : i + 1}</span>
-          <div class="grow"><b>${esc(r.login)}</b><span>${esc(r.race)}</span></div><b class="badge">★ ${fmtFull(r.rating)}</b>
-        </button>`).join('')}</div>`;
-  },
-  more() {
-    const u = S.st.unread;
-    const item = (act, ic, title, sub) => `<button class="row" data-act="${act}"><span class="ic">${gimg(ic)}</span><div class="grow"><b>${title}</b><span>${sub}</span></div>›</button>`;
-    return `<div class="vhead"><h2>Ещё</h2></div><div class="pad list">
-      ${item('me', 'smallicon/status/online.png', 'Мой профиль', `${esc(S.st.user.login)} · ${esc(S.st.user.raceName)}`)}
-      ${item('hq', 'build/mbases.png', 'Армия и генерал', 'Военный штаб: войска, походы, входящие')}
-      ${item('reports', 'smallicon/swordgreen.png', `Отчёты${S.st.castle.mil.unreadReports ? ` <span class="badge">${S.st.castle.mil.unreadReports}</span>` : ''}`, 'Бои, разведка, торговля, экспедиции')}
-      ${S.st.castle.mil.admin ? item('adminp', 'smallicon/status/f_gold.png', 'Админ-панель', 'Ресурсы, мгновенные стройки, войска') : ''}
-      ${item('mail', 'smallicon/unmes.png', `Почта${u ? ` <span class="badge">${u}</span>` : ''}`, 'Письма другим игрокам')}
-      ${item('book', 'build/university.png', 'Справочник зданий', 'Цена, время, добыча и рейтинг по уровням')}
-      ${item('army', 'units/human/knight.png', 'Войска', 'Юниты рас: характеристики и цены')}
-      ${item('rules', 'smallicon/Ekoscience.png', 'Формулы', 'Как считаются цена, время и рейтинг')}
-      ${item('bug', 'smallicon/soft_help.png', 'Сообщить об ошибке', 'Сохранится на сервере')}
-      ${item('logout', 'smallicon/softclose.png', 'Выйти', 'Сменить аккаунт')}
-      <p class="muted small">Скорость мира ×${S.cat.speed} · одновременно до ${S.cat.maxQueue} строек</p></div>`;
-  },
+  castle: () => `<div class="mapview">${MAPWRAP}</div>`,
+  lands: () => `<div class="mapview">${MAPWRAP}</div>`,
+  world: () => `<div class="mapview">${MAPWRAP}</div>`,
 };
 
 function summaryHtml(view) {
@@ -393,20 +336,21 @@ const SUBPAGES = {
 };
 
 // ---------- обработка нажатий в виде ----------
-$('#view').addEventListener('click', (e) => {
+function viewClick(e) {
   const t = e.target.closest('button'); if (!t) return;
   const d = t.dataset;
   if (d.cell !== undefined) return openCell(Number(d.view), Number(d.cell));
   if (d.zoom) return isoZoom(Number(d.zoom) > 0 ? 1.25 : 1 / 1.25);
   if (d.whome !== undefined) return send({ t: 'world' });
-  if (d.profile) return send({ t: 'profile', id: Number(d.profile) });
-  if (d.back !== undefined) return history.back();
-  if (d.folder) { S.mailFolder = Number(d.folder); S.mail = null; renderView(); return send({ t: 'mail', folder: S.mailFolder }); }
+  if (d.back !== undefined) return closeSheet();
+  if (d.folder) { S.mailFolder = Number(d.folder); S.mail = null; refreshSheet(); return send({ t: 'mail', folder: S.mailFolder }); }
   if (d.letter) return send({ t: 'read', id: Number(d.letter) });
   if (d.book) { const def = S.by[d.book]; return openSheet(() => buildingSheet(def, buildingLevel(def.id), null)); }
-  if (d.arace) { S.armyRace = d.arace; return renderView(); }
+  if (d.arace) { S.armyRace = d.arace; return refreshSheet(); }
   if (d.act) return ACTS[d.act]();
-});
+}
+$('#view').addEventListener('click', viewClick);
+$('#sheetBody').addEventListener('click', viewClick); // те же кнопки внутри окон
 
 const ACTS = {
   me: () => send({ t: 'profile', id: S.st.user.id }),
@@ -425,12 +369,13 @@ const ACTS = {
     <form class="stack" data-form="bug"><textarea name="text" rows="5" placeholder="Что пошло не так?" required></textarea><button class="btn primary">Отправить</button></form>`),
   logout: () => { store.set('tw.creds', null); location.reload(); },
 };
-function openSub(name) { S.sub = name; history.pushState({ sub: name }, ''); renderView(); $('#view').scrollTop = 0; }
+function openSub(name) { openSheet(() => SUBPAGES[name]()); } // разделы открываются окнами поверх карты
 
 // ---------- шторка ----------
 function openSheet(render) {
   S.sheets.push(render);
-  history.pushState({ sheet: S.sheets.length }, '');
+  if (S.menuEntry) { S.menuEntry = false; history.replaceState({ sheet: S.sheets.length }, ''); } // окно из меню занимает место меню в истории
+  else history.pushState({ sheet: S.sheets.length }, '');
   showSheet(true);
 }
 function showSheet(scrollTop) {
@@ -453,20 +398,11 @@ function closeAllSheets() {
 window.addEventListener('popstate', () => {
   if (S.ignorePop > 0) { S.ignorePop--; return; }
   if (S.sheets.length) { S.sheets.pop(); showSheet(true); return; }
-  if (S.sub) { S.sub = null; renderView(); }
 });
 $('#backdrop').addEventListener('click', closeAllSheets);
 $('#sheetClose').addEventListener('click', closeAllSheets);
-// смахивание шторки вниз
-(() => {
-  const sh = $('#sheet'); let y0 = null, dy = 0;
-  sh.addEventListener('touchstart', (e) => { if ($('#sheetBody').scrollTop <= 0 || e.target.classList.contains('grab')) { y0 = e.touches[0].clientY; dy = 0; } }, { passive: true });
-  sh.addEventListener('touchmove', (e) => {
-    if (y0 === null) return; dy = e.touches[0].clientY - y0;
-    if (dy > 0) { sh.classList.add('drag'); sh.style.transform = `translateY(${dy}px)`; } else { y0 = null; sh.classList.remove('drag'); sh.style.transform = ''; }
-  }, { passive: true });
-  sh.addEventListener('touchend', () => { sh.classList.remove('drag'); sh.style.transform = ''; if (y0 !== null && dy > 90) closeAllSheets(); y0 = null; });
-})();
+$('#sheetBack').addEventListener('click', closeSheet);
+
 
 $('#sheetBody').addEventListener('click', (e) => {
   const t = e.target.closest('button'); if (!t) return;
@@ -611,8 +547,9 @@ function worldInfo() {
   if (!Iso.sel || Iso.sel.tab !== 'world' || !w) { box.classList.add('hidden'); return; }
   const x = w.cx - w.radius + Iso.sel.x, y = w.cy - w.radius + Iso.sel.y;
   const o = w.objects.find((v) => v.x === x && v.y === y);
-  box.innerHTML = `X:${x} Y:${y}` + (!o ? '' : o.kind === 'castle'
-    ? `<br>Замок:${esc(o.name)}<br>Игрок:${esc(o.owner)}<br>Альянс:${esc(o.alliance || '-')}<br>Рейтинг:${o.rating}` : `<br>${esc(o.name)}`)
+  // как в клиенте: название клетки, ниже координаты и владелец
+  const title = !o ? 'Свободная земля' : o.kind === 'castle' ? esc(o.name) : esc(o.name);
+  box.innerHTML = `<b>${title}</b><br>X: ${x} Y: ${y}` + (o && o.kind === 'castle' ? ` · ${esc(o.owner)}${o.alliance ? ` [${esc(o.alliance)}]` : ''} · ★${fmtFull(o.rating)}` : '')
     + '<small>нажмите ещё раз — действия</small>';
   box.classList.remove('hidden');
 }
