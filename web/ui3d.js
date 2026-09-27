@@ -155,7 +155,7 @@ function profileWin(p) {
     ${p.alliance ? `<div class="pline">Звание в альянсе: ${esc(p.alliance.role)}</div>` : ''}
     <div class="ptiles">
       ${tile('treasury', 'smallicon/coin_gold.png', 'Пополнить Казну', true)}
-      ${tile('rep', 'smallicon/plus.png', 'Поднять Репутацию', p.self || p.repToday)}
+      ${tile('rep', 'smallicon/plus.png', 'Поднять Репутацию', p.self)}
       ${tile('gift', 'smallicon/surprize.png', 'Отправить Подарок')}
       ${tile('friend', 'smallicon/status/online.png', p.friend ? 'Убрать из друзей' : 'Добавить в друзья', p.self)}
       ${tile('msg', 'smallicon/unmes.png', 'Сообщение', p.self)}
@@ -299,7 +299,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.ptile) {
     if (t.classList.contains('off')) return;
     const p = S.lastProfile, id = Number(d.pid);
-    if (d.ptile === 'rep') return send({ t: 'rep', id });
+    if (d.ptile === 'rep') { S.repTo = p; S.repCoins = 1; return openSheet(repWin); }
     if (d.ptile === 'gift') { S.giftTo = p; return openSheet(giftsWin); }
     if (d.ptile === 'friend') { send({ t: 'friend', op: p.friend ? 'del' : 'add', id }); return send({ t: 'profile', id }); }
     if (d.ptile === 'msg') return openCompose(p.login);
@@ -398,3 +398,26 @@ function repTableWin() {
     ${th.map((t, i) => `<div class="reprow"><span>${i + 1}-${t}</span><span class="repi">${Array.from({ length: i + 1 }, (_, j) => `<img src="${GFX}rep/${multi ? `${key}_${j + 1}` : key}.png" alt="">`).join('')}</span></div>`).join('')}`).join('')}`;
 }
 $('#sheetBody').addEventListener('click', (e) => { if (e.target.closest('[data-reptable]')) openSheet(repTableWin); });
+
+// ---------- Поднять Репутацию: за золото, 1 монета = 2 репутации ----------
+function repWin() {
+  const p = S.repTo, k = S.cat.repPerGold || 2, c = S.repCoins || 1, gold = S.st.user.gold || 0;
+  return `${ribbon('Поднять Репутацию')}
+    <div class="bwline center">Игрок: <b>${esc(p.login)}</b></div>
+    <div class="bwline center">Репутация (${fmtFull(p.reputation)}): ${repIcons(p.reputation)}</div>
+    <div class="bwline center">1 ${gimg('smallicon/coin_gold.png', 'ri')} = ${k} 👍 · у вас ${gimg('smallicon/coin_gold.png', 'ri')} ${fmtFull(gold)}</div>
+    <div class="arow"><span>Монет:</span><input class="anum" type="number" inputmode="numeric" min="1" value="${c}" data-repcoins></div>
+    <div class="bwline center">Станет: <b data-repafter>${fmtFull(p.reputation + c * k)}</b> <span data-repicons>${repIcons(p.reputation + c * k)}</span></div>
+    <button class="pbar" data-repgo>Поднять на <span data-repadd>${c * k}</span></button>`;
+}
+$('#sheetBody').addEventListener('input', (e) => {
+  if (e.target.dataset.repcoins === undefined) return;
+  const p = S.repTo, k = S.cat.repPerGold || 2; S.repCoins = Math.max(1, Math.floor(Number(e.target.value)) || 1);
+  const v = p.reputation + S.repCoins * k;
+  $('[data-repafter]').textContent = fmtFull(v); $('[data-repicons]').innerHTML = repIcons(v); $('[data-repadd]').textContent = S.repCoins * k;
+});
+$('#sheetBody').addEventListener('click', (e) => {
+  if (!e.target.closest('[data-repgo]')) return;
+  document.activeElement && document.activeElement.blur();
+  send({ t: 'rep', id: S.repTo.id, coins: S.repCoins || 1 }); closeSheet();
+});

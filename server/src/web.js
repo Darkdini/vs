@@ -92,7 +92,7 @@ function catalogJson() {
     raceOrder: C.RACES,
     units: C.UNITS,
     army: armyJson(),
-    gifts: require('./social').GIFTS,
+    gifts: require('./social').GIFTS, repPerGold: require('./social').REP_PER_GOLD,
     mil: ARMY.catalogJson(), // юниты игры, науки, религии, артефакты, NPC-лагеря
     lands: { base: G.LANDS_BASE, decor: G.LANDS_DECOR, edge: G.LANDS_EDGE },
     landOptions: G.LANDS_BASE.map((row, y) => row.map((_, x) => G.landOptions(x, y))),
@@ -216,7 +216,11 @@ const API = {
     this.send({ t: 'profile', profile: this.game.profileOf(u, this.user) });
   },
   // ---- кабинет (server/src/social.js) ----
-  rep(m) { const r = this.game.giveReputation(this.user, m.id); if (r.error) return this.error(r.error); this.toast('Репутация поднята!'); API.profile.call(this, m); },
+  rep(m) {
+    const r = this.game.giveReputation(this.user, m.id, m.coins); if (r.error) return this.error(r.error);
+    this.toast(`Репутация +${r.add} (теперь ${r.rep}).`); this.pushState();
+    this.send({ t: 'profile', refresh: true, profile: this.game.profileOf(this.game.userById(Number(m.id)), this.user) });
+  },
   friend(m) { const r = this.game.friendOp(this.user, m.op, m.id); if (r.error) return this.error(r.error); this.toast(m.op === 'add' ? 'Добавлен в друзья.' : 'Удалён из друзей.'); API.friends.call(this); },
   friends() { this.send({ t: 'players', kind: 'friends', list: this.game.friendsOf(this.user) }); },
   search(m) { this.send({ t: 'players', kind: 'search', q: m.q || '', list: this.game.searchPlayers(m.q) }); },

@@ -250,6 +250,9 @@ function client() {
     assert.ok(gp.gifts[0].gift === 'diamond' && gp.gifts[0].from === 'admin' && gp.gifts[0].text === 'Удачи!');
     adm.send({ t: 'gift', to: as.user.id, gift: 'diamond' }); // себе — тоже можно
     await adm.expect('toast', (m) => /отправлен игроку admin/.test(m.msg));
+    adm.send({ t: 'rep', id: s3.user.id, coins: 50 });
+    await adm.expect('toast', (m) => /Репутация \+100/.test(m.msg));
+    console.log('✓ репутация за золото: 50 монет = +100');
     console.log('✓ подарки: «Большой диамант» за 3 золота виден в профиле получателя');
 
     // ---- генерал: очки опыта, распределение, сброс, имя, убить ----

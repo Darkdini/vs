@@ -18,7 +18,8 @@ const PLACE_ICON = ['gold', 'silver', 'bronze'];
 
 // подарки в профиле: игроки дарят друг другу за золото
 const GIFTS = { diamond: { name: 'Большой диамант', img: 'gifts/diamond.jpg', gold: 3, premium: true } };
-const GIFTS_DAY = 20; // сколько подарков игрок может отправить за сутки
+const GIFTS_DAY = 20;
+const REP_PER_GOLD = 2; // 1 монета = 2 репутации // сколько подарков игрок может отправить за сутки
 
 function install(Game) {
   const P = Game.prototype;
@@ -96,17 +97,21 @@ function install(Game) {
     };
   };
 
-  P.giveReputation = function giveReputation(from, toId) {
+  // «Поднять Репутацию»: за золото, 1 монета = REP_PER_GOLD репутации
+  P.giveReputation = function giveReputation(from, toId, coins) {
     const to = this.userById(Number(toId));
     if (!to) return { error: 'Игрок не найден.' };
     if (to.id === from.id) return { error: 'Себе репутацию поднять нельзя.' };
-    from.repGiven = from.repGiven || {};
-    if ((from.repGiven[to.id] || 0) > Date.now() - 86400000) return { error: 'Поднимать репутацию одному игроку можно раз в сутки.' };
-    from.repGiven[to.id] = Date.now();
-    to.reputation = (to.reputation ?? START_REP) + 1;
+    coins = Math.floor(Number(coins));
+    if (!(coins >= 1) || coins > 100000) return { error: 'Укажите количество монет.' };
+    if ((from.gold || 0) < coins) return { error: `Не хватает золота (у вас ${from.gold || 0}).` };
+    from.gold -= coins;
+    const add = coins * REP_PER_GOLD;
+    to.reputation = (to.reputation ?? START_REP) + add;
+    this.cache = {};
     this.store.save();
-    this.event(to.id, `${from.login} поднял вам репутацию!`);
-    return { ok: true };
+    this.event(to.id, `${from.login} поднял вам репутацию на ${add}!`);
+    return { ok: true, add, rep: to.reputation };
   };
 
   P.friendOp = function friendOp(user, op, id) {
@@ -176,4 +181,4 @@ function install(Game) {
   };
 }
 
-module.exports = { GIFTS, install, HALLS };
+module.exports = { REP_PER_GOLD, GIFTS, install, HALLS };
