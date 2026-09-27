@@ -79,6 +79,7 @@ function milEffect(def, L) {
 function buildingFunctions(def, lvl) {
   if (!lvl || !S.cat.mil) return '';
   let h = '';
+  if (def.id === 46) return residenceHtml(); // Резиденция: лояльность населения (residence.js)
   if (def.id === 45) return spyButtons(); // Центр разведки: Возможности / Тренировать / Разведка (spy.js)
   if (def.id === HQ) h += hqHtml();
   if (def.id === 4) h += marketHtml();

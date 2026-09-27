@@ -106,7 +106,7 @@ class WebSession {
 
   send(obj) { if (!this.socket.destroyed) this.socket.write(wsFrame(1, Buffer.from(JSON.stringify(obj)))); }
   get castle() { return this.user && this.game.castleOf(this.user); }
-  error(msg) { this.send({ t: 'error', msg }); }
+  error(msg) { this.failed = true; this.send({ t: 'error', msg }); }
   toast(msg) { this.send({ t: 'toast', msg }); }
 
   pushState() {
@@ -147,9 +147,13 @@ class WebSession {
     const fn = API[msg.t];
     if (!fn) return this.error(`Неизвестная команда ${msg.t}`);
     if (!['register', 'login', 'hello'].includes(msg.t) && !this.user) return this.error('Сначала войдите.');
+    this.failed = false;
     fn.call(this, msg);
+    // лояльность населения (Резиденция) растёт за действия, а не за онлайн
+    if (!this.failed && this.user && ROYAL_ACTIONS.has(msg.t)) this.game.royalGain(this.user);
   }
 }
+const ROYAL_ACTIONS = new Set(['build', 'train', 'send', 'research', 'exchange', 'squad', 'artifact', 'religion']);
 
 const API = {
   hello() { this.send({ t: 'catalog', catalog: catalogJson() }); },
@@ -181,6 +185,7 @@ const API = {
     this.toast(m.op === 'del' ? 'Аватар удалён.' : 'Аватар сохранён.');
     this.send({ t: 'profile', refresh: true, profile: this.game.profileOf(this.user, this.user) });
   },
+  festival(m) { const r = this.game.festival(this.user, this.castle, m.id); if (r.msg) this.toast(r.msg); this.result(r); },
   demolish(m) {
     const r = this.game.demolish(this.castle, Number(m.view), Number(m.cell));
     if (r.error) return this.error(r.error);

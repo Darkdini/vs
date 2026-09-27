@@ -55,7 +55,7 @@ function client() {
     await a.open();
     a.send({ t: 'hello' });
     const cat = (await a.expect('catalog')).catalog;
-    assert.equal(cat.buildings.length, 46);
+    assert.equal(cat.buildings.length, 47);
     console.log('✓ каталог: зданий', cat.buildings.length);
 
     a.send({ t: 'register', login: 'Webby', password: 'pass1', race: '1' });
@@ -207,6 +207,15 @@ function client() {
     await adm.expect('error', (m) => /Неверные данные/.test(m.msg));
     assert.equal((await fetch(`http://127.0.0.1:${WEB_PORT}/avatar/..%2F..%2Fpackage.json`)).status, 404);
     console.log('✓ аватар: PNG собирает сервер, чужие файлы и пути отклоняются');
+
+    // ---- Резиденция: лояльность населения и праздники ----
+    adm.send({ t: 'festival', id: 'feast' });
+    await adm.expect('toast', (m) => /Королевский пир: лояльность населения/.test(m.msg));
+    const rv = (await adm.expect('state', (m) => m.castle.mil.royal && m.castle.mil.royal.festivals.some((f) => f.id === 'feast' && !f.ready))).castle.mil.royal;
+    assert.ok(rv.royal > 0 && rv.need === 13500 * rv.castles);
+    adm.send({ t: 'festival', id: 'feast' });
+    await adm.expect('error', (m) => /уже был сегодня/.test(m.msg));
+    console.log('✓ Резиденция: лояльность населения', rv.royal, '· следующий замок', rv.need, '· праздники раз в сутки');
 
     // ---- генерал: очки опыта, распределение, сброс, имя, убить ----
     adm.send({ t: 'admin', op: 'general', level: 50 });

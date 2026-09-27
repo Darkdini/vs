@@ -25,6 +25,7 @@ function adminHtml() {
     ${ribbon('Ресурсы и золото')}
     <div class="ptiles">${aBtn('fill', 'Склады до максимума', 'build/storage.png')}</div>
     <div class="arow">${aNum('res', 100000, 'кол-во (минус — забрать)')}${aBtn('res', '+ Ресурсы', 'res/wood.png', 'data-arg="res:n"')}</div>
+    <div class="arow">${aNum('royal', 10000, 'кол-во (минус — забрать)')}${aBtn('royal', '+ Лояльность населения', 'smallicon/bonus_status/coronalgold.png', 'data-arg="royal:n"')}</div>
     <div class="arow">${aNum('gold', 10000, 'кол-во (минус — забрать)')}${aBtn('gold', '+ Золото', 'smallicon/coin_gold.png', 'data-arg="gold:n"')}</div>
 
     ${ribbon('Армия')}

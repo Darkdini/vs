@@ -6,7 +6,7 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "test": "node test/web-smoke.js"
+    "test": "node test/royal.js && node test/web-smoke.js"
   },
   "engines": { "node": ">=16" },
   "license": "UNLICENSED"

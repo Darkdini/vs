@@ -25,6 +25,7 @@ function install(Game) {
     }
     u.admin = true;
     if (u.gold === undefined) u.gold = 1000000;
+    if (!u.royal) { u.royal = 1000000; u.royalAt = Date.now(); u.captures = u.captures || ADMIN_CASTLES - 1; }
     this.adminAddCastles(u, ADMIN_CASTLES - this.castlesOf(u).length);
     this.store.save();
     return u;
@@ -123,6 +124,7 @@ function install(Game) {
         msg = `Создано ботов: ${made} за ${((Date.now() - t0) / 1000).toFixed(1)} с. Игроков всего: ${Object.keys(this.db.users).length}.`; break;
       }
       case 'player': data = { ...this.playerInfo(target), castlesList: this.castlesOf(target).map((c) => ({ id: c.id, name: c.name, x: c.x, y: c.y, rating: this.rating(c), loyalty: Math.round(c.loyalty ?? 100) })) }; break;
+      case 'royal': this.royalTick(target); target.royal = Math.max(0, target.royal + num(arg.n, 10000)); msg = `Лояльность населения: ${Math.floor(target.royal)}.`; break;
       case 'rep': target.reputation = Math.max(0, (target.reputation ?? START_REP) + num(arg.n, 10)); msg = `Репутация: ${target.reputation}.`; break;
       case 'ban': if (target.admin) return { error: 'Админа заблокировать нельзя.' }; target.banned = true; target.online = false; msg = `${target.login} заблокирован.`; break;
       case 'unban': target.banned = false; msg = `${target.login} разблокирован.`; break;

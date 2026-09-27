@@ -254,7 +254,7 @@ function install(Game, helpers) {
   P.tickTraining = function tickTraining(castle, now) {
     this.mil(castle);
     // лояльность восстанавливается: (2 + ур. Храма) в час × скорость мира, до 100
-    if (castle.loyalty < 100) castle.loyalty = Math.min(100, castle.loyalty + (2 + this.buildingLevel(castle, B.TEMPLE)) * SPEED * Math.max(0, now - castle.loyAt) / 3600000);
+    if (castle.loyalty < 100 && !this.rulerAway(this.ownerOf(castle), now)) castle.loyalty = Math.min(100, castle.loyalty + (2 + this.buildingLevel(castle, B.TEMPLE)) * SPEED * Math.max(0, now - castle.loyAt) / 3600000);
     castle.loyAt = now;
     const owner = castle.owner;
     castle.training = castle.training.filter((t) => {
@@ -627,7 +627,7 @@ function install(Game, helpers) {
       }
     }
     // бунтари: выжившие в победной атаке снижают лояльность, при 0 — захват (GDD §10–11)
-    let loyalty = null, captured = null, capitalBlocked = false;
+    let loyalty = null, captured = null, capitalBlocked = false, royalBlocked = null;
     const rebels = a.mission === 'attack' && win ? (a.units[233] || 0) : 0;
     if (rebels) {
       let drop = 0;
@@ -636,12 +636,18 @@ function install(Game, helpers) {
       else if (target) {
         const from = Math.round(target.loyalty); target.loyalty = Math.max(0, target.loyalty - drop); target.loyAt = t;
         loyalty = { from, to: Math.round(target.loyalty) };
-        if (target.loyalty <= 0) captured = this.captureCastle(att, target);
+        if (target.loyalty <= 0) {
+          if (this.royalCanCapture(att)) { this.royalSpend(att); captured = this.captureCastle(att, target); }
+          else { target.loyalty = 1; royalBlocked = { have: Math.floor(att.royal), need: this.royalNeed(att) }; } // не хватает лояльности населения (Резиденция)
+        }
       } else if (npc && npc.ruins) {
         const st = (this.db.npc = this.db.npc || {})[where] || (this.db.npc[where] = {});
         const from = Math.round(st.loyalty ?? 100); st.loyalty = Math.max(0, from - drop);
         loyalty = { from, to: st.loyalty };
-        if (st.loyalty <= 0) { delete this.db.npc[where]; captured = this.foundCaptured(att, a.x, a.y); }
+        if (st.loyalty <= 0) {
+          if (this.royalCanCapture(att)) { this.royalSpend(att); delete this.db.npc[where]; captured = this.foundCaptured(att, a.x, a.y); }
+          else { st.loyalty = 1; royalBlocked = { have: Math.floor(att.royal), need: this.royalNeed(att) }; }
+        }
       }
     }
     a.loot = loot;
@@ -658,7 +664,7 @@ function install(Game, helpers) {
       att: { login: att.login, race: att.race, castle: c.name, units: side(a.units, aLost), general: a.general || genDied ? (c.general ? c.general.level : 0) : 0, generalDied: genDied },
       def: target ? { login: captured ? captured.prevLogin : defUser.login, race: captured ? captured.prevRace : defUser.race, castle: target.name, units: side(dAll, dLost), wall: this.bonus(target).wall }
         : { npc: npc.name, img: obj.img, lossPct: Math.round(dLoss * 100) },
-      loot, siege, loyalty, capitalBlocked, captured: captured ? { name: captured.name, x: a.x, y: a.y } : null,
+      loot, siege, loyalty, capitalBlocked, royalBlocked, captured: captured ? { name: captured.name, x: a.x, y: a.y } : null,
     };
     const lines = [
       `${MISSIONS[a.mission]} на ${tname}. ${win ? 'Победа!' : 'Поражение.'}`,
@@ -669,6 +675,7 @@ function install(Game, helpers) {
       ...siege,
     ];
     if (loyalty) lines.push(`Лояльность: ${loyalty.from} → ${loyalty.to}`);
+    if (royalBlocked) lines.push(`Захват не удался: не хватает лояльности населения (есть ${royalBlocked.have}, нужно ${royalBlocked.need}) — см. Резиденцию.`);
     if (capitalBlocked) lines.push('Столицу захватить нельзя — бунтари бессильны.');
     if (captured) lines.push(`Замок захвачен! Теперь это ваш замок «${captured.name}».`);
     if (genDied) lines.push('Генерал пал в бою — воскресите его в Военном штабе.');
@@ -689,6 +696,7 @@ function install(Game, helpers) {
   // захват чужого (не столичного) замка: переходит к нападающему, войска и очереди прежнего хозяина пропадают
   P.captureCastle = function captureCastle(att, castle) {
     const prev = this.ownerOf(castle);
+    this.royalLoss(prev); // население расстроено: −10% лояльности
     prev.castleIds = this.castlesOf(prev).filter((k) => k !== castle).map((k) => k.id);
     if (prev.castleId === castle.id) prev.castleId = prev.castleIds[0];
     castle.owner = att.id;
@@ -1028,7 +1036,7 @@ function install(Game, helpers) {
         members: al.members.map((id) => { const m = this.userById(id); return m ? m.login : '?'; }),
         requests: al.leader === user.id ? (al.requests || []).map((id) => { const m = this.userById(id); return m ? { id, login: m.login, rating: this.userRating(m) } : null; }).filter(Boolean) : [] } : null,
       invites: (user.invites || []).map((id) => this.db.alliances && this.db.alliances[id]).filter(Boolean).map((a) => ({ id: a.id, name: a.name, tag: a.tag })),
-      admin: !!user.admin,
+      admin: !!user.admin, royal: this.royalView(user, castle),
       unreadReports: (this.db.reports || []).filter((r) => r.owner === user.id && !r.read).length,
     };
   };
