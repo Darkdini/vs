@@ -238,6 +238,44 @@ class Game {
     return { item };
   }
 
+  // Объекты карты мира в прямоугольнике: замки игроков + процедурные объекты (детерминированно по координатам).
+  // img — номер тайла клиента: 10 замок, 1 камни, 9 озеро, 24 заброшенный замок, 25 дикари, 26 лесорубы, 27 рудник троллей
+  worldObjects(x0, y0, w, h) {
+    const out = [];
+    const castles = Object.values(this.db.castles).filter((c) => c.x >= x0 && c.x < x0 + w && c.y >= y0 && c.y < y0 + h);
+    const occupied = new Set(castles.map((c) => `${c.x}:${c.y}`));
+    for (const c of castles) {
+      const owner = this.userById(c.owner);
+      out.push({ kind: 'castle', x: c.x, y: c.y, img: 10, castleId: c.id, name: c.name, ownerId: owner.id, owner: owner.login, race: owner.race, rating: this.rating(c) });
+    }
+    for (let y = y0; y < y0 + h; y++) {
+      for (let x = x0; x < x0 + w; x++) {
+        if (occupied.has(`${x}:${y}`)) continue;
+        const roll = (((x * 73856093) ^ (y * 19349663)) >>> 0) % 100;
+        const obj = roll < 8 ? [1, 'Камни'] : roll < 11 ? [9, 'Озеро'] : roll < 13 ? [25, 'Дикари'] : roll < 15 ? [26, 'Лесорубы']
+          : roll < 16 ? [27, 'Рудник троллей'] : roll < 18 ? [24, 'Заброшенный замок'] : null;
+        if (obj) out.push({ kind: 'object', x, y, img: obj[0], name: obj[1] });
+      }
+    }
+    return out;
+  }
+
+  // ----- почта -----
+  sendMail(fromUser, toLogin, subject, text) {
+    const to = this.db.users[(toLogin || '').trim().toLowerCase()];
+    if (!to) return { error: 'Получатель не найден.' };
+    this.db.messages = this.db.messages || [];
+    const m = { id: this.db.nextId++, from: fromUser.id, to: to.id, subject: subject || '', text: text || '', at: Date.now(), read: false };
+    this.db.messages.push(m);
+    this.store.save();
+    return { message: m, to };
+  }
+
+  mailList(userId, folder) {
+    const all = this.db.messages || [];
+    return all.filter((m) => (folder === 1 ? m.from === userId : m.to === userId)).slice(-30).reverse();
+  }
+
   nextEventAt() {
     let t = Infinity;
     for (const c of Object.values(this.db.castles)) for (const q of c.queue) t = Math.min(t, q.end);
@@ -245,4 +283,4 @@ class Game {
   }
 }
 
-module.exports = { Game, Store, VIEW, GRID, landOptions, SPEED };
+module.exports = { Game, Store, VIEW, GRID, landOptions, SPEED, MAX_QUEUE, LANDS_BASE, LANDS_DECOR, LANDS_EDGE };

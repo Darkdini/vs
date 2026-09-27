@@ -1,13 +1,15 @@
 'use strict';
 // Тестовый сервер для оригинального J2ME-клиента «Третий Мир: Война Королей» (2009).
 // Запуск:  node server/src/index.js        (порт 2500 — как в клиенте)
-// Переменные окружения: PORT, HOST, SPEED (скорость мира), DB (путь к JSON), DEBUG=1 (hex-дамп пакетов)
+// Переменные окружения: PORT, HOST, SPEED (скорость мира), DB (путь к JSON), DEBUG=1 (hex-дамп пакетов),
+// WEB_PORT (браузерный клиент, 8080), CLIENT_JAR (оригинальный jar — источник графики для браузера)
 
 const net = require('net');
 const path = require('path');
 const { FlapReader } = require('./protocol');
 const { Game, Store } = require('./game');
 const { Session } = require('./handlers');
+const { startWeb, WebSession } = require('./web');
 
 const PORT = Number(process.env.PORT || 2500);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -18,6 +20,7 @@ const store = new Store(DB);
 const game = new Game(store);
 const sessions = new Set();
 Session.all = sessions;
+WebSession.all = sessions; // уведомления о письмах ходят между J2ME- и браузерными игроками
 
 const server = net.createServer((sock) => {
   const tag = `${sock.remoteAddress}:${sock.remotePort}`;
@@ -54,6 +57,15 @@ setInterval(() => { for (const s of sessions) { try { s.onTick(); } catch (e) { 
 server.listen(PORT, HOST, () => {
   console.log(`Третий Мир — тестовый сервер слушает ${HOST}:${PORT}, скорость x${process.env.SPEED || 10}, база ${DB}`);
 });
+
+// браузерный клиент (web/) на отдельном HTTP-порту; WEB_PORT=0 — выключить
+const WEB_PORT = Number(process.env.WEB_PORT === undefined ? 8080 : process.env.WEB_PORT);
+const JAR = process.env.CLIENT_JAR || (() => { // оригинальный jar рядом с сервером — берём из него графику
+  const dir = path.join(__dirname, '..', 'client');
+  const f = require('fs').existsSync(dir) && require('fs').readdirSync(dir).find((n) => n.endsWith('.jar'));
+  return f ? path.join(dir, f) : null;
+})();
+if (WEB_PORT) startWeb(game, sessions, { port: WEB_PORT, host: HOST, jarPath: JAR, log: (m) => console.log(m) });
 
 const shutdown = () => { store.flush(); process.exit(0); };
 process.on('SIGINT', shutdown);

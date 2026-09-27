@@ -15,7 +15,7 @@ const DB = path.join(os.tmpdir(), `tw-smoke-${process.pid}.json`);
 
 function startServer() {
   const child = spawn(process.execPath, [path.join(__dirname, '..', 'src', 'index.js')], {
-    env: { ...process.env, PORT: String(PORT), HOST: '127.0.0.1', DB, SPEED: '2000' }, stdio: ['ignore', 'pipe', 'inherit'],
+    env: { ...process.env, PORT: String(PORT), HOST: '127.0.0.1', DB, SPEED: '2000', WEB_PORT: '0' }, stdio: ['ignore', 'pipe', 'inherit'],
   });
   return new Promise((resolve) => child.stdout.on('data', (d) => { if (String(d).includes('слушает')) resolve(child); }));
 }

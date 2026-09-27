@@ -135,6 +135,8 @@ class Session {
     )));
   }
 
+  notifyMail(fromLogin) { this.send(ticker(`Новое письмо от ${fromLogin}`, 0x66ccff)); this.pushStatusBar(); }
+
   pushStatusBar() {
     const unread = (this.game.db.messages || []).filter((m) => m.to === this.user.id && !m.read).length;
     this.send(snac(2, 10, 10, cat(
@@ -214,31 +216,13 @@ class Session {
   }
 
   worldPacket(cx, cy) {
-    const g = this.game, x0 = cx - 3, y0 = cy - 3;
+    const x0 = cx - 3, y0 = cy - 3;
     this.world = { cx, cy };
-    const objs = [];
-    const castles = Object.values(g.db.castles).filter((c) => c.x >= x0 && c.x < x0 + 7 && c.y >= y0 && c.y < y0 + 7);
-    const occupied = new Set(castles.map((c) => `${c.x}:${c.y}`));
-    for (const c of castles) {
-      const owner = g.userById(c.owner);
-      const rating = g.rating(c);
-      const name = cat(`Замок:${c.name}`), nick = cat(`Игрок:${owner.login}`), ally = cat('Альянс:-');
-      objs.push(tlv(17, cat(u32(owner.id), u16(c.x), u16(c.y), u16(0), u16(10), u16(rating),
-        u8(name.length), u8(nick.length), u8(ally.length), name, nick, ally, C.RACE_NAMES[owner.race])));
-    }
-    for (let y = y0; y < y0 + 7; y++) {
-      for (let x = x0; x < x0 + 7; x++) {
-        if (occupied.has(`${x}:${y}`)) continue;
-        const h = ((x * 73856093) ^ (y * 19349663)) >>> 0;
-        const roll = h % 100;
-        let img = -1, title = '';
-        if (roll < 8) { img = 1; title = 'Камни'; } else if (roll < 11) { img = 9; title = 'Озеро'; } else if (roll < 13) { img = 25; title = 'Дикари'; } else if (roll < 15) { img = 26; title = 'Лесорубы'; } else if (roll < 16) { img = 27; title = 'Рудник троллей'; } else if (roll < 18) { img = 24; title = 'Заброшенный замок'; }
-        if (img < 0) continue;
-        const name = cat(`${title}:${title}`), nick = cat('Игрок:-'), ally = cat('Альянс:-');
-        objs.push(tlv(17, cat(u32(0), u16(x), u16(y), u16(1), u16(img), u16(0),
-          u8(name.length), u8(nick.length), u8(ally.length), name, nick, ally, '')));
-      }
-    }
+    const objs = this.game.worldObjects(x0, y0, 7, 7).map((o) => {
+      const name = cat(`${o.kind === 'castle' ? 'Замок' : o.name}:${o.name}`), nick = cat(`Игрок:${o.owner || '-'}`), ally = cat('Альянс:-');
+      return tlv(17, cat(u32(o.ownerId || 0), u16(o.x), u16(o.y), u16(o.kind === 'castle' ? 0 : 1), u16(o.img), u16(o.rating || 0),
+        u8(name.length), u8(nick.length), u8(ally.length), name, nick, ally, o.race ? C.RACE_NAMES[o.race] : ''));
+    });
     return snac(2, 10, 8, cat(tlv(16, cat(u16(x0), u16(y0))), ...objs, tlv(18, cat(u16(cx), u16(cy)))));
   }
 
@@ -340,7 +324,7 @@ const ROUTES = {
     const folder = t[0] && t[0].length === 2 ? t[0].readUInt16BE(0) : 0; // 0 входящие, 1 исходящие, 2 отчёты
     if (folder === 2) return this.send(snac(2, 11, 6, tlv(4, cat(u16(0), u16(0), u16(0))))); // отчётов пока нет
     const outbox = folder === 1;
-    const list = db.messages.filter((m) => (outbox ? m.from === this.user.id : m.to === this.user.id)).slice(-10).reverse();
+    const list = this.game.mailList(this.user.id, folder).slice(0, 10);
     const recs = list.map((m) => {
       const other = this.game.userById(outbox ? m.to : m.from);
       const a = cat(other ? other.login : '?'), s = cat(m.subject || '(без темы)'), d = cat(new Date(m.at).toLocaleString('ru-RU'));
@@ -350,13 +334,10 @@ const ROUTES = {
   },
   // отправить письмо: TLV1 кому, TLV3 тема, TLV4 текст
   '11,5'(p, t) {
-    const db = this.game.db; db.messages = db.messages || [];
-    const to = this.game.db.users[str(t[1]).trim().toLowerCase()];
-    if (!to) return this.send(messageBox('Получатель не найден.'));
-    db.messages.push({ id: db.nextId++, from: this.user.id, to: to.id, subject: str(t[3]), text: str(t[4]), at: Date.now(), read: false });
-    this.game.store.save();
+    const res = this.game.sendMail(this.user, str(t[1]), str(t[3]), str(t[4]));
+    if (res.error) return this.send(messageBox(res.error));
     this.send(messageBox('Сообщение отправлено.', 1));
-    for (const s of Session.all || []) if (s.user && s.user.id === to.id) { s.send(ticker(`Новое письмо от ${this.user.login}`, 0x66ccff)); s.pushStatusBar(); }
+    for (const s of Session.all || []) if (s.user && s.user.id === res.to.id && s.notifyMail) s.notifyMail(this.user.login);
   },
   '11,26'() { this.send(messageBox('Поиск пока не реализован.')); },
   '11,9'() { this.send(messageBox('Альянсы пока не реализованы.')); },
