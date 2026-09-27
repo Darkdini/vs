@@ -39,5 +39,17 @@ v.royal = 1e6; v.created = T;
 assert.ok(!g.royalCanCapture(v) && g.royalWaitDays(v, T) === 30);
 v.created = T - 31 * 86400000; assert.ok(g.royalCanCapture(v));
 console.log('✓ Храм: +12 в сутки; ритуал +5%; первый захват не раньше 30-го дня игры');
+// Кузница: улучшение атаки Мечника +1 за уровень, не выше уровня Кузнеца
+const w = g.register({ login: 'forgetest', password: '123', race: 0 }).user, fc = g.castlesOf(w)[0];
+fc.grid[0][1] = 11; fc.levels[0][1] = 1; fc.grid[0][2] = 1; fc.levels[0][2] = 10;
+g.mil(fc); Object.assign(fc.res, { wood: 5000, stone: 5000, iron: 5000, food: 5000 });
+const p0 = g.armyPower(fc, { 200: 100 }, false).inf;
+assert.ok(g.forgeOp(fc, { unit: 200, kind: 'a' }).ok);
+fc.forgeJob.end = Date.now() - 1; g.tick(fc);
+assert.equal(fc.forge[200].a, 1);
+const p1 = g.armyPower(fc, { 200: 100 }, false).inf;
+assert.ok(Math.abs(p1 / p0 - (g.UNIT_ATK = require('../src/army').UNIT[200].attack + 1) / require('../src/army').UNIT[200].attack) < 1e-9);
+assert.ok(/Нужен Кузнец 2/.test(g.forgeOp(fc, { unit: 200, kind: 'a' }).error));
+console.log(`✓ Кузница: атака Мечника +1 (сила армии ${Math.round(p0)} → ${Math.round(p1)}), выше уровня Кузнеца нельзя`);
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);

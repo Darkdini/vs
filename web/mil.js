@@ -49,7 +49,7 @@ function milEffect(def, L) {
     2: () => ({ text: 'армии, генерал, бунтари; отправка войск', short: 'армии' }),
     3: train, 12: train, 20: train, 23: train,
     4: () => ({ text: `обмен по курсу ${Math.min(1, 0.7 + 0.015 * L).toFixed(2)}, торговцы`, short: `курс ${Math.min(1, 0.7 + 0.015 * L).toFixed(2)}` }),
-    11: () => ({ text: `+${pct(0.015 * L)} атаки и защиты войск`, short: `+${pct(0.015 * L)}` }),
+    11: () => ({ text: `улучшение атаки и защиты юнитов до ${L} ур.`, short: `до ${L} ур.` }),
     13: () => ({ text: `мест в альянсе: ${3 * L}`, short: `${3 * L} мест` }),
     14: () => ({ text: 'обучение мудрецов (ускоряют науку)', short: 'мудрецы' }),
     15: () => ({ text: `науки до ${L} уровня`, short: `науки ${L}` }),
@@ -79,6 +79,7 @@ function buildingFunctions(def, lvl) {
   if (!lvl || !S.cat.mil) return '';
   let h = '';
   if (def.id === 46) return residenceHtml(); // Резиденция: лояльность населения (residence.js)
+  if (def.id === 11) return '<button class="rbar" data-forge>Юниты</button>'; // Кузница (forge.js)
   if (def.id === 21) return '<button class="rbar" data-moves>Передвижения армий</button>'; // Караульная башня (watch.js)
   if (def.id === 45) return spyButtons(); // Центр разведки: Возможности / Тренировать / Разведка (spy.js)
   if (def.id === HQ) h += hqHtml();

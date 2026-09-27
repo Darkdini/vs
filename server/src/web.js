@@ -153,7 +153,7 @@ class WebSession {
     if (!this.failed && this.user && ROYAL_ACTIONS.has(msg.t)) this.game.royalGain(this.user);
   }
 }
-const ROYAL_ACTIONS = new Set(['ritual', 'calm', 'build', 'train', 'send', 'research', 'exchange', 'squad', 'artifact', 'religion']);
+const ROYAL_ACTIONS = new Set(['forge', 'ritual', 'calm', 'build', 'train', 'send', 'research', 'exchange', 'squad', 'artifact', 'religion']);
 
 const API = {
   hello() { this.send({ t: 'catalog', catalog: catalogJson() }); },
@@ -187,6 +187,7 @@ const API = {
   },
   ritual(m) { const r = this.game.ritual(this.user, this.castle, m.id); if (r.msg) this.toast(r.msg); this.result(r); },
   calm() { const r = this.game.calmRiot(this.user, this.castle); if (r.msg) this.toast(r.msg); this.result(r); },
+  forge(m) { this.result(this.game.forgeOp(this.castle, { unit: Number(m.unit), kind: m.kind })); },
   moves() { this.send({ t: 'moves', data: this.game.kingdomMoves(this.user) }); },
   festival(m) { const r = this.game.festival(this.user, this.castle, m.id); if (r.msg) this.toast(r.msg); this.result(r); },
   demolish(m) {

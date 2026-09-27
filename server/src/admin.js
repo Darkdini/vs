@@ -75,6 +75,7 @@ function install(Game) {
           for (const q of c.queue) q.end = now;
           for (const t of c.training) t.start = now - t.each * t.count;
           if (c.research) c.research.end = now;
+          if (c.forgeJob) c.forgeJob.end = now;
           for (const a of c.armies) { if (a.state === 'go') { const d = a.arrive - a.depart; a.arrive = now; a.depart = now - d; } else a.back = now; }
           if (c.general && c.general.reviveAt) c.general.reviveAt = now;
           if (c.general && c.general.dead && !c.general.reviveAt) { c.general.dead = false; delete c.general.away; }

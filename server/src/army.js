@@ -169,6 +169,8 @@ function install(Game, helpers) {
     if (castle.general) this.normGeneral(castle.general, castle);
     if (castle.research === undefined) castle.research = null;
     if (castle.religion === undefined) castle.religion = null;
+    if (!castle.forge) castle.forge = {}; // Кузница: { unitId: { a: ур. атаки, d: ур. защиты } }
+    if (castle.forgeJob === undefined) castle.forgeJob = null;
     if (!castle.squads) castle.squads = []; // отряды в замке («Армия: …»); castle.units — «Замковая армия»
     if (castle.loyalty === undefined) { castle.loyalty = 100; castle.loyAt = Date.now(); }
     return castle;
@@ -189,8 +191,8 @@ function install(Game, helpers) {
     const race = this.raceOf(castle);
     const wallPer = { humans: 0.03, elves: 0.035, dwarves: 0.02, orcs: 0.025 }[race] || 0.03;
     return {
-      atk: (1 + 0.015 * L(B.SMITH)) * (1 + SCIENCES.war.per * sci.war) * (1 + 0.01 * L(B.BREWERY)) * (1 + (rel === 'war' ? 0.01 * templeL : 0)) * (1 + art.atk),
-      def: (1 + 0.015 * L(B.SMITH)) * (1 + SCIENCES.war.per * sci.war) * (1 + (rel === 'light' ? 0.01 * templeL : 0)) * (1 + art.def) * (1 + GEN.cmd * gen),
+      atk: (1 + SCIENCES.war.per * sci.war) * (1 + 0.01 * L(B.BREWERY)) * (1 + (rel === 'war' ? 0.01 * templeL : 0)) * (1 + art.atk),
+      def: (1 + SCIENCES.war.per * sci.war) * (1 + (rel === 'light' ? 0.01 * templeL : 0)) * (1 + art.def) * (1 + GEN.cmd * gen),
       magic: 1 + 0.02 * L(B.MAGIC_SCHOOL),
       prod: (1 + SCIENCES.eco.per * sci.eco) * (1 + (rel === 'nature' ? 0.01 * templeL : 0)) * (1 + art.prod),
       speed: (1 + SCIENCES.fhi.per * sci.fhi) * (1 + art.speed),
@@ -271,12 +273,47 @@ function install(Game, helpers) {
     // генерал воскрес
     const g = castle.general;
     if (g && g.dead && g.reviveAt && g.reviveAt <= now) { g.dead = false; delete g.reviveAt; delete g.reviveStart; this.event(owner, 'Генерал снова в строю.'); }
+    // улучшение в Кузнице
+    const fj = castle.forgeJob;
+    if (fj && fj.end <= now) {
+      const f = castle.forge[fj.unit] || (castle.forge[fj.unit] = { a: 0, d: 0 });
+      f[fj.kind] = fj.level;
+      this.event(owner, `Кузница: ${UNIT[fj.unit].name} — ${fj.kind === 'a' ? 'атака' : 'защита'} ${fj.level} ур.`);
+      castle.forgeJob = null;
+    }
     // исследование
     if (castle.research && castle.research.end <= now) {
       castle.sciences[castle.research.sci] = castle.research.level;
       this.event(owner, `Изучено: ${SCIENCES[castle.research.sci].name} ${castle.research.level} ур.`);
       castle.research = null;
     }
+  };
+
+  // ----- Кузница: улучшение атаки/защиты каждого юнита (+1 к базовому параметру за уровень, до уровня Кузнеца) -----
+  P.forgeLvl = function forgeLvl(castle, id, kind) { const f = castle.forge && castle.forge[id]; return f ? f[kind] || 0 : 0; };
+  P.forgeUnits = function forgeUnits(castle) {
+    return unitsForRace(this.raceOf(castle)).filter((u) => (u.race !== 'all' || ['catapult', 'ram'].includes(u.role)) && u.id !== GENERAL_ID);
+  };
+  P.forgeCost = function forgeCost(u, level) {
+    const k = 2 + level; // дороже с каждым уровнем
+    return { cost: Object.fromEntries(RES4.map((r) => [r, Math.round(u.cost[r] * k)])), sec: Math.max(5, Math.round(u.time * (1 + level / 2) / SPEED)) };
+  };
+  P.forgeOp = function forgeOp(castle, { unit, kind }) {
+    this.tick(castle); this.mil(castle);
+    const L = this.buildingLevel(castle, B.SMITH), u = UNIT[unit];
+    if (!L) return { error: 'Нужен Кузнец.' };
+    if (!u || !this.forgeUnits(castle).includes(u)) return { error: 'Этот юнит нельзя улучшить.' };
+    if (!['a', 'd'].includes(kind)) return { error: 'Неверный параметр.' };
+    if (castle.forgeJob) return { error: 'Кузница занята другим улучшением.' };
+    const next = this.forgeLvl(castle, u.id, kind) + 1;
+    if (next > 20) return { error: 'Достигнут максимум (20).' };
+    if (next > L) return { error: `Нужен Кузнец ${next} ур.` };
+    const { cost, sec } = this.forgeCost(u, next);
+    for (const r of RES4) if (castle.res[r] < cost[r]) return { error: 'Недостаточно ресурсов.' };
+    for (const r of RES4) castle.res[r] -= cost[r];
+    castle.forgeJob = { unit: u.id, kind, level: next, start: Date.now(), end: Date.now() + sec * 1000 };
+    this.store.save();
+    return { ok: true };
   };
 
   // ----- генерал -----
@@ -485,7 +522,8 @@ function install(Game, helpers) {
     let inf = 0, cav = 0, mag = 0;
     for (const [id, n] of Object.entries(units)) {
       const u = UNIT[id]; if (!u || !n) continue;
-      if (u.type === 'cavalry') cav += u.attack * n; else inf += u.attack * n;
+      const atk = u.attack ? u.attack + this.forgeLvl(c, id, 'a') : 0; // Кузница: +1 к базовой атаке за уровень
+      if (u.type === 'cavalry') cav += atk * n; else inf += atk * n;
       mag += u.magic * n;
     }
     let gl = 0;
@@ -506,7 +544,7 @@ function install(Game, helpers) {
   P.defensePower = function defensePower(d, pInf, pCav) {
     const b = this.bonus(d);
     let phys = 0, mag = 0;
-    const add = (id, n) => { const u = UNIT[id]; if (!u || !n) return; phys += (u.def.inf * pInf + u.def.cav * pCav) * n; mag += u.def.mag * n; };
+    const add = (id, n) => { const u = UNIT[id]; if (!u || !n) return; const fd = this.forgeLvl(d, id, 'd'); phys += ((u.def.inf + fd) * pInf + (u.def.cav + fd) * pCav) * n; mag += u.def.mag * n; };
     for (const m of this.defenders(d)) for (const [id, n] of Object.entries(m)) add(id, n);
     if (d.general && !d.general.dead && !d.general.away) { add(GENERAL_ID, 1); phys += d.general.pts.def * (pInf + pCav); }
     phys = (phys * b.def + 10 * b.wall) * (1 + b.wallPer * b.wall);
@@ -989,6 +1027,7 @@ function install(Game, helpers) {
     castle.general = this.newGeneral(castle, 100); // полная прокачка: очки уже распределены
     Object.assign(castle.general.pts, { atk: 20, def: 20, catk: 80, cdef: 60, heal: 10, career: 8 }); castle.general.free = 0;
     castle.sciences = { eco: 20, eng: 20, fhi: 20, war: 20 };
+    for (const u of this.forgeUnits(castle)) castle.forge[u.id] = { a: 20, d: 20 }; // Кузница 20/20
     castle.religion = castle.religion || 'war';
     if (castle.artifacts.length < 4) for (const type of ['atk', 'def', 'prod', 'speed']) castle.artifacts.push({ id: this.db.nextId++, type, rarity: 2, active: true, found: Date.now() });
     const cap = this.capacity(castle);
@@ -1060,6 +1099,7 @@ function install(Game, helpers) {
         members: al.members.map((id) => { const m = this.userById(id); return m ? m.login : '?'; }),
         requests: al.leader === user.id ? (al.requests || []).map((id) => { const m = this.userById(id); return m ? { id, login: m.login, rating: this.userRating(m) } : null; }).filter(Boolean) : [] } : null,
       invites: (user.invites || []).map((id) => this.db.alliances && this.db.alliances[id]).filter(Boolean).map((a) => ({ id: a.id, name: a.name, tag: a.tag })),
+      forge: castle.forge, forgeJob: castle.forgeJob, forgeUnits: this.forgeUnits(castle).map((u) => ({ id: u.id, ...this.forgeCost(u, 0), next: { a: this.forgeCost(u, this.forgeLvl(castle, u.id, 'a') + 1), d: this.forgeCost(u, this.forgeLvl(castle, u.id, 'd') + 1) } })),
       admin: !!user.admin, royal: this.royalView(user, castle), watch: this.hasWatch(user),
       unreadReports: (this.db.reports || []).filter((r) => r.owner === user.id && !r.read).length,
     };

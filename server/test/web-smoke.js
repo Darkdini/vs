@@ -231,6 +231,16 @@ function client() {
     await adm.expect('error', (m) => /ещё действует/.test(m.msg));
     console.log('✓ Резиденция: лояльность населения', rv.royal, '· следующий замок', rv.need, '· праздники раз в сутки');
 
+    // ---- Кузница: улучшение атаки/защиты юнита, +1 к базе за уровень ----
+    adm.send({ t: 'admin', op: 'max' });
+    let fs0 = (await adm.expect('state', (m) => m.castle.mil.forge && m.castle.mil.forge[200] && m.castle.mil.forge[200].a === 20)).castle.mil;
+    assert.ok(fs0.forgeUnits.some((u) => u.id === 240));
+    adm.send({ t: 'forge', unit: 200, kind: 'a' });
+    await adm.expect('error', (m) => /Достигнут максимум/.test(m.msg));
+    adm.send({ t: 'forge', unit: 221, kind: 'a' });
+    await adm.expect('error', (m) => /нельзя улучшить/.test(m.msg));
+    console.log('✓ Кузница: улучшения 20/20, торговца улучшить нельзя');
+
     // ---- генерал: очки опыта, распределение, сброс, имя, убить ----
     adm.send({ t: 'admin', op: 'general', level: 50 });
     let gs = (await adm.expect('state', (m) => m.castle.mil.general && m.castle.mil.general.level === 50)).castle.mil.general;
