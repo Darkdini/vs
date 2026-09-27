@@ -1177,4 +1177,4 @@ const catalogJson = () => ({
   scienceTime: Array.from({ length: 21 }, (_, l) => (l ? scienceTime(l) : 0)),
 });
 
-module.exports = { install, UNITS, UNIT, B, GENERAL_ID, GEN, SCIENCES, RELIGIONS, NPC, MISSIONS, unitsForRace, unitImg, catalogJson };
+module.exports = { NEWBIE_RATING, install, UNITS, UNIT, B, GENERAL_ID, GEN, SCIENCES, RELIGIONS, NPC, MISSIONS, unitsForRace, unitImg, catalogJson };

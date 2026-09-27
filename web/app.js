@@ -280,7 +280,7 @@ const MAPWRAP = '<div class="mapwrap"><div class="infobox hidden"></div></div>';
 const TABS = {
   castle: () => `<div class="mapview">${MAPWRAP}</div>`,
   lands: () => `<div class="mapview">${MAPWRAP}</div>`,
-  world: () => `<div class="mapview">${MAPWRAP}</div>`,
+  world: () => `<div class="mapview">${MAPWRAP}<form class="wsearch" data-wsearch><span>X</span><input name="x" type="number" inputmode="numeric" value="${S.world ? S.world.cx : ''}"><span>Y</span><input name="y" type="number" inputmode="numeric" value="${S.world ? S.world.cy : ''}"><button class="pbtn small">Найти</button><button type="button" class="pbtn small" data-whome>Домой</button></form></div>`,
 };
 
 function summaryHtml(view) {
@@ -582,6 +582,14 @@ function worldInfo() {
     + '<small>нажмите ещё раз — действия</small>';
   box.classList.remove('hidden');
 }
+// поиск по координатам на карте мира
+$('#view').addEventListener('submit', (e) => {
+  const f = e.target.closest('[data-wsearch]'); if (!f) return; e.preventDefault(); document.activeElement && document.activeElement.blur();
+  const x = Math.round(Number(f.x.value)), y = Math.round(Number(f.y.value));
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return toast('Введите X и Y.', 'err');
+  send({ t: 'world', cx: x, cy: y });
+});
+$('#view').addEventListener('click', (e) => { if (e.target.closest('[data-whome]')) send({ t: 'world', cx: S.st.castle.x, cy: S.st.castle.y }); });
 $('#view').addEventListener('click', (e) => { const b = e.target.closest('.infobox'); if (b && Iso.sel && S.world) openWorldCell(S.world.cx - S.world.radius + Iso.sel.x, S.world.cy - S.world.radius + Iso.sel.y); });
 
 function openWorldCell(x, y) {
@@ -656,7 +664,7 @@ function isoResize() {
 window.addEventListener('resize', () => { if (Iso.cv.isConnected) { isoResize(); isoDraw(); } });
 // начальная камера: замок целиком, земли и мир — примерно 8 клеток по ширине экрана, по центру
 function isoFit() {
-  const r = Iso.cv.getBoundingClientRect(), n = gridN(), vis = S.tab === 'castle' ? 9.5 : 8; // замок — вместе со рвом
+  const r = Iso.cv.getBoundingClientRect(), n = gridN(), vis = S.tab === 'castle' ? 4.6 : 8; // замок — крупно, Ратуша по центру
   const z = Math.max(0.35, Math.min(2.5, Math.min(r.width / (vis * TW), r.height / (vis * TH + 60))));
   const c = tileScreen(n / 2 - 0.5, n / 2 - 0.5);
   return { z, x: r.width / 2 - (c.sx + TW / 2) * z, y: r.height / 2 - (c.sy + TH / 2) * z + 18 * z };
@@ -806,6 +814,28 @@ function fenceFront() {
   raw('fence/fence1.png', D(CG - 1, CH + 3) + 25, E(CG - 1, CH + 3) - 25);
 }
 // земля сетки + поле grass1 на 5 клеток вокруг (s.a(g, true) в клиенте)
+// бесшовная трава на весь экран: узор 62×32 из ромба-тайла и четырёх соседей (как сетка изометрии)
+const GRASS_PAT = {};
+function grassBackdrop(path, c, dpr) {
+  const im = pic(path); if (!im) return;
+  if (!GRASS_PAT[path]) {
+    const cv = document.createElement('canvas'); cv.width = TW; cv.height = TH; const g = cv.getContext('2d');
+    for (const [dx, dy] of [[0, 0], [-TW / 2, -TH / 2], [TW / 2, -TH / 2], [-TW / 2, TH / 2], [TW / 2, TH / 2]]) g.drawImage(im, dx, dy - (im.height - TH));
+    GRASS_PAT[path] = ictx.createPattern(cv, 'repeat');
+  }
+  const pat = GRASS_PAT[path], o = tileScreen(0, 0);
+  pat.setTransform(new DOMMatrix().translate(o.sx, o.sy));
+  ictx.fillStyle = pat;
+  ictx.fillRect(-c.x / c.z - TW, -c.y / c.z - TH, Iso.cv.width / dpr / c.z + 2 * TW, Iso.cv.height / dpr / c.z + 2 * TH);
+}
+// купол защиты новичка над замком
+function newbieDome(p) {
+  const cx = p.sx + TW / 2, cy = p.sy + TH / 2 + 2, rx = TW * 0.62, ry = TH * 1.9;
+  const g = ictx.createRadialGradient(cx, cy - ry * 0.55, 4, cx, cy - ry * 0.4, rx * 1.1);
+  g.addColorStop(0, 'rgba(220, 245, 255, 0.55)'); g.addColorStop(0.6, 'rgba(110, 190, 255, 0.28)'); g.addColorStop(1, 'rgba(60, 140, 255, 0.12)');
+  ictx.save(); ictx.beginPath(); ictx.ellipse(cx, cy, rx, ry, 0, Math.PI, 0); ictx.ellipse(cx, cy, rx, ry * 0.32, 0, 0, Math.PI); ictx.fillStyle = g; ictx.fill();
+  ictx.lineWidth = 1.5; ictx.strokeStyle = 'rgba(190, 235, 255, 0.85)'; ictx.stroke(); ictx.restore();
+}
 function groundField(n, at) {
   for (let y = -5; y < n + 5; y++) for (let x = n + 4; x >= -5; x--) {
     const p = tileScreen(x, y);
@@ -820,6 +850,7 @@ function isoDrawNow() {
   x.fillStyle = '#16240f'; x.fillRect(0, 0, Iso.cv.width, Iso.cv.height);
   x.setTransform(c.z * dpr, 0, 0, c.z * dpr, c.x * dpr, c.y * dpr);
   x.imageSmoothingEnabled = false;
+  grassBackdrop(S.tab === 'world' ? 'ground/grass.png' : 'ground/grass1.png', c, dpr); // трава до краёв экрана — без чёрных краёв
   const st = S.st.castle;
   if (S.tab === 'castle') { // порядок как в клиенте: земля → ров → ограда сзади → здания → ограда спереди → курсор
     // внутри стен — трава, на ней 49 каменных участков с промежутками
@@ -863,6 +894,7 @@ function isoDrawNow() {
       const o = objs.get(`${w.cx - R0 + xx}:${w.cy - R0 + y}`); if (!o) continue;
       const p = tileScreen(xx, y);
       ground(WORLD_NAME_IMG(o), p.sx, p.sy);
+      if (o.newbie) newbieDome(p);
     }
   }
 }
