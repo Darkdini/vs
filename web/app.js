@@ -510,6 +510,9 @@ $('#sheetBody').addEventListener('click', (e) => {
 
 
 function emptySheet(view, cell) {
+  if (view === VIEW.CASTLE && S.cat.castlePath && S.cat.castlePath.includes(cell)) {
+    return `<div class="sh-head"><div class="big">${gimg('ground/roadS0.png')}</div><div><h3>Тропинка</h3><div class="muted small">Дорога от ворот к Ратуше</div></div></div><p class="desc">На тропинке строить нельзя.</p>`;
+  }
   let opts, title, sub;
   if (view === VIEW.LANDS) {
     const x = cell % 15, y = Math.floor(cell / 15), L = S.cat.lands;
@@ -820,12 +823,13 @@ function isoDrawNow() {
   const st = S.st.castle;
   if (S.tab === 'castle') { // порядок как в клиенте: земля → ров → ограда сзади → здания → ограда спереди → курсор
     // внутри стен — трава, на ней 49 каменных участков с промежутками
-    groundField(17, (xx, y) => (xx >= CASTLE_OFF && xx < CASTLE_OFF + 7 && y >= CASTLE_OFF && y < CASTLE_OFF + 7 ? 'ground/grass.png' : `ground/${GROUND[CASTLE_BASE[y][xx]]}.png`));
+    const onPath = (xx, y) => (S.cat.castlePath || []).includes(y * 7 + xx); // тропинка от ворот к Ратуше — не застраивается
+    groundField(17, (xx, y) => (xx >= CASTLE_OFF && xx < CASTLE_OFF + 7 && y >= CASTLE_OFF && y < CASTLE_OFF + 7 && !onPath(xx - CASTLE_OFF, y - CASTLE_OFF) ? 'ground/grass.png' : `ground/${GROUND[CASTLE_BASE[y][xx]]}.png`));
     moat();
     const fence = buildingLevel(22) > 0; // Забор построен — вокруг замка стена
     if (fence) fenceBack();
     for (let y = 0; y < 7; y++) for (let xx = 6; xx >= 0; xx--) {
-      const p = cellAt(xx, y); plotImage('ground/stone.png', p, PLOT); plotDiamond(p, PLOT, null, null);
+      const p = cellAt(xx, y); if (!onPath(xx, y)) { plotImage('ground/stone.png', p, PLOT); plotDiamond(p, PLOT, null, null); }
       if (isSel(xx, y)) glow(p, PLOT);
     }
     for (let y = 0; y < 7; y++) for (let xx = 6; xx >= 0; xx--) {

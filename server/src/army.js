@@ -1053,7 +1053,7 @@ function install(Game, helpers) {
     this.mil(castle);
     const race = this.raceOf(castle);
     const castleBuildings = C.BUILDINGS.filter((b) => b.layer === 'castle' && b.id !== 0 && b.id !== 1);
-    const cells = [...Array(49).keys()].filter((i) => i !== 24);
+    const cells = [...Array(49).keys()].filter((i) => i !== 24 && !C.CASTLE_PATH.includes(i)); // тропинка — пустая
     castle.grid[0] = new Int8Array(49).fill(-1); castle.levels[0] = new Int8Array(49);
     castle.grid[0][24] = 0; castle.levels[0][24] = C.BY_ID[0].max;
     let k = 0;

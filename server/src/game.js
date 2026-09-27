@@ -272,6 +272,7 @@ class Game {
         const x = cell % 15, y = Math.floor(cell / 15);
         if (!landOptions(x, y).includes(buildingId)) return { error: 'На этой клетке такое здание не построить.' };
       }
+      if (view === VIEW.CASTLE && C.CASTLE_PATH.includes(cell)) return { error: 'На тропинке строить нельзя.' };
       if (def.unique && (this.buildingLevel(castle, buildingId) > 0 || castle.queue.some((q) => q.building === buildingId))) return { error: 'Такое здание уже есть в замке.' };
       level = 1;
     } else {

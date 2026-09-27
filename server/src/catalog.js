@@ -118,7 +118,10 @@ const BY_ID_MAX_STORE = BUILDINGS.find((b) => b.id === 1).max;
 // прочность здания (как в оригинале: Склад — 589 на 1 ур., растёт линейно с уровнем)
 const durability = (b, level) => (b.hp ? b.hp * level : 0) || Math.round((b.base ? ['wood', 'stone', 'iron', 'food'].reduce((s, r) => s + b.base[r], 0) : b.layer === 'lands' ? 180 : 370) * 7.3625) * level;
 const CASTLE_TYPES = BUILDINGS.filter((b) => b.layer === 'castle');
-const CASTLE_FULL_LEVELS = CASTLE_TYPES.reduce((s, b) => s + (b.max || 20), 0) + (49 - CASTLE_TYPES.length) * BY_ID_MAX_STORE;
+// тропинка от ворот к Ратуше (как в оригинале) — на ней строить нельзя: клетки x=3,y=0..2 и y=3,x=0..2 сетки 7×7
+const CASTLE_PATH = [3, 10, 17, 21, 22, 23];
+const CASTLE_CELLS = 49 - CASTLE_PATH.length;
+const CASTLE_FULL_LEVELS = CASTLE_TYPES.reduce((s, b) => s + (b.max || 20), 0) + (CASTLE_CELLS - CASTLE_TYPES.length) * BY_ID_MAX_STORE;
 const LANDS_FULL_LEVELS = 225 * 20; // все клетки земель застраиваемые
 const RATING = { max: 2300, castleMax: 1300, landsMax: 1000, castle: 1300 / CASTLE_FULL_LEVELS, lands: 1000 / LANDS_FULL_LEVELS };
 
@@ -128,4 +131,4 @@ function displayId(b, level) {
   return level >= 10 ? b.tiers[2] : level >= 5 ? b.tiers[1] : b.tiers[0];
 }
 
-module.exports = { TIME, RATING, RES, RES_ICON, TIME_ICON, BUILDINGS, BY_ID, UNITS, RACES, RACE_NAMES, PROD, PROD_K, durability, levelCost, levelTimeSec, displayId };
+module.exports = { TIME, RATING, RES, RES_ICON, TIME_ICON, BUILDINGS, BY_ID, UNITS, RACES, RACE_NAMES, PROD, PROD_K, CASTLE_PATH, durability, levelCost, levelTimeSec, displayId };

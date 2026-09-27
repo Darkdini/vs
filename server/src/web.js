@@ -87,7 +87,7 @@ function catalogJson() {
       produces: b.produces || null, tiers: b.tiers || null, about: b.about || '', hp: C.durability(b, 1), time: b.time || 0,
       costs: Array.from({ length: (b.max || 20) + 1 }, (_, l) => (l === 0 ? null : C.levelCost(b, l))),
     })),
-    prod: C.PROD, prodK: C.PROD_K, resSpeed: G.RES_SPEED,
+    castlePath: C.CASTLE_PATH, prod: C.PROD, prodK: C.PROD_K, resSpeed: G.RES_SPEED,
     races: C.RACE_NAMES,
     raceOrder: C.RACES,
     units: C.UNITS,
