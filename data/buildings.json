@@ -1,0 +1,190 @@
+{
+  "version": 1,
+  "formulas": {
+    "cost": "round5(baseCost[r] * costGrowth ^ (level - 1))",
+    "time": "baseTimeSec * timeGrowth ^ (level - 1) * townhallSpeed(townhallLevel)",
+    "townhallSpeed": "0.964 ^ townhallLevel",
+    "population": "populationPerLevel * level (занимаемое население растёт с уровнем)",
+    "note": "Числа — наш баланс по структуре оригинала, не значения из «Третьего Мира»."
+  },
+  "layers": {
+    "castle": "Замок — инфраструктура внутри стен (слоты под здания)",
+    "lands": "Земли — клетки вокруг замка (лес / камни / железо / трава) и перерабатывающие здания",
+    "world": "Мир — глобальная карта (замки, оазисы, руины, свободные клетки)"
+  },
+  "buildings": [
+    {"id": "townhall", "name": "Ратуша", "layer": "castle", "maxLevel": 20, "multiple": false, "confirmed": true,
+     "baseCost": {"food": 70, "wood": 70, "stone": 70, "iron": 40}, "costGrowth": 1.28, "baseTimeSec": 300, "timeGrowth": 1.18, "populationPerLevel": 2,
+     "requires": {}, "effect": {"buildTimeMultiplier": "0.964^level", "mercenaries": "найм наёмников с 5 ур."},
+     "description": "Сердце замка. Уровень ускоряет строительство и открывает остальные здания. Найм наёмников."},
+
+    {"id": "hut", "name": "Хибара", "layer": "castle", "maxLevel": 20, "multiple": true, "confirmed": true,
+     "baseCost": {"food": 40, "wood": 60, "stone": 50, "iron": 20}, "costGrowth": 1.26, "baseTimeSec": 180, "timeGrowth": 1.16, "populationPerLevel": 0,
+     "requires": {"townhall": 1}, "effect": {"populationCap": "20 * 1.18^level"},
+     "description": "Жильё населения. Население нужно для строек и армии; каждая новая хибара — только после 10 ур. предыдущей."},
+
+    {"id": "warehouse", "name": "Склад", "layer": "castle", "maxLevel": 20, "multiple": true, "confirmed": true,
+     "baseCost": {"food": 60, "wood": 100, "stone": 80, "iron": 40}, "costGrowth": 1.28, "baseTimeSec": 240, "timeGrowth": 1.16, "populationPerLevel": 1,
+     "requires": {"townhall": 1}, "multipleRule": "следующий склад — только после 10 ур. предыдущего",
+     "effect": {"capacity": "round100(1000 * 1.22^level) дерева/камня/железа"},
+     "description": "Хранит дерево, камень и железо. Излишки сверх вместимости теряются."},
+
+    {"id": "granary", "name": "Амбар", "layer": "castle", "maxLevel": 20, "multiple": true, "confirmed": false,
+     "baseCost": {"food": 30, "wood": 100, "stone": 60, "iron": 30}, "costGrowth": 1.28, "baseTimeSec": 220, "timeGrowth": 1.16, "populationPerLevel": 1,
+     "requires": {"townhall": 1}, "multipleRule": "следующий амбар — только после 10 ур. предыдущего",
+     "effect": {"capacity": "round100(1000 * 1.22^level) еды"},
+     "description": "Хранит еду. Критично для орков."},
+
+    {"id": "cache", "name": "Тайник", "layer": "castle", "maxLevel": 10, "multiple": true, "confirmed": true,
+     "baseCost": {"food": 40, "wood": 50, "stone": 30, "iron": 10}, "costGrowth": 1.28, "baseTimeSec": 150, "timeGrowth": 1.18, "populationPerLevel": 0,
+     "requires": {"townhall": 1}, "effect": {"hidden": "200 * 1.3^(level-1) каждого ресурса; гномы x2; несколько тайников суммируются"},
+     "description": "Прячет часть ресурсов от грабителей."},
+
+    {"id": "wall", "name": "Стена", "layer": "castle", "maxLevel": 20, "multiple": false, "confirmed": true,
+     "baseCost": {"food": 70, "wood": 90, "stone": 170, "iron": 70}, "costGrowth": 1.28, "baseTimeSec": 600, "timeGrowth": 1.18, "populationPerLevel": 0,
+     "requires": {"townhall": 1}, "effect": {"defenseBonus": "1 + perLevel*level; perLevel: люди 0.030, эльфы 0.035, гномы 0.020, орки 0.025", "fixedDefense": "10 * level"},
+     "description": "Бонус к защите замка и всех войск в нём. Разрушается таранами."},
+
+    {"id": "barracks", "name": "Казарма", "layer": "castle", "maxLevel": 20, "multiple": false, "confirmed": true,
+     "baseCost": {"food": 210, "wood": 140, "stone": 260, "iron": 120}, "costGrowth": 1.28, "baseTimeSec": 900, "timeGrowth": 1.18, "populationPerLevel": 4,
+     "requires": {"townhall": 3}, "effect": {"trainTimeMultiplier": "0.9^(level-1)", "trains": ["infantry"]},
+     "description": "Тренировка пехоты."},
+
+    {"id": "smithy", "name": "Кузница", "layer": "castle", "maxLevel": 20, "multiple": false, "confirmed": true,
+     "baseCost": {"food": 170, "wood": 200, "stone": 380, "iron": 130}, "costGrowth": 1.28, "baseTimeSec": 1200, "timeGrowth": 1.18, "populationPerLevel": 4,
+     "requires": {"townhall": 3, "academy": 1}, "effect": {"unitUpgrade": "каждый тип юнита улучшается до уровня кузницы: атака и защита x1.015^upgrade"},
+     "description": "Улучшение оружия и брони; открывает часть войск."},
+
+    {"id": "stable", "name": "Конюшня", "layer": "castle", "maxLevel": 20, "multiple": false, "confirmed": true,
+     "baseCost": {"food": 260, "wood": 140, "stone": 220, "iron": 100}, "costGrowth": 1.28, "baseTimeSec": 1500, "timeGrowth": 1.18, "populationPerLevel": 5,
+     "requires": {"barracks": 5, "smithy": 3}, "effect": {"trainTimeMultiplier": "0.9^(level-1)", "trains": ["cavalry"]},
+     "description": "Тренировка кавалерии и разведчиков."},
+
+    {"id": "workshop", "name": "Мастерская", "layer": "castle", "maxLevel": 20, "multiple": false, "confirmed": false,
+     "baseCost": {"food": 260, "wood": 460, "stone": 300, "iron": 200}, "costGrowth": 1.28, "baseTimeSec": 2000, "timeGrowth": 1.18, "populationPerLevel": 4,
+     "requires": {"townhall": 5, "academy": 10}, "effect": {"trainTimeMultiplier": "0.9^(level-1)", "trains": ["siege"]},
+     "description": "Постройка таранов и катапульт."},
+
+    {"id": "academy", "name": "Академия", "layer": "castle", "maxLevel": 20, "multiple": false, "confirmed": false,
+     "baseCost": {"food": 220, "wood": 160, "stone": 90, "iron": 40}, "costGrowth": 1.28, "baseTimeSec": 1100, "timeGrowth": 1.18, "populationPerLevel": 4,
+     "requires": {"townhall": 3, "barracks": 3}, "effect": {"research": "исследование новых юнитов и технологий (\"развитие науки\")", "trains": ["magic"]},
+     "description": "Наука: исследование юнитов и технологий, тренировка магов."},
+
+    {"id": "temple", "name": "Храм", "layer": "castle", "maxLevel": 10, "multiple": true, "confirmed": true,
+     "baseCost": {"food": 300, "wood": 200, "stone": 400, "iron": 100}, "costGrowth": 1.3, "baseTimeSec": 1500, "timeGrowth": 1.2, "populationPerLevel": 3,
+     "requires": {"townhall": 5}, "effect": {"loyaltyPerHour": "+0.5 * level", "festival": "малый праздник с 1 ур., большой — с 10 ур."},
+     "description": "Повышает лояльность населения, позволяет проводить праздники. Легендарные юниты призываются здесь."},
+
+    {"id": "residence", "name": "Резиденция", "layer": "castle", "maxLevel": 20, "multiple": false, "confirmed": true,
+     "baseCost": {"food": 580, "wood": 460, "stone": 350, "iron": 180}, "costGrowth": 1.28, "baseTimeSec": 1800, "timeGrowth": 1.18, "populationPerLevel": 1,
+     "requires": {"townhall": 5}, "effect": {"loyaltyMax": "100", "loyaltyRegen": "+level %/час", "expansionSlots": "1 слот на 10 и 20 ур. (поселенцы/бунтари)"},
+     "description": "Центр управления: показывает лояльность, даёт слоты экспансии, тренирует поселенцев и бунтарей. Если разрушена — замок проще захватить."},
+
+    {"id": "market", "name": "Рынок", "layer": "castle", "maxLevel": 20, "multiple": false, "confirmed": false,
+     "baseCost": {"food": 80, "wood": 70, "stone": 120, "iron": 70}, "costGrowth": 1.28, "baseTimeSec": 1000, "timeGrowth": 1.18, "populationPerLevel": 4,
+     "requires": {"townhall": 3, "warehouse": 1, "granary": 1}, "effect": {"merchantsCap": "level", "trains": ["merchant"]},
+     "description": "Торговые предложения, обмен с NPC-купцом, торговцы-караваны."},
+
+    {"id": "embassy", "name": "Дипломатический центр", "layer": "castle", "maxLevel": 20, "multiple": false, "confirmed": true,
+     "baseCost": {"food": 180, "wood": 130, "stone": 150, "iron": 80}, "costGrowth": 1.28, "baseTimeSec": 900, "timeGrowth": 1.18, "populationPerLevel": 3,
+     "requires": {"townhall": 1}, "effect": {"joinAlliance": "с 1 ур.", "createAlliance": "с 3 ур.", "allianceSlots": "3 * level участников у создателя", "createEmpire": "с 15 ур."},
+     "description": "Вступление в альянс, создание альянса; уровень = слоты участников и новые возможности."},
+
+    {"id": "rally_point", "name": "Сборный пункт", "layer": "castle", "maxLevel": 20, "multiple": false, "confirmed": false,
+     "baseCost": {"food": 110, "wood": 160, "stone": 90, "iron": 70}, "costGrowth": 1.28, "baseTimeSec": 400, "timeGrowth": 1.18, "populationPerLevel": 1,
+     "requires": {}, "effect": {"sendTroops": "с 1 ур.", "catapultTargeting": "выбор цели катапульт с 10 ур."},
+     "description": "Отправка войск, просмотр входящих/исходящих армий."},
+
+    {"id": "watchtower", "name": "Сторожевая башня", "layer": "castle", "maxLevel": 10, "multiple": false, "confirmed": false,
+     "baseCost": {"food": 100, "wood": 140, "stone": 200, "iron": 80}, "costGrowth": 1.3, "baseTimeSec": 800, "timeGrowth": 1.2, "populationPerLevel": 1,
+     "requires": {"wall": 3}, "effect": {"counterScout": "свои разведчики защищают от вражеских x(1+0.05*level)", "incomingInfo": "с 5 ур. видно тип войск во входящей атаке"},
+     "description": "Контрразведка и раннее оповещение."},
+
+    {"id": "general_hq", "name": "Штаб генерала", "layer": "castle", "maxLevel": 20, "multiple": false, "confirmed": false,
+     "baseCost": {"food": 700, "wood": 670, "stone": 700, "iron": 240}, "costGrowth": 1.28, "baseTimeSec": 2400, "timeGrowth": 1.18, "populationPerLevel": 2,
+     "requires": {"townhall": 10, "rally_point": 10}, "effect": {"trains": ["general"], "generalLevelCap": "level"},
+     "description": "Найм и прокачка генерала (один на замок). Нужен для захвата оазисов."},
+
+    {"id": "archaeology", "name": "Гильдия археологов", "layer": "castle", "maxLevel": 10, "multiple": false, "confirmed": false,
+     "baseCost": {"food": 400, "wood": 500, "stone": 500, "iron": 300}, "costGrowth": 1.3, "baseTimeSec": 3000, "timeGrowth": 1.2, "populationPerLevel": 3,
+     "requires": {"academy": 5, "market": 5}, "effect": {"trains": ["archaeologist"], "expeditionsParallel": "1 + floor(level/4)", "findChance": "+3% за уровень"},
+     "description": "Археологические экспедиции за артефактами."},
+
+    {"id": "treasury", "name": "Сокровищница", "layer": "castle", "maxLevel": 20, "multiple": false, "confirmed": false,
+     "baseCost": {"food": 800, "wood": 1000, "stone": 1200, "iron": 600}, "costGrowth": 1.26, "baseTimeSec": 4000, "timeGrowth": 1.18, "populationPerLevel": 4,
+     "requires": {"townhall": 10}, "effect": {"artifactSlots": "малый артефакт с 1 ур., большой с 10 ур., уникальный с 20 ур."},
+     "description": "Хранение и активация артефактов."},
+
+    {"id": "farm", "name": "Ферма", "layer": "lands", "terrain": "grass", "maxLevel": 10, "capitalMaxLevel": 15, "multiple": true, "confirmed": true,
+     "baseCost": {"food": 70, "wood": 90, "stone": 70, "iron": 20}, "costGrowth": 1.5, "baseTimeSec": 150, "timeGrowth": 1.45, "populationPerLevel": 0,
+     "requires": {}, "effect": {"production": "PROD_TABLE[level] еды/час"},
+     "description": "Добыча еды. Строится на клетке травы."},
+
+    {"id": "sawmill", "name": "Лесопилка", "layer": "lands", "terrain": "forest", "maxLevel": 10, "capitalMaxLevel": 15, "multiple": true, "confirmed": true,
+     "baseCost": {"food": 40, "wood": 100, "stone": 50, "iron": 60}, "costGrowth": 1.5, "baseTimeSec": 160, "timeGrowth": 1.45, "populationPerLevel": 1,
+     "requires": {}, "effect": {"production": "PROD_TABLE[level] дерева/час"},
+     "description": "Добыча дерева. Строится на клетке леса."},
+
+    {"id": "quarry", "name": "Каменоломня", "layer": "lands", "terrain": "stone", "maxLevel": 10, "capitalMaxLevel": 15, "multiple": true, "confirmed": true,
+     "baseCost": {"food": 50, "wood": 80, "stone": 40, "iron": 80}, "costGrowth": 1.5, "baseTimeSec": 170, "timeGrowth": 1.45, "populationPerLevel": 1,
+     "requires": {}, "effect": {"production": "PROD_TABLE[level] камня/час"},
+     "description": "Добыча камня. Строится на клетке камней."},
+
+    {"id": "mine", "name": "Рудник (сталелитейня)", "layer": "lands", "terrain": "iron", "maxLevel": 10, "capitalMaxLevel": 15, "multiple": true, "confirmed": true,
+     "baseCost": {"food": 60, "wood": 100, "stone": 80, "iron": 50}, "costGrowth": 1.5, "baseTimeSec": 200, "timeGrowth": 1.45, "populationPerLevel": 1,
+     "requires": {}, "effect": {"production": "PROD_TABLE[level] железа/час"},
+     "description": "Добыча железа. Строится на клетке железа."},
+
+    {"id": "mill", "name": "Мельница", "layer": "lands", "terrain": "any", "maxLevel": 5, "multiple": false, "confirmed": false,
+     "baseCost": {"food": 500, "wood": 440, "stone": 380, "iron": 1240}, "costGrowth": 1.8, "baseTimeSec": 1800, "timeGrowth": 1.5, "populationPerLevel": 1,
+     "requires": {"farm": 10, "townhall": 5}, "effect": {"bonus": "+5% еды за уровень"},
+     "description": "Переработка: бонус к добыче еды."},
+
+    {"id": "carpentry", "name": "Столярная", "layer": "lands", "terrain": "any", "maxLevel": 5, "multiple": false, "confirmed": false,
+     "baseCost": {"food": 1440, "wood": 520, "stone": 420, "iron": 520}, "costGrowth": 1.8, "baseTimeSec": 1800, "timeGrowth": 1.5, "populationPerLevel": 1,
+     "requires": {"sawmill": 10, "townhall": 5}, "effect": {"bonus": "+5% дерева за уровень"},
+     "description": "Переработка: бонус к добыче дерева."},
+
+    {"id": "stonemason", "name": "Каменотёс", "layer": "lands", "terrain": "any", "maxLevel": 5, "multiple": false, "confirmed": false,
+     "baseCost": {"food": 1200, "wood": 440, "stone": 480, "iron": 320}, "costGrowth": 1.8, "baseTimeSec": 1800, "timeGrowth": 1.5, "populationPerLevel": 1,
+     "requires": {"quarry": 10, "townhall": 5}, "effect": {"bonus": "+5% камня за уровень"},
+     "description": "Переработка: бонус к добыче камня."},
+
+    {"id": "smelter", "name": "Плавильня", "layer": "lands", "terrain": "any", "maxLevel": 5, "multiple": false, "confirmed": false,
+     "baseCost": {"food": 1480, "wood": 200, "stone": 450, "iron": 510}, "costGrowth": 1.8, "baseTimeSec": 1800, "timeGrowth": 1.5, "populationPerLevel": 1,
+     "requires": {"mine": 10, "townhall": 5}, "effect": {"bonus": "+5% железа за уровень"},
+     "description": "Переработка: бонус к добыче железа."},
+
+    {"id": "grove_of_life", "name": "Древо жизни", "layer": "castle", "race": "elves", "maxLevel": 10, "multiple": false, "confirmed": false,
+     "baseCost": {"food": 300, "wood": 900, "stone": 300, "iron": 200}, "costGrowth": 1.3, "baseTimeSec": 3000, "timeGrowth": 1.2, "populationPerLevel": 2,
+     "requires": {"temple": 5}, "effect": {"defenderRecovery": "после обороны возвращается 2%*level погибших защитников"},
+     "description": "Расовое здание эльфов."},
+
+    {"id": "deep_forge", "name": "Глубинная кузня", "layer": "castle", "race": "dwarves", "maxLevel": 10, "multiple": false, "confirmed": false,
+     "baseCost": {"food": 300, "wood": 300, "stone": 900, "iron": 400}, "costGrowth": 1.3, "baseTimeSec": 3000, "timeGrowth": 1.2, "populationPerLevel": 2,
+     "requires": {"smithy": 10}, "effect": {"siegeBonus": "+3%*level атаки таранов и катапульт"},
+     "description": "Расовое здание гномов."},
+
+    {"id": "war_totem", "name": "Тотем войны", "layer": "castle", "race": "orcs", "maxLevel": 10, "multiple": false, "confirmed": false,
+     "baseCost": {"food": 900, "wood": 300, "stone": 300, "iron": 300}, "costGrowth": 1.3, "baseTimeSec": 3000, "timeGrowth": 1.2, "populationPerLevel": 2,
+     "requires": {"barracks": 10}, "effect": {"raidBonus": "+2%*level к грузоподъёмности и атаке при грабеже"},
+     "description": "Расовое здание орков."},
+
+    {"id": "guild_hall", "name": "Гильдия мастеров", "layer": "castle", "race": "humans", "maxLevel": 10, "multiple": false, "confirmed": false,
+     "baseCost": {"food": 300, "wood": 300, "stone": 300, "iron": 900}, "costGrowth": 1.3, "baseTimeSec": 3000, "timeGrowth": 1.2, "populationPerLevel": 2,
+     "requires": {"academy": 10}, "effect": {"researchSpeed": "-3%*level времени исследований и улучшений"},
+     "description": "Расовое здание людей."}
+  ],
+  "productionTable": {
+    "note": "PROD_TABLE[level], ресурсов в час с одной клетки, уровни 0..15 (0 = пустая клетка даёт базу; 11-15 — только в столице)",
+    "values": [3, 7, 13, 21, 31, 46, 70, 98, 140, 203, 280, 392, 525, 693, 889, 1120]
+  },
+  "landsLayout": {
+    "note": "Стартовая раскладка 5x5 = 24 клетки + центр (замок). Раса смещает раскладку в сторону основного ресурса.",
+    "default": {"forest": 6, "stone": 6, "iron": 6, "grass": 6},
+    "humans": {"forest": 5, "stone": 5, "iron": 7, "grass": 7},
+    "elves": {"forest": 8, "stone": 4, "iron": 5, "grass": 7},
+    "dwarves": {"forest": 5, "stone": 8, "iron": 5, "grass": 6},
+    "orcs": {"forest": 5, "stone": 5, "iron": 5, "grass": 9}
+  }
+}

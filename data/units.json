@@ -1,0 +1,2043 @@
+{
+  "version": 1,
+  "races": {
+    "humans": {
+      "title": "Люди",
+      "main": "iron",
+      "main_share": 0.4,
+      "atk": 1.0,
+      "mag": 1.0,
+      "def": 1.0,
+      "speed": 1.0,
+      "cost": 1.0,
+      "time": 0.85,
+      "upkeep": 1.0,
+      "pop": 1.0,
+      "note": "Баланс; тренируются на 15% быстрее («учатся быстро»)"
+    },
+    "elves": {
+      "title": "Эльфы",
+      "main": "wood",
+      "main_share": 0.4,
+      "atk": 0.8,
+      "mag": 1.2,
+      "def": 1.3,
+      "speed": 1.05,
+      "cost": 1.0,
+      "time": 1.0,
+      "upkeep": 1.0,
+      "pop": 1.0,
+      "note": "Сильная защита и магия, слабая атака"
+    },
+    "dwarves": {
+      "title": "Гномы",
+      "main": "stone",
+      "main_share": 0.4,
+      "atk": 1.25,
+      "mag": 0.8,
+      "def": 0.85,
+      "speed": 0.9,
+      "cost": 1.0,
+      "time": 1.0,
+      "upkeep": 1.0,
+      "pop": 1.0,
+      "note": "Сильная атака, слабая защита, средняя скорость; тайники x2"
+    },
+    "orcs": {
+      "title": "Орки",
+      "main": "food",
+      "main_share": 0.45,
+      "atk": 2.5,
+      "mag": 1.0,
+      "def": 0.9,
+      "speed": 1.0,
+      "cost": 1.8,
+      "time": 1.4,
+      "upkeep": 2.0,
+      "pop": 1.5,
+      "note": "Атака в 2 раза выше гномьей, но юниты дорогие и «немногочисленные»; много еды на содержание"
+    }
+  },
+  "units": [
+    {
+      "id": "humans.def_inf",
+      "race": "humans",
+      "role": "def_inf",
+      "name": "Ополченец",
+      "nameConfirmedInOriginal": false,
+      "type": "infantry",
+      "attack": 20,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 45,
+        "cavalry": 40,
+        "magic": 15
+      },
+      "speed": 6.0,
+      "carry": 30,
+      "upkeepFoodPerHour": 1,
+      "population": 1,
+      "cost": {
+        "food": 70,
+        "wood": 70,
+        "stone": 70,
+        "iron": 145
+      },
+      "trainTimeSec": 510,
+      "building": "barracks",
+      "requires": {
+        "barracks": 1
+      }
+    },
+    {
+      "id": "humans.atk_inf",
+      "race": "humans",
+      "role": "atk_inf",
+      "name": "Мечник",
+      "nameConfirmedInOriginal": false,
+      "type": "infantry",
+      "attack": 50,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 25,
+        "cavalry": 15,
+        "magic": 10
+      },
+      "speed": 6.0,
+      "carry": 50,
+      "upkeepFoodPerHour": 1,
+      "population": 1,
+      "cost": {
+        "food": 80,
+        "wood": 80,
+        "stone": 80,
+        "iron": 160
+      },
+      "trainTimeSec": 595,
+      "building": "barracks",
+      "requires": {
+        "barracks": 1,
+        "smithy": 1
+      }
+    },
+    {
+      "id": "humans.ranged",
+      "race": "humans",
+      "role": "ranged",
+      "name": "Арбалетчик",
+      "nameConfirmedInOriginal": false,
+      "type": "infantry",
+      "attack": 35,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 50,
+        "cavalry": 25,
+        "magic": 20
+      },
+      "speed": 5.0,
+      "carry": 25,
+      "upkeepFoodPerHour": 1,
+      "population": 1,
+      "cost": {
+        "food": 85,
+        "wood": 85,
+        "stone": 85,
+        "iron": 170
+      },
+      "trainTimeSec": 680,
+      "building": "barracks",
+      "requires": {
+        "barracks": 3,
+        "academy": 1
+      }
+    },
+    {
+      "id": "humans.elite_inf",
+      "race": "humans",
+      "role": "elite_inf",
+      "name": "Паладин",
+      "nameConfirmedInOriginal": false,
+      "type": "infantry",
+      "attack": 70,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 40,
+        "cavalry": 60,
+        "magic": 25
+      },
+      "speed": 5.0,
+      "carry": 40,
+      "upkeepFoodPerHour": 1,
+      "population": 1,
+      "cost": {
+        "food": 140,
+        "wood": 140,
+        "stone": 140,
+        "iron": 280
+      },
+      "trainTimeSec": 1105,
+      "building": "barracks",
+      "requires": {
+        "barracks": 10,
+        "academy": 10,
+        "smithy": 5
+      }
+    },
+    {
+      "id": "humans.scout",
+      "race": "humans",
+      "role": "scout",
+      "name": "Разведчик",
+      "nameConfirmedInOriginal": false,
+      "type": "cavalry",
+      "attack": 0,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 10,
+        "cavalry": 5,
+        "magic": 5
+      },
+      "speed": 16.0,
+      "carry": 0,
+      "upkeepFoodPerHour": 1,
+      "population": 2,
+      "cost": {
+        "food": 60,
+        "wood": 60,
+        "stone": 60,
+        "iron": 120
+      },
+      "trainTimeSec": 510,
+      "building": "stable",
+      "requires": {
+        "stable": 1,
+        "academy": 3
+      }
+    },
+    {
+      "id": "humans.light_cav",
+      "race": "humans",
+      "role": "light_cav",
+      "name": "Всадник",
+      "nameConfirmedInOriginal": false,
+      "type": "cavalry",
+      "attack": 90,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 20,
+        "cavalry": 30,
+        "magic": 10
+      },
+      "speed": 14.0,
+      "carry": 90,
+      "upkeepFoodPerHour": 2,
+      "population": 2,
+      "cost": {
+        "food": 180,
+        "wood": 180,
+        "stone": 180,
+        "iron": 360
+      },
+      "trainTimeSec": 1275,
+      "building": "stable",
+      "requires": {
+        "stable": 1,
+        "academy": 5
+      }
+    },
+    {
+      "id": "humans.heavy_cav",
+      "race": "humans",
+      "role": "heavy_cav",
+      "name": "Рыцарь",
+      "nameConfirmedInOriginal": false,
+      "type": "cavalry",
+      "attack": 130,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 70,
+        "cavalry": 50,
+        "magic": 30
+      },
+      "speed": 10.0,
+      "carry": 60,
+      "upkeepFoodPerHour": 3,
+      "population": 3,
+      "cost": {
+        "food": 300,
+        "wood": 300,
+        "stone": 300,
+        "iron": 600
+      },
+      "trainTimeSec": 2040,
+      "building": "stable",
+      "requires": {
+        "stable": 10,
+        "academy": 15,
+        "smithy": 10
+      }
+    },
+    {
+      "id": "humans.mage",
+      "race": "humans",
+      "role": "mage",
+      "name": "Боевой маг",
+      "nameConfirmedInOriginal": false,
+      "type": "magic",
+      "attack": 10,
+      "magicAttack": 90,
+      "defense": {
+        "infantry": 20,
+        "cavalry": 20,
+        "magic": 60
+      },
+      "speed": 5.0,
+      "carry": 0,
+      "upkeepFoodPerHour": 2,
+      "population": 2,
+      "cost": {
+        "food": 260,
+        "wood": 260,
+        "stone": 260,
+        "iron": 520
+      },
+      "trainTimeSec": 1700,
+      "building": "academy",
+      "requires": {
+        "academy": 10,
+        "temple": 3
+      }
+    },
+    {
+      "id": "humans.ram",
+      "race": "humans",
+      "role": "ram",
+      "name": "Таран",
+      "nameConfirmedInOriginal": false,
+      "type": "siege",
+      "attack": 60,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 30,
+        "cavalry": 75,
+        "magic": 10
+      },
+      "speed": 4.0,
+      "carry": 0,
+      "upkeepFoodPerHour": 3,
+      "population": 3,
+      "cost": {
+        "food": 220,
+        "wood": 220,
+        "stone": 220,
+        "iron": 440
+      },
+      "trainTimeSec": 2550,
+      "building": "workshop",
+      "requires": {
+        "workshop": 1,
+        "academy": 8
+      }
+    },
+    {
+      "id": "humans.catapult",
+      "race": "humans",
+      "role": "catapult",
+      "name": "Катапульта",
+      "nameConfirmedInOriginal": false,
+      "type": "siege",
+      "attack": 75,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 60,
+        "cavalry": 10,
+        "magic": 10
+      },
+      "speed": 3.0,
+      "carry": 0,
+      "upkeepFoodPerHour": 6,
+      "population": 4,
+      "cost": {
+        "food": 360,
+        "wood": 360,
+        "stone": 360,
+        "iron": 720
+      },
+      "trainTimeSec": 4250,
+      "building": "workshop",
+      "requires": {
+        "workshop": 10,
+        "academy": 15
+      }
+    },
+    {
+      "id": "humans.merchant",
+      "race": "humans",
+      "role": "merchant",
+      "name": "Торговец",
+      "nameConfirmedInOriginal": false,
+      "type": "special",
+      "attack": 0,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 5,
+        "cavalry": 5,
+        "magic": 5
+      },
+      "speed": 12.0,
+      "carry": 500,
+      "upkeepFoodPerHour": 1,
+      "population": 1,
+      "cost": {
+        "food": 80,
+        "wood": 80,
+        "stone": 80,
+        "iron": 160
+      },
+      "trainTimeSec": 1020,
+      "building": "market",
+      "requires": {
+        "market": 1
+      }
+    },
+    {
+      "id": "humans.settler",
+      "race": "humans",
+      "role": "settler",
+      "name": "Поселенец",
+      "nameConfirmedInOriginal": false,
+      "type": "special",
+      "attack": 0,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 80,
+        "cavalry": 80,
+        "magic": 80
+      },
+      "speed": 5.0,
+      "carry": 3000,
+      "upkeepFoodPerHour": 1,
+      "population": 1,
+      "cost": {
+        "food": 1000,
+        "wood": 1000,
+        "stone": 1000,
+        "iron": 2000
+      },
+      "trainTimeSec": 7650,
+      "building": "residence",
+      "requires": {
+        "residence": 10
+      }
+    },
+    {
+      "id": "humans.rebel",
+      "race": "humans",
+      "role": "rebel",
+      "name": "Бунтарь",
+      "nameConfirmedInOriginal": true,
+      "type": "special",
+      "attack": 40,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 30,
+        "cavalry": 25,
+        "magic": 20
+      },
+      "speed": 4.0,
+      "carry": 0,
+      "upkeepFoodPerHour": 5,
+      "population": 5,
+      "cost": {
+        "food": 600,
+        "wood": 600,
+        "stone": 600,
+        "iron": 1200
+      },
+      "trainTimeSec": 5950,
+      "building": "residence",
+      "requires": {
+        "residence": 10,
+        "academy": 20
+      }
+    },
+    {
+      "id": "humans.archaeologist",
+      "race": "humans",
+      "role": "archaeologist",
+      "name": "Археолог",
+      "nameConfirmedInOriginal": false,
+      "type": "special",
+      "attack": 0,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 10,
+        "cavalry": 10,
+        "magic": 10
+      },
+      "speed": 5.0,
+      "carry": 0,
+      "upkeepFoodPerHour": 1,
+      "population": 1,
+      "cost": {
+        "food": 240,
+        "wood": 240,
+        "stone": 240,
+        "iron": 480
+      },
+      "trainTimeSec": 3060,
+      "building": "archaeology",
+      "requires": {
+        "archaeology": 1
+      }
+    },
+    {
+      "id": "humans.general",
+      "race": "humans",
+      "role": "general",
+      "name": "Генерал",
+      "nameConfirmedInOriginal": true,
+      "type": "special",
+      "attack": 100,
+      "magicAttack": 20,
+      "defense": {
+        "infantry": 100,
+        "cavalry": 100,
+        "magic": 60
+      },
+      "speed": 7.0,
+      "carry": 0,
+      "upkeepFoodPerHour": 6,
+      "population": 6,
+      "cost": {
+        "food": 1200,
+        "wood": 1200,
+        "stone": 1200,
+        "iron": 2400
+      },
+      "trainTimeSec": 12240,
+      "building": "general_hq",
+      "requires": {
+        "general_hq": 1
+      },
+      "uniquePerCastle": true
+    },
+    {
+      "id": "humans.legendary",
+      "race": "humans",
+      "role": "legendary",
+      "name": "Грифон-страж",
+      "nameConfirmedInOriginal": false,
+      "type": "magic",
+      "attack": 250,
+      "magicAttack": 50,
+      "defense": {
+        "infantry": 150,
+        "cavalry": 150,
+        "magic": 100
+      },
+      "speed": 7.0,
+      "carry": 100,
+      "upkeepFoodPerHour": 6,
+      "population": 6,
+      "cost": {
+        "food": 1200,
+        "wood": 1200,
+        "stone": 1200,
+        "iron": 2400
+      },
+      "trainTimeSec": 9180,
+      "building": "temple",
+      "requires": {
+        "temple": 10,
+        "treasury": 10
+      },
+      "requiresArtifact": true
+    },
+    {
+      "id": "elves.def_inf",
+      "race": "elves",
+      "role": "def_inf",
+      "name": "Страж рощи",
+      "nameConfirmedInOriginal": false,
+      "type": "infantry",
+      "attack": 16,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 58,
+        "cavalry": 52,
+        "magic": 20
+      },
+      "speed": 6.3,
+      "carry": 30,
+      "upkeepFoodPerHour": 1,
+      "population": 1,
+      "cost": {
+        "food": 70,
+        "wood": 145,
+        "stone": 70,
+        "iron": 70
+      },
+      "trainTimeSec": 600,
+      "building": "barracks",
+      "requires": {
+        "barracks": 1
+      }
+    },
+    {
+      "id": "elves.atk_inf",
+      "race": "elves",
+      "role": "atk_inf",
+      "name": "Танцующий с клинками",
+      "nameConfirmedInOriginal": true,
+      "type": "infantry",
+      "attack": 40,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 32,
+        "cavalry": 20,
+        "magic": 13
+      },
+      "speed": 6.3,
+      "carry": 50,
+      "upkeepFoodPerHour": 1,
+      "population": 1,
+      "cost": {
+        "food": 80,
+        "wood": 160,
+        "stone": 80,
+        "iron": 80
+      },
+      "trainTimeSec": 700,
+      "building": "barracks",
+      "requires": {
+        "barracks": 1,
+        "smithy": 1
+      }
+    },
+    {
+      "id": "elves.ranged",
+      "race": "elves",
+      "role": "ranged",
+      "name": "Эльф-лучник",
+      "nameConfirmedInOriginal": true,
+      "type": "infantry",
+      "attack": 28,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 65,
+        "cavalry": 32,
+        "magic": 26
+      },
+      "speed": 5.2,
+      "carry": 25,
+      "upkeepFoodPerHour": 1,
+      "population": 1,
+      "cost": {
+        "food": 85,
+        "wood": 170,
+        "stone": 85,
+        "iron": 85
+      },
+      "trainTimeSec": 800,
+      "building": "barracks",
+      "requires": {
+        "barracks": 3,
+        "academy": 1
+      }
+    },
+    {
+      "id": "elves.elite_inf",
+      "race": "elves",
+      "role": "elite_inf",
+      "name": "Зверь",
+      "nameConfirmedInOriginal": true,
+      "type": "infantry",
+      "attack": 56,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 52,
+        "cavalry": 78,
+        "magic": 32
+      },
+      "speed": 5.2,
+      "carry": 40,
+      "upkeepFoodPerHour": 1,
+      "population": 1,
+      "cost": {
+        "food": 140,
+        "wood": 280,
+        "stone": 140,
+        "iron": 140
+      },
+      "trainTimeSec": 1300,
+      "building": "barracks",
+      "requires": {
+        "barracks": 10,
+        "academy": 10,
+        "smithy": 5
+      }
+    },
+    {
+      "id": "elves.scout",
+      "race": "elves",
+      "role": "scout",
+      "name": "Разведчик",
+      "nameConfirmedInOriginal": true,
+      "type": "cavalry",
+      "attack": 0,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 13,
+        "cavalry": 6,
+        "magic": 6
+      },
+      "speed": 16.8,
+      "carry": 0,
+      "upkeepFoodPerHour": 1,
+      "population": 2,
+      "cost": {
+        "food": 60,
+        "wood": 120,
+        "stone": 60,
+        "iron": 60
+      },
+      "trainTimeSec": 600,
+      "building": "stable",
+      "requires": {
+        "stable": 1,
+        "academy": 3
+      }
+    },
+    {
+      "id": "elves.light_cav",
+      "race": "elves",
+      "role": "light_cav",
+      "name": "Кентавр",
+      "nameConfirmedInOriginal": true,
+      "type": "cavalry",
+      "attack": 72,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 26,
+        "cavalry": 39,
+        "magic": 13
+      },
+      "speed": 14.7,
+      "carry": 90,
+      "upkeepFoodPerHour": 2,
+      "population": 2,
+      "cost": {
+        "food": 180,
+        "wood": 360,
+        "stone": 180,
+        "iron": 180
+      },
+      "trainTimeSec": 1500,
+      "building": "stable",
+      "requires": {
+        "stable": 1,
+        "academy": 5
+      }
+    },
+    {
+      "id": "elves.heavy_cav",
+      "race": "elves",
+      "role": "heavy_cav",
+      "name": "Единорог",
+      "nameConfirmedInOriginal": true,
+      "type": "cavalry",
+      "attack": 104,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 91,
+        "cavalry": 65,
+        "magic": 39
+      },
+      "speed": 10.5,
+      "carry": 60,
+      "upkeepFoodPerHour": 3,
+      "population": 3,
+      "cost": {
+        "food": 300,
+        "wood": 600,
+        "stone": 300,
+        "iron": 300
+      },
+      "trainTimeSec": 2400,
+      "building": "stable",
+      "requires": {
+        "stable": 10,
+        "academy": 15,
+        "smithy": 10
+      }
+    },
+    {
+      "id": "elves.mage",
+      "race": "elves",
+      "role": "mage",
+      "name": "Друид",
+      "nameConfirmedInOriginal": false,
+      "type": "magic",
+      "attack": 8,
+      "magicAttack": 108,
+      "defense": {
+        "infantry": 26,
+        "cavalry": 26,
+        "magic": 78
+      },
+      "speed": 5.2,
+      "carry": 0,
+      "upkeepFoodPerHour": 2,
+      "population": 2,
+      "cost": {
+        "food": 260,
+        "wood": 520,
+        "stone": 260,
+        "iron": 260
+      },
+      "trainTimeSec": 2000,
+      "building": "academy",
+      "requires": {
+        "academy": 10,
+        "temple": 3
+      }
+    },
+    {
+      "id": "elves.ram",
+      "race": "elves",
+      "role": "ram",
+      "name": "Древень",
+      "nameConfirmedInOriginal": true,
+      "type": "siege",
+      "attack": 48,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 39,
+        "cavalry": 98,
+        "magic": 13
+      },
+      "speed": 4.2,
+      "carry": 0,
+      "upkeepFoodPerHour": 3,
+      "population": 3,
+      "cost": {
+        "food": 220,
+        "wood": 440,
+        "stone": 220,
+        "iron": 220
+      },
+      "trainTimeSec": 3000,
+      "building": "workshop",
+      "requires": {
+        "workshop": 1,
+        "academy": 8
+      }
+    },
+    {
+      "id": "elves.catapult",
+      "race": "elves",
+      "role": "catapult",
+      "name": "Метатель лоз",
+      "nameConfirmedInOriginal": false,
+      "type": "siege",
+      "attack": 60,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 78,
+        "cavalry": 13,
+        "magic": 13
+      },
+      "speed": 3.2,
+      "carry": 0,
+      "upkeepFoodPerHour": 6,
+      "population": 4,
+      "cost": {
+        "food": 360,
+        "wood": 720,
+        "stone": 360,
+        "iron": 360
+      },
+      "trainTimeSec": 5000,
+      "building": "workshop",
+      "requires": {
+        "workshop": 10,
+        "academy": 15
+      }
+    },
+    {
+      "id": "elves.merchant",
+      "race": "elves",
+      "role": "merchant",
+      "name": "Путешественник",
+      "nameConfirmedInOriginal": true,
+      "type": "special",
+      "attack": 0,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 5,
+        "cavalry": 5,
+        "magic": 5
+      },
+      "speed": 12.6,
+      "carry": 500,
+      "upkeepFoodPerHour": 1,
+      "population": 1,
+      "cost": {
+        "food": 80,
+        "wood": 160,
+        "stone": 80,
+        "iron": 80
+      },
+      "trainTimeSec": 1200,
+      "building": "market",
+      "requires": {
+        "market": 1
+      }
+    },
+    {
+      "id": "elves.settler",
+      "race": "elves",
+      "role": "settler",
+      "name": "Создатель",
+      "nameConfirmedInOriginal": true,
+      "type": "special",
+      "attack": 0,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 80,
+        "cavalry": 80,
+        "magic": 80
+      },
+      "speed": 5.2,
+      "carry": 3000,
+      "upkeepFoodPerHour": 1,
+      "population": 1,
+      "cost": {
+        "food": 1000,
+        "wood": 2000,
+        "stone": 1000,
+        "iron": 1000
+      },
+      "trainTimeSec": 9000,
+      "building": "residence",
+      "requires": {
+        "residence": 10
+      }
+    },
+    {
+      "id": "elves.rebel",
+      "race": "elves",
+      "role": "rebel",
+      "name": "Бунтарь",
+      "nameConfirmedInOriginal": true,
+      "type": "special",
+      "attack": 32,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 39,
+        "cavalry": 32,
+        "magic": 26
+      },
+      "speed": 4.2,
+      "carry": 0,
+      "upkeepFoodPerHour": 5,
+      "population": 5,
+      "cost": {
+        "food": 600,
+        "wood": 1200,
+        "stone": 600,
+        "iron": 600
+      },
+      "trainTimeSec": 7000,
+      "building": "residence",
+      "requires": {
+        "residence": 10,
+        "academy": 20
+      }
+    },
+    {
+      "id": "elves.archaeologist",
+      "race": "elves",
+      "role": "archaeologist",
+      "name": "Учёный",
+      "nameConfirmedInOriginal": true,
+      "type": "special",
+      "attack": 0,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 10,
+        "cavalry": 10,
+        "magic": 10
+      },
+      "speed": 5.2,
+      "carry": 0,
+      "upkeepFoodPerHour": 1,
+      "population": 1,
+      "cost": {
+        "food": 240,
+        "wood": 480,
+        "stone": 240,
+        "iron": 240
+      },
+      "trainTimeSec": 3600,
+      "building": "archaeology",
+      "requires": {
+        "archaeology": 1
+      }
+    },
+    {
+      "id": "elves.general",
+      "race": "elves",
+      "role": "general",
+      "name": "Генерал",
+      "nameConfirmedInOriginal": true,
+      "type": "special",
+      "attack": 80,
+      "magicAttack": 24,
+      "defense": {
+        "infantry": 130,
+        "cavalry": 130,
+        "magic": 78
+      },
+      "speed": 7.4,
+      "carry": 0,
+      "upkeepFoodPerHour": 6,
+      "population": 6,
+      "cost": {
+        "food": 1200,
+        "wood": 2400,
+        "stone": 1200,
+        "iron": 1200
+      },
+      "trainTimeSec": 14400,
+      "building": "general_hq",
+      "requires": {
+        "general_hq": 1
+      },
+      "uniquePerCastle": true
+    },
+    {
+      "id": "elves.legendary",
+      "race": "elves",
+      "role": "legendary",
+      "name": "Химера",
+      "nameConfirmedInOriginal": true,
+      "type": "magic",
+      "attack": 200,
+      "magicAttack": 60,
+      "defense": {
+        "infantry": 195,
+        "cavalry": 195,
+        "magic": 130
+      },
+      "speed": 7.4,
+      "carry": 100,
+      "upkeepFoodPerHour": 6,
+      "population": 6,
+      "cost": {
+        "food": 1200,
+        "wood": 2400,
+        "stone": 1200,
+        "iron": 1200
+      },
+      "trainTimeSec": 10800,
+      "building": "temple",
+      "requires": {
+        "temple": 10,
+        "treasury": 10
+      },
+      "requiresArtifact": true
+    },
+    {
+      "id": "dwarves.def_inf",
+      "race": "dwarves",
+      "role": "def_inf",
+      "name": "Защитник гор",
+      "nameConfirmedInOriginal": true,
+      "type": "infantry",
+      "attack": 25,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 38,
+        "cavalry": 34,
+        "magic": 13
+      },
+      "speed": 5.4,
+      "carry": 30,
+      "upkeepFoodPerHour": 1,
+      "population": 1,
+      "cost": {
+        "food": 70,
+        "wood": 70,
+        "stone": 145,
+        "iron": 70
+      },
+      "trainTimeSec": 600,
+      "building": "barracks",
+      "requires": {
+        "barracks": 1
+      }
+    },
+    {
+      "id": "dwarves.atk_inf",
+      "race": "dwarves",
+      "role": "atk_inf",
+      "name": "Топорщик",
+      "nameConfirmedInOriginal": false,
+      "type": "infantry",
+      "attack": 62,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 21,
+        "cavalry": 13,
+        "magic": 8
+      },
+      "speed": 5.4,
+      "carry": 50,
+      "upkeepFoodPerHour": 1,
+      "population": 1,
+      "cost": {
+        "food": 80,
+        "wood": 80,
+        "stone": 160,
+        "iron": 80
+      },
+      "trainTimeSec": 700,
+      "building": "barracks",
+      "requires": {
+        "barracks": 1,
+        "smithy": 1
+      }
+    },
+    {
+      "id": "dwarves.ranged",
+      "race": "dwarves",
+      "role": "ranged",
+      "name": "Гном-арбалетчик",
+      "nameConfirmedInOriginal": false,
+      "type": "infantry",
+      "attack": 44,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 42,
+        "cavalry": 21,
+        "magic": 17
+      },
+      "speed": 4.5,
+      "carry": 25,
+      "upkeepFoodPerHour": 1,
+      "population": 1,
+      "cost": {
+        "food": 85,
+        "wood": 85,
+        "stone": 170,
+        "iron": 85
+      },
+      "trainTimeSec": 800,
+      "building": "barracks",
+      "requires": {
+        "barracks": 3,
+        "academy": 1
+      }
+    },
+    {
+      "id": "dwarves.elite_inf",
+      "race": "dwarves",
+      "role": "elite_inf",
+      "name": "Берсерк",
+      "nameConfirmedInOriginal": false,
+      "type": "infantry",
+      "attack": 88,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 34,
+        "cavalry": 51,
+        "magic": 21
+      },
+      "speed": 4.5,
+      "carry": 40,
+      "upkeepFoodPerHour": 1,
+      "population": 1,
+      "cost": {
+        "food": 140,
+        "wood": 140,
+        "stone": 280,
+        "iron": 140
+      },
+      "trainTimeSec": 1300,
+      "building": "barracks",
+      "requires": {
+        "barracks": 10,
+        "academy": 10,
+        "smithy": 5
+      }
+    },
+    {
+      "id": "dwarves.scout",
+      "race": "dwarves",
+      "role": "scout",
+      "name": "Лазутчик",
+      "nameConfirmedInOriginal": false,
+      "type": "cavalry",
+      "attack": 0,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 8,
+        "cavalry": 4,
+        "magic": 4
+      },
+      "speed": 14.4,
+      "carry": 0,
+      "upkeepFoodPerHour": 1,
+      "population": 2,
+      "cost": {
+        "food": 60,
+        "wood": 60,
+        "stone": 120,
+        "iron": 60
+      },
+      "trainTimeSec": 600,
+      "building": "stable",
+      "requires": {
+        "stable": 1,
+        "academy": 3
+      }
+    },
+    {
+      "id": "dwarves.light_cav",
+      "race": "dwarves",
+      "role": "light_cav",
+      "name": "Наездник на вепре",
+      "nameConfirmedInOriginal": false,
+      "type": "cavalry",
+      "attack": 112,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 17,
+        "cavalry": 26,
+        "magic": 8
+      },
+      "speed": 12.6,
+      "carry": 90,
+      "upkeepFoodPerHour": 2,
+      "population": 2,
+      "cost": {
+        "food": 180,
+        "wood": 180,
+        "stone": 360,
+        "iron": 180
+      },
+      "trainTimeSec": 1500,
+      "building": "stable",
+      "requires": {
+        "stable": 1,
+        "academy": 5
+      }
+    },
+    {
+      "id": "dwarves.heavy_cav",
+      "race": "dwarves",
+      "role": "heavy_cav",
+      "name": "Бронированный вепрь",
+      "nameConfirmedInOriginal": false,
+      "type": "cavalry",
+      "attack": 162,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 60,
+        "cavalry": 42,
+        "magic": 26
+      },
+      "speed": 9.0,
+      "carry": 60,
+      "upkeepFoodPerHour": 3,
+      "population": 3,
+      "cost": {
+        "food": 300,
+        "wood": 300,
+        "stone": 600,
+        "iron": 300
+      },
+      "trainTimeSec": 2400,
+      "building": "stable",
+      "requires": {
+        "stable": 10,
+        "academy": 15,
+        "smithy": 10
+      }
+    },
+    {
+      "id": "dwarves.mage",
+      "race": "dwarves",
+      "role": "mage",
+      "name": "Рунный жрец",
+      "nameConfirmedInOriginal": false,
+      "type": "magic",
+      "attack": 12,
+      "magicAttack": 72,
+      "defense": {
+        "infantry": 17,
+        "cavalry": 17,
+        "magic": 51
+      },
+      "speed": 4.5,
+      "carry": 0,
+      "upkeepFoodPerHour": 2,
+      "population": 2,
+      "cost": {
+        "food": 260,
+        "wood": 260,
+        "stone": 520,
+        "iron": 260
+      },
+      "trainTimeSec": 2000,
+      "building": "academy",
+      "requires": {
+        "academy": 10,
+        "temple": 3
+      }
+    },
+    {
+      "id": "dwarves.ram",
+      "race": "dwarves",
+      "role": "ram",
+      "name": "Бур",
+      "nameConfirmedInOriginal": false,
+      "type": "siege",
+      "attack": 75,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 26,
+        "cavalry": 64,
+        "magic": 8
+      },
+      "speed": 3.6,
+      "carry": 0,
+      "upkeepFoodPerHour": 3,
+      "population": 3,
+      "cost": {
+        "food": 220,
+        "wood": 220,
+        "stone": 440,
+        "iron": 220
+      },
+      "trainTimeSec": 3000,
+      "building": "workshop",
+      "requires": {
+        "workshop": 1,
+        "academy": 8
+      }
+    },
+    {
+      "id": "dwarves.catapult",
+      "race": "dwarves",
+      "role": "catapult",
+      "name": "Паровая баллиста",
+      "nameConfirmedInOriginal": false,
+      "type": "siege",
+      "attack": 94,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 51,
+        "cavalry": 8,
+        "magic": 8
+      },
+      "speed": 2.7,
+      "carry": 0,
+      "upkeepFoodPerHour": 6,
+      "population": 4,
+      "cost": {
+        "food": 360,
+        "wood": 360,
+        "stone": 720,
+        "iron": 360
+      },
+      "trainTimeSec": 5000,
+      "building": "workshop",
+      "requires": {
+        "workshop": 10,
+        "academy": 15
+      }
+    },
+    {
+      "id": "dwarves.merchant",
+      "race": "dwarves",
+      "role": "merchant",
+      "name": "Караванщик",
+      "nameConfirmedInOriginal": false,
+      "type": "special",
+      "attack": 0,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 5,
+        "cavalry": 5,
+        "magic": 5
+      },
+      "speed": 10.8,
+      "carry": 500,
+      "upkeepFoodPerHour": 1,
+      "population": 1,
+      "cost": {
+        "food": 80,
+        "wood": 80,
+        "stone": 160,
+        "iron": 80
+      },
+      "trainTimeSec": 1200,
+      "building": "market",
+      "requires": {
+        "market": 1
+      }
+    },
+    {
+      "id": "dwarves.settler",
+      "race": "dwarves",
+      "role": "settler",
+      "name": "Переселенец",
+      "nameConfirmedInOriginal": false,
+      "type": "special",
+      "attack": 0,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 80,
+        "cavalry": 80,
+        "magic": 80
+      },
+      "speed": 4.5,
+      "carry": 3000,
+      "upkeepFoodPerHour": 1,
+      "population": 1,
+      "cost": {
+        "food": 1000,
+        "wood": 1000,
+        "stone": 2000,
+        "iron": 1000
+      },
+      "trainTimeSec": 9000,
+      "building": "residence",
+      "requires": {
+        "residence": 10
+      }
+    },
+    {
+      "id": "dwarves.rebel",
+      "race": "dwarves",
+      "role": "rebel",
+      "name": "Бунтарь",
+      "nameConfirmedInOriginal": true,
+      "type": "special",
+      "attack": 50,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 26,
+        "cavalry": 21,
+        "magic": 17
+      },
+      "speed": 3.6,
+      "carry": 0,
+      "upkeepFoodPerHour": 5,
+      "population": 5,
+      "cost": {
+        "food": 600,
+        "wood": 600,
+        "stone": 1200,
+        "iron": 600
+      },
+      "trainTimeSec": 7000,
+      "building": "residence",
+      "requires": {
+        "residence": 10,
+        "academy": 20
+      }
+    },
+    {
+      "id": "dwarves.archaeologist",
+      "race": "dwarves",
+      "role": "archaeologist",
+      "name": "Рудознатец",
+      "nameConfirmedInOriginal": false,
+      "type": "special",
+      "attack": 0,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 10,
+        "cavalry": 10,
+        "magic": 10
+      },
+      "speed": 4.5,
+      "carry": 0,
+      "upkeepFoodPerHour": 1,
+      "population": 1,
+      "cost": {
+        "food": 240,
+        "wood": 240,
+        "stone": 480,
+        "iron": 240
+      },
+      "trainTimeSec": 3600,
+      "building": "archaeology",
+      "requires": {
+        "archaeology": 1
+      }
+    },
+    {
+      "id": "dwarves.general",
+      "race": "dwarves",
+      "role": "general",
+      "name": "Генерал",
+      "nameConfirmedInOriginal": true,
+      "type": "special",
+      "attack": 125,
+      "magicAttack": 16,
+      "defense": {
+        "infantry": 85,
+        "cavalry": 85,
+        "magic": 51
+      },
+      "speed": 6.3,
+      "carry": 0,
+      "upkeepFoodPerHour": 6,
+      "population": 6,
+      "cost": {
+        "food": 1200,
+        "wood": 1200,
+        "stone": 2400,
+        "iron": 1200
+      },
+      "trainTimeSec": 14400,
+      "building": "general_hq",
+      "requires": {
+        "general_hq": 1
+      },
+      "uniquePerCastle": true
+    },
+    {
+      "id": "dwarves.legendary",
+      "race": "dwarves",
+      "role": "legendary",
+      "name": "Железный голем",
+      "nameConfirmedInOriginal": false,
+      "type": "magic",
+      "attack": 312,
+      "magicAttack": 40,
+      "defense": {
+        "infantry": 128,
+        "cavalry": 128,
+        "magic": 85
+      },
+      "speed": 6.3,
+      "carry": 100,
+      "upkeepFoodPerHour": 6,
+      "population": 6,
+      "cost": {
+        "food": 1200,
+        "wood": 1200,
+        "stone": 2400,
+        "iron": 1200
+      },
+      "trainTimeSec": 10800,
+      "building": "temple",
+      "requires": {
+        "temple": 10,
+        "treasury": 10
+      },
+      "requiresArtifact": true
+    },
+    {
+      "id": "orcs.def_inf",
+      "race": "orcs",
+      "role": "def_inf",
+      "name": "Гоблин-страж",
+      "nameConfirmedInOriginal": false,
+      "type": "infantry",
+      "attack": 50,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 40,
+        "cavalry": 36,
+        "magic": 14
+      },
+      "speed": 6.0,
+      "carry": 30,
+      "upkeepFoodPerHour": 2,
+      "population": 2,
+      "cost": {
+        "food": 290,
+        "wood": 120,
+        "stone": 120,
+        "iron": 120
+      },
+      "trainTimeSec": 840,
+      "building": "barracks",
+      "requires": {
+        "barracks": 1
+      }
+    },
+    {
+      "id": "orcs.atk_inf",
+      "race": "orcs",
+      "role": "atk_inf",
+      "name": "Мародёр",
+      "nameConfirmedInOriginal": true,
+      "type": "infantry",
+      "attack": 125,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 22,
+        "cavalry": 14,
+        "magic": 9
+      },
+      "speed": 6.0,
+      "carry": 50,
+      "upkeepFoodPerHour": 2,
+      "population": 2,
+      "cost": {
+        "food": 325,
+        "wood": 130,
+        "stone": 130,
+        "iron": 130
+      },
+      "trainTimeSec": 979,
+      "building": "barracks",
+      "requires": {
+        "barracks": 1,
+        "smithy": 1
+      }
+    },
+    {
+      "id": "orcs.ranged",
+      "race": "orcs",
+      "role": "ranged",
+      "name": "Метатель копий",
+      "nameConfirmedInOriginal": false,
+      "type": "infantry",
+      "attack": 88,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 45,
+        "cavalry": 22,
+        "magic": 18
+      },
+      "speed": 5.0,
+      "carry": 25,
+      "upkeepFoodPerHour": 2,
+      "population": 2,
+      "cost": {
+        "food": 340,
+        "wood": 140,
+        "stone": 140,
+        "iron": 140
+      },
+      "trainTimeSec": 1120,
+      "building": "barracks",
+      "requires": {
+        "barracks": 3,
+        "academy": 1
+      }
+    },
+    {
+      "id": "orcs.elite_inf",
+      "race": "orcs",
+      "role": "elite_inf",
+      "name": "Тролль",
+      "nameConfirmedInOriginal": false,
+      "type": "infantry",
+      "attack": 175,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 36,
+        "cavalry": 54,
+        "magic": 22
+      },
+      "speed": 5.0,
+      "carry": 40,
+      "upkeepFoodPerHour": 2,
+      "population": 2,
+      "cost": {
+        "food": 565,
+        "wood": 230,
+        "stone": 230,
+        "iron": 230
+      },
+      "trainTimeSec": 1819,
+      "building": "barracks",
+      "requires": {
+        "barracks": 10,
+        "academy": 10,
+        "smithy": 5
+      }
+    },
+    {
+      "id": "orcs.scout",
+      "race": "orcs",
+      "role": "scout",
+      "name": "Следопыт",
+      "nameConfirmedInOriginal": false,
+      "type": "cavalry",
+      "attack": 0,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 9,
+        "cavalry": 4,
+        "magic": 4
+      },
+      "speed": 16.0,
+      "carry": 0,
+      "upkeepFoodPerHour": 2,
+      "population": 3,
+      "cost": {
+        "food": 245,
+        "wood": 100,
+        "stone": 100,
+        "iron": 100
+      },
+      "trainTimeSec": 840,
+      "building": "stable",
+      "requires": {
+        "stable": 1,
+        "academy": 3
+      }
+    },
+    {
+      "id": "orcs.light_cav",
+      "race": "orcs",
+      "role": "light_cav",
+      "name": "Волчий всадник",
+      "nameConfirmedInOriginal": false,
+      "type": "cavalry",
+      "attack": 225,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 18,
+        "cavalry": 27,
+        "magic": 9
+      },
+      "speed": 14.0,
+      "carry": 90,
+      "upkeepFoodPerHour": 4,
+      "population": 3,
+      "cost": {
+        "food": 730,
+        "wood": 295,
+        "stone": 295,
+        "iron": 295
+      },
+      "trainTimeSec": 2100,
+      "building": "stable",
+      "requires": {
+        "stable": 1,
+        "academy": 5
+      }
+    },
+    {
+      "id": "orcs.heavy_cav",
+      "race": "orcs",
+      "role": "heavy_cav",
+      "name": "Всадник на ящере",
+      "nameConfirmedInOriginal": false,
+      "type": "cavalry",
+      "attack": 325,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 63,
+        "cavalry": 45,
+        "magic": 27
+      },
+      "speed": 10.0,
+      "carry": 60,
+      "upkeepFoodPerHour": 6,
+      "population": 5,
+      "cost": {
+        "food": 1215,
+        "wood": 495,
+        "stone": 495,
+        "iron": 495
+      },
+      "trainTimeSec": 3360,
+      "building": "stable",
+      "requires": {
+        "stable": 10,
+        "academy": 15,
+        "smithy": 10
+      }
+    },
+    {
+      "id": "orcs.mage",
+      "race": "orcs",
+      "role": "mage",
+      "name": "Шаман",
+      "nameConfirmedInOriginal": false,
+      "type": "magic",
+      "attack": 25,
+      "magicAttack": 90,
+      "defense": {
+        "infantry": 18,
+        "cavalry": 18,
+        "magic": 54
+      },
+      "speed": 5.0,
+      "carry": 0,
+      "upkeepFoodPerHour": 4,
+      "population": 3,
+      "cost": {
+        "food": 1055,
+        "wood": 430,
+        "stone": 430,
+        "iron": 430
+      },
+      "trainTimeSec": 2800,
+      "building": "academy",
+      "requires": {
+        "academy": 10,
+        "temple": 3
+      }
+    },
+    {
+      "id": "orcs.ram",
+      "race": "orcs",
+      "role": "ram",
+      "name": "Таран-бивень",
+      "nameConfirmedInOriginal": false,
+      "type": "siege",
+      "attack": 150,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 27,
+        "cavalry": 68,
+        "magic": 9
+      },
+      "speed": 4.0,
+      "carry": 0,
+      "upkeepFoodPerHour": 6,
+      "population": 5,
+      "cost": {
+        "food": 890,
+        "wood": 365,
+        "stone": 365,
+        "iron": 365
+      },
+      "trainTimeSec": 4200,
+      "building": "workshop",
+      "requires": {
+        "workshop": 1,
+        "academy": 8
+      }
+    },
+    {
+      "id": "orcs.catapult",
+      "race": "orcs",
+      "role": "catapult",
+      "name": "Камнемёт",
+      "nameConfirmedInOriginal": false,
+      "type": "siege",
+      "attack": 188,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 54,
+        "cavalry": 9,
+        "magic": 9
+      },
+      "speed": 3.0,
+      "carry": 0,
+      "upkeepFoodPerHour": 12,
+      "population": 6,
+      "cost": {
+        "food": 1460,
+        "wood": 595,
+        "stone": 595,
+        "iron": 595
+      },
+      "trainTimeSec": 7000,
+      "building": "workshop",
+      "requires": {
+        "workshop": 10,
+        "academy": 15
+      }
+    },
+    {
+      "id": "orcs.merchant",
+      "race": "orcs",
+      "role": "merchant",
+      "name": "Гоблин-торговец",
+      "nameConfirmedInOriginal": false,
+      "type": "special",
+      "attack": 0,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 5,
+        "cavalry": 5,
+        "magic": 5
+      },
+      "speed": 12.0,
+      "carry": 500,
+      "upkeepFoodPerHour": 2,
+      "population": 2,
+      "cost": {
+        "food": 325,
+        "wood": 130,
+        "stone": 130,
+        "iron": 130
+      },
+      "trainTimeSec": 1680,
+      "building": "market",
+      "requires": {
+        "market": 1
+      }
+    },
+    {
+      "id": "orcs.settler",
+      "race": "orcs",
+      "role": "settler",
+      "name": "Вождь клана",
+      "nameConfirmedInOriginal": false,
+      "type": "special",
+      "attack": 0,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 80,
+        "cavalry": 80,
+        "magic": 80
+      },
+      "speed": 5.0,
+      "carry": 3000,
+      "upkeepFoodPerHour": 2,
+      "population": 2,
+      "cost": {
+        "food": 4050,
+        "wood": 1650,
+        "stone": 1650,
+        "iron": 1650
+      },
+      "trainTimeSec": 12600,
+      "building": "residence",
+      "requires": {
+        "residence": 10
+      }
+    },
+    {
+      "id": "orcs.rebel",
+      "race": "orcs",
+      "role": "rebel",
+      "name": "Бунтарь",
+      "nameConfirmedInOriginal": true,
+      "type": "special",
+      "attack": 100,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 27,
+        "cavalry": 22,
+        "magic": 18
+      },
+      "speed": 4.0,
+      "carry": 0,
+      "upkeepFoodPerHour": 10,
+      "population": 8,
+      "cost": {
+        "food": 2430,
+        "wood": 990,
+        "stone": 990,
+        "iron": 990
+      },
+      "trainTimeSec": 9800,
+      "building": "residence",
+      "requires": {
+        "residence": 10,
+        "academy": 20
+      }
+    },
+    {
+      "id": "orcs.archaeologist",
+      "race": "orcs",
+      "role": "archaeologist",
+      "name": "Грабитель могил",
+      "nameConfirmedInOriginal": false,
+      "type": "special",
+      "attack": 0,
+      "magicAttack": 0,
+      "defense": {
+        "infantry": 10,
+        "cavalry": 10,
+        "magic": 10
+      },
+      "speed": 5.0,
+      "carry": 0,
+      "upkeepFoodPerHour": 2,
+      "population": 2,
+      "cost": {
+        "food": 970,
+        "wood": 395,
+        "stone": 395,
+        "iron": 395
+      },
+      "trainTimeSec": 5040,
+      "building": "archaeology",
+      "requires": {
+        "archaeology": 1
+      }
+    },
+    {
+      "id": "orcs.general",
+      "race": "orcs",
+      "role": "general",
+      "name": "Генерал",
+      "nameConfirmedInOriginal": true,
+      "type": "special",
+      "attack": 250,
+      "magicAttack": 20,
+      "defense": {
+        "infantry": 90,
+        "cavalry": 90,
+        "magic": 54
+      },
+      "speed": 7.0,
+      "carry": 0,
+      "upkeepFoodPerHour": 12,
+      "population": 9,
+      "cost": {
+        "food": 4860,
+        "wood": 1980,
+        "stone": 1980,
+        "iron": 1980
+      },
+      "trainTimeSec": 20160,
+      "building": "general_hq",
+      "requires": {
+        "general_hq": 1
+      },
+      "uniquePerCastle": true
+    },
+    {
+      "id": "orcs.legendary",
+      "race": "orcs",
+      "role": "legendary",
+      "name": "Демон бездны",
+      "nameConfirmedInOriginal": false,
+      "type": "magic",
+      "attack": 625,
+      "magicAttack": 50,
+      "defense": {
+        "infantry": 135,
+        "cavalry": 135,
+        "magic": 90
+      },
+      "speed": 7.0,
+      "carry": 100,
+      "upkeepFoodPerHour": 12,
+      "population": 9,
+      "cost": {
+        "food": 4860,
+        "wood": 1980,
+        "stone": 1980,
+        "iron": 1980
+      },
+      "trainTimeSec": 15119,
+      "building": "temple",
+      "requires": {
+        "temple": 10,
+        "treasury": 10
+      },
+      "requiresArtifact": true
+    }
+  ]
+}
