@@ -10,7 +10,7 @@ const C = require('./catalog');
 const SPEED = Number(process.env.SPEED || 1);
 // мир: карта WORLD×WORLD клеток, рассчитан на ~5 000 игроков (заселённый круг ~220 клеток)
 const WORLD = Number(process.env.WORLD_SIZE || 1000);
-const SPAWN_DENSITY = 30; // клеток карты на один замок в зоне заселения — соседи рядом, но не впритык
+const SPAWN_DENSITY = 2.5; // клеток карты на один замок в зоне заселения — мир сплошной, соседи в 1–2 клетках
 const SAVE_MS = Number(process.env.SAVE_MS || 10000); // автосохранение раз в 10 с (и при остановке)
 const MAX_QUEUE = Number(process.env.MAX_QUEUE || 3); // оригинал: 3 стройки одновременно (премиум — 5)
 
@@ -156,7 +156,7 @@ class Game {
     let x, y;
     if (at) ({ x, y } = at);
     else { // новые игроки — в круге вокруг центра карты, круг растёт с числом замков (плотность SPAWN_DENSITY)
-      const n = this.byXY.size, R = Math.max(12, Math.sqrt((n + 1) * SPAWN_DENSITY / Math.PI)), C0 = WORLD / 2;
+      const n = this.byXY.size, R = Math.max(3, Math.sqrt((n + 1) * SPAWN_DENSITY / Math.PI)), C0 = WORLD / 2;
       for (let k = 0; ; k++) {
         const a = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * (R + k * 0.2);
         x = Math.round(C0 + Math.cos(a) * d); y = Math.round(C0 + Math.sin(a) * d);

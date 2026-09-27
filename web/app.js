@@ -664,7 +664,7 @@ function isoResize() {
 window.addEventListener('resize', () => { if (Iso.cv.isConnected) { isoResize(); isoDraw(); } });
 // начальная камера: замок целиком, земли и мир — примерно 8 клеток по ширине экрана, по центру
 function isoFit() {
-  const r = Iso.cv.getBoundingClientRect(), n = gridN(), vis = S.tab === 'castle' ? 4.6 : 8; // замок — крупно, Ратуша по центру
+  const r = Iso.cv.getBoundingClientRect(), n = gridN(), vis = S.tab === 'castle' ? 9 : 8; // замок — всё королевство целиком
   const z = Math.max(0.35, Math.min(2.5, Math.min(r.width / (vis * TW), r.height / (vis * TH + 60))));
   const c = tileScreen(n / 2 - 0.5, n / 2 - 0.5);
   return { z, x: r.width / 2 - (c.sx + TW / 2) * z, y: r.height / 2 - (c.sy + TH / 2) * z + 18 * z };
