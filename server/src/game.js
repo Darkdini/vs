@@ -7,7 +7,7 @@ const path = require('path');
 const crypto = require('crypto');
 const C = require('./catalog');
 
-const SPEED = Number(process.env.SPEED || 10);
+const SPEED = Number(process.env.SPEED || 1);
 // мир: карта WORLD×WORLD клеток, рассчитан на ~5 000 игроков (заселённый круг ~220 клеток)
 const WORLD = Number(process.env.WORLD_SIZE || 1000);
 const SPAWN_DENSITY = 30; // клеток карты на один замок в зоне заселения — соседи рядом, но не впритык

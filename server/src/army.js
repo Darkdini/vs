@@ -10,7 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const C = require('./catalog');
 
-const SPEED = Number(process.env.SPEED || 10);
+const SPEED = Number(process.env.SPEED || 1);
 const GDD = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'data', 'units.json'), 'utf8'));
 const RES4 = ['wood', 'stone', 'iron', 'food'];
 const RACE_DIR = { humans: 'human', elves: 'elf', dwarves: 'dwarv', orcs: 'dwarv' }; // у орков своих спрайтов в клиенте нет — гномьи с зелёным оттенком (клиент)
@@ -221,7 +221,8 @@ function install(Game, helpers) {
   // ----- тренировка -----
   P.trainTime = function trainTime(castle, unit) {
     const bl = Math.max(1, this.buildingLevel(castle, unit.building));
-    return Math.max(1, Math.round(unit.time * 0.9 ** (bl - 1) * this.bonus(castle).train / SPEED));
+    void bl; // уровень здания открывает юнитов, но не ускоряет тренировку (как в оригинале: Орк загонщик — 14:40 и на 20 ур.)
+    return Math.max(1, Math.round(unit.time * this.bonus(castle).train / SPEED));
   };
   P.unitLock = function unitLock(castle, unit) {
     const race = this.raceOf(castle);

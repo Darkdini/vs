@@ -17,8 +17,7 @@ const TYPE_NAME = { infantry: 'пехота', cavalry: 'кавалерия', mag
 S.cnt = {}; S.army = null; S.reports = null; S.alliances = null;
 
 function unitTrainSec(u) {
-  const bl = Math.max(1, buildingLevel(u.building));
-  return Math.max(1, Math.round(u.time * 0.9 ** (bl - 1) * MY().bonus.train / S.cat.speed));
+  return Math.max(1, Math.round(u.time * MY().bonus.train / S.cat.speed)); // уровень здания тренировку не ускоряет
 }
 function unitLock(u) {
   if (buildingLevel(u.building) < u.level) return `Нужно: ${S.by[u.building].name} ${u.level} ур.`;

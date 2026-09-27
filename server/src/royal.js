@@ -7,9 +7,11 @@
 //  • 7 дней без входа — прирост останавливается; 2 недели — лояльность падает по 100 в сутки;
 //    3 недели — население бунтует: лояльность замков падает на 5% в сутки (до 5%);
 //  • отняли замок — лояльность населения −10%.
+//  • Храм во втором и следующих замках ускоряет прирост: +10 в сутки за каждый уровень Храма (сверх дневного лимита);
+//    Храм столицы не считается — поэтому первый захват всё равно не раньше месяца.
 
 const DAY = 86400000;
-const ROYAL = { perAction: 10, dayCap: 400, passive: 50, cost: 13500, stopDays: 7, decayDays: 14, decayPerDay: 100, riotDays: 21, riotPerDay: 5, riotMin: 5, lossPct: 0.1 };
+const ROYAL = { templePerLevel: 10, perAction: 10, dayCap: 400, passive: 50, cost: 13500, stopDays: 7, decayDays: 14, decayPerDay: 100, riotDays: 21, riotPerDay: 5, riotMin: 5, lossPct: 0.1 };
 // праздники в Резиденции: ресурсы → лояльность (входит в тот же дневной лимит), каждый — раз в сутки
 const FESTIVALS = {
   fair: { name: 'Ярмарка', desc: 'Народные гуляния на площади.', cost: { wood: 1000, stone: 1000, iron: 1000, food: 2000 }, gain: 60 },
@@ -22,6 +24,8 @@ function install(Game) {
   const P = Game.prototype;
   const seenAt = (u) => u.lastSeen || u.created || Date.now();
 
+  // прирост в сутки от Храмов во всех замках, кроме столицы
+  P.templeRoyal = function templeRoyal(user) { return this.castlesOf(user).slice(1).reduce((s, c) => s + ROYAL.templePerLevel * this.buildingLevel(c, 25), 0); };
   P.royalNeed = function royalNeed(user) { return ROYAL.cost * this.castlesOf(user).length; };
 
   // ленивый пересчёт по суткам: пассивный прирост, падение и бунт при отсутствии правителя
@@ -30,7 +34,7 @@ function install(Game) {
     const days = Math.min(400, Math.floor((now - (user.royalAt || now)) / DAY));
     for (let k = 1; k <= days; k++) {
       const t = user.royalAt + k * DAY, away = (t - seenAt(user)) / DAY;
-      if (away < ROYAL.stopDays) user.royal += ROYAL.passive;
+      if (away < ROYAL.stopDays) user.royal += ROYAL.passive + this.templeRoyal(user);
       else if (away > ROYAL.decayDays) user.royal = Math.max(0, user.royal - ROYAL.decayPerDay);
       if (away > ROYAL.riotDays) for (const c of this.castlesOf(user)) { this.mil(c); c.loyalty = Math.max(ROYAL.riotMin, Math.min(c.loyalty, 100) - ROYAL.riotPerDay); c.loyAt = t; }
     }
@@ -63,6 +67,7 @@ function install(Game) {
     return {
       royal: Math.floor(user.royal), castles: this.castlesOf(user).length, captures: user.captures || 0, unfinished: 0,
       left: Math.max(0, need - Math.floor(user.royal)), need, capital: this.isCapital(castle),
+      perDay: ROYAL.passive + this.templeRoyal(user), temples: this.templeRoyal(user),
       today: user.royalDay === dayKey(now) ? user.royalToday : 0, dayCap: ROYAL.dayCap, rules: ROYAL,
       festivals: Object.entries(FESTIVALS).map(([id, f]) => ({ id, ...f, ready: !((user.festAt || {})[id] > now - DAY), readyAt: ((user.festAt || {})[id] || 0) + DAY })),
     };

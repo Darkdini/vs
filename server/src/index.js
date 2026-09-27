@@ -1,7 +1,7 @@
 'use strict';
 // «Война Королей» — сервер браузерной игры. Отдаёт клиент (web/) и говорит с ним по WebSocket (web.js).
 // Запуск: npm start (из папки server) → http://localhost:8080
-// Переменные окружения: WEB_PORT (8080), HOST (0.0.0.0), SPEED (скорость мира, 10), DB (файл базы), ADMIN_PASS (пароль admin)
+// Переменные окружения: WEB_PORT (8080), HOST (0.0.0.0), SPEED (скорость мира, 1 — как в оригинале), DB (файл базы), ADMIN_PASS (пароль admin)
 
 const path = require('path');
 const { Game, Store } = require('./game');
@@ -27,7 +27,7 @@ setInterval(() => {
 if (game.ensureAdmin()) console.log('Админ: логин admin, пароль', process.env.ADMIN_PASS ? '(из ADMIN_PASS)' : 'admin');
 
 startWeb(game, sessions, { port: WEB_PORT, host: HOST, log: (m) => console.log(m) });
-console.log(`Война Королей: скорость мира x${process.env.SPEED || 10}, база ${DB}`);
+console.log(`Война Королей: скорость мира x${process.env.SPEED || 1}, база ${DB}`);
 
 const shutdown = () => { store.flush(); process.exit(0); };
 process.on('SIGINT', shutdown);
