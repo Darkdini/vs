@@ -650,7 +650,7 @@ function plotImage(path, p, k) { const im = pic(path); if (!im) return; const w 
 const isSel = (x, y) => Iso.sel && Iso.sel.tab === S.tab && Iso.sel.x === x && Iso.sel.y === y;
 const glow = (p, k) => plotDiamond(p, k, 'rgba(255, 214, 80, 0.38)', '#ffe27a', 2.5);
 const gridN = () => (S.tab === 'castle' ? 17 : S.tab === 'lands' ? 15 : S.world ? 2 * S.world.radius + 1 : 15);
-const cam = () => Iso.cams[S.tab] || (Iso.cams[S.tab] = isoFit());
+const cam = () => Iso.cams[S.tab] || (Iso.cams[S.tab] = clampCam(isoFit()));
 
 function isoMount(wrap) {
   wrap.prepend(Iso.cv);
@@ -669,12 +669,30 @@ function isoFit() {
   const c = tileScreen(n / 2 - 0.5, n / 2 - 0.5);
   return { z, x: r.width / 2 - (c.sx + TW / 2) * z, y: r.height / 2 - (c.sy + TH / 2) * z + 18 * z };
 }
+// замок и земли: камера не уходит за края поля (и не отдаляется дальше, чем помещается поле)
+function clampCam(c) {
+  if (S.tab !== 'castle' && S.tab !== 'lands') return c;
+  const r = Iso.cv.getBoundingClientRect(); if (!r.width) return c;
+  // центр экрана не уходит дальше самого замка (со рвом) / земель; отдалить можно, пока замок во всю ширину
+  const box = (a, b) => ({ L: tileScreen(a, a).sx, R: tileScreen(b, b).sx + TW, T: tileScreen(b, a).sy, B: tileScreen(a, b).sy + TH });
+  const outer = S.tab === 'castle' ? box(CASTLE_OFF - 1, CASTLE_OFF + 7) : box(0, 14); // замок со рвом
+  const { L, R, T, B } = S.tab === 'castle' ? box(CASTLE_OFF, CASTLE_OFF + 6) : box(2, 12); // куда может смотреть центр экрана
+  const zMin = r.width / (outer.R - outer.L);
+  if (c.z < zMin) c.z = zMin;
+  let mx = (r.width / 2 - c.x) / c.z, my = (r.height / 2 - c.y) / c.z;
+  const hw = r.width / 2 / c.z; // по ширине экран не выходит за замок со рвом
+  mx = hw * 2 >= outer.R - outer.L ? (outer.L + outer.R) / 2 : Math.min(Math.max(mx, outer.L + hw), outer.R - hw);
+  my = Math.min(Math.max(my, T), B);
+  void L; void R;
+  c.x = r.width / 2 - mx * c.z; c.y = r.height / 2 - my * c.z;
+  return c;
+}
 function isoZoom(k, mx, my) {
   const c = cam(), r = Iso.cv.getBoundingClientRect();
   if (mx === undefined) { mx = r.width / 2; my = r.height / 2; }
   const z = Math.max(0.3, Math.min(3, c.z * k));
   c.x = mx - (mx - c.x) * (z / c.z); c.y = my - (my - c.y) * (z / c.z); c.z = z;
-  isoDraw();
+  clampCam(c); isoDraw();
 }
 
 // касания: один палец — двигать карту, два — масштаб, короткое нажатие — выбрать клетку
@@ -697,12 +715,12 @@ function isoZoom(k, mx, my) {
     if (g.mode === 'pan') {
       const p = rel(e), dx = p.x - g.x, dy = p.y - g.y;
       if (Math.abs(dx) + Math.abs(dy) > 8) g.moved = true;
-      if (g.moved) { c.x = g.cx + dx; c.y = g.cy + dy; isoDraw(); }
+      if (g.moved) { c.x = g.cx + dx; c.y = g.cy + dy; clampCam(c); isoDraw(); }
     } else if (g.mode === 'pinch' && P.size >= 2) {
       const [a, b] = [...P.values()], m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
       c.z = Math.max(0.3, Math.min(3, g.z0 * Math.hypot(a.x - b.x, a.y - b.y) / g.d0));
       c.x = m.x - g.wx * c.z; c.y = m.y - g.wy * c.z;
-      isoDraw();
+      clampCam(c); isoDraw();
     }
   });
   const up = (e) => {
