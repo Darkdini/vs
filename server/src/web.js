@@ -1,6 +1,6 @@
 'use strict';
 // Браузерный клиент: HTTP (страница + картинки) и WebSocket с JSON-командами.
-// Работает с тем же объектом Game, что и сервер для J2ME-клиента, — мир общий.
+// Один общий мир (Game) для всех подключённых браузеров.
 // Без зависимостей: WebSocket (RFC 6455) реализован здесь же, только то, что нужно (текстовые кадры, ping, close).
 
 const http = require('http');
@@ -9,11 +9,9 @@ const path = require('path');
 const crypto = require('crypto');
 const C = require('./catalog');
 const G = require('./game');
-const { openJar } = require('./jarassets');
 const ARMY = require('./army');
 
 const WEB_ROOT = path.join(__dirname, '..', '..', 'web');
-const OWN_ASSETS = path.join(__dirname, '..', 'assets', 'images');
 const MIME = { '.webmanifest': 'application/manifest+json', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml' };
 
 // ---------- WebSocket ----------
@@ -263,25 +261,10 @@ const API = {
   },
 };
 
-function startWeb(game, sessions, { port, host, jarPath, log }) {
-  let jar = null;
-  if (jarPath) {
-    try { jar = openJar(jarPath); log(`графика оригинального клиента: ${jarPath} (${jar.names().length} файлов)`); }
-    catch (e) { log(`не удалось открыть CLIENT_JAR=${jarPath}: ${e.message} — будет упрощённая графика`); }
-  }
-
+function startWeb(game, sessions, { port, host, log }) {
   const server = http.createServer((req, res) => {
     const url = decodeURIComponent(req.url.split('?')[0]);
     const send = (code, type, body) => { res.writeHead(code, { 'Content-Type': type, 'Cache-Control': 'no-cache' }); res.end(body); };
-    if (url === '/api/assets') return send(200, MIME['.json'], JSON.stringify({ original: !!jar }));
-    if (url.startsWith('/orig/')) { // картинки из jar пользователя
-      const data = jar && jar.read(url.slice(6));
-      return data ? send(200, 'image/png', data) : send(404, 'text/plain', 'no image');
-    }
-    if (url.startsWith('/img/')) { // наши картинки (server/assets/images)
-      const f = path.join(OWN_ASSETS, path.basename(url));
-      return fs.existsSync(f) ? send(200, 'image/png', fs.readFileSync(f)) : send(404, 'text/plain', 'no image');
-    }
     const file = path.normalize(path.join(WEB_ROOT, url === '/' ? 'index.html' : url));
     if (!file.startsWith(WEB_ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) return send(404, 'text/plain', 'not found');
     send(200, MIME[path.extname(file)] || 'application/octet-stream', fs.readFileSync(file));

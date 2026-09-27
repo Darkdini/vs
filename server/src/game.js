@@ -181,7 +181,7 @@ class Game {
     return { wood: store, stone: store, iron: store, food: store, people };
   }
 
-  // добыча в час (люди — тоже в час; клиенту отдаём «в сутки», см. handlers)
+  // добыча в час с учётом скорости мира
   rates(castle) {
     const r = { ...BASE_RATE };
     castle.grid[1].forEach((b, i) => {
