@@ -661,3 +661,9 @@ img[src$="?orc"] { filter: hue-rotate(85deg) saturate(1.5) brightness(0.92) cont
 .ulink { border: 0; background: none; width: 100%; text-align: left; color: inherit; text-decoration: underline dotted; }
 #sheetBody .ptiles.g4 .ptile span { font-size: min(10px, 2.5vw); overflow-wrap: normal; hyphens: none; white-space: nowrap; }
 #sheetBody .gdin::placeholder { color: #f0e0a0; opacity: .8; }
+
+/* ---------- окно «Ресурсы» как в оригинале ---------- */
+.rsline { display: flex; align-items: center; gap: 12px; font: min(26px, 6vw) var(--serif); padding: 1px 0; }
+.rsline img { width: 44px; height: 44px; object-fit: contain; flex: none; }
+.rsclose { text-align: center; margin: 8px 0; }
+.pbtn { border: 2px solid #c8963e; border-radius: 6px; background: linear-gradient(#8a5a30, #4a2410); color: #fff; font: 24px var(--serif); padding: 2px 14px; box-shadow: 0 0 0 1px #3a1a08, 0 2px 3px #0006; }

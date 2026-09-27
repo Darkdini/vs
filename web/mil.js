@@ -38,7 +38,7 @@ function unitStatsHtml(u) {
     <div><small>Защита п/к/м</small>${u.def.inf}/${u.def.cav}/${u.def.mag}</div>
     <div><small>Скорость</small>${u.speed} кл/ч</div><div><small>Груз</small>${u.carry}</div></div>
     <div class="chips">${RES4.map((r) => `<span data-need="${r}:${u.cost[r]}">${RES_IC[r]} ${fmtFull(u.cost[r])}</span>`).join('')}
-    <span>${RES_IC.people} ${u.pop}</span><span>${TIME_IC} ${fmtT(unitTrainSec(u))}</span><span>еда ${u.upkeep}/ч</span></div>`;
+    <span>${RES_IC.people} ${u.pop}</span><span>${TIME_IC} ${fmtT(unitTrainSec(u))}</span></div>`;
 }
 
 // ---------- эффекты зданий (что даёт уровень) ----------
@@ -135,7 +135,7 @@ function hqHtml() {
       ${a.units ? unitsListHtml(a.units, '') : '<span class="muted small">состав виден с Караульной башней 5 ур.</span>'}</div><span class="cd" data-e="${a.arrive}"></span></div>`).join('') || '<p class="muted small">Входящих армий нет.</p>';
   return `<div class="section">Генерал</div><div class="card unit">${gen}</div>
     <div class="section">Войска в замке</div><div class="card">${unitsListHtml(my.units, 'Войск нет — тренируйте их в Казарме, Конюшне, Академии магов…')}
-      <p class="small muted">Содержание: ${fmtFull(my.upkeep)} еды/ч · атака ×${my.bonus.atk.toFixed(2)} · защита ×${my.bonus.def.toFixed(2)}</p>
+      <p class="small muted">Атака ×${my.bonus.atk.toFixed(2)} · защита ×${my.bonus.def.toFixed(2)}</p>
       <div class="btns"><button class="btn primary" data-armies>Армии в замке</button><button class="btn" data-campaign>Военный поход</button></div><div class="btns" style="margin-top:6px"><button class="btn" data-reports>Отчёты${my.unreadReports ? ` (${my.unreadReports})` : ''}</button></div></div>
     <div class="section">Армии в пути</div>${armies}
     <div class="section">Входящие</div>${inc}`;

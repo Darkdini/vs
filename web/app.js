@@ -97,14 +97,14 @@ const fr = (v) => (Math.round(v * 100) / 100).toLocaleString('ru-RU'); // дро
 // что даёт здание на уровне level: {text, short}
 function effect(def, level) {
   if (level <= 0) return { text: '—', short: '—' };
-  const sp = S.cat.speed;
+  const sp = S.cat.resSpeed || 1, K = S.cat.prodK || {};
   if (def.produces === 'people') {
-    const cap = R().store.peoplePerHut * level, p = Math.round(S.cat.prod[level] * R().peopleFactor * sp);
+    const cap = Math.round(R().store.peoplePerHut * level), p = Math.round(S.cat.prod[level] * K.people * sp);
     return { text: `+${cap} мест для людей, +${p} людей/ч`, short: `+${cap} мест` };
   }
   const GEN = { wood: 'дерева', stone: 'камня', iron: 'железа', food: 'еды' }; // текст (экранируется в окнах), без HTML-иконок
-  if (def.produces) { const p = Math.round(S.cat.prod[level] * sp); return { text: `+${fmtFull(p)} ${GEN[def.produces]} в час`, short: `+${fmtN(p)}/ч` }; }
-  if (def.id === 1) { const c = Math.round(R().store.perStore * R().store.growth ** level); return { text: `+${fmtFull(c)} к вместимости`, short: `+${fmtN(c)}` }; }
+  if (def.produces) { const p = Math.round(S.cat.prod[level] * (K[def.produces] || 1) * sp); return { text: `+${fmtFull(p)} ${GEN[def.produces]} в час`, short: `+${fmtN(p)}/ч` }; }
+  if (def.id === 1) { const st = R().store, c = Math.round(st.perStore * (st.maxStore / st.perStore) ** ((level - 1) / 19)); return { text: `вместимость ${fmtFull(c + st.base)} каждого ресурса`, short: fmtN(c + st.base) }; }
   if (def.id === 0) { const p = Math.round((1 - R().time.townhallFactor ** level) * 100); return { text: `стройки быстрее на ${p}%`, short: `−${p}%` }; }
   const m = typeof milEffect === 'function' && S.st && milEffect(def, level); // функции зданий (mil.js)
   return m || { text: '—', short: '' };
@@ -250,19 +250,14 @@ function tick() {
 setInterval(tick, 500);
 
 
+// окно «Ресурсы» как в оригинале: запасы/вместимость и добыча в час
 function resSheet() {
-  const c = S.st.castle;
-  const busy = c.queue.reduce((s, q) => s + ((S.by[q.building].costs[q.level] || {}).people || 0), 0);
-  return `<div class="sh-head"><div class="big">${bimg(1)}</div><div><h3>Ресурсы</h3><div class="muted small">Скорость мира ×${S.cat.speed}</div></div></div>
-    <div class="list">${RES.map((r) => {
-      const v = resNow(r), full = v >= c.cap[r], left = c.rate[r] > 0 ? (c.cap[r] - v) / c.rate[r] * 3600 : Infinity;
-      return `<div class="row"><span class="ic">${RES_IC[r]}</span><div class="grow"><b>${RES_NAME[r]}: ${fmtFull(v)} / ${fmtFull(c.cap[r])}</b>
-        <span>+${fmtFull(c.rate[r])} в час · ${full ? '<span class="bad">склад полон</span>' : `заполнится через ${fmtT(left)}`}</span>
-        <div class="bar" style="margin-top:5px"><i style="width:${Math.min(100, v / c.cap[r] * 100)}%"></i></div></div></div>`;
-    }).join('')}</div>
-    <p class="muted small">Войска едят ${fmtFull(c.mil.upkeep)} еды в час (уже учтено в добыче).</p>
-    <p class="muted small">Людей занято на стройках: ${busy} из ${c.cap.people}. Вместимость склада растёт со Складом, мест для людей — с Хибарами.</p>`;
+  const c = S.st.castle, row = (r, t) => `<div class="rsline"><img src="${GFX}res/${r}.png" alt="">${t}</div>`;
+  return `${ribbon('Ресурсы')}${RES.map((r) => row(r, `${Math.floor(resNow(r))}/${c.cap[r]} ед.`)).join('')}
+    ${ribbon('Добыча')}${RES.map((r) => row(r, `${c.rate[r]} ед/час`)).join('')}
+    <div class="rsclose"><button class="pbtn" data-rsclose>Закрыть</button></div>`;
 }
+$('#sheetBody').addEventListener('click', (e) => { if (e.target.closest('[data-rsclose]')) closeSheet(); });
 
 // ---------- вкладки ----------
 function setTab(tab) {
@@ -324,14 +319,14 @@ const SUBPAGES = {
     const T = R().time, st = R().store;
     return `<div class="vhead"><button class="iconbtn" data-back>‹</button><h2>Формулы</h2></div><div class="pad" style="padding-top:0">
       <div class="section">Стоимость уровня</div>
-      <div class="formula">Замок: база ${RES_IC.wood}120 ${RES_IC.stone}110 ${RES_IC.iron}80 ${RES_IC.food}60 ${RES_IC.people}2 × 1.3^(ур−1)<br>Земли: база ${RES_IC.wood}60 ${RES_IC.stone}50 ${RES_IC.iron}40 ${RES_IC.food}30 ${RES_IC.people}1 × 1.5^(ур−1)<br>Люди: база × уровень (не тратятся, заняты на время стройки)</div>
+      <div class="formula">Замок: база ${RES_IC.wood}120 ${RES_IC.stone}110 ${RES_IC.iron}80 ${RES_IC.food}60 ${RES_IC.people}2 × 1.3^(ур−1)<br>Земли: база ${RES_IC.wood}60 ${RES_IC.stone}50 ${RES_IC.iron}40 ${RES_IC.food}30 ${RES_IC.people}1 × 1.45^(ур−1)<br>Люди: база × уровень (не тратятся, заняты на время стройки)</div>
       <div class="section">Время стройки</div>
       <div class="formula">Замок: ${T.castle.base} с × ${T.castle.growth}^(ур−1)<br>Земли: ${T.lands.base} с × ${T.lands.growth}^(ур−1)<br>× ${T.townhallFactor}^(ур. Ратуши) ÷ скорость мира (×${S.cat.speed})</div>
       <div class="section">Рейтинг</div>
       <div class="formula">Полностью отстроенный замок — ★ ${R().rating.max}: постройки замка до ${R().rating.castleMax}, земли до ${R().rating.landsMax}.<br>Уровень здания в замке: ★ ${fr(R().rating.castle)}<br>Уровень на землях: ★ ${fr(R().rating.lands)}</div>
       <div class="section">Добыча и склад</div>
-      <div class="formula">Базово ${R().baseRate.wood}/ч каждого ресурса + добыча зданий земель по таблице × скорость мира<br>
-      Склад: ${st.base} + ${st.perStore} × ${st.growth}^ур за каждый Склад<br>Люди: ${st.people} + ${st.peoplePerHut} мест за уровень Хибары</div>
+      <div class="formula">Базово ${R().baseRate.wood}/ч дерева, камня и железа + добыча зданий земель по таблице (еда ×${S.cat.prodK.food}, люди ×${S.cat.prodK.people})<br>
+      Склад: ${st.base} + лучший Склад (1 ур. — ${fmtFull(st.perStore)}, 20 ур. — ${fmtFull(st.maxStore)})<br>Люди: ${st.people} + ${st.peoplePerHut} мест за уровень Хибары</div>
       <div class="section">Добыча по уровням (в час, ×1)</div>
       <div class="formula">${S.cat.prod.slice(1).map((p, i) => `${i + 1}: ${p}`).join(' · ')}</div></div>`;
   },

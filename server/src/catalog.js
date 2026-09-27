@@ -73,10 +73,14 @@ const RACES = ['humans', 'elves', 'dwarves', 'orcs']; // порядок в фо�
 const RACE_NAMES = { humans: 'Люди', elves: 'Эльфы', dwarves: 'Гномы', orcs: 'Орки' };
 
 // ---------- баланс (тестовый) ----------
-const PROD = [5, 10, 18, 28, 40, 55, 75, 100, 130, 165, 205, 250, 300, 360, 430, 510, 600, 700, 820, 960, 1120];
+// добыча одного здания земель в час по уровням (2/ч на 1 ур. … 8.25/ч на 20 ур.), PROD_K — множитель по ресурсу.
+// Подогнано под оригинал: полностью отстроенный замок с максимальными бонусами (Экономика 20, легендарный артефакт)
+// даёт 527 дерева/камня/железа, 992 еды и 727 людей в час.
+const PROD = Array.from({ length: 21 }, (_, l) => (l ? Math.round((2 + (l - 1) * 6.25 / 19) * 1000) / 1000 : 0));
+const PROD_K = { wood: 1, stone: 1, iron: 1, food: 0.5788, people: 1.5163 };
 
 function levelCost(b, level) {
-  const growth = b.layer === 'lands' ? 1.5 : 1.3;
+  const growth = b.layer === 'lands' ? 1.45 : 1.3;
   const base = b.layer === 'lands'
     ? { wood: 60, stone: 50, iron: 40, food: 30, people: 1 }
     : { wood: 120, stone: 110, iron: 80, food: 60, people: 2 };
@@ -108,4 +112,4 @@ function displayId(b, level) {
   return level >= 10 ? b.tiers[2] : level >= 5 ? b.tiers[1] : b.tiers[0];
 }
 
-module.exports = { TIME, RATING, RES, RES_ICON, TIME_ICON, BUILDINGS, BY_ID, UNITS, RACES, RACE_NAMES, PROD, levelCost, levelTimeSec, displayId };
+module.exports = { TIME, RATING, RES, RES_ICON, TIME_ICON, BUILDINGS, BY_ID, UNITS, RACES, RACE_NAMES, PROD, PROD_K, levelCost, levelTimeSec, displayId };

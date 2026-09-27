@@ -60,11 +60,15 @@ function landOptions(x, y) {
 }
 
 // вместимость: база 1500 + каждый Склад 1000×1.25^ур.; люди: 60 + 20 за уровень каждой Хибары
-const STORE = { base: 1500, perStore: 1000, growth: 1.25, people: 60, peoplePerHut: 20 };
-const storeBonus = (level) => Math.round(STORE.perStore * STORE.growth ** level);
+// склад как в оригинале: вместимость даёт лучший Склад (1 ур. — 1 000, 20 ур. — 100 000) + 200 базово → полный замок 100 200;
+// места для людей: 35 + 4.728 за уровень Хибары → полный замок 5 425
+const STORE = { base: 200, perStore: 1000, maxStore: 100000, people: 35, peoplePerHut: 4.728 };
+const storeBonus = (level) => (level > 0 ? Math.round(STORE.perStore * (STORE.maxStore / STORE.perStore) ** ((level - 1) / 19)) : 0);
+// добыча ресурсов не ускоряется скоростью мира (числа как в оригинале); RES_SPEED — отдельный множитель для тестов
+const RES_SPEED = Number(process.env.RES_SPEED || 1);
 // базовая добыча замка в час (без зданий); Хибара даёт людей с коэффициентом 0.2 от таблицы PROD
-const BASE_RATE = { wood: 10, stone: 10, iron: 10, food: 10, people: 2 };
-const PEOPLE_FACTOR = 0.2;
+const BASE_RATE = { wood: 29.5, stone: 29.5, iron: 29.5, food: 29.5, people: 14 };
+const PEOPLE_FACTOR = C.PROD_K.people;
 
 const VIEW = { CASTLE: 0, LANDS: 1, WORLD: 2 };
 const GRID = { [VIEW.CASTLE]: 7, [VIEW.LANDS]: 15 };
@@ -205,10 +209,12 @@ class Game {
   }
 
   capacity(castle) {
-    let store = STORE.base;
-    castle.grid[0].forEach((b, i) => { if (b === 1) store += storeBonus(castle.levels[0][i]); });
-    let people = STORE.people;
-    castle.grid[1].forEach((b, i) => { if (b === 6) people += STORE.peoplePerHut * castle.levels[1][i]; });
+    let best = 0;
+    castle.grid[0].forEach((b, i) => { if (b === 1) best = Math.max(best, castle.levels[0][i]); });
+    const store = STORE.base + storeBonus(best);
+    let huts = 0;
+    castle.grid[1].forEach((b, i) => { if (b === 6) huts += castle.levels[1][i]; });
+    const people = Math.round(STORE.people + STORE.peoplePerHut * huts);
     return { wood: store, stone: store, iron: store, food: store, people };
   }
 
@@ -217,12 +223,11 @@ class Game {
     const r = { ...BASE_RATE };
     castle.grid[1].forEach((b, i) => {
       const def = C.BY_ID[b];
-      if (def && def.produces) r[def.produces] += C.PROD[castle.levels[1][i]] * (def.produces === 'people' ? PEOPLE_FACTOR : 1);
+      if (def && def.produces) r[def.produces] += C.PROD[castle.levels[1][i]] * C.PROD_K[def.produces];
     });
     const prod = this.bonus(castle).prod; // наука Экономика, религия Природа, артефакты
     for (const k of ['wood', 'stone', 'iron', 'food']) r[k] *= prod;
-    r.food -= this.upkeep(castle); // содержание войск
-    for (const k of Object.keys(r)) r[k] = Math.round(r[k] * SPEED);
+    for (const k of Object.keys(r)) r[k] = Math.round(r[k] * RES_SPEED + 1e-9);
     return r;
   }
 
@@ -354,4 +359,4 @@ require('./social').install(Game);
 // администратор: 20 замков и все админ-команды (server/src/admin.js)
 require('./admin').install(Game);
 
-module.exports = { WORLD, Game, Store, STORE, BASE_RATE, PEOPLE_FACTOR, storeBonus, buildTime, VIEW, GRID, landOptions, SPEED, MAX_QUEUE, LANDS_BASE, LANDS_DECOR, LANDS_EDGE };
+module.exports = { WORLD, Game, Store, STORE, BASE_RATE, PEOPLE_FACTOR, storeBonus, RES_SPEED, buildTime, VIEW, GRID, landOptions, SPEED, MAX_QUEUE, LANDS_BASE, LANDS_DECOR, LANDS_EDGE };
