@@ -144,9 +144,34 @@ class Reader {
       case 12: return this.bool();
       case 28: { const n = this.varint(); const o = {}; for (let i = 0; i < n; i++) { const k = nameOf(this.i32()); o[k] = this.value(); } return o; }
       case 29: return { ref: this.i32() };
+      case 102: return this.script();
       default: throw new Error(`неизвестный тип объекта ${t} (смещение ${this.off - 1})`);
     }
   }
+  // «скриптовое» значение (J1.b.e): байт подтипа, младшие 3 бита — категория, старшие — номер
+  script() {
+    const b = this.u8(), cat = b & 7, idx = b >>> 3;
+    if (cat === 1) { // простые данные
+      switch (idx) {
+        case 1: return this.i32();
+        case 2: return this.i8();
+        case 3: return this.i16();
+        case 4: { const v = this.buf.readBigInt64BE(this.off); this.off += 8; return Number(v); }
+        case 5: { const v = this.buf.readFloatBE(this.off); this.off += 4; return v; }
+        case 6: return this.bool();
+        case 7: return this.str();
+        default: throw new Error(`скриптовые данные: неизвестный номер ${idx}`);
+      }
+    }
+    if (cat === 7) {
+      if (idx === 1) return this.message();
+      if (idx === 2) { const n = this.i32(); const a = []; for (let i = 0; i < n; i++) a.push(this.value()); return a; }
+      throw new Error(`скриптовый объект 7/${idx} пока не поддержан`);
+    }
+    if (cat === 2) return { op: idx, a: this.script(), b: this.script() }; // оператор с двумя операндами
+    throw new Error(`скриптовая категория ${cat} (номер ${idx}) пока не поддержана`);
+  }
+
   message() { return { cat: this.i32(), cmd: this.i32(), arg: this.value() }; }
 }
 

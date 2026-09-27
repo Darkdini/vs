@@ -10,6 +10,7 @@ const assert = require('assert');
 const { spawn } = require('child_process');
 const P = require('../src/tw3d/protocol');
 
+const REAL_USER_START = '0041000000000080808011b64d831edd736617000000096639a00041006e00640072006f006900640020007c00200043006c00690065006e0074002000760065007200730069006f006e00200032002e0030002e00310031003266399c005800690061006f006d006900200020007c00200020003200330030003600450050004e00360030004700200020007c00200020003100366609000004c46609000009f3663984006e0075006c006c6631016631016609000068db663984006e0075006c006c';
 const PORT3D = 28000 + Math.floor(Math.random() * 1000);
 const DB = path.join(os.tmpdir(), `tw-3d-smoke-${process.pid}.json`);
 
@@ -79,7 +80,8 @@ class Client {
   const c = new Client();
   try {
     await c.connect();
-    c.send('USER', 'START', null); // клиент шлёт USER.START, если окон ещё нет
+    // настоящий USER.START с телефона (Xiaomi, клиент 2.0.112): список скриптовых значений (тип 102)
+    c.sock.write(Buffer.from(REAL_USER_START, 'hex'));
     const win = await c.expect('WIN.ADDDIL');
     assert.deepEqual(c.hs, [56, 56]);
     assert.match(win.arg, /Регистрация/);
