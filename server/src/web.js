@@ -245,6 +245,12 @@ const API = {
     for (const s of WebSession.all || []) if (s.user && s.sendChat) s.sendChat(r.msg);
   },
   chatlog() { this.send({ t: 'chatlog', list: this.game.chatLog() }); },
+  // «Игроки (N)» в главном чате: кто сейчас в игре (только ники)
+  chatusers() {
+    const seen = new Map();
+    for (const s of WebSession.all || []) if (s.user && !s.user.bot) seen.set(s.user.id, { id: s.user.id, login: s.user.login, rep: s.user.reputation ?? 10 });
+    this.send({ t: 'chatusers', list: [...seen.values()].sort((a, b) => a.login.localeCompare(b.login)) });
+  },
   ratings(m) {
     const k = m.kind;
     const list = k === 'castles' ? this.game.ratingCastles() : k === 'alliances' ? this.game.ratingAlliances() : k === 'reputation' ? this.game.ratingReputation() : null;

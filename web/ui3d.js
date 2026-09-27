@@ -129,11 +129,65 @@ $('#btnGear').addEventListener('click', () => openSheet(settingsWin));
 S.chat = [];
 function chatLine() {
   const m = S.chat[S.chat.length - 1];
-  $('#chatmsg').innerHTML = m ? `<b>${esc(m.from)}</b> ${repIcons(m.rep)} ${esc(m.text)}` : '<span class="muted">Чат пуст — напишите первым</span>';
+  $('#chatmsg').innerHTML = m ? `<b>${esc(m.from)}</b> ${repIcons(m.rep)} ${smiles(esc(m.text))}` : '<span class="muted">Чат пуст — напишите первым</span>';
 }
-function openChat() { send({ t: 'chatlog' }); openSheet(chatWin); setTimeout(() => { const l = $('#chatList'); if (l) l.scrollTop = l.scrollHeight; }, 50); }
-const chatWin = () => `${ribbon('Чат')}<div id="chatList" class="chatlist">${S.chat.map((m) => `<div class="cm ${m.fromId === me() ? 'mine' : ''}"><b data-cprof="${m.fromId}">${esc(m.from)}</b> ${repIcons(m.rep)} <small>${new Date(m.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</small><div>${esc(m.text)}</div></div>`).join('') || '<p class="parch-note">Сообщений пока нет.</p>'}</div>
-  <form class="chatform" data-form="chat"><input name="text" maxlength="300" placeholder="Сообщение всем игрокам" autocomplete="off"><button class="sendbtn" aria-label="Отправить"></button></form>`;
+// «Главный чат» как в оригинале: Выход / Игроки (N), сообщения «ЧЧ:ММ [ник] текст», смайлы, поле ввода внизу.
+// Нажатие на ник — обращение «ник, » в поле ввода; сообщения, где упомянут я, подсвечены.
+const SMILES = ['smile', 'sad', 'wok', 'angry', 'heart', 'kiss', 'notund', 'Uvula'];
+const smiles = (html) => html.replace(/:(smile|sad|wok|angry|heart|kiss|notund|Uvula):/g, (_, k) => `<img class="csm" src="${GFX}smallicon/smiles/${k}.png" alt="">`);
+S.chatUsers = null; S.smileOpen = false;
+function openChat() { send({ t: 'chatlog' }); send({ t: 'chatusers' }); S.smileOpen = false; openSheet(chatWin); setTimeout(() => { const l = $('#chatList'); if (l) l.scrollTop = l.scrollHeight; }, 50); }
+function chatWin() {
+  const my = S.st.user.login.toLowerCase();
+  const n = S.chatUsers ? S.chatUsers.length : '…';
+  return `${ribbon('Главный чат')}
+    <div class="chattop"><button class="lbar" data-chatexit><img src="${GFX}smallicon/softclose.png" alt=""> Выход</button><button class="lbar" data-chatusers><img src="${GFX}units/human/general.png" alt=""> Игроки (${n})</button></div>
+    <div id="chatList" class="chatlist ${S.smileOpen ? 'short' : ''}">${S.chat.map((m) => { const hit = m.fromId !== me() && m.text.toLowerCase().includes(my);
+      return `<div class="cm ${hit ? 'hit' : ''} ${m.fromId === me() ? 'mine' : ''}" data-chatpop="${m.fromId}" data-nick="${esc(m.from)}" data-mid="${m.id}"><small>${new Date(m.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</small> <b>[${esc(m.from)}]</b>${m.rep >= 10 ? ` ${repIcons(m.rep)}` : ''} ${smiles(esc(m.text))}</div>`; }).join('') || '<p class="parch-note">Сообщений пока нет — напишите первым.</p>'}</div>
+    ${S.smileOpen ? `<div class="smilebox">${SMILES.map((k) => `<button data-smile="${k}"><img src="${GFX}smallicon/smiles/${k}.png" alt=""></button>`).join('')}</div>` : ''}
+    ${S.chatPop ? `<div class="cpop-bg" data-cpopclose><div class="cpop"><button class="cpop-x" data-cpopclose aria-label="Закрыть">✕</button><div class="cpop-nick">${esc(S.chatPop.nick)}</div>
+      <div class="cpop-grid"><button class="ptile" data-cpop="reply"><img src="${AI('mail')}" alt=""><span>Обратиться</span></button>
+      <button class="ptile" data-cpop="profile"><img src="${GFX}units/human/general.png" alt=""><span>Профиль</span></button>
+      <button class="ptile" data-cpop="report"><img src="${GFX}smallicon/soft_help.png" alt=""><span>Жалоба</span></button>
+      <button class="ptile" data-cpop="private"><img src="${GFX}smallicon/unmes.png" alt=""><span>Лично</span></button></div></div></div>` : ''}
+    <form class="chatbar" data-form="chat"><button type="button" class="smilebtn" data-smiletoggle aria-label="Смайлы"></button><input name="text" maxlength="300" autocomplete="off" value="${esc(S.chatDraft || '')}"><button class="sendbtn" aria-label="Отправить"></button></form>`;
+}
+// обновить только ленту сообщений (поле ввода не трогаем — можно печатать, пока приходят сообщения)
+function chatListUpdate() {
+  const l = $('#chatList'); if (!l) return;
+  const tmp = document.createElement('div'); tmp.innerHTML = chatWin();
+  const nl = tmp.querySelector('#chatList'); if (nl) { l.innerHTML = nl.innerHTML; l.scrollTop = l.scrollHeight; }
+}
+function chatUsersWin() {
+  const l = S.chatUsers; if (!l) return `${ribbon('Игроки в игре')}<p class="parch-note">Загрузка…</p>`;
+  return `${ribbon(`Игроки в игре (${l.length})`)}${l.map((u) => `<button class="rrow" data-cprof="${u.id}"><span class="rn"><b>${esc(u.login)} ${repIcons(u.rep)}</b></span></button>`).join('')}`;
+}
+$('#sheetBody').addEventListener('click', (e) => {
+  const t = e.target.closest('[data-cpop],[data-cpopclose],[data-chatpop],[data-chatexit],[data-chatusers],[data-smile],[data-smiletoggle]'); if (!t) return;
+  const d = t.dataset, inp = $('.chatbar input');
+  if (d.cpopclose !== undefined && (e.target === t || t.classList.contains('cpop-x'))) { S.chatPop = null; return refreshSheet(); }
+  if (d.cpopclose !== undefined) return;
+  if (d.chatpop) { if (inp) S.chatDraft = inp.value; S.chatPop = { id: Number(d.chatpop), nick: d.nick, mid: Number(d.mid) }; return refreshSheet(); }
+  if (d.cpop) {
+    const pp = S.chatPop; S.chatPop = null;
+    if (d.cpop === 'profile') { refreshSheet(); return send({ t: 'profile', id: pp.id }); }
+    if (d.cpop === 'private') { refreshSheet(); return openCompose(pp.nick); }
+    if (d.cpop === 'report') {
+      const msg = S.chat.find((x) => x.id === pp.mid);
+      if (confirm(`Пожаловаться администрации на ${pp.nick}?`)) send({ t: 'bug', text: `Жалоба на ${pp.nick} (чат): «${msg ? msg.text : ''}»` });
+      return refreshSheet();
+    }
+    if (d.cpop === 'reply') S.chatDraft = `${pp.nick}, `;
+  }
+  if (d.chatexit !== undefined) return closeSheet();
+  if (d.chatusers !== undefined) { send({ t: 'chatusers' }); return openSheet(chatUsersWin); }
+  if (inp && !d.cpop) S.chatDraft = inp.value;
+  if (d.smile) { S.chatDraft = `${S.chatDraft || ''}:${d.smile}:`; S.smileOpen = false; }
+  if (d.smiletoggle !== undefined) S.smileOpen = !S.smileOpen;
+  refreshSheet(); const l = $('#chatList'); if (l) l.scrollTop = l.scrollHeight;
+  const i2 = $('.chatbar input'); if (i2 && !d.smiletoggle) { i2.focus(); i2.setSelectionRange(i2.value.length, i2.value.length); }
+});
+$('#sheetBody').addEventListener('input', (e) => { if (e.target.closest('.chatbar')) S.chatDraft = e.target.value; });
 
 // ---------- профиль (как «Профиль» в клиенте: пергамент, красные ленты) ----------
 // аватар игрока (PNG 96×96, собранный сервером) или картинка расы
@@ -289,8 +343,9 @@ const settingsWin = () => `${ribbon('Настройки')}<div class="pstats">И
 const prevMilMsg = milMsg;
 milMsg = function (m) { // eslint-disable-line no-global-assign
   if (m.t === 'profile') return; // обрабатывается в app.js
+  if (m.t === 'chatusers') { S.chatUsers = m.list; const b = $('[data-chatusers]'); if (b) b.innerHTML = `<img src="${GFX}units/human/general.png" alt=""> Игроки (${m.list.length})`; return refreshSheet(); }
   if (m.t === 'chatlog') { S.chat = m.list; chatLine(); refreshSheet(); const l = $('#chatList'); if (l) l.scrollTop = l.scrollHeight; return; }
-  if (m.t === 'chatmsg') { S.chat.push(m.msg); if (S.chat.length > 50) S.chat.shift(); chatLine(); const l = $('#chatList'); if (l) { refreshSheet(); const l2 = $('#chatList'); l2.scrollTop = l2.scrollHeight; } return; }
+  if (m.t === 'chatmsg') { S.chat.push(m.msg); if (S.chat.length > 50) S.chat.shift(); chatLine(); chatListUpdate(); return; }
   if (m.t === 'halls') { S.halls = m.list; S.hallSeason = m.season; S.hallLast = m.last; return refreshSheet(); }
   if (m.t === 'ratings') { S.rlist = m.list; return refreshSheet(); }
   if (m.t === 'players') { S.plist = m.list; return refreshSheet(); }
@@ -323,7 +378,7 @@ $('#sheetBody').addEventListener('click', (e) => {
 });
 $('#sheetBody').addEventListener('submit', (e) => {
   const f = e.target, k = f.dataset.form; if (!k) return;
-  if (k === 'chat') { e.preventDefault(); const v = f.text.value.trim(); if (v) send({ t: 'chat', text: v }); f.text.value = ''; }
+  if (k === 'chat') { e.preventDefault(); const v = f.text.value.trim(); if (v) send({ t: 'chat', text: v }); f.text.value = ''; S.chatDraft = ''; }
   if (k === 'search') { e.preventDefault(); S.plist = null; send({ t: 'search', q: f.q.value }); }
   if (k === 'notes') { e.preventDefault(); S.notes = f.text.value; send({ t: 'notes', text: f.text.value }); }
   if (k === 'about') { e.preventDefault(); send({ t: 'about', text: f.text.value }); S.lastProfile.about = f.text.value; }
