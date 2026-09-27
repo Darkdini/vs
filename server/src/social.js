@@ -3,6 +3,7 @@
 // общий чат, Зал Славы (текущие топ-3 по категориям) и статистика боёв. Подключается к Game — см. install().
 
 const C = require('./catalog');
+const START_REP = 10; // стартовая репутация у всех игроков
 
 // Залы Славы: категория → как считается; иконки — smallicon/bonus_status/<icon><gold|silver|bronze>.png клиента
 const HALLS = {
@@ -32,7 +33,7 @@ function install(Game) {
       case 'doom': return s.kills;
       case 'defense': return s.defKills;
       case 'archaeology': return s.arts;
-      case 'rule': return u.reputation || 0;
+      case 'rule': return u.reputation ?? START_REP;
       default: return 0;
     }
   };
@@ -63,7 +64,7 @@ function install(Game) {
     const al = this.allianceOf(u);
     return {
       id: u.id, login: u.login, race: u.race, raceName: C.RACE_NAMES[u.race], created: u.created, lastSeen: u.lastSeen || u.created,
-      rating: this.userRating(u), rank: this.rankOf(u.id), reputation: u.reputation || 0,
+      rating: this.userRating(u), rank: this.rankOf(u.id), reputation: u.reputation ?? START_REP,
       title: u.admin ? 'Администратор' : null,
       alliance: al ? { name: al.name, tag: al.tag, role: al.leader === u.id ? 'Глава' : 'Участник' } : null,
       medals: this.medalsOf(u.id),
@@ -83,7 +84,7 @@ function install(Game) {
     from.repGiven = from.repGiven || {};
     if ((from.repGiven[to.id] || 0) > Date.now() - 86400000) return { error: 'Поднимать репутацию одному игроку можно раз в сутки.' };
     from.repGiven[to.id] = Date.now();
-    to.reputation = (to.reputation || 0) + 1;
+    to.reputation = (to.reputation ?? START_REP) + 1;
     this.store.save();
     this.event(to.id, `${from.login} поднял вам репутацию!`);
     return { ok: true };
@@ -151,7 +152,7 @@ function install(Game) {
       .sort((a, b) => b.rating - a.rating);
   };
   P.ratingReputation = function ratingReputation() {
-    return Object.values(this.db.users).map((u) => ({ id: u.id, login: u.login, raceName: C.RACE_NAMES[u.race], rating: u.reputation || 0 }))
+    return Object.values(this.db.users).map((u) => ({ id: u.id, login: u.login, raceName: C.RACE_NAMES[u.race], rating: u.reputation ?? START_REP }))
       .sort((a, b) => b.rating - a.rating).slice(0, 50);
   };
 }

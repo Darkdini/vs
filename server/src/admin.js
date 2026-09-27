@@ -6,6 +6,7 @@ const C = require('./catalog');
 const { UNIT, GENERAL_ID, unitsForRace } = require('./army');
 
 const ADMIN_CASTLES = Number(process.env.ADMIN_CASTLES || 20);
+const START_REP = 10; // стартовая репутация (как в social.js)
 const RES4 = ['wood', 'stone', 'iron', 'food'];
 
 function install(Game) {
@@ -121,7 +122,7 @@ function install(Game) {
         msg = `Создано ботов: ${made} за ${((Date.now() - t0) / 1000).toFixed(1)} с. Игроков всего: ${Object.keys(this.db.users).length}.`; break;
       }
       case 'player': data = { ...this.playerInfo(target), castlesList: this.castlesOf(target).map((c) => ({ id: c.id, name: c.name, x: c.x, y: c.y, rating: this.rating(c), loyalty: Math.round(c.loyalty ?? 100) })) }; break;
-      case 'rep': target.reputation = Math.max(0, (target.reputation || 0) + num(arg.n, 10)); msg = `Репутация: ${target.reputation}.`; break;
+      case 'rep': target.reputation = Math.max(0, (target.reputation ?? START_REP) + num(arg.n, 10)); msg = `Репутация: ${target.reputation}.`; break;
       case 'ban': if (target.admin) return { error: 'Админа заблокировать нельзя.' }; target.banned = true; target.online = false; msg = `${target.login} заблокирован.`; break;
       case 'unban': target.banned = false; msg = `${target.login} разблокирован.`; break;
       case 'pass': {

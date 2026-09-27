@@ -129,7 +129,7 @@ class Game {
     if (this.db.users[login]) return { error: 'Такой логин уже занят.' };
     const id = this.db.nextId++;
     const raceId = C.RACES[Number(race)] || 'humans';
-    this.db.users[login] = { id, login, pass: hashPassword(password), email: email || '', race: raceId, created: Date.now(), castleId: null };
+    this.db.users[login] = { id, login, pass: hashPassword(password), email: email || '', race: raceId, created: Date.now(), castleId: null, reputation: 10 }; // стартовая репутация 10
     this.byId.set(id, this.db.users[login]);
     const castle = this.createCastle(this.db.users[login]);
     this.db.users[login].castleId = castle.id;
