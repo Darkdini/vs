@@ -42,7 +42,7 @@ function adminHtml() {
 
     ${ribbon('Игроки')}
     <button class="pbar" data-adm="players">Показать всех игроков</button>
-    ${a.players ? `<div class="rlist">${a.players.map((p) => `<button class="rrow" data-apick="${esc(p.login)}"><span class="rn"><b>${esc(p.login)}${p.admin ? ' ★' : ''}${p.banned ? ' <span class="bad">[бан]</span>' : ''}</b>
+    ${a.players ? `<div class="rlist">${a.players.map((p) => `<button class="rrow" data-apick="${esc(p.login)}"><span class="rn"><b>${esc(p.login)}${p.admin ? ` <img class="admbadge s" src="${GFX}admin_badge_s.png" alt="">` : ''}${p.banned ? ' <span class="bad">[бан]</span>' : ''}</b>
       <small>${esc(p.race)} · замков ${p.castles} · золото ${fmtFull(p.gold)} · ${p.online ? 'в игре' : `был ${fmtDate(p.lastSeen)}`}</small></span><span class="rv">${fmtFull(p.rating)}</span></button>`).join('')}</div>` : ''}
     ${a.player ? playerCard(a.player) : ''}
 

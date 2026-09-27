@@ -811,3 +811,4 @@ textarea.ainput { resize: vertical; }
 .cpop-x { position: absolute; top: -8px; right: 22px; width: 44px; height: 50px; border: 0; background: linear-gradient(#e02020, #901010); color: #fff; font: 700 24px system-ui; clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 82%, 0 100%); }
 .cpop-nick { text-align: center; font: min(22px, 5vw) var(--serif); margin-bottom: 10px; }
 .cpop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.admbadge { height: 56px; width: auto; vertical-align: middle; margin: -8px 4px; } .admbadge.s { height: 24px; margin: -4px 2px; }

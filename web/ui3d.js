@@ -209,7 +209,7 @@ function profileWin(p) {
     ${p.self ? `<div class="avbtns"><button class="pbtn small" data-avatar="set">Загрузить аватар</button>${p.avatar ? '<button class="pbtn small" data-avatar="del">Удалить</button>' : ''}</div>` : ''}
     <button class="pline plink2" data-reptable>Репутация (${fmtFull(p.reputation)}): ${repIcons(p.reputation)}</button>
     <div class="pline">Зал Славы: ${medals}</div>
-    ${p.title ? `<div class="ptitle">Звание: ${gimg('smallicon/status/f_gold.png', 'ri')} ${esc(p.title)}</div>` : ''}
+    ${p.title ? `<div class="ptitle">Звание: ${p.title === 'Администратор' ? `<img class="admbadge" src="${GFX}admin_badge.png" alt="">` : gimg('smallicon/status/f_gold.png', 'ri')} ${esc(p.title)}</div>` : ''}
     <div class="pline">Альянс: ${p.alliance ? `<b>${esc(p.alliance.name)} [${esc(p.alliance.tag)}]</b>` : '—'}</div>
     ${p.alliance ? `<div class="pline">Звание в альянсе: ${esc(p.alliance.role)}</div>` : ''}
     <div class="ptiles">
