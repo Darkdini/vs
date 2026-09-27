@@ -261,13 +261,7 @@ function reportHtml(r) {
     ${d.capitalBlocked ? '<p class="parch-note">Столицу захватить нельзя — бунтари бессильны.</p>' : ''}`;
 }
 
-// ---------- админ ----------
-const adminHtml = () => `<div class="sh-head"><div class="big">${gimg('smallicon/status/f_gold.png')}</div><div><h3>Админ-панель</h3><div class="muted small">Только для admin</div></div></div>
-  <div class="list"><button class="row" data-admin="fill"><div class="grow"><b>Ресурсы до максимума</b><span>заполнить склады</span></div></button>
-  <button class="row" data-admin="finish"><div class="grow"><b>Завершить всё сейчас</b><span>стройки, тренировка, наука, марши</span></div></button>
-  <button class="row" data-admin="units"><div class="grow"><b>+100 каждого юнита</b><span>войска своей расы</span></div></button>
-  <button class="row" data-admin="max"><div class="grow"><b>Полная прокачка</b><span>все здания и земли на максимум</span></div></button></div>
-  <form class="card stack" data-form="maxuser" style="margin-top:10px"><b>Прокачать игрока</b><input name="login" placeholder="Логин игрока" autocapitalize="none" required><button class="btn primary">Прокачать</button></form>`;
+// ---------- админ — web/admin.js ----------
 
 // ---------- мир: действия с объектом ----------
 function worldActions(o, x, y) {
@@ -323,7 +317,6 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.religion) return send({ t: 'religion', id: d.religion });
   if (d.art) return send({ t: 'artifact', id: Number(d.art), on: d.on === '1' });
   if (d.alleave !== undefined) return send({ t: 'alliance', op: 'leave' });
-  if (d.admin) return send({ t: 'admin', op: d.admin });
 });
 $('#sheetBody').addEventListener('input', (e) => {
   const d = e.target.dataset, v = e.target.value;
@@ -338,7 +331,6 @@ $('#sheetBody').addEventListener('change', (e) => { if (e.target.dataset.agen !=
 $('#sheetBody').addEventListener('submit', (e) => {
   const f = e.target, k = f.dataset.form;
   if (k === 'exchange') send({ t: 'exchange', from: f.from.value, to: f.to.value, amount: Number(f.amount.value) });
-  if (k === 'maxuser') send({ t: 'admin', op: 'maxuser', login: f.login.value });
   if (k === 'aljoin') send({ t: 'alliance', op: 'join', tag: f.tag.value });
   if (k === 'alcreate') send({ t: 'alliance', op: 'create', name: f.name.value, tag: f.tag.value });
   if (['aljoin', 'alcreate'].includes(k)) S.alliances = null;

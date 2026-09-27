@@ -111,7 +111,7 @@ class WebSession {
     this.send({
       t: 'state',
       now: Date.now(),
-      user: { id: u.id, login: u.login, race: u.race, raceName: C.RACE_NAMES[u.race] },
+      user: { id: u.id, login: u.login, race: u.race, raceName: C.RACE_NAMES[u.race], gold: u.gold || 0, admin: !!u.admin },
       castle: {
         id: c.id, name: c.name, x: c.x, y: c.y, grid: c.grid, levels: c.levels,
         res: c.res, rate: this.game.rates(c), cap: this.game.capacity(c),
@@ -158,6 +158,7 @@ const API = {
   login(m) {
     const u = this.game.login(m.login, m.password);
     if (!u) return this.error('Неверный логин или пароль.');
+    if (u.banned) return this.error('Аккаунт заблокирован администрацией.');
     this.user = u; u.online = true; u.lastSeen = Date.now();
     this.log(`web login ${u.login}`);
     this.send({ t: 'auth' });
@@ -251,7 +252,15 @@ const API = {
     this.send({ t: 'report', report: x });
     this.pushState();
   },
-  admin(m) { const r = this.game.adminOp(this.user, m.op, m); if (!r.error) this.toast('Готово (админ).'); this.result(r); },
+  admin(m) {
+    const r = this.game.adminOp(this.user, m.op, m);
+    if (r.error) return this.error(r.error);
+    if (r.data) this.send({ t: 'admininfo', op: m.op, data: r.data });
+    else this.toast(r.msg || 'Готово.');
+    if (m.op === 'chat' && r.data) for (const s of WebSession.all || []) if (s.user && s.sendChat) s.sendChat(r.data);
+    if (m.login) for (const s of WebSession.all || []) if (s.user && s.user.login === String(m.login).toLowerCase() && s !== this) { if (m.op === 'ban' || m.op === 'delete') s.socket.destroy(); else s.pushState(); }
+    this.pushState();
+  },
   bug(m) {
     const db = this.game.db; db.bugs = db.bugs || [];
     db.bugs.push({ from: this.user.login, text: String(m.text || ''), at: Date.now(), via: 'web' });

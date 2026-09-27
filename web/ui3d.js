@@ -13,9 +13,10 @@ const raceIcon = (race) => gimg(RACE_IMG[race] || 'units/human/general.png', 'ri
 // ---------- меню ----------
 const MENUS = {
   cabinet: { label: 'Кабинет', icon: 'smallicon/bonus_status/coronalgold.png', items: () => [
+    ...(S.st.user.admin ? [['Админ-панель', 'smallicon/status/f_gold.png', () => openSheet(adminHtml)]] : []),
     ['Профиль', 'units/human/general.png', () => send({ t: 'profile', id: me() })],
     ['Советник', `units/${S.cat.mil.raceDir[S.st.user.race]}/wisdom.png`, () => openSheet(advisorWin)],
-    ['Казна', 'smallicon/coin_gold.png', () => openSoon('Казна')],
+    ['Казна', 'smallicon/coin_gold.png', () => openSheet(treasuryWin)],
     ['Премиум', 'smallicon/status/f_gold.png', () => openSoon('Премиум')],
     ['Уведомления', 'smallicon/upgrade.png', () => openReports()],
     ['Фотоальбомы', 'smallicon/magattak.png', () => openSoon('Фотоальбомы')],
@@ -29,7 +30,6 @@ const MENUS = {
     ['Мои друзья', 'smallicon/status/online.png', () => openPlayers('friends')],
     ['Поиск друзей', 'user_search.png', () => openPlayers('search')],
     ['Блокнот', 'smallicon/softedit.png', () => { S.notes = null; send({ t: 'notes' }); openSheet(notesWin); }],
-    ...(S.st.castle.mil.admin ? [['Админ-панель', 'smallicon/status/f_gold.png', () => openSheet(adminHtml)]] : []),
   ] },
   locations: { label: 'Локации', title: 'Локации', icon: 'build/castle.png', items: () => [
     ['Замок', 'build/castle.png', () => setTab('castle')],
@@ -222,6 +222,10 @@ function castleWin(o, x, y) {
     </div>
     <button class="pbar cwsave" data-saveplace="${x},${y}">${saved ? 'Место запомнено' : 'Запомнить место'}</button>`;
 }
+
+// ---------- Казна: золото игрока ----------
+const treasuryWin = () => `${ribbon('Казна')}<div class="cwin"><img class="cwimg" src="${GFX}smallicon/coin_gold.png" alt=""><div><div class="cwname">Золото</div><b>${fmtFull(S.st.user.gold)}</b></div></div>
+  <p class="parch-note">Золото — премиум-валюта: выдаётся администрацией и за достижения.</p>`;
 
 // ---------- прочие окна ----------
 const notesWin = () => `${ribbon('Блокнот')}${S.notes === null ? '<p class="parch-note">Загрузка…</p>' : `<form class="stack" data-form="notes"><textarea name="text" rows="14" placeholder="Заметки видите только вы">${esc(S.notes)}</textarea><button class="btn primary">Сохранить</button></form>`}`;

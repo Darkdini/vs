@@ -319,5 +319,7 @@ class Game {
 require('./army').install(Game, { buildTime, landOptions });
 // кабинет: профиль, репутация, друзья, чат, Зал Славы (server/src/social.js)
 require('./social').install(Game);
+// администратор: 20 замков и все админ-команды (server/src/admin.js)
+require('./admin').install(Game);
 
 module.exports = { Game, Store, STORE, BASE_RATE, PEOPLE_FACTOR, storeBonus, buildTime, VIEW, GRID, landOptions, SPEED, MAX_QUEUE, LANDS_BASE, LANDS_DECOR, LANDS_EDGE };

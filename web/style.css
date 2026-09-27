@@ -544,3 +544,17 @@ input.num { width: 76px; padding: 7px; text-align: center; }
 .cwplayer { width: auto; flex: 1; margin: 0; }
 .cwhr { border: 0; border-top: 1px solid #b08a5a; margin: 6px 0; }
 .cwsave { width: 70%; margin: 4px auto; }
+
+/* админ-панель */
+.acard { background: #fff8e44d; border: 1px solid #b08a5a; border-radius: 8px; padding: 10px; margin: 6px 0; font: 16px var(--serif); display: grid; gap: 8px; }
+.arow { display: flex; gap: 8px; align-items: center; margin: 6px 0; font: 17px var(--serif); }
+.arow > span { flex: none; }
+.arow input:not(.anum), .arow select { flex: 1; }
+.anum { width: 45%; flex: none; }
+.arow .ptile { aspect-ratio: auto; flex: 1; min-height: 64px; flex-direction: row; gap: 8px; }
+.arow .ptile img { width: 34px; height: 34px; }
+#sheetBody .acard .ptiles, #sheetBody .ptiles { margin: 8px 0; }
+#sheetBody hr { border: 0; border-top: 1px solid #b08a5a; }
+#sheetBody .bad { color: #b8200a; }
+.chatform input { min-width: 0; width: auto; flex: 1; }
+.chatform .btn.small { flex: none; white-space: nowrap; }

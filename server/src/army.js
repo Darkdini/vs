@@ -754,43 +754,7 @@ function install(Game, helpers) {
     castle.resAt = Date.now();
     this.store.save();
   };
-  P.ensureAdmin = function ensureAdmin(pass = process.env.ADMIN_PASS || 'admin') {
-    let u = this.db.users.admin;
-    if (!u) {
-      const r = this.register({ login: 'admin', password: pass, race: 0 });
-      if (r.error) return null;
-      u = r.user; u.admin = true;
-      const c = this.castleOf(u); c.name = 'Королевский замок';
-      this.maxOut(c);
-    }
-    u.admin = true;
-    return u;
-  };
-  P.adminOp = function adminOp(user, op, arg = {}) {
-    if (!user.admin) return { error: 'Нет прав.' };
-    const c = this.castleOf(user); this.mil(c);
-    const now = Date.now();
-    if (op === 'fill') { this.tick(c); const cap = this.capacity(c); for (const r of C.RES) c.res[r] = cap[r]; }
-    else if (op === 'finish') {
-      for (const q of c.queue) q.end = now;
-      for (const t of c.training) { t.start = now - t.each * t.count; }
-      if (c.research) c.research.end = now;
-      for (const a of c.armies) { if (a.state === 'go') { const d = a.arrive - a.depart; a.arrive = now; a.depart = now - d; } else a.back = now; }
-      if (c.general && c.general.reviveAt) c.general.reviveAt = now;
-      this.tick(c); this.tickWorld(now);
-      for (const a of c.armies) if (a.state === 'back') a.back = now; // и сразу домой
-      this.tickWorld(now);
-    } else if (op === 'units') { for (const u of unitsForRace(this.raceOf(c))) if (u.id !== GENERAL_ID) c.units[u.id] = (c.units[u.id] || 0) + (Number(arg.n) || 100); }
-    else if (op === 'max') this.maxOut(c);
-    else if (op === 'maxuser') { // прокачать другого игрока (для тестов боёв)
-      const u = this.db.users[String(arg.login || '').trim().toLowerCase()];
-      if (!u) return { error: 'Игрок не найден.' };
-      this.maxOut(this.castleOf(u));
-    }
-    else return { error: 'Неизвестная команда.' };
-    this.store.save();
-    return { ok: true };
-  };
+  // админ и его команды — server/src/admin.js
 
   // ----- всё военное/функциональное состояние замка для клиента -----
   P.milState = function milState(castle, user) {
