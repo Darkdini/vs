@@ -7,6 +7,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const zlib = require('zlib');
 const C = require('./catalog');
 const G = require('./game');
 const ARMY = require('./army');
@@ -271,13 +272,31 @@ const API = {
   },
 };
 
+// статика из памяти: файл читается и сжимается один раз, пока не изменится на диске
+const STATIC = new Map();
+function staticFile(file) {
+  let st; try { st = fs.statSync(file); } catch { return null; }
+  if (st.isDirectory()) return null;
+  const key = `${st.size}-${st.mtimeMs}`, hit = STATIC.get(file);
+  if (hit && hit.key === key) return hit;
+  const ext = path.extname(file), body = fs.readFileSync(file);
+  const f = { key, body, type: MIME[ext] || 'application/octet-stream', etag: `"${st.size.toString(36)}-${Math.floor(st.mtimeMs).toString(36)}"`, img: ext === '.png',
+    gz: ['.html', '.js', '.css', '.svg', '.json', '.webmanifest'].includes(ext) && body.length > 1024 ? zlib.gzipSync(body) : null };
+  STATIC.set(file, f);
+  return f;
+}
+
 function startWeb(game, sessions, { port, host, log }) {
   const server = http.createServer((req, res) => {
-    const url = decodeURIComponent(req.url.split('?')[0]);
-    const send = (code, type, body) => { res.writeHead(code, { 'Content-Type': type, 'Cache-Control': 'no-cache' }); res.end(body); };
+    let url; try { url = decodeURIComponent(req.url.split('?')[0]); } catch { url = '/'; }
     const file = path.normalize(path.join(WEB_ROOT, url === '/' ? 'index.html' : url));
-    if (!file.startsWith(WEB_ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) return send(404, 'text/plain', 'not found');
-    send(200, MIME[path.extname(file)] || 'application/octet-stream', fs.readFileSync(file));
+    const f = file.startsWith(WEB_ROOT) && staticFile(file);
+    if (!f) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('not found'); }
+    // картинки браузер держит в кэше сутки; код и стили — всегда сверяет по ETag (ответ 304 без тела)
+    const head = { 'Content-Type': f.type, ETag: f.etag, 'Cache-Control': f.img ? 'public, max-age=86400' : 'no-cache' };
+    if (req.headers['if-none-match'] === f.etag) { res.writeHead(304, head); return res.end(); }
+    if (f.gz && /\bgzip\b/.test(req.headers['accept-encoding'] || '')) { res.writeHead(200, { ...head, 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' }); return res.end(f.gz); }
+    res.writeHead(200, head); res.end(f.body);
   });
 
   server.on('upgrade', (req, socket) => {
