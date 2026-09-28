@@ -103,10 +103,10 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   // огромный бой: генерал 100 ур. получает не больше четверти уровня, за сутки — не больше двух уровней
   const span = g.generalNeed(100) - g.generalNeed(99);
   const a = g.addGeneralExp(c1, 10000000);
-  assert.ok(a.got === Math.ceil(span * 0.25) && a.capped === 'battle' && a.level === 100, JSON.stringify(a));
+  assert.ok(a.got === Math.ceil(span * 0.15) && a.capped === 'battle' && a.level === 100, JSON.stringify(a));
   let lv = 100; for (let i = 0; i < 50; i++) lv = g.addGeneralExp(c1, 10000000).level;
-  assert.ok(lv <= 102, `за сутки не больше 2 уровней, а стало ${lv}`);
-  console.log(`✓ генерал: 1 опыт за 10 населения, повторный бой ×0,5, лимит за бой ${fmt(Math.ceil(span * 0.25))}, за сутки 100 → ${lv} ур. даже за 50 огромных боёв`);
+  assert.ok(lv <= 101, `за сутки не больше 1 уровня, а стало ${lv}`);
+  console.log(`✓ генерал: 1 опыт за 10 населения, повторный бой ×0,5, лимит за бой ${fmt(Math.ceil(span * 0.15))}, за сутки 100 → ${lv} ур. даже за 50 огромных боёв`);
 }
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);

@@ -126,7 +126,7 @@ const GENERAL_ID = 236;
 const unitsForRace = (race) => UNITS.filter((u) => u.race === race || u.race === 'all');
 // генерал как в оригинале: за уровень — очки опыта, игрок распределяет их в окне «Генерал».
 // Личная атака/защита — +1 за очко; командование атакой/защитой — +0,3% к армии; восстановление — быстрее воскрешение; карьера — больше опыта.
-const GEN = { perLevel: 2, maxLevel: 500, revive: 0.5, cmd: 0.003, heal: 0.02, career: 0.005, resetGold: 100 };
+const GEN = { battleCap: 0.15, dayLevels: 1, perLevel: 2, maxLevel: 500, revive: 0.5, cmd: 0.003, heal: 0.02, career: 0.005, resetGold: 100 };
 const GEN_STATS = ['atk', 'def', 'catk', 'cdef', 'heal', 'career'];
 // звание генерала в скобках — сильнейший боевой юнит расы (у орков «Бугай» и т. п.)
 const genKind = (race) => { const l = UNITS.filter((u) => u.race === race && ['infantry', 'cavalry'].includes(u.type)).sort((a, b) => b.attack - a.attack); return l[0] ? l[0].name : 'Генерал'; };
@@ -393,8 +393,8 @@ function install(Game, helpers) {
       heal: GEN.heal * g.pts.heal, career: GEN.career * g.pts.career };
   };
   // опыт генерала за бой. Чтобы генерал не качался «за пару секунд», действуют ограничения:
-  //  • за один бой — не больше 25% опыта текущего уровня (минимум 4 боя на уровень);
-  //  • за сутки — не больше опыта на 2 уровня (≈ 60 уровней в месяц при активной войне, 500 ур. — больше полугода);
+  //  • за один бой — не больше 15% опыта текущего уровня (минимум 7 боёв на уровень);
+  //  • за сутки — не больше опыта на 1 уровень (≈ 30 уровней в месяц при активной войне, 500 ур. — больше года);
   //  • карьера (+0,5% за очко) и премиум (×2) увеличивают и опыт, и оба лимита.
   P.addGeneralExp = function addGeneralExp(castle, exp) {
     const g = castle.general; if (!g || g.dead || !(exp > 0)) return null;
@@ -403,7 +403,7 @@ function install(Game, helpers) {
     const span = this.generalNeed(g.level) - (g.level > 1 ? this.generalNeed(g.level - 1) : 0);
     const day = new Date().toISOString().slice(0, 10);
     if (!g.day || g.day.d !== day) g.day = { d: day, exp: 0 };
-    const battleCap = Math.max(50, Math.ceil(span * 0.25 * mult)), dayCap = Math.ceil(span * 2 * mult);
+    const battleCap = Math.max(20, Math.ceil(span * GEN.battleCap * mult)), dayCap = Math.ceil(span * GEN.dayLevels * mult);
     const raw = Math.round(exp * mult), got = Math.max(0, Math.min(raw, battleCap, dayCap - g.day.exp));
     const capped = got < raw ? (g.day.exp + got >= dayCap ? 'day' : 'battle') : null;
     g.day.exp += got;
@@ -1246,7 +1246,7 @@ function install(Game, helpers) {
     const health = g.dead ? (g.reviveAt && g.reviveStart ? Math.min(99, Math.floor((Date.now() - g.reviveStart) / (g.reviveAt - g.reviveStart) * 100)) : 0) : 100;
     const span = this.generalNeed(g.level) - (g.level > 1 ? this.generalNeed(g.level - 1) : 0), mult = (1 + GEN.career * g.pts.career) * (this.isPremium(this.userById(castle.owner)) ? 2 : 1);
     const today = new Date().toISOString().slice(0, 10), dayExp = g.day && g.day.d === today ? g.day.exp : 0;
-    const lim = { battle: Math.max(50, Math.ceil(span * 0.25 * mult)), day: Math.ceil(span * 2 * mult), dayExp };
+    const lim = { battle: Math.max(20, Math.ceil(span * GEN.battleCap * mult)), day: Math.ceil(span * GEN.dayLevels * mult), dayExp };
     return { ...g, foes: undefined, lim, stats: gs, need: this.generalNeed(g.level), prevNeed: g.level > 1 ? this.generalNeed(g.level - 1) : 0, where: `${where}, замок ${castle.name}`, health,
       reviveCost: Object.fromEntries(RES4.map((r) => [r, Math.round(UNIT[GENERAL_ID].cost[r] * GEN.revive * g.level)])), resetGold: GEN.resetGold, perLevel: GEN.perLevel };
   };

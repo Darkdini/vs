@@ -14,29 +14,59 @@ function armyByKey(k) {
 const allArmies = () => [armyByKey('castle'), ...(MY().squads || []).map((q) => armyByKey(q.id))];
 const genHere = (a) => { const g = MY().general; return g && !g.dead && !g.away && (a.castle ? !g.squad : g.squad === a.key); };
 
-// ---------- Армии в замке (список, по 6 на страницу) ----------
+// ---------- Армии в замке: как в Военном штабе оригинала — 5 армий на страницу, листалка, разделы с армиями вне замка ----------
 S.armPage = 0;
-function armiesWin() {
-  const list = allArmies(), per = 6, pages = Math.max(1, Math.ceil(list.length / per));
+const ARM_PER = 5, TOP = 'gfx3d/top/';
+function armiesListHtml() {
+  const list = allArmies(), pages = Math.max(1, Math.ceil(list.length / ARM_PER));
   S.armPage = Math.min(S.armPage, pages - 1);
-  const rows = list.slice(S.armPage * per, S.armPage * per + per).map((a) => `
-    <div class="arow2"><div class="aicon">${a.castle ? `<img class="acastle" src="${ICO('locations')}" alt="">` : ''}<img class="aswords" src="${ICO('swords')}" alt=""></div>
+  const rows = list.slice(S.armPage * ARM_PER, S.armPage * ARM_PER + ARM_PER).map((a) => `
+    <div class="arow2"><div class="aicon"><img class="aswords" src="${ICO('swords')}" alt=""></div>
       <div class="ainfo"><div class="aname">${esc(a.name)}${genHere(a) ? ` <img class="rico" src="${unitSrc(unitById(M().generalId))}" alt="" title="генерал">` : ''}</div>
-      <div class="acount"><img src="${ICO('helmet')}" alt=""> ${fmtFull(armyTotal(a.units))}</div>
+      <div class="acount"><img src="${ICO('helmet')}" alt=""> ${fmtFull(armyTotal(a.units)) }</div>
       <button class="pbar amanage" data-army="${a.key}"><img src="${G3}Gears/a1.png" alt=""> Управление</button></div></div>`).join('');
-  const my = MY();
-  const away = my.armies.map((a) => `<div class="arow2"><div class="aicon"><img class="aswords" src="${ICO('swords')}" alt=""></div><div class="ainfo">
-      <div class="aname">${esc(a.squad ? (a.squad.id ? `Армия: ${a.squad.name}` : a.squad.name) : 'Армия')} — ${M().missions[a.mission]}</div>
-      <div class="acount"><img src="${ICO('helmet')}" alt=""> ${fmtFull(armyTotal(a.units))} · ${a.state === 'wait' ? `выйдет через <span class="cd" data-e="${a.depart}"></span>` : a.state === 'go' ? `к ${a.x}:${a.y}, <span class="cd" data-e="${a.arrive}"></span>` : a.state === 'back' ? `возвращается, <span class="cd" data-e="${a.back}"></span>` : `стоит в ${esc(a.stayName || '')}`}</div>
-      ${a.state === 'stay' ? `<button class="pbar amanage" data-recall="${a.id}">Отозвать домой</button>` : ''}</div></div>`).join('');
-  const guests = (my.guests || []).map((g) => `<div class="pline">${esc(g.from)} (${esc(g.castle)}): <img class="rico" src="${ICO('helmet')}" alt=""> ${fmtFull(armyTotal(g.units))}</div>`).join('');
-  return `${ribbon('Армии в замке')}
+  const my = MY(), n = armSections();
+  const bar = (k, icon, text, cnt) => `<button class="pbar asec" data-asec="${k}"><img src="${icon}" alt=""> ${text}${cnt ? ` (${cnt})` : ''}</button>`;
+  return `${rows}
     <div class="pager"><button data-apage="first">◀◀</button><button data-apage="prev">◀</button><span>${S.armPage + 1}</span><button data-apage="next">▶</button><button data-apage="last">▶▶</button></div>
-    ${rows}
-    <button class="pbar" data-campaign>Военный поход</button>
-    ${away ? `${ribbon('Армии вне замка')}${away}` : ''}
-    ${guests ? `${ribbon('Подкрепления в замке')}${guests}` : ''}`;
+    ${bar('inc', `${TOP}inc.png`, 'Приближающиеся армии', n.inc.length)}
+    ${bar('mine', `${TOP}att.png`, 'Ваши армии', n.mine.length)}
+    ${bar('reinf', `${TOP}reinf.png`, 'Ваши подкрепления', n.reinf.length)}
+    ${bar('outpost', `${GFX}build/guard_tower.png`, 'Форпост', 0)}
+    ${bar('guests', `${TOP}guest.png`, 'Чужие подкрепления', n.guests.length)}
+    ${bar('portal', `${GFX}build/portal.png`, 'В портале', n.portal.length)}
+    <button class="pbar" data-campaign>Военный поход</button>`;
 }
+// армии вне замка по разделам
+function armSections() {
+  const my = MY(), arm = my.armies || [];
+  return {
+    inc: (my.incoming || []).filter((a) => a.mission !== 'trade' && a.mission !== 'reinforce'),
+    mine: arm.filter((a) => a.state !== 'stay' && !a.portal),
+    reinf: arm.filter((a) => a.state === 'stay'),
+    guests: my.guests || [],
+    portal: arm.filter((a) => a.portal && a.state !== 'stay'),
+  };
+}
+const armWhen = (a) => (a.state === 'wait' ? `выйдет через <span class="cd" data-e="${a.depart}"></span>` : a.state === 'go' ? `к ${a.x}:${a.y}, прибудет через <span class="cd" data-e="${a.arrive}"></span>`
+  : a.state === 'back' ? `возвращается, <span class="cd" data-e="${a.back}"></span>` : `стоит в «${esc(a.stayName || '')}»`);
+function armSectionWin(k) {
+  const n = armSections(), T = { inc: 'Приближающиеся армии', mine: 'Ваши армии', reinf: 'Ваши подкрепления', outpost: 'Форпост', guests: 'Чужие подкрепления', portal: 'В портале' }[k];
+  const own = (a) => `<div class="arow2"><div class="aicon"><img class="aswords" src="${ICO('swords')}" alt=""></div><div class="ainfo">
+      <div class="aname">${esc(a.squad ? (a.squad.id ? `Армия: ${a.squad.name}` : a.squad.name) : 'Армия')} — ${M().missions[a.mission]}${a.general ? ` <img class="rico" src="${unitSrc(unitById(M().generalId))}" alt="">` : ''}</div>
+      <div class="acount"><img src="${ICO('helmet')}" alt=""> ${fmtFull(armyTotal(a.units))} · ${armWhen(a)}</div>
+      ${a.state === 'stay' ? `<button class="pbar amanage" data-recall="${a.id}">Отозвать домой</button>` : ''}</div></div>`;
+  let body;
+  if (k === 'inc') body = n.inc.map((a) => `<div class="arow2 danger"><div class="aicon"><img class="aswords" src="${TOP}inc.png" alt=""></div><div class="ainfo">
+      <div class="aname">${M().missions[a.mission]} от ${esc(a.from)}</div><div class="acount">из «${esc(a.castle)}» · прибудет через <span class="cd" data-e="${a.arrive}"></span></div></div></div>`).join('')
+      || (MY().watch ? '<p class="parch-note">Никто не идёт на ваш замок.</p>' : '<p class="parch-note">Постройте Караульную башню — она покажет армии, идущие на ваш замок.</p>');
+  else if (k === 'guests') body = n.guests.map((g) => `<div class="arow2"><div class="aicon"><img class="aswords" src="${TOP}guest.png" alt=""></div><div class="ainfo">
+      <div class="aname">${esc(g.from)} (${esc(g.castle)})</div><div class="acount"><img src="${ICO('helmet')}" alt=""> ${fmtFull(armyTotal(g.units))} — защищает ваш замок</div></div></div>`).join('') || '<p class="parch-note">Чужих подкреплений в замке нет.</p>';
+  else if (k === 'outpost') body = '<p class="parch-note">Форпостов нет. Форпост — укреплённая стоянка армии на карте мира (скоро).</p>';
+  else body = n[k].map(own).join('') || `<p class="parch-note">${{ mine: 'Все армии дома.', reinf: 'Ваших подкреплений у союзников нет.', portal: 'Через портал сейчас никто не идёт.' }[k]}</p>`;
+  return `${ribbon(T)}${body}`;
+}
+function armiesWin() { return `${ribbon('Армии в замке')}${armiesListHtml()}`; }
 
 // ---------- Управление армией ----------
 function armyWin(k) {
@@ -45,11 +75,12 @@ function armyWin(k) {
   const units = Object.entries(a.units).filter(([, n]) => n > 0).map(([id, n]) => { const u = unitById(id); return u ? `<div class="uline"><img src="${unitSrc(u)}" alt=""> ${esc(u.name)}: ${fmtFull(n)}</div>` : ''; }).join('');
   const g = MY().general;
   const tile = (attr, icon, text) => `<button class="ptile" ${attr}><img src="${icon}" alt=""><span>${text}</span></button>`;
-  return `${ribbon(a.name)}${units || '<p class="parch-note">В армии нет войск.</p>'}
-    ${genHere(a) ? `<button class="uline ulink" data-general><img src="${unitSrc(unitById(M().generalId))}" alt=""> ${esc(g.name)} (${fmtFull(g.level)} ур.)</button>` : ''}
-    <hr class="cwhr"><div class="ptiles">
+  return `${ribbon(a.name)}
+    ${genHere(a) ? `<button class="uline ulink" data-general><img src="${unitSrc(unitById(M().generalId))}" alt=""> ${esc(g.name)}: 1 <small>(${fmtFull(g.level)} ур.)</small></button>` : ''}
+    ${units || '<p class="parch-note">В армии нет войск.</p>'}
+    <hr class="cwhr"><div class="ptiles ${a.castle && !(g && !g.dead && !g.away && !genHere(a)) ? 'solo' : ''}">
       ${tile(`data-regroup="${a.key}"`, `${G3}Gears/a1.png`, 'Переформировать')}
-      ${tile(`data-campaign="${a.key}"`, ICO('swords'), 'В поход')}
+      ${a.castle ? '' : tile(`data-campaign="${a.key}"`, ICO('swords'), 'В поход')}
       ${g && !g.dead && !g.away && !genHere(a) ? tile(`data-genhere="${a.key}"`, unitSrc(unitById(M().generalId)), 'Генерал сюда') : ''}
       ${a.castle ? '' : tile(`data-rename="${a.key}"`, `${GFX}smallicon/softedit.png`, 'Переименовать')}
       ${a.castle ? '' : tile(`data-disband="${a.key}"`, `${GFX}smallicon/destroy.png`, 'Распустить')}
@@ -116,12 +147,13 @@ function campaignWin() {
 
 // ---------- события ----------
 $('#sheetBody').addEventListener('click', (e) => {
-  const t = e.target.closest('[data-army],[data-apage],[data-campaign],[data-regroup],[data-genhere],[data-rename],[data-disband],[data-recall],[data-rgall],[data-rgdo],[data-cmpgo],[data-armies]');
+  const t = e.target.closest('[data-asec],[data-army],[data-apage],[data-campaign],[data-regroup],[data-genhere],[data-rename],[data-disband],[data-recall],[data-rgall],[data-rgdo],[data-cmpgo],[data-armies]');
   if (!t) return;
   const d = t.dataset;
   if (d.armies !== undefined) return openSheet(armiesWin);
+  if (d.asec) return openSheet(() => armSectionWin(d.asec));
   if (d.army !== undefined) return openSheet(() => armyWin(armyKey(d.army)));
-  if (d.apage) { const pages = Math.ceil(allArmies().length / 6); S.armPage = { first: 0, prev: S.armPage - 1, next: S.armPage + 1, last: pages - 1 }[d.apage]; S.armPage = Math.max(0, Math.min(pages - 1, S.armPage)); return refreshSheet(); }
+  if (d.apage) { const pages = Math.ceil(allArmies().length / ARM_PER); S.armPage = { first: 0, prev: S.armPage - 1, next: S.armPage + 1, last: pages - 1 }[d.apage]; S.armPage = Math.max(0, Math.min(pages - 1, S.armPage)); return refreshSheet(); }
   if (d.campaign !== undefined) return openArmySheet({ army: d.campaign === '' ? 'castle' : d.campaign });
   if (d.regroup !== undefined) { S.rg = null; return openSheet(() => regroupWin(armyKey(d.regroup))); }
   if (d.genhere !== undefined) return send({ t: 'squad', op: 'general', id: d.genhere });

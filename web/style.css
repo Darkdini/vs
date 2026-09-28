@@ -932,3 +932,9 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .gexp { display: grid; gap: 6px; margin: 6px 0 10px; font: min(17px, 4.2vw)/1.35 var(--serif); color: #3a2410; }
 .gexp > div { padding: 6px 10px; border: 1px solid #b08a5a; border-radius: 8px; background: #fff8e44d; }
 .bgenx { font-weight: 700; color: #2f5a10; }
+/* Военный штаб: разделы армий вне замка */
+.pbar.asec { display: flex; align-items: center; gap: 12px; text-align: left; padding-left: 12px; }
+.pbar.asec img { width: 34px; height: 34px; object-fit: contain; flex: none; }
+.arow2.danger .aname { color: #a01a10; }
+.ptiles.solo { grid-template-columns: 1fr; justify-items: center; } .ptiles.solo .ptile { width: calc((100% - 24px) / 3); }
+.arow2 .acount .cd { position: static !important; float: none !important; display: inline !important; margin: 0 !important; }
