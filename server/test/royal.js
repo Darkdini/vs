@@ -108,5 +108,37 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(lv <= 101, `за сутки не больше 1 уровня, а стало ${lv}`);
   console.log(`✓ генерал: 1 опыт за 10 населения, повторный бой ×0,5, лимит за бой ${fmt(Math.ceil(span * 0.15))}, за сутки 100 → ${lv} ур. даже за 50 огромных боёв`);
 }
+// перевод генерала в свой другой замок подкреплением и переформирование генерала в армию
+{
+  const U = g.register({ login: 'gentrans', password: '123', race: 0 }).user; g.adminAddCastles(U, 1);
+  const [c1, c2] = g.castlesOf(U); g.mil(c1); g.mil(c2); g.maxOut(c1); c1.general = g.newGeneral(c1, 10); c2.general = null;
+  c1.units = { 200: 50 };
+  // генерал в новую армию одним переформированием
+  const rg = g.squadOp(c1, { op: 'regroup', from: 'castle', to: 'new', units: { 200: 10 }, general: true });
+  assert.ok(rg.ok && c1.general.squad === rg.id, JSON.stringify(rg));
+  const r = g.sendArmy(c1, { from: String(rg.id), mission: 'reinforce', x: c2.x, y: c2.y });
+  assert.ok(!r.error && r.army.general, JSON.stringify(r.error));
+  g.tickWorld(Date.now() + 1e9);
+  assert.ok(!c1.general && c2.general && c2.general.level === 10 && c2.squads.some((q) => q.id === c2.general.squad && q.units[200] === 10), 'генерал переехал');
+  // во второй замок, где уже есть генерал, — нельзя
+  c1.general = g.newGeneral(c1, 1);
+  const r2 = g.sendArmy(c1, { from: 'castle', mission: 'reinforce', x: c2.x, y: c2.y });
+  assert.ok(/уже есть генерал/.test(r2.error || ''), JSON.stringify(r2));
+  console.log('✓ генерал: переформирование в любую армию, перевод в свой замок подкреплением, в замке только один генерал');
+}
+// торговцы: 20 при Рынке, не тренируются, груз по уровню Рынка, возвращаются на Рынок
+{
+  const T = g.register({ login: 'mercht', password: '123', race: 0 }).user, T2 = g.register({ login: 'mercht2', password: '123', race: 0 }).user;
+  const c = g.castleOf(T), c2 = g.castleOf(T2); g.maxOut(c); c.units[221] = 500;
+  let m = g.merchants(c);
+  assert.ok(m.total === 20 && m.free === 20 && !c.units[221], JSON.stringify(m));
+  assert.ok(/не тренируются/.test(g.train(c, 221, 1).error || ''));
+  c.res.wood = 100000; const r = g.sendTrade(c, { x: c2.x, y: c2.y, res: { wood: m.carry * 3 } });
+  assert.ok(r.need === 3 && g.merchants(c).free === 17, JSON.stringify(r));
+  assert.ok(/свободных: 17/.test(g.sendTrade(c, { x: c2.x, y: c2.y, res: { wood: m.carry * 18 } }).error || ''));
+  g.tickWorld(Date.now() + 1e10); g.tickWorld(Date.now() + 2e10);
+  assert.ok(g.merchants(c).free === 20 && !c.units[221], 'торговцы вернулись на Рынок');
+  console.log(`✓ торговцы: 20 на Рынке, не тренируются, груз ${m.carry} на торговца, 3 ушли — 17 свободны, вернулись`);
+}
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);

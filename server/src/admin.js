@@ -102,7 +102,7 @@ function install(Game) {
       case 'castles': { const n = Math.max(1, Math.min(50, num(arg.n, 1))); msg = `Добавлено замков: ${this.adminAddCastles(target, n)}.`; break; }
       // --- армия ---
       case 'army': {
-        const n = num(arg.n, 1000), list = arg.unit ? [UNIT[arg.unit]].filter(Boolean) : unitsForRace(target.race).filter((u) => u.id !== GENERAL_ID);
+        const n = num(arg.n, 1000), list = arg.unit ? [UNIT[arg.unit]].filter(Boolean) : unitsForRace(target.race).filter((u) => u.id !== GENERAL_ID && !u.notrain);
         for (const c of castles) { this.mil(c); for (const u of list) { c.units[u.id] = Math.max(0, (c.units[u.id] || 0) + n); if (!c.units[u.id]) delete c.units[u.id]; } }
         msg = `Войска ${n >= 0 ? '+' : ''}${n} (${list.length} видов).`; break;
       }

@@ -122,6 +122,10 @@ function buildUnit([id, name, race, img, role, building, level, req = {}, stats]
 }
 const UNITS = UNIT_LIST.map(buildUnit);
 const UNIT = Object.fromEntries(UNITS.map((u) => [u.id, u]));
+// Торговцы — как в оригинале: не тренируются и не воюют, их всегда 20 при построенном Рынке; скорость 20 полей/час,
+// груз — 45 ед. за уровень Рынка (20 ур. — 900 ед.)
+const MERCHANT_ID = 221, MERCHANTS = 20;
+Object.assign(UNIT[MERCHANT_ID], { speed: 20, notrain: true, carry: 45 });
 const GENERAL_ID = 236;
 const unitsForRace = (race) => UNITS.filter((u) => u.race === race || u.race === 'all');
 // генерал как в оригинале: за уровень — очки опыта, игрок распределяет их в окне «Генерал».
@@ -220,7 +224,38 @@ function install(Game, helpers) {
     if (castle.forgeJob === undefined) castle.forgeJob = null;
     if (!castle.squads) castle.squads = []; // отряды в замке («Армия: …»); castle.units — «Замковая армия»
     if (castle.loyalty === undefined) { castle.loyalty = 100; castle.loyAt = Date.now(); }
+    // торговцы больше не юниты армии — убрать старые записи из войск и очередей
+    if (castle.units[MERCHANT_ID]) delete castle.units[MERCHANT_ID];
+    for (const q of castle.squads) delete q.units[MERCHANT_ID];
+    if (castle.training.some((t) => t.unit === MERCHANT_ID)) castle.training = castle.training.filter((t) => t.unit !== MERCHANT_ID);
     return castle;
+  };
+  // торговцы замка: всего 20 при Рынке, в пути — те, что везут ресурсы
+  P.merchants = function merchants(castle) {
+    this.mil(castle);
+    const lvl = this.buildingLevel(castle, B.MARKET), total = lvl ? MERCHANTS : 0;
+    const away = (castle.armies || []).filter((a) => a.mission === 'trade').reduce((s, a) => s + (a.units[MERCHANT_ID] || 0), 0);
+    return { total, away, free: Math.max(0, total - away), reserved: 0, carry: UNIT[MERCHANT_ID].carry * lvl, speed: UNIT[MERCHANT_ID].speed, level: lvl }; // как в оригинале: 20 ур. — 900 ед., 20 полей/час
+  };
+  // «Передать»: торговцы везут ресурсы в замок; сколько торговцев — по грузу
+  P.sendTrade = function sendTrade(castle, { x, y, res }) {
+    this.tick(castle);
+    const m = this.merchants(castle);
+    if (!m.level) return { error: 'Нужен Рынок.' };
+    x = Math.round(Number(x)); y = Math.round(Number(y));
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return { error: 'Укажите координаты замка.' };
+    if (x === castle.x && y === castle.y) return { error: 'Это этот же замок.' };
+    const target = this.castleAt(x, y); if (!target) return { error: 'Торговцы везут ресурсы только в замок.' };
+    const cargo = {}; let total = 0;
+    for (const r of RES4) { const v = Math.max(0, Math.floor(Number((res || {})[r]) || 0)); if (castle.res[r] < v) return { error: 'Недостаточно ресурсов.' }; cargo[r] = v; total += v; }
+    if (!total) return { error: 'Укажите, сколько везти.' };
+    const need = Math.ceil(total / m.carry);
+    if (need > m.free) return { error: `Нужно торговцев: ${need}, свободных: ${m.free} (каждый везёт ${m.carry}).` };
+    for (const r of RES4) castle.res[r] -= cargo[r];
+    const units = { [MERCHANT_ID]: need }, sec = Math.max(5, Math.round(Math.hypot(x - castle.x, y - castle.y) / m.speed * 3600 / SPEED)), now = Date.now();
+    const army = { id: this.db.nextId++, units, general: false, mission: 'trade', x, y, depart: now, arrive: now + sec * 1000, sec, state: 'go', loot: null, cargo, squad: null, portal: false };
+    castle.armies.push(army); this.store.save();
+    return { army, sec, need };
   };
   P.ownerOf = function ownerOf(castle) { return this.userById(castle.owner); };
   P.raceOf = function raceOf(castle) { const u = this.ownerOf(castle); return u ? u.race : 'humans'; };
@@ -289,6 +324,7 @@ function install(Game, helpers) {
     this.tick(castle);
     const unit = UNIT[unitId]; count = Math.floor(Number(count));
     if (!unit) return { error: 'Неизвестный юнит.' };
+    if (unit.notrain) return { error: 'Торговцы не тренируются — их 20 на Рынке.' };
     if (!(count > 0)) return { error: 'Укажите количество.' };
     const lock = this.unitLock(castle, unit); if (lock) return { error: lock };
     if (unit.id === GENERAL_ID) {
@@ -494,6 +530,7 @@ function install(Game, helpers) {
   // отправка: from = 'castle' (вся Замковая армия) или id отряда (весь отряд), как в оригинале; либо units — выборочно.
   // portal — через Портал (в 4 раза быстрее), at — расписание отправки (время, мс)
   P.sendArmy = function sendArmy(castle, { units = {}, general = false, x, y, mission, res = null, from = null, portal = false, at = 0 }) {
+    if (mission === 'trade') return this.sendTrade(castle, { x, y, res });
     this.tick(castle); this.mil(castle);
     let squad = null;
     if (from !== null && from !== undefined && from !== '') {
@@ -507,7 +544,7 @@ function install(Game, helpers) {
       const fits = { scout: (r) => ['scout', 'eye'].includes(r), expedition: (r) => r === 'archaeologist', trade: (r) => r === 'merchant' }[mission]
         || ((r) => !['merchant', 'archaeologist', 'sage', 'settler'].includes(r));
       units = Object.fromEntries(Object.entries(units).filter(([u]) => UNIT[u] && fits(UNIT[u].role)));
-      if (mission !== 'attack' && mission !== 'raid') general = false;
+      if (!['attack', 'raid', 'reinforce'].includes(mission)) general = false;
     }
     x = Math.round(Number(x)); y = Math.round(Number(y));
     if (!MISSIONS[mission]) return { error: 'Неизвестная миссия.' };
@@ -548,6 +585,14 @@ function install(Game, helpers) {
     if (mission === 'reinforce' && !target) return { error: 'Подкрепление отправляют в замок.' };
     if (mission === 'reinforce' && roles.some((r) => r === 'merchant')) return { error: 'Торговцы не воюют.' };
     if (target && target.owner === castle.owner && !['trade', 'reinforce'].includes(mission)) return { error: 'Это ваш замок.' };
+    // генерал идёт в подкреплении только в свой замок (перевод генерала); в замке может быть лишь один генерал
+    if (general && mission === 'reinforce') {
+      if (!target || target.owner !== castle.owner) { if (!from) return { error: 'Генерал идёт подкреплением только в свой замок.' }; general = false; }
+      else {
+        if (target.general) return { error: `В замке «${target.name}» уже есть генерал — в замке может быть только один.` };
+        if (castle.armies.some((x) => x.general && x.mission === 'reinforce' && x.x === target.x && x.y === target.y)) return { error: 'Генерал уже идёт в этот замок.' };
+      }
+    }
     const me = this.ownerOf(castle);
     if (target && ['attack', 'raid', 'scout'].includes(mission) && !me.admin && this.rating(target) < NEWBIE_RATING) return { error: `Игрок под защитой новичка (рейтинг ниже ${NEWBIE_RATING}).` };
     if (!target && (!obj || (!NPC[obj.img] && mission !== 'scout'))) return { error: 'Здесь некого атаковать.' };
@@ -591,7 +636,7 @@ function install(Game, helpers) {
   P.returnHome = function returnHome(c, a) {
     this.tick(c);
     this.mil(c);
-    const units = Object.fromEntries(Object.entries(a.units).filter(([, n]) => n > 0));
+    const units = Object.fromEntries(Object.entries(a.units).filter(([id, n]) => n > 0 && Number(id) !== MERCHANT_ID)); // торговцы просто возвращаются на Рынок
     if (a.squad && a.squad.id) { // отряд возвращается отдельной армией
       c.squads.push({ id: a.squad.id, name: a.squad.name, units });
       if (a.general && c.general && c.general.away === a.id) { delete c.general.away; c.general.squad = a.squad.id; }
@@ -604,6 +649,22 @@ function install(Game, helpers) {
     c.armies = c.armies.filter((x) => x !== a);
     const lootTxt = a.loot ? ` Добыча: ${RES4.map((r) => a.loot[r] || 0).join('/')}` : '';
     this.event(c.owner, `Армия вернулась (${MISSIONS[a.mission]}).${lootTxt}`);
+  };
+  // подкрепление в свой замок: армия становится отдельной армией нового замка, генерал — генералом этого замка
+  P.transferArmy = function transferArmy(c, a, target) {
+    this.mil(target);
+    const units = Object.fromEntries(Object.entries(a.units).filter(([, n]) => n > 0));
+    let gName = null;
+    const sid = this.db.nextId++, name = a.squad && a.squad.id ? a.squad.name : `${target.id}.${sid}`;
+    if (Object.keys(units).length || a.general) target.squads.push({ id: sid, name, units });
+    if (a.general && c.general && c.general.away === a.id) {
+      if (target.general) { delete c.general.away; } // в замке уже появился генерал — наш остаётся дома
+      else { const g = c.general; delete g.away; g.squad = sid; target.general = g; c.general = null; gName = g.name; }
+    }
+    c.armies = c.armies.filter((x) => x !== a);
+    this.report(c.owner, `Армия переведена в замок «${target.name}»`, [`Армия «${name}» прибыла в ваш замок ${target.name} (${target.x}:${target.y}) и теперь в его Военном штабе.`,
+      `Войска: ${unitsLine(units)}`, ...(gName ? [`Генерал «${gName}» теперь служит в замке «${target.name}». Переформируйте его в любую армию в Военном штабе.`] : [])], 'reinforce');
+    this.store.save();
   };
   P.goBack = function goBack(c, a, t) {
     const alive = Object.values(a.units).some((n) => n > 0) || (a.general && c.general && !c.general.dead);
@@ -678,6 +739,7 @@ function install(Game, helpers) {
     if (a.mission === 'expedition') return this.expedition(c, a, t);
     if (a.mission === 'reinforce') { // подкрепление встаёт в замке и защищает его, пока его не отзовут
       if (!target) return this.goBack(c, a, t);
+      if (target.owner === c.owner) return this.transferArmy(c, a, target); // в свой замок — армия (и генерал) переходят в его Военный штаб
       a.state = 'stay'; a.stayAt = target.id;
       const to = this.ownerOf(target);
       this.report(c.owner, `Подкрепление прибыло в ${target.name}`, [`Армия встала в замке ${target.name} (${a.x}:${a.y}) и защищает его. Отозвать — «Армии в замке».`, `Войска: ${unitsLine(a.units)}`], 'reinforce');
@@ -1170,7 +1232,7 @@ function install(Game, helpers) {
   // админ и его команды — server/src/admin.js
 
   // ----- армии в замке: переформирование, переименование, роспуск, генерал, отзыв подкрепления -----
-  P.squadOp = function squadOp(castle, { op, from, to, units = {}, id, name }) {
+  P.squadOp = function squadOp(castle, { op, from, to, units = {}, id, name, general = false }) {
     this.tick(castle); this.mil(castle);
     const pick = (k) => (k === 'castle' ? { units: castle.units, castle: true } : castle.squads.find((q) => q.id === Number(k)));
     if (op === 'regroup') { // перенести войска из from в to ('castle', id отряда или 'new')
@@ -1179,7 +1241,9 @@ function install(Game, helpers) {
       if (to !== 'new' && !dst) return { error: 'Армия не найдена.' };
       const move = {};
       for (const [u, n0] of Object.entries(units)) { const n = Math.floor(Number(n0)); if (!(n > 0)) continue; if ((src.units[u] || 0) < n) return { error: `Не хватает: ${UNIT[u] ? UNIT[u].name : u}.` }; move[u] = n; }
-      if (!Object.keys(move).length) return { error: 'Укажите, сколько войск перевести.' };
+      const g = castle.general, genHere = !!(general && g && !g.dead && !g.away && (src.castle ? !g.squad : g.squad === src.id));
+      if (general && !genHere) return { error: 'Генерала нет в этой армии.' };
+      if (!Object.keys(move).length && !genHere) return { error: 'Укажите, сколько войск перевести.' };
       if (!dst) {
         if (castle.squads.length >= 20) return { error: 'Не больше 20 армий в замке.' };
         const sid = this.db.nextId++;
@@ -1187,7 +1251,8 @@ function install(Game, helpers) {
       }
       if (dst === src) return { error: 'Выберите другую армию.' };
       for (const [u, n] of Object.entries(move)) { src.units[u] -= n; if (!src.units[u]) delete src.units[u]; dst.units[u] = (dst.units[u] || 0) + n; }
-      if (!src.castle && !Object.keys(src.units).length) castle.squads = castle.squads.filter((q) => q !== src); // пустой отряд распускается
+      if (genHere) { if (dst.castle) delete g.squad; else g.squad = dst.id; } // генерал переходит вместе с войсками (или один)
+      if (!src.castle && !Object.keys(src.units).length && !(g && g.squad === src.id)) castle.squads = castle.squads.filter((q) => q !== src); // пустой отряд распускается
       this.store.save(); return { ok: true, id: dst.castle ? 'castle' : dst.id };
     }
     if (op === 'rename') {
@@ -1223,7 +1288,7 @@ function install(Game, helpers) {
       units: castle.units, training: castle.training.map((t) => ({ id: t.id, unit: t.unit, building: t.building, count: t.count, done: t.done, each: t.each, start: t.start })),
       general: castle.general && this.generalView(castle), armies: castle.armies.map((a) => ({ id: a.id, units: a.units, general: a.general, mission: a.mission, x: a.x, y: a.y, depart: a.depart, arrive: a.arrive, back: a.back, state: a.state, loot: a.loot, cargo: a.cargo, squad: a.squad, portal: a.portal,
         stayName: a.state === 'stay' && this.db.castles[a.stayAt] ? this.db.castles[a.stayAt].name : null })),
-      squads: castle.squads,
+      squads: castle.squads, merchants: this.merchants(castle),
       guests: this.guestsOf(castle).map((g) => ({ id: g.a.id, from: this.ownerOf(g.c).login, castle: g.c.name, units: g.a.units })),
       incoming: this.incoming(castle), sciences: castle.sciences, research: castle.research, religion: castle.religion,
       artifacts: castle.artifacts, upkeep: Math.round(this.upkeep(castle) * SPEED),

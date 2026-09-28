@@ -346,7 +346,8 @@ const API = {
   train(m) { this.result(this.game.train(this.castle, Number(m.unit), Number(m.count))); },
   send(m) {
     const r = this.game.sendArmy(this.castle, { units: m.units || {}, general: !!m.general, x: m.x, y: m.y, mission: m.mission, res: m.res, from: m.from, portal: !!m.portal, at: Number(m.at) || 0 });
-    if (!r.error) this.toast(r.army.state === 'wait' ? `Поход запланирован: ${ARMY.MISSIONS[m.mission]} ${m.x}:${m.y}` : `Армия выступила: ${ARMY.MISSIONS[m.mission]} ${m.x}:${m.y}`);
+    if (!r.error && m.mission === 'trade') this.toast(`Торговцы (${r.need}) отправились к ${m.x}:${m.y}`);
+    else if (!r.error) this.toast(r.army.state === 'wait' ? `Поход запланирован: ${ARMY.MISSIONS[m.mission]} ${m.x}:${m.y}` : `Армия выступила: ${ARMY.MISSIONS[m.mission]} ${m.x}:${m.y}`);
     this.result(r);
   },
   squad(m) { this.result(this.game.squadOp(this.castle, m)); },

@@ -99,12 +99,14 @@ function regroupWin(k) {
     <div class="clabel">Из армии: <b>${esc(a.name)}</b></div>
     <div class="clabel">В армию:</div>
     <div class="combo"><select data-rgto>${targets.map(([v, t]) => `<option value="${v}" ${String(S.rg.to) === String(v) ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></div>
-    <div class="list" style="margin-top:8px">${rows || '<p class="parch-note">В армии нет войск.</p>'}</div>
-    <button class="pbar" data-rgdo>Переформировать</button>`;
+    ${genHere(a) ? `<label class="cchk"><input type="checkbox" data-rggen ${S.rg.gen ? 'checked' : ''}><i></i><img src="${unitSrc(unitById(M().generalId))}" alt=""> Генерал «${esc(MY().general.name)}» (${fmtFull(MY().general.level)} ур.) — перевести в выбранную армию</label>` : ''}
+    <div class="list" style="margin-top:8px">${rows || (genHere(a) ? '' : '<p class="parch-note">В армии нет войск.</p>')}</div>
+    <button class="pbar" data-rgdo>Переформировать</button>
+    <p class="small muted">Генерала можно перевести в любую армию замка. В другой свой замок генерал уходит подкреплением: «Военный поход» → «Подкрепление» на координаты своего замка — там он появится в Военном штабе.</p>`;
 }
 
 // ---------- Военный поход ----------
-const CAMPAIGN_MISSIONS = [['raid', 'Набег'], ['attack', 'Нападение'], ['reinforce', 'Подкрепление'], ['scout', 'Разведка'], ['expedition', 'Экспедиция'], ['trade', 'Торговля']];
+const CAMPAIGN_MISSIONS = [['raid', 'Набег'], ['attack', 'Нападение'], ['reinforce', 'Подкрепление'], ['scout', 'Разведка'], ['expedition', 'Экспедиция']];
 function openArmySheet(pre = {}) {
   S.cmp = { army: pre.army !== undefined ? String(pre.army) : 'castle', mission: pre.mission && pre.mission !== 'undefined' ? pre.mission : 'raid', x: pre.x ?? '', y: pre.y ?? '', portal: false, sched: false, at: '', res: {} };
   openSheet(campaignWin);
@@ -114,10 +116,13 @@ function campaignFit(mission, units) {
     || ((r) => !['merchant', 'archaeologist', 'sage', 'settler'].includes(r));
   return Object.fromEntries(Object.entries(units || {}).filter(([id, n]) => n > 0 && unitById(id) && fits(unitById(id).role)));
 }
+// идёт ли генерал с армией: в нападение/набег, а подкреплением — только в свой замок (перевод генерала)
+const ownCastleAt = (x, y) => (S.st.castles || []).some((k) => k.x === Number(x) && k.y === Number(y) && !k.active);
+const genGoes = (a, c) => genHere(a) && (['attack', 'raid'].includes(c.mission) || (c.mission === 'reinforce' && ownCastleAt(c.x, c.y)));
 function campaignSec() {
   const c = S.cmp, a = armyByKey(c.army); if (!a || c.x === '' || c.y === '') return null;
   const units = campaignFit(c.mission, a.units), speeds = Object.keys(units).map((id) => unitById(id).speed);
-  if (genHere(a) && ['attack', 'raid'].includes(c.mission)) speeds.push(unitById(M().generalId).speed);
+  if (genGoes(a, c)) speeds.push(unitById(M().generalId).speed);
   if (!speeds.length) return null;
   const b = MY().bonus, st = S.st.castle;
   let sec = Math.max(5, Math.round(Math.hypot(Number(c.x) - st.x, Number(c.y) - st.y) / (Math.min(...speeds) * b.speed) * 3600 / S.cat.speed));
@@ -140,7 +145,7 @@ function campaignWin() {
     ${chk('portal', c.portal, `${GFX}build/portal.png`, 'Через портал', !portal)}
     ${chk('sched', c.sched, `${GFX}res/time.png`, 'Расписание отправки')}
     ${c.sched ? `<input type="datetime-local" data-cmp="at" value="${esc(c.at)}">` : ''}
-    <div class="cinfo">В поход идут: <b>${fmtFull(n)}</b> ${genHere(a) && ['attack', 'raid'].includes(c.mission) ? '+ генерал' : ''} · в пути: <b id="cmpTime">${sec ? fmtT(sec) : '—'}</b></div>
+    <div class="cinfo">В поход идут: <b>${fmtFull(n)}</b> ${genGoes(a, c) ? '+ генерал' : ''} · в пути: <b id="cmpTime">${sec ? fmtT(sec) : '—'}</b></div>
     ${n < armyTotal(a.units) ? '<div class="cinfo small">Неподходящие для этого похода юниты останутся в замке.</div>' : ''}
     <button class="pbar" data-cmpgo>Отправить</button>`;
 }
@@ -161,7 +166,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.disband !== undefined) { if (confirm('Распустить армию в Замковую армию?')) { send({ t: 'squad', op: 'disband', id: Number(d.disband) }); closeSheet(); } return; }
   if (d.recall) return send({ t: 'squad', op: 'recall', id: Number(d.recall) });
   if (d.rgall) { S.rg.units[d.rgall] = Number(d.rgmax); const i = $(`[data-rgu="${d.rgall}"]`); if (i) i.value = d.rgmax; return; }
-  if (d.rgdo !== undefined) { send({ t: 'squad', op: 'regroup', from: S.rg.from, to: S.rg.to, units: S.rg.units }); S.rg.units = {}; return closeSheet(); }
+  if (d.rgdo !== undefined) { send({ t: 'squad', op: 'regroup', from: S.rg.from, to: S.rg.to, units: S.rg.units, general: !!S.rg.gen }); S.rg.units = {}; S.rg.gen = false; return closeSheet(); }
   if (d.cmpgo !== undefined) {
     const c = S.cmp, at = c.sched && c.at ? new Date(c.at).getTime() : 0;
     return send({ t: 'send', from: c.army, mission: c.mission, x: Number(c.x), y: Number(c.y), portal: c.portal, at, res: c.res });
@@ -177,6 +182,7 @@ $('#sheetBody').addEventListener('input', (e) => {
 });
 $('#sheetBody').addEventListener('change', (e) => {
   const d = e.target.dataset;
+  if (d.rggen !== undefined && S.rg) S.rg.gen = e.target.checked;
   if (d.rgto !== undefined && S.rg) S.rg.to = e.target.value === 'new' || e.target.value === 'castle' ? e.target.value : Number(e.target.value);
   if (!S.cmp) return;
   if (d.cmp === 'army' || d.cmp === 'mission') { e.target.blur(); S.cmp[d.cmp] = e.target.value; refreshSheet(); }

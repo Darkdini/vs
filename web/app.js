@@ -174,6 +174,7 @@ function onMsg(m) {
       toast(m.msg);
       if (/отправлено/.test(m.msg) && S.sheets.length && S.composing) { S.composing = false; closeSheet(); }
       if (/Армия выступила|Поход запланирован/.test(m.msg) && (S.army || S.cmp)) { S.army = null; S.cmp = null; closeAllSheets(); }
+      if (/Торговцы \(\d+\) отправились/.test(m.msg) && S.mkt) { S.mkt = null; closeSheet(); }
       break;
     case 'loginlock': showLock(Date.now() + m.sec * 1000); break;
     case 'error':

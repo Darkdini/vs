@@ -11,7 +11,7 @@ const unitById = (id) => { if (!UNIT_BY) UNIT_BY = Object.fromEntries(M().units.
 // у орков нет своих спрайтов в клиенте: берутся похожие, ?orc красит их в зелёный (style.css)
 const unitSrc = (u, race = S.st.user.race) => `${GFX}units/${u.race === 'all' && !u.img.includes('/') ? `${M().raceDir[race]}/${u.img}` : u.img}.png${u.race === 'orcs' || (u.race === 'all' && race === 'orcs' && !u.img.includes('/')) ? '?orc' : ''}`;
 const uimg = (u, cls = 'ui') => `<img class="${cls}" src="${unitSrc(u)}" alt="">`;
-const myUnitList = () => M().units.filter((u) => u.race === S.st.user.race || u.race === 'all');
+const myUnitList = () => M().units.filter((u) => (u.race === S.st.user.race || u.race === 'all') && !u.notrain);
 const ART_ICON = { atk: 'smallicon/artefacts/artefakt_dragon.png', def: 'smallicon/artefacts/artefakt_spider.png', prod: 'smallicon/artefacts/artefakt_wampire_blood.png', speed: 'smallicon/artefacts/artefakt_bat.png', train: 'smallicon/magattack.png' };
 const TYPE_NAME = { infantry: 'пехота', cavalry: 'кавалерия', magic: 'магия', siege: 'осада', special: 'особый' };
 S.cnt = {}; S.army = null; S.reports = null; S.alliances = null;
@@ -143,16 +143,53 @@ function hqHtml() {
     <p class="small muted">Атака ×${my.bonus.atk.toFixed(2)} · защита ×${my.bonus.def.toFixed(2)}</p>`;
 }
 
+// Рынок — как в оригинале: груз и скорость торговца, «Передать», «Бартер» (обмен), «Торговцы»
 function marketHtml() {
-  const my = MY(), rate = my.bonus.marketRate;
-  const opt = (sel) => RES4.map((r) => `<option value="${r}" ${r === sel ? 'selected' : ''}>${RES_NAME[r]}</option>`).join('');
-  return `<div class="section">Обмен ресурсов</div><form class="card stack" data-form="exchange">
+  const m = MY().merchants || { total: 0, free: 0, away: 0, carry: 0, speed: 0 };
+  return `<div class="bwline">Торговый центр замка.</div>
+    <div class="bwline">Количество ресурсов переносимых одним торговцем <img class="fi" src="${G3}menu/basket.svg" alt=""> <b>${fmtFull(m.carry)}</b> ед.</div>
+    <div class="bwline">Скорость торговца ▶▶ <b>${m.speed}</b> полей/час</div>
+    <button class="pbar" data-mkt="give">Передать</button>
+    <button class="pbar" data-mkt="barter">Бартер</button>
+    <button class="pbar" data-mkt="merch">Торговцы</button>`;
+}
+function mktGiveWin() {
+  const m = MY().merchants, g = S.mkt || (S.mkt = { x: '', y: '', res: {} });
+  const total = RES4.reduce((s, r) => s + (Number(g.res[r]) || 0), 0), need = m.carry ? Math.ceil(total / m.carry) : 0;
+  return `${ribbon('Передать')}
+    <div class="bwline">Свободных торговцев: <b>${m.free}</b> из ${m.total} · каждый везёт <b>${fmtFull(m.carry)}</b></div>
+    <div class="row2 cxy"><label>X<input type="number" inputmode="numeric" data-mkx="x" value="${esc(g.x)}"></label><label>Y<input type="number" inputmode="numeric" data-mkx="y" value="${esc(g.y)}"></label></div>
+    <div class="row2">${RES4.map((r) => `<label>${RES_IC[r]}<input type="number" inputmode="numeric" min="0" data-mkr="${r}" value="${g.res[r] || ''}" placeholder="0"></label>`).join('')}</div>
+    <div class="cinfo">Понадобится торговцев: <b id="mkNeed" class="${need > m.free ? 'bad' : ''}">${need}</b></div>
+    <button class="pbar" data-mkt="send">Отправить</button>`;
+}
+function mktMerchWin() {
+  const m = MY().merchants;
+  return `${ribbon('Торговцы')}<div class="bwline">Всего торговцев: <b>${m.total}</b></div><div class="bwline">Свободных: <b>${m.free}</b></div>
+    <div class="bwline">Зарезервированных: <b>${m.reserved}</b></div><div class="bwline">В пути: <b>${m.away}</b></div>
+    <p class="small muted">Торговцы не тренируются и не участвуют в боях — при Рынке их всегда 20. Груз — 45 ед. за уровень Рынка (20 ур. — 900 ед.), скорость — 20 полей/час.</p>`;
+}
+function mktBarterWin() {
+  const rate = MY().bonus.marketRate, opt = (sel) => RES4.map((r) => `<option value="${r}" ${r === sel ? 'selected' : ''}>${RES_NAME[r]}</option>`).join('');
+  return `${ribbon('Бартер')}<form class="card stack" data-form="exchange">
       <div class="row2"><label>Отдать<select name="from">${opt('wood')}</select></label><label>Получить<select name="to">${opt('iron')}</select></label></div>
       <input name="amount" type="number" inputmode="numeric" min="1" placeholder="Сколько отдать" required>
-      <p class="small muted">Курс ${rate.toFixed(2)} (растёт с уровнем Рынка, максимум 1:1).</p><button class="btn primary">Обменять</button></form>
-    <div class="section">Торговцы</div><div class="card"><p class="small">В замке торговцев: <b>${my.units[221] || 0}</b>, каждый везёт ${Math.floor(unitById(221).carry * my.bonus.tradeCarry)}.</p>
-      <button class="btn" data-armyopen="trade">Отправить ресурсы</button></div>`;
+      <p class="small muted">Курс ${rate.toFixed(2)} (растёт с уровнем Рынка, максимум 1:1).</p><button class="btn primary">Обменять</button></form>`;
 }
+$('#sheetBody').addEventListener('click', (e) => {
+  const t = e.target.closest('[data-mkt]'); if (!t) return;
+  const k = t.dataset.mkt;
+  if (k === 'give') { S.mkt = null; return openSheet(mktGiveWin); }
+  if (k === 'merch') return openSheet(mktMerchWin);
+  if (k === 'barter') return openSheet(mktBarterWin);
+  if (k === 'send') { const g = S.mkt; return send({ t: 'send', mission: 'trade', x: Number(g.x), y: Number(g.y), res: g.res }); }
+});
+$('#sheetBody').addEventListener('input', (e) => {
+  const d = e.target.dataset; if (!S.mkt || (d.mkx === undefined && d.mkr === undefined)) return;
+  if (d.mkx) S.mkt[d.mkx] = e.target.value; else S.mkt.res[d.mkr] = Math.max(0, Math.floor(Number(e.target.value)) || 0);
+  const m = MY().merchants, total = RES4.reduce((s, r) => s + (Number(S.mkt.res[r]) || 0), 0), need = m.carry ? Math.ceil(total / m.carry) : 0, el = $('#mkNeed');
+  if (el) { el.textContent = need; el.classList.toggle('bad', need > m.free); }
+});
 
 
 function universityHtml(id) {
@@ -274,6 +311,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.max) { const u = unitById(d.max); S.cnt[u.id] = Math.max(1, unitMax(u)); const i = $(`[data-cnt-input="${u.id}"]`); if (i) i.value = S.cnt[u.id]; return; }
   if (d.train) return send({ t: 'train', unit: Number(d.train), count: S.cnt[d.train] || 1 });
   if (d.revive !== undefined) return send({ t: 'general', op: 'revive' });
+  if (d.armyopen === 'trade') { S.mkt = { x: d.ax ?? '', y: d.ay ?? '', res: {} }; return openSheet(mktGiveWin); }
   if (d.armyopen !== undefined) return openArmySheet({ mission: d.armyopen || 'raid', x: d.ax !== undefined ? Number(d.ax) : '', y: d.ay !== undefined ? Number(d.ay) : '' });
   if (d.reports !== undefined) return openReports();
   if (d.report) return send({ t: 'report', id: Number(d.report) });
