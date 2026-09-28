@@ -372,13 +372,14 @@ function install(Game, helpers) {
   };
 
   // ----- генерал -----
-  P.generalNeed = (level) => 100 * level * level;
+  P.generalNeed = (level) => 50 * level * level; // опыт до следующего уровня: 10 ур. — 5 000, 100 ур. — 500 000, 500 ур. — 12,5 млн
   P.newGeneral = function newGeneral(castle, level = 1) {
-    return this.normGeneral({ name: 'Генерал', level, exp: level > 1 ? this.generalNeed(level - 1) : 0, dead: false }, castle);
+    return this.normGeneral({ name: 'Генерал', level, exp: level > 1 ? this.generalNeed(level - 1) : 0, expV: 2, dead: false }, castle);
   };
   // дополняет старые записи генерала полями нового окна (очки, имя, сбросы)
   P.normGeneral = function normGeneral(g, castle) {
     if (!g.pts) { g.pts = Object.fromEntries(GEN_STATS.map((k) => [k, 0])); g.free = GEN.perLevel * Math.max(0, g.level - 1); }
+    if (g.expV !== 2) { g.exp = Math.round((g.exp || 0) / 2); g.expV = 2; } // шкала опыта ×0,5 (новая кривая уровней), уровень не меняется
     if (g.free === undefined) g.free = 0;
     if (!g.name) g.name = 'Генерал';
     if (g.level > GEN.maxLevel) g.level = GEN.maxLevel;
@@ -391,12 +392,30 @@ function install(Game, helpers) {
     return { atk: base.attack + g.pts.atk, def: base.def.inf + g.pts.def, catk: GEN.cmd * g.pts.catk, cdef: GEN.cmd * g.pts.cdef,
       heal: GEN.heal * g.pts.heal, career: GEN.career * g.pts.career };
   };
+  // опыт генерала: карьера (+0,5% за очко) и премиум (×2) увеличивают; возвращает, сколько получено и сколько уровней взято
   P.addGeneralExp = function addGeneralExp(castle, exp) {
-    const g = castle.general; if (!g || g.dead) return;
+    const g = castle.general; if (!g || g.dead || !(exp > 0)) return null;
     this.normGeneral(g, castle);
-    g.exp += Math.round(exp * (1 + GEN.career * g.pts.career) * (this.isPremium(this.userById(castle.owner)) ? 2 : 1)); // премиум — опыт ×2
-    while (g.level < GEN.maxLevel && g.exp >= this.generalNeed(g.level)) { g.level++; g.free += GEN.perLevel; this.event(castle.owner, `Генерал достиг ${g.level} уровня!`); }
+    const got = Math.round(exp * (1 + GEN.career * g.pts.career) * (this.isPremium(this.userById(castle.owner)) ? 2 : 1)); // премиум — опыт ×2
+    const from = g.level; g.exp += got;
+    while (g.level < GEN.maxLevel && g.exp >= this.generalNeed(g.level)) { g.level++; g.free += GEN.perLevel; }
+    if (g.level > from) this.event(castle.owner, `Генерал «${g.name}» достиг ${g.level} уровня! +${(g.level - from) * GEN.perLevel} очк. опыта`);
+    return { got, from, level: g.level, name: g.name };
   };
+  // опыт за бой (до карьеры и премиума):
+  //  • основа — население убитых врагов (сильные юниты занимают больше населения — и стоят больше опыта);
+  //  • победа ×1.5, поражение ×0.5 (генерал выжил, но армию разбили); набег ×0.75 — бой короче;
+  //  • лагеря и руины — по силе охраны (фарм лагерей даёт мало, они восстанавливаются час);
+  //  • слабый противник (рейтинг меньше 30% от вашего) — опыт ×0.25, против фарма новичков и ферм.
+  P.battleExp = function battleExp({ killedPop, win, mission, npc, dLoss, mine, enemy }) {
+    let exp = npc ? (npc.def.inf + npc.def.cav) / 4 * dLoss : killedPop;
+    exp *= win ? 1.5 : 0.5;
+    if (mission === 'raid') exp *= 0.75;
+    let weak = false;
+    if (!npc && mine && enemy) { const r1 = this.rating(mine), r2 = this.rating(enemy); if (r1 > 0 && r2 < r1 * 0.3) { exp *= 0.25; weak = true; } }
+    return { exp: Math.round(exp), weak };
+  };
+  const genLine = (who, r, weak) => (r ? `${who} «${r.name}» получил ${r.got.toLocaleString('ru-RU')} опыта${weak ? ' (слабый противник — опыт ×0,25)' : ''}${r.level > r.from ? `. Новый уровень: ${r.level}!` : ''}` : null);
   // окно «Генерал»: rename, dist (распределить очки), reset (сбросить очки), kill (убить)
   P.generalOp = function generalOp(castle, user, { op, name, pts } = {}) {
     this.tick(castle); this.mil(castle);
@@ -677,12 +696,20 @@ function install(Game, helpers) {
     const win = aSum > Dsum;
     const aliveAfter = Object.values(a.units).some((n) => n > 0);
     // генералы
+    const genA = [], genD = [];
     if (a.general && c.general) {
-      if (!aliveAfter && aLoss >= 1) { c.general.dead = true; delete c.general.away; a.general = false; }
-      else this.addGeneralExp(c, target ? popOf(dLost) * 10 : (npc ? Math.round(npc.def.inf / 20 * dLoss) : 0));
+      if (!aliveAfter && aLoss >= 1) { c.general.dead = true; delete c.general.away; a.general = false; genA.push('Генерал пал в бою — опыт не получен.'); }
+      else {
+        const e = this.battleExp({ killedPop: popOf(dLost), win, mission: a.mission, npc: target ? null : npc, dLoss, mine: c, enemy: target });
+        const l = genLine('Генерал', this.addGeneralExp(c, e.exp), e.weak); if (l) genA.push(l);
+      }
     }
     if (target && target.general && !target.general.dead && !target.general.away) {
-      if (dLoss >= 1 && !Object.keys(dAll).length) target.general.dead = true; else this.addGeneralExp(target, popOf(aLost) * 10);
+      if (dLoss >= 1 && !Object.keys(dAll).length) { target.general.dead = true; genD.push('Ваш генерал пал, защищая замок.'); }
+      else {
+        const e = this.battleExp({ killedPop: popOf(aLost), win: !win, mission: 'attack', mine: target, enemy: c });
+        const l = genLine('Ваш генерал', this.addGeneralExp(target, e.exp), e.weak); if (l) genD.push(l);
+      }
     }
     // добыча
     let loot = null;
@@ -775,6 +802,7 @@ function install(Game, helpers) {
     if (capitalBlocked) lines.push('Столицу захватить нельзя — бунтари бессильны.');
     if (captured) lines.push(`Замок захвачен! Теперь это ваш замок «${captured.name}».`);
     if (genDied) lines.push('Генерал пал в бою — воскресите его в Военном штабе.');
+    lines.push(...genA.filter((x) => !genDied || !/пал в бою/.test(x)));
     const title = captured ? `Захват: ${captured.name} ${where} — замок ваш!` : `${MISSIONS[a.mission]}: ${tname} — ${win ? 'победа' : 'поражение'}`;
     this.report(c.owner, title, lines, 'battle', { ...data, side: 'att' });
     if (target) {
@@ -783,7 +811,7 @@ function install(Game, helpers) {
         `Атакующие: ${unitsLine(a.units, aLost)}`,
         `Ваши войска: ${unitsLine(dAll, dLost)}`,
         loot ? `Унесено: дерево ${loot.wood}, камень ${loot.stone}, железо ${loot.iron}, еда ${loot.food}` : 'Враг разбит, ничего не унесено.',
-        ...siege, ...(loyalty ? [`Лояльность: ${loyalty.from} → ${loyalty.to}`] : []),
+        ...siege, ...(loyalty ? [`Лояльность: ${loyalty.from} → ${loyalty.to}`] : []), ...genD,
       ], 'battle', { ...data, side: 'def' });
     }
     this.goBack(c, a, t);

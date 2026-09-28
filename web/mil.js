@@ -235,7 +235,8 @@ function reportHtml(r) {
     <div class="section">Добыча</div>${loot}
     ${d.siege && d.siege.length ? `<div class="section">Разрушения</div><div class="pstats">${d.siege.map(esc).join('<br>')}</div>` : ''}
     ${d.loyalty ? `<div class="section">Лояльность</div><div class="bloy"><div class="bar"><i style="width:${d.loyalty.to}%"></i></div><b>${d.loyalty.from} → ${d.loyalty.to}</b></div>` : ''}
-    ${d.capitalBlocked ? '<p class="parch-note">Столицу захватить нельзя — бунтари бессильны.</p>' : ''}`;
+    ${d.capitalBlocked ? '<p class="parch-note">Столицу захватить нельзя — бунтари бессильны.</p>' : ''}
+    ${(() => { const gl = (r.lines || []).filter((x) => /генерал/i.test(x) && /опыт|пал/.test(x)); return gl.length ? `<div class="section">Генерал</div><div class="pstats bgenx">${gl.map((x) => `${gimg('units/human/general.png', 'rico')} ${esc(x)}`).join('<br>')}</div>` : ''; })()}`;
 }
 
 // ---------- админ — web/admin.js ----------

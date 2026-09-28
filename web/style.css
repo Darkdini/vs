@@ -928,3 +928,7 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .env.mv b { position: absolute; inset: 0; display: grid; place-items: center; font: 700 22px var(--serif); color: #fff7d6; text-shadow: 0 0 3px #000, 0 1px 2px #000, 0 0 6px #000; }
 #mvInc { animation: incblink 1.2s ease-in-out infinite; }
 @keyframes incblink { 50% { filter: brightness(1.35) drop-shadow(0 0 6px #ff3a2a); } }
+/* генерал: как получить опыт */
+.gexp { display: grid; gap: 6px; margin: 6px 0 10px; font: min(17px, 4.2vw)/1.35 var(--serif); color: #3a2410; }
+.gexp > div { padding: 6px 10px; border: 1px solid #b08a5a; border-radius: 8px; background: #fff8e44d; }
+.bgenx { font-weight: 700; color: #2f5a10; }
