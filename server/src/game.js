@@ -343,8 +343,9 @@ class Game {
       for (let x = x0; x < x0 + w; x++) {
         if (occupied.has(`${x}:${y}`) || x < 0 || y < 0 || x >= WORLD || y >= WORLD) continue;
         const roll = (((x * 73856093) ^ (y * 19349663)) >>> 0) % 100;
-        const obj = roll < 8 ? [1, 'Камни'] : roll < 11 ? [9, 'Озеро'] : roll < 13 ? [25, 'Дикари'] : roll < 15 ? [26, 'Лесорубы']
-          : roll < 16 ? [27, 'Рудник троллей'] : roll < 18 ? [24, 'Заброшенный замок'] : null;
+        // на карте только замки и лагеря для походов (камни и озёра убраны)
+        const obj = roll < 2 ? [25, 'Дикари'] : roll < 4 ? [26, 'Лесорубы']
+          : roll < 5 ? [27, 'Рудник троллей'] : roll < 7 ? [24, 'Заброшенный замок'] : null;
         if (obj) {
           const o = { kind: 'object', x, y, img: obj[0], name: obj[1] };
           const st = (this.db.npc || {})[`${x}:${y}`];
