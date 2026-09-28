@@ -146,7 +146,16 @@ class WebSession {
   result(r) { if (r && r.error) this.error(r.error); this.pushState(); }
 
   handle(msg) {
-    const fn = API[msg.t];
+    // защита от подмены запросов: только объект с командой-строкой; ключи и значения вида __proto__/constructor/toString отвергаются
+    if (!msg || typeof msg !== 'object' || Array.isArray(msg) || typeof msg.t !== 'string') return this.error('Неверный запрос.');
+    if (hasEvil(msg, 0)) return this.error('Неверный запрос.');
+    // от флуда: не больше 25 запросов в секунду с соединения, при 200+ за 10 секунд соединение рвётся
+    if (!RATE_OFF) {
+      const now = Date.now(); this.rl = (this.rl || []).filter((t) => t > now - 10000); this.rl.push(now);
+      if (this.rl.length > 200) { this.log(`flood ${this.ip} ${this.user ? this.user.login : ''}`); return this.socket.destroy(); }
+      if (this.rl.filter((t) => t > now - 1000).length > 25) return this.error('Слишком часто — подождите секунду.');
+    }
+    const fn = Object.prototype.hasOwnProperty.call(API, msg.t) ? API[msg.t] : null;
     if (!fn) return this.error(`Неизвестная команда ${msg.t}`);
     if (!['register', 'login', 'hello', 'captcha'].includes(msg.t) && !this.user) return this.error('Сначала войдите.');
     this.failed = false;
@@ -154,6 +163,14 @@ class WebSession {
     // лояльность населения (Резиденция) растёт за действия, а не за онлайн
     if (!this.failed && this.user && ROYAL_ACTIONS.has(msg.t)) this.game.royalGain(this.user);
   }
+}
+const RATE_OFF = process.env.RATE_OFF === '1'; // только для автотестов
+const PROTO_NAMES = new Set([...Object.getOwnPropertyNames(Object.prototype), 'prototype']);
+function hasEvil(v, depth) {
+  if (depth > 8) return true;
+  if (typeof v === 'string') return PROTO_NAMES.has(v);
+  if (v && typeof v === 'object') for (const k of Object.keys(v)) if (PROTO_NAMES.has(k) || hasEvil(v[k], depth + 1)) return true;
+  return false;
 }
 const ROYAL_ACTIONS = new Set(['forge', 'ritual', 'calm', 'build', 'train', 'send', 'research', 'exchange', 'squad', 'artifact', 'religion']);
 
@@ -177,16 +194,20 @@ const API = {
   },
   login(m) {
     if (this.game.loginBlocked(this.ip)) return this.error('Слишком много неудачных попыток входа. Подождите 10 минут.');
-    const u = this.game.login(m.login, m.password);
-    if (!u) { this.game.loginFailed(this.ip); return this.error('Неверный логин или пароль.'); }
+    // вход по паролю или по токену «Запомнить меня» (пароль в браузере не хранится)
+    const u = m.token ? this.game.tokenLogin(m.login, m.token) : this.game.login(m.login, m.password);
+    if (!u) { this.game.loginFailed(this.ip); return this.error(m.token ? 'Сессия устарела — войдите заново.' : 'Неверный логин или пароль.'); }
     this.game.trackLogin(u, this.ip, m.dev); this.dev = m.dev;
     if (!u.admin && this.game.devBanned(m.dev)) return this.error('Это устройство заблокировано администрацией.');
     if (u.banned) return this.error('Аккаунт заблокирован администрацией.');
     this.user = u; u.online = true; u.lastSeen = Date.now();
     this.log(`web login ${u.login}`);
-    this.send({ t: 'auth' });
+    this.token = m.token ? String(m.token) : this.game.issueToken(u);
+    this.send({ t: 'auth', login: u.login, token: this.token });
+    if (u.admin && !m.token && String(m.password || '').toLowerCase() === 'admin') this.toast('⚠ У админа стандартный пароль «admin» — смените его: Админ-панель → Цель → Сменить пароль.');
     this.pushState();
   },
+  logout() { this.game.dropToken(this.user, this.token); this.user.online = false; this.user = null; this.send({ t: 'loggedout' }); },
   sync() { this.pushState(); },
   switch(m) { const r = this.game.switchCastle(this.user, m.id); if (r.error) return this.error(r.error); this.toast(`Замок: ${this.castle.name}`); this.pushState(); },
   build(m) {
@@ -360,6 +381,11 @@ const API = {
   },
 };
 
+// заголовки безопасности: скрипты только свои (внедрённый <img onerror> или <script> не выполнится), страницу нельзя встроить в чужой сайт
+const SEC_HEADERS = {
+  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+  'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY', 'Referrer-Policy': 'no-referrer',
+};
 // статика из памяти: файл читается и сжимается один раз, пока не изменится на диске
 const STATIC = new Map();
 function staticFile(file) {
@@ -384,10 +410,10 @@ function startWeb(game, sessions, { port, host, log }) {
       return res.end(body);
     }
     const file = path.normalize(path.join(WEB_ROOT, url === '/' ? 'index.html' : url));
-    const f = file.startsWith(WEB_ROOT) && staticFile(file);
+    const f = (file === WEB_ROOT || file.startsWith(WEB_ROOT + path.sep)) && staticFile(file);
     if (!f) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('not found'); }
     // картинки браузер держит в кэше сутки; код и стили — всегда сверяет по ETag (ответ 304 без тела)
-    const head = { 'Content-Type': f.type, ETag: f.etag, 'Cache-Control': f.img ? 'public, max-age=86400' : 'no-cache' };
+    const head = { 'Content-Type': f.type, ETag: f.etag, 'Cache-Control': f.img ? 'public, max-age=86400' : 'no-cache', ...SEC_HEADERS };
     if (req.headers['if-none-match'] === f.etag) { res.writeHead(304, head); return res.end(); }
     if (f.gz && /\bgzip\b/.test(req.headers['accept-encoding'] || '')) { res.writeHead(200, { ...head, 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' }); return res.end(f.gz); }
     res.writeHead(200, head); res.end(f.body);

@@ -30,7 +30,7 @@ function generalWin() {
   return `${ribbon('Генерал')}
     <div class="gname">${esc(g.name)}</div>
     <div class="ghead"><img class="gimg" src="${unitSrc(gu)}" alt="">
-      <div class="gright"><div>(${esc(g.kind || gu.name)})</div><div><img src="${GS('status/f_gold')}" alt="" onerror="this.remove()"> ${fmtFull(g.level)} ур.</div></div></div>
+      <div class="gright"><div>(${esc(g.kind || gu.name)})</div><div><img src="${GS('status/f_gold')}" alt=""> ${fmtFull(g.level)} ур.</div></div></div>
     <div class="gnext">До след. уровня:<div class="gseg" title="${fmtFull(g.exp)} / ${fmtFull(g.need)}">${seg}</div><small>${fmtFull(g.exp)} / ${fmtFull(g.need)}</small></div>
     <div class="gtop">
       <div><img src="${GS('health')}" alt=""><b>${g.health}%</b></div>

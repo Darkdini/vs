@@ -15,7 +15,7 @@ const DB = path.join(os.tmpdir(), `tw-web-smoke-${process.pid}.json`);
 
 function startServer() {
   const child = spawn(process.execPath, [path.join(__dirname, '..', 'src', 'index.js')], {
-    env: { ...process.env, WEB_PORT: String(WEB_PORT), HOST: '127.0.0.1', DB, SPEED: '2000', SAVE_MS: '500', NO_CAPTCHA: '1' },
+    env: { ...process.env, WEB_PORT: String(WEB_PORT), HOST: '127.0.0.1', DB, SPEED: '2000', SAVE_MS: '500', NO_CAPTCHA: '1', ADMIN_PASS: 'admin', RATE_OFF: '1' },
     stdio: ['ignore', 'pipe', 'inherit'],
   });
   return new Promise((resolve) => child.stdout.on('data', (d) => { if (String(d).includes('браузерный клиент')) resolve(child); }));
@@ -355,6 +355,23 @@ function client() {
     adm.send({ t: 'admin', op: 'devunban', dev: grp.dev }); await adm.expect('toast', (m) => /разблокировано/.test(m.msg));
     adm.send({ t: 'admin', op: 'banmany', logins: ['multa', 'multb'] }); await adm.expect('toast', (m) => /Заблокировано аккаунтов: 2/.test(m.msg));
     console.log('✓ мульты: оповещение админу, бан устройства и аккаунтов только вручную');
+
+    // ---- безопасность: токен вместо пароля, подмена запросов, заголовки, выход за папку web ----
+    const t1 = client(); await t1.open();
+    t1.send({ t: 'login', login: 'webby', password: 'pass1' });
+    const au = await t1.expect('auth'); assert.ok(/^[a-f0-9]{48}$/.test(au.token) && !JSON.stringify(au).includes('pass1'));
+    t1.close();
+    const t2 = client(); await t2.open();
+    t2.send({ t: 'login', login: 'webby', token: au.token }); await t2.expect('state');
+    t2.send({ t: 'research', sci: '__proto__' }); await t2.expect('error', (m) => /Неверный запрос/.test(m.msg));
+    t2.send({ t: 'send', units: JSON.parse('{"__proto__":5}'), x: 1, y: 1, mission: 'attack' }); await t2.expect('error', (m) => /Неверный запрос/.test(m.msg));
+    t2.send({ t: 'logout' }); await t2.expect('loggedout'); t2.close();
+    const t3 = client(); await t3.open();
+    t3.send({ t: 'login', login: 'webby', token: au.token }); await t3.expect('error', (m) => /Сессия устарела/.test(m.msg)); t3.close();
+    const hr = await fetch(`http://127.0.0.1:${WEB_PORT}/`);
+    assert.ok(/script-src 'self'/.test(hr.headers.get('content-security-policy')) && hr.headers.get('x-frame-options') === 'DENY');
+    for (const bad of ['/../server/src/game.js', '/%2e%2e/server/package.json', '/..%2f..%2fetc/passwd']) assert.strictEqual((await fetch(`http://127.0.0.1:${WEB_PORT}${bad}`)).status, 404, bad);
+    console.log('✓ безопасность: токен вместо пароля, выход завершает сессию, __proto__ отвергается, CSP, файлы сервера не отдаются');
 
     // ---- премиум: покупка за монеты, звание VIP ----
     adm.send({ t: 'admin', op: 'gold', login: 'webby', n: 150 });

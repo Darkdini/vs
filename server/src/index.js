@@ -24,7 +24,10 @@ setInterval(() => {
 }, 1000);
 
 // администратор: логин admin, пароль ADMIN_PASS (по умолчанию admin) — замок на полной прокачке
-if (game.ensureAdmin()) console.log('Админ: логин admin, пароль', process.env.ADMIN_PASS ? '(из ADMIN_PASS)' : 'admin');
+if (game.ensureAdmin()) {
+  if (game.adminNewPass) console.log(`Создан админ: логин admin, пароль ${game.adminNewPass} (записан в data/ADMIN_PASSWORD.txt — смените его в Админ-панели)`);
+  else if (game.login('admin', 'admin')) console.log('ВНИМАНИЕ: у admin стандартный пароль «admin» — смените его: Админ-панель → Цель (пусто) → Сменить пароль');
+}
 
 startWeb(game, sessions, { port: WEB_PORT, host: HOST, log: (m) => console.log(m) });
 console.log(`Война Королей: скорость мира x${process.env.SPEED || 1}, база ${DB}`);

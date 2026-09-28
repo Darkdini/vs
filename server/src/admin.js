@@ -14,9 +14,15 @@ function install(Game) {
   const findUser = (g, login) => g.db.users[String(login || '').trim().toLowerCase()];
 
   // админ: создаётся при старте, у него ADMIN_CASTLES замков на полной прокачке
-  P.ensureAdmin = function ensureAdmin(pass = process.env.ADMIN_PASS || 'admin') {
+  P.ensureAdmin = function ensureAdmin(pass = process.env.ADMIN_PASS) {
     let u = this.db.users.admin;
     if (!u) {
+      // пароль по умолчанию больше не «admin»: без ADMIN_PASS генерируется случайный и пишется в консоль и файл рядом с базой
+      if (!pass) {
+        pass = require('crypto').randomBytes(6).toString('base64url').toLowerCase();
+        try { require('fs').mkdirSync(require('path').dirname(this.store.file), { recursive: true }); require('fs').writeFileSync(require('path').join(require('path').dirname(this.store.file), 'ADMIN_PASSWORD.txt'), `admin / ${pass}\n`, { mode: 0o600 }); } catch { /* нет доступа к папке */ }
+        this.adminNewPass = pass;
+      }
       const r = this.register({ login: 'admin', password: pass, race: 0 });
       if (r.error) return null;
       u = r.user;
@@ -139,7 +145,7 @@ function install(Game) {
         const p = String(arg.password || '').toLowerCase();
         if (p.length < 3) return { error: 'Пароль минимум 3 символа.' };
         const crypto = require('crypto'), salt = crypto.randomBytes(8).toString('hex');
-        target.pass = `${salt}:${crypto.scryptSync(p, salt, 32).toString('hex')}`; msg = `Пароль ${target.login} изменён.`; break;
+        target.pass = `${salt}:${crypto.scryptSync(p, salt, 32).toString('hex')}`; target.tokens = []; msg = `Пароль ${target.login} изменён, все сессии завершены.`; break;
       }
       case 'mod': target.mod = !target.mod; msg = `${target.login} — ${target.mod ? 'модератор форума' : 'больше не модератор'}.`; if (target.mod) this.event(target.id, 'Вас назначили модератором форума.'); break;
       case 'makeadmin': target.admin = true; msg = `${target.login} — администратор.`; break;

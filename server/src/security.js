@@ -50,6 +50,21 @@ function install(Game) {
     for (const a of Object.values(this.db.users)) if (a.admin) this.event(a.id, `⚠ Возможный мульт: ${user.login} — одно устройство с ${others.slice(0, 3).join(', ')}${others.length > 3 ? '…' : ''}`);
   };
   P.devBanned = function devBanned(dev) { dev = cleanDev(dev); return !!(dev && this.db.devBans && this.db.devBans[dev]); };
+  // токены сессий: в базе хранится только SHA-256 токена, живёт 30 дней, у игрока не больше 5 устройств
+  const sha = (t) => crypto.createHash('sha256').update(String(t)).digest('hex');
+  P.issueToken = function issueToken(user) {
+    const t = crypto.randomBytes(24).toString('hex'), now = Date.now();
+    user.tokens = (user.tokens || []).filter((x) => x.exp > now); user.tokens.push({ h: sha(t), exp: now + 30 * 86400000 });
+    if (user.tokens.length > 5) user.tokens.shift();
+    this.store.save(); return t;
+  };
+  P.tokenLogin = function tokenLogin(login, token) {
+    const u = Object.prototype.hasOwnProperty.call(this.db.users, String(login || '').toLowerCase()) ? this.db.users[String(login).toLowerCase()] : null;
+    if (!u || !/^[a-f0-9]{48}$/.test(String(token || ''))) return null;
+    const h = Buffer.from(sha(token)), now = Date.now();
+    return (u.tokens || []).some((x) => x.exp > now && crypto.timingSafeEqual(Buffer.from(x.h), h)) ? u : null;
+  };
+  P.dropToken = function dropToken(user, token) { if (user && token) { user.tokens = (user.tokens || []).filter((x) => x.h !== sha(token)); this.store.save(); } };
   P.regAllowed = function regAllowed(ip) {
     if (count(`reg:${ip}`, 3600000) >= LIM.regHour) return 'С вашего адреса слишком много регистраций. Попробуйте через час.';
     if (count(`reg:${ip}`, 86400000) >= LIM.regDay) return 'С вашего адреса слишком много регистраций сегодня.';

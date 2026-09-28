@@ -102,7 +102,7 @@ class Store {
 
 const hashPassword = (pass, salt = crypto.randomBytes(8).toString('hex')) =>
   `${salt}:${crypto.scryptSync(pass, salt, 32).toString('hex')}`;
-const checkPassword = (pass, stored) => hashPassword(pass, stored.split(':')[0]) === stored;
+const checkPassword = (pass, stored) => { const a = Buffer.from(hashPassword(pass, stored.split(':')[0])), b = Buffer.from(stored); return a.length === b.length && crypto.timingSafeEqual(a, b); };
 
 // реальное время стройки с учётом скорости мира (не меньше 3 с)
 const buildTime = (def, level, townhall) => Math.max(3, Math.round(C.levelTimeSec(def, level, townhall) / SPEED));
@@ -126,14 +126,14 @@ class Game {
 
   // ----- аккаунты -----
   register({ login, password, email, race }) {
-    login = (login || '').trim().toLowerCase();
-    password = (password || '').toLowerCase(); // клиент приводит пароль к нижнему регистру при входе
+    login = String(login || '').trim().toLowerCase();
+    password = String(password || '').toLowerCase(); // клиент приводит пароль к нижнему регистру при входе
     if (!/^[a-zа-яё0-9_]{3,10}$/i.test(login)) return { error: 'Логин: 3–10 символов (буквы, цифры, _).' };
     if (password.length < 3) return { error: 'Пароль слишком короткий (минимум 3 символа).' };
     if (this.db.users[login]) return { error: 'Такой логин уже занят.' };
     const id = this.db.nextId++;
     const raceId = C.RACES[Number(race)] || 'humans';
-    this.db.users[login] = { id, login, pass: hashPassword(password), email: email || '', race: raceId, created: Date.now(), castleId: null, reputation: 10, gold: 30 }; // стартовая репутация 10, золото 30 (на подарки) // стартовая репутация 10
+    this.db.users[login] = { id, login, pass: hashPassword(password), email: String(email || '').slice(0, 60), race: raceId, created: Date.now(), castleId: null, reputation: 10, gold: 30 }; // стартовая репутация 10, золото 30 (на подарки) // стартовая репутация 10
     this.byId.set(id, this.db.users[login]);
     const castle = this.createCastle(this.db.users[login]);
     this.db.users[login].castleId = castle.id;
@@ -143,8 +143,8 @@ class Game {
   }
 
   login(login, password) {
-    const u = this.db.users[(login || '').toLowerCase()];
-    if (!u || !checkPassword((password || '').toLowerCase(), u.pass)) return null;
+    const u = this.db.users[String(login || '').toLowerCase()];
+    if (!u || !Object.prototype.hasOwnProperty.call(this.db.users, u.login) || !checkPassword(String(password || '').toLowerCase(), u.pass)) return null;
     return u;
   }
 
@@ -359,10 +359,10 @@ class Game {
 
   // ----- почта -----
   sendMail(fromUser, toLogin, subject, text) {
-    const to = this.db.users[(toLogin || '').trim().toLowerCase()];
+    const to = this.db.users[String(toLogin || '').trim().toLowerCase()];
     if (!to) return { error: 'Получатель не найден.' };
     this.db.messages = this.db.messages || [];
-    const m = { id: this.db.nextId++, from: fromUser.id, to: to.id, subject: subject || '', text: text || '', at: Date.now(), read: false };
+    const m = { id: this.db.nextId++, from: fromUser.id, to: to.id, subject: String(subject || '').slice(0, 80), text: String(text || '').slice(0, 4000), at: Date.now(), read: false };
     this.db.messages.push(m);
     this.store.save();
     return { message: m, to };

@@ -158,8 +158,9 @@ function onMsg(m) {
       send({ t: 'login', login: S.pendingCreds.login, password: S.pendingCreds.password, dev: DEV });
       break;
     case 'auth':
-      S.creds = S.pendingCreds || S.creds;
-      if (S.remember && S.creds) store.set('tw.creds', S.creds);
+      // браузер хранит только токен сессии, не пароль
+      S.creds = { login: m.login, token: m.token }; S.pendingCreds = null;
+      store.set('tw.creds', S.remember ? S.creds : null);
       S.auto = false;
       $('#auth').classList.add('hidden'); $('#game').classList.remove('hidden');
       break;
@@ -369,7 +370,7 @@ const ACTS = {
   compose: () => openCompose(''),
   bug: () => openSheet(() => `<div class="sh-head"><div class="big">${gimg('smallicon/soft_help.png')}</div><h3>Сообщить об ошибке</h3></div>
     <form class="stack" data-form="bug"><textarea name="text" rows="5" placeholder="Что пошло не так?" required></textarea><button class="btn primary">Отправить</button></form>`),
-  logout: () => { store.set('tw.creds', null); location.reload(); },
+  logout: () => { send({ t: 'logout' }); store.set('tw.creds', null); setTimeout(() => location.reload(), 200); },
 };
 function openSub(name) { openSheet(() => SUBPAGES[name]()); } // разделы открываются окнами поверх карты
 
@@ -924,6 +925,7 @@ function isoDrawNow() {
 
 // ---------- старт ----------
 S.creds = store.get('tw.creds');
+if (S.creds && S.creds.password) { S.creds = null; store.set('tw.creds', null); } // старый формат с паролем — стираем
 S.remember = true;
 if (S.creds) $('#authForm').login.value = S.creds.login;
 connect();
