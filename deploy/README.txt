@@ -3,7 +3,7 @@
 Запуск (Termux):  sh ~/game/start.sh
 Открыть в Chrome: http://127.0.0.1:8080  (быстрее, чем localhost)
 База игроков: ~/game-data (не удаляется при обновлении игры)
-Админ: логин admin, пароль — в консоли при первом запуске и в ~/game-data/ADMIN_PASSWORD.txt
+Админ (тестовый режим): логин admin, пароль 123456789 — задаётся в start.sh, перед хостом убрать
 Сбросить пароль админа: ADMIN_PASS=новыйпароль ADMIN_RESET=1 sh ~/game/start.sh
 Остановить: Ctrl+C
 

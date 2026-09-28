@@ -8,6 +8,8 @@ mkdir -p "$DATA"
 # перенос старой базы из папки игры (если она там осталась)
 [ ! -f "$DATA/db.json" ] && [ -f "$(dirname "$0")/server/data/db.json" ] && cp -r "$(dirname "$0")/server/data/." "$DATA/"
 export DB="$DATA/db.json"
+# ТЕСТОВЫЙ РЕЖИМ: при каждом запуске пароль admin = 123456789. Перед выкладкой на хост УБРАТЬ эту строку!
+export ADMIN_PASS="${ADMIN_PASS:-123456789}" ADMIN_RESET="${ADMIN_RESET:-1}"
 # Termux: не давать Android «усыплять» сервер, пока открыт Chrome (иначе игра очень долго думает)
 command -v termux-wake-lock >/dev/null 2>&1 && termux-wake-lock
 trap 'true' INT TERM
