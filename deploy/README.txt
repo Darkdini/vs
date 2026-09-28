@@ -10,3 +10,4 @@
 Обновление без потери игроков:   sh ~/game/update.sh
 Вернуть прежнюю версию:          sh ~/game/rollback.sh
 Резервные копии базы:            sh ~/game/restore.sh   (автоматически: при запуске и каждый час, ~/game-data/backups)
+За Cloudflare Tunnel / nginx запускайте с TRUST_PROXY=1 (иначе все игроки будут с одного адреса 127.0.0.1)

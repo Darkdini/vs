@@ -432,7 +432,9 @@ function startWeb(game, sessions, { port, host, log }) {
     const tag = `web ${socket.remoteAddress}:${socket.remotePort}`;
     const slog = (m) => log(`${tag} ${m}`);
     const session = new WebSession(game, socket, slog);
-    session.ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || String(socket.remoteAddress || '').replace(/^::ffff:/, '');
+    // IP игрока: заголовкам прокси верим только при TRUST_PROXY=1 (Cloudflare Tunnel / nginx), иначе их можно подделать и обойти блокировку входа
+    const direct = String(socket.remoteAddress || '').replace(/^::ffff:/, '');
+    session.ip = process.env.TRUST_PROXY === '1' ? (String(req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || '').split(',')[0].trim() || direct) : direct;
     sessions.add(session);
     const reader = new WsReader();
     socket.on('data', (chunk) => {
