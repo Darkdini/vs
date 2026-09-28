@@ -913,3 +913,6 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .warrow img { width: 34px; height: 34px; object-fit: contain; image-rendering: pixelated; flex: none; margin-top: 2px; }
 .warrow i { font-style: normal; font-weight: 700; } .warrow small { display: block; color: #7a5a3a; font-size: .85em; } .warrow small.wl { color: #4a3a2a; }
 .warrow.att { border-left: 5px solid #b8332a; } .warrow.def { border-left: 5px solid #2a5ab8; } .warrow.scout, .warrow.sdef { border-left: 5px solid #6a4a9a; } .warrow.rout, .warrow.rin { border-left: 5px solid #3a8a2a; }
+/* плитка без подписи («?», «•••»): иконка по центру клетки */
+.ptiles.pbig .ptile:has(> span:empty) { justify-content: center; padding: 14px; }
+.ptiles.pbig .ptile:has(> span:empty) img { flex: 0 1 auto; width: 70%; max-height: 80%; }
