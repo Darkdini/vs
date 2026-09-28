@@ -842,7 +842,7 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 /* боковая панель — компактнее */
 #locs .lbtns { gap: 8px; padding: 10px 7px 10px 8px; }
 #locs .lbtns button { width: 58px; height: 58px; border-radius: 12px; padding: 4px; }
-#locs .lbtns img { width: 44px; height: 44px; }
+#locs .lbtns img { width: 46px; height: 46px; filter: drop-shadow(0 2px 2px #0009); }
 #locsTab { left: -34px; width: 36px; height: 86px; }
 #locs:not(.open) #locsTab { left: -34px; }
 #locsTab::after { left: 10px; top: 31px; width: 12px; height: 12px; border-width: 0 6px 6px 0; }
