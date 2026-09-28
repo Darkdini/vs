@@ -453,7 +453,7 @@ function startWeb(game, sessions, { port, host, log }) {
     socket.on('close', () => { sessions.delete(session); if (session.user) { session.user.online = [...sessions].some((s) => s.user === session.user); session.user.lastSeen = Date.now(); } });
   });
 
-  server.listen(port, host, () => log(`браузерный клиент: http://${host === '0.0.0.0' ? 'localhost' : host}:${port}`));
+  server.listen(port, host, () => log(`Готово! Откройте в Chrome: http://${host === '0.0.0.0' ? '127.0.0.1' : host}:${port}`));
   return server;
 }
 
