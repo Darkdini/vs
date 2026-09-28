@@ -172,7 +172,7 @@ class Game {
   }
 
   login(login, password) {
-    const u = this.db.users[String(login || '').toLowerCase()];
+    const u = this.db.users[String(login || '').trim().toLowerCase()];
     if (!u || !Object.prototype.hasOwnProperty.call(this.db.users, u.login) || !checkPassword(String(password || '').toLowerCase(), u.pass)) return null;
     return u;
   }

@@ -217,7 +217,7 @@ function setMode(mode) {
   $('#authBtn').textContent = mode === 'reg' ? 'Создать аккаунт' : 'Войти';
   $('#authForm').password.autocomplete = mode === 'reg' ? 'new-password' : 'current-password';
   $('#authErr').textContent = '';
-  const locked = mode === 'login' && store.get('tw.lock') > Date.now(); // табличка блокировки — только на вкладке «Вход»
+  const locked = mode === 'login' && S.lockUntil > Date.now(); // табличка блокировки — только на вкладке «Вход»
   $('#lockBox').classList.toggle('hidden', !locked); $('#authBtn').disabled = locked;
 }
 // id устройства (для поиска мультов админом): случайный, хранится в браузере
@@ -928,13 +928,14 @@ function isoDrawNow() {
 
 // табличка «Попробуйте через 3 минуты» после 3 неверных входов (сервер закрывает вход сам, здесь — только отсчёт)
 function showLock(until) {
-  S.auto = false; store.set('tw.lock', until);
+  S.lockUntil = until;
+  S.auto = false;
   $('#auth').classList.remove('hidden'); $('#game').classList.add('hidden');
   $('#authErr').textContent = ''; if (S.mode !== 'reg') { $('#lockBox').classList.remove('hidden'); $('#authBtn').disabled = true; }
   clearInterval(S.lockTimer);
   const tick = () => {
     const left = Math.ceil((until - Date.now()) / 1000);
-    if (left <= 0) { clearInterval(S.lockTimer); $('#lockBox').classList.add('hidden'); $('#authBtn').disabled = false; store.set('tw.lock', null); return; }
+    if (left <= 0) { clearInterval(S.lockTimer); $('#lockBox').classList.add('hidden'); $('#authBtn').disabled = false; S.lockUntil = 0; return; }
     if (S.mode === 'reg') return;
     $('#lockT').textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
   };
@@ -945,6 +946,6 @@ function showLock(until) {
 S.creds = store.get('tw.creds');
 if (S.creds && S.creds.password) { S.creds = null; store.set('tw.creds', null); } // старый формат с паролем — стираем
 S.remember = true;
-if (store.get('tw.lock') > Date.now()) showLock(store.get('tw.lock'));
+store.set('tw.lock', null); // блокировку решает только сервер: после его перезапуска старая табличка не нужна
 if (S.creds) $('#authForm').login.value = S.creds.login;
 connect();

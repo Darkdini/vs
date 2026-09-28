@@ -197,11 +197,13 @@ const API = {
   },
   login(m) {
     const lockMsg = (sec) => this.send({ t: 'loginlock', sec, msg: `Слишком много неудачных попыток входа. Попробуйте через ${Math.ceil(sec / 60)} мин.` });
-    const wait = m.token ? 0 : this.game.loginBlocked(this.ip, m.login); if (wait) return lockMsg(wait);
+    const wait = m.token ? 0 : this.game.loginBlocked(this.ip, m.login); if (wait) { this.log(`вход ${String(m.login || '').slice(0, 20)}: заблокирован ещё ${wait} с (адрес ${this.ip})`); return lockMsg(wait); }
     // вход по паролю или по токену «Запомнить меня» (пароль в браузере не хранится)
     const u = m.token ? this.game.tokenLogin(m.login, m.token) : this.game.login(m.login, m.password);
     if (!u && m.token) return this.error('Сессия устарела — войдите заново.');
     if (!u) {
+      const known = Object.prototype.hasOwnProperty.call(this.game.db.users, String(m.login || '').trim().toLowerCase());
+      this.log(`вход ${JSON.stringify(String(m.login || '').slice(0, 20))}: ${known ? `неверный пароль (${String(m.password || '').length} симв.)` : 'нет такого игрока'}`);
       const w = this.game.loginFailed(this.ip, m.login); if (w) return lockMsg(w);
       const left = this.game.loginTriesLeft(this.ip);
       return this.error(`Неверный логин или пароль. Осталось попыток: ${left}.`);
