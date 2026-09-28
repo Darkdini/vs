@@ -60,5 +60,21 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   const lv = require('../src/army').SCIENCES.war.levels; assert.ok(lv.length === 20 && lv[4].mile && !lv[3].mile);
   console.log('✓ науки: Военное дело 5 ур. — атака +10% и веха +3%, Инженерия 20 ур. — стройка ×0.36');
 }
+// военные логи альянса: категории и доступ к отчётам союзников
+{
+  const L = g.register({ login: 'wlead', password: '123', race: 0 }).user, M = g.register({ login: 'wmemb', password: '123', race: 0 }).user, O = g.register({ login: 'woutsider', password: '123', race: 0 }).user;
+  g.db.alliances = g.db.alliances || {}; const aid = g.db.nextId++;
+  const al = g.db.alliances[aid] = { id: aid, name: 'Warlog', tag: 'WL', leader: L.id, members: [L.id, M.id], created: Date.now() }; L.alliance = M.alliance = aid;
+  g.report(M.id, 'Нападение: Замок X — победа', ['Нападение на игрока'], 'battle', { side: 'att' });
+  g.report(M.id, 'На ваш замок напал zz: отбились', ['Нападение от zz'], 'battle', { side: 'def' });
+  g.report(M.id, 'Разведка Замок Y', ['...'], 'scout');
+  g.report(M.id, 'Замечены вражеские разведчики', ['...'], 'scout');
+  const v = g.allyView(L, al), cats = v.reports.map((r) => r.cat).sort().join(',');
+  assert.strictEqual(cats, 'att,def,scout,sdef', cats);
+  const rep = g.db.reports.find((r) => r.owner === M.id);
+  assert.ok(g.canSeeReport(L, rep), 'глава видит отчёт участника');
+  assert.ok(!g.canSeeReport(O, rep), 'посторонний не видит');
+  console.log('✓ военные логи альянса: нападение, оборона, разведка, вражеская разведка; отчёты видны только своим');
+}
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);

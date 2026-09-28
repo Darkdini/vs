@@ -905,3 +905,11 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .ptiles.pbig .ptile img { width: 74%; height: auto; max-height: 64%; flex: 1; object-fit: contain; image-rendering: auto; }
 .ptiles.pbig .ptile span { font-size: min(14px, 3.6vw); line-height: 1.05; min-height: 2.1em; display: flex; align-items: center; }
 .ptiles.pbig .ptile span:empty { display: none; }
+/* военные логи альянса */
+.warchips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.warchips button { border: 2px solid #8a5a30; border-radius: 16px; padding: 4px 10px; background: #f3e2c0; font: 15px var(--serif); color: #4a2a10; }
+.warchips button.on { background: linear-gradient(#b8332a, #6e1510); color: #fff; border-color: #c8963e; }
+.warrow { display: flex; gap: 10px; align-items: flex-start; width: 100%; text-align: left; margin: 5px 0; padding: 8px 10px; border: 1px solid #b08a5a; border-radius: 10px; background: #fff8e44d; font: min(17px, 4.2vw)/1.3 var(--serif); color: #3a2410; }
+.warrow img { width: 34px; height: 34px; object-fit: contain; image-rendering: pixelated; flex: none; margin-top: 2px; }
+.warrow i { font-style: normal; font-weight: 700; } .warrow small { display: block; color: #7a5a3a; font-size: .85em; } .warrow small.wl { color: #4a3a2a; }
+.warrow.att { border-left: 5px solid #b8332a; } .warrow.def { border-left: 5px solid #2a5ab8; } .warrow.scout, .warrow.sdef { border-left: 5px solid #6a4a9a; } .warrow.rout, .warrow.rin { border-left: 5px solid #3a8a2a; }

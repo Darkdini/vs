@@ -35,6 +35,18 @@ function install(Game) {
     return r ? { title: r.title || 'Участник', ep: r.ep || 0 } : { title: 'Участник', ep: 0 };
   };
 
+  // категория записи военного лога по отчёту
+  P.warCat = function warCat(r) {
+    if (r.kind === 'battle') return r.data && r.data.side === 'def' ? 'def' : 'att';
+    if (r.kind === 'scout') return /^Замечены вражеские разведчики/.test(r.title) ? 'sdef' : 'scout';
+    return /^Подкрепление от/.test(r.title) ? 'rin' : 'rout';
+  };
+  // может ли игрок открыть чужой отчёт из военных логов своего альянса (право «Логи»)
+  P.canSeeReport = function canSeeReport(user, r) {
+    if (r.owner === user.id) return true;
+    const al = this.allianceOf(user);
+    return !!(al && al.members.includes(r.owner) && ['battle', 'scout', 'reinforce'].includes(r.kind) && this.allyCan(al, user.id, 'logs'));
+  };
   // полная карточка альянса для окна «Альянс»
   P.allyView = function allyView(user, al) {
     const me = user.id, can = (r) => this.allyCan(al, me, r), now = Date.now();
@@ -42,8 +54,9 @@ function install(Game) {
       const t = this.allyTitle(al, id); return { id, login: m.login, rating: this.userRating(m), rep: m.reputation ?? START_REP, score: this.userRating(m) + (m.reputation ?? START_REP), ...t,
         rights: id === al.leader ? Object.keys(RIGHTS) : ((al.ranks || {})[id] || {}).rights || [] }; }).filter(Boolean).sort((a, b) => b.score - a.score);
     const A = this.db.alliances || {};
-    const reports = can('logs') ? (this.db.reports || []).filter((r) => al.members.includes(r.owner) && ['battle', 'scout'].includes(r.kind)).slice(-100).reverse()
-      .map((r) => ({ id: r.id, login: (this.userById(r.owner) || {}).login, title: r.title, at: r.at })) : [];
+    // военные логи: каждое военное действие участников — нападение, оборона, разведка (своя и вражеская), подкрепления
+    const reports = can('logs') ? (this.db.reports || []).filter((r) => al.members.includes(r.owner) && ['battle', 'scout', 'reinforce'].includes(r.kind)).slice(-200).reverse()
+      .map((r) => ({ id: r.id, login: (this.userById(r.owner) || {}).login, title: r.title, at: r.at, cat: this.warCat(r), line: (r.lines || [])[0] || '' })) : [];
     return {
       id: al.id, tag: al.tag, name: al.name, desc: al.desc || '', charter: al.charter || '', ad: al.ad || '', created: al.created,
       rank: this.allyRank(al), score: this.allianceScore(al), leader: al.leader, leaderLogin: (this.userById(al.leader) || {}).login, slots: this.allianceSlots(al),

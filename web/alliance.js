@@ -5,6 +5,7 @@
 
 S.ally = null; S.allyTopic = null; S.allyShowDel = false; S.allyRankFor = null;
 const AI = (n) => `${G3}menu/${n}.svg`;
+const AL = 'gfx3d/ally/'; // родные иконки альянса (вырезаны из оригинала)
 const aTile = (attr, icon, text, off) => `<button class="ptile ${off ? 'off' : ''}" ${attr}><img src="${icon}" alt=""><span>${text}</span></button>`;
 const EP = ['', 'f_bronze', 'f_silver', 'f_gold', 'f_gold'];
 const epImg = (ep) => (ep ? `<img class="epaul" src="${GFX}smallicon/status/${EP[ep]}.png" alt="">` : '—');
@@ -36,22 +37,24 @@ function allyMainWin() {
     <div class="atable"><div class="atr3 head"><span>Звание</span><span>Имя</span><span>Погоны</span></div>
       ${lead.map((m) => `<div class="atr3"><span>${esc(m.title)}</span><span><a data-cprof="${m.id}">${esc(m.login)}</a></span><span>${epImg(m.ep)}</span></div>`).join('')}</div>
     <button class="pbar" data-aw="titles">Весь список</button>
-    <div class="ptiles">
-      ${aTile('data-aw="charter"', `${GFX}smallicon/softedit.png`, 'Устав')}
-      ${aTile('data-aw="diplo"', AI('swords'), 'Дипломатия')}
-      ${aTile('data-aw="desc"', AI('info'), 'Описание')}
-      ${aTile('data-soon="Альбомы альянса"', AI('cabinet'), 'Альбомы', true)}
+    <div class="ptiles pbig">
+      ${aTile('data-aw="charter"', `${AL}charter.png`, 'Устав')}
+      ${aTile('data-aw="diplo"', `${AL}diplo.png`, 'Дипломатия')}
+      ${aTile('data-aw="desc"', `${AL}desc.png`, 'Описание')}
+      ${aTile('data-soon="Альбомы альянса"', `${AL}albums.png`, 'Альбомы')}
+      ${aTile('data-soon="Скоро здесь появится новая функция альянса"', `${AL}quest.png`, '')}
+      ${aTile('data-soon="Скоро здесь появится новая функция альянса"', `${AL}quest.png`, '')}
     </div>
     ${ribbon('Состав')}
     <div class="atable">${a.members.slice(0, 5).map((m, i) => `<div class="atr4"><span>${i + 1}</span><span><a data-cprof="${m.id}" style="color:${nameColor(m.rep)}">${esc(m.login)}</a><br>${repIcons(m.rep)}</span><span>${epImg(m.ep)}</span><span>${fmtFull(m.score)}</span></div>`).join('')}</div>
     <button class="pbar" data-aw="members">Весь состав</button>
-    <div class="ptiles">
-      ${aTile('data-aw="manage"', `${G3}Gears/a1.png`, 'Управление')}
-      ${aTile('data-aw="forum"', AI('mail'), 'Форум')}
-      ${aTile('data-aw="mail"', `${GFX}smallicon/unmes.png`, 'Рассылки', !can('mail'))}
-      ${aTile('data-aw="ad"', `${GFX}smallicon/shieldblue.png`, 'Реклама', !can('invite'))}
-      ${aTile('data-aw="news"', AI('info'), 'Новости')}
-      ${aTile('data-aw="logs"', `${GFX}smallicon/swordred.png`, 'Логи', !can('logs'))}
+    <div class="ptiles pbig">
+      ${aTile('data-aw="manage"', `${AL}manage.png`, 'Управление')}
+      ${aTile('data-aw="forum"', `${AL}forum.png`, 'Форум')}
+      ${aTile('data-aw="mail"', `${AL}mail.png`, 'Рассылки', !can('mail'))}
+      ${aTile('data-aw="ad"', `${AL}ad.png`, 'Реклама', !can('invite'))}
+      ${aTile('data-aw="news"', `${AL}news.png`, 'Новости')}
+      ${aTile('data-aw="logs"', `${AL}logs.png`, 'Логи', !can('logs'))}
     </div>`;
 }
 
@@ -184,13 +187,23 @@ function allyNewsAddWin() { return formWin('Новость', '<div class="clabel
 
 // ----- логи -----
 S.allyLogKind = 'war';
+// категории военного лога: подпись, иконка, фильтр
+const WAR_CAT = { att: ['Нападение', 'smallicon/swordred.png', 'att'], def: ['Оборона', 'smallicon/shieldblue.png', 'def'], scout: ['Разведка', 'units/human/scout.png', 'scout'],
+  sdef: ['Вражеская разведка', 'smallicon/shieldgreen.png', 'scout'], rout: ['Подкрепление союзнику', 'smallicon/swordgreen.png', 'reinf'], rin: ['Подкрепление получено', 'smallicon/shieldgreen.png', 'reinf'] };
 function allyLogsWin() {
   const a = S.ally; if (!a) return loading('Военные логи');
   const k = S.allyLogKind, title = { war: 'Военные логи', log: 'Логи дипломатии и состава', slog: 'Логи кладовой' }[k];
   const links = [['war', 'Военные логи'], ['log', 'Логи дипломатии и состава альянса'], ['slog', 'Логи кладовой альянса']].filter(([x]) => x !== k)
     .map(([x, t]) => `<div class="bwline center">${t} <a data-alog="${x}">&gt;</a></div>`).join('');
-  const rows = k === 'war' ? a.reports.map((r) => `<div class="logrow">${esc(r.login)} - <span class="lt">${esc(r.title)}</span><br><small>${new Date(r.at).toLocaleString('ru-RU')}</small></div>`)
-    : a[k].map((r) => `<div class="logrow">${esc(r.text)}<br><small>${new Date(r.at).toLocaleString('ru-RU')}</small></div>`);
+  if (k === 'war') {
+    const f = S.warCat || 'all', list = a.reports.filter((r) => f === 'all' || WAR_CAT[r.cat][2] === f);
+    const chips = [['all', 'Все'], ['att', 'Нападения'], ['def', 'Оборона'], ['scout', 'Разведка'], ['reinf', 'Подкрепления']]
+      .map(([x, t]) => `<button class="${x === f ? 'on' : ''}" data-warcat="${x}">${t}${x === 'all' ? '' : ` (${a.reports.filter((r) => WAR_CAT[r.cat][2] === x).length})`}</button>`).join('');
+    const rows = list.map((r) => { const c = WAR_CAT[r.cat]; return `<button class="warrow ${r.cat}" data-report="${r.id}"><img src="${GFX}${c[1]}" alt="">
+      <span><b>${esc(r.login)}</b> · <i>${c[0]}</i><br>${esc(r.title)}${r.line ? `<small class="wl">${esc(r.line)}</small>` : ''}<small>${new Date(r.at).toLocaleString('ru-RU')}</small></span></button>`; });
+    return `${ribbon(title)}<div class="warchips">${chips}</div>${rows.join('') || '<p class="parch-note">Военных действий пока не было.</p>'}${links}`;
+  }
+  const rows = a[k].map((r) => `<div class="logrow">${esc(r.text)}<br><small>${new Date(r.at).toLocaleString('ru-RU')}</small></div>`);
   return `${ribbon(title)}${links}${rows.join('') || '<p class="parch-note">Записей нет.</p>'}`;
 }
 
@@ -200,6 +213,7 @@ const AW = { members: allyMembersWin, titles: allyTitlesWin, manage: allyManageW
 const ALLY_FORMS = { 'Изменить описание': 'desc', Устав: 'charter', Реклама: 'ad', Рассылки: 'mail', 'Изменить отношения': 'diplo', 'Создать тему': 'topic', Написать: 'post', Новость: 'news' };
 
 $('#sheetBody').addEventListener('click', (e) => {
+  const wc = e.target.closest('[data-warcat]'); if (wc) { S.warCat = wc.dataset.warcat; return refreshSheet(); }
   const t = e.target.closest('[data-apostdel],[data-aw],[data-aleave],[data-akick],[data-atransfer],[data-arankgo],[data-atopic],[data-atopicop],[data-atopicdel],[data-adel],[data-anewsdel],[data-alog]'); if (!t) return;
   const d = t.dataset;
   if (d.apostdel !== undefined) { if (confirm('Удалить сообщение?')) asend({ t: 'ally', op: 'postdel', topic: S.allyTopicId, idx: Number(d.apostdel) }); return; }

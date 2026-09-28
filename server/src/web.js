@@ -368,9 +368,9 @@ const API = {
   },
   reports() { this.send({ t: 'reports', list: this.game.reportsOf(this.user.id).map((x) => ({ id: x.id, at: x.at, kind: x.kind, title: x.title, read: x.read })) }); },
   report(m) {
-    const x = (this.game.db.reports || []).find((y) => y.id === Number(m.id) && y.owner === this.user.id);
+    const x = (this.game.db.reports || []).find((y) => y.id === Number(m.id) && this.game.canSeeReport(this.user, y));
     if (!x) return this.error('Отчёт не найден.');
-    if (!x.read) { x.read = true; this.game.store.save(); }
+    if (!x.read && x.owner === this.user.id) { x.read = true; this.game.store.save(); }
     this.send({ t: 'report', report: x });
     this.pushState();
   },
