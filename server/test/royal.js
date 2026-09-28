@@ -76,5 +76,17 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(!g.canSeeReport(O, rep), 'посторонний не видит');
   console.log('✓ военные логи альянса: нападение, оборона, разведка, вражеская разведка; отчёты видны только своим');
 }
+// альянс: 5 мест за уровень Дипломатического центра главы, не больше 50
+{
+  const L = g.register({ login: 'slotlead', password: '123', race: 0 }).user, c = g.castleOf(L);
+  const al = { id: 999001, name: 'Slots', tag: 'SL', leader: L.id, members: [L.id] };
+  const setEmb = (lv) => { const i = c.grid[0].indexOf(13); if (i >= 0) c.levels[0][i] = lv; else { const k = c.grid[0].indexOf(-1) >= 0 ? c.grid[0].findIndex((b) => b < 0) : 0; c.grid[0][k] = 13; c.levels[0][k] = lv; } };
+  setEmb(1); assert.strictEqual(g.allianceSlots(al), 5);
+  setEmb(10); assert.strictEqual(g.allianceSlots(al), 50);
+  al.members = Array.from({ length: 50 }, (_, i) => i + 1);
+  const x = g.register({ login: 'slotx', password: '123', race: 0 }).user;
+  assert.ok(/нет мест \(50\)/.test((g.joinAlliance(x, al) || {}).error || ''));
+  console.log('✓ альянс: 5 мест за уровень центра, максимум 50 — 51-й не вступит');
+}
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);

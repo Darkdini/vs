@@ -976,9 +976,10 @@ function install(Game, helpers) {
 
   // ----- альянсы (Дипломатический центр): приглашения, заявки, создание, управление -----
   P.allianceOf = function allianceOf(user) { return user && user.alliance && (this.db.alliances || {})[user.alliance]; };
+  const ALLY_MAX = 50; // не больше 50 игроков в альянсе
   P.allianceSlots = function allianceSlots(al) {
     const leader = this.userById(al.leader), lc = leader && this.castleOf(leader);
-    return 3 * Math.max(1, lc ? this.buildingLevel(lc, B.EMBASSY) : 1); // 3 места за уровень центра главы (10 ур. — 30)
+    return Math.min(ALLY_MAX, 5 * Math.max(1, lc ? this.buildingLevel(lc, B.EMBASSY) : 1)); // 5 мест за уровень центра главы, максимум 50 (10 ур.)
   };
   P.joinAlliance = function joinAlliance(user, al) {
     if (al.members.length >= this.allianceSlots(al)) return { error: `В альянсе нет мест (${this.allianceSlots(al)}).` };
