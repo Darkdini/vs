@@ -899,3 +899,4 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .lockt2 { font: 15px/1.4 var(--serif); margin: 6px 0; opacity: .9; }
 .lockt { font: 700 40px var(--serif); color: #fff; letter-spacing: 2px; text-shadow: 0 0 8px #ff5a2a, 0 2px 2px #000; }
 #authBtn:disabled { filter: grayscale(1) brightness(.6); }
+.ver { margin-top: 14px; font-size: 12px; opacity: .55; }

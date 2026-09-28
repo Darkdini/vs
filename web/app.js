@@ -151,7 +151,7 @@ function onMsg(m) {
   switch (m.t) {
     case 'catalog':
       S.cat = m.catalog; S.by = Object.fromEntries(S.cat.buildings.map((b) => [b.id, b]));
-      renderRaces(); break;
+      renderRaces(); $('#ver').textContent = S.cat.version ? `версия ${S.cat.version}` : ''; break;
     case 'captcha': $('#capImg').src = m.img; break;
     case 'registered':
       toast('Аккаунт создан!');

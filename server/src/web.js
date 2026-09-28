@@ -76,8 +76,11 @@ function armyJson() {
 
 // Всё, что нужно клиенту для таблиц по уровням: стоимость, время, добыча, вместимость, рейтинг.
 // Время в таблицах клиент считает сам по тем же формулам (зависит от уровня Ратуши): rules.time + speed.
+// версия сборки (файл VERSION кладётся в архив при сборке) — видна на экране входа и в консоли
+const VERSION = (() => { try { return fs.readFileSync(path.join(__dirname, '..', '..', 'VERSION'), 'utf8').trim(); } catch { return 'dev'; } })();
 function catalogJson() {
   return {
+    version: VERSION,
     speed: G.SPEED,
     maxQueue: G.MAX_QUEUE,
     rules: {
@@ -453,7 +456,12 @@ function startWeb(game, sessions, { port, host, log }) {
     socket.on('close', () => { sessions.delete(session); if (session.user) { session.user.online = [...sessions].some((s) => s.user === session.user); session.user.lastSeen = Date.now(); } });
   });
 
-  server.listen(port, host, () => log(`Готово! Откройте в Chrome: http://${host === '0.0.0.0' ? '127.0.0.1' : host}:${port}`));
+  server.on('error', (e) => {
+    if (e.code === 'EADDRINUSE') console.error(`\n✗ Порт ${port} занят — уже запущен другой сервер игры (старая версия?). Остановите его: закройте ту сессию Termux или выполните  pkill -f "^node src/index.js$"  и запустите снова.\n`);
+    else console.error(e);
+    process.exit(3);
+  });
+  server.listen(port, host, () => log(`Готово! Версия ${VERSION}. Откройте в Chrome: http://${host === '0.0.0.0' ? '127.0.0.1' : host}:${port}`));
   return server;
 }
 

@@ -5,7 +5,7 @@
 # Порядок: скачать → проверить новую версию на КОПИИ базы → остановить сервер (он сохраняет базу) → копия базы → замена папки игры.
 # Если новая версия не запускается на вашей базе — обновление отменяется, сервер и база остаются как были.
 set -e
-URL="${1:-https://github.com/Darkdini/vs/raw/claude/third-world-kings-war-analysis-lodxja/dist/game.zip}"
+URL="${1:-https://raw.githubusercontent.com/Darkdini/vs/claude/third-world-kings-war-analysis-lodxja/dist/game.zip?nocache=$(date +%s)}"
 GAME="$HOME/game"; DATA="$HOME/game-data"; TMP="$HOME/.game-update"
 fail() { echo "✗ $1 — обновление отменено, игра и база не изменены."; [ -f "$TMP/check.pid" ] && kill "$(cat "$TMP/check.pid")" 2>/dev/null; rm -rf "$TMP"; exit 1; }
 rm -rf "$TMP"; mkdir -p "$TMP" "$DATA"
