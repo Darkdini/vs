@@ -6,57 +6,49 @@ S.adm = { login: '', all: true, players: null, player: null, bugs: null };
 const aBtn = (op, text, icon, extra = '') => `<button class="ptile" data-adm="${op}" ${extra}><img src="${GFX}${icon}" alt=""><span>${text}</span></button>`;
 const aNum = (name, value, ph) => `<input class="anum" type="number" inputmode="numeric" data-an="${name}" value="${value}" placeholder="${ph}">`;
 
+const ADM_TABS = [['target', 'Цель'], ['build', 'Замки'], ['army', 'Армия'], ['players', 'Игроки'], ['multi', 'Мульты'], ['world', 'Мир']];
 function adminHtml() {
   const a = S.adm, who = a.login ? `игрок <b>${esc(a.login)}</b>` : '<b>вы (admin)</b>';
   const units = (S.cat.mil.units || []).filter((u) => u.id !== S.cat.mil.generalId);
-  return `${ribbon('Админ-панель')}
-    <div class="acard"><div class="arow"><span>Игрок:</span><input data-an="login" value="${esc(a.login)}" placeholder="пусто — вы сами" autocapitalize="none"></div>
-      <label class="check"><input type="checkbox" data-an="all" ${a.all ? 'checked' : ''}> над всеми замками игрока (иначе — только активный)</label>
-      <div class="small">Сейчас команды действуют на: ${who}${a.login ? ' <button class="btn small" data-adm-self>сбросить</button>' : ''}</div></div>
-
-    ${ribbon('Прокачка')}
-    <div class="ptiles">
-      ${aBtn('max', 'Полная прокачка', 'build/castle.png')}
-      ${aBtn('finish', 'Завершить всё', 'res/time.png')}
-      ${aBtn('sciences', 'Науки 20 ур.', 'smallicon/Ekoscience.png')}
-    </div>
-    <div class="arow">${aNum('castles', 1, 'сколько')}${aBtn('castles', '+ Замки (полные)', 'ground/castle_big.png', 'data-arg="castles:n"')}</div>
-
-    ${ribbon('Ресурсы и золото')}
-    <div class="ptiles">${aBtn('fill', 'Склады до максимума', 'build/storage.png')}</div>
-    <div class="arow">${aNum('res', 100000, 'кол-во (минус — забрать)')}${aBtn('res', '+ Ресурсы', 'res/wood.png', 'data-arg="res:n"')}</div>
-    <div class="arow">${aNum('royal', 10000, 'кол-во (минус — забрать)')}${aBtn('royal', '+ Лояльность населения', 'smallicon/bonus_status/coronalgold.png', 'data-arg="royal:n"')}</div>
-    <div class="arow">${aNum('gold', 10000, 'кол-во (минус — забрать)')}${aBtn('gold', '+ Золото', 'coins_s.png', 'data-arg="gold:n"')}</div>
-
-    ${ribbon('Армия')}
-    <div class="arow"><select data-an="unit"><option value="">Все юниты расы игрока</option>${units.map((u) => `<option value="${u.id}">${esc(u.name)}${u.race !== 'all' ? ` (${esc(S.cat.races[u.race] || '')})` : ''}</option>`).join('')}</select></div>
-    <div class="arow">${aNum('army', 1000, 'кол-во (минус — забрать)')}${aBtn('army', '+ Войска', 'units/human/knight.png', 'data-arg="army:n,unit"')}</div>
-    <div class="arow">${aNum('general', 100, 'уровень 1–500')}${aBtn('general', 'Генерал ур.', 'units/human/general.png', 'data-arg="general:level"')}</div>
-    <div class="ptiles">
-      ${aBtn('arts', '5 артефактов', 'smallicon/artefacts/artefakt_dragon.png')}
-      ${aBtn('noarmy', 'Убрать войска', 'smallicon/destroy.png', 'data-confirm="Убрать все войска?"')}
-      ${aBtn('npc', 'Восстановить лагеря', 'ground/dikari.png')}
-      ${aBtn('season', 'Подвести месяц (Зал Славы)', 'smallicon/bonus_status/ranggold.png', 'data-confirm="Подвести итоги месяца досрочно и выдать награды топ-3?"')}
-    </div>
-    <div class="arow">${aNum('loyalty', 100, '0–100')}${aBtn('loyalty', 'Лояльность', 'smallicon/bonus_status/coronalgold.png', 'data-arg="loyalty:value"')}</div>
-
-    ${ribbon('Игроки')}
-    <button class="pbar" data-adm="players">Показать всех игроков</button>
-    ${a.players ? `<div class="rlist">${a.players.map((p) => `<button class="rrow" data-apick="${esc(p.login)}"><span class="rn"><b>${esc(p.login)}${p.admin ? ` <img class="admbadge s" src="${GFX}admin_badge_s.png" alt="">` : p.mod ? ` <img class="admbadge s" src="${GFX}mod_badge_s.png" alt="">` : ''}${p.banned ? ' <span class="bad">[бан]</span>' : ''}</b>
-      <small>${esc(p.race)} · замков ${p.castles} · золото ${fmtFull(p.gold)} · ${p.online ? 'в игре' : `был ${fmtDate(p.lastSeen)}`}</small></span><span class="rv">${fmtFull(p.rating)}</span></button>`).join('')}</div>` : ''}
-    ${a.player ? playerCard(a.player) : ''}
-
-    ${ribbon('Связь и мир')}
-    <form class="stack" data-aform="mailall"><input name="subject" placeholder="Тема письма" value="Сообщение администрации"><textarea name="text" rows="3" placeholder="Письмо всем игрокам" required></textarea><button class="btn primary">Разослать всем</button></form>
-    <form class="chatform" data-aform="chat"><input name="text" placeholder="Объявление в общий чат" required><button class="btn primary small">В чат</button></form>
-    <div class="arow">${aNum('bots', 1000, 'сколько ботов')}${aBtn('bots', 'Заселить мир ботами', 'ground/castle_small.png', 'data-arg="bots:n"')}</div>
-    <div class="ptiles">${aBtn('reports', 'Очистить отчёты', 'smallicon/swordgreen.png')}${aBtn('bugs', 'Сообщения об ошибках', 'smallicon/soft_help.png')}</div>
-    ${a.bugs ? `<div class="pstats">${a.bugs.length ? a.bugs.map((b) => `<b>${esc(b.from)}</b> · ${fmtDate(b.at)}<br>${esc(b.text)}`).join('<hr>') : 'Сообщений нет.'}</div>${a.bugs.length ? '<button class="pbar" data-adm="bugsclear">Очистить список ошибок</button>' : ''}` : ''}`;
+  const tab = a.tab || 'target';
+  const head = `${ribbon('Админ-панель')}
+    <div class="atarget">Цель: ${who}${a.login ? ' <button class="btn small" data-adm-self>сбросить</button>' : ''}</div>
+    <div class="atabs">${ADM_TABS.map(([k, t]) => `<button class="${k === tab ? 'on' : ''}" data-atab="${k}">${t}</button>`).join('')}</div>`;
+  const T = {
+    target: () => `<div class="acard"><div class="arow"><span>Игрок:</span><input data-an="login" value="${esc(a.login)}" placeholder="пусто — вы сами" autocapitalize="none"></div>
+      <label class="check"><input type="checkbox" data-an="all" ${a.all ? 'checked' : ''}> над всеми замками игрока</label></div>
+      <div class="arow">${aNum('gold', 100, 'монет (минус — забрать)')}${aBtn('gold', '+ Монеты', 'coins_s.png', 'data-arg="gold:n"')}</div>
+      <div class="arow">${aNum('res', 100000, 'ресурсов')}${aBtn('res', '+ Ресурсы', 'res/wood.png', 'data-arg="res:n"')}</div>
+      <div class="arow">${aNum('royal', 10000, 'лояльности')}${aBtn('royal', '+ Лояльность', 'smallicon/bonus_status/coronalgold.png', 'data-arg="royal:n"')}</div>
+      ${a.player ? playerCard(a.player) : ''}`,
+    build: () => `<div class="ptiles">${aBtn('max', 'Полная прокачка', 'build/castle.png')}${aBtn('finish', 'Завершить всё', 'res/time.png')}${aBtn('sciences', 'Науки 20 ур.', 'smallicon/Ekoscience.png')}${aBtn('fill', 'Склады полные', 'build/storage.png')}</div>
+      <div class="arow">${aNum('castles', 1, 'сколько')}${aBtn('castles', '+ Замки', 'ground/castle_big.png', 'data-arg="castles:n"')}</div>
+      <div class="arow">${aNum('loyalty', 100, '0–100')}${aBtn('loyalty', 'Лояльность замка', 'smallicon/bonus_status/coronalgold.png', 'data-arg="loyalty:value"')}</div>`,
+    army: () => `<div class="arow"><select data-an="unit"><option value="">Все юниты расы игрока</option>${units.map((u) => `<option value="${u.id}">${esc(u.name)}${u.race !== 'all' ? ` (${esc(S.cat.races[u.race] || '')})` : ''}</option>`).join('')}</select></div>
+      <div class="arow">${aNum('army', 1000, 'кол-во (минус — забрать)')}${aBtn('army', '+ Войска', 'units/human/knight.png', 'data-arg="army:n,unit"')}</div>
+      <div class="arow">${aNum('general', 100, 'уровень 1–500')}${aBtn('general', 'Генерал ур.', 'units/human/general.png', 'data-arg="general:level"')}</div>
+      <div class="ptiles">${aBtn('arts', '5 артефактов', 'smallicon/artefacts/artefakt_dragon.png')}${aBtn('noarmy', 'Убрать войска', 'smallicon/destroy.png', 'data-confirm="Убрать все войска?"')}</div>`,
+    players: () => `<form class="chatform" data-aform="find"><input name="q" placeholder="Поиск по нику" autocapitalize="none"><button class="btn primary small">Найти</button></form>
+      <button class="pbar" data-adm="players">Топ-100 игроков</button>
+      ${a.players ? `<div class="rlist">${a.players.map((p) => `<button class="rrow" data-apick="${esc(p.login)}"><span class="rn"><b>${esc(p.login)}${p.admin ? ` <img class="admbadge s" src="${GFX}admin_badge_s.png" alt="">` : p.mod ? ` <img class="admbadge s" src="${GFX}mod_badge_s.png" alt="">` : ''}${p.banned ? ' <span class="bad">[бан]</span>' : ''}</b>
+        <small>${esc(p.race)} · замков ${p.castles} · монет ${fmtFull(p.gold)} · ${p.online ? 'в игре' : `был ${fmtDate(p.lastSeen)}`}</small></span><span class="rv">${fmtFull(p.rating)}</span></button>`).join('')}</div>` : ''}`,
+    multi: () => `<div class="bwline small">Аккаунты с общим <b>устройством</b> (почти наверняка один человек) и с общим <b>IP</b> (возможно, одна сеть: дом, Wi‑Fi, мобильный оператор).</div>
+      <button class="pbar" data-adm="multis">Проверить мультов</button>
+      ${a.multis ? (a.multis.length ? a.multis.map((g) => `<div class="mgroup ${g.strong ? 'strong' : ''}"><div class="mhead">${g.strong ? '📱 Одно устройство' : '🌐 Один IP'} <small>${esc(g.key)}</small> · ${g.users.length} акк.</div>
+        ${g.users.map((u) => `<button class="rrow" data-apick="${esc(u.login)}"><span class="rn"><b>${esc(u.login)}${u.banned ? ' <span class="bad">[бан]</span>' : ''}</b><small>был ${fmtDate(u.lastSeen)}</small></span><span class="rv">${fmtFull(u.rating)}</span></button>`).join('')}</div>`).join('') : '<p class="parch-note">Мультов не найдено.</p>') : ''}`,
+    world: () => `<form class="stack" data-aform="mailall"><input name="subject" placeholder="Тема письма" value="Сообщение администрации"><textarea name="text" rows="3" placeholder="Письмо всем игрокам" required></textarea><button class="btn primary">Разослать всем</button></form>
+      <form class="chatform" data-aform="chat"><input name="text" placeholder="Объявление в общий чат" required><button class="btn primary small">В чат</button></form>
+      <div class="ptiles">${aBtn('npc', 'Восстановить лагеря', 'ground/dikari.png')}${aBtn('season', 'Подвести месяц', 'smallicon/bonus_status/ranggold.png', 'data-confirm="Подвести итоги месяца досрочно и выдать награды топ-3?"')}${aBtn('reports', 'Очистить отчёты', 'smallicon/swordgreen.png')}${aBtn('bugs', 'Жалобы и ошибки', 'smallicon/soft_help.png')}</div>
+      <div class="arow">${aNum('bots', 1000, 'сколько ботов')}${aBtn('bots', 'Заселить ботами', 'ground/castle_small.png', 'data-arg="bots:n"')}</div>
+      ${a.bugs ? `<div class="pstats">${a.bugs.length ? a.bugs.map((b) => `<b>${esc(b.from)}</b> · ${fmtDate(b.at)}<br>${esc(b.text)}`).join('<hr>') : 'Сообщений нет.'}</div>${a.bugs.length ? '<button class="pbar" data-adm="bugsclear">Очистить список</button>' : ''}` : ''}`,
+  };
+  return head + T[tab]();
 }
 
 function playerCard(p) {
   return `<div class="acard"><div class="cwname">${esc(p.login)}${p.banned ? ' <span class="bad">[заблокирован]</span>' : ''}</div>
-    <div class="small">${esc(p.race)} · рейтинг ${fmtFull(p.rating)} · золото ${fmtFull(p.gold)} · в игре с ${fmtDate(p.created)}</div>
+    <div class="small">${esc(p.race)} · рейтинг ${fmtFull(p.rating)} · монет ${fmtFull(p.gold)} · в игре с ${fmtDate(p.created)}</div>
+    <div class="small">IP регистрации: ${esc(p.regIp || '—')} · входы: ${(p.ips || []).slice(0, 5).map((x) => esc(x.ip)).join(', ') || '—'} · устройства: ${(p.devs || []).map(esc).join(', ') || '—'}</div>
     <div class="rlist">${p.castlesList.map((c) => `<div class="rrow"><span class="rn"><b>${esc(c.name)}</b><small>X:${c.x} Y:${c.y} · лояльность ${c.loyalty}</small></span><span class="rv">${fmtFull(c.rating)}</span>
       <button class="btn small" data-goworld="${c.x},${c.y}">карта</button></div>`).join('')}</div>
     <div class="ptiles">
@@ -86,9 +78,10 @@ $('#sheetBody').addEventListener('change', (e) => {
   if (n === 'login') { S.adm.player = null; refreshSheet(); }
 });
 $('#sheetBody').addEventListener('click', (e) => {
+  const tb = e.target.closest('[data-atab]'); if (tb) { S.adm.tab = tb.dataset.atab; return refreshSheet(); }
   const b = e.target.closest('[data-adm],[data-apick],[data-adm-self]'); if (!b) return;
   if (b.dataset.admSelf !== undefined) { S.adm.login = ''; S.adm.player = null; return refreshSheet(); }
-  if (b.dataset.apick) { S.adm.login = b.dataset.apick; S.adm.player = null; send({ t: 'admin', op: 'player', login: S.adm.login }); return refreshSheet(); }
+  if (b.dataset.apick) { S.adm.login = b.dataset.apick; S.adm.player = null; S.adm.tab = 'target'; send({ t: 'admin', op: 'player', login: S.adm.login }); return refreshSheet(); }
   const op = b.dataset.adm;
   if (b.dataset.confirm && !confirm(b.dataset.confirm)) return;
   const extra = {};
@@ -96,7 +89,7 @@ $('#sheetBody').addEventListener('click', (e) => {
     const [field, keys] = b.dataset.arg.split(':');
     keys.split(',').forEach((k, i) => { const el = $(`[data-an="${i === 0 ? field : k}"]`); if (el) extra[k] = el.value; });
   }
-  if (op === 'players' || op === 'bugs') return send({ t: 'admin', op });
+  if (op === 'players' || op === 'bugs' || op === 'multis') return send({ t: 'admin', op });
   if (op === 'bugsclear') { S.adm.bugs = null; return send({ t: 'admin', op }); }
   if (op === 'delete') { admSend(op); S.adm.login = ''; S.adm.player = null; S.adm.players = null; return; }
   admSend(op, extra);
@@ -105,6 +98,7 @@ $('#sheetBody').addEventListener('click', (e) => {
 $('#sheetBody').addEventListener('submit', (e) => {
   const f = e.target, k = f.dataset.aform; if (!k) return;
   e.preventDefault();
+  if (k === 'find') { S.adm.players = null; return send({ t: 'admin', op: 'players', q: f.q.value }); }
   if (k === 'mailall') send({ t: 'admin', op: 'mailall', subject: f.subject.value, text: f.text.value });
   if (k === 'chat') { send({ t: 'admin', op: 'chat', text: f.text.value }); f.text.value = ''; }
   if (k === 'pass') admSend('pass', { password: f.password.value });
@@ -118,6 +112,7 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
     if (m.op === 'players') S.adm.players = m.data;
     if (m.op === 'player') S.adm.player = m.data;
     if (m.op === 'bugs') S.adm.bugs = m.data;
+    if (m.op === 'multis') S.adm.multis = m.data;
     return refreshSheet();
   }
   prevMil2(m);

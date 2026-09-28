@@ -15,7 +15,7 @@ const DB = path.join(os.tmpdir(), `tw-web-smoke-${process.pid}.json`);
 
 function startServer() {
   const child = spawn(process.execPath, [path.join(__dirname, '..', 'src', 'index.js')], {
-    env: { ...process.env, WEB_PORT: String(WEB_PORT), HOST: '127.0.0.1', DB, SPEED: '2000', SAVE_MS: '500' },
+    env: { ...process.env, WEB_PORT: String(WEB_PORT), HOST: '127.0.0.1', DB, SPEED: '2000', SAVE_MS: '500', NO_CAPTCHA: '1' },
     stdio: ['ignore', 'pipe', 'inherit'],
   });
   return new Promise((resolve) => child.stdout.on('data', (d) => { if (String(d).includes('браузерный клиент')) resolve(child); }));
@@ -331,6 +331,18 @@ function client() {
     const mb = await a.expect('mail');
     assert.ok(mb.list.some((x) => x.subject === 'Казна пополнена' && x.other === 'admin'));
     console.log('✓ казна: пополнение админом, письмо игроку, история трат');
+
+    // ---- мульты: два аккаунта с одного устройства попадают в одну группу ----
+    for (const lg of ['multa', 'multb']) {
+      const c = client(); await c.open();
+      c.send({ t: 'register', login: lg, password: '123', race: 0, dev: 'abcdef0123456789abcdef01' });
+      await c.expect('registered');
+      c.send({ t: 'login', login: lg, password: '123', dev: 'abcdef0123456789abcdef01' }); await c.expect('state'); c.close();
+    }
+    adm.send({ t: 'admin', op: 'multis' });
+    const mg = (await adm.expect('admininfo', (m) => m.op === 'multis')).data;
+    assert.ok(mg.some((g) => g.strong && ['multa', 'multb'].every((l) => g.users.some((u) => u.login === l))), JSON.stringify(mg));
+    console.log('✓ мульты: общее устройство найдено, группы по IP');
 
     // ---- премиум: покупка за монеты, звание VIP ----
     adm.send({ t: 'admin', op: 'gold', login: 'webby', n: 150 });

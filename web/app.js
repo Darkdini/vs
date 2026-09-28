@@ -141,7 +141,7 @@ function connect() {
   ws.onopen = () => {
     $('#offline').classList.remove('show');
     send({ t: 'hello' });
-    if (S.creds) { S.auto = true; send({ t: 'login', ...S.creds }); }
+    if (S.creds) { S.auto = true; send({ t: 'login', ...S.creds, dev: DEV }); }
   };
   ws.onmessage = (e) => { try { onMsg(JSON.parse(e.data)); } catch (err) { console.error(err); } };
   ws.onclose = () => { if (S.ws !== ws) return; $('#offline').classList.add('show'); setTimeout(connect, 2000); };
@@ -152,9 +152,10 @@ function onMsg(m) {
     case 'catalog':
       S.cat = m.catalog; S.by = Object.fromEntries(S.cat.buildings.map((b) => [b.id, b]));
       renderRaces(); break;
+    case 'captcha': $('#capImg').src = m.img; break;
     case 'registered':
       toast('Аккаунт создан!');
-      send({ t: 'login', login: S.pendingCreds.login, password: S.pendingCreds.password });
+      send({ t: 'login', login: S.pendingCreds.login, password: S.pendingCreds.password, dev: DEV });
       break;
     case 'auth':
       S.creds = S.pendingCreds || S.creds;
@@ -210,10 +211,14 @@ function setMode(mode) {
   S.mode = mode;
   $$('#authTabs button').forEach((b) => b.classList.toggle('on', b.dataset.mode === mode));
   $('#raceBox').classList.toggle('hidden', mode !== 'reg');
+  $('#capBox').classList.toggle('hidden', mode !== 'reg'); if (mode === 'reg') send({ t: 'captcha' });
   $('#authBtn').textContent = mode === 'reg' ? 'Создать аккаунт' : 'Войти';
   $('#authForm').password.autocomplete = mode === 'reg' ? 'new-password' : 'current-password';
   $('#authErr').textContent = '';
 }
+// id устройства (для поиска мультов админом): случайный, хранится в браузере
+const DEV = (() => { let d = store.get('tw.dev'); if (!/^[a-f0-9]{16,40}$/.test(d || '')) { d = [...crypto.getRandomValues(new Uint8Array(12))].map((x) => x.toString(16).padStart(2, '0')).join(''); store.set('tw.dev', d); } return d; })();
+$('#capNew').addEventListener('click', () => send({ t: 'captcha' }));
 $('#authTabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) setMode(b.dataset.mode); });
 $('#races').addEventListener('click', (e) => { const b = e.target.closest('[data-race]'); if (b) { S.race = Number(b.dataset.race); renderRaces(); } });
 $('#authForm').addEventListener('submit', (e) => {
@@ -222,8 +227,8 @@ $('#authForm').addEventListener('submit', (e) => {
   $('#authErr').textContent = '';
   S.remember = f.remember.checked;
   S.pendingCreds = { login, password };
-  if (S.mode === 'reg') send({ t: 'register', login, password, race: String(S.race) });
-  else send({ t: 'login', login, password });
+  if (S.mode === 'reg') { send({ t: 'register', login, password, race: String(S.race), captcha: f.captcha.value, dev: DEV }); f.captcha.value = ''; }
+  else send({ t: 'login', login, password, dev: DEV });
 });
 
 // ---------- шапка: ресурсы и очередь ----------

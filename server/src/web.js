@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const zlib = require('zlib');
+const SEC = require('./security');
 const C = require('./catalog');
 const G = require('./game');
 const ARMY = require('./army');
@@ -147,7 +148,7 @@ class WebSession {
   handle(msg) {
     const fn = API[msg.t];
     if (!fn) return this.error(`Неизвестная команда ${msg.t}`);
-    if (!['register', 'login', 'hello'].includes(msg.t) && !this.user) return this.error('Сначала войдите.');
+    if (!['register', 'login', 'hello', 'captcha'].includes(msg.t) && !this.user) return this.error('Сначала войдите.');
     this.failed = false;
     fn.call(this, msg);
     // лояльность населения (Резиденция) растёт за действия, а не за онлайн
@@ -158,15 +159,26 @@ const ROYAL_ACTIONS = new Set(['forge', 'ritual', 'calm', 'build', 'train', 'sen
 
 const API = {
   hello() { this.send({ t: 'catalog', catalog: catalogJson() }); },
+  // капча для регистрации: новая при каждом запросе и после каждой попытки
+  captcha() { const c = SEC.captcha(); this.captchaAns = { a: c.answer, exp: Date.now() + 300000 }; this.send({ t: 'captcha', img: c.img }); },
   register(m) {
+    const test = process.env.NO_CAPTCHA === '1'; // только для автотестов
+    const lim = !test && this.game.regAllowed(this.ip); if (lim) return this.error(lim);
+    const c = this.captchaAns; this.captchaAns = null;
+    const ok = test || (c && c.exp > Date.now() && Number(String(m.captcha || '').trim()) === c.a);
+    if (!ok) { API.captcha.call(this); return this.error('Неверный ответ на пример — попробуйте ещё раз.'); }
     const res = this.game.register({ login: m.login, password: m.password, email: m.email, race: m.race });
-    if (res.error) return this.error(res.error);
+    if (res.error) { API.captcha.call(this); return this.error(res.error); }
+    this.game.regDone(this.ip);
+    res.user.regIp = this.ip; this.game.trackLogin(res.user, this.ip, m.dev); res.user.regDev = String(m.dev || '').slice(0, 40);
     this.log(`web registered ${res.user.login}`);
     this.send({ t: 'registered', login: res.user.login });
   },
   login(m) {
+    if (this.game.loginBlocked(this.ip)) return this.error('Слишком много неудачных попыток входа. Подождите 10 минут.');
     const u = this.game.login(m.login, m.password);
-    if (!u) return this.error('Неверный логин или пароль.');
+    if (!u) { this.game.loginFailed(this.ip); return this.error('Неверный логин или пароль.'); }
+    this.game.trackLogin(u, this.ip, m.dev);
     if (u.banned) return this.error('Аккаунт заблокирован администрацией.');
     this.user = u; u.online = true; u.lastSeen = Date.now();
     this.log(`web login ${u.login}`);
@@ -384,6 +396,7 @@ function startWeb(game, sessions, { port, host, log }) {
     const tag = `web ${socket.remoteAddress}:${socket.remotePort}`;
     const slog = (m) => log(`${tag} ${m}`);
     const session = new WebSession(game, socket, slog);
+    session.ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || String(socket.remoteAddress || '').replace(/^::ffff:/, '');
     sessions.add(session);
     const reader = new WsReader();
     socket.on('data', (chunk) => {
