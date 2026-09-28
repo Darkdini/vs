@@ -900,3 +900,8 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .lockt { font: 700 40px var(--serif); color: #fff; letter-spacing: 2px; text-shadow: 0 0 8px #ff5a2a, 0 2px 2px #000; }
 #authBtn:disabled { filter: grayscale(1) brightness(.6); }
 .ver { margin-top: 14px; font-size: 12px; opacity: .55; }
+/* профиль: большие иконки на плитках, как в оригинале */
+.ptiles.pbig .ptile { padding: 8px 4px 10px; gap: 2px; justify-content: flex-end; }
+.ptiles.pbig .ptile img { width: 74%; height: auto; max-height: 64%; flex: 1; object-fit: contain; image-rendering: auto; }
+.ptiles.pbig .ptile span { font-size: min(14px, 3.6vw); line-height: 1.05; min-height: 2.1em; display: flex; align-items: center; }
+.ptiles.pbig .ptile span:empty { display: none; }

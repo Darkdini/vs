@@ -198,7 +198,7 @@ $('#sheetBody').addEventListener('input', (e) => { if (e.target.closest('.chatba
 // аватар игрока (PNG 96×96, собранный сервером) или картинка расы
 const avatarImg = (p, cls = '') => (p.avatar ? `<img class="${cls}" src="avatar/${p.id}.png?v=${p.avatar}" alt="">` : raceIcon(p.race));
 function profileWin(p) {
-  const tile = (key, icon, text, off) => `<button class="ptile ${off ? 'off' : ''}" data-ptile="${key}" data-pid="${p.id}"><img src="${GFX}${icon}" alt=""><span>${text}</span></button>`;
+  const tile = (key, icon, text, off) => `<button class="ptile ${off ? 'off' : ''}" data-ptile="${key}" data-pid="${p.id}"><img src="${icon.startsWith('gfx3d/') ? icon : GFX + icon}" alt=""><span>${text}</span></button>`;
   const medals = p.medals.length ? p.medals.map((m) => `<img class="medal" src="${GFX}${m.icon}" alt="" title="Зал ${esc(m.name)} — ${m.place} место, получено ${fmtDay(m.at)}">`).join('') : '<span class="muted">нет</span>';
   // Зал Славы: медали топ-3 по итогам соревновательного месяца, с датой получения
   const hof = p.medals.length ? p.medals.map((m) => `<div class="award"><img src="${GFX}${m.icon}" alt=""><div><b>Зал ${esc(m.name)} — ${['I', 'II', 'III'][m.place - 1]} место</b><small>за ${monthName(m.month)} · получено ${fmtDay(m.at)}</small></div></div>`).join('') : '<div class="parch-note">Пока нет — медали получают топ-3 игрока каждого зала в конце соревновательного месяца.</div>';
@@ -217,22 +217,29 @@ function profileWin(p) {
     ${p.title ? `<div class="ptitle">Звание: ${p.title === 'Администратор' ? `<img class="admbadge" src="${GFX}admin_badge.png" alt="">` : p.title === 'Модератор форума' ? `<img class="admbadge" src="${GFX}mod_badge.png" alt="">` : p.title === 'VIP' ? `<img class="admbadge crownp" src="${GFX}premium_crown.png" alt="">` : gimg('smallicon/status/f_gold.png', 'ri')} ${esc(p.title)}</div>` : ''}
     <div class="pline">Альянс: ${p.alliance ? `<b>${esc(p.alliance.name)} [${esc(p.alliance.tag)}]</b>` : '—'}</div>
     ${p.alliance ? `<div class="pline">Звание в альянсе: ${esc(p.alliance.role)}</div>` : ''}
-    <div class="ptiles">
-      ${tile('treasury', 'coins_s.png', 'Пополнить Казну', !p.self)}
-      ${tile('rep', 'smallicon/plus.png', 'Поднять Репутацию')}
-      ${tile('gift', 'smallicon/surprize.png', 'Отправить Подарок')}
-      ${tile('friend', 'smallicon/status/online.png', p.friend ? 'Убрать из друзей' : 'Добавить в друзья', p.self)}
-      ${tile('msg', 'smallicon/unmes.png', 'Сообщение')}
-      ${tile('map', 'ground/castle_small.png', 'На карте')}
-      ${tile('premium', 'premium_crown.png', p.self ? 'Премиум' : 'Подарить Премиум')}
-      ${tile('info', 'units/human/general.png', 'Личная информация')}
-      ${tile('attack', 'smallicon/swordred.png', 'Атаковать', p.self)}
+    <div class="ptiles pbig">
+      ${tile('treasury', 'gfx3d/prof/treasury.png', 'Пополнить Казну', !p.self)}
+      ${tile('rep', 'gfx3d/prof/rep.png', 'Поднять Репутацию')}
+      ${tile('gift', 'gfx3d/prof/gift.png', 'Отправить Подарок')}
+      ${tile('friend', 'gfx3d/prof/friend.png', p.friend ? 'Убрать из друзей' : 'Добавить в друзья', p.self)}
+      ${tile('msg', 'gfx3d/prof/msg.png', 'Сообщение')}
+      ${tile('hof', 'gfx3d/prof/hof.png', 'Зал Славы')}
+      ${tile('premium', 'gfx3d/prof/premium.png', p.self ? 'Премиум' : 'Подарить Премиум')}
+      ${tile('info', 'gfx3d/prof/info.png', 'Личная информация')}
+      ${tile('more', 'gfx3d/prof/more.png', '')}
     </div>
     ${ribbon(`Подарки - ${(p.gifts || []).length}`)}${(p.gifts || []).length ? `<div class="pgifts">${p.gifts.map((g) => { const G = S.cat.gifts[g.gift] || {}; return `<button class="pgift" data-cprof="${g.fromId}" title="${esc(G.name || '')}"><img src="${GFX}${G.img}" alt=""><small>от ${esc(g.from)}</small>${g.text ? `<i>«${esc(g.text)}»</i>` : ''}</button>`; }).join('')}</div>` : '<div class="parch-note">Подарков пока нет.</div>'}
     ${ribbon(`Зал Славы - ${p.medals.length}`)}${hof}<button class="pbar" data-hof>Посмотреть</button>
     ${ribbon(`Награждения - ${aw.length}`)}${awards}
     ${ribbon(`Замки - ${p.castles.length}`)}
     ${p.castles.map((c) => `<button class="pcastle" data-goworld="${c.x},${c.y}"><img src="${GFX}ground/castle_small.png" alt=""> ${esc(c.name)}<br>X: ${c.x}, Y: ${c.y}${c.capital ? ' (Столица)' : ''}</button>`).join('')}`;
+}
+function profileMoreWin(p) {
+  const tile = (key, icon, text, off) => `<button class="ptile ${off ? 'off' : ''}" data-ptile="${key}" data-pid="${p.id}"><img src="${GFX}${icon}" alt=""><span>${text}</span></button>`;
+  return `${ribbon(p.login)}<div class="ptiles">
+    ${tile('map', 'ground/castle_small.png', 'На карте')}
+    ${tile('attack', 'smallicon/swordred.png', 'Атаковать', p.self)}
+  </div>`;
 }
 function profileInfoWin(p) {
   return `${ribbon('Личная информация')}<div class="pstats">Игрок: <b>${esc(p.login)}</b><br>Раса: ${esc(p.raceName)}<br>В игре с: ${fmtDate(p.created)}${p.lastSeen ? `<br>Последний вход: ${fmtDate(p.lastSeen)}` : ''}</div>
@@ -386,6 +393,8 @@ $('#sheetBody').addEventListener('click', (e) => {
     if (d.ptile === 'map') { closeAllSheets(); S.world = null; setTab('world'); return send({ t: 'world', cx: p.castles[0].x, cy: p.castles[0].y }); }
     if (d.ptile === 'info') return openSheet(() => profileInfoWin(p));
     if (d.ptile === 'attack') return openArmySheet({ mission: 'attack', x: p.castles[0].x, y: p.castles[0].y });
+    if (d.ptile === 'hof') { S.halls = null; send({ t: 'halls' }); return openSheet(hallsWin); }
+    if (d.ptile === 'more') return openSheet(() => profileMoreWin(p)); // «•••» — остальные действия
   }
 });
 $('#sheetBody').addEventListener('submit', (e) => {
