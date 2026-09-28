@@ -949,3 +949,21 @@ S.remember = true;
 store.set('tw.lock', null); // блокировку решает только сервер: после его перезапуска старая табличка не нужна
 if (S.creds) $('#authForm').login.value = S.creds.login;
 connect();
+
+// ---------- имитация нажатия кнопок (профиль, альянс, меню) ----------
+// Плитка на мгновение «вдавливается», телефон слегка вибрирует, и только потом открывается окно —
+// иначе новое окно появляется мгновенно и нажатия не видно.
+const PRESS_SEL = '.ptile, .mitem, #menubar button, .pbar, .rbar, .fbar, #btnMenu, #btnGear, #locs .lbtns button';
+document.addEventListener('click', (e) => {
+  const b = e.target.closest(PRESS_SEL);
+  if (!b || b.dataset.pressOk || b.disabled) return;
+  e.preventDefault(); e.stopPropagation();
+  if (b.classList.contains('pressed')) return; // двойной тап во время анимации
+  b.classList.add('pressed');
+  try { if (navigator.vibrate) navigator.vibrate(12); } catch { /* нет вибро */ }
+  setTimeout(() => {
+    b.classList.remove('pressed');
+    if (!b.isConnected) return;
+    b.dataset.pressOk = '1'; b.click(); delete b.dataset.pressOk;
+  }, 130);
+}, true);
