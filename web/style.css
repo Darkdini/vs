@@ -900,11 +900,6 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .lockt { font: 700 40px var(--serif); color: #fff; letter-spacing: 2px; text-shadow: 0 0 8px #ff5a2a, 0 2px 2px #000; }
 #authBtn:disabled { filter: grayscale(1) brightness(.6); }
 .ver { margin-top: 14px; font-size: 12px; opacity: .55; }
-/* профиль: большие иконки на плитках, как в оригинале */
-.ptiles.pbig .ptile { padding: 8px 4px 10px; gap: 2px; justify-content: flex-end; }
-.ptiles.pbig .ptile img { width: 74%; height: auto; max-height: 64%; flex: 1; object-fit: contain; image-rendering: auto; }
-.ptiles.pbig .ptile span { font-size: min(14px, 3.6vw); line-height: 1.05; min-height: 2.1em; display: flex; align-items: center; }
-.ptiles.pbig .ptile span:empty { display: none; }
 /* военные логи альянса */
 .warchips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
 .warchips button { border: 2px solid #8a5a30; border-radius: 16px; padding: 4px 10px; background: #f3e2c0; font: 15px var(--serif); color: #4a2a10; }
@@ -913,6 +908,10 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .warrow img { width: 34px; height: 34px; object-fit: contain; image-rendering: pixelated; flex: none; margin-top: 2px; }
 .warrow i { font-style: normal; font-weight: 700; } .warrow small { display: block; color: #7a5a3a; font-size: .85em; } .warrow small.wl { color: #4a3a2a; }
 .warrow.att { border-left: 5px solid #b8332a; } .warrow.def { border-left: 5px solid #2a5ab8; } .warrow.scout, .warrow.sdef { border-left: 5px solid #6a4a9a; } .warrow.rout, .warrow.rin { border-left: 5px solid #3a8a2a; }
-/* плитка без подписи («?», «•••»): иконка по центру клетки */
-.ptiles.pbig .ptile:has(> span:empty) { justify-content: center; padding: 14px; }
-.ptiles.pbig .ptile:has(> span:empty) img { flex: 0 1 auto; width: 70%; max-height: 80%; }
+/* большие плитки (профиль, альянс): у всех иконок одинаковое поле внутри рамки, подпись всегда на одном месте */
+.ptiles.pbig { gap: 10px; }
+.ptiles.pbig .ptile { position: relative; display: block; padding: 0; }
+.ptiles.pbig .ptile img { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); width: 58%; height: 45%; object-fit: contain; image-rendering: auto; filter: drop-shadow(0 2px 2px #0007); }
+.ptiles.pbig .ptile span { position: absolute; left: 9%; right: 9%; bottom: 11%; height: 2.3em; display: flex; align-items: center; justify-content: center; font-size: min(13px, 3.4vw); line-height: 1.05; }
+.ptiles.pbig .ptile span:empty { display: none; }
+.ptiles.pbig .ptile:has(> span:empty) img { top: 50%; transform: translate(-50%, -50%); height: 52%; }
