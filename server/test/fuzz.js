@@ -4,7 +4,7 @@
 const { spawn } = require('child_process');
 const path = require('path'), os = require('os'), fs = require('fs');
 const PORT = 18000 + (process.pid % 1000), DB = path.join(os.tmpdir(), `fuzz-${process.pid}.json`);
-const srv = spawn(process.execPath, [path.join(__dirname, '..', 'src', 'index.js')], { env: { ...process.env, WEB_PORT: String(PORT), HOST: '127.0.0.1', DB, SPEED: '1', SAVE_MS: '500', NO_CAPTCHA: '1', ADMIN_PASS: 'admin', RATE_OFF: '1' } });
+const srv = spawn(process.execPath, [path.join(__dirname, '..', 'src', 'index.js')], { env: { ...process.env, WEB_PORT: String(PORT), HOST: '127.0.0.1', DB, SPEED: '1', SAVE_MS: '500', NO_CAPTCHA: '1', ADMIN_PASS: 'admin', RATE_OFF: '1', NO_BACKUP: '1' } });
 let log = ''; srv.stdout.on('data', (d) => { log += d; }); srv.stderr.on('data', (d) => { log += d; });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function client() {

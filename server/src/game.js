@@ -5,6 +5,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const zlib = require('zlib');
 const C = require('./catalog');
 
 const SPEED = Number(process.env.SPEED || 1);
@@ -80,12 +81,39 @@ const pack = (a) => `~${Buffer.from(a.buffer, a.byteOffset, a.byteLength).toStri
 const unpack = (s) => { const b = Buffer.from(s.slice(1), 'base64'); return new Int8Array(b.buffer, b.byteOffset, b.length).slice(); };
 const packCastle = (c) => { for (const v of [0, 1]) { if (!ArrayBuffer.isView(c.grid[v])) c.grid[v] = Int8Array.from(c.grid[v]); if (!ArrayBuffer.isView(c.levels[v])) c.levels[v] = Int8Array.from(c.levels[v]); } return c; };
 
+// Хранилище: один JSON-файл. Защита данных игроков:
+// • запись атомарная: сначала .tmp + fsync, потом переименование — при сбое питания остаётся старая целая копия;
+// • резервные копии (gzip) в папке backups рядом с базой: при каждом запуске и раз в BACKUP_MS (час), хранятся последние 48 + 10 стартовых;
+// • битая база не перезаписывается: сервер останавливается с подсказкой, как восстановить из копии.
+const BACKUP_MS = Number(process.env.BACKUP_MS || 3600000);
 class Store {
   constructor(file) {
     this.file = file;
     this.data = { nextId: 1, users: {}, castles: {} };
-    if (fs.existsSync(file)) this.data = JSON.parse(fs.readFileSync(file, 'utf8'), (k, v) => (typeof v === 'string' && v[0] === '~' ? unpack(v) : v));
+    if (fs.existsSync(file)) {
+      try { this.data = JSON.parse(fs.readFileSync(file, 'utf8'), (k, v) => (typeof v === 'string' && v[0] === '~' ? unpack(v) : v)); } catch (e) {
+        console.error(`База ${file} повреждена (${e.message}). Сервер остановлен, база не тронута. Восстановление: sh ~/game/restore.sh`);
+        process.exit(2);
+      }
+      this.backup('start');
+    }
+    this.data.version = this.data.version || 1; // версия схемы — для будущих миграций при обновлениях
     this.timer = null;
+    if (BACKUP_MS > 0 && !process.env.NO_BACKUP) this.bTimer = setInterval(() => { try { this.flush(); this.backup('auto'); } catch (e) { console.error('бэкап:', e.message); } }, BACKUP_MS).unref();
+  }
+  get backupDir() { return path.join(path.dirname(path.resolve(this.file)), 'backups'); }
+  // копия текущего файла базы: backups/db-2026-09-28_1530-auto.json.gz
+  backup(kind) {
+    if (process.env.NO_BACKUP || !fs.existsSync(this.file)) return null;
+    fs.mkdirSync(this.backupDir, { recursive: true });
+    const d = new Date(), p2 = (n) => String(n).padStart(2, '0');
+    const name = `db-${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}_${p2(d.getHours())}${p2(d.getMinutes())}${p2(d.getSeconds())}-${kind}.json.gz`;
+    const out = path.join(this.backupDir, name);
+    fs.writeFileSync(out, zlib.gzipSync(fs.readFileSync(this.file)));
+    const keep = { start: 10, auto: 48, manual: 20 }[kind] || 20;
+    const same = fs.readdirSync(this.backupDir).filter((f) => f.endsWith(`-${kind}.json.gz`)).sort();
+    for (const f of same.slice(0, Math.max(0, same.length - keep))) fs.unlinkSync(path.join(this.backupDir, f));
+    return out;
   }
   // запись не чаще раза в SAVE_MS, компактный JSON
   save() {
@@ -95,8 +123,9 @@ class Store {
   flush() {
     clearTimeout(this.timer); this.timer = null;
     fs.mkdirSync(path.dirname(this.file), { recursive: true });
-    fs.writeFileSync(this.file + '.tmp', JSON.stringify(this.data, (k, v) => (ArrayBuffer.isView(v) ? pack(v) : v)));
-    fs.renameSync(this.file + '.tmp', this.file);
+    const tmp = this.file + '.tmp', fd = fs.openSync(tmp, 'w');
+    try { fs.writeSync(fd, JSON.stringify(this.data, (k, v) => (ArrayBuffer.isView(v) ? pack(v) : v))); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
+    fs.renameSync(tmp, this.file);
   }
 }
 

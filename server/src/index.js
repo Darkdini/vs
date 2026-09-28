@@ -33,6 +33,9 @@ if (game.ensureAdmin()) {
 startWeb(game, sessions, { port: WEB_PORT, host: HOST, log: (m) => console.log(m) });
 console.log(`Война Королей: скорость мира x${process.env.SPEED || 1}, база ${DB}`);
 
-const shutdown = () => { store.flush(); process.exit(0); };
+// pid рядом с базой — по нему update.sh аккуратно останавливает сервер (SIGTERM → сохранение базы)
+const PID = path.join(path.dirname(path.resolve(DB)), 'server.pid');
+try { require('fs').writeFileSync(PID, String(process.pid)); } catch { /* нет доступа */ }
+const shutdown = () => { store.flush(); try { require('fs').unlinkSync(PID); } catch { /* уже нет */ } process.exit(0); };
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
