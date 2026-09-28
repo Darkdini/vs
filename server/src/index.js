@@ -25,7 +25,8 @@ setInterval(() => {
 
 // администратор: логин admin, пароль ADMIN_PASS (по умолчанию admin) — замок на полной прокачке
 if (game.ensureAdmin()) {
-  if (game.adminNewPass) console.log(`Создан админ: логин admin, пароль ${game.adminNewPass} (записан в data/ADMIN_PASSWORD.txt — смените его в Админ-панели)`);
+  if (game.adminReset) console.log('Пароль admin сброшен на заданный в ADMIN_PASS.');
+  else if (game.adminNewPass) console.log(`Создан админ: логин admin, пароль ${game.adminNewPass} (записан в ${path.join(path.dirname(DB), 'ADMIN_PASSWORD.txt')} — смените его в Админ-панели)`);
   else if (game.login('admin', 'admin')) console.log('ВНИМАНИЕ: у admin стандартный пароль «admin» — смените его: Админ-панель → Цель (пусто) → Сменить пароль');
 }
 
