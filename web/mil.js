@@ -89,7 +89,8 @@ function buildingFunctions(def, lvl) {
   if (def.id === HQ) h += hqHtml();
   if (def.id === 4) h += marketHtml();
   if (def.id === 13) h += diplomacyButtons();
-  if (def.id === 15 || def.id === 14) h += universityHtml(def.id);
+  if (def.id === 15) return `<button class="rbar" data-scilist>Науки</button>${sciJob()}`; // Университет (science.js)
+  if (def.id === 14) h += universityHtml(def.id);
   if (def.id === 25) h += templeHtml();
   if (def.id === 17) h += `<div class="section">Экспедиции</div><div class="card"><p class="small">Археологи ищут артефакты в руинах. На карте мира нажмите на <b>Заброшенный замок</b> → «Экспедиция».
     Шанс находки: 20% + 5% за археолога + 3% за ур. Лагеря археологов + 2% за ур. Экспедиции.</p>

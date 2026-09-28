@@ -133,12 +133,32 @@ const genKind = (race) => { const l = UNITS.filter((u) => u.race === race && ['i
 const unitImg = (u, race) => `units/${u.race === 'all' && !u.img.includes('/') ? `${RACE_DIR[race]}/${u.img}` : u.img}.png`;
 
 // ---------- науки (Университет; иконки smallicon/*science.png) ----------
+// у каждой науки: процент за уровень + вехи на 5/10/15/20 ур. с отдельным бонусом (они видны в «Информации о науке»)
 const SCIENCES = {
-  eco: { name: 'Экономика', icon: 'Ekoscience', desc: '+3% добычи всех ресурсов за уровень', per: 0.03 },
-  eng: { name: 'Инженерия', icon: 'Engscience', desc: '−3% времени строительства за уровень', per: 0.03 },
-  fhi: { name: 'Физика', icon: 'Fhiscience', desc: '+4% скорости армий и торговцев за уровень', per: 0.04 },
-  war: { name: 'Военное дело', icon: 'Warscience', desc: '+2% атаки и защиты войск за уровень', per: 0.02 },
+  eco: { name: 'Экономика', icon: 'Ekoscience', flask: 'yellow', sub: 'Добыча ресурсов и торговля.', desc: '+3% добычи всех ресурсов за уровень', per: 0.03,
+    about: 'Развитие земледелия, лесозаготовки, каменных работ и рудников. Каждый уровень увеличивает добычу всех ресурсов, а на 5, 10, 15 и 20 уровнях открываются хозяйственные улучшения.',
+    eff: (l) => `Добыча ресурсов +${3 * l}%.`,
+    miles: { 5: [{ tradeCarry: 0.1 }, 'Торговцы везут на 10% больше.'], 10: [{ hidden: 0.25 }, 'Тайник прячет на 25% больше.'], 15: [{ tradeCarry: 0.1 }, 'Торговцы везут ещё +10%.'], 20: [{ prod: 0.05 }, 'Мастерство хозяйства: добыча ещё +5%.'] } },
+  eng: { name: 'Инженерия', icon: 'Engscience', flask: 'green', sub: 'Строительство и укрепления замка.', desc: '−3% времени строительства за уровень', per: 0.03,
+    about: 'Наука о строительстве, чертежах и укреплениях. Каждый уровень сокращает время строительства, а на 5, 10, 15 и 20 уровнях укрепляет забор и ускоряет стройку.',
+    eff: (l) => `Время строительства −${3 * l}%.`,
+    miles: { 5: [{ wall: 0.1 }, 'Забор защищает на 10% сильнее.'], 10: [{ build: 0.05 }, 'Улучшенные чертежи: стройка ещё −5%.'], 15: [{ wall: 0.1 }, 'Забор защищает ещё +10%.'], 20: [{ build: 0.05 }, 'Мастерство архитекторов: стройка ещё −5%.'] } },
+  fhi: { name: 'Физика', icon: 'Fhiscience', flask: 'blue', sub: 'Скорость армий и торговцев.', desc: '+4% скорости армий и торговцев за уровень', per: 0.04,
+    about: 'Изучение механики, дорог и повозок. Каждый уровень ускоряет армии и торговцев в пути, а на 5, 10, 15 и 20 уровнях открываются дополнительные ускорения.',
+    eff: (l) => `Скорость армий и торговцев +${4 * l}%.`,
+    miles: { 5: [{ tradeSpeed: 0.1 }, 'Торговцы быстрее ещё на 10%.'], 10: [{ speed: 0.05 }, 'Лёгкие повозки: армии быстрее ещё на 5%.'], 15: [{ tradeSpeed: 0.1 }, 'Торговцы быстрее ещё на 10%.'], 20: [{ speed: 0.05 }, 'Мастерство дорог: армии быстрее ещё на 5%.'] } },
+  war: { name: 'Военное дело', icon: 'Warscience', flask: 'red', sub: 'Армии, походы и подготовка войск.', desc: '+2% атаки и защиты войск за уровень', per: 0.02,
+    about: 'Развитие вооружения и военной подготовки. Каждый уровень усиливает атаку и защиту всех войск замка, а на 5, 10, 15 и 20 уровнях открываются военные улучшения.',
+    eff: (l) => `Атака и защита войск +${2 * l}%.`,
+    miles: { 5: [{ atk: 0.03 }, 'Закалённые клинки: атака ещё +3%.'], 10: [{ def: 0.03 }, 'Прочные доспехи: защита ещё +3%.'], 15: [{ train: 0.05 }, 'Строевая подготовка: тренировка войск −5% времени.'], 20: [{ atk: 0.05, def: 0.05 }, 'Мастерство полководцев: атака и защита ещё +5%.'] } },
 };
+for (const s of Object.values(SCIENCES)) s.levels = Array.from({ length: 20 }, (_, i) => ({ l: i + 1, text: s.eff(i + 1), mile: s.miles[i + 1] ? s.miles[i + 1][1] : '' }));
+// суммарные бонусы вех изученных наук
+function scienceMiles(sci) {
+  const m = { atk: 0, def: 0, prod: 0, speed: 0, build: 0, train: 0, wall: 0, hidden: 0, tradeCarry: 0, tradeSpeed: 0 };
+  for (const [k, s] of Object.entries(SCIENCES)) for (const [l, [fx]] of Object.entries(s.miles)) if ((sci[k] || 0) >= Number(l)) for (const [f, v] of Object.entries(fx)) m[f] += v;
+  return m;
+}
 const scienceCost = (lvl) => { const k = Math.round(400 * 1.45 ** lvl / 10) * 10; return { wood: k, stone: k, iron: k, food: k }; };
 const scienceTime = (lvl) => Math.round(600 * 1.35 ** lvl);
 
@@ -217,18 +237,19 @@ function install(Game, helpers) {
     const gen = castle.general && !castle.general.dead && !castle.general.away && castle.general.pts ? castle.general.pts.cdef : 0;
     const race = this.raceOf(castle);
     const wallPer = { humans: 0.03, elves: 0.035, dwarves: 0.02, orcs: 0.025 }[race] || 0.03;
+    const ms = scienceMiles(sci);
     return {
-      atk: (1 + SCIENCES.war.per * sci.war) * (1 + 0.01 * L(B.BREWERY)) * (1 + (rel === 'war' ? 0.01 * templeL : 0)) * (1 + art.atk),
-      def: (1 + SCIENCES.war.per * sci.war) * (1 + (rel === 'light' ? 0.01 * templeL : 0)) * (1 + art.def) * (1 + GEN.cmd * gen),
+      atk: (1 + SCIENCES.war.per * sci.war) * (1 + 0.01 * L(B.BREWERY)) * (1 + (rel === 'war' ? 0.01 * templeL : 0)) * (1 + art.atk) * (1 + ms.atk),
+      def: (1 + SCIENCES.war.per * sci.war) * (1 + (rel === 'light' ? 0.01 * templeL : 0)) * (1 + art.def) * (1 + GEN.cmd * gen) * (1 + ms.def),
       magic: 1 + 0.02 * L(B.MAGIC_SCHOOL),
-      prod: (1 + SCIENCES.eco.per * sci.eco) * (1 + (rel === 'nature' ? 0.01 * templeL : 0)) * (1 + art.prod),
-      speed: (1 + SCIENCES.fhi.per * sci.fhi) * (1 + art.speed),
-      train: (1 - 0.02 * L(B.ALCHEMY)) * (1 - art.train),
-      build: 1 - SCIENCES.eng.per * sci.eng,
-      wall: L(B.FENCE), wallPer,
-      hidden: L(B.CACHE) ? Math.round(200 * 1.3 ** (L(B.CACHE) - 1)) * (race === 'dwarves' ? 2 : 1) : 0,
+      prod: (1 + SCIENCES.eco.per * sci.eco) * (1 + (rel === 'nature' ? 0.01 * templeL : 0)) * (1 + art.prod) * (1 + ms.prod),
+      speed: (1 + SCIENCES.fhi.per * sci.fhi) * (1 + art.speed) * (1 + ms.speed),
+      train: (1 - 0.02 * L(B.ALCHEMY)) * (1 - art.train) * (1 - ms.train),
+      build: (1 - SCIENCES.eng.per * sci.eng) * (1 - ms.build),
+      wall: L(B.FENCE), wallPer: wallPer * (1 + ms.wall),
+      hidden: L(B.CACHE) ? Math.round(200 * 1.3 ** (L(B.CACHE) - 1) * (race === 'dwarves' ? 2 : 1) * (1 + ms.hidden)) : 0,
       watch: L(B.WATCHTOWER), spyCenter: L(B.SPY), mason: L(B.MASON),
-      tradeCarry: 1 + 0.1 * L(B.TRADE_HALL), tradeSpeed: 1 + 0.1 * L(B.TRADE_HALL),
+      tradeCarry: 1 + 0.1 * L(B.TRADE_HALL) + ms.tradeCarry, tradeSpeed: 1 + 0.1 * L(B.TRADE_HALL) + ms.tradeSpeed,
       marketRate: L(B.MARKET) ? Math.min(1, 0.7 + 0.015 * L(B.MARKET)) : 0,
       artSlots: L(B.ART_TOWER) ? 1 + Math.floor(L(B.ART_TOWER) / 3) : 0,
       artStore: L(B.TREASURY) ? 3 + L(B.TREASURY) : 3,

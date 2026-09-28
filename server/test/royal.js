@@ -51,5 +51,14 @@ const p1 = g.armyPower(fc, { 200: 100 }, false).inf;
 assert.ok(Math.abs(p1 / p0 - (g.UNIT_ATK = require('../src/army').UNIT[200].attack + 1) / require('../src/army').UNIT[200].attack) < 1e-9);
 assert.ok(/Нужен Кузнец 2/.test(g.forgeOp(fc, { unit: 200, kind: 'a' }).error));
 console.log(`✓ Кузница: атака Мечника +1 (сила армии ${Math.round(p0)} → ${Math.round(p1)}), выше уровня Кузнеца нельзя`);
+// науки: процент за уровень + вехи 5/10/15/20
+{
+  const w = g.register({ login: 'scitest', password: '123', race: 0 }).user, sc = g.castleOf(w); g.mil(sc);
+  const at = (l) => { sc.sciences.war = l; return g.bonus(sc).atk; };
+  assert.ok(Math.abs(at(4) - 1.08) < 1e-9 && Math.abs(at(5) - 1.10 * 1.03) < 1e-9, `${at(4)} ${at(5)}`);
+  sc.sciences.eng = 20; assert.ok(Math.abs(g.bonus(sc).build - 0.4 * 0.9) < 1e-9);
+  const lv = require('../src/army').SCIENCES.war.levels; assert.ok(lv.length === 20 && lv[4].mile && !lv[3].mile);
+  console.log('✓ науки: Военное дело 5 ур. — атака +10% и веха +3%, Инженерия 20 ур. — стройка ×0.36');
+}
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);

@@ -875,3 +875,20 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .mlog { font: 14px/1.35 var(--serif); display: grid; gap: 4px; margin: 4px 0 10px; }
 .mlog > div { padding: 5px 8px; border-radius: 6px; background: #fff8e44d; } .mlog > div.fresh { background: #ffd9a8; border-left: 4px solid #c0392b; }
 .mlog small { color: #7a5a3a; } .newtag, .abadge { background: #c0392b; color: #fff; border-radius: 8px; padding: 0 6px; font: 700 12px system-ui, sans-serif; }
+/* ---------- Университет: науки ---------- */
+.sbar > img { width: 40px; height: 48px; }
+.sbar .grow { flex: 1; min-width: 0; } .sbar .grow small { font-size: .7em; opacity: .85; }
+.slvl { font: 700 26px var(--serif); color: #ffe39a; flex: none; } .slvl small { font-size: 15px; opacity: .8; }
+.shead { display: flex; gap: 12px; align-items: center; margin: 4px 0 8px; }
+.shead img { width: 64px; height: 76px; object-fit: contain; flex: none; }
+.shead > div { flex: 1; min-width: 0; }
+.stitle { font: 700 min(28px, 7vw) var(--serif); color: #6a2a0a; border-bottom: 2px solid #b08a5a; padding-bottom: 4px; }
+.ssub { font: 16px var(--serif); color: #6a4a2a; margin-top: 4px; }
+.sabout { font: min(19px, 4.6vw)/1.4 var(--serif); margin: 6px 0; }
+.snow { font: min(19px, 4.6vw) var(--serif); margin: 6px 0; }
+.slist { display: grid; gap: 6px; margin: 10px 0; }
+.slv { display: flex; gap: 12px; align-items: flex-start; padding: 9px 12px; border: 1px solid #b08a5a; border-radius: 12px; background: #fff8e44d; font: min(18px, 4.4vw)/1.35 var(--serif); }
+.slv > b { flex: none; width: 3.6em; color: #7a4a10; }
+.slv em { display: block; font-style: normal; color: #8a2a10; font-weight: 700; }
+.slv.done { background: #d9ecb8; border-color: #6a9a3a; } .slv.done > b::after { content: " ✓"; color: #2f7a10; }
+.slv.next { border: 2px solid #c0392b; background: #ffe7c2; }
