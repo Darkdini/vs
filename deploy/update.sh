@@ -5,14 +5,19 @@
 # Порядок: скачать → проверить новую версию на КОПИИ базы → остановить сервер (он сохраняет базу) → копия базы → замена папки игры.
 # Если новая версия не запускается на вашей базе — обновление отменяется, сервер и база остаются как были.
 set -e
-URL="${1:-https://raw.githubusercontent.com/Darkdini/vs/claude/third-world-kings-war-analysis-lodxja/dist/game.zip?nocache=$(date +%s)}"
+REPO="Darkdini/vs"; BRANCH="claude/third-world-kings-war-analysis-lodxja"
+# ссылка на КОНКРЕТНУЮ версию (по коммиту): GitHub кэширует ссылку на ветку несколько минут и может отдать старый архив
+if [ -z "$1" ]; then
+  SHA=$(curl -fsSL "https://api.github.com/repos/$REPO/commits/$BRANCH" 2>/dev/null | grep -m1 '"sha"' | sed 's/.*"sha": *"\([0-9a-f]*\)".*/\1/')
+  [ -n "$SHA" ] && URL="https://raw.githubusercontent.com/$REPO/$SHA/dist/game.zip" || URL="https://raw.githubusercontent.com/$REPO/$BRANCH/dist/game.zip"
+else URL="$1"; fi
 GAME="$HOME/game"; DATA="$HOME/game-data"; TMP="$HOME/.game-update"
 fail() { echo "✗ $1 — обновление отменено, игра и база не изменены."; [ -f "$TMP/check.pid" ] && kill "$(cat "$TMP/check.pid")" 2>/dev/null; rm -rf "$TMP"; exit 1; }
 rm -rf "$TMP"; mkdir -p "$TMP" "$DATA"
 # старая база внутри папки игры (версии до ~/game-data) — сначала вынести
 [ ! -f "$DATA/db.json" ] && [ -f "$GAME/server/data/db.json" ] && cp -r "$GAME/server/data/." "$DATA/"
 
-echo "1/6 Скачиваю новую версию…"
+echo "1/6 Скачиваю новую версию… ($URL)"
 case "$URL" in /*) cp "$URL" "$TMP/game.zip" ;; *) curl -fsSL -o "$TMP/game.zip" "$URL" || fail "Не удалось скачать" ;; esac
 unzip -q "$TMP/game.zip" -d "$TMP" || fail "Архив повреждён"
 [ -f "$TMP/game/server/src/index.js" ] || fail "В архиве нет сервера"
@@ -39,4 +44,4 @@ echo "5/6 Меняю версию игры (прежняя сохранена в
 rm -rf "$HOME/game.old"; [ -d "$GAME" ] && mv "$GAME" "$HOME/game.old"
 mv "$TMP/game" "$GAME"; rm -rf "$TMP"
 
-echo "6/6 Готово ✓  Запуск: sh ~/game/start.sh   Вернуть прежнюю версию: sh ~/game/rollback.sh"
+echo "6/6 Готово ✓  Версия $(cat "$GAME/VERSION" 2>/dev/null).  Запуск: sh ~/game/start.sh   Вернуть прежнюю версию: sh ~/game/rollback.sh"
