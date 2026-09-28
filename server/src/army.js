@@ -372,7 +372,7 @@ function install(Game, helpers) {
   };
 
   // ----- генерал -----
-  P.generalNeed = (level) => 50 * level * level; // опыт до следующего уровня: 10 ур. — 5 000, 100 ур. — 500 000, 500 ур. — 12,5 млн
+  P.generalNeed = (level) => 50 * level * level; // всего опыта для следующего уровня: 10 ур. — 5 000, 100 ур. — 500 000, 500 ур. — 12,5 млн
   P.newGeneral = function newGeneral(castle, level = 1) {
     return this.normGeneral({ name: 'Генерал', level, exp: level > 1 ? this.generalNeed(level - 1) : 0, expV: 2, dead: false }, castle);
   };
@@ -392,30 +392,51 @@ function install(Game, helpers) {
     return { atk: base.attack + g.pts.atk, def: base.def.inf + g.pts.def, catk: GEN.cmd * g.pts.catk, cdef: GEN.cmd * g.pts.cdef,
       heal: GEN.heal * g.pts.heal, career: GEN.career * g.pts.career };
   };
-  // опыт генерала: карьера (+0,5% за очко) и премиум (×2) увеличивают; возвращает, сколько получено и сколько уровней взято
+  // опыт генерала за бой. Чтобы генерал не качался «за пару секунд», действуют ограничения:
+  //  • за один бой — не больше 25% опыта текущего уровня (минимум 4 боя на уровень);
+  //  • за сутки — не больше опыта на 2 уровня (≈ 60 уровней в месяц при активной войне, 500 ур. — больше полугода);
+  //  • карьера (+0,5% за очко) и премиум (×2) увеличивают и опыт, и оба лимита.
   P.addGeneralExp = function addGeneralExp(castle, exp) {
     const g = castle.general; if (!g || g.dead || !(exp > 0)) return null;
     this.normGeneral(g, castle);
-    const got = Math.round(exp * (1 + GEN.career * g.pts.career) * (this.isPremium(this.userById(castle.owner)) ? 2 : 1)); // премиум — опыт ×2
+    const mult = (1 + GEN.career * g.pts.career) * (this.isPremium(this.userById(castle.owner)) ? 2 : 1);
+    const span = this.generalNeed(g.level) - (g.level > 1 ? this.generalNeed(g.level - 1) : 0);
+    const day = new Date().toISOString().slice(0, 10);
+    if (!g.day || g.day.d !== day) g.day = { d: day, exp: 0 };
+    const battleCap = Math.max(50, Math.ceil(span * 0.25 * mult)), dayCap = Math.ceil(span * 2 * mult);
+    const raw = Math.round(exp * mult), got = Math.max(0, Math.min(raw, battleCap, dayCap - g.day.exp));
+    const capped = got < raw ? (g.day.exp + got >= dayCap ? 'day' : 'battle') : null;
+    g.day.exp += got;
     const from = g.level; g.exp += got;
     while (g.level < GEN.maxLevel && g.exp >= this.generalNeed(g.level)) { g.level++; g.free += GEN.perLevel; }
     if (g.level > from) this.event(castle.owner, `Генерал «${g.name}» достиг ${g.level} уровня! +${(g.level - from) * GEN.perLevel} очк. опыта`);
-    return { got, from, level: g.level, name: g.name };
+    return { got, from, level: g.level, name: g.name, capped };
   };
-  // опыт за бой (до карьеры и премиума):
-  //  • основа — население убитых врагов (сильные юниты занимают больше населения — и стоят больше опыта);
-  //  • победа ×1.5, поражение ×0.5 (генерал выжил, но армию разбили); набег ×0.75 — бой короче;
-  //  • лагеря и руины — по силе охраны (фарм лагерей даёт мало, они восстанавливаются час);
-  //  • слабый противник (рейтинг меньше 30% от вашего) — опыт ×0.25, против фарма новичков и ферм.
+  // опыт за бой (до карьеры, премиума и лимитов):
+  //  • основа — население убитых врагов / 10;
+  //  • победа ×1.5, поражение ×0.5; набег ×0.75;
+  //  • лагеря и руины — по силе охраны;
+  //  • слабый противник (рейтинг меньше 30% от вашего) — ×0.25;
+  //  • повторные бои с тем же игроком за сутки — каждый следующий вдвое меньше (против ферм и мультов).
   P.battleExp = function battleExp({ killedPop, win, mission, npc, dLoss, mine, enemy }) {
-    let exp = npc ? (npc.def.inf + npc.def.cav) / 4 * dLoss : killedPop;
+    let exp = npc ? (npc.def.inf + npc.def.cav) / 40 * dLoss : killedPop / 10;
     exp *= win ? 1.5 : 0.5;
     if (mission === 'raid') exp *= 0.75;
-    let weak = false;
-    if (!npc && mine && enemy) { const r1 = this.rating(mine), r2 = this.rating(enemy); if (r1 > 0 && r2 < r1 * 0.3) { exp *= 0.25; weak = true; } }
-    return { exp: Math.round(exp), weak };
+    let weak = false, repeat = 0;
+    if (!npc && mine && enemy) {
+      const r1 = this.rating(mine), r2 = this.rating(enemy); if (r1 > 0 && r2 < r1 * 0.3) { exp *= 0.25; weak = true; }
+      const g = mine.general;
+      if (g) {
+        const now = Date.now(), key = String(enemy.owner);
+        g.foes = g.foes || {}; g.foes[key] = (g.foes[key] || []).filter((t) => t > now - 86400000);
+        repeat = g.foes[key].length; g.foes[key].push(now);
+        for (const k of Object.keys(g.foes)) if (!g.foes[k].length) delete g.foes[k];
+        exp /= 2 ** repeat;
+      }
+    }
+    return { exp: Math.round(exp), weak, repeat };
   };
-  const genLine = (who, r, weak) => (r ? `${who} «${r.name}» получил ${r.got.toLocaleString('ru-RU')} опыта${weak ? ' (слабый противник — опыт ×0,25)' : ''}${r.level > r.from ? `. Новый уровень: ${r.level}!` : ''}` : null);
+  const genLine = (who, r, e) => (r ? `${who} «${r.name}» получил ${r.got.toLocaleString('ru-RU')} опыта${e.weak ? ' (слабый противник ×0,25)' : ''}${e.repeat ? ` (${e.repeat + 1}-й бой с этим игроком за сутки)` : ''}${r.capped === 'battle' ? ' — лимит за бой' : r.capped === 'day' ? ' — дневной лимит опыта исчерпан' : ''}${r.level > r.from ? `. Новый уровень: ${r.level}!` : ''}` : null);
   // окно «Генерал»: rename, dist (распределить очки), reset (сбросить очки), kill (убить)
   P.generalOp = function generalOp(castle, user, { op, name, pts } = {}) {
     this.tick(castle); this.mil(castle);
@@ -701,14 +722,14 @@ function install(Game, helpers) {
       if (!aliveAfter && aLoss >= 1) { c.general.dead = true; delete c.general.away; a.general = false; genA.push('Генерал пал в бою — опыт не получен.'); }
       else {
         const e = this.battleExp({ killedPop: popOf(dLost), win, mission: a.mission, npc: target ? null : npc, dLoss, mine: c, enemy: target });
-        const l = genLine('Генерал', this.addGeneralExp(c, e.exp), e.weak); if (l) genA.push(l);
+        const l = genLine('Генерал', this.addGeneralExp(c, e.exp), e); if (l) genA.push(l);
       }
     }
     if (target && target.general && !target.general.dead && !target.general.away) {
       if (dLoss >= 1 && !Object.keys(dAll).length) { target.general.dead = true; genD.push('Ваш генерал пал, защищая замок.'); }
       else {
         const e = this.battleExp({ killedPop: popOf(aLost), win: !win, mission: 'attack', mine: target, enemy: c });
-        const l = genLine('Ваш генерал', this.addGeneralExp(target, e.exp), e.weak); if (l) genD.push(l);
+        const l = genLine('Ваш генерал', this.addGeneralExp(target, e.exp), e); if (l) genD.push(l);
       }
     }
     // добыча
@@ -1223,7 +1244,10 @@ function install(Game, helpers) {
     const g = castle.general, gs = this.genStats(g), q = g.squad && castle.squads.find((x) => x.id === g.squad), a = g.away && castle.armies.find((x) => x.id === g.away);
     const where = a ? `армия в походе (${MISSIONS[a.mission]} ${a.x}:${a.y})` : q ? `Армия: ${q.name}` : 'Замковая армия';
     const health = g.dead ? (g.reviveAt && g.reviveStart ? Math.min(99, Math.floor((Date.now() - g.reviveStart) / (g.reviveAt - g.reviveStart) * 100)) : 0) : 100;
-    return { ...g, stats: gs, need: this.generalNeed(g.level), prevNeed: g.level > 1 ? this.generalNeed(g.level - 1) : 0, where: `${where}, замок ${castle.name}`, health,
+    const span = this.generalNeed(g.level) - (g.level > 1 ? this.generalNeed(g.level - 1) : 0), mult = (1 + GEN.career * g.pts.career) * (this.isPremium(this.userById(castle.owner)) ? 2 : 1);
+    const today = new Date().toISOString().slice(0, 10), dayExp = g.day && g.day.d === today ? g.day.exp : 0;
+    const lim = { battle: Math.max(50, Math.ceil(span * 0.25 * mult)), day: Math.ceil(span * 2 * mult), dayExp };
+    return { ...g, foes: undefined, lim, stats: gs, need: this.generalNeed(g.level), prevNeed: g.level > 1 ? this.generalNeed(g.level - 1) : 0, where: `${where}, замок ${castle.name}`, health,
       reviveCost: Object.fromEntries(RES4.map((r) => [r, Math.round(UNIT[GENERAL_ID].cost[r] * GEN.revive * g.level)])), resetGold: GEN.resetGold, perLevel: GEN.perLevel };
   };
 

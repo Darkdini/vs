@@ -6,6 +6,7 @@ const DB = path.join(os.tmpdir(), `royal-${process.pid}.json`);
 const { Game, Store } = require('../src/game');
 const g = new Game(new Store(DB));
 const u = g.register({ login: 'royaltest', password: '123', race: 0 }).user;
+const fmt = (n) => n.toLocaleString('ru-RU');
 const DAY = 86400000, t0 = Date.now();
 u.royal = 0; u.royalAt = t0; u.lastSeen = t0;
 let firstDay = null;
@@ -88,19 +89,24 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(/нет мест \(50\)/.test((g.joinAlliance(x, al) || {}).error || ''));
   console.log('✓ альянс: 5 мест за уровень центра, максимум 50 — 51-й не вступит');
 }
-// опыт генерала за бой: победа/поражение, набег, слабый противник, лагеря
+// опыт генерала за бой: формула, повторные бои, лимиты за бой и за сутки
 {
   const U1 = g.register({ login: 'gexp1', password: '123', race: 0 }).user, c1 = g.castleOf(U1); g.mil(c1);
   const U2 = g.register({ login: 'gexp2', password: '123', race: 0 }).user, c2 = g.castleOf(U2); g.mil(c2);
   const e = (o) => g.battleExp({ mine: c1, enemy: c2, npc: null, dLoss: 1, ...o }).exp;
-  assert.strictEqual(e({ killedPop: 1000, win: true, mission: 'attack' }), 1500);
-  assert.strictEqual(e({ killedPop: 1000, win: false, mission: 'attack' }), 500);
-  assert.strictEqual(e({ killedPop: 1000, win: true, mission: 'raid' }), 1125);
-  g.maxOut(c1); const w = g.battleExp({ killedPop: 1000, win: true, mission: 'attack', mine: c1, enemy: c2 });
-  assert.ok(w.weak && w.exp === 375, JSON.stringify(w));
-  c1.general = g.newGeneral(c1); const r = g.addGeneralExp(c1, 1000);
-  assert.ok(r.got === 1000 && r.level > 1 && c1.general.free === (r.level - 1) * 2, JSON.stringify(r));
-  console.log(`✓ генерал: опыт за бой (победа 1500, поражение 500, набег 1125, слабый ×0,25), 1000 опыта → ${r.level} ур.`);
+  assert.strictEqual(e({ killedPop: 10000, win: true, mission: 'attack' }), 1500);
+  assert.strictEqual(e({ killedPop: 10000, win: false, mission: 'attack' }), 500);
+  assert.strictEqual(e({ killedPop: 10000, win: true, mission: 'raid' }), 1125);
+  c1.general = g.newGeneral(c1, 100);
+  const r1 = g.battleExp({ killedPop: 10000, win: true, mission: 'attack', mine: c1, enemy: c2 }), r2 = g.battleExp({ killedPop: 10000, win: true, mission: 'attack', mine: c1, enemy: c2 });
+  assert.ok(r1.repeat === 0 && r2.repeat === 1 && r2.exp === r1.exp / 2, JSON.stringify([r1, r2]));
+  // огромный бой: генерал 100 ур. получает не больше четверти уровня, за сутки — не больше двух уровней
+  const span = g.generalNeed(100) - g.generalNeed(99);
+  const a = g.addGeneralExp(c1, 10000000);
+  assert.ok(a.got === Math.ceil(span * 0.25) && a.capped === 'battle' && a.level === 100, JSON.stringify(a));
+  let lv = 100; for (let i = 0; i < 50; i++) lv = g.addGeneralExp(c1, 10000000).level;
+  assert.ok(lv <= 102, `за сутки не больше 2 уровней, а стало ${lv}`);
+  console.log(`✓ генерал: 1 опыт за 10 населения, повторный бой ×0,5, лимит за бой ${fmt(Math.ceil(span * 0.25))}, за сутки 100 → ${lv} ур. даже за 50 огромных боёв`);
 }
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);
