@@ -3,7 +3,8 @@
 // • Капча: картинка SVG с примером (цифры повёрнуты и сдвинуты, шум) — ответ хранится только на сервере, одноразовый, 5 минут.
 // • Лимиты: регистраций с одного IP — 3 в час и 10 в сутки, всего на сервере — 30 в минуту; ошибок входа с IP — 20 за 10 минут.
 // • Мульты: у каждого игрока запоминаются IP и id устройства (случайный id, который браузер хранит у себя);
-//   админ видит группы аккаунтов с общим IP или общим устройством.
+//   админ видит группы аккаунтов с общим IP или общим устройством. Сам сервер никого не банит:
+//   при появлении аккаунта на уже знакомом устройстве админам приходит оповещение, а решение принимает админ.
 const crypto = require('crypto');
 
 const LIM = { regHour: 3, regDay: 10, regMinuteAll: 30, failWindow: 600000, failMax: 20 };
@@ -36,9 +37,19 @@ function install(Game) {
   // запомнить, откуда вошёл игрок (последние 20 IP и 10 устройств)
   P.trackLogin = function trackLogin(user, ip, dev) {
     const now = Date.now(); dev = cleanDev(dev);
+    if (dev && !user.bot && !(user.devs || []).some((x) => x.dev === dev)) this.multiAlert(user, dev);
     user.ips = (user.ips || []).filter((x) => x.ip !== ip); user.ips.push({ ip, at: now }); if (user.ips.length > 20) user.ips.shift();
     if (dev) { user.devs = (user.devs || []).filter((x) => x.dev !== dev); user.devs.push({ dev, at: now }); if (user.devs.length > 10) user.devs.shift(); }
   };
+  // новый аккаунт на устройстве, где уже играют другие, — запись в журнал и оповещение всем админам
+  P.multiAlert = function multiAlert(user, dev) {
+    const others = Object.values(this.db.users).filter((u) => u !== user && !u.bot && (u.devs || []).some((x) => x.dev === dev)).map((u) => u.login);
+    if (!others.length) return;
+    const log = this.db.multiLog = this.db.multiLog || [];
+    log.push({ at: Date.now(), login: user.login, with: others.slice(0, 10), dev }); if (log.length > 200) log.shift();
+    for (const a of Object.values(this.db.users)) if (a.admin) this.event(a.id, `⚠ Возможный мульт: ${user.login} — одно устройство с ${others.slice(0, 3).join(', ')}${others.length > 3 ? '…' : ''}`);
+  };
+  P.devBanned = function devBanned(dev) { dev = cleanDev(dev); return !!(dev && this.db.devBans && this.db.devBans[dev]); };
   P.regAllowed = function regAllowed(ip) {
     if (count(`reg:${ip}`, 3600000) >= LIM.regHour) return 'С вашего адреса слишком много регистраций. Попробуйте через час.';
     if (count(`reg:${ip}`, 86400000) >= LIM.regDay) return 'С вашего адреса слишком много регистраций сегодня.';
@@ -58,7 +69,8 @@ function install(Game) {
     }
     const info = (u) => ({ login: u.login, rating: this.userRating(u), lastSeen: u.lastSeen || u.created, banned: !!u.banned, admin: !!u.admin });
     const groups = [];
-    for (const [dev, set] of byDev) if (set.size > 1) groups.push({ kind: 'dev', key: dev.slice(0, 8), strong: true, users: [...set].map(info) });
+    const bans = this.db.devBans || {};
+    for (const [dev, set] of byDev) if (set.size > 1 || bans[dev]) groups.push({ kind: 'dev', key: dev.slice(0, 8), dev, devBanned: !!bans[dev], strong: true, users: [...set].map(info) });
     for (const [ip, set] of byIp) if (set.size > 1) groups.push({ kind: 'ip', key: ip, strong: false, users: [...set].map(info) });
     return groups.sort((a, b) => (b.strong - a.strong) || (b.users.length - a.users.length)).slice(0, 100);
   };

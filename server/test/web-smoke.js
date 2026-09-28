@@ -340,9 +340,21 @@ function client() {
       c.send({ t: 'login', login: lg, password: '123', dev: 'abcdef0123456789abcdef01' }); await c.expect('state'); c.close();
     }
     adm.send({ t: 'admin', op: 'multis' });
-    const mg = (await adm.expect('admininfo', (m) => m.op === 'multis')).data;
-    assert.ok(mg.some((g) => g.strong && ['multa', 'multb'].every((l) => g.users.some((u) => u.login === l))), JSON.stringify(mg));
-    console.log('✓ мульты: общее устройство найдено, группы по IP');
+    const md = (await adm.expect('admininfo', (m) => m.op === 'multis')).data, mg = md.groups;
+    const grp = mg.find((g) => g.strong && ['multa', 'multb'].every((l) => g.users.some((u) => u.login === l)));
+    assert.ok(grp && !grp.users.some((u) => u.banned), JSON.stringify(mg)); // сервер сам никого не банит
+    assert.ok(md.log.some((x) => x.login === 'multb' && x.with.includes('multa') && x.fresh), JSON.stringify(md.log));
+    // админ сам блокирует устройство: с него нельзя войти и зарегистрироваться
+    adm.send({ t: 'admin', op: 'devban', dev: grp.dev });
+    await adm.expect('toast', (m) => /заблокировано/.test(m.msg));
+    const cb = client(); await cb.open();
+    cb.send({ t: 'login', login: 'multa', password: '123', dev: 'abcdef0123456789abcdef01' });
+    await cb.expect('error', (m) => /устройство заблокировано/.test(m.msg));
+    cb.send({ t: 'register', login: 'multc', password: '123', race: 0, dev: 'abcdef0123456789abcdef01' });
+    await cb.expect('error', (m) => /с этого устройства запрещена/.test(m.msg)); cb.close();
+    adm.send({ t: 'admin', op: 'devunban', dev: grp.dev }); await adm.expect('toast', (m) => /разблокировано/.test(m.msg));
+    adm.send({ t: 'admin', op: 'banmany', logins: ['multa', 'multb'] }); await adm.expect('toast', (m) => /Заблокировано аккаунтов: 2/.test(m.msg));
+    console.log('✓ мульты: оповещение админу, бан устройства и аккаунтов только вручную');
 
     // ---- премиум: покупка за монеты, звание VIP ----
     adm.send({ t: 'admin', op: 'gold', login: 'webby', n: 150 });

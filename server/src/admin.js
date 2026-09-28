@@ -130,7 +130,7 @@ function install(Game) {
         this.cache = {};
         msg = `Создано ботов: ${made} за ${((Date.now() - t0) / 1000).toFixed(1)} с. Игроков всего: ${Object.keys(this.db.users).length}.`; break;
       }
-      case 'player': data = { ...this.playerInfo(target), ips: (target.ips || []).slice().reverse(), devs: (target.devs || []).map((d) => d.dev.slice(0, 8)), regIp: target.regIp || '', castlesList: this.castlesOf(target).map((c) => ({ id: c.id, name: c.name, x: c.x, y: c.y, rating: this.rating(c), loyalty: Math.round(c.loyalty ?? 100) })) }; break;
+      case 'player': data = { ...this.playerInfo(target), ips: (target.ips || []).slice().reverse(), devs: (target.devs || []).map((d) => d.dev.slice(0, 8) + (this.db.devBans && this.db.devBans[d.dev] ? ' [бан]' : '')), regIp: target.regIp || '', castlesList: this.castlesOf(target).map((c) => ({ id: c.id, name: c.name, x: c.x, y: c.y, rating: this.rating(c), loyalty: Math.round(c.loyalty ?? 100) })) }; break;
       case 'royal': this.royalTick(target); target.royal = Math.max(0, target.royal + num(arg.n, 10000)); msg = `Лояльность населения: ${Math.floor(target.royal)}.`; break;
       case 'rep': target.reputation = Math.max(0, (target.reputation ?? START_REP) + num(arg.n, 10)); msg = `Репутация: ${target.reputation}.`; break;
       case 'ban': if (target.admin) return { error: 'Админа заблокировать нельзя.' }; target.banned = true; target.online = false; msg = `${target.login} заблокирован.`; break;
@@ -170,7 +170,23 @@ function install(Game) {
       case 'chat': { const r = this.chatPost(user, `[Администрация] ${String(arg.text || '')}`); if (r.error) return r; data = r.msg; msg = 'Отправлено в чат.'; break; }
       case 'noavatar': this.removeAvatar(target); msg = `Аватар ${target.login} удалён.`; break;
       case 'season': { const w = this.seasonClose(); msg = `Месяц подведён досрочно, награждено: ${w.length}.`; break; }
-      case 'multis': data = this.multis(); break;
+      case 'multis': {
+        const seen = user.multiSeen || 0; user.multiSeen = now;
+        data = { groups: this.multis(), log: (this.db.multiLog || []).slice(-50).reverse().map((x) => ({ ...x, dev: x.dev.slice(0, 8), fresh: x.at > seen })) };
+        break;
+      }
+      // бан устройства: с него нельзя ни войти, ни зарегистрироваться (решает только админ)
+      case 'devban': case 'devunban': {
+        const dev = String(arg.dev || ''); if (!/^[a-f0-9]{16,40}$/.test(dev)) return { error: 'Нет такого устройства.' };
+        this.db.devBans = this.db.devBans || {};
+        if (op === 'devban') { this.db.devBans[dev] = { at: now, by: user.login }; for (const u of Object.values(this.db.users)) if (!u.admin && (u.devs || []).some((x) => x.dev === dev)) u.online = false; msg = `Устройство ${dev.slice(0, 8)} заблокировано.`; } else { delete this.db.devBans[dev]; msg = `Устройство ${dev.slice(0, 8)} разблокировано.`; }
+        break;
+      }
+      case 'banmany': {
+        let n = 0;
+        for (const l of [].concat(arg.logins || []).slice(0, 100)) { const u = findUser(this, l); if (u && !u.admin && !u.banned) { u.banned = true; u.online = false; n++; } }
+        msg = `Заблокировано аккаунтов: ${n}.`; break;
+      }
       case 'npc': this.db.npc = {}; msg = 'Лагеря и руины восстановлены.'; break;
       case 'reports': this.db.reports = (this.db.reports || []).filter((r) => r.owner !== target.id); msg = 'Отчёты очищены.'; break;
       case 'bugs': data = (this.db.bugs || []).slice(-50).reverse(); break;

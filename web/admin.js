@@ -13,7 +13,7 @@ function adminHtml() {
   const tab = a.tab || 'target';
   const head = `${ribbon('Админ-панель')}
     <div class="atarget">Цель: ${who}${a.login ? ' <button class="btn small" data-adm-self>сбросить</button>' : ''}</div>
-    <div class="atabs">${ADM_TABS.map(([k, t]) => `<button class="${k === tab ? 'on' : ''}" data-atab="${k}">${t}</button>`).join('')}</div>`;
+    <div class="atabs">${ADM_TABS.map(([k, t]) => `<button class="${k === tab ? 'on' : ''}" data-atab="${k}">${t}${k === 'multi' && S.st.user.multiNew ? ` <b class="abadge">${S.st.user.multiNew}</b>` : ''}</button>`).join('')}</div>`;
   const T = {
     target: () => `<div class="acard"><div class="arow"><span>Игрок:</span><input data-an="login" value="${esc(a.login)}" placeholder="пусто — вы сами" autocapitalize="none"></div>
       <label class="check"><input type="checkbox" data-an="all" ${a.all ? 'checked' : ''}> над всеми замками игрока</label></div>
@@ -32,10 +32,20 @@ function adminHtml() {
       <button class="pbar" data-adm="players">Топ-100 игроков</button>
       ${a.players ? `<div class="rlist">${a.players.map((p) => `<button class="rrow" data-apick="${esc(p.login)}"><span class="rn"><b>${esc(p.login)}${p.admin ? ` <img class="admbadge s" src="${GFX}admin_badge_s.png" alt="">` : p.mod ? ` <img class="admbadge s" src="${GFX}mod_badge_s.png" alt="">` : ''}${p.banned ? ' <span class="bad">[бан]</span>' : ''}</b>
         <small>${esc(p.race)} · замков ${p.castles} · монет ${fmtFull(p.gold)} · ${p.online ? 'в игре' : `был ${fmtDate(p.lastSeen)}`}</small></span><span class="rv">${fmtFull(p.rating)}</span></button>`).join('')}</div>` : ''}`,
-    multi: () => `<div class="bwline small">Аккаунты с общим <b>устройством</b> (почти наверняка один человек) и с общим <b>IP</b> (возможно, одна сеть: дом, Wi‑Fi, мобильный оператор).</div>
+    multi: () => {
+      const m = a.multis, row = (u) => `<div class="mrow"><button class="rrow" data-apick="${esc(u.login)}"><span class="rn"><b>${esc(u.login)}${u.admin ? ` <img class="admbadge s" src="${GFX}admin_badge_s.png" alt="">` : ''}${u.banned ? ' <span class="bad">[бан]</span>' : ''}</b><small>был ${fmtDate(u.lastSeen)}</small></span><span class="rv">${fmtFull(u.rating)}</span></button>
+        ${u.admin ? '' : `<button class="btn small ${u.banned ? '' : 'danger'}" data-mban="${esc(u.login)}" data-on="${u.banned ? 0 : 1}">${u.banned ? 'Разбан' : 'Бан'}</button>`}</div>`;
+      return `<div class="bwline small">Сервер никого не банит сам — он только сообщает. Общее <b>устройство</b> — почти наверняка один человек, общий <b>IP</b> — возможно, одна сеть (дом, Wi‑Fi, мобильный оператор). Решаете вы.</div>
       <button class="pbar" data-adm="multis">Проверить мультов</button>
-      ${a.multis ? (a.multis.length ? a.multis.map((g) => `<div class="mgroup ${g.strong ? 'strong' : ''}"><div class="mhead">${g.strong ? '📱 Одно устройство' : '🌐 Один IP'} <small>${esc(g.key)}</small> · ${g.users.length} акк.</div>
-        ${g.users.map((u) => `<button class="rrow" data-apick="${esc(u.login)}"><span class="rn"><b>${esc(u.login)}${u.banned ? ' <span class="bad">[бан]</span>' : ''}</b><small>был ${fmtDate(u.lastSeen)}</small></span><span class="rv">${fmtFull(u.rating)}</span></button>`).join('')}</div>`).join('') : '<p class="parch-note">Мультов не найдено.</p>') : ''}`,
+      ${m ? `<div class="mhead">🔔 Оповещения</div>${m.log.length ? `<div class="mlog">${m.log.slice(0, 15).map((x) => `<div class="${x.fresh ? 'fresh' : ''}">${x.fresh ? '<b class="newtag">новое</b> ' : ''}<b>${esc(x.login)}</b> — устройство ${esc(x.dev)}, как у ${x.with.map(esc).join(', ')} <small>${fmtDate(x.at)}</small></div>`).join('')}</div>` : '<p class="parch-note">Пока тихо.</p>'}
+        ${m.groups.length ? m.groups.map((g) => {
+          const free = g.users.filter((u) => !u.banned && !u.admin).map((u) => u.login);
+          return `<div class="mgroup ${g.strong ? 'strong' : ''}"><div class="mhead">${g.strong ? '📱 Одно устройство' : '🌐 Один IP'} <small>${esc(g.key)}</small> · ${g.users.length} акк.${g.devBanned ? ' <span class="bad">[устройство в бане]</span>' : ''}</div>
+          ${g.users.map(row).join('')}
+          <div class="mact">${free.length > 1 ? `<button class="btn small danger" data-mall="${esc(free.join(','))}">Забанить все (${free.length})</button>` : ''}
+          ${g.dev ? `<button class="btn small ${g.devBanned ? '' : 'danger'}" data-mdev="${esc(g.dev)}" data-on="${g.devBanned ? 0 : 1}">${g.devBanned ? 'Разблокировать устройство' : 'Бан устройства'}</button>` : ''}</div></div>`;
+        }).join('') : '<p class="parch-note">Мультов не найдено.</p>'}` : ''}`;
+    },
     world: () => `<form class="stack" data-aform="mailall"><input name="subject" placeholder="Тема письма" value="Сообщение администрации"><textarea name="text" rows="3" placeholder="Письмо всем игрокам" required></textarea><button class="btn primary">Разослать всем</button></form>
       <form class="chatform" data-aform="chat"><input name="text" placeholder="Объявление в общий чат" required><button class="btn primary small">В чат</button></form>
       <div class="ptiles">${aBtn('npc', 'Восстановить лагеря', 'ground/dikari.png')}${aBtn('season', 'Подвести месяц', 'smallicon/bonus_status/ranggold.png', 'data-confirm="Подвести итоги месяца досрочно и выдать награды топ-3?"')}${aBtn('reports', 'Очистить отчёты', 'smallicon/swordgreen.png')}${aBtn('bugs', 'Жалобы и ошибки', 'smallicon/soft_help.png')}</div>
@@ -78,7 +88,15 @@ $('#sheetBody').addEventListener('change', (e) => {
   if (n === 'login') { S.adm.player = null; refreshSheet(); }
 });
 $('#sheetBody').addEventListener('click', (e) => {
-  const tb = e.target.closest('[data-atab]'); if (tb) { S.adm.tab = tb.dataset.atab; return refreshSheet(); }
+  const tb = e.target.closest('[data-atab]'); if (tb) { S.adm.tab = tb.dataset.atab; if (S.adm.tab === 'multi') send({ t: 'admin', op: 'multis' }); return refreshSheet(); }
+  const mb = e.target.closest('[data-mban],[data-mall],[data-mdev]');
+  if (mb) { // решения по мультам — только вручную и с подтверждением
+    const d = mb.dataset, on = d.on === '1';
+    if (d.mban !== undefined) { if (on && !confirm(`Заблокировать ${d.mban}?`)) return; send({ t: 'admin', op: on ? 'ban' : 'unban', login: d.mban }); }
+    if (d.mall !== undefined) { if (!confirm(`Заблокировать аккаунты: ${d.mall.split(',').join(', ')}?`)) return; send({ t: 'admin', op: 'banmany', logins: d.mall.split(',') }); }
+    if (d.mdev !== undefined) { if (on && !confirm('Заблокировать устройство? С него нельзя будет войти и зарегистрироваться.')) return; send({ t: 'admin', op: on ? 'devban' : 'devunban', dev: d.mdev }); }
+    return setTimeout(() => send({ t: 'admin', op: 'multis' }), 200);
+  }
   const b = e.target.closest('[data-adm],[data-apick],[data-adm-self]'); if (!b) return;
   if (b.dataset.admSelf !== undefined) { S.adm.login = ''; S.adm.player = null; return refreshSheet(); }
   if (b.dataset.apick) { S.adm.login = b.dataset.apick; S.adm.player = null; S.adm.tab = 'target'; send({ t: 'admin', op: 'player', login: S.adm.login }); return refreshSheet(); }

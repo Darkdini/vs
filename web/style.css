@@ -868,3 +868,10 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .acard .ptile { aspect-ratio: auto; min-height: 72px; padding: 6px 4px; }
 .acard .ptile img { width: 28px; height: 28px; }
 .acard .ptile span { font-size: 12px; }
+/* мульты: журнал оповещений и ручные решения админа */
+.mrow { display: flex; align-items: center; gap: 6px; } .mrow .rrow { flex: 1; min-width: 0; }
+.mact { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; padding-top: 6px; }
+.btn.small.danger { background: linear-gradient(#b8332a, #6e1510); color: #fff; }
+.mlog { font: 14px/1.35 var(--serif); display: grid; gap: 4px; margin: 4px 0 10px; }
+.mlog > div { padding: 5px 8px; border-radius: 6px; background: #fff8e44d; } .mlog > div.fresh { background: #ffd9a8; border-left: 4px solid #c0392b; }
+.mlog small { color: #7a5a3a; } .newtag, .abadge { background: #c0392b; color: #fff; border-radius: 8px; padding: 0 6px; font: 700 12px system-ui, sans-serif; }

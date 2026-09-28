@@ -117,7 +117,7 @@ class WebSession {
     this.send({
       t: 'state',
       now: Date.now(),
-      user: { id: u.id, login: u.login, race: u.race, raceName: C.RACE_NAMES[u.race], premium: u.premium || 0, gold: u.gold || 0, goldLog: (u.goldLog || []).slice(-50).reverse(), admin: !!u.admin, mod: !!u.mod },
+      user: { id: u.id, login: u.login, race: u.race, raceName: C.RACE_NAMES[u.race], premium: u.premium || 0, gold: u.gold || 0, goldLog: (u.goldLog || []).slice(-50).reverse(), admin: !!u.admin, mod: !!u.mod, multiNew: u.admin ? (this.game.db.multiLog || []).filter((x) => x.at > (u.multiSeen || 0)).length : 0 },
       castle: {
         id: c.id, name: c.name, x: c.x, y: c.y, grid: { 0: Array.from(c.grid[0]), 1: Array.from(c.grid[1]) }, levels: { 0: Array.from(c.levels[0]), 1: Array.from(c.levels[1]) },
         res: c.res, rate: this.game.rates(c), cap: this.game.capacity(c),
@@ -163,6 +163,7 @@ const API = {
   captcha() { const c = SEC.captcha(); this.captchaAns = { a: c.answer, exp: Date.now() + 300000 }; this.send({ t: 'captcha', img: c.img }); },
   register(m) {
     const test = process.env.NO_CAPTCHA === '1'; // только для автотестов
+    if (this.game.devBanned(m.dev)) return this.error('Регистрация с этого устройства запрещена администрацией.');
     const lim = !test && this.game.regAllowed(this.ip); if (lim) return this.error(lim);
     const c = this.captchaAns; this.captchaAns = null;
     const ok = test || (c && c.exp > Date.now() && Number(String(m.captcha || '').trim()) === c.a);
@@ -178,7 +179,8 @@ const API = {
     if (this.game.loginBlocked(this.ip)) return this.error('Слишком много неудачных попыток входа. Подождите 10 минут.');
     const u = this.game.login(m.login, m.password);
     if (!u) { this.game.loginFailed(this.ip); return this.error('Неверный логин или пароль.'); }
-    this.game.trackLogin(u, this.ip, m.dev);
+    this.game.trackLogin(u, this.ip, m.dev); this.dev = m.dev;
+    if (!u.admin && this.game.devBanned(m.dev)) return this.error('Это устройство заблокировано администрацией.');
     if (u.banned) return this.error('Аккаунт заблокирован администрацией.');
     this.user = u; u.online = true; u.lastSeen = Date.now();
     this.log(`web login ${u.login}`);
@@ -345,6 +347,7 @@ const API = {
     if (r.data) this.send({ t: 'admininfo', op: m.op, data: r.data });
     else this.toast(r.msg || 'Готово.');
     if (m.op === 'chat' && r.data) for (const s of WebSession.all || []) if (s.user && s.sendChat) s.sendChat(r.data);
+    if (m.op === 'banmany' || m.op === 'devban') for (const s of WebSession.all || []) if (s.user && !s.user.admin && (s.user.banned || this.game.devBanned(s.dev))) s.socket.destroy();
     if (m.login) for (const s of WebSession.all || []) if (s.user && s.user.login === String(m.login).toLowerCase() && s !== this) { if (m.op === 'ban' || m.op === 'delete') s.socket.destroy(); else s.pushState(); }
     this.pushState();
   },
