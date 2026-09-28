@@ -848,7 +848,7 @@ function grassBackdrop(path, c, dpr) {
 }
 // купол защиты новичка над замком
 function newbieDome(p) {
-  const cx = p.sx + TW / 2, cy = p.sy + TH / 2 + 2, rx = TW * 0.62, ry = TH * 1.9;
+  const cx = p.sx + TW / 2, cy = p.sy + TH / 2 + 1, rx = TW * 0.4, ry = TH * 1.05; // купол по размеру замка
   const g = ictx.createRadialGradient(cx, cy - ry * 0.55, 4, cx, cy - ry * 0.4, rx * 1.1);
   g.addColorStop(0, 'rgba(220, 245, 255, 0.55)'); g.addColorStop(0.6, 'rgba(110, 190, 255, 0.28)'); g.addColorStop(1, 'rgba(60, 140, 255, 0.12)');
   ictx.save(); ictx.beginPath(); ictx.ellipse(cx, cy, rx, ry, 0, Math.PI, 0); ictx.ellipse(cx, cy, rx, ry * 0.32, 0, 0, Math.PI); ictx.fillStyle = g; ictx.fill();
