@@ -18,7 +18,7 @@ function startServer() {
     env: { ...process.env, WEB_PORT: String(WEB_PORT), HOST: '127.0.0.1', DB, SPEED: '2000', SAVE_MS: '500', NO_CAPTCHA: '1', ADMIN_PASS: 'admin', RATE_OFF: '1', NO_BACKUP: '1' },
     stdio: ['ignore', 'pipe', 'inherit'],
   });
-  return new Promise((resolve) => child.stdout.on('data', (d) => { if (String(d).includes('браузерный клиент')) resolve(child); }));
+  return new Promise((resolve) => child.stdout.on('data', (d) => { if (String(d).includes('Откройте в Chrome')) resolve(child); }));
 }
 
 function client() {
