@@ -15,7 +15,7 @@ const ARMY = require('./army');
 
 const WEB_ROOT = path.join(__dirname, '..', '..', 'web');
 const WS_MAX = 256 * 1024;
-const MIME = { '.webmanifest': 'application/manifest+json', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml' };
+const MIME = { '.webmanifest': 'application/manifest+json', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml' };
 
 // ---------- WebSocket ----------
 function wsAccept(req, socket) {
@@ -193,10 +193,17 @@ const API = {
     this.send({ t: 'registered', login: res.user.login });
   },
   login(m) {
-    if (this.game.loginBlocked(this.ip)) return this.error('Слишком много неудачных попыток входа. Подождите 10 минут.');
+    const lockMsg = (sec) => this.send({ t: 'loginlock', sec, msg: `Слишком много неудачных попыток входа. Попробуйте через ${Math.ceil(sec / 60)} мин.` });
+    const wait = m.token ? 0 : this.game.loginBlocked(this.ip, m.login); if (wait) return lockMsg(wait);
     // вход по паролю или по токену «Запомнить меня» (пароль в браузере не хранится)
     const u = m.token ? this.game.tokenLogin(m.login, m.token) : this.game.login(m.login, m.password);
-    if (!u) { this.game.loginFailed(this.ip); return this.error(m.token ? 'Сессия устарела — войдите заново.' : 'Неверный логин или пароль.'); }
+    if (!u && m.token) return this.error('Сессия устарела — войдите заново.');
+    if (!u) {
+      const w = this.game.loginFailed(this.ip, m.login); if (w) return lockMsg(w);
+      const left = this.game.loginTriesLeft(this.ip);
+      return this.error(`Неверный логин или пароль. Осталось попыток: ${left}.`);
+    }
+    if (!m.token) this.game.loginOk(this.ip);
     this.game.trackLogin(u, this.ip, m.dev); this.dev = m.dev;
     if (!u.admin && this.game.devBanned(m.dev)) return this.error('Это устройство заблокировано администрацией.');
     if (u.banned) return this.error('Аккаунт заблокирован администрацией.');
@@ -394,7 +401,7 @@ function staticFile(file) {
   const key = `${st.size}-${st.mtimeMs}`, hit = STATIC.get(file);
   if (hit && hit.key === key) return hit;
   const ext = path.extname(file), body = fs.readFileSync(file);
-  const f = { key, body, type: MIME[ext] || 'application/octet-stream', etag: `"${st.size.toString(36)}-${Math.floor(st.mtimeMs).toString(36)}"`, img: ext === '.png',
+  const f = { key, body, type: MIME[ext] || 'application/octet-stream', etag: `"${st.size.toString(36)}-${Math.floor(st.mtimeMs).toString(36)}"`, img: ['.png', '.webp', '.jpg'].includes(ext),
     gz: ['.html', '.js', '.css', '.svg', '.json', '.webmanifest'].includes(ext) && body.length > 1024 ? zlib.gzipSync(body) : null };
   STATIC.set(file, f);
   return f;

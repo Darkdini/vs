@@ -15,7 +15,7 @@
 <!-- вход и регистрация -->
 <section id="auth" class="screen">
   <div class="auth-box">
-    <div class="logo"><img src="gfx/build/castle.png" alt=""></div>
+    <div class="logo"><img src="gfx3d/ui/logo.webp" alt="Средневековье"></div>
     <h1>Война Королей</h1>
     <p class="muted">Третий Мир · тестовый сервер</p>
     <div class="seg" id="authTabs">
@@ -33,6 +33,8 @@
         <div class="capt"><img id="capImg" alt="пример"><button type="button" id="capNew" aria-label="Другой пример">↻</button></div>
         <input name="captcha" type="number" inputmode="numeric" placeholder="Ответ" autocomplete="off"></div>
       <label class="check"><input type="checkbox" name="remember" checked> Запомнить меня</label>
+      <div id="lockBox" class="lockbox hidden" role="alert"><div class="lockt1">🔒 Вход временно закрыт</div>
+        <div class="lockt2">Три раза введён неверный логин или пароль.<br>Попробуйте через</div><div class="lockt" id="lockT">3:00</div></div>
       <div id="authErr" class="err"></div>
       <button class="btn primary" id="authBtn">Войти</button>
     </form>

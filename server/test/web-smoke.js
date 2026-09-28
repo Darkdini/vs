@@ -424,6 +424,12 @@ function client() {
     await adm.expect('toast', (m) => /Поход запланирован/.test(m.msg));
     console.log('✓ армии в замке: отряд, переименование, подкрепление и отзыв, поход по расписанию');
     adm.close();
+    // 3 неверных входа → табличка «попробуйте через 3 минуты», даже правильный пароль не пускает
+    const bf = client(); await bf.open();
+    for (let i = 0; i < 2; i++) { bf.send({ t: 'login', login: 'webby', password: 'bad' + i }); await bf.expect('error', (m) => /Неверный логин/.test(m.msg)); }
+    bf.send({ t: 'login', login: 'webby', password: 'bad3' }); const lk = await bf.expect('loginlock'); assert.ok(lk.sec > 170 && /через 3 мин/.test(lk.msg), JSON.stringify(lk));
+    bf.send({ t: 'login', login: 'webby', password: 'pass1' }); await bf.expect('loginlock'); bf.close();
+    console.log('✓ подбор пароля: 3 неверных входа — «попробуйте через 3 мин», правильный пароль тоже ждёт');
     console.log('\nВЕБ: ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ');
   } catch (e) {
     console.error('FAIL:', e.message);

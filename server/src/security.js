@@ -7,7 +7,8 @@
 //   при появлении аккаунта на уже знакомом устройстве админам приходит оповещение, а решение принимает админ.
 const crypto = require('crypto');
 
-const LIM = { regHour: 3, regDay: 10, regMinuteAll: 30, failWindow: 600000, failMax: 20 };
+const LIM = { regHour: 3, regDay: 10, regMinuteAll: 30, failWindow: 600000, failMax: 3, failLoginMax: 10, lockMs: 180000 };
+const locks = new Map(); // ключ → время, до которого вход закрыт
 const hits = new Map(); // ключ → массив времени событий
 function hit(key, now = Date.now()) { const a = (hits.get(key) || []).filter((t) => t > now - 86400000); a.push(now); hits.set(key, a); }
 function count(key, ms, now = Date.now()) { return (hits.get(key) || []).filter((t) => t > now - ms).length; }
@@ -72,8 +73,18 @@ function install(Game) {
     return null;
   };
   P.regDone = function regDone(ip) { hit(`reg:${ip}`); hit('reg:*'); };
-  P.loginBlocked = (ip) => count(`fail:${ip}`, LIM.failWindow) >= LIM.failMax;
-  P.loginFailed = (ip) => hit(`fail:${ip}`);
+  // от подбора пароля: 3 неверных входа с адреса → вход закрыт на 3 минуты; 10 неверных на один логин с любых адресов → этот логин на 3 минуты
+  const lockLeft = (k, now) => Math.max(0, (locks.get(k) || 0) - now);
+  P.loginBlocked = (ip, login, now = Date.now()) => Math.ceil(Math.max(lockLeft(`ip:${ip}`, now), lockLeft(`lg:${String(login || '').toLowerCase()}`, now)) / 1000);
+  P.loginFailed = (ip, login, now = Date.now()) => {
+    const lg = String(login || '').toLowerCase().slice(0, 20);
+    hit(`fail:${ip}`, now); hit(`faillg:${lg}`, now);
+    if (count(`fail:${ip}`, LIM.failWindow, now) >= LIM.failMax) { locks.set(`ip:${ip}`, now + LIM.lockMs); hits.delete(`fail:${ip}`); }
+    if (count(`faillg:${lg}`, LIM.failWindow, now) >= LIM.failLoginMax) { locks.set(`lg:${lg}`, now + LIM.lockMs); hits.delete(`faillg:${lg}`); }
+    return P.loginBlocked(ip, lg, now);
+  };
+  P.loginOk = (ip) => hits.delete(`fail:${ip}`);
+  P.loginTriesLeft = (ip, now = Date.now()) => Math.max(0, LIM.failMax - count(`fail:${ip}`, LIM.failWindow, now));
   // группы подозрительных аккаунтов: общий id устройства или общий IP
   P.multis = function multis() {
     const byDev = new Map(), byIp = new Map();

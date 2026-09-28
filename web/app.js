@@ -175,6 +175,7 @@ function onMsg(m) {
       if (/отправлено/.test(m.msg) && S.sheets.length && S.composing) { S.composing = false; closeSheet(); }
       if (/Армия выступила|Поход запланирован/.test(m.msg) && (S.army || S.cmp)) { S.army = null; S.cmp = null; closeAllSheets(); }
       break;
+    case 'loginlock': showLock(Date.now() + m.sec * 1000); break;
     case 'error':
       if (S.auto || !S.st) { // ошибка входа — показать форму
         S.auto = false; S.creds = null; store.set('tw.creds', null);
@@ -216,6 +217,8 @@ function setMode(mode) {
   $('#authBtn').textContent = mode === 'reg' ? 'Создать аккаунт' : 'Войти';
   $('#authForm').password.autocomplete = mode === 'reg' ? 'new-password' : 'current-password';
   $('#authErr').textContent = '';
+  const locked = mode === 'login' && store.get('tw.lock') > Date.now(); // табличка блокировки — только на вкладке «Вход»
+  $('#lockBox').classList.toggle('hidden', !locked); $('#authBtn').disabled = locked;
 }
 // id устройства (для поиска мультов админом): случайный, хранится в браузере
 const DEV = (() => { let d = store.get('tw.dev'); if (!/^[a-f0-9]{16,40}$/.test(d || '')) { d = [...crypto.getRandomValues(new Uint8Array(12))].map((x) => x.toString(16).padStart(2, '0')).join(''); store.set('tw.dev', d); } return d; })();
@@ -923,9 +926,25 @@ function isoDrawNow() {
   }
 }
 
+// табличка «Попробуйте через 3 минуты» после 3 неверных входов (сервер закрывает вход сам, здесь — только отсчёт)
+function showLock(until) {
+  S.auto = false; store.set('tw.lock', until);
+  $('#auth').classList.remove('hidden'); $('#game').classList.add('hidden');
+  $('#authErr').textContent = ''; if (S.mode !== 'reg') { $('#lockBox').classList.remove('hidden'); $('#authBtn').disabled = true; }
+  clearInterval(S.lockTimer);
+  const tick = () => {
+    const left = Math.ceil((until - Date.now()) / 1000);
+    if (left <= 0) { clearInterval(S.lockTimer); $('#lockBox').classList.add('hidden'); $('#authBtn').disabled = false; store.set('tw.lock', null); return; }
+    if (S.mode === 'reg') return;
+    $('#lockT').textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+  };
+  tick(); S.lockTimer = setInterval(tick, 1000);
+}
+
 // ---------- старт ----------
 S.creds = store.get('tw.creds');
 if (S.creds && S.creds.password) { S.creds = null; store.set('tw.creds', null); } // старый формат с паролем — стираем
 S.remember = true;
+if (store.get('tw.lock') > Date.now()) showLock(store.get('tw.lock'));
 if (S.creds) $('#authForm').login.value = S.creds.login;
 connect();
