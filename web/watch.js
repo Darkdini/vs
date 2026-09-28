@@ -9,7 +9,7 @@ function movesWin() {
     ${ribbon('Надвигающиеся атаки')}${m.incoming.length ? m.incoming.map((a) => `<div class="mrow ${['attack', 'raid'].includes(a.mission) ? 'danger' : ''}"><span><b>${M().missions[a.mission]}</b> на «${esc(a.to)}» от ${esc(a.from)}<br><small>из «${esc(a.castle)}» · прибудет через <span class="cd" data-e="${a.arrive}"></span></small></span></div>`).join('') : '<p class="parch-note">Никто не идёт на Ваши замки.</p>'}
     <p class="small muted">Разведку, направленную в Ваши замки, башня не показывает.</p>`;
 }
-$('#sheetBody').addEventListener('click', (e) => {
+document.addEventListener('click', (e) => {
   if (!e.target.closest('[data-moves]')) return;
   S.moves = null; send({ t: 'moves' }); openSheet(movesWin);
 });

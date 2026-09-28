@@ -921,3 +921,10 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .ptile:active, .pbar:active, .rbar:active, .fbar:active, #locs .lbtns button:active { transform: scale(.92) translateY(2px); filter: brightness(.78) saturate(1.1); }
 .ptile.pressed { background-image: url(gfx3d/TextBox/a2.png); }
 .mitem.pressed { border-image-source: url(gfx3d/Button/a3.png); }
+/* верхняя панель: армии в пути — щит (подкрепления), зелёные мечи (наши нападения), красные мечи (нападают на нас) */
+#top { gap: 12px; }
+.env.mv::before { display: none; }
+.env.mv img { position: absolute; inset: 5px 9px; width: calc(100% - 18px); height: calc(100% - 10px); object-fit: contain; filter: drop-shadow(0 1px 1px #000a); }
+.env.mv b { position: absolute; inset: 0; display: grid; place-items: center; font: 700 22px var(--serif); color: #fff7d6; text-shadow: 0 0 3px #000, 0 1px 2px #000, 0 0 6px #000; }
+#mvInc { animation: incblink 1.2s ease-in-out infinite; }
+@keyframes incblink { 50% { filter: brightness(1.35) drop-shadow(0 0 6px #ff3a2a); } }

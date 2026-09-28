@@ -131,6 +131,7 @@ class WebSession {
       },
       castles: this.game.castlesOf(u).map((k, i) => ({ id: k.id, name: k.name, x: k.x, y: k.y, capital: i === 0, active: k.id === c.id, rating: this.game.rating(k), loyalty: Math.round(k.loyalty ?? 100) })),
       unread: (this.game.db.messages || []).filter((m) => m.to === u.id && !m.read).length,
+      moves: this.game.moveCounts(u),
     });
   }
 
