@@ -72,6 +72,15 @@ function install(Game) {
       rightsList: RIGHTS, now, foreign: user.alliance !== al.id, modr: this.canModerate(user),
     };
   };
+  // публичная карточка чужого (или своего) альянса — то, что видит любой игрок: без казны, логов, прав и форума
+  P.allyPublic = function allyPublic(al) {
+    const members = al.members.map((id) => { const m = this.userById(id); if (!m) return null;
+      return { id, login: m.login, rep: m.reputation ?? START_REP, score: this.userRating(m) + (m.reputation ?? START_REP), ...this.allyTitle(al, id) }; }).filter(Boolean).sort((a, b) => b.score - a.score);
+    const A = this.db.alliances || {};
+    return { id: al.id, tag: al.tag, name: al.name, desc: al.desc || '', charter: al.charter || '', created: al.created, rank: this.allyRank(al), score: this.allianceScore(al),
+      leader: al.leader, leaderLogin: (this.userById(al.leader) || {}).login, slots: this.allianceSlots(al), members,
+      diplo: Object.entries(al.diplo || {}).map(([id, st]) => (A[id] ? { id: Number(id), tag: A[id].tag, name: A[id].name, status: st, statusName: DIPLO[st] } : null)).filter(Boolean) };
+  };
   P.allyTopic = function allyTopic(user, al, id) {
     const t = (al.forum || []).find((x) => x.id === Number(id)); if (!t || (t.deleted && !this.allyCan(al, user.id, 'news') && !this.canModerate(user))) return null;
     return { id: t.id, title: t.title, closed: !!t.closed, pinned: !!t.pinned, posts: t.posts.map((p) => { const u = this.userById(p.byId); return { ...p, rep: u ? u.reputation ?? START_REP : START_REP }; }) };

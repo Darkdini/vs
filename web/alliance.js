@@ -254,3 +254,41 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
   if (m.t === 'allytopic') { S.allyTopic = m.data; if (m.data) S.allyTopicId = m.data.id; return refreshSheet(); }
   prevMilA(m);
 };
+
+// ---------- карточка альянса для всех игроков (нажатие на название альянса в профиле, рейтинге) ----------
+function openAllyInfo(id) { S.allyInfo = null; send({ t: 'allyinfo', id }); openSheet(allyInfoWin); }
+function allyInfoWin() {
+  const a = S.allyInfo; if (!a) return loading('Альянс');
+  const lead = a.members.filter((m) => m.ep > 0 || m.id === a.leader).sort((x, y) => y.ep - x.ep);
+  const row = (k, v) => `<div class="atr"><span>${k}</span><span>${v}</span></div>`;
+  return `${ribbon('Альянс')}<div class="atable"><div class="atr head"><img src="${AI('alliance')}" alt=""> ${esc(a.name)}</div>
+      ${row('Название', esc(a.tag))}${row('Ранг', a.rank)}${row('Рейтинг', fmtFull(a.score))}${row('Участников', a.members.length)}
+      ${row('Создатель', `<a data-cprof="${a.leader}">${esc(a.leaderLogin || '—')}</a>`)}</div>
+    ${ribbon('Верховенство')}
+    <div class="atable"><div class="atr3 head"><span>Звание</span><span>Имя</span><span>Погоны</span></div>
+      ${lead.map((m) => `<div class="atr3"><span>${esc(m.title)}</span><span><a data-cprof="${m.id}">${esc(m.login)}</a></span><span>${epImg(m.ep)}</span></div>`).join('')}</div>
+    <button class="pbar" data-ai="titles">Весь список</button>
+    <div class="ptiles pbig">
+      ${aTile('data-ai="charter"', `${AL}charter.png`, 'Устав')}
+      ${aTile('data-ai="diplo"', `${AL}diplo.png`, 'Дипломатия')}
+      ${aTile('data-ai="desc"', `${AL}desc.png`, 'Описание')}
+      ${aTile('data-soon="Альбомы альянса"', `${AL}albums.png`, 'Альбомы')}
+      ${aTile('data-soon="Скоро здесь появится новая функция альянса"', `${AL}quest.png`, '')}
+      ${aTile('data-soon="Скоро здесь появится новая функция альянса"', `${AL}quest.png`, '')}
+    </div>
+    ${ribbon('Состав')}
+    <div class="atable">${a.members.map((m, i) => `<div class="atr4"><span>${i + 1}</span><span><a data-cprof="${m.id}" style="color:${nameColor(m.rep)}">${esc(m.login)}</a><br>${repIcons(m.rep)}</span><span>${epImg(m.ep)}</span><span>${fmtFull(m.score)}</span></div>`).join('')}</div>`;
+}
+function allyInfoTitlesWin() { const a = S.allyInfo; return a ? `${ribbon('Звания')}<div class="atable"><div class="atr3 head"><span>Звание</span><span>Имя</span><span>Погоны</span></div>${a.members.map((m) => `<div class="atr3"><span>${esc(m.title)}</span><span><a data-cprof="${m.id}">${esc(m.login)}</a></span><span>${epImg(m.ep)}</span></div>`).join('')}</div>` : loading('Звания'); }
+function allyInfoTextWin(title, text, empty) { return `${ribbon(title)}<div class="bwline" style="white-space:pre-wrap">${esc(text) || `<span class="muted">${empty}</span>`}</div>`; }
+function allyInfoDiploWin() { const a = S.allyInfo; return a ? `${ribbon('Дипломатия')}${a.diplo.length ? `<div class="atable">${a.diplo.map((x) => `<div class="atr"><span><a data-allyinfo="${x.id}">${esc(x.name)} [${esc(x.tag)}]</a></span><span>${esc(x.statusName)}</span></div>`).join('')}</div>` : '<div class="bwline muted">Договоров нет.</div>'}` : loading('Дипломатия'); }
+$('#sheetBody').addEventListener('click', (e) => {
+  const o = e.target.closest('[data-allyinfo]'); if (o) { e.stopPropagation(); return openAllyInfo(Number(o.dataset.allyinfo)); }
+  const t = e.target.closest('[data-ai]'); if (!t) return;
+  const a = S.allyInfo; if (!a) return;
+  const k = t.dataset.ai;
+  if (k === 'titles') return openSheet(allyInfoTitlesWin);
+  if (k === 'diplo') return openSheet(allyInfoDiploWin);
+  if (k === 'charter') return openSheet(() => allyInfoTextWin('Устав', a.charter, 'Устав не написан.'));
+  if (k === 'desc') return openSheet(() => allyInfoTextWin('Описание', a.desc, 'Описание не заполнено.'));
+}, true);

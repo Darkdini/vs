@@ -224,7 +224,7 @@ function profileWin(p) {
     <button class="pline plink2" data-reptable>Репутация (${fmtFull(p.reputation)}): ${repIcons(p.reputation)}</button>
     ${best.length ? `<div class="pline">Зал Славы: ${medals}</div>` : ''}
     ${(p.titles || []).length ? `<div class="ptitle">Звание: ${p.titles.map((t) => `${t === 'Администратор' ? `<img class="admbadge" src="${GFX}admin_badge.png" alt="">` : t === 'Модератор форума' ? `<img class="admbadge" src="${GFX}mod_badge.png" alt="">` : `<img class="admbadge crownp" src="${GFX}premium_crown.png" alt="">`} ${esc(t)}`).join(', ')}</div>` : ''}
-    <div class="pline">Альянс: ${p.alliance ? `<b>${esc(p.alliance.name)} [${esc(p.alliance.tag)}]</b>` : '—'}</div>
+    <div class="pline">Альянс: ${p.alliance ? `<a class="plink" data-allyinfo="${p.alliance.id}">${esc(p.alliance.name)} [${esc(p.alliance.tag)}]</a>` : '—'}</div>
     ${p.alliance ? `<div class="pline">Звание в альянсе: ${esc(p.alliance.role)}</div>` : ''}
     <div class="ptiles pbig">
       ${tile('treasury', 'gfx3d/prof/treasury.png', 'Пополнить Казну', !p.self)}
@@ -340,7 +340,7 @@ function ratingWin() {
     <span>${pg + 1}</span><button data-rpg="${pg + 1}" ${pg < pages - 1 ? '' : 'disabled'}>▶</button><button data-rpg="${pages - 1}" ${pg < pages - 1 ? '' : 'disabled'}>▶▶</button></div>`;
   const rows = list.slice(pg * 10, pg * 10 + 10).map((r, j) => {
     const i = pg * 10 + j + 1;
-    const name = k === 'alliances' ? `<a>${esc(r.name)} [${esc(r.tag)}]</a>` : k === 'castles' ? `<button class="rlink" data-goworld="${r.x},${r.y}">${esc(r.name)}</button>` : `<a data-cprof="${r.id}">${esc(r.login)}</a>`;
+    const name = k === 'alliances' ? `<a data-allyinfo="${r.id}">${esc(r.name)} [${esc(r.tag)}]</a>` : k === 'castles' ? `<button class="rlink" data-goworld="${r.x},${r.y}">${esc(r.name)}</button>` : `<a data-cprof="${r.id}">${esc(r.login)}</a>`;
     return `<div class="${k !== 'alliances' && k !== 'castles' && r.id === me() ? 'me' : ''}"><span>${i}</span>${name}<span>${fmtFull(r.rating)}</span></div>`;
   }).join('');
   return `${head}${nav}<div class="htable rtab">${rows || '<p class="parch-note">Пусто.</p>'}</div>${rows ? nav : ''}`;
@@ -437,6 +437,7 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
   if (m.t === 'chatusers') { S.chatUsers = m.list; const b = $('[data-chatusers]'); if (b) b.innerHTML = `<img src="${GFX}units/human/general.png" alt=""> Игроки (${m.list.length})`; return refreshSheet(); }
   if (m.t === 'chatlog') { S.chat = m.list; chatLine(); refreshSheet(); const l = $('#chatList'); if (l) l.scrollTop = l.scrollHeight; return; }
   if (m.t === 'chatmsg') { S.chat.push(m.msg); if (S.chat.length > 50) S.chat.shift(); chatLine(); chatListUpdate(); return; }
+  if (m.t === 'allyinfo') { S.allyInfo = m.ally; return refreshSheet(); }
   if (m.t === 'hall') { S.hall = m.hall; return refreshSheet(); }
   if (m.t === 'halls') { S.hallWho = m.who; S.halls = m.list; S.hallPages = m.pages; S.hallSeason = m.season; S.hallLast = m.last; return refreshSheet(); }
   if (m.t === 'ratings') { S.rlist = m.list; return refreshSheet(); }

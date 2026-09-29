@@ -349,6 +349,7 @@ const API = {
     if (r.topic) { const v = g.forumPosts(u, r.topic, m.page); if (!v.error) this.send({ t: 'forum', view: 'posts', data: v, replace: 1 }); else if (r.section) this.send({ t: 'forum', view: 'topics', data: g.forumTopics(u, r.section, 0), replace: 1 }); }
   },
   // чьи места показывать: свой зал или игрока, из профиля которого открыт Зал славы
+  allyinfo(m) { const al = Object.prototype.hasOwnProperty.call(this.game.db.alliances || {}, String(m.id)) ? this.game.db.alliances[m.id] : null; if (!al) return this.error('Альянс не найден.'); this.send({ t: 'allyinfo', ally: this.game.allyPublic(al), mine: this.user.alliance === al.id }); },
   hallWho(m) { const u = m.who !== undefined && this.game.userById(Number(m.who)); return u || this.user; },
   hall(m) { const r = this.game.hallPage(API.hallWho.call(this, m), String(m.id || ''), m.page); if (r.error) return this.error(r.error); this.send({ t: 'hall', hall: r }); },
   halls(m = {}) { const who = API.hallWho.call(this, m), me = who.id, list = this.game.halls().map(({ all, ...h }) => ({ ...h, pos: h.pos[me] || 0, mine: this.game.hallValue(who, h.id), top: h.top })), s = this.game.season(); this.send({ t: 'halls', who: { id: who.id, login: who.login, self: who.id === this.user.id, admin: !!who.admin }, list, pages: SOC.HALL_PAGES, season: { key: s.key, end: s.end }, last: (this.game.db.hallHistory || []).slice(-1)[0] || null }); },

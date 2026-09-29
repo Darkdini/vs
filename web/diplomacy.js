@@ -21,7 +21,7 @@ function invitesWin() {
 S.alFound = null;
 function alliancesWin() {
   const my = MY();
-  const rows = (S.alFound || []).map((a) => `<div class="invite"><div class="itag">${esc(a.name)} [${esc(a.tag)}]</div>
+  const rows = (S.alFound || []).map((a) => `<div class="invite"><div class="itag"><a class="plink" data-allyinfo="${a.id}">${esc(a.name)} [${esc(a.tag)}]</a></div>
       <small>глава ${esc(a.leader || '—')} · участников ${a.members} из ${a.slots} · очки ${fmtFull(a.score || 0)}</small>${a.ad ? `<div class="small">📣 ${esc(a.ad)}</div>` : ''}
       ${S.st.user.admin || S.st.user.mod ? `<div class="center"><button class="pbtn small" data-amodforum="${a.id}">Форум (модерация)</button></div>` : ''}${my.alliance ? '' : a.requested ? '<div class="small muted">Заявка отправлена</div>' : a.members >= a.slots ? '<div class="small muted">Мест нет</div>' : `<div class="center"><button class="pbtn" data-al="request" data-id="${a.id}">Подать заявку</button></div>`}</div>`).join('');
   return `${ribbon('Альянсы')}<div class="bwline center">Альянсы, подходящие вам:</div>
