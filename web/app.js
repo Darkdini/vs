@@ -1008,8 +1008,11 @@ function isoDrawNow() {
     if (Iso.sel && Iso.sel.tab === 'world') glow(tileScreen(Iso.sel.x, Iso.sel.y), 0.92);
     for (let y = 0; y < n; y++) for (let xx = n - 1; xx >= 0; xx--) {
       const o = objs.get(`${w.cx - R0 + xx}:${w.cy - R0 + y}`); if (!o) continue;
-      const p = tileScreen(xx, y);
+      const p = tileScreen(xx, y), sel = isSel(xx, y);
+      // выбранный замок/объект — золотая подводка по контуру
+      if (sel) { ictx.save(); ictx.filter = 'drop-shadow(0 0 3px #fff3a0) drop-shadow(0 0 3px #ffe030) drop-shadow(0 0 4px #ffc400) drop-shadow(0 0 7px #ff9d00) brightness(1.18)'; }
       ground(WORLD_NAME_IMG(o), p.sx, p.sy);
+      if (sel) ictx.restore();
       if (o.newbie) newbieDome(p);
     }
   }
