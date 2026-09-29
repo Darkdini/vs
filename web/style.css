@@ -1138,3 +1138,5 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
   background: linear-gradient(#3a5a1a, #1f3a0a); color: #eaffc8; font: 700 18px var(--serif); text-decoration: none; box-shadow: 0 3px 6px #0008; }
 .apklink img { width: 28px; height: 28px; }
 .apklink:active { transform: translateY(1px); filter: brightness(.9); }
+/* окно над экранной клавиатурой (--kb задаёт app.js по visualViewport) */
+#sheet { bottom: var(--kb, 0px); }

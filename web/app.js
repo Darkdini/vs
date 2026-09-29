@@ -156,6 +156,16 @@ function wake() {
   S.pingTimer = setTimeout(() => { if (S.ws === ws) { S.ws = null; try { ws.close(); } catch { /* уже закрыт */ } clearTimeout(S.reTimer); connect(); } }, 4000);
   try { ws.send(JSON.stringify({ t: 'ping' })); } catch { /* закрыт */ }
 }
+// экранная клавиатура: окна (чат) поднимаются над ней — высота клавиатуры в CSS-переменной --kb
+if (window.visualViewport) {
+  const vv = window.visualViewport;
+  const kb = () => {
+    const h = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+    document.documentElement.style.setProperty('--kb', `${h}px`);
+    const l = $('#chatList'); if (l && document.activeElement && document.activeElement.closest && document.activeElement.closest('.chatbar')) l.scrollTop = l.scrollHeight;
+  };
+  vv.addEventListener('resize', kb); vv.addEventListener('scroll', kb);
+}
 window.appResume = wake; // вызывает Android-приложение при возврате из фона
 document.addEventListener('visibilitychange', () => { if (!document.hidden) wake(); });
 window.addEventListener('online', wake);

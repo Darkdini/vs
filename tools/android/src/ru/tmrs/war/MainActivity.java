@@ -4,10 +4,8 @@ import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.view.Window;
-import android.view.WindowManager;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
@@ -27,7 +25,7 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle state) {
         super.onCreate(state);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
-        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        // без FLAG_FULLSCREEN: в полноэкранном режиме Android не поднимает страницу над клавиатурой (adjustResize не работает)
         home = getString(R.string.game_url);
 
         web = new WebView(this);
@@ -118,12 +116,4 @@ public class MainActivity extends Activity {
     @Override
     protected void onPause() { web.onPause(); super.onPause(); }
 
-    @Override
-    public void onWindowFocusChanged(boolean focus) {
-        super.onWindowFocusChanged(focus);
-        if (focus && Build.VERSION.SDK_INT >= 19) {
-            // LAYOUT_STABLE | FULLSCREEN | IMMERSIVE_STICKY | LAYOUT_FULLSCREEN (числами: константы API 19 нет в android.jar сборки)
-            web.setSystemUiVisibility(0x100 | 0x4 | 0x1000 | 0x400);
-        }
-    }
 }
