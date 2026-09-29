@@ -12,7 +12,7 @@ const RES = ['wood', 'stone', 'iron', 'food', 'people'];
 const GFX = 'gfx/';
 const GROUND = ['grass', 'stone', 'roadS0', 'roadS1', 'roadS2', 'roadG0', 'roadG1', 'ground', 'stone1', 'water', 'castle', 'grass1',
   'arrowup', 'arrowright', 'arrowdown', 'arrowleft', 'rov0', 'rov5', 'rov4', 'rov1', 'rov7', 'rov3', 'rov2', 'rov6',
-  'castle_old', 'dikari', 'lumber', 'troll_rudnik', 'castle_small', 'castle_big'];
+  'castle_old', 'dikari', 'lumber', 'troll_rudnik', 'castle_small', 'castle_big', 'camp1', 'camp2', 'camp3'];
 const DECOR = ['wood', 'walun', 'mount'];
 const EDGE = ['0', '1', '2', '3', '40', '41', '50', '51', '60', '61', '70', '71'];
 // id здания → build/<имя>.png (порядок картинок клиента: id = номер картинки − 100)
@@ -679,7 +679,7 @@ window.__iso = { Iso, tileScreen: (x, y) => tileScreen(x, y), cam: () => cam() }
 const ictx = Iso.cv.getContext('2d');
 const IMGS = new Map();
 // перерисованная графика высокого качества: файл в HD[path] во столько раз крупнее, на карте рисуется в прежнем размере
-const HD = { 'build/castle.png': ['build/hd/castle.png', 8] };
+const HD = { 'build/castle.png': ['build/hd/castle.png', 8], 'ground/camp1.png': ['ground/hd/camp1.png', 4], 'ground/camp2.png': ['ground/hd/camp2.png', 4], 'ground/camp3.png': ['ground/hd/camp3.png', 4] };
 function pic(path) {
   let e = IMGS.get(path);
   if (!e) {

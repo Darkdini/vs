@@ -364,7 +364,7 @@ function worldActions(o, x, y) {
   }
   const npc = M().npc[o.img];
   if (!npc) return '<p class="muted small">Здесь пусто.</p>';
-  return `<dl class="kv"><dt>Охрана</dt><dd>~${fmtFull(npc.def.inf)}</dd><dt>Запас</dt><dd>${RES4.map((r) => fmtN(npc.loot[r])).join(' / ')}</dd></dl>
+  return `<dl class="kv">${npc.level ? `<dt>Сложность</dt><dd><b>${esc(npc.level)}</b></dd>` : ''}<dt>Охрана</dt><dd>~${fmtFull(npc.def.inf)}</dd><dt>Запас</dt><dd>${RES4.map((r) => fmtN(npc.loot[r])).join(' / ')}</dd></dl>
     <div class="btns" style="margin-top:8px">${b('attack', 'Атака')}${b('raid', 'Набег')}${b('scout', 'Разведка')}</div>
     ${npc.ruins ? `<p class="small">Лояльность руин: <b>${o.loyalty ?? 100}</b>. Захват — <b>атака с Бунтарями</b>: каждый выживший бунтарь снижает лояльность на 20–30, при 0 руины станут вашим замком.</p>
       <div class="btns" style="margin-top:8px">${b('expedition', 'Экспедиция')}</div>` : ''}`;

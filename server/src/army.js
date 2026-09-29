@@ -190,6 +190,10 @@ const NPC = {
   25: { name: 'Дикари', def: { inf: 250, cav: 210, mag: 105 }, loot: { wood: 600, stone: 600, iron: 400, food: 900 } },
   26: { name: 'Лесорубы', def: { inf: 150, cav: 170, mag: 65 }, loot: { wood: 2500, stone: 200, iron: 100, food: 400 } },
   27: { name: 'Рудник троллей', def: { inf: 1050, cav: 925, mag: 380 }, loot: { wood: 300, stone: 2500, iron: 4000, food: 500 } },
+  // лагеря разбойников — боты трёх уровней сложности; добыча скромная (не заменяет свою экономику)
+  30: { name: 'Лагерь разбойников (лёгкий)', level: 'Лёгкий', def: { inf: 90, cav: 80, mag: 40 }, loot: { wood: 250, stone: 250, iron: 150, food: 300 } },
+  31: { name: 'Лагерь разбойников (средний)', level: 'Средний', def: { inf: 450, cav: 400, mag: 180 }, loot: { wood: 500, stone: 500, iron: 350, food: 600 } },
+  32: { name: 'Лагерь разбойников (тяжёлый)', level: 'Тяжёлый', def: { inf: 1500, cav: 1350, mag: 600 }, loot: { wood: 900, stone: 900, iron: 700, food: 1000 } },
   24: { name: 'Заброшенный замок', def: { inf: 2520, cav: 2310, mag: 1050 }, loot: { wood: 4000, stone: 4000, iron: 4000, food: 4000 }, ruins: true },
 };
 const NPC_REGEN_SEC = 3600;

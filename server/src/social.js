@@ -53,7 +53,11 @@ const HALL_PAGES = [['rule', 'growth', 'loyalty', 'loot', 'archaeology'], ['resp
 const PLACE_ICON = ['gold', 'silver', 'bronze'];
 
 // подарки в профиле: игроки дарят друг другу за золото
-const GIFTS = { diamond: { name: 'Большой диамант', img: 'gifts/diamond.jpg', gold: 3, premium: true } };
+const GIFTS = {
+  diamond: { name: 'Большой диамант', img: 'gifts/diamond.jpg', gold: 3, premium: true },
+  castle_box: { name: 'Королевская шкатулка', img: 'gifts/castle_box.png', gold: 10, premium: true },
+  helmet: { name: 'Шлем Легиона', img: 'gifts/helmet.png', gold: 5, premium: true },
+};
 const GIFTS_DAY = 20;
 const REP_PER_GOLD = 2; // 1 монета = 2 репутации // сколько подарков игрок может отправить за сутки
 
