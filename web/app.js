@@ -279,6 +279,11 @@ $('#authForm').addEventListener('submit', (e) => {
 // ---------- шапка: ресурсы и очередь ----------
 function renderTop() { // конверты сообщений и отчётов наверху (как в 3D-клиенте)
   const u = S.st.unread, rep = S.st.castle.mil.unreadReports;
+  { // оповещение звуком: новое сообщение, отчёт, новость или нападение на нас
+    const mv = S.st.moves || {}, cnt = [u, rep, S.st.newsUnread || 0, mv.inc || 0];
+    if (S.prevCnt && cnt.some((v, i) => v > S.prevCnt[i]) && typeof sfxNotify === 'function') sfxNotify();
+    S.prevCnt = cnt;
+  }
   $('#unread').textContent = u; $('#unread').classList.toggle('hidden', !u);
   { const nn = S.st.newsUnread || 0; $('#btnNews').classList.toggle('hidden', !nn); $('#unnews').textContent = nn > 1 ? nn : ''; $('#unnews').classList.toggle('hidden', nn < 2); }
   $('#unrep').textContent = rep; $('#unrep').classList.toggle('hidden', !rep);

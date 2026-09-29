@@ -1234,3 +1234,12 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .ncmt .fnick { display: block; color: #7a1a0a; }
 .ncmt small { display: block; color: #6a4a2a; font-size: .8em; }
 .ncdel { position: absolute; right: 6px; top: 6px; width: 24px; height: 24px; border: 0; border-radius: 50%; background: #8a1010; color: #fff; }
+/* настройка звуков: красные квадраты с золотой галочкой, как в оригинале */
+.sndlist { display: grid; gap: 10px; margin: 8px 0 12px; }
+.sndrow { display: flex; align-items: center; gap: 14px; font: min(28px, 6.4vw) var(--serif); color: #2a1408; cursor: pointer; }
+.sndrow input { position: absolute; opacity: 0; pointer-events: none; }
+.sndbox { flex: none; width: 58px; height: 58px; border: 3px solid #d8a850; border-radius: 8px; background: linear-gradient(#ff3a2a, #c00a00); box-shadow: 0 3px 4px #0006, inset 0 1px 0 #fff6; position: relative; }
+.sndrow input:not(:checked) + .sndbox { background: linear-gradient(#8a6a4a, #4a2e18); }
+.sndrow input:checked + .sndbox::after { content: ""; position: absolute; left: 17px; top: 6px; width: 14px; height: 28px; border: solid #f0c040; border-width: 0 7px 7px 0; transform: rotate(40deg); filter: drop-shadow(1px 1px 0 #6a4208); }
+.sndrow img { width: 52px; height: 48px; object-fit: contain; }
+#sheetBody .sndrow { display: flex !important; flex-direction: row !important; grid-template-columns: none; align-items: center; gap: 14px; font-size: min(28px, 6.4vw) !important; color: #2a1408 !important; }

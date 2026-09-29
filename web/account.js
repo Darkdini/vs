@@ -21,6 +21,7 @@ function accountWin(p) {
     <form class="acform" data-form="castleinfo"><label>Название:<input name="name" maxlength="24" value="${esc(a.castleName || '')}" required></label>
       <label>Описание:<input name="desc" maxlength="200" value="${esc(a.castleDesc || '')}"></label><button class="pbar">Изменить</button></form>
     ${ribbon('Управление')}
+    ${bar('data-acct="sound"', 'gfx3d/sound/notify.svg', 'Настройка звуков')}
     ${bar('data-acct="info"', 'gfx3d/prof/info.png', 'Личная информация')}
     ${bar('data-acct="public"', 'gfx3d/prof/king.png', 'Мой профиль (как видят другие)')}`;
 }
@@ -36,6 +37,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   const t = e.target.closest('[data-acct]'); if (!t) return;
   const k = t.dataset.acct, p = S.lastAcct;
   if (k === 'premium') return openPremium();
+  if (k === 'sound') return openSheet(soundWin);
   if (k === 'viol') return toast(`Нарушений: ${(p.acct || {}).violations || 0}. Нарушения — баны в чате от модераторов.`);
   if (k === 'pass') return openSheet(passWin);
   if (k === 'info') return openSheet(() => profileInfoWin(p));
