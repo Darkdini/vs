@@ -960,3 +960,7 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .hofbig img { width: 18.5%; max-width: 90px; aspect-ratio: 1; object-fit: contain; }
 .pbar.pview { display: flex; align-items: center; justify-content: center; gap: 10px; }
 .pbar.pview img { width: 30px; height: 30px; object-fit: contain; }
+/* профиль: авторитет города — корона и король как в оригинале */
+.pauth { align-items: flex-start; font: min(24px, 5.8vw)/1.35 var(--serif); }
+.pauth img.pcrown { width: 64px; height: auto; image-rendering: auto; flex: none; margin-top: 2px; }
+.pauth img.pking { width: 34px; height: auto; image-rendering: auto; vertical-align: -6px; }

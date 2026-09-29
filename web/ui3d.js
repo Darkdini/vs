@@ -212,7 +212,7 @@ function profileWin(p) {
   const aw = p.awards || [];
   const awards = aw.length ? aw.map((m) => `<div class="award"><img src="${GFX}smallicon/status/${m.kind}.png" alt=""><div><b>${esc(ALLY_MEDAL[m.kind] || 'Медаль')} от альянса [${esc(m.tag)}]</b><small>${m.text ? `«${esc(m.text)}» · ` : ''}вручил ${esc(m.by)} · получено ${fmtDay(m.at)}</small></div></div>`).join('') : '<div class="parch-note">Пока нет — медали за заслуги вручает глава альянса.</div>';
   return `${ribbon('Профиль')}
-    <div class="pauth"><img src="${GFX}smallicon/bonus_status/coronalgold.png" alt=""><div>Авторитет Вашего города:<br><b>Здесь может быть Ваше имя!</b></div></div>
+    <div class="pauth"><img class="pcrown" src="gfx3d/prof/crown.png" alt=""><div>Авторитет Вашего города:<br><img class="pking" src="gfx3d/prof/king.png" alt=""> Здесь может быть Ваше имя!</div></div>
     <button class="pbar" data-soon="Авторитет города">Стать Авторитетом!</button>
     ${ribbon('Информация')}
     <div class="pinfo"><div class="avatar">${avatarImg(p)}</div><div>
