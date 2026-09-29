@@ -38,6 +38,8 @@ public class MainActivity extends Activity {
         s.setUseWideViewPort(true);
         s.setSupportZoom(false);
         s.setBuiltInZoomControls(false);
+        // фоновая музыка без касания (API 17+, вызываем через reflection — android.jar сборки старее)
+        try { WebSettings.class.getMethod("setMediaPlaybackRequiresUserGesture", boolean.class).invoke(s, false); } catch (Exception e) { /* старый Android */ }
         s.setUserAgentString(s.getUserAgentString() + " WarKingsApp/1");
 
         web.setWebViewClient(new WebViewClient() {
