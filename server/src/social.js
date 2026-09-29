@@ -101,7 +101,7 @@ function install(Game) {
     const rule = new Map();
     for (const [id, t] of Object.entries(tables)) t.forEach((x, i) => rule.set(x.id, (rule.get(x.id) || 0) + Math.round(HALLS[id].bonus[0] * (t.length - i) / t.length)));
     tables.rule = users.map((u) => ({ id: u.id, login: u.login, value: rule.get(u.id) || 0 })).filter((x) => x.value > 0).sort((a, b) => b.value - a.value);
-    return Object.entries(HALLS).map(([id, h]) => ({ id, name: h.name, bonus: h.bonus, short: h.short, desc: h.desc, top: tables[id].slice(0, 10), pos: Object.fromEntries(tables[id].map((x, i) => [x.id, i + 1])), total: tables[id].length }));
+    return Object.entries(HALLS).map(([id, h]) => ({ id, name: h.name, bonus: h.bonus, short: h.short, desc: h.desc, top: tables[id].slice(0, 10), all: tables[id], pos: Object.fromEntries(tables[id].map((x, i) => [x.id, i + 1])), total: tables[id].length }));
   };
   const hallIcon = (h, i) => `gfx3d/halls/${h.id}_${i + 1}.png`;
   // конец месяца (или досрочно админом): награды топ-3 каждого зала, новый месяц
@@ -132,6 +132,14 @@ function install(Game) {
     this.cache = {};
     this.store.save();
     return winners;
+  };
+  // окно «Зал <название>»: страница рейтинга по 10, позиция и показатель игрока, дата отсчёта, архив прошлых месяцев
+  P.hallPage = function hallPage(user, id, page = 0) {
+    const h = this.halls().find((x) => x.id === id); if (!h) return { error: 'Нет такого зала.' };
+    const pages = Math.max(1, Math.ceil(h.all.length / 10)), pg = Math.max(0, Math.min(pages - 1, Math.floor(Number(page)) || 0));
+    const archive = (this.db.hallHistory || []).map((m) => { const x = m.halls.find((y) => y.id === id); return x ? { key: m.key, top: x.top } : null; }).filter(Boolean).reverse();
+    return { id, name: h.name, pos: h.pos[user.id] || 0, value: this.hallValue(user, id), start: this.season().start || null, key: this.season().key,
+      page: pg, pages, rows: h.all.slice(pg * 10, pg * 10 + 10).map((x, i) => ({ place: pg * 10 + i + 1, id: x.id, login: x.login, value: x.value })), archive };
   };
   P.seasonCheck = function seasonCheck(now = Date.now()) { if (now >= this.season().end) this.seasonClose(now); };
   // награды игрока (медали прошлых месяцев) — с датой получения
