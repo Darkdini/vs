@@ -241,6 +241,7 @@ const API = {
   },
   ritual(m) { const r = this.game.ritual(this.user, this.castle, m.id); if (r.msg) this.toast(r.msg); this.result(r); },
   calm() { const r = this.game.calmRiot(this.user, this.castle); if (r.msg) this.toast(r.msg); this.result(r); },
+  magic(m) { this.result(this.game.magicOp(this.castle, { unit: Number(m.unit), kind: m.kind })); },
   forge(m) { this.result(this.game.forgeOp(this.castle, { unit: Number(m.unit), kind: m.kind })); },
   ally(m) {
     // модератор форума / админ может открыть форум любого альянса (m.ally) — только просмотр и удаление

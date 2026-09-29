@@ -226,6 +226,7 @@ function install(Game, helpers) {
     if (castle.religion === undefined) castle.religion = null;
     if (!castle.forge) castle.forge = {}; // Кузница: { unitId: { a: ур. атаки, d: ур. защиты } }
     if (castle.forgeJob === undefined) castle.forgeJob = null;
+    if (castle.magicJob === undefined) castle.magicJob = null;
     if (!castle.squads) castle.squads = []; // отряды в замке («Армия: …»); castle.units — «Замковая армия»
     if (castle.loyalty === undefined) { castle.loyalty = 100; castle.loyAt = Date.now(); }
     // старые замки: стартовый Огород стоял на траве (7:7) — переносим на землю (3:5), как в оригинале
@@ -379,6 +380,14 @@ function install(Game, helpers) {
       this.event(owner, `Кузница: ${UNIT[fj.unit].name} — ${fj.kind === 'a' ? 'атака' : 'защита'} ${fj.level} ур.`);
       castle.forgeJob = null;
     }
+    // улучшение в Школе магии
+    const mj = castle.magicJob;
+    if (mj && mj.end <= now) {
+      const f = castle.forge[mj.unit] || (castle.forge[mj.unit] = { a: 0, d: 0 });
+      f[mj.kind] = mj.level;
+      this.event(owner, `Школа магии: ${UNIT[mj.unit].name} — ${mj.kind === 'm' ? 'магическая атака' : 'магическая защита'} ${mj.level} ур.`);
+      castle.magicJob = null;
+    }
     // исследование
     if (castle.research && castle.research.end <= now) {
       castle.sciences[castle.research.sci] = castle.research.level;
@@ -410,6 +419,27 @@ function install(Game, helpers) {
     for (const r of RES4) if (castle.res[r] < cost[r]) return { error: 'Недостаточно ресурсов.' };
     for (const r of RES4) castle.res[r] -= cost[r];
     castle.forgeJob = { unit: u.id, kind, level: next, start: Date.now(), end: Date.now() + sec * 1000 };
+    this.store.save();
+    return { ok: true };
+  };
+
+  // ----- Школа магии: как Кузница, но магическая атака (m, только у магов) и магическая защита (md, у всех) -----
+  // +1 к базовому параметру за уровень, до уровня Школы магии (макс. 20); одновременно одно улучшение
+  P.magicKinds = (u) => (u.magic > 0 ? ['m', 'md'] : ['md']);
+  P.magicOp = function magicOp(castle, { unit, kind }) {
+    this.tick(castle); this.mil(castle);
+    const L = this.buildingLevel(castle, B.MAGIC_SCHOOL), u = UNIT[unit];
+    if (!L) return { error: 'Нужна Школа магии.' };
+    if (!u || !this.forgeUnits(castle).includes(u)) return { error: 'Этот юнит нельзя улучшить.' };
+    if (!this.magicKinds(u).includes(kind)) return { error: u.magic > 0 || kind !== 'm' ? 'Неверный параметр.' : 'У этого юнита нет магической атаки.' };
+    if (castle.magicJob) return { error: 'Школа магии занята другим улучшением.' };
+    const next = this.forgeLvl(castle, u.id, kind) + 1;
+    if (next > 20) return { error: 'Достигнут максимум (20).' };
+    if (next > L) return { error: `Нужна Школа магии ${next} ур.` };
+    const { cost, sec } = this.forgeCost(u, next);
+    for (const r of RES4) if (castle.res[r] < cost[r]) return { error: 'Недостаточно ресурсов.' };
+    for (const r of RES4) castle.res[r] -= cost[r];
+    castle.magicJob = { unit: u.id, kind, level: next, start: Date.now(), end: Date.now() + sec * 1000 };
     this.store.save();
     return { ok: true };
   };
@@ -689,7 +719,7 @@ function install(Game, helpers) {
       const u = UNIT[id]; if (!u || !n) continue;
       const atk = u.attack ? u.attack + this.forgeLvl(c, id, 'a') : 0; // Кузница: +1 к базовой атаке за уровень
       if (u.type === 'cavalry') cav += atk * n; else inf += atk * n;
-      mag += u.magic * n;
+      mag += (u.magic ? u.magic + this.forgeLvl(c, id, 'm') : 0) * n; // Школа магии: +1 к магической атаке за уровень
     }
     let gl = 0, cmd = 0, genAtk = 0;
     if (withGeneral && c.general && !c.general.dead) { const gs = this.genStats(c.general); gl = c.general.level; cmd = gs.catk; genAtk = gs.atk; inf += gs.atk; mag += UNIT[GENERAL_ID].magic; }
@@ -710,7 +740,7 @@ function install(Game, helpers) {
   P.defensePower = function defensePower(d, pInf, pCav) {
     const b = this.bonus(d);
     let phys = 0, mag = 0;
-    const add = (id, n) => { const u = UNIT[id]; if (!u || !n) return; const fd = this.forgeLvl(d, id, 'd'); phys += ((u.def.inf + fd) * pInf + (u.def.cav + fd) * pCav) * n; mag += u.def.mag * n; };
+    const add = (id, n) => { const u = UNIT[id]; if (!u || !n) return; const fd = this.forgeLvl(d, id, 'd'); phys += ((u.def.inf + fd) * pInf + (u.def.cav + fd) * pCav) * n; mag += (u.def.mag + this.forgeLvl(d, id, 'md')) * n; }; // Школа магии: +1 к маг. защите
     for (const m of this.defenders(d)) for (const [id, n] of Object.entries(m)) add(id, n);
     if (d.general && !d.general.dead && !d.general.away) { add(GENERAL_ID, 1); phys += d.general.pts.def * (pInf + pCav); }
     const rawPhys = phys, rawMag = mag, wallK = 1 + b.wallPer * b.wall;
@@ -1336,7 +1366,7 @@ function install(Game, helpers) {
         score: this.allianceScore(al),
         requests: this.allyCan(al, user.id, 'invite') ? (al.requests || []).map((id) => { const m = this.userById(id); return m ? { id, login: m.login, rating: this.userRating(m) } : null; }).filter(Boolean) : [] } : null,
       invites: (user.invites || []).map((id) => this.db.alliances && this.db.alliances[id]).filter(Boolean).map((a) => ({ id: a.id, name: a.name, tag: a.tag })),
-      forge: castle.forge, forgeJob: castle.forgeJob, forgeUnits: this.forgeUnits(castle).map((u) => ({ id: u.id, ...this.forgeCost(u, 0), next: { a: this.forgeCost(u, this.forgeLvl(castle, u.id, 'a') + 1), d: this.forgeCost(u, this.forgeLvl(castle, u.id, 'd') + 1) } })),
+      forge: castle.forge, forgeJob: castle.forgeJob, magicJob: castle.magicJob, magicNext: Object.fromEntries(this.forgeUnits(castle).map((u) => [u.id, Object.fromEntries(this.magicKinds(u).map((k) => [k, this.forgeCost(u, this.forgeLvl(castle, u.id, k) + 1)]))])), forgeUnits: this.forgeUnits(castle).map((u) => ({ id: u.id, ...this.forgeCost(u, 0), next: { a: this.forgeCost(u, this.forgeLvl(castle, u.id, 'a') + 1), d: this.forgeCost(u, this.forgeLvl(castle, u.id, 'd') + 1) } })),
       admin: !!user.admin, royal: this.royalView(user, castle), watch: this.hasWatch(user),
       unreadReports: (this.db.reports || []).filter((r) => r.owner === user.id && !r.read).length,
     };

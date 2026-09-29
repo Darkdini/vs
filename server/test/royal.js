@@ -250,5 +250,20 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.strictEqual(g.newsUnread(late), 0, 'старые новости новичку не мигают');
   console.log('✓ новости: публикует админ, непрочитанная → конверт, после прочтения исчезает, остаётся в списке, комментарии');
 }
+// Школа магии: как Кузница — маг. атака только у магов, маг. защита у всех; +1 за уровень, до уровня Школы
+{
+  const u = g.register({ login: 'mschool', password: '123', race: 0 }).user, c = g.castleOf(u);
+  assert.ok(g.magicOp(c, { unit: 203, kind: 'm' }).error, 'без Школы магии нельзя');
+  g.maxOut(c); for (const r of ['wood', 'stone', 'iron', 'food']) c.res[r] = 1e9;
+  const mag0 = g.armyPower(c, { 203: 10 }, false).mag;
+  assert.ok(g.magicOp(c, { unit: 200, kind: 'm' }).error, 'у Мечника нет маг. атаки');
+  assert.ok(g.magicOp(c, { unit: 203, kind: 'm' }).ok);
+  assert.ok(g.magicOp(c, { unit: 203, kind: 'md' }).error, 'одно улучшение за раз');
+  c.magicJob.end = Date.now() - 1; g.tick(c);
+  assert.strictEqual(g.forgeLvl(c, 203, 'm'), 1);
+  assert.ok(g.armyPower(c, { 203: 10 }, false).mag > mag0, 'маг. атака выросла');
+  assert.ok(g.magicOp(c, { unit: 200, kind: 'md' }).ok, 'маг. защита — у всех');
+  console.log('✓ Школа магии: маг. атака (только маги) и маг. защита (все), +1 за уровень, одно улучшение за раз');
+}
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);

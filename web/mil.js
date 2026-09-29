@@ -35,10 +35,10 @@ function unitMax(u) {
 }
 function unitStatsHtml(u) {
   // улучшения Кузницы: +1 к базовой атаке/защите за уровень — показываем «база +N»
-  const fg = (S.st && MY().forge && MY().forge[u.id]) || {}, fa = u.attack ? fg.a || 0 : 0, fd = fg.d || 0;
+  const fg = (S.st && MY().forge && MY().forge[u.id]) || {}, fa = u.attack ? fg.a || 0 : 0, fd = fg.d || 0, fm = u.magic ? fg.m || 0 : 0, fmd = fg.md || 0;
   const plus = (n) => (n ? ` <b class="fplus">+${n}</b>` : '');
-  return `<div class="grid4 g5"><div><small>Здоровье</small>${u.hp || '—'}</div><div><small>Атака</small>${u.attack}${plus(fa)}${u.magic ? `<br>маг ${u.magic}` : ''}</div>
-    <div><small>Защита п/к/м</small>${u.def.inf}${plus(fd)}/${u.def.cav}${plus(fd)}/${u.def.mag}</div>
+  return `<div class="grid4 g5"><div><small>Здоровье</small>${u.hp || '—'}</div><div><small>Атака</small>${u.attack}${plus(fa)}${u.magic ? `<br>маг ${u.magic}${plus(fm)}` : ''}</div>
+    <div><small>Защита п/к/м</small>${u.def.inf}${plus(fd)}/${u.def.cav}${plus(fd)}/${u.def.mag}${plus(fmd)}</div>
     <div><small>Скорость</small>${u.speed} кл/ч</div><div><small>Груз</small>${u.carry}</div></div>
     <div class="chips">${RES4.map((r) => `<span data-need="${r}:${u.cost[r]}">${RES_IC[r]} ${fmtFull(u.cost[r])}</span>`).join('')}
     <span>${RES_IC.people} ${u.pop}</span><span>${TIME_IC} ${fmtT(unitTrainSec(u))}</span></div>`;
@@ -84,6 +84,7 @@ function buildingFunctions(def, lvl) {
   let h = '';
   if (def.id === 46) return residenceHtml(); // Резиденция: лояльность населения (residence.js)
   if (def.id === 11) return '<button class="rbar" data-forge>Юниты</button>'; // Кузница (forge.js)
+  if (def.id === 39) return '<button class="rbar" data-magic>Юниты</button>'; // Школа магии (magic.js)
   if (def.id === 21) return '<button class="rbar" data-moves>Передвижения армий</button>'; // Караульная башня (watch.js)
   if (def.id === 45) return spyButtons(); // Центр разведки: Возможности / Тренировать / Разведка (spy.js)
   if (def.id === HQ) h += hqHtml();
