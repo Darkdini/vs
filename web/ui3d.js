@@ -319,18 +319,31 @@ const monthName = (key) => { const [y, m] = String(key || '').split('-'); return
 const fmtDay = (t) => new Date(t).toLocaleDateString('ru-RU');
 
 // ---------- рейтинги ----------
-function openRating(kind) { S.rk = kind; S.rlist = null; send(kind === 'players' ? { t: 'rating' } : { t: 'ratings', kind }); openSheet(ratingWin); }
+const RK = { players: ['Игрок', 'player'], castles: ['Замок', 'castle'], alliances: ['Альянс', 'ally'], reputation: ['Авторитет', 'auth'] };
+function openRating(kind) { S.rk = kind; S.rlist = null; S.rpage = 0; S.rkMenu = false; send(kind === 'players' ? { t: 'rating' } : { t: 'ratings', kind }); openSheet(ratingWin); }
+// рейтинги как в оригинале: полоса категории с меню ≡, листалка и таблица по 10 строк, от большего к меньшему
 function ratingWin() {
-  const k = S.rk, title = { players: 'Рейтинг игроков', castles: 'Рейтинг замков', alliances: 'Рейтинг альянсов', reputation: 'Авторитет' }[k];
+  const k = S.rk, [title, icon] = RK[k];
   const list = k === 'players' ? S.ratingRows : S.rlist;
-  if (!list) return `${ribbon(title)}<p class="parch-note">Загрузка…</p>`;
-  return `${ribbon(title)}<div class="rlist">${list.map((r, i) => {
-    const place = i < 3 ? `<img src="${GFX}smallicon/status/f_${['gold', 'silver', 'bronze'][i]}.png" alt="">` : i + 1;
-    if (k === 'alliances') return `<div class="rrow"><span class="rk">${place}</span><span class="rn"><b>${esc(r.name)} [${esc(r.tag)}]</b><small>участников ${r.members}</small></span><span class="rv">${fmtFull(r.rating)}</span></div>`;
-    if (k === 'castles') return `<button class="rrow" data-goworld="${r.x},${r.y}"><span class="rk">${place}</span><span class="rn"><b>${esc(r.name)}</b><small>${esc(r.login)} · X:${r.x} Y:${r.y}</small></span><span class="rv">${fmtFull(r.rating)}</span></button>`;
-    return `<button class="rrow ${r.id === me() ? 'me' : ''}" data-cprof="${r.id}"><span class="rk">${place}</span><span class="rn"><b>${esc(r.login)}${k === 'reputation' ? ` ${repIcons(r.rating ?? r.reputation)}` : ''}</b><small>${esc(r.race || r.raceName || '')}${r.online ? ' · в игре' : ''}</small></span><span class="rv">${fmtFull(r.rating)}</span></button>`;
-  }).join('') || '<p class="parch-note">Пусто.</p>'}</div>`;
+  const head = `${ribbon('Рейтинг')}<div class="rkbar"><span><img src="gfx3d/rating/${icon}.png" alt=""> ${title}</span><button data-rkmenu>≡</button></div>
+    ${S.rkMenu ? `<div class="rkmenu">${Object.entries(RK).map(([id, [t, ic]]) => `<button data-rkind="${id}" class="${id === k ? 'on' : ''}"><img src="gfx3d/rating/${ic}.png" alt=""> ${t}</button>`).join('')}</div>` : ''}`;
+  if (!list) return `${head}<p class="parch-note">Загрузка…</p>`;
+  const pages = Math.max(1, Math.ceil(list.length / 10)), pg = Math.min(S.rpage || 0, pages - 1);
+  const nav = `<div class="hnav"><button data-rpg="0" ${pg ? '' : 'disabled'}>◀◀</button><button data-rpg="${pg - 1}" ${pg ? '' : 'disabled'}>◀</button>
+    <span>${pg + 1}</span><button data-rpg="${pg + 1}" ${pg < pages - 1 ? '' : 'disabled'}>▶</button><button data-rpg="${pages - 1}" ${pg < pages - 1 ? '' : 'disabled'}>▶▶</button></div>`;
+  const rows = list.slice(pg * 10, pg * 10 + 10).map((r, j) => {
+    const i = pg * 10 + j + 1;
+    const name = k === 'alliances' ? `<a>${esc(r.name)} [${esc(r.tag)}]</a>` : k === 'castles' ? `<button class="rlink" data-goworld="${r.x},${r.y}">${esc(r.name)}</button>` : `<a data-cprof="${r.id}">${esc(r.login)}</a>`;
+    return `<div class="${k !== 'alliances' && k !== 'castles' && r.id === me() ? 'me' : ''}"><span>${i}</span>${name}<span>${fmtFull(r.rating)}</span></div>`;
+  }).join('');
+  return `${head}${nav}<div class="htable rtab">${rows || '<p class="parch-note">Пусто.</p>'}</div>${rows ? nav : ''}`;
 }
+$('#sheetBody').addEventListener('click', (e) => {
+  const t = e.target.closest('[data-rkmenu],[data-rkind],[data-rpg]'); if (!t) return;
+  if (t.dataset.rkmenu !== undefined) { S.rkMenu = !S.rkMenu; return refreshSheet(); }
+  if (t.dataset.rkind) { S.rkMenu = false; S.rk = t.dataset.rkind; S.rlist = null; S.rpage = 0; send(S.rk === 'players' ? { t: 'rating' } : { t: 'ratings', kind: S.rk }); return refreshSheet(); }
+  S.rpage = Math.max(0, Number(t.dataset.rpg)); refreshSheet();
+});
 
 // ---------- игроки: друзья, земляки, поиск ----------
 function openPlayers(kind) { S.pk = kind; S.plist = null; if (kind !== 'search') send({ t: kind }); else send({ t: 'search', q: '' }); openSheet(playersWin); }

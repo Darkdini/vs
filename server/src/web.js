@@ -335,7 +335,7 @@ const API = {
   hall(m) { const r = this.game.hallPage(this.user, String(m.id || ''), m.page); if (r.error) return this.error(r.error); this.send({ t: 'hall', hall: r }); },
   halls() { const me = this.user.id, list = this.game.halls().map(({ all, ...h }) => ({ ...h, pos: h.pos[me] || 0, mine: this.game.hallValue(this.user, h.id), top: h.top })), s = this.game.season(); this.send({ t: 'halls', list, pages: SOC.HALL_PAGES, season: { key: s.key, end: s.end }, last: (this.game.db.hallHistory || []).slice(-1)[0] || null }); },
   rating() {
-    const rows = this.game.leaderboard().slice(0, 50).map(({ u, r }) => ({ id: u.id, login: u.login, race: C.RACE_NAMES[u.race], raceId: u.race, rating: r }));
+    const rows = this.game.leaderboard().slice(0, 500).map(({ u, r }) => ({ id: u.id, login: u.login, race: C.RACE_NAMES[u.race], raceId: u.race, rating: r }));
     this.send({ t: 'rating', rows });
   },
   mail(m) {

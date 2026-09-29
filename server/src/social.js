@@ -281,7 +281,7 @@ function install(Game) {
   P.ratingCastles = function ratingCastles() { return this.cached('rc', 15000, () => this.ratingCastlesCalc()); };
   P.ratingCastlesCalc = function ratingCastlesCalc() {
     return Object.values(this.db.castles).map((c) => { const u = this.userById(c.owner); return { id: u.id, login: u.login, name: c.name, x: c.x, y: c.y, rating: this.rating(c) }; })
-      .sort((a, b) => b.rating - a.rating).slice(0, 50);
+      .sort((a, b) => b.rating - a.rating).slice(0, 500);
   };
   // очки альянса = сумма (рейтинг + репутация) всех участников
   P.allianceScore = function allianceScore(a) { return a.members.reduce((s, id) => { const u = this.userById(id); return s + (u ? this.userRating(u) + (u.reputation ?? START_REP) : 0); }, 0); };
@@ -292,7 +292,7 @@ function install(Game) {
   };
   P.ratingReputation = function ratingReputation() {
     return Object.values(this.db.users).map((u) => ({ id: u.id, login: u.login, raceName: C.RACE_NAMES[u.race], rating: u.reputation ?? START_REP }))
-      .sort((a, b) => b.rating - a.rating).slice(0, 50);
+      .sort((a, b) => b.rating - a.rating).slice(0, 500);
   };
 }
 
