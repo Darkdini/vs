@@ -1,13 +1,14 @@
 #!/bin/sh
 # Установка игры на VPS (Ubuntu/Debian) одной командой, от root:
 #   curl -fsSL https://raw.githubusercontent.com/Darkdini/vs/claude/third-world-kings-war-analysis-lodxja/deploy/install-vps.sh -o install.sh
-#   sh install.sh твой-адрес.duckdns.org
+#   sh install.sh tmrs.ru www.tmrs.ru 1-2-3-4.sslip.io   (можно несколько адресов через пробел)
 # Что делает: ставит Node.js 20 и Caddy (HTTPS-сертификат сам), скачивает игру в /opt/war/game,
 # база — /opt/war/game-data (обновления её не трогают), служба war автоматически стартует после перезагрузки.
 # Логин и пароль админа спросит один раз (хранятся в /opt/war/game-data/admin.env, права 600).
 # Обновить игру потом:  war-update      Логи:  journalctl -u war -f      Перезапуск:  systemctl restart war
 set -e
 DOMAIN="$1"
+SITES=$(echo "$@" | sed 's/  */, /g')
 ZIP_URL="${ZIP_URL:-https://raw.githubusercontent.com/Darkdini/vs/claude/third-world-kings-war-analysis-lodxja/dist/game.zip}"
 [ "$(id -u)" = 0 ] || { echo "Запустите от root (sudo sh install.sh адрес)"; exit 1; }
 [ -n "$DOMAIN" ] || { echo "Укажите адрес сайта: sh install.sh моя-игра.duckdns.org"; exit 1; }
@@ -89,9 +90,9 @@ systemctl daemon-reload
 systemctl enable --now war
 systemctl restart war
 
-echo "== HTTPS (Caddy) для $DOMAIN"
+echo "== HTTPS (Caddy) для $SITES"
 cat > /etc/caddy/Caddyfile <<EOF
-$DOMAIN {
+$SITES {
 	encode gzip
 	reverse_proxy 127.0.0.1:8080
 }
