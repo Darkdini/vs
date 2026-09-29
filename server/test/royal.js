@@ -140,5 +140,15 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(g.merchants(c).free === 20 && !c.units[221], 'торговцы вернулись на Рынок');
   console.log(`✓ торговцы: 20 на Рынке, не тренируются, груз ${m.carry} на торговца, 3 ушли — 17 свободны, вернулись`);
 }
+// Зал Славы: бонус репутации за 1/2/3 место (Грабежи: 80/40/20)
+{
+  const us = ['hb1', 'hb2', 'hb3'].map((l) => g.register({ login: l, password: '123', race: 0 }).user);
+  us.forEach((u, i) => g.addStat(u.id, 'loot', (3 - i) * 100000));
+  g.seasonClose();
+  const got = us.map((u) => (u.awards || []).find((a) => a.hall === 'loot'));
+  assert.deepStrictEqual(got.map((a) => [a.place, a.bonus]), [[1, 80], [2, 40], [3, 20]]);
+  assert.ok(us.every((u) => u.reputation > 10), 'репутация начислена');
+  console.log(`✓ Зал Славы: бонус репутации за места — Грабежи 80/40/20, репутация ${us.map((u) => u.reputation).join('/')}`);
+}
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);
