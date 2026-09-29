@@ -57,6 +57,7 @@ const GIFTS = { diamond: { name: 'Большой диамант', img: 'gifts/di
 const GIFTS_DAY = 20;
 const REP_PER_GOLD = 2; // 1 монета = 2 репутации // сколько подарков игрок может отправить за сутки
 
+const CHAT_KEEP = 30; // сколько последних сообщений хранит общий чат
 function install(Game) {
   const P = Game.prototype;
 
@@ -267,12 +268,12 @@ function install(Game) {
     this.db.chat = this.db.chat || [];
     const m = { id: this.db.nextId++, from: user.login, fromId: user.id, text, at: Date.now(), rep: user.reputation ?? START_REP, role: user.admin ? 'admin' : user.mod ? 'mod' : '' };
     this.db.chat.push(m);
-    if (this.db.chat.length > 100) this.db.chat.splice(0, this.db.chat.length - 100);
+    if (this.db.chat.length > CHAT_KEEP) this.db.chat.splice(0, this.db.chat.length - CHAT_KEEP); // в чате хранятся последние 30
     this.store.save();
     return { msg: m };
   };
   // репутация — текущая (мечи/топоры рядом с ником в чате)
-  P.chatLog = function chatLog() { return (this.db.chat || []).slice(-50).map((m) => { const u = this.userById(m.fromId); return { ...m, rep: u ? u.reputation ?? START_REP : m.rep, role: u ? (u.admin ? 'admin' : u.mod ? 'mod' : '') : m.role }; }); };
+  P.chatLog = function chatLog() { return (this.db.chat || []).slice(-CHAT_KEEP).map((m) => { const u = this.userById(m.fromId); return { ...m, rep: u ? u.reputation ?? START_REP : m.rep, role: u ? (u.admin ? 'admin' : u.mod ? 'mod' : '') : m.role }; }); };
 
   P.setNotes = function setNotes(user, text) { user.notes = String(text || '').slice(0, 5000); this.store.save(); return { ok: true }; };
   P.setAbout = function setAbout(user, text) { user.about = String(text || '').slice(0, 500); this.store.save(); return { ok: true }; };

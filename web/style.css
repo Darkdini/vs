@@ -1146,3 +1146,5 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .gaunit img { grid-row: span 2; width: 40px; height: 40px; object-fit: contain; image-rendering: pixelated; }
 .gaunit input { width: 100%; min-width: 0; height: 30px; font-size: 16px; padding: 0 6px; }
 .gabtns { display: flex; gap: 6px; margin-top: 8px; } .gabtns .btn { flex: 1; }
+/* чат: новые сообщения всегда внизу и видны сразу — лента «прилипает» к низу (порядок в разметке обратный) */
+#sheetBody .chatlist { display: flex; flex-direction: column-reverse; }
