@@ -8,3 +8,5 @@ tools/client-harness/.work/
 shots/
 rms/
 *.apk
+# своё Android-приложение (собирается tools/build-apk.sh)
+!dist/war-kings.apk
