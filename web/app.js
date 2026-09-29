@@ -170,6 +170,7 @@ function onMsg(m) {
     case 'profile': if (m.acct) { S.lastAcct = m.profile; S.lastProfile = m.profile; if (m.refresh && S.sheets.length) { S.sheets[S.sheets.length - 1] = () => accountWin(m.profile); showSheet(false); } else openSheet(() => accountWin(m.profile)); break; }
       if (m.refresh && S.sheets.length) { S.sheets[S.sheets.length - 1] = () => profileSheet(m.profile); showSheet(false); } else openSheet(() => profileSheet(m.profile)); break;
     case 'mail': S.mail = m; refreshSheet(); break;
+    case 'forum': forumMsg(m); break;
     case 'letter': openSheet(() => letterSheet(m.letter)); break;
     case 'toast':
       toast(m.msg);

@@ -332,6 +332,21 @@ const API = {
     if (!list) return API.rating.call(this);
     this.send({ t: 'ratings', kind: k, list });
   },
+  // общий форум: просмотр (sections/topics/posts/favs) и действия (topic/post/fav/topicop/postdel/ban/secmod)
+  forum(m) {
+    const g = this.game, u = this.user, op = String(m.op || '');
+    const view = (v) => { if (v && v.error) return this.error(v.error); return v; };
+    if (op === 'sections') return this.send({ t: 'forum', view: 'sections', data: g.forumSections(u) });
+    if (op === 'topics') { const v = view(g.forumTopics(u, m.section, m.page)); if (v) this.send({ t: 'forum', view: 'topics', data: v }); return; }
+    if (op === 'posts') { const v = view(g.forumPosts(u, m.topic, m.page)); if (v) this.send({ t: 'forum', view: 'posts', data: v }); return; }
+    if (op === 'favs') return this.send({ t: 'forum', view: 'favs', data: g.forumFavs(u) });
+    const r = g.forumOp(u, m);
+    if (r.error) return this.error(r.error);
+    if (r.msg) this.toast(r.msg);
+    if (op === 'topic' || op === 'post') { const v = g.forumPosts(u, r.topic, -1); if (!v.error) this.send({ t: 'forum', view: 'posts', data: v, replace: op === 'topic' ? 0 : 1, scroll: op === 'post' ? 1 : 0 }); return; }
+    if (op === 'secmod') return this.send({ t: 'forum', view: 'sections', data: g.forumSections(u), replace: 1 });
+    if (r.topic) { const v = g.forumPosts(u, r.topic, m.page); if (!v.error) this.send({ t: 'forum', view: 'posts', data: v, replace: 1 }); else if (r.section) this.send({ t: 'forum', view: 'topics', data: g.forumTopics(u, r.section, 0), replace: 1 }); }
+  },
   hall(m) { const r = this.game.hallPage(this.user, String(m.id || ''), m.page); if (r.error) return this.error(r.error); this.send({ t: 'hall', hall: r }); },
   halls() { const me = this.user.id, list = this.game.halls().map(({ all, ...h }) => ({ ...h, pos: h.pos[me] || 0, mine: this.game.hallValue(this.user, h.id), top: h.top })), s = this.game.season(); this.send({ t: 'halls', list, pages: SOC.HALL_PAGES, season: { key: s.key, end: s.end }, last: (this.game.db.hallHistory || []).slice(-1)[0] || null }); },
   rating() {

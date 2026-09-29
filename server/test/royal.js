@@ -166,5 +166,24 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.strictEqual(g.reportDelete(a, [r1.id, r2.id]).n, 2);
   console.log('✓ отчёты: зелёный/красный в списке, «Переслать» игроку, «Удалить» только свои');
 }
+// общий форум: темы создают только модераторы, отвечают все; закрытие, запрет, модератор раздела
+{
+  const [pl, md, ad] = ['fp1', 'fp2', 'fp3'].map((l) => g.register({ login: l, password: '123', race: 0 }).user);
+  ad.admin = true;
+  assert.ok(g.forumOp(pl, { op: 'topic', section: 1, title: 'Моя тема', text: 'x' }).error, 'игрок не создаёт тему');
+  assert.ok(g.forumOp(md, { op: 'secmod', section: 1, login: 'fp2' }).error, 'модераторов назначает только админ');
+  assert.ok(g.forumOp(ad, { op: 'secmod', section: 1, login: 'fp2' }).msg);
+  assert.ok(g.forumOp(md, { op: 'topic', section: 2, title: 'Чужой раздел', text: 'x' }).error, 'модератор раздела — только в своём');
+  const t = g.forumOp(md, { op: 'topic', section: 1, title: 'Помощь новичкам', text: 'Спрашивайте' }).topic;
+  assert.ok(g.forumOp(pl, { op: 'post', topic: t, text: 'Как строить?' }).msg, 'игрок отвечает');
+  assert.ok(g.forumOp(pl, { op: 'post', topic: t, text: 'ещё' }).error, 'антифлуд 10 с');
+  assert.strictEqual(g.forumTopics(pl, 1).topics[0].replies, 1);
+  g.forumOp(md, { op: 'topicop', topic: t, act: 'close' }); pl.forumLast = 0;
+  assert.ok(g.forumOp(pl, { op: 'post', topic: t, text: 'закрыто?' }).error, 'в закрытую тему не пишут');
+  g.forumOp(md, { op: 'topicop', topic: t, act: 'close' });
+  assert.ok(g.forumOp(md, { op: 'ban', topic: t, id: pl.id, hours: 2 }).msg && g.forumOp(pl, { op: 'post', topic: t, text: 'бан' }).error, 'запрет писать');
+  assert.ok(g.forumOp(pl, { op: 'ban', topic: t, id: md.id, hours: 2 }).error, 'игрок не банит');
+  console.log('✓ форум: темы — только модераторы (админ назначает модератора раздела), ответы всех, антифлуд, закрытие темы, запрет писать');
+}
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);
