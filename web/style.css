@@ -1140,3 +1140,9 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .apklink:active { transform: translateY(1px); filter: brightness(.9); }
 /* окно над экранной клавиатурой (--kb задаёт app.js по visualViewport) */
 #sheet { bottom: var(--kb, 0px); }
+/* админка: выдать армию игроку */
+.gaunits { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+.gaunit { display: grid; grid-template-columns: 40px 1fr; grid-template-rows: auto auto; align-items: center; gap: 2px 6px; padding: 4px; border: 1px solid #c8963e88; border-radius: 6px; background: #fff3; font: 14px var(--serif); color: #2a1408; }
+.gaunit img { grid-row: span 2; width: 40px; height: 40px; object-fit: contain; image-rendering: pixelated; }
+.gaunit input { width: 100%; min-width: 0; height: 30px; font-size: 16px; padding: 0 6px; }
+.gabtns { display: flex; gap: 6px; margin-top: 8px; } .gabtns .btn { flex: 1; }

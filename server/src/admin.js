@@ -118,6 +118,30 @@ function install(Game) {
         for (const c of castles) { this.mil(c); for (const u of list) { c.units[u.id] = Math.max(0, (c.units[u.id] || 0) + n); if (!c.units[u.id]) delete c.units[u.id]; } }
         msg = `Войска ${n >= 0 ? '+' : ''}${n} (${list.length} видов).`; break;
       }
+      // выдать армию игроку по нику: только юниты его расы (без генерала и торговцев), в выбранный замок (по умолчанию — столица)
+      case 'armyinfo': {
+        const list = unitsForRace(target.race).filter((u) => u.id !== GENERAL_ID && !u.notrain);
+        data = { login: target.login, race: target.race, raceName: C.RACE_NAMES[target.race] || target.race, units: list.map((u) => u.id),
+          castles: this.castlesOf(target).map((c, i) => ({ id: c.id, name: c.name, x: c.x, y: c.y, capital: i === 0 })) };
+        break;
+      }
+      case 'givearmy': {
+        const allowed = new Set(unitsForRace(target.race).filter((u) => u.id !== GENERAL_ID && !u.notrain).map((u) => u.id));
+        const c = this.castlesOf(target).find((k) => k.id === Number(arg.castle)) || this.castlesOf(target)[0];
+        if (!c) return { error: 'У игрока нет замков.' };
+        this.mil(c);
+        const got = [];
+        for (const [id, v] of Object.entries(arg.units && typeof arg.units === 'object' ? arg.units : {})) {
+          const n = Math.floor(Number(v)), uid = Number(id);
+          if (!allowed.has(uid) || !Number.isFinite(n) || n <= 0) continue;
+          const k = Math.min(n, 1000000);
+          c.units[uid] = (c.units[uid] || 0) + k; got.push(`${UNIT[uid].name} ×${k}`);
+        }
+        if (!got.length) return { error: 'Укажите количество хотя бы для одного юнита.' };
+        msg = `${target.login} (${c.name}): ${got.join(', ')}.`;
+        if (target !== user) this.event(target.id, `Администрация выдала войска в замок «${c.name}»: ${got.join(', ')}.`);
+        break;
+      }
       case 'noarmy': for (const c of castles) { this.mil(c); c.units = {}; } msg = 'Войска убраны.'; break;
       case 'general': {
         const lvl = Math.max(1, Math.min(GEN.maxLevel, num(arg.level, 100)));

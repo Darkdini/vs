@@ -27,10 +27,17 @@ function adminHtml() {
       <div class="ptiles">${aBtn('max', 'Полная прокачка', 'build/castle.png')}${aBtn('finish', 'Завершить всё', 'res/time.png')}${aBtn('sciences', 'Науки 20 ур.', 'smallicon/Ekoscience.png')}${aBtn('fill', 'Склады полные', 'build/storage.png')}</div>
       <div class="arow">${aNum('castles', 1, 'сколько')}${aBtn('castles', '+ Замки', 'ground/castle_big.png', 'data-arg="castles:n"')}</div>
       <div class="arow">${aNum('loyalty', 100, '0–100')}${aBtn('loyalty', 'Лояльность замка', 'smallicon/bonus_status/coronalgold.png', 'data-arg="loyalty:value"')}</div>`,
-    army: () => `<div class="arow"><select data-an="unit"><option value="">Все юниты расы игрока</option>${units.map((u) => `<option value="${u.id}">${esc(u.name)}${u.race !== 'all' ? ` (${esc(S.cat.races[u.race] || '')})` : ''}</option>`).join('')}</select></div>
+    army: () => { const g = a.ga; return `<div class="acard"><div class="cwname"><img class="admbadge s" src="${GFX}units/human/knight.png" alt=""> Выдать армию игроку</div>
+      <form class="chatform" data-aform="armyinfo"><input name="login" placeholder="Ник игрока" autocapitalize="none" required value="${esc(g ? g.login : a.login)}"><button class="btn primary small">Показать войска</button></form>
+      ${g ? `<p class="small">Раса: <b>${esc(g.raceName)}</b> — доступны только её юниты. Пустое поле — не выдавать.</p>
+      <form data-aform="givearmy"><div class="arow"><span>Замок:</span><select name="castle">${g.castles.map((c) => `<option value="${c.id}">${esc(c.name)} (${c.x}:${c.y})${c.capital ? ' — столица' : ''}</option>`).join('')}</select></div>
+        <div class="gaunits">${g.units.map((id) => { const u = unitById(id); return u ? `<label class="gaunit"><img src="${unitSrc(u, g.race)}" alt=""><span>${esc(u.name)}</span><input type="number" min="0" inputmode="numeric" name="u${id}" placeholder="0"></label>` : ''; }).join('')}</div>
+        <div class="gabtns"><button type="button" class="btn small" data-gafill="100">всем по 100</button><button type="button" class="btn small" data-gafill="1000">всем по 1000</button><button type="button" class="btn small" data-gafill="">очистить</button></div>
+        <button class="btn primary" style="width:100%;margin-top:8px">Выдать войска</button></form>` : ''}</div>
+      `+`<div class="arow"><select data-an="unit"><option value="">Все юниты расы игрока</option>${units.map((u) => `<option value="${u.id}">${esc(u.name)}${u.race !== 'all' ? ` (${esc(S.cat.races[u.race] || '')})` : ''}</option>`).join('')}</select></div>
       <div class="arow">${aNum('army', 1000, 'кол-во (минус — забрать)')}${aBtn('army', '+ Войска', 'units/human/knight.png', 'data-arg="army:n,unit"')}</div>
       <div class="arow">${aNum('general', 100, 'уровень 1–500')}${aBtn('general', 'Генерал ур.', 'units/human/general.png', 'data-arg="general:level"')}</div>
-      <div class="ptiles">${aBtn('arts', '5 артефактов', 'smallicon/artefacts/artefakt_dragon.png')}${aBtn('noarmy', 'Убрать войска', 'smallicon/destroy.png', 'data-confirm="Убрать все войска?"')}</div>`,
+      <div class="ptiles">${aBtn('arts', '5 артефактов', 'smallicon/artefacts/artefakt_dragon.png')}${aBtn('noarmy', 'Убрать войска', 'smallicon/destroy.png', 'data-confirm="Убрать все войска?"')}</div>`; },
     players: () => `<div class="acard"><div class="cwname"><img class="admbadge s" src="${GFX}mod_badge_s.png" alt=""> Модераторы форума</div>
       <p class="small">Модератор удаляет сообщения и темы, создаёт темы на форуме, запрещает писать в чате и на форуме.</p>
       ${!a.mods ? '<p class="small">Загрузка…</p>' : a.mods.mods.length ? a.mods.mods.map((m) => `<div class="arow"><span><b>${esc(m.login)}</b>${m.online ? ' · в игре' : ''}</span><button class="btn small" data-amod="${esc(m.login)}">Снять</button></div>`).join('') : '<p class="small">Модераторов пока нет.</p>'}
@@ -96,6 +103,7 @@ $('#sheetBody').addEventListener('change', (e) => {
   if (n === 'login') { S.adm.player = null; refreshSheet(); }
 });
 $('#sheetBody').addEventListener('click', (e) => {
+  const gf = e.target.closest('[data-gafill]'); if (gf) { $$('.gaunit input').forEach((i) => { i.value = gf.dataset.gafill; }); return; }
   const md = e.target.closest('[data-amod]'); if (md) { if (!confirm(`Снять ${md.dataset.amod} с модераторов?`)) return; send({ t: 'admin', op: 'mod', login: md.dataset.amod, on: 0 }); return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
   const tb = e.target.closest('[data-atab]'); if (tb) { S.adm.tab = tb.dataset.atab; if (S.adm.tab === 'multi') send({ t: 'admin', op: 'multis' }); if (S.adm.tab === 'players') send({ t: 'admin', op: 'mods' }); return refreshSheet(); }
   const mb = e.target.closest('[data-mban],[data-mall],[data-mdev]');
@@ -125,6 +133,14 @@ $('#sheetBody').addEventListener('click', (e) => {
 $('#sheetBody').addEventListener('submit', (e) => {
   const f = e.target, k = f.dataset.aform; if (!k) return;
   e.preventDefault();
+  if (k === 'armyinfo') { const l = f.login.value.trim(); if (!l) return; S.adm.ga = null; return send({ t: 'admin', op: 'armyinfo', login: l }); }
+  if (k === 'givearmy') {
+    const g = S.adm.ga; if (!g) return;
+    const units = {}; for (const id of g.units) { const v = Number(f[`u${id}`].value); if (v > 0) units[id] = v; }
+    if (!Object.keys(units).length) return toast('Укажите количество хотя бы для одного юнита.', 'err');
+    if (!confirm(`Выдать войска игроку ${g.login}?`)) return;
+    return send({ t: 'admin', op: 'givearmy', login: g.login, castle: Number(f.castle.value), units });
+  }
   if (k === 'givecastle') { const l = f.login.value.trim(), n = Math.max(1, Number(f.n.value) || 1); if (!l) return; if (!confirm(`Выдать игроку ${l} полных замков: ${n}?`)) return; return send({ t: 'admin', op: 'castles', login: l, n }); }
   if (k === 'addmod') { const l = f.login.value.trim(); if (!l) return; send({ t: 'admin', op: 'mod', login: l, on: 1 }); f.login.value = ''; return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
   if (k === 'find') { S.adm.players = null; return send({ t: 'admin', op: 'players', q: f.q.value }); }
@@ -143,6 +159,7 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
     if (m.op === 'bugs') S.adm.bugs = m.data;
     if (m.op === 'multis') S.adm.multis = m.data;
     if (m.op === 'mods') S.adm.mods = m.data;
+    if (m.op === 'armyinfo') S.adm.ga = m.data;
     return refreshSheet();
   }
   prevMil2(m);
