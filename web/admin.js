@@ -28,7 +28,12 @@ function adminHtml() {
       <div class="arow">${aNum('army', 1000, 'кол-во (минус — забрать)')}${aBtn('army', '+ Войска', 'units/human/knight.png', 'data-arg="army:n,unit"')}</div>
       <div class="arow">${aNum('general', 100, 'уровень 1–500')}${aBtn('general', 'Генерал ур.', 'units/human/general.png', 'data-arg="general:level"')}</div>
       <div class="ptiles">${aBtn('arts', '5 артефактов', 'smallicon/artefacts/artefakt_dragon.png')}${aBtn('noarmy', 'Убрать войска', 'smallicon/destroy.png', 'data-confirm="Убрать все войска?"')}</div>`,
-    players: () => `<form class="chatform" data-aform="find"><input name="q" placeholder="Поиск по нику" autocapitalize="none"><button class="btn primary small">Найти</button></form>
+    players: () => `<div class="acard"><div class="cwname"><img class="admbadge s" src="${GFX}mod_badge_s.png" alt=""> Модераторы форума</div>
+      <p class="small">Модератор удаляет сообщения и темы, создаёт темы на форуме, запрещает писать в чате и на форуме.</p>
+      ${!a.mods ? '<p class="small">Загрузка…</p>' : a.mods.mods.length ? a.mods.mods.map((m) => `<div class="arow"><span><b>${esc(m.login)}</b>${m.online ? ' · в игре' : ''}</span><button class="btn small" data-amod="${esc(m.login)}">Снять</button></div>`).join('') : '<p class="small">Модераторов пока нет.</p>'}
+      ${a.mods && a.mods.sections.length ? `<p class="small">Модераторы разделов (назначаются в Форум → Модераторы): ${a.mods.sections.map((x) => `${esc(x.name)} — ${x.mods.map(esc).join(', ')}`).join('; ')}</p>` : ''}
+      <form class="chatform" data-aform="addmod"><input name="login" placeholder="Ник игрока" autocapitalize="none" required><button class="btn primary small">Назначить</button></form></div>
+      <form class="chatform" data-aform="find"><input name="q" placeholder="Поиск по нику" autocapitalize="none"><button class="btn primary small">Найти</button></form>
       <button class="pbar" data-adm="players">Топ-100 игроков</button>
       ${a.players ? `<div class="rlist">${a.players.map((p) => `<button class="rrow" data-apick="${esc(p.login)}"><span class="rn"><b>${esc(p.login)}${p.admin ? ` <img class="admbadge s" src="${GFX}admin_badge_s.png" alt="">` : p.mod ? ` <img class="admbadge s" src="${GFX}mod_badge_s.png" alt="">` : ''}${p.banned ? ' <span class="bad">[бан]</span>' : ''}</b>
         <small>${esc(p.race)} · замков ${p.castles} · монет ${fmtFull(p.gold)} · ${p.online ? 'в игре' : `был ${fmtDate(p.lastSeen)}`}</small></span><span class="rv">${fmtFull(p.rating)}</span></button>`).join('')}</div>` : ''}`,
@@ -88,7 +93,8 @@ $('#sheetBody').addEventListener('change', (e) => {
   if (n === 'login') { S.adm.player = null; refreshSheet(); }
 });
 $('#sheetBody').addEventListener('click', (e) => {
-  const tb = e.target.closest('[data-atab]'); if (tb) { S.adm.tab = tb.dataset.atab; if (S.adm.tab === 'multi') send({ t: 'admin', op: 'multis' }); return refreshSheet(); }
+  const md = e.target.closest('[data-amod]'); if (md) { if (!confirm(`Снять ${md.dataset.amod} с модераторов?`)) return; send({ t: 'admin', op: 'mod', login: md.dataset.amod, on: 0 }); return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
+  const tb = e.target.closest('[data-atab]'); if (tb) { S.adm.tab = tb.dataset.atab; if (S.adm.tab === 'multi') send({ t: 'admin', op: 'multis' }); if (S.adm.tab === 'players') send({ t: 'admin', op: 'mods' }); return refreshSheet(); }
   const mb = e.target.closest('[data-mban],[data-mall],[data-mdev]');
   if (mb) { // решения по мультам — только вручную и с подтверждением
     const d = mb.dataset, on = d.on === '1';
@@ -116,6 +122,7 @@ $('#sheetBody').addEventListener('click', (e) => {
 $('#sheetBody').addEventListener('submit', (e) => {
   const f = e.target, k = f.dataset.aform; if (!k) return;
   e.preventDefault();
+  if (k === 'addmod') { const l = f.login.value.trim(); if (!l) return; send({ t: 'admin', op: 'mod', login: l, on: 1 }); f.login.value = ''; return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
   if (k === 'find') { S.adm.players = null; return send({ t: 'admin', op: 'players', q: f.q.value }); }
   if (k === 'mailall') send({ t: 'admin', op: 'mailall', subject: f.subject.value, text: f.text.value });
   if (k === 'chat') { send({ t: 'admin', op: 'chat', text: f.text.value }); f.text.value = ''; }
@@ -131,6 +138,7 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
     if (m.op === 'player') S.adm.player = m.data;
     if (m.op === 'bugs') S.adm.bugs = m.data;
     if (m.op === 'multis') S.adm.multis = m.data;
+    if (m.op === 'mods') S.adm.mods = m.data;
     return refreshSheet();
   }
   prevMil2(m);

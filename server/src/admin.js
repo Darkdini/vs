@@ -128,6 +128,10 @@ function install(Game) {
       case 'sciences': for (const c of castles) { this.mil(c); c.sciences = { eco: 20, eng: 20, fhi: 20, war: 20 }; } msg = 'Все науки 20 ур.'; break;
       case 'loyalty': for (const c of castles) { this.mil(c); c.loyalty = Math.max(0, Math.min(100, num(arg.value, 100))); c.loyAt = now; } msg = `Лояльность ${num(arg.value, 100)}.`; break;
       // --- игроки ---
+      case 'mods': // модераторы форума (общие) и модераторы разделов форума
+        data = { mods: Object.values(this.db.users).filter((u) => u.mod && !u.admin).map((u) => ({ login: u.login, online: !!u.online })),
+          sections: this.forumDb().sections.filter((s) => s.mods.length).map((s) => ({ name: s.name, mods: s.mods.map((id) => (this.userById(id) || {}).login).filter(Boolean) })) };
+        break;
       case 'players': { // первые 100 по рейтингу (+ поиск по части логина)
         const q = String(arg.q || '').trim().toLowerCase();
         data = (q ? Object.values(this.db.users).filter((u) => u.login.includes(q)) : this.leaderboard().slice(0, 100).map((x) => x.u)).slice(0, 100).map((u) => this.playerInfo(u));
@@ -161,7 +165,7 @@ function install(Game) {
         const crypto = require('crypto'), salt = crypto.randomBytes(8).toString('hex');
         target.pass = `${salt}:${crypto.scryptSync(p, salt, 32).toString('hex')}`; target.tokens = []; msg = `Пароль ${target.login} изменён, все сессии завершены.`; break;
       }
-      case 'mod': target.mod = !target.mod; msg = `${target.login} — ${target.mod ? 'модератор форума' : 'больше не модератор'}.`; if (target.mod) this.event(target.id, 'Вас назначили модератором форума.'); break;
+      case 'mod': if (target.admin) return { error: 'Админ и так может всё.' }; target.mod = arg.on === undefined ? !target.mod : !!Number(arg.on); msg = `${target.login} — ${target.mod ? 'модератор форума' : 'больше не модератор'}.`; if (target.mod) this.event(target.id, 'Вас назначили модератором форума.'); break;
       case 'makeadmin': target.admin = true; msg = `${target.login} — администратор.`; break;
       case 'delete': {
         if (target.admin) return { error: 'Админа удалить нельзя.' };

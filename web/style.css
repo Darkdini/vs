@@ -1122,3 +1122,5 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .rsclosebtn { display: block; width: 72%; margin: 8px auto 4px; padding: 0; border: 0; background: none; }
 .rsclosebtn img { width: 100%; filter: drop-shadow(0 3px 3px #0008); }
 .rsclosebtn:active { transform: scale(.96); }
+/* карта мира: строка выбранной клетки (ник, координаты) — под панелью поиска X/Y, а не под ней */
+.mapview .infobox { top: 60px; left: 6px; right: 6px; padding: 5px 8px; border: 2px solid #c8963e; border-radius: 8px; background: #000c; z-index: 4; font: 16px/1.3 var(--serif); }
