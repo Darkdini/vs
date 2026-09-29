@@ -175,7 +175,9 @@ function install(Game) {
     return {
       id: u.id, login: u.login, race: u.race, raceName: C.RACE_NAMES[u.race], created: u.created, lastSeen: u.id === viewer.id || viewer.admin ? u.lastSeen || u.created : null, // кто когда в игре — видно только себе и админу
       rating: this.userRating(u), rank: this.rankOf(u.id), reputation: u.reputation ?? START_REP,
-      title: u.admin ? 'Администратор' : u.mod ? 'Модератор форума' : this.isPremium(u) ? 'VIP' : null, premium: this.isPremium(u) && !u.admin ? u.premium : 0,
+      title: u.admin ? 'Администратор' : u.mod ? 'Модератор форума' : this.isPremium(u) ? 'VIP' : null,
+      // звания в профиле: VIP — пока действует купленный премиум (закончился — строка пропадает), плюс админ/модератор
+      titles: [...((u.premium || 0) > Date.now() ? ['VIP'] : []), ...(u.admin ? ['Администратор'] : u.mod ? ['Модератор форума'] : [])], premium: this.isPremium(u) && !u.admin ? u.premium : 0,
       chatBan: viewer.admin || viewer.mod || u.id === viewer.id ? u.chatBan || 0 : undefined,
       alliance: al ? { name: al.name, tag: al.tag, role: al.leader === u.id ? 'Глава' : 'Участник' } : null,
       medals: this.medalsOf(u.id), hallRep: u.hallRep || 0, awards: (u.allyAwards || []).slice().reverse(),

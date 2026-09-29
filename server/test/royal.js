@@ -218,5 +218,14 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   delete process.env.ADMIN_RESET;
   console.log('✓ «Запомнить меня» у админа переживает перезапуск сервера; смена пароля завершает сессии');
 }
+// звание VIP в профиле — только пока действует премиум; у админа — вместе с «Администратор»
+{
+  const v = g.register({ login: 'vipx', password: '123', race: 0 }).user; v.gold = 1000;
+  assert.deepStrictEqual(g.profileOf(v, v).titles, []);
+  g.buyPremium(v, 30); assert.deepStrictEqual(g.profileOf(v, v).titles, ['VIP']);
+  v.premium = Date.now() - 1; assert.deepStrictEqual(g.profileOf(v, v).titles, [], 'премиум кончился — VIP пропал');
+  const adm = g.db.users.admin; adm.premium = Date.now() + 86400000; assert.deepStrictEqual(g.profileOf(adm, adm).titles, ['VIP', 'Администратор']);
+  console.log('✓ звание VIP в профиле: есть, пока действует премиум; у админа — «VIP, Администратор»');
+}
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);

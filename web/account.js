@@ -5,7 +5,7 @@
 function openAccount() { S.acctView = true; send({ t: 'profile', id: S.st.user.id, acct: 1 }); }
 function accountWin(p) {
   const a = p.acct || {}, bar = (attr, icon, text) => `<button class="pbar acbar" ${attr}>${icon ? `<img src="${icon}" alt="">` : ''} ${text}</button>`;
-  const title = p.title ? `${p.title === 'Администратор' ? `<img class="acico" src="${GFX}admin_badge_s.png" alt="">` : p.title === 'Модератор форума' ? `<img class="acico" src="${GFX}mod_badge_s.png" alt="">` : `<img class="acico" src="${GFX}premium_crown.png" alt="">`} ${esc(p.title)}` : '—';
+  const title = (p.titles || []).length ? p.titles.map((t) => `${t === 'Администратор' ? `<img class="acico" src="${GFX}admin_badge_s.png" alt="">` : t === 'Модератор форума' ? `<img class="acico" src="${GFX}mod_badge_s.png" alt="">` : `<img class="acico" src="${GFX}premium_crown.png" alt="">`} ${esc(t)}`).join(', ') : '—';
   return `${ribbon('Профиль')}
     <div class="acctop"><div class="acleft"><div class="avatar">${avatarImg(p)}</div>
       <button class="pbtn acbtn" data-avatar="set">Изменить</button>${p.avatar ? '<button class="pbtn acbtn" data-avatar="del">Удалить</button>' : ''}</div>
