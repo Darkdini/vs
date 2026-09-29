@@ -224,6 +224,9 @@ function install(Game, helpers) {
     if (castle.forgeJob === undefined) castle.forgeJob = null;
     if (!castle.squads) castle.squads = []; // отряды в замке («Армия: …»); castle.units — «Замковая армия»
     if (castle.loyalty === undefined) { castle.loyalty = 100; castle.loyAt = Date.now(); }
+    // старые замки: стартовый Огород стоял на траве (7:7) — переносим на землю (3:5), как в оригинале
+    if (!castle.farmFix) { castle.farmFix = 1; const g = castle.grid[1], lv = castle.levels[1], a = 7 * 15 + 7, b = 5 * 15 + 3;
+      if (g[a] === 5 && g[b] < 0 && !(castle.queue || []).some((q) => q.view === 1 && (q.cell === a || q.cell === b))) { g[b] = 5; lv[b] = lv[a]; g[a] = -1; lv[a] = 0; } }
     // торговцы больше не юниты армии — убрать старые записи из войск и очередей
     if (castle.units[MERCHANT_ID]) delete castle.units[MERCHANT_ID];
     for (const q of castle.squads) delete q.units[MERCHANT_ID];
@@ -442,7 +445,7 @@ function install(Game, helpers) {
     const battleCap = Math.max(20, Math.ceil(span * GEN.battleCap * mult)), dayCap = Math.ceil(span * GEN.dayLevels * mult);
     const raw = Math.round(exp * mult), got = Math.max(0, Math.min(raw, battleCap, dayCap - g.day.exp));
     const capped = got < raw ? (g.day.exp + got >= dayCap ? 'day' : 'battle') : null;
-    g.day.exp += got;
+    g.day.exp += got; if (got > 0) this.addStat(castle.owner, 'genExp', got);
     const from = g.level; g.exp += got;
     while (g.level < GEN.maxLevel && g.exp >= this.generalNeed(g.level)) { g.level++; g.free += GEN.perLevel; }
     if (g.level > from) this.event(castle.owner, `Генерал «${g.name}» достиг ${g.level} уровня! +${(g.level - from) * GEN.perLevel} очк. опыта`);
@@ -816,20 +819,20 @@ function install(Game, helpers) {
       else if (RES4.some((r) => loot[r] > 0)) this.db.npc[where] = { until: t + NPC_REGEN_SEC / SPEED * 1000 };
     }
     // осада: тараны ломают Забор, катапульты — здания (только атака и победа)
-    const siege = [];
+    const siege = []; let siegeN = 0;
     if (target && a.mission === 'attack' && win) {
       const b = this.bonus(target);
       let ram = (a.units[243] || 0) * UNIT[243].attack;
       let wallL = b.wall;
       while (wallL > 0 && ram >= Math.round(2 * 1.25 ** wallL)) { ram -= Math.round(2 * 1.25 ** wallL); wallL--; }
-      if (wallL < b.wall) { this.setBuildingLevel(target, B.FENCE, wallL); siege.push(`Забор: ${b.wall} → ${wallL} ур.`); }
+      if (wallL < b.wall) { this.setBuildingLevel(target, B.FENCE, wallL); siege.push(`Забор: ${b.wall} → ${wallL} ур.`); siegeN += b.wall - wallL; }
       let cat = (a.units[240] || 0) * UNIT[240].attack / (1 + 0.05 * b.mason);
       const cells = Array.from(target.grid[0], (id, i) => [id, i]).filter(([id, i]) => id > 0 && target.levels[0][i] > 0);
       if (cat > 0 && cells.length) {
         const [bid, cell] = cells[Math.floor(Math.random() * cells.length)];
         let L = target.levels[0][cell]; const L0 = L;
         while (L > 0 && cat >= Math.round(3 * 1.25 ** L)) { cat -= Math.round(3 * 1.25 ** L); L--; }
-        if (L < L0) { target.levels[0][cell] = L; if (!L) target.grid[0][cell] = -1; siege.push(`${C.BY_ID[bid].name}: ${L0} → ${L} ур.`); }
+        if (L < L0) { target.levels[0][cell] = L; if (!L) target.grid[0][cell] = -1; siege.push(`${C.BY_ID[bid].name}: ${L0} → ${L} ур.`); siegeN += L0 - L; }
       }
     }
     // бунтари: выжившие в победной атаке снижают лояльность, при 0 — захват (GDD §10–11)
@@ -860,7 +863,8 @@ function install(Game, helpers) {
     // статистика для Зала Славы (social.js)
     if (loot) this.addStat(c.owner, 'loot', RES4.reduce((q, k) => q + loot[k], 0));
     this.addStat(c.owner, 'kills', target ? popOf(dLost) : (npc ? Math.round(npc.def.inf / 20 * dLoss) : 0));
-    if (target) this.addStat(target.owner, 'defKills', popOf(aLost));
+    if (target) { this.addStat(target.owner, 'defKills', popOf(aLost)); this.addStat(target.owner, 'defLost', popOf(dLost)); this.addStat(c.owner, 'attLost', popOf(aLost)); }
+    if (siegeN) this.addStat(c.owner, 'ruins', siegeN);
     const defUser = target && this.ownerOf(target);
     const tname = target ? `${target.name} (${captured ? captured.prevLogin : defUser.login})` : `${npc.name} ${where}`;
     const side = (units, lost) => Object.fromEntries(Object.entries(units).map(([id, n]) => [id, { was: n + (lost[id] || 0), lost: lost[id] || 0 }]).filter(([, v]) => v.was > 0));
@@ -911,6 +915,7 @@ function install(Game, helpers) {
     castle.units = {}; castle.squads = []; castle.training = []; castle.armies = []; castle.general = null; castle.research = null;
     castle.loyalty = 30; castle.loyAt = Date.now();
     att.castleIds = [...this.castlesOf(att).map((k) => k.id), castle.id];
+    this.addStat(att.id, 'capRating', this.rating(castle)); // Развитие не учитывает рейтинг захваченных замков
     this.store.save();
     return { name: castle.name, prevOwner: prev.id, prevLogin: prev.login, prevRace: prev.race };
   };
@@ -988,7 +993,7 @@ function install(Game, helpers) {
       const roll = Math.random() + 0.02 * this.buildingLevel(c, B.ARCH_CAMP), rarity = roll > 0.95 ? 2 : roll > 0.7 ? 1 : 0;
       const art = { id: this.db.nextId++, type, rarity, active: false, found: t };
       c.artifacts.push(art);
-      this.addStat(c.owner, 'arts', 1);
+      this.addStat(c.owner, 'arts', 1 + rarity * 2); // качество: обычный 1, редкий 3, легендарный 5
       lines.push(`Найден артефакт: ${ART_TYPES[type].name} (${RARITY[rarity].name}, +${RARITY[rarity].bonus * 100}% — ${ART_TYPES[type].desc}).`);
       if (c.artifacts.length > this.bonus(c).artStore) lines.push('Сокровищница переполнена — постройте/развейте Сокровищницу.');
     } else lines.push('Ничего не найдено.');
@@ -1004,6 +1009,7 @@ function install(Game, helpers) {
       if (!slots) return { error: 'Нужна Башня артефактов.' };
       if (castle.artifacts.filter((x) => x.active).length >= slots) return { error: `Активных артефактов не больше ${slots} (растёт с Башней).` };
     }
+    if (on && !a.active) this.addStat(castle.owner, 'boost', 1); // Зал Славы «Усиление»
     a.active = !!on; this.store.save();
     return { ok: true };
   };

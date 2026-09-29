@@ -59,12 +59,13 @@ function install(Game) {
   P.rulerAway = function rulerAway(user, now = Date.now()) { return !!user && (now - seenAt(user)) / DAY > ROYAL.riotDays; };
 
   // очки за действие (с дневным лимитом)
-  P.royalGain = function royalGain(user, pts = ROYAL.perAction, now = Date.now()) {
+  P.royalGain = function royalGain(user, pts = ROYAL.perAction, now = Date.now(), festival = false) {
     this.royalTick(user, now);
     const d = dayKey(now);
     if (user.royalDay !== d) { user.royalDay = d; user.royalToday = 0; }
     const add = Math.max(0, Math.min(pts, ROYAL.dayCap - user.royalToday));
-    user.royal += Math.round(add * (1 + this.ritualBonus(user, now))); user.royalToday += add; // лимит — на сами действия, бонус ритуалов сверху
+    const got = Math.round(add * (1 + this.ritualBonus(user, now))); user.royal += got; user.royalToday += add;
+    if (!festival && got > 0 && this.addStat) this.addStat(user.id, 'loyal', got); // Зал Славы «Лояльность» — без праздников // лимит — на сами действия, бонус ритуалов сверху
     return add;
   };
   // сколько дней ещё ждать до права на первый захват (строго: не раньше 30-го дня игры)
@@ -131,7 +132,7 @@ function install(Game) {
     if (f.cost) for (const r of Object.keys(f.cost)) castle.res[r] -= f.cost[r];
     if (f.gold) this.goldChange(user, -f.gold, `Праздник «${f.name}»`);
     user.festAt[id] = now;
-    const got = this.royalGain(user, f.gain, now);
+    const got = this.royalGain(user, f.gain, now, true);
     this.store.save();
     return { ok: true, msg: `${f.name}: лояльность населения +${got}${got < f.gain ? ' (дневной лимит)' : ''}.` };
   };

@@ -56,7 +56,7 @@ function landOptions(x, y) {
     case 0: return [7];
     case 1: return [8];
     case 2: return [9];
-    default: return [5, 6];
+    default: return LANDS_BASE[y][x] === 7 ? [5] : [6]; // как в оригинале: Огород — на вспаханной земле, Хибара — на траве
   }
 }
 
@@ -205,7 +205,7 @@ class Game {
     castleGrid[3 * 7 + 3] = 0; castle.levels[0][3 * 7 + 3] = 1; // Ратуша 1 ур. в центре
     castleGrid[2 * 7 + 1] = 1; castle.levels[0][2 * 7 + 1] = 1; // Склад 1 ур.
     // стартовые постройки на землях: по одной добывающей каждого вида
-    for (const [bx, by, b] of [[1, 8, 7], [10, 0, 8], [12, 0, 9], [7, 7, 5], [6, 3, 6]]) {
+    for (const [bx, by, b] of [[1, 8, 7], [10, 0, 8], [12, 0, 9], [3, 5, 5], [6, 3, 6]]) {
       landsGrid[by * 15 + bx] = b; castle.levels[1][by * 15 + bx] = 1;
     }
     this.db.castles[id] = castle;
@@ -218,6 +218,7 @@ class Game {
   goldChange(user, delta, reason) {
     delta = Math.round(delta); if (!delta) return;
     user.gold = Math.max(0, (user.gold || 0) + delta);
+    if (this.addStat) this.addStat(user.id, delta > 0 ? 'goldIn' : 'goldOut', Math.abs(delta)); // Зал Славы: Богатство / Расточительство
     (user.goldLog = user.goldLog || []).push({ at: Date.now(), delta, reason, left: user.gold });
     if (user.goldLog.length > 200) user.goldLog.splice(0, user.goldLog.length - 200);
   }

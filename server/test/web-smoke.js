@@ -290,11 +290,12 @@ function client() {
     adm.send({ t: 'halls' });
     const hl = await adm.expect('halls');
     assert.ok(hl.season && hl.season.end > Date.now());
+    assert.ok(hl.list.length === 20 && hl.pages.length === 4 && hl.list.every((h) => h.bonus.length === 3 && h.desc && Number.isFinite(h.pos)), 'Зал Славы: 20 категорий, 4 страницы');
     adm.send({ t: 'admin', op: 'season' });
     await adm.expect('toast', (m) => /Месяц подведён досрочно/.test(m.msg));
     adm.send({ t: 'profile', id: s3.user.id });
     const aw = (await adm.expect('profile', (m) => m.profile.medals.length > 0)).profile.medals;
-    assert.ok(aw.length > 0 && aw[0].at > 0 && aw[0].month, JSON.stringify(hl.list.map((h) => h.top)) + ' id ' + s3.user.id);
+    assert.ok(aw.length > 0 && aw[0].at > 0 && aw[0].month && /^gfx3d\/halls\/\w+_[123]\.png$/.test(aw[0].icon) && aw[0].bonus > 0, JSON.stringify(hl.list.map((h) => h.top)) + ' id ' + s3.user.id);
     console.log('✓ Зал Славы: итоги месяца, награды топ-3 с датой получения:', aw.map((m) => `${m.name} ${m.place}`).join(', '));
 
     // ---- модератор форума: удаление сообщений и бан в чате ----

@@ -5,15 +5,51 @@
 const C = require('./catalog');
 const START_REP = 10; // стартовая репутация у всех игроков
 
-// Залы Славы: категория → как считается; иконки — smallicon/bonus_status/<icon><gold|silver|bronze>.png клиента
+// Залы Славы — 20 категорий, как в оригинале (4 страницы по 5). stat — счётчик за месяц (mstats), bonus — репутация за 1/2/3 место.
+// Медали: gfx3d/halls/<id>_<место>.png (золото, серебро, бронза), значок в списке — gfx3d/halls/<id>.png
 const HALLS = {
-  growth: { name: 'Развитие', icon: 'rang', desc: 'рейтинг развития замков' },
-  loot: { name: 'Грабежи', icon: 'torba', desc: 'вынесено ресурсов в набегах и атаках' },
-  doom: { name: 'Гибель', icon: 'Cross', desc: 'уничтожено вражеских войск (население)' },
-  defense: { name: 'Защита', icon: 'medal', desc: 'уничтожено нападавших при обороне' },
-  archaeology: { name: 'Археология', icon: 'coronal', desc: 'найдено артефактов' },
-  rule: { name: 'Правление', icon: 'vesi', desc: 'репутация среди игроков' },
+  rule: { name: 'Правление', bonus: [1000, 500, 250], short: 'Самый почетный рейтинг. Показывает общие успехи правителя по всем возможным направлениям развития королевства.',
+    desc: 'Самый почетный рейтинг. Формируется согласно месту, полученному правителем во всех остальных категориях. Учитывается не только положение в итоговых таблицах, но и сложность того или иного рейтинга.' },
+  growth: { name: 'Развитие', bonus: [200, 100, 50], short: 'Показывает мастерство игрока в развитии своего королевства. В зачет идут только очки рейтинга, полученного при постройке зданий в королевстве.',
+    desc: 'В зачет идет только рейтинг, который игрок получил от развития зданий. Не учитывается прирост рейтинга при захвате замков других королевств или заброшенных замков.' },
+  loyalty: { name: 'Лояльность', stat: 'loyal', bonus: [100, 50, 25], short: 'Показывает повышение лояльности населения королевства. Позиция в рейтинге определяется приростом лояльности населения в королевстве без учета лояльности, полученной от праздников.',
+    desc: 'Оценивается прирост лояльности населения за определенный период. В зачет идет вся лояльность, полученная от храмов, артефактов, казней.' },
+  loot: { name: 'Грабежи', stat: 'loot', bonus: [80, 40, 20], short: 'Показывает успехи игрока в разграблении соседних королевств. Позиция в рейтинге определяется суммой ресурсов, которые были украдены со складов соседних королевств.',
+    desc: 'Положение в этой категории определяется количеством ресурсов, украденных в других королевствах. Учитываются только ресурсы, полученные со складов королевств, чей правитель отсутствует длительное время, а также ресурсы, захваченные после кровопролитных боев с вражеской армией.' },
+  archaeology: { name: 'Археология', stat: 'arts', bonus: [200, 100, 50], short: 'Показывает успехи игрока в экспедициях за артефактами. Позиция в рейтинге определяется типом и количеством артефактов, доставленных в Ваши замки.',
+    desc: 'Позиция игрока в таблице вычисляется исходя из количества и качества артефактов, найденных в экспедициях. В зачет идут только те артефакты, которые были успешно доставлены в один из замков игрока. Артефакты, потерянные археологами по пути домой, в зачет не идут.' },
+  respect: { name: 'Уважение', stat: 'repGold', bonus: [200, 100, 50], short: 'Показывает прирост репутации игрока. В расчет берется золото, потраченное для поднятия репутации правителю.',
+    desc: 'Прирост очков в категории рассчитывается исходя из золота, потраченного на поднятие репутации правителя.' },
+  thanks: { name: 'Благодарность', stat: 'giftGold', bonus: [100, 50, 25], short: 'Показывает количество и качество подарков, полученных правителем за определенный период.',
+    desc: 'Учитывается качество подарков, которые правитель получил от других игроков, а также подаренных себе самолично. Качество подарков определяется их стоимостью в игровом золоте.' },
+  gamble: { name: 'Азарт', stat: 'gamble', bonus: [100, 50, 25], short: 'Показывает успехи короля на поприще азартных игр. В зачет идут только бесплатные игры.',
+    desc: 'Показывает успехи короля на поприще азартных игр. В зачет идут только бесплатные игры. (Азартные игры появятся позже.)' },
+  jackpot: { name: 'Большой куш', stat: 'jackpot', bonus: [100, 50, 25], short: 'Показывает удачу правителя в азартных играх на золото. В расчет берется как потраченное золото, так и золото, полученное при выигрыше.',
+    desc: 'Показывает удачу правителя в азартных играх на золото. В расчет берется как потраченное золото, так и золото, полученное при выигрыше. (Азартные игры появятся позже.)' },
+  doom: { name: 'Опустошение', stat: 'kills', bonus: [200, 100, 50], short: 'Показывает успехи правителя в ратном деле. В расчет берутся армии противника, которые были уничтожены королем за некоторый период.',
+    desc: 'Место в данной категории определяется по очкам, которые начисляются в зависимости от количества и качества юнитов вражеских армий, уничтоженных войсками правителя.' },
+  death: { name: 'Гибель', stat: 'attLost', bonus: [200, 100, 50], short: 'Показывает суммарные потери, которые понес правитель в атаках на другие королевства. В расчет идут армии, потерянные правителем в ходе атак на вражеские замки.',
+    desc: 'Рейтинг учитывает количественные и качественные потери армий правителя, в ходе атак на вражеские укрепления.' },
+  ruin: { name: 'Разрушение', stat: 'ruins', bonus: [100, 50, 25], short: 'Показывает успехи правителя в истреблении вражеских укреплений. В расчет берутся здания, уничтоженные разрушителями и осадными орудиями королевства.',
+    desc: 'Учитывает, сколько зданий было разрушено вашей армией во время нападений на замки противника.' },
+  wealth: { name: 'Богатство', stat: 'goldIn', bonus: [100, 50, 25], short: 'Показывает прирост золота в казне королевства.',
+    desc: 'Показывает то количество золота, которое получил правитель за время оценки. В зачет идут как покупка казны, так и другие способы ее пополнения.' },
+  boost: { name: 'Усиление', stat: 'boost', bonus: [100, 50, 25], short: 'Показывает количество различных усилений, использованных правителем за определенный период.',
+    desc: 'Учитывает количество усилений армии и королевства, полученных при использовании артефактов.' },
+  command: { name: 'Командование', stat: 'genExp', bonus: [200, 100, 50], short: 'Показывает прирост мастерства генерала королевства.',
+    desc: 'Положение в таблице формируется в зависимости от опыта, полученного генералом при атаках на вражеские укрепления. Расчет опыта ведется в зависимости от суммарных потерь армий противника и собственных войск королевства в бою, где принимал участие генерал.' },
+  recruit: { name: 'Вербовка', stat: 'recruit', bonus: [100, 50, 25], short: 'Показывает успехи короля при вербовке вражеских армий.',
+    desc: 'В зачет идет количество солдат вражеской армии, завербованных правителем в темницах королевства. (Темницы появятся позже.)' },
+  execute: { name: 'Казни', stat: 'execute', bonus: [100, 50, 25], short: 'Отображает количество воинов, которое было казнено в королевстве.',
+    desc: 'Показывает суммарное количество армий противника, которые были казнены в королевстве за определенный период. (Темницы появятся позже.)' },
+  waste: { name: 'Расточительство', stat: 'goldOut', bonus: [100, 50, 25], short: 'Отображает траты казны правителем.',
+    desc: 'Отображает траты казны правителем: подарки, репутация, премиум и другие расходы золота.' },
+  defense: { name: 'Защита', stat: 'defLost', bonus: [200, 100, 50], short: 'Показывает потери войск правителя. В зачет идут потери при обороне собственных замков, замков других игроков, оазисов.',
+    desc: 'Показывает потери войск правителя. В зачет идут потери при обороне собственных замков, замков других игроков, оазисов.' },
+  presence: { name: 'Присутствие', stat: 'presence', bonus: [100, 50, 25], short: 'Показывает время, потраченное правителем при управлении и развитии своего королевства.',
+    desc: 'Показывает время (в минутах), потраченное правителем при управлении и развитии своего королевства.' },
 };
+const HALL_PAGES = [['rule', 'growth', 'loyalty', 'loot', 'archaeology'], ['respect', 'thanks', 'gamble', 'jackpot', 'doom'], ['death', 'ruin', 'wealth', 'boost', 'command'], ['recruit', 'execute', 'waste', 'defense', 'presence']];
 const PLACE_ICON = ['gold', 'silver', 'bronze'];
 
 // подарки в профиле: игроки дарят друг другу за золото
@@ -43,44 +79,42 @@ function install(Game) {
   };
   P.addStat = function addStat(userId, key, v) {
     const u = this.userById(userId); if (!u || !(v > 0)) return;
-    this.stats(u)[key] += Math.round(v); // за всё время
-    this.mstats(u)[key] += Math.round(v); // за соревновательный месяц
+    const a = this.stats(u), m = this.mstats(u);
+    a[key] = (a[key] || 0) + Math.round(v); // за всё время
+    m[key] = (m[key] || 0) + Math.round(v); // за соревновательный месяц
   };
   // база на начало месяца (рейтинг, репутация) — прирост за месяц
   P.mbase = function mbase(u) { const s = this.season(); return u.mbase && u.mbase.season === s.n ? u.mbase : { rating: 0, rep: START_REP }; };
   P.hallValue = function hallValue(u, hall) {
-    const s = this.mstats(u), b = this.mbase(u);
-    switch (hall) {
-      case 'growth': return Math.max(0, this.userRating(u) - b.rating);
-      case 'loot': return s.loot;
-      case 'doom': return s.kills;
-      case 'defense': return s.defKills;
-      case 'archaeology': return s.arts;
-      case 'rule': return Math.max(0, (u.reputation ?? START_REP) - b.rep);
-      default: return 0;
-    }
+    const s = this.mstats(u), b = this.mbase(u), h = HALLS[hall];
+    if (hall === 'growth') return Math.max(0, this.userRating(u) - b.rating - (s.capRating || 0));
+    if (hall === 'doom') return (s.kills || 0) + (s.defKills || 0);
+    return h && h.stat ? s[h.stat] || 0 : 0;
   };
   // текущее положение в залах (за идущий месяц)
   P.halls = function halls() { this.seasonCheck(); return this.cached('halls', 60000, () => this.hallsCalc()); }; // кэш 1 мин
   P.hallsCalc = function hallsCalc() {
     const users = Object.values(this.db.users).filter((u) => !u.bot && !u.admin);
-    return Object.entries(HALLS).map(([id, h]) => {
-      const top = users.map((u) => ({ id: u.id, login: u.login, value: this.hallValue(u, id) }))
-        .filter((x) => x.value > 0).sort((a, b) => b.value - a.value).slice(0, 3);
-      return { id, ...h, top };
-    });
+    const tables = {};
+    for (const id of Object.keys(HALLS)) if (id !== 'rule') tables[id] = users.map((u) => ({ id: u.id, login: u.login, value: this.hallValue(u, id) })).filter((x) => x.value > 0).sort((a, b) => b.value - a.value);
+    // Правление: очки за места во всех остальных категориях с учётом сложности (бонуса) категории
+    const rule = new Map();
+    for (const [id, t] of Object.entries(tables)) t.forEach((x, i) => rule.set(x.id, (rule.get(x.id) || 0) + Math.round(HALLS[id].bonus[0] * (t.length - i) / t.length)));
+    tables.rule = users.map((u) => ({ id: u.id, login: u.login, value: rule.get(u.id) || 0 })).filter((x) => x.value > 0).sort((a, b) => b.value - a.value);
+    return Object.entries(HALLS).map(([id, h]) => ({ id, name: h.name, bonus: h.bonus, short: h.short, desc: h.desc, top: tables[id].slice(0, 10), pos: Object.fromEntries(tables[id].map((x, i) => [x.id, i + 1])), total: tables[id].length }));
   };
-  const hallIcon = (h, i) => `smallicon/bonus_status/${h.icon}${PLACE_ICON[i] === 'silver' && h.icon === 'medal' ? 'siver' : PLACE_ICON[i]}.png`;
+  const hallIcon = (h, i) => `gfx3d/halls/${h.id}_${i + 1}.png`;
   // конец месяца (или досрочно админом): награды топ-3 каждого зала, новый месяц
   P.seasonClose = function seasonClose(now = Date.now()) {
     const s = this.season(), res = this.hallsCalc(), winners = [];
-    for (const h of res) h.top.forEach((x, i) => {
+    for (const h of res) h.top.slice(0, 3).forEach((x, i) => {
       const u = this.userById(x.id); if (!u) return;
-      (u.awards = u.awards || []).push({ hall: h.id, name: h.name, place: i + 1, value: x.value, month: s.key, at: now, icon: hallIcon(h, i) });
-      this.event(u.id, `Зал Славы «${h.name}»: ${i + 1} место по итогам месяца! Награда — в Вашем профиле.`);
+      const bonus = HALLS[h.id].bonus[i]; u.reputation = (u.reputation ?? START_REP) + bonus; // бонус — репутация
+      (u.awards = u.awards || []).push({ hall: h.id, name: h.name, place: i + 1, value: x.value, month: s.key, at: now, icon: hallIcon(h, i), bonus });
+      this.event(u.id, `Зал Славы «${h.name}»: ${i + 1} место по итогам месяца! Бонус +${bonus} репутации, медаль — в Вашем профиле.`);
       winners.push({ hall: h.name, place: i + 1, login: u.login });
     });
-    (this.db.hallHistory = this.db.hallHistory || []).push({ key: s.key, at: now, halls: res.map((h) => ({ id: h.id, name: h.name, icon: h.icon, top: h.top })) });
+    (this.db.hallHistory = this.db.hallHistory || []).push({ key: s.key, at: now, halls: res.map((h) => ({ id: h.id, name: h.name, top: h.top.slice(0, 3) })) });
     if (this.db.hallHistory.length > 24) this.db.hallHistory.shift();
     const n = s.n + 1;
     this.db.season = { key: monthKey(now), start: now, end: monthEnd(now), n };
@@ -110,7 +144,7 @@ function install(Game) {
     user.giftLog = (user.giftLog || []).filter((t) => t > now - 86400000);
     if (user.giftLog.length >= GIFTS_DAY) return { error: `Не больше ${GIFTS_DAY} подарков в сутки.` };
     if ((user.gold || 0) < g.gold) return { error: `Нужно ${g.gold} золота (у вас ${user.gold || 0}).` };
-    this.goldChange(user, -g.gold, `Подарок «${g.name}» игроку ${to.login}`); user.giftLog.push(now);
+    this.goldChange(user, -g.gold, `Подарок «${g.name}» игроку ${to.login}`); user.giftLog.push(now); this.addStat(to.id, 'giftGold', g.gold);
     (to.gifts = to.gifts || []).push({ gift: giftId, from: user.id, at: now, text: String(text || '').trim().slice(0, 100) });
     if (to.gifts.length > 200) to.gifts = to.gifts.slice(-200);
     if (to.id !== user.id) this.event(to.id, `${user.login} подарил Вам: ${g.name}!`);
@@ -145,7 +179,7 @@ function install(Game) {
     if ((from.gold || 0) < coins) return { error: `Не хватает золота (у вас ${from.gold || 0}).` };
     this.goldChange(from, -coins, `Репутация +${coins * REP_PER_GOLD} игроку ${to.login}`);
     const add = coins * REP_PER_GOLD + (to.id === from.id && this.isPremium(from) ? 1 : 0); // премиум: +1 себе
-    to.reputation = (to.reputation ?? START_REP) + add;
+    to.reputation = (to.reputation ?? START_REP) + add; this.addStat(to.id, 'repGold', coins);
     this.cache = {};
     this.store.save();
     if (to.id !== from.id) this.event(to.id, `${from.login} поднял вам репутацию на ${add}!`);
@@ -243,4 +277,4 @@ function install(Game) {
   };
 }
 
-module.exports = { REP_PER_GOLD, GIFTS, install, HALLS };
+module.exports = { REP_PER_GOLD, GIFTS, install, HALLS, HALL_PAGES };

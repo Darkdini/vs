@@ -938,3 +938,18 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .arow2.danger .aname { color: #a01a10; }
 .ptiles.solo { grid-template-columns: 1fr; justify-items: center; } .ptiles.solo .ptile { width: calc((100% - 24px) / 3); }
 .arow2 .acount .cd { position: static !important; float: none !important; display: inline !important; margin: 0 !important; }
+/* Зал славы как в оригинале */
+.hpager { display: flex; justify-content: center; gap: 10px; margin: 8px 0; }
+.hpager button { width: 46px; height: 40px; border: 0; border-radius: 6px; background: linear-gradient(#8a4a28, #5a2410); color: #f6e7c1; font: 22px var(--serif); box-shadow: 0 2px 3px #0006; }
+.hpager button.on { background: linear-gradient(#e0a050, #a06020); }
+.hall2 { display: grid; grid-template-columns: 30% 1fr; gap: 4px 10px; padding: 8px 0; border-bottom: 1px solid #b08a5a88; }
+.hall2 .hmed { width: 100%; max-width: 130px; aspect-ratio: 1; object-fit: contain; justify-self: center; }
+.hright { display: flex; flex-direction: column; justify-content: center; gap: 4px; font: min(22px, 5.4vw) var(--serif); color: #3a1a0a; }
+.hright b { font-size: 1.1em; }
+.hmore { border: 0; border-radius: 3px; background: #2e1208; color: #f6e7c1; font: min(22px, 5.2vw) var(--serif); padding: 4px 0; }
+.hshort { grid-column: 1 / -1; font: min(20px, 4.8vw)/1.35 var(--serif); color: #2a1408; }
+.hmeds { display: flex; justify-content: center; gap: 8px; margin: 6px 0; }
+.hmeds img { width: 29%; max-width: 110px; aspect-ratio: 1; object-fit: contain; }
+.hdesc2 { font: min(20px, 4.8vw)/1.4 var(--serif); color: #2a1408; margin: 6px 0; }
+.hdesc2 b { font-size: 1.1em; } .hmini { width: 30px; height: 30px; object-fit: contain; vertical-align: middle; }
+.hrow img { width: 30px; height: 30px; object-fit: contain; vertical-align: middle; } .hnum { display: inline-block; width: 30px; text-align: center; font-weight: 700; }

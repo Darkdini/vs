@@ -9,6 +9,7 @@ const path = require('path');
 const crypto = require('crypto');
 const zlib = require('zlib');
 const SEC = require('./security');
+const SOC = require('./social');
 const C = require('./catalog');
 const G = require('./game');
 const ARMY = require('./army');
@@ -166,6 +167,9 @@ class WebSession {
     fn.call(this, msg);
     // лояльность населения (Резиденция) растёт за действия, а не за онлайн
     if (!this.failed && this.user && ROYAL_ACTIONS.has(msg.t)) this.game.royalGain(this.user);
+    // Зал Славы «Присутствие»: минуты в игре (пауза больше 5 минут не считается)
+    if (this.user) { const t = Date.now(), last = this.actAt || t; this.actAt = t; this.presMs = (this.presMs || 0) + Math.min(t - last, 300000);
+      if (this.presMs >= 60000) { const m = Math.floor(this.presMs / 60000); this.presMs -= m * 60000; this.game.addStat(this.user.id, 'presence', m); } }
   }
 }
 const RATE_OFF = process.env.RATE_OFF === '1'; // только для автотестов
@@ -316,7 +320,7 @@ const API = {
     if (!list) return API.rating.call(this);
     this.send({ t: 'ratings', kind: k, list });
   },
-  halls() { const list = this.game.halls(), s = this.game.season(); this.send({ t: 'halls', list, season: { key: s.key, end: s.end }, last: (this.game.db.hallHistory || []).slice(-1)[0] || null }); },
+  halls() { const me = this.user.id, list = this.game.halls().map((h) => ({ ...h, pos: h.pos[me] || h.total + 1, mine: this.game.hallValue(this.user, h.id), top: h.top })), s = this.game.season(); this.send({ t: 'halls', list, pages: SOC.HALL_PAGES, season: { key: s.key, end: s.end }, last: (this.game.db.hallHistory || []).slice(-1)[0] || null }); },
   rating() {
     const rows = this.game.leaderboard().slice(0, 50).map(({ u, r }) => ({ id: u.id, login: u.login, race: C.RACE_NAMES[u.race], raceId: u.race, rating: r }));
     this.send({ t: 'rating', rows });

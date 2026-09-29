@@ -68,7 +68,7 @@ const MENUS = {
     ['Описание меню', 'smallicon/soft_help.png', () => openSheet(menuDescWin)],
   ] },
   rating: { label: 'Рейтинг', title: 'Рейтинги', icon: 'menu/rating.svg', items: () => [
-    ['Зал Славы', 'smallicon/bonus_status/ranggold.png', () => { S.halls = null; send({ t: 'halls' }); openSheet(hallsWin); }],
+    ['Зал Славы', '../gfx3d/halls/rule.png', () => { S.halls = null; send({ t: 'halls' }); openSheet(hallsWin); }],
     ['Игрок', 'units/human/general.png', () => openRating('players')],
     ['Замок', 'ground/castle_small.png', () => openRating('castles')],
     ['Альянс', 'build/diplomat.png', () => openRating('alliances')],
@@ -199,9 +199,9 @@ $('#sheetBody').addEventListener('input', (e) => { if (e.target.closest('.chatba
 const avatarImg = (p, cls = '') => (p.avatar ? `<img class="${cls}" src="avatar/${p.id}.png?v=${p.avatar}" alt="">` : raceIcon(p.race));
 function profileWin(p) {
   const tile = (key, icon, text, off) => `<button class="ptile ${off ? 'off' : ''}" data-ptile="${key}" data-pid="${p.id}"><img src="${icon.startsWith('gfx3d/') ? icon : GFX + icon}" alt=""><span>${text}</span></button>`;
-  const medals = p.medals.length ? p.medals.map((m) => `<img class="medal" src="${GFX}${m.icon}" alt="" title="Зал ${esc(m.name)} — ${m.place} место, получено ${fmtDay(m.at)}">`).join('') : '<span class="muted">нет</span>';
+  const medals = p.medals.length ? p.medals.map((m) => `<img class="medal" src="${medalSrc(m.icon)}" alt="" title="Зал ${esc(m.name)} — ${m.place} место, получено ${fmtDay(m.at)}">`).join('') : '<span class="muted">нет</span>';
   // Зал Славы: медали топ-3 по итогам соревновательного месяца, с датой получения
-  const hof = p.medals.length ? p.medals.map((m) => `<div class="award"><img src="${GFX}${m.icon}" alt=""><div><b>Зал ${esc(m.name)} — ${['I', 'II', 'III'][m.place - 1]} место</b><small>за ${monthName(m.month)} · получено ${fmtDay(m.at)}</small></div></div>`).join('') : '<div class="parch-note">Пока нет — медали получают топ-3 игрока каждого зала в конце соревновательного месяца.</div>';
+  const hof = p.medals.length ? p.medals.map((m) => `<div class="award"><img src="${medalSrc(m.icon)}" alt=""><div><b>Зал ${esc(m.name)} — ${['I', 'II', 'III'][m.place - 1]} место</b><small>за ${monthName(m.month)} · получено ${fmtDay(m.at)}</small></div></div>`).join('') : '<div class="parch-note">Пока нет — медали получают топ-3 игрока каждого зала в конце соревновательного месяца.</div>';
   // Награждения: медали от альянса за заслуги
   const aw = p.awards || [];
   const awards = aw.length ? aw.map((m) => `<div class="award"><img src="${GFX}smallicon/status/${m.kind}.png" alt=""><div><b>${esc(ALLY_MEDAL[m.kind] || 'Медаль')} от альянса [${esc(m.tag)}]</b><small>${m.text ? `«${esc(m.text)}» · ` : ''}вручил ${esc(m.by)} · получено ${fmtDay(m.at)}</small></div></div>`).join('') : '<div class="parch-note">Пока нет — медали за заслуги вручает глава альянса.</div>';
@@ -247,17 +247,32 @@ function profileInfoWin(p) {
 }
 
 // ---------- Зал Славы ----------
+// Зал Славы — как в оригинале: 4 страницы по 5 категорий, у каждой медаль, «Позиция», «Подробнее» и описание
+const HALL_IMG = (id, place) => `gfx3d/halls/${id}${place ? `_${place}` : ''}.png`;
+const medalSrc = (icon) => (String(icon).startsWith('gfx3d/') ? icon : GFX + icon);
+S.hallPage = 0;
 function hallsWin() {
-  if (!S.halls) return `${ribbon('Зал Славы')}<p class="parch-note">Загрузка…</p>`;
-  const place = ['I', 'II', 'III'], col = ['gold', 'silver', 'bronze'];
-  const ss = S.hallSeason, last = S.hallLast;
-  return `${ribbon('Зал Славы')}
-    ${ss ? `<div class="bwline center">Соревнование за <b>${monthName(ss.key)}</b><br><small>итоги через <span class="cd" data-e="${ss.end}"></span> — награды получат топ-3 каждого зала</small></div>` : ''}
-    ${S.halls.map((h) => `<div class="hall"><img class="hallic" src="${GFX}smallicon/bonus_status/${h.icon}gold.png" alt="">
-    <div><b class="hname">Зал ${esc(h.name)}</b><div class="hdesc">${esc(h.desc)}</div>
-    ${h.top.length ? h.top.map((x, i) => `<div class="hrow"><img src="${GFX}smallicon/bonus_status/${h.icon}${col[i] === 'silver' && h.icon === 'medal' ? 'siver' : col[i]}.png" alt=""> ${place[i]} место — <a data-cprof="${x.id}">${esc(x.login)}</a> (${fmtFull(x.value)})</div>`).join('') : '<div class="hdesc">Пока никто не отличился.</div>'}
-    </div></div>`).join('')}
-    ${last ? `${ribbon(`Победители за ${monthName(last.key)}`)}${last.halls.map((h) => `<div class="hrow"><b>${esc(h.name)}:</b> ${h.top.map((x, i) => `<img src="${GFX}smallicon/bonus_status/${h.icon}${['gold', 'silver', 'bronze'][i] === 'silver' && h.icon === 'medal' ? 'siver' : ['gold', 'silver', 'bronze'][i]}.png" alt=""> <a data-cprof="${x.id}">${esc(x.login)}</a>`).join(' ') || '—'}</div>`).join('')}` : ''}`;
+  if (!S.halls) return `${ribbon('Зал славы')}<p class="parch-note">Загрузка…</p>`;
+  const pages = S.hallPages || [S.halls.map((h) => h.id)], pg = Math.min(S.hallPage, pages.length - 1), by = Object.fromEntries(S.halls.map((h) => [h.id, h]));
+  const pager = `<div class="hpager">${pages.map((_, i) => `<button class="${i === pg ? 'on' : ''}" data-hpage="${i}">${i + 1}</button>`).join('')}</div>`;
+  const ss = S.hallSeason;
+  return `${ribbon('Зал славы')}${pager}
+    ${pages[pg].map((id) => { const h = by[id]; if (!h) return ''; return `<div class="hall2"><img class="hmed" src="${HALL_IMG(id)}" alt="">
+      <div class="hright"><b>${esc(h.name)}</b><div>Позиция: ${fmtFull(h.pos)}</div><button class="hmore" data-hmore="${id}">Подробнее</button></div>
+      <div class="hshort">${esc(h.short)}</div></div>`; }).join('')}
+    ${pager}
+    ${ss && pg === 0 ? `<div class="bwline center small">Итоги ${monthName(ss.key)} через <span class="cd" data-e="${ss.end}"></span> — топ-3 каждой категории получат медаль и бонус репутации.</div>` : ''}`;
+}
+function hallDescWin() {
+  const h = (S.halls || []).find((x) => x.id === S.hallId); if (!h) return hallsWin();
+  const place = ['I', 'II', 'III'];
+  return `${ribbon('Описание')}
+    <div class="hmeds">${[1, 2, 3].map((i) => `<img src="${HALL_IMG(h.id, i)}" alt="">`).join('')}</div>
+    <div class="hdesc2">Бонус: ${h.bonus.join(', ')} <small>(репутация за I, II, III место)</small></div>
+    <div class="hdesc2"><b>${esc(h.name)}</b> <img class="hmini" src="${HALL_IMG(h.id, 1)}" alt=""> ${esc(h.desc)}</div>
+    ${ribbon('Лидеры месяца')}
+    ${h.top.length ? h.top.map((x, i) => `<div class="hrow">${i < 3 ? `<img src="${HALL_IMG(h.id, i + 1)}" alt="">` : `<span class="hnum">${i + 1}</span>`} <a data-cprof="${x.id}">${esc(x.login)}</a> — ${fmtFull(x.value)}</div>`).join('') : '<p class="parch-note">Пока никто не отличился.</p>'}
+    <div class="bwline center small">Ваша позиция: <b>${fmtFull(h.pos)}</b>${h.mine ? ` · ваши очки: <b>${fmtFull(h.mine)}</b>` : ''}</div>`;
 }
 const ALLY_MEDAL = { gold: 'Золотая медаль', silver: 'Серебряная медаль', bronze: 'Бронзовая медаль' };
 const MONTHS = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
@@ -363,7 +378,7 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
   if (m.t === 'chatusers') { S.chatUsers = m.list; const b = $('[data-chatusers]'); if (b) b.innerHTML = `<img src="${GFX}units/human/general.png" alt=""> Игроки (${m.list.length})`; return refreshSheet(); }
   if (m.t === 'chatlog') { S.chat = m.list; chatLine(); refreshSheet(); const l = $('#chatList'); if (l) l.scrollTop = l.scrollHeight; return; }
   if (m.t === 'chatmsg') { S.chat.push(m.msg); if (S.chat.length > 50) S.chat.shift(); chatLine(); chatListUpdate(); return; }
-  if (m.t === 'halls') { S.halls = m.list; S.hallSeason = m.season; S.hallLast = m.last; return refreshSheet(); }
+  if (m.t === 'halls') { S.halls = m.list; S.hallPages = m.pages; S.hallSeason = m.season; S.hallLast = m.last; return refreshSheet(); }
   if (m.t === 'ratings') { S.rlist = m.list; return refreshSheet(); }
   if (m.t === 'players') { S.plist = m.list; return refreshSheet(); }
   if (m.t === 'notes') { S.notes = m.text; return refreshSheet(); }
@@ -373,6 +388,8 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
 profileSheet = function (p) { S.lastProfile = p; return profileWin(p); }; // eslint-disable-line no-global-assign
 
 $('#sheetBody').addEventListener('click', (e) => {
+  const hp = e.target.closest('[data-hpage],[data-hmore]');
+  if (hp) { if (hp.dataset.hpage !== undefined) { S.hallPage = Number(hp.dataset.hpage); refreshSheet(); $('#sheetBody').scrollTop = 0; return; } S.hallId = hp.dataset.hmore; return openSheet(hallDescWin); }
   const t = e.target.closest('[data-cprof],[data-ptile],[data-hof],[data-soon],[data-switch],[data-switchxy],[data-saveplace]'); if (!t) return;
   const d = t.dataset;
   if (d.switch) { closeAllSheets(); Iso.cams = {}; S.switchTo = true; return send({ t: 'switch', id: Number(d.switch) }); }
