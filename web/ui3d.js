@@ -14,7 +14,7 @@ const raceIcon = (race) => gimg(RACE_IMG[race] || 'units/human/general.png', 'ri
 const MENUS = {
   cabinet: { label: 'Кабинет', icon: 'menu/cabinet.svg', items: () => [
     ...(S.st.user.admin ? [['Админ-панель', 'smallicon/status/f_gold.png', () => openSheet(adminHtml)]] : []),
-    ['Профиль', 'units/human/general.png', () => send({ t: 'profile', id: me() })],
+    ['Профиль', '../gfx3d/prof/king.png', () => openAccount()],
     ['Советник', `units/${S.cat.mil.raceDir[S.st.user.race]}/wisdom.png${S.st.user.race === 'orcs' ? '?orc' : ''}`, () => openSheet(advisorWin)],
     ['Казна', 'coins_s.png', () => openSheet(treasuryWin)],
     ['Премиум', 'premium_crown.png', () => openPremium()],
@@ -217,7 +217,6 @@ function profileWin(p) {
     ${ribbon('Информация')}
     <div class="pinfo"><div class="avatar">${avatarImg(p)}</div><div>
       Никнейм: <b>${esc(p.login)}</b><br>Ранг: ${p.rank}<br>Рейтинг: ${fmtFull(p.rating)}<br>Раса: ${raceIcon(p.race)} ${esc(p.raceName)}</div></div>
-    ${p.self ? `<div class="avbtns"><button class="pbtn small" data-avatar="set">Загрузить аватар</button>${p.avatar ? '<button class="pbtn small" data-avatar="del">Удалить</button>' : ''}</div>` : ''}
     <button class="pline plink2" data-reptable>Репутация (${fmtFull(p.reputation)}): ${repIcons(p.reputation)}</button>
     ${best.length ? `<div class="pline">Зал Славы: ${medals}</div>` : ''}
     ${p.title ? `<div class="ptitle">Звание: ${p.title === 'Администратор' ? `<img class="admbadge" src="${GFX}admin_badge.png" alt="">` : p.title === 'Модератор форума' ? `<img class="admbadge" src="${GFX}mod_badge.png" alt="">` : p.title === 'VIP' ? `<img class="admbadge crownp" src="${GFX}premium_crown.png" alt="">` : gimg('smallicon/status/f_gold.png', 'ri')} ${esc(p.title)}</div>` : ''}
@@ -464,12 +463,12 @@ avInput.addEventListener('change', async () => {
   g.drawImage(bmp, (bmp.width - side) / 2, (bmp.height - side) / 2, side, side, 0, 0, AVA, AVA);
   const px = g.getImageData(0, 0, AVA, AVA).data;
   let bin = ''; for (let i = 0; i < px.length; i += 0x8000) bin += String.fromCharCode.apply(null, px.subarray(i, i + 0x8000));
-  send({ t: 'avatar', op: 'set', px: btoa(bin) });
+  send({ t: 'avatar', op: 'set', px: btoa(bin), acct: 1 });
 });
 $('#sheetBody').addEventListener('click', (e) => {
   const t = e.target.closest('[data-avatar]'); if (!t) return;
   if (t.dataset.avatar === 'set') return avInput.click();
-  if (confirm('Удалить аватар?')) send({ t: 'avatar', op: 'del' });
+  if (confirm('Удалить аватар?')) send({ t: 'avatar', op: 'del', acct: 1 });
 });
 
 // ---------- Подарки: каталог «Все / Новые», отправка игроку ----------

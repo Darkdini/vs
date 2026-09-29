@@ -246,6 +246,7 @@ function install(Game) {
     if (t.admin || (t.mod && !user.admin)) return { error: 'Этого игрока забанить нельзя.' };
     hours = Number(hours);
     t.chatBan = hours === 0 ? 0 : hours < 0 ? -1 : Date.now() + hours * 3600000;
+    if (hours !== 0) t.violations = (t.violations || 0) + 1; // «Нарушения» в профиле
     this.event(t.id, hours === 0 ? 'Бан в чате снят.' : `Вам запрещено писать в чат ${hours < 0 ? 'навсегда' : `на ${hours} ч.`} (модератор ${user.login}).`);
     this.store.save();
     return { ok: true, msg: hours === 0 ? `Бан снят: ${t.login}.` : `${t.login}: бан в чате ${hours < 0 ? 'навсегда' : `на ${hours} ч.`}` };

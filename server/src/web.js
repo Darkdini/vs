@@ -236,7 +236,7 @@ const API = {
     const r = m.op === 'del' ? this.game.removeAvatar(this.user) : this.game.setAvatar(this.user, m.px);
     if (r.error) return this.error(r.error);
     this.toast(m.op === 'del' ? 'Аватар удалён.' : 'Аватар сохранён.');
-    this.send({ t: 'profile', refresh: true, profile: this.game.profileOf(this.user, this.user) });
+    API.profile.call(this, { id: this.user.id, acct: m.acct, refresh: 1 });
   },
   ritual(m) { const r = this.game.ritual(this.user, this.castle, m.id); if (r.msg) this.toast(r.msg); this.result(r); },
   calm() { const r = this.game.calmRiot(this.user, this.castle); if (r.msg) this.toast(r.msg); this.result(r); },
@@ -282,8 +282,20 @@ const API = {
   profile(m) {
     const u = this.game.userById(Number(m.id) || this.user.id);
     if (!u) return this.error('Игрок не найден.');
-    this.send({ t: 'profile', profile: this.game.profileOf(u, this.user) });
+    const profile = this.game.profileOf(u, this.user);
+    if (m.acct && u.id === this.user.id) { // «Кабинет → Профиль»: настройки своего аккаунта
+      const c = this.castle, v = this.user.violations || 0;
+      profile.acct = { castleName: c.name, castleDesc: c.desc || '', premium: this.game.isPremium(this.user), violations: v, uid: this.user.id };
+    }
+    this.send({ t: 'profile', acct: !!profile.acct, refresh: !!m.refresh, profile });
   },
+  passwd(m) {
+    const r = this.game.changePassword(this.user, m.old, m.new); if (r.error) return this.error(r.error);
+    this.token = this.game.issueToken(this.user);
+    this.send({ t: 'auth', login: this.user.login, token: this.token }); // новый токен «Запомнить меня»
+    this.toast('Пароль изменён. На других устройствах нужно войти заново.');
+  },
+  castleinfo(m) { const r = this.game.castleInfo(this.user, m.name, m.desc); if (r.error) return this.error(r.error); this.toast('Замок переименован.'); API.profile.call(this, { id: this.user.id, acct: 1, refresh: 1 }); },
   // ---- кабинет (server/src/social.js) ----
   rep(m) {
     const r = this.game.giveReputation(this.user, m.id, m.coins); if (r.error) return this.error(r.error);

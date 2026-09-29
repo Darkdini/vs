@@ -171,6 +171,25 @@ class Game {
     return { user: this.db.users[login] };
   }
 
+  // смена пароля игроком: нужен старый пароль; все прочие сессии завершаются
+  changePassword(user, oldPass, newPass) {
+    if (!checkPassword(String(oldPass || '').toLowerCase(), user.pass)) return { error: 'Старый пароль указан неверно.' };
+    newPass = String(newPass || '').toLowerCase();
+    if (newPass.length < 3) return { error: 'Новый пароль слишком короткий (минимум 3 символа).' };
+    if (newPass.length > 40) return { error: 'Новый пароль слишком длинный.' };
+    user.pass = hashPassword(newPass); user.tokens = [];
+    this.store.save();
+    return { ok: true };
+  }
+  // название и описание активного замка
+  castleInfo(user, name, desc) {
+    const c = this.castleOf(user);
+    name = String(name || '').replace(/[<>]/g, '').trim().slice(0, 24);
+    if (name.length < 2) return { error: 'Название замка — от 2 символов.' };
+    c.name = name; c.desc = String(desc || '').replace(/[<>]/g, '').trim().slice(0, 200);
+    this.store.save();
+    return { ok: true };
+  }
   login(login, password) {
     const u = this.db.users[String(login || '').trim().toLowerCase()];
     if (!u || !Object.prototype.hasOwnProperty.call(this.db.users, u.login) || !checkPassword(String(password || '').toLowerCase(), u.pass)) return null;

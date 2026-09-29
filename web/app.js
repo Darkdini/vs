@@ -167,7 +167,8 @@ function onMsg(m) {
     case 'state': onState(m); break;
     case 'world': if (!S.world || S.world.cx !== m.cx || S.world.cy !== m.cy) { delete Iso.cams.world; if (Iso.sel && Iso.sel.tab === 'world') Iso.sel = null; } S.world = m; if (S.tab === 'world') renderView(); break;
     case 'rating': S.ratingRows = m.rows; refreshSheet(); break;
-    case 'profile': if (m.refresh && S.sheets.length) { S.sheets[S.sheets.length - 1] = () => profileSheet(m.profile); showSheet(false); } else openSheet(() => profileSheet(m.profile)); break;
+    case 'profile': if (m.acct) { S.lastAcct = m.profile; S.lastProfile = m.profile; if (m.refresh && S.sheets.length) { S.sheets[S.sheets.length - 1] = () => accountWin(m.profile); showSheet(false); } else openSheet(() => accountWin(m.profile)); break; }
+      if (m.refresh && S.sheets.length) { S.sheets[S.sheets.length - 1] = () => profileSheet(m.profile); showSheet(false); } else openSheet(() => profileSheet(m.profile)); break;
     case 'mail': S.mail = m; refreshSheet(); break;
     case 'letter': openSheet(() => letterSheet(m.letter)); break;
     case 'toast':
@@ -363,7 +364,7 @@ $('#view').addEventListener('click', viewClick);
 $('#sheetBody').addEventListener('click', viewClick); // те же кнопки внутри окон
 
 const ACTS = {
-  me: () => send({ t: 'profile', id: S.st.user.id }),
+  me: () => openAccount(),
   mail: () => { openSub('mail'); send({ t: 'mail', folder: S.mailFolder }); },
   book: () => openSub('book'),
   army: () => openSub('army'),
