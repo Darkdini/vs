@@ -199,9 +199,14 @@ $('#sheetBody').addEventListener('input', (e) => { if (e.target.closest('.chatba
 const avatarImg = (p, cls = '') => (p.avatar ? `<img class="${cls}" src="avatar/${p.id}.png?v=${p.avatar}" alt="">` : raceIcon(p.race));
 function profileWin(p) {
   const tile = (key, icon, text, off) => `<button class="ptile ${off ? 'off' : ''}" data-ptile="${key}" data-pid="${p.id}"><img src="${icon.startsWith('gfx3d/') ? icon : GFX + icon}" alt=""><span>${text}</span></button>`;
-  const medals = p.medals.length ? p.medals.map((m) => `<img class="medal" src="${medalSrc(m.icon)}" alt="" title="Зал ${esc(m.name)} — ${m.place} место, получено ${fmtDay(m.at)}">`).join('') : '<span class="muted">нет</span>';
-  // Зал Славы: медали топ-3 по итогам соревновательного месяца, с датой получения
-  const hof = p.medals.length ? p.medals.map((m) => `<div class="award"><img src="${medalSrc(m.icon)}" alt=""><div><b>Зал ${esc(m.name)} — ${['I', 'II', 'III'][m.place - 1]} место</b><small>за ${monthName(m.month)} · получено ${fmtDay(m.at)}</small></div></div>`).join('') : '<div class="parch-note">Пока нет — медали получают топ-3 игрока каждого зала в конце соревновательного месяца.</div>';
+  // Зал Славы как в оригинале: в «Информации» — ряд значков (по лучшему месту в каждой категории),
+  // в разделе ниже — последние 5 медалей крупно и «Посмотреть» (все медали с датами)
+  const best = []; const seen = {};
+  for (const m of p.medals.slice().sort((a, b) => a.place - b.place || b.at - a.at)) if (!seen[m.hall]) { seen[m.hall] = 1; best.push(m); }
+  const mtitle = (m) => `Зал «${esc(m.name)}» — ${['I', 'II', 'III'][m.place - 1]} место за ${monthName(m.month)}, получено ${fmtDay(m.at)}`;
+  const medals = best.length ? `<span class="hofrow">${best.map((m) => `<img class="medal" src="${medalSrc(m.icon)}" alt="" title="${mtitle(m)}" data-medal="${m.at}:${m.hall}">`).join('')}</span>` : '<span class="muted">нет</span>';
+  const hof = p.medals.length ? `<div class="hofbig">${p.medals.slice(0, 5).map((m) => `<img src="${medalSrc(m.icon)}" alt="" title="${mtitle(m)}" data-medal="${m.at}:${m.hall}">`).join('')}</div>`
+    : '<div class="parch-note">Пока нет — медали получают топ-3 игрока каждой категории в конце соревновательного месяца.</div>';
   // Награждения: медали от альянса за заслуги
   const aw = p.awards || [];
   const awards = aw.length ? aw.map((m) => `<div class="award"><img src="${GFX}smallicon/status/${m.kind}.png" alt=""><div><b>${esc(ALLY_MEDAL[m.kind] || 'Медаль')} от альянса [${esc(m.tag)}]</b><small>${m.text ? `«${esc(m.text)}» · ` : ''}вручил ${esc(m.by)} · получено ${fmtDay(m.at)}</small></div></div>`).join('') : '<div class="parch-note">Пока нет — медали за заслуги вручает глава альянса.</div>';
@@ -229,10 +234,18 @@ function profileWin(p) {
       ${tile('more', 'gfx3d/prof/more.png', '')}
     </div>
     ${ribbon(`Подарки - ${(p.gifts || []).length}`)}${(p.gifts || []).length ? `<div class="pgifts">${p.gifts.map((g) => { const G = S.cat.gifts[g.gift] || {}; return `<button class="pgift" data-cprof="${g.fromId}" title="${esc(G.name || '')}"><img src="${GFX}${G.img}" alt=""><small>от ${esc(g.from)}</small>${g.text ? `<i>«${esc(g.text)}»</i>` : ''}</button>`; }).join('')}</div>` : '<div class="parch-note">Подарков пока нет.</div>'}
-    ${ribbon(`Зал Славы - ${p.medals.length}`)}${hof}<button class="pbar" data-hof>Посмотреть</button>
+    ${ribbon('Зал Славы')}${hof}<button class="pbar pview" data-mymedals><img src="${HALL_IMG('rule', 1)}" alt=""> Посмотреть</button>
     ${ribbon(`Награждения - ${aw.length}`)}${awards}
     ${ribbon(`Замки - ${p.castles.length}`)}
     ${p.castles.map((c) => `<button class="pcastle" data-goworld="${c.x},${c.y}"><img src="${GFX}ground/castle_small.png" alt=""> ${esc(c.name)}<br>X: ${c.x}, Y: ${c.y}${c.capital ? ' (Столица)' : ''}</button>`).join('')}`;
+}
+// все медали Зала Славы игрока с датами получения
+function medalsWin(p) {
+  const list = p.medals || [];
+  return `${ribbon('Зал Славы')}<div class="bwline center">${esc(p.login)} · медалей: <b>${list.length}</b></div>
+    ${list.length ? list.map((m) => `<div class="award"><img src="${medalSrc(m.icon)}" alt=""><div><b>${esc(m.name)} — ${['I', 'II', 'III'][m.place - 1]} место</b><small>за ${monthName(m.month)} · получено ${fmtDay(m.at)}${m.bonus ? ` · бонус +${fmtFull(m.bonus)} репутации` : ''}</small></div></div>`).join('')
+      : '<div class="parch-note">Медалей пока нет.</div>'}
+    <button class="pbar" data-hof>Зал славы</button>`;
 }
 function profileMoreWin(p) {
   const tile = (key, icon, text, off) => `<button class="ptile ${off ? 'off' : ''}" data-ptile="${key}" data-pid="${p.id}"><img src="${GFX}${icon}" alt=""><span>${text}</span></button>`;
@@ -388,6 +401,8 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
 profileSheet = function (p) { S.lastProfile = p; return profileWin(p); }; // eslint-disable-line no-global-assign
 
 $('#sheetBody').addEventListener('click', (e) => {
+  const md = e.target.closest('[data-mymedals],[data-medal]');
+  if (md) { const p = S.lastProfile; if (md.dataset.medal) { const m = p.medals.find((x) => `${x.at}:${x.hall}` === md.dataset.medal); if (m) toast(`${m.name}: ${['I', 'II', 'III'][m.place - 1]} место за ${monthName(m.month)}, получено ${fmtDay(m.at)}`); return; } return openSheet(() => medalsWin(p)); }
   const hp = e.target.closest('[data-hpage],[data-hmore]');
   if (hp) { if (hp.dataset.hpage !== undefined) { S.hallPage = Number(hp.dataset.hpage); refreshSheet(); $('#sheetBody').scrollTop = 0; return; } S.hallId = hp.dataset.hmore; return openSheet(hallDescWin); }
   const t = e.target.closest('[data-cprof],[data-ptile],[data-hof],[data-soon],[data-switch],[data-switchxy],[data-saveplace]'); if (!t) return;
