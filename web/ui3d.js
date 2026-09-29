@@ -202,7 +202,8 @@ function profileWin(p) {
   // Зал Славы как в оригинале: в «Информации» — ряд значков (по лучшему месту в каждой категории),
   // в разделе ниже — последние 5 медалей крупно и «Посмотреть» (все медали с датами)
   const best = []; const seen = {};
-  for (const m of p.medals.slice().sort((a, b) => a.place - b.place || b.at - a.at)) if (!seen[m.hall]) { seen[m.hall] = 1; best.push(m); }
+  const fresh = p.medals.filter((m) => m.at > Date.now() - 30 * 86400000); // строка под репутацией — только медали последнего месяца
+  for (const m of fresh.sort((a, b) => a.place - b.place || b.at - a.at)) if (!seen[m.hall]) { seen[m.hall] = 1; best.push(m); }
   const mtitle = (m) => `Зал «${esc(m.name)}» — ${['I', 'II', 'III'][m.place - 1]} место за ${monthName(m.month)}, получено ${fmtDay(m.at)}`;
   const medals = best.length ? `<span class="hofrow">${best.map((m) => `<img class="medal" src="${medalSrc(m.icon)}" alt="" title="${mtitle(m)}" data-medal="${m.at}:${m.hall}">`).join('')}</span>` : '<span class="muted">нет</span>';
   const hof = p.medals.length ? `<div class="hofbig">${p.medals.slice(0, 5).map((m) => `<img src="${medalSrc(m.icon)}" alt="" title="${mtitle(m)}" data-medal="${m.at}:${m.hall}">`).join('')}</div>`
@@ -218,7 +219,7 @@ function profileWin(p) {
       Никнейм: <b>${esc(p.login)}</b>${p.online ? ' <span class="online">в игре</span>' : ''}<br>Ранг: ${p.rank}<br>Рейтинг: ${fmtFull(p.rating)}<br>Раса: ${raceIcon(p.race)} ${esc(p.raceName)}</div></div>
     ${p.self ? `<div class="avbtns"><button class="pbtn small" data-avatar="set">Загрузить аватар</button>${p.avatar ? '<button class="pbtn small" data-avatar="del">Удалить</button>' : ''}</div>` : ''}
     <button class="pline plink2" data-reptable>Репутация (${fmtFull(p.reputation)}): ${repIcons(p.reputation)}</button>
-    <div class="pline">Зал Славы: ${medals}</div>
+    ${best.length ? `<div class="pline">Зал Славы: ${medals}</div>` : ''}
     ${p.title ? `<div class="ptitle">Звание: ${p.title === 'Администратор' ? `<img class="admbadge" src="${GFX}admin_badge.png" alt="">` : p.title === 'Модератор форума' ? `<img class="admbadge" src="${GFX}mod_badge.png" alt="">` : p.title === 'VIP' ? `<img class="admbadge crownp" src="${GFX}premium_crown.png" alt="">` : gimg('smallicon/status/f_gold.png', 'ri')} ${esc(p.title)}</div>` : ''}
     <div class="pline">Альянс: ${p.alliance ? `<b>${esc(p.alliance.name)} [${esc(p.alliance.tag)}]</b>` : '—'}</div>
     ${p.alliance ? `<div class="pline">Звание в альянсе: ${esc(p.alliance.role)}</div>` : ''}
