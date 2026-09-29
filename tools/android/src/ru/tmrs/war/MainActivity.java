@@ -76,8 +76,9 @@ public class MainActivity extends Activity {
         });
 
         setContentView(web);
-        if (state != null) web.restoreState(state);
-        else web.loadUrl(home);
+        // историю WebView не сохраняем: игра кладёт каждое окно в history, и большой Bundle ронял приложение при сворачивании.
+        // После возврата страница просто открывается заново, вход — по сохранённой сессии «Запомнить меня».
+        web.loadUrl(home);
     }
 
     private String offlinePage() {
@@ -106,13 +107,13 @@ public class MainActivity extends Activity {
     }
 
     @Override
-    protected void onSaveInstanceState(Bundle out) {
-        super.onSaveInstanceState(out);
-        web.saveState(out);
+    protected void onResume() {
+        super.onResume();
+        web.onResume();
+        web.resumeTimers();
+        // соединение с сервером могло оборваться, пока приложение было свёрнуто, — игра проверит его и переподключится
+        web.loadUrl("javascript:window.appResume&&window.appResume()");
     }
-
-    @Override
-    protected void onResume() { super.onResume(); web.onResume(); }
 
     @Override
     protected void onPause() { web.onPause(); super.onPause(); }

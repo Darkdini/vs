@@ -162,7 +162,7 @@ class WebSession {
     }
     const fn = Object.prototype.hasOwnProperty.call(API, msg.t) ? API[msg.t] : null;
     if (!fn) return this.error(`Неизвестная команда ${msg.t}`);
-    if (!['register', 'login', 'hello', 'captcha'].includes(msg.t) && !this.user) return this.error('Сначала войдите.');
+    if (!['register', 'login', 'hello', 'captcha', 'ping'].includes(msg.t) && !this.user) return this.error('Сначала войдите.');
     this.failed = false;
     fn.call(this, msg);
     // лояльность населения (Резиденция) растёт за действия, а не за онлайн
@@ -226,6 +226,7 @@ const API = {
   },
   logout() { this.game.dropToken(this.user, this.token); this.user.online = false; this.user = null; this.send({ t: 'loggedout' }); },
   sync() { this.pushState(); },
+  ping() { this.send({ t: 'pong' }); }, // проверка живости соединения (клиент после сворачивания приложения)
   switch(m) { const r = this.game.switchCastle(this.user, m.id); if (r.error) return this.error(r.error); this.toast(`Замок: ${this.castle.name}`); this.pushState(); },
   build(m) {
     const res = this.game.startBuild(this.castle, Number(m.view), Number(m.cell), Number(m.building));

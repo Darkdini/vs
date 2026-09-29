@@ -144,8 +144,23 @@ function connect() {
     if (S.creds) { S.auto = true; send({ t: 'login', ...S.creds, dev: DEV }); }
   };
   ws.onmessage = (e) => { try { onMsg(JSON.parse(e.data)); } catch (err) { console.error(err); } };
-  ws.onclose = () => { if (S.ws !== ws) return; $('#offline').classList.add('show'); setTimeout(connect, 2000); };
+  ws.onclose = () => { if (S.ws !== ws) return; $('#offline').classList.add('show'); clearTimeout(S.reTimer); S.reTimer = setTimeout(connect, 2000); };
 }
+// Возврат в игру (свернули приложение/вкладку, телефон спал): соединение могло тихо оборваться.
+// Живое — отвечает на ping за 4 с; иначе сразу переподключаемся (вход по токену «Запомнить меня» — сам).
+function wake() {
+  const ws = S.ws;
+  if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) { clearTimeout(S.reTimer); return connect(); }
+  if (ws.readyState !== WebSocket.OPEN) return;
+  clearTimeout(S.pingTimer);
+  S.pingTimer = setTimeout(() => { if (S.ws === ws) { S.ws = null; try { ws.close(); } catch { /* уже закрыт */ } clearTimeout(S.reTimer); connect(); } }, 4000);
+  try { ws.send(JSON.stringify({ t: 'ping' })); } catch { /* закрыт */ }
+}
+window.appResume = wake; // вызывает Android-приложение при возврате из фона
+document.addEventListener('visibilitychange', () => { if (!document.hidden) wake(); });
+window.addEventListener('online', wake);
+window.addEventListener('pageshow', wake);
+setInterval(() => { if (!document.hidden) wake(); }, 30000); // раз в 30 с — держать соединение живым
 
 // админ-панель грузится отдельно и только для админа (сервер отдаёт admin.js лишь по токену админа)
 function loadAdmin() {
@@ -158,6 +173,7 @@ function loadAdmin() {
 }
 function onMsg(m) {
   switch (m.t) {
+    case 'pong': clearTimeout(S.pingTimer); break;
     case 'catalog':
       S.cat = m.catalog; S.by = Object.fromEntries(S.cat.buildings.map((b) => [b.id, b]));
       renderRaces(); $('#ver').textContent = S.cat.version ? `версия ${S.cat.version}` : ''; break;
