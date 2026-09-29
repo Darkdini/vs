@@ -1072,14 +1072,15 @@ function install(Game, helpers) {
   };
   // счётчики армий для верхней панели: свои подкрепления (и идущие к нам), свои нападения, нападения на нас (видит Караульная башня)
   P.moveCounts = function moveCounts(user) {
-    let reinf = 0, att = 0, inc = 0;
+    let reinf = 0, att = 0, inc = 0, home = 0;
     for (const c of this.castlesOf(user)) {
+      for (const a of c.armies || []) if (a.state === 'back') home++; // возвращаются домой после нападения, набега, разведки, торговли
       for (const a of c.armies || []) if (a.state === 'go' || a.state === 'wait') {
         if (a.mission === 'reinforce') reinf++; else if (['attack', 'raid', 'scout'].includes(a.mission)) att++;
       }
       for (const a of this.incoming(c)) if (a.mission === 'reinforce') reinf++; else if (['attack', 'raid'].includes(a.mission)) inc++;
     }
-    return { reinf, att, inc };
+    return { reinf, att, inc, home };
   };
   // оповещение при выходе армии: нападение/набег на замок короля с Караульной башней
   P.warnIncoming = function warnIncoming(c, a) {

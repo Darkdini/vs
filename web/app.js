@@ -282,7 +282,7 @@ function renderTop() { // конверты сообщений и отчётов 
   $('#unrep').textContent = rep; $('#unrep').classList.toggle('hidden', !rep);
   // верхняя панель: сколько армий идёт (подкрепления — зелёный щит, наши нападения — зелёные мечи, на нас — красные мечи)
   const mv = S.st.moves || {};
-  for (const [id, n] of [['#mvReinf', mv.reinf], ['#mvAtt', mv.att], ['#mvInc', mv.inc]]) { const b = $(id); b.classList.toggle('hidden', !n); b.querySelector('b').textContent = n || ''; }
+  for (const [id, n] of [['#mvReinf', mv.reinf], ['#mvAtt', mv.att], ['#mvInc', mv.inc], ['#mvHome', mv.home]]) { const b = $(id); b.classList.toggle('hidden', !n); b.querySelector('b').textContent = n || ''; }
   tick();
 }
 function tick() {
