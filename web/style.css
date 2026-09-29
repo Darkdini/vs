@@ -1149,3 +1149,8 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 /* чат: новые сообщения всегда внизу и видны сразу — лента «прилипает» к низу (порядок в разметке обратный) */
 #sheetBody .chatlist { display: flex; flex-direction: column-reverse; }
 img[src*="/hd/"] { image-rendering: auto !important; }
+/* Рынок → Передать: быстрый выбор своего замка */
+.mkown { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0 6px; font: 16px var(--serif); color: #2a1408; }
+.mkown button { border: 2px solid #c8963e; border-radius: 6px; background: #f6e2c0; padding: 4px 8px; font: 15px var(--serif); color: #2a1408; }
+.mkown button.on { background: #e8b44a; }
+.mkown small { color: #6a4a2a; }

@@ -244,7 +244,7 @@ function install(Game, helpers) {
   P.sendTrade = function sendTrade(castle, { x, y, res }) {
     this.tick(castle);
     const m = this.merchants(castle);
-    if (!m.level) return { error: 'Нужен Рынок.' };
+    if (!m.level) return { error: `В замке «${castle.name}» нет Рынка — ресурсы возят торговцы с Рынка. Постройте его или отправьте из замка, где Рынок есть.` };
     x = Math.round(Number(x)); y = Math.round(Number(y));
     if (!Number.isFinite(x) || !Number.isFinite(y)) return { error: 'Укажите координаты замка.' };
     if (x === castle.x && y === castle.y) return { error: 'Это этот же замок.' };

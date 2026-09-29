@@ -158,6 +158,7 @@ function mktGiveWin() {
   const total = RES4.reduce((s, r) => s + (Number(g.res[r]) || 0), 0), need = m.carry ? Math.ceil(total / m.carry) : 0;
   return `${ribbon('Передать')}
     <div class="bwline">Свободных торговцев: <b>${m.free}</b> из ${m.total} · каждый везёт <b>${fmtFull(m.carry)}</b></div>
+    ${(S.st.castles || []).filter((c) => !c.active).length ? `<div class="mkown"><span>Мои замки:</span>${S.st.castles.filter((c) => !c.active).map((c) => `<button class="${String(g.x) === String(c.x) && String(g.y) === String(c.y) ? 'on' : ''}" data-mkown="${c.x},${c.y}">${esc(c.name)} <small>${c.x}:${c.y}</small></button>`).join('')}</div>` : ''}
     <div class="row2 cxy"><label>X<input type="number" inputmode="numeric" data-mkx="x" value="${esc(g.x)}"></label><label>Y<input type="number" inputmode="numeric" data-mkx="y" value="${esc(g.y)}"></label></div>
     <div class="row2">${RES4.map((r) => `<label>${RES_IC[r]}<input type="number" inputmode="numeric" min="0" data-mkr="${r}" value="${g.res[r] || ''}" placeholder="0"></label>`).join('')}</div>
     <div class="cinfo">Понадобится торговцев: <b id="mkNeed" class="${need > m.free ? 'bad' : ''}">${need}</b></div>
@@ -177,6 +178,8 @@ function mktBarterWin() {
       <p class="small muted">Курс ${rate.toFixed(2)} (растёт с уровнем Рынка, максимум 1:1).</p><button class="btn primary">Обменять</button></form>`;
 }
 $('#sheetBody').addEventListener('click', (e) => {
+  const own = e.target.closest('[data-mkown]');
+  if (own) { const [x, y] = own.dataset.mkown.split(','); S.mkt.x = x; S.mkt.y = y; return refreshSheet(); }
   const t = e.target.closest('[data-mkt]'); if (!t) return;
   const k = t.dataset.mkt;
   if (k === 'give') { S.mkt = null; return openSheet(mktGiveWin); }
@@ -313,7 +316,10 @@ function reportHtml(r) {
 function worldActions(o, x, y) {
   const b = (m, t) => `<button class="btn ${m === 'attack' ? 'primary' : ''}" data-armyopen="${m}" data-ax="${x}" data-ay="${y}">${t}</button>`;
   if (o.kind === 'castle') {
-    if (o.ownerId === S.st.user.id) return '';
+    if (o.ownerId === S.st.user.id) { // свой замок: если не текущий — отправить ресурсы или подкрепление
+      const here = S.st.castle && S.st.castle.x === x && S.st.castle.y === y;
+      return here ? '' : `<div class="btns" style="margin-top:8px">${b('trade', 'Отправить ресурсы')}${b('reinforce', 'Подкрепление')}</div>`;
+    }
     return `<div class="btns" style="margin-top:8px">${b('attack', 'Атака')}${b('raid', 'Набег')}</div><div class="btns" style="margin-top:8px">${b('scout', 'Разведка')}${b('trade', 'Торговля')}</div>`;
   }
   const npc = M().npc[o.img];

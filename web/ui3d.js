@@ -394,7 +394,7 @@ function castlesWin() {
   const list = S.st.castles || [];
   return `${ribbon(`Мои замки - ${list.length}`)}${list.map((c) => `<div class="pcastle ${c.active ? 'active' : ''}"><img src="${GFX}ground/castle_small.png" alt=""> ${esc(c.name)}<br>X: ${c.x}, Y: ${c.y}${c.capital ? ' (Столица)' : ''}
     <div class="pcsub">★ ${fmtFull(c.rating)} · лояльность ${c.loyalty}${c.active ? ' · вы здесь' : ''}</div>
-    <div class="btns">${c.active ? '' : `<button class="btn primary small" data-switch="${c.id}">Перейти в замок</button>`}<button class="btn small" data-goworld="${c.x},${c.y}">На карте</button></div></div>`).join('')}
+    <div class="btns">${c.active ? '' : `<button class="btn primary small" data-switch="${c.id}">Перейти в замок</button>`}<button class="btn small" data-goworld="${c.x},${c.y}">На карте</button>${c.active ? '' : `<button class="btn small" data-mksend="${c.x},${c.y}">Отправить ресурсы</button>`}</div></div>`).join('')}
     <p class="parch-note">Новые замки захватывают: атака с Бунтарями на Заброшенный замок или на не-столичный замок игрока.</p>`;
 }
 function advisorWin() {
@@ -450,12 +450,13 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (hp) { if (hp.dataset.hpage !== undefined) { S.hallPage = Number(hp.dataset.hpage); refreshSheet(); $('#sheetBody').scrollTop = 0; return; } return openHall(hp.dataset.hmore); }
   const hx = e.target.closest('[data-hpg],[data-hdesc],[data-harch]');
   if (hx) { if (hx.dataset.hpg !== undefined) return send({ t: 'hall', id: S.hallId, page: Number(hx.dataset.hpg), ...(S.hallWhoId !== undefined ? { who: S.hallWhoId } : {}) }); if (hx.dataset.hdesc) return openSheet(hallDescWin); return openSheet(hallArchWin); }
-  const t = e.target.closest('[data-cprof],[data-ptile],[data-hof],[data-soon],[data-switch],[data-switchxy],[data-saveplace]'); if (!t) return;
+  const t = e.target.closest('[data-cprof],[data-ptile],[data-hof],[data-soon],[data-switch],[data-switchxy],[data-saveplace],[data-mksend]'); if (!t) return;
   const d = t.dataset;
   if (d.switch) { closeAllSheets(); Iso.cams = {}; S.switchTo = true; return send({ t: 'switch', id: Number(d.switch) }); }
   if (d.switchxy) { const [x, y] = d.switchxy.split(',').map(Number); const c = (S.st.castles || []).find((k) => k.x === x && k.y === y); if (c) { closeAllSheets(); Iso.cams = {}; S.switchTo = true; send({ t: 'switch', id: c.id }); } return; }
   if (d.saveplace) { const [x, y] = d.saveplace.split(',').map(Number); S.places = S.places || []; if (!S.places.some((p) => p.x === x && p.y === y)) S.places.push({ x, y }); store.set('tw.places', S.places); toast('Место запомнено.'); return refreshSheet(); }
   if (d.cprof) return send({ t: 'profile', id: Number(d.cprof) });
+  if (d.mksend) { const [x, y] = d.mksend.split(','); if (!MY().merchants.level) return toast(`В этом замке нет Рынка — ресурсы отправляют торговцы с Рынка. Постройте Рынок или перейдите в замок, где он есть.`, 'err'); S.mkt = { x, y, res: {} }; return openSheet(mktGiveWin); }
   if (d.hof !== undefined) return openHalls(d.hof ? Number(d.hof) : undefined);
   if (d.soon) return openSoon(d.soon);
   if (d.ptile) {
