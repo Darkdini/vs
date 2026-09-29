@@ -20,6 +20,12 @@ function install(Game) {
     const n = this.newsDb().filter((x) => !x.deleted && x.at >= (u.created || 0) - 1000 && !seen.has(x.id)).pop();
     return n ? n.id : 0;
   };
+  // открыл новости с фиолетового конверта — все текущие новости считаются прочитанными (конверт исчезает)
+  P.newsReadAll = function newsReadAll(u) {
+    const seen = new Set(u.newsRead || []);
+    for (const n of this.newsDb()) if (!n.deleted) seen.add(n.id);
+    u.newsRead = [...seen].slice(-500); this.store.save();
+  };
   P.newsList = function newsList(u, page = 0) {
     const all = this.newsDb().filter((n) => !n.deleted).slice().reverse(), seen = new Set(u.newsRead || []);
     const pages = Math.max(1, Math.ceil(all.length / PAGE)), pg = Math.max(0, Math.min(pages - 1, Math.floor(Number(page)) || 0));

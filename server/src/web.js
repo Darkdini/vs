@@ -370,7 +370,7 @@ const API = {
   news(m) {
     const g = this.game, u = this.user, op = String(m.op || 'list');
     if (op === 'list') return this.send({ t: 'news', view: 'list', data: g.newsList(u, m.page) });
-    if (op === 'get') { const r = g.newsGet(u, m.id); if (r.error) return this.error(r.error); this.send({ t: 'news', view: 'item', data: r }); return this.pushState(); }
+    if (op === 'get') { if (m.all) g.newsReadAll(u); const r = g.newsGet(u, m.id); if (r.error) return this.error(r.error); this.send({ t: 'news', view: 'item', data: r }); return this.pushState(); }
     const r = g.newsOp(u, m); if (r.error) return this.error(r.error); this.toast(r.msg);
     if (op === 'comment' || op === 'cmtdel') { const it = g.newsGet(u, r.id); if (!it.error) this.send({ t: 'news', view: 'item', data: it, scroll: op === 'comment' ? 1 : 0 }); }
     if (op === 'publish' || op === 'delete') { for (const s of WebSession.all || []) if (s.user) s.pushState(); }

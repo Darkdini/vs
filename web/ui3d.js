@@ -111,7 +111,7 @@ $('#menu').addEventListener('click', (e) => {
 // ---------- верх, панель локаций, низ ----------
 $('#btnMail').addEventListener('click', () => ACTS.mail());
 $('#btnRep').addEventListener('click', () => openReports());
-$('#btnNews').addEventListener('click', () => { const id = S.st.newsFirst; if (id) openNewsItem(id); else openNews(); }); // непрочитанная новость открывается сразу
+$('#btnNews').addEventListener('click', () => { const id = S.st.newsFirst; $('#btnNews').classList.add('hidden'); if (id) openNewsItem(id, true); else openNews(); }); // непрочитанная новость открывается сразу
 $('#locsTab').addEventListener('click', () => $('#locs').classList.toggle('open'));
 $('#locs').addEventListener('click', (e) => {
   const b = e.target.closest('[data-loc]'); if (!b) return;

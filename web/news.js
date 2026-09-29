@@ -4,7 +4,7 @@
 // Сервер: server/src/news.js, API { t: 'news', op }.
 S.news = { list: null, item: null, page: 0 };
 function openNews() { S.news.list = null; send({ t: 'news', op: 'list', page: S.news.page }); openSheet(newsListWin); }
-function openNewsItem(id) { S.news.item = null; send({ t: 'news', op: 'get', id }); openSheet(newsItemWin); }
+function openNewsItem(id, all) { S.news.item = null; send({ t: 'news', op: 'get', id, ...(all ? { all: 1 } : {}) }); openSheet(newsItemWin); }
 const newsDate = (t) => `${new Date(t).toLocaleDateString('ru-RU')} ${new Date(t).toLocaleTimeString('ru-RU', { hour: 'numeric', minute: '2-digit' })}`;
 function newsListWin() {
   const L = S.news.list; if (!L) return `${ribbon('Новости')}<p class="parch-note">Загрузка…</p>`;
