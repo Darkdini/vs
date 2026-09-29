@@ -168,7 +168,8 @@ function onMsg(m) {
       break;
     case 'auth':
       // браузер хранит только токен сессии, не пароль
-      S.creds = { login: m.login, token: m.token }; S.pendingCreds = null;
+      // show — то, что игрок вводил в поле «Логин» (у админа это секретный логин, а в игре он «admin»)
+      S.creds = { login: m.login, token: m.token, show: (S.pendingCreds && S.pendingCreds.login) || (S.creds && S.creds.show) || m.login }; S.pendingCreds = null;
       store.set('tw.creds', S.remember ? S.creds : null);
       S.auto = false;
       $('#auth').classList.add('hidden'); $('#game').classList.remove('hidden');
@@ -190,7 +191,7 @@ function onMsg(m) {
     case 'loginlock': showLock(Date.now() + m.sec * 1000); break;
     case 'error':
       if (S.auto || !S.st) { // ошибка входа — показать форму
-        S.auto = false; S.creds = null; store.set('tw.creds', null);
+        S.auto = false; if (S.creds) $('#authForm').login.value = S.creds.show || S.creds.login; S.creds = null; store.set('tw.creds', null);
         $('#auth').classList.remove('hidden'); $('#game').classList.add('hidden');
         $('#authErr').textContent = m.msg;
       } else toast(m.msg, 'err');
@@ -993,8 +994,10 @@ S.creds = store.get('tw.creds');
 if (S.creds && S.creds.password) { S.creds = null; store.set('tw.creds', null); } // старый формат с паролем — стираем
 S.remember = true;
 store.set('tw.lock', null); // блокировку решает только сервер: после его перезапуска старая табличка не нужна
-if (S.creds) $('#authForm').login.value = S.creds.login;
+if (S.creds) $('#authForm').login.value = S.creds.show || S.creds.login;
 connect();
+// «Скачать на Android» — если APK лежит на сервере и игра открыта не в самом приложении
+if (!/WarKingsApp/.test(navigator.userAgent)) fetch('war-kings.apk', { method: 'HEAD' }).then((r) => { if (r.ok) $('#apkLink').classList.remove('hidden'); }).catch(() => {});
 
 // ---------- имитация нажатия кнопок (профиль, альянс, меню) ----------
 // Плитка на мгновение «вдавливается», телефон слегка вибрирует, и только потом открывается окно —

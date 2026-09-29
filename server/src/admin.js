@@ -31,7 +31,7 @@ function install(Game) {
       if (FULL) { const c = this.castleOf(u); c.name = 'Королевский замок'; this.maxOut(c); }
     } else if (!FULL && !u.freshStart && (u.adminGold || this.castlesOf(u).length > 1)) this.adminFresh(u); // прокачанный админ из старой базы → с нуля (один раз)
     // сброс пароля админа при запуске: ADMIN_PASS=новый ADMIN_RESET=1 sh ~/game/start.sh
-    if (pass && process.env.ADMIN_RESET === '1') { const cr = require('crypto'), salt = cr.randomBytes(8).toString('hex'); u.pass = `${salt}:${cr.scryptSync(String(pass).toLowerCase(), salt, 32).toString('hex')}`; u.tokens = []; this.adminReset = true; }
+    if (pass && process.env.ADMIN_RESET === '1' && !this.login(u.login, pass)) { const cr = require('crypto'), salt = cr.randomBytes(8).toString('hex'); u.pass = `${salt}:${cr.scryptSync(String(pass).toLowerCase(), salt, 32).toString('hex')}`; u.tokens = []; this.adminReset = true; }
     u.admin = true;
     if (FULL) {
       if (!u.adminGold) { u.gold = Math.max(u.gold || 0, 1000000); u.adminGold = true; } // миллион золота админу — один раз

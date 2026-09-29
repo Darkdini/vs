@@ -16,7 +16,7 @@ const ARMY = require('./army');
 
 const WEB_ROOT = path.join(__dirname, '..', '..', 'web');
 const WS_MAX = 256 * 1024;
-const MIME = { '.webmanifest': 'application/manifest+json', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml' };
+const MIME = { '.webmanifest': 'application/manifest+json', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.apk': 'application/vnd.android.package-archive' };
 
 // ---------- WebSocket ----------
 function wsAccept(req, socket) {
@@ -472,6 +472,7 @@ function startWeb(game, sessions, { port, host, log }) {
     if (!f) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('not found'); }
     // картинки браузер держит в кэше сутки; код и стили — всегда сверяет по ETag (ответ 304 без тела)
     const head = { 'Content-Type': f.type, ETag: f.etag, 'Cache-Control': f.img ? 'public, max-age=86400' : 'no-cache', ...SEC_HEADERS };
+    if (file.endsWith('.apk')) head['Content-Disposition'] = 'attachment; filename="war-kings.apk"'; // приложение для Android — скачивается файлом
     if (req.headers['if-none-match'] === f.etag) { res.writeHead(304, head); return res.end(); }
     if (f.gz && /\bgzip\b/.test(req.headers['accept-encoding'] || '')) { res.writeHead(200, { ...head, 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' }); return res.end(f.gz); }
     res.writeHead(200, head); res.end(f.body);

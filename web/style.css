@@ -1133,3 +1133,8 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 #sheetBody:has(> .chatbar) .smilebox { flex: none; }
 .chattop .lbar img { height: 40px; width: 40px; }
 #sheetBody .cm { padding: 6px 10px; font-size: min(20px, 4.6vw); }
+/* «Скачать на Android» под формой входа */
+.apklink { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 14px auto 0; max-width: 320px; padding: 10px 16px; border: 2px solid #c8963e; border-radius: 10px;
+  background: linear-gradient(#3a5a1a, #1f3a0a); color: #eaffc8; font: 700 18px var(--serif); text-decoration: none; box-shadow: 0 3px 6px #0008; }
+.apklink img { width: 28px; height: 28px; }
+.apklink:active { transform: translateY(1px); filter: brightness(.9); }

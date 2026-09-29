@@ -207,5 +207,16 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.strictEqual(g.castleOf(adm).id, cid, 'сброс только один раз');
   console.log(`✓ админ с нуля: 1 замок (рейтинг ${g.rating(g.castleOf(adm))}), 30 золота; прокачанный из старой базы сбрасывается один раз`);
 }
+// перезапуск сервера с тем же паролем админа (ADMIN_RESET=1) не сбрасывает сессии «Запомнить меня»
+{
+  process.env.ADMIN_RESET = '1';
+  const adm = g.ensureAdmin('samepass123'), tok = g.issueToken(adm);
+  g.ensureAdmin('samepass123');
+  assert.ok(g.tokenLogin('admin', tok), 'сессия админа пережила перезапуск');
+  g.ensureAdmin('otherpass123');
+  assert.ok(!g.tokenLogin('admin', tok) && g.login('admin', 'otherpass123'), 'смена пароля завершает сессии');
+  delete process.env.ADMIN_RESET;
+  console.log('✓ «Запомнить меня» у админа переживает перезапуск сервера; смена пароля завершает сессии');
+}
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);

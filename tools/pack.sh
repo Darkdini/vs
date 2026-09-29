@@ -11,6 +11,8 @@ cp -r "$ROOT/web" "$ROOT/data" "$G/"
 cp -r "$ROOT/server/src" "$ROOT/server/package.json" "$G/server/"
 cp "$ROOT"/deploy/*.sh "$ROOT/deploy/README.txt" "$G/"
 cp "$ROOT/deploy/admin.sh" "$G/" 2>/dev/null || true
+# Android-приложение: раздаётся сервером по ссылке «Скачать на Android» на экране входа
+[ -f "$ROOT/dist/war-kings.apk" ] && cp "$ROOT/dist/war-kings.apk" "$G/web/war-kings.apk"
 TZ=Europe/Moscow date '+%Y-%m-%d %H:%M' > "$G/VERSION"
 # клиент для хостинга: все скрипты страницы склеены в один g.js и минифицированы (без комментариев и пробелов),
 # стили и admin.js тоже сжаты; исходники клиента в пакет не попадают
