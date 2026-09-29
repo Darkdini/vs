@@ -13,11 +13,13 @@ function install(Game) {
   const P = Game.prototype;
   const findUser = (g, login) => g.db.users[String(login || '').trim().toLowerCase()];
 
-  // админ: создаётся при старте, у него ADMIN_CASTLES замков на полной прокачке
+  // админ: создаётся при старте. По умолчанию — как обычный игрок: 1 замок, всё с нуля.
+  // ADMIN_FULL=1 (автотесты) — ADMIN_CASTLES замков на полной прокачке, миллион золота.
   P.ensureAdmin = function ensureAdmin(pass = process.env.ADMIN_PASS) {
+    const FULL = process.env.ADMIN_FULL === '1';
     let u = this.db.users.admin;
     if (!u) {
-      // пароль по умолчанию больше не «admin»: без ADMIN_PASS генерируется случайный и пишется в консоль и файл рядом с базой
+      // без ADMIN_PASS генерируется случайный пароль и пишется в консоль и файл рядом с базой
       if (!pass) {
         pass = require('crypto').randomBytes(6).toString('base64url').toLowerCase();
         try { require('fs').mkdirSync(require('path').dirname(this.store.file), { recursive: true }); require('fs').writeFileSync(require('path').join(require('path').dirname(this.store.file), 'ADMIN_PASSWORD.txt'), `admin / ${pass}\n`, { mode: 0o600 }); } catch { /* нет доступа к папке */ }
@@ -26,17 +28,27 @@ function install(Game) {
       const r = this.register({ login: 'admin', password: pass, race: 0 });
       if (r.error) return null;
       u = r.user;
-      const c = this.castleOf(u); c.name = 'Королевский замок';
-      this.maxOut(c);
-    }
+      if (FULL) { const c = this.castleOf(u); c.name = 'Королевский замок'; this.maxOut(c); }
+    } else if (!FULL && !u.freshStart && (u.adminGold || this.castlesOf(u).length > 1)) this.adminFresh(u); // прокачанный админ из старой базы → с нуля (один раз)
     // сброс пароля админа при запуске: ADMIN_PASS=новый ADMIN_RESET=1 sh ~/game/start.sh
     if (pass && process.env.ADMIN_RESET === '1') { const cr = require('crypto'), salt = cr.randomBytes(8).toString('hex'); u.pass = `${salt}:${cr.scryptSync(String(pass).toLowerCase(), salt, 32).toString('hex')}`; u.tokens = []; this.adminReset = true; }
     u.admin = true;
-    if (!u.adminGold) { u.gold = Math.max(u.gold || 0, 1000000); u.adminGold = true; } // миллион золота админу — один раз
-    if (!u.royal) { u.royal = 1000000; u.royalAt = Date.now(); u.captures = u.captures || ADMIN_CASTLES - 1; }
-    this.adminAddCastles(u, ADMIN_CASTLES - this.castlesOf(u).length);
+    if (FULL) {
+      if (!u.adminGold) { u.gold = Math.max(u.gold || 0, 1000000); u.adminGold = true; } // миллион золота админу — один раз
+      if (!u.royal) { u.royal = 1000000; u.royalAt = Date.now(); u.captures = u.captures || ADMIN_CASTLES - 1; }
+      this.adminAddCastles(u, ADMIN_CASTLES - this.castlesOf(u).length);
+    } else u.freshStart = true;
     this.store.save();
     return u;
+  };
+  // админ с нуля: все его замки (и войска в них) убираются, вместо них — один новый стартовый замок; золото и лояльность как у новичка
+  P.adminFresh = function adminFresh(u) {
+    for (const c of this.castlesOf(u)) this.removeCastle(c);
+    const c = this.createCastle(u);
+    u.castleId = c.id; u.castleIds = [c.id];
+    u.gold = 30; u.adminGold = false; u.royal = 0; u.royalAt = Date.now(); u.captures = 0;
+    u.freshStart = true; this.adminWasReset = true;
+    return c;
   };
 
   // новые замки рядом со столицей (свободные клетки по спирали), сразу на полной прокачке

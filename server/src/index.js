@@ -24,8 +24,9 @@ setInterval(() => {
   for (const ev of game.drainEvents()) for (const s of sessions) if (s.user && s.user.id === ev.userId && s.notify) s.notify(ev.msg);
 }, 1000);
 
-// администратор: логин admin, пароль ADMIN_PASS (по умолчанию admin) — замок на полной прокачке
+// администратор: в игре — admin (вход под ADMIN_LOGIN, если задан), пароль ADMIN_PASS; 1 замок с нуля (ADMIN_FULL=1 — полная прокачка)
 if (game.ensureAdmin()) {
+  if (game.adminWasReset) console.log('Админ начат с нуля: один новый замок без развития.');
   if (game.adminReset) console.log('Пароль admin сброшен на заданный в ADMIN_PASS.');
   else if (game.adminNewPass) console.log(`Создан админ: логин admin, пароль ${game.adminNewPass} (записан в ${path.join(path.dirname(DB), 'ADMIN_PASSWORD.txt')} — смените его в Админ-панели)`);
   else if (game.login('admin', 'admin')) console.log('ВНИМАНИЕ: у admin стандартный пароль «admin» — смените его: Админ-панель → Цель (пусто) → Сменить пароль');

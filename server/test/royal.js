@@ -195,5 +195,17 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(g.login('admin', 'secretpass') === adm && adm.login === 'admin');
   console.log('✓ секретный логин админа: вход только под ADMIN_LOGIN, «admin» не пускает, ник в игре — admin');
 }
+// админ по умолчанию — с нуля: 1 замок без развития; прокачанный админ из старой базы сбрасывается один раз
+{
+  let adm = g.db.users.admin;
+  assert.ok(g.castlesOf(adm).length === 1 && g.rating(g.castleOf(adm)) < 100, 'новый админ — 1 неразвитый замок');
+  process.env.ADMIN_FULL = '1'; adm.freshStart = false; g.ensureAdmin();
+  assert.ok(g.castlesOf(adm).length >= 20 && adm.gold >= 1000000, 'ADMIN_FULL=1 — прокачанный (тесты)');
+  delete process.env.ADMIN_FULL; g.ensureAdmin();
+  assert.ok(g.castlesOf(adm).length === 1 && g.rating(g.castleOf(adm)) < 100 && adm.gold === 30 && adm.admin, 'старый прокачанный админ → с нуля');
+  const cid = g.castleOf(adm).id; g.ensureAdmin();
+  assert.strictEqual(g.castleOf(adm).id, cid, 'сброс только один раз');
+  console.log(`✓ админ с нуля: 1 замок (рейтинг ${g.rating(g.castleOf(adm))}), 30 золота; прокачанный из старой базы сбрасывается один раз`);
+}
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);

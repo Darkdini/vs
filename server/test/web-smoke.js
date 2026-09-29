@@ -15,7 +15,7 @@ const DB = path.join(os.tmpdir(), `tw-web-smoke-${process.pid}.json`);
 
 function startServer() {
   const child = spawn(process.execPath, [path.join(__dirname, '..', 'src', 'index.js')], {
-    env: { ...process.env, WEB_PORT: String(WEB_PORT), HOST: '127.0.0.1', DB, SPEED: '2000', SAVE_MS: '500', NO_CAPTCHA: '1', ADMIN_PASS: 'admin', RATE_OFF: '1', NO_BACKUP: '1', LUCK: '0' },
+    env: { ...process.env, WEB_PORT: String(WEB_PORT), HOST: '127.0.0.1', DB, SPEED: '2000', SAVE_MS: '500', NO_CAPTCHA: '1', ADMIN_PASS: 'admin', RATE_OFF: '1', NO_BACKUP: '1', LUCK: '0', ADMIN_FULL: '1' },
     stdio: ['ignore', 'pipe', 'inherit'],
   });
   return new Promise((resolve) => child.stdout.on('data', (d) => { if (String(d).includes('Откройте в Chrome')) resolve(child); }));
