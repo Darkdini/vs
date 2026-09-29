@@ -147,6 +147,15 @@ function connect() {
   ws.onclose = () => { if (S.ws !== ws) return; $('#offline').classList.add('show'); setTimeout(connect, 2000); };
 }
 
+// админ-панель грузится отдельно и только для админа (сервер отдаёт admin.js лишь по токену админа)
+function loadAdmin() {
+  if (S.admLoaded || !S.creds || !S.creds.token) return;
+  S.admLoaded = true;
+  const s = document.createElement('script');
+  s.src = `admin.js?l=${encodeURIComponent(S.creds.login)}&t=${encodeURIComponent(S.creds.token)}`;
+  s.onerror = () => { S.admLoaded = false; };
+  document.body.appendChild(s);
+}
 function onMsg(m) {
   switch (m.t) {
     case 'catalog':
@@ -164,7 +173,7 @@ function onMsg(m) {
       S.auto = false;
       $('#auth').classList.add('hidden'); $('#game').classList.remove('hidden');
       break;
-    case 'state': onState(m); break;
+    case 'state': onState(m); if (S.st && S.st.user && S.st.user.admin) loadAdmin(); break;
     case 'world': if (!S.world || S.world.cx !== m.cx || S.world.cy !== m.cy) { delete Iso.cams.world; if (Iso.sel && Iso.sel.tab === 'world') Iso.sel = null; } S.world = m; if (S.tab === 'world') renderView(); break;
     case 'rating': S.ratingRows = m.rows; refreshSheet(); break;
     case 'profile': if (m.acct) { S.lastAcct = m.profile; S.lastProfile = m.profile; if (m.refresh && S.sheets.length) { S.sheets[S.sheets.length - 1] = () => accountWin(m.profile); showSheet(false); } else openSheet(() => accountWin(m.profile)); break; }

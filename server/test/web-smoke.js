@@ -112,7 +112,13 @@ function client() {
     adm.send({ t: 'hello' }); const mil = (await adm.expect('catalog')).catalog.mil;
     assert.ok(mil.units.length >= 30 && mil.units.some((u) => u.name === 'Генерал'));
     adm.send({ t: 'login', login: 'admin', password: 'admin' });
-    await adm.expect('auth');
+    const admAuth = await adm.expect('auth');
+    // код админ-панели не отдаётся никому, кроме админа с действующей сессией
+    assert.equal((await fetch(`http://127.0.0.1:${WEB_PORT}/admin.js`)).status, 404);
+    assert.equal((await fetch(`http://127.0.0.1:${WEB_PORT}/admin.js?l=admin&t=${'0'.repeat(48)}`)).status, 404);
+    assert.ok(/function adminHtml/.test(await (await fetch(`http://127.0.0.1:${WEB_PORT}/admin.js?l=admin&t=${admAuth.token}`)).text()));
+    assert.ok(!/admin\.js/.test(html), 'admin.js не подключён в странице');
+    console.log('✓ admin.js — только админу по токену сессии');
     let as = await adm.expect('state');
     assert.ok(as.castle.mil.admin && as.castle.mil.general.level === 100 && as.castle.mil.units[200] >= 1000);
     assert.equal(as.castle.levels[0][24], 20);

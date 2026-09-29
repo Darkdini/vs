@@ -457,6 +457,14 @@ function startWeb(game, sessions, { port, host, log }) {
       res.writeHead(200, { 'Content-Type': 'image/png', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'", 'Cache-Control': 'public, max-age=86400' });
       return res.end(body);
     }
+    // админ-панель (admin.js) получает только админ с действующей сессией: остальным её код не виден даже в F12
+    if (url === '/admin.js') {
+      const q = new URLSearchParams(req.url.split('?')[1] || ''), au = game.tokenLogin(q.get('l'), q.get('t'));
+      if (!au || !au.admin) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('not found'); }
+      const f = staticFile(path.join(WEB_ROOT, 'admin.js'));
+      if (!f) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('not found'); }
+      res.writeHead(200, { 'Content-Type': f.type, 'Cache-Control': 'no-store', ...SEC_HEADERS }); return res.end(f.body);
+    }
     const file = path.normalize(path.join(WEB_ROOT, url === '/' ? 'index.html' : url));
     const f = (file === WEB_ROOT || file.startsWith(WEB_ROOT + path.sep)) && staticFile(file);
     if (!f) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('not found'); }

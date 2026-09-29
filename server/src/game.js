@@ -190,8 +190,16 @@ class Game {
     this.store.save();
     return { ok: true };
   }
+  // вход по паролю. Если задан ADMIN_LOGIN (секретный логин админа), админ входит только под ним,
+  // а в игре по-прежнему виден как admin; вход под «admin» тогда отклоняется как неверный.
   login(login, password) {
-    const u = this.db.users[String(login || '').trim().toLowerCase()];
+    let key = String(login || '').trim().toLowerCase();
+    const alias = String(process.env.ADMIN_LOGIN || '').trim().toLowerCase();
+    if (alias && alias !== 'admin') {
+      if (key === alias) key = 'admin';
+      else if (key === 'admin') return null;
+    }
+    const u = this.db.users[key];
     if (!u || !Object.prototype.hasOwnProperty.call(this.db.users, u.login) || !checkPassword(String(password || '').toLowerCase(), u.pass)) return null;
     return u;
   }

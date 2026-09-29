@@ -185,5 +185,15 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(g.forumOp(pl, { op: 'ban', topic: t, id: md.id, hours: 2 }).error, 'игрок не банит');
   console.log('✓ форум: темы — только модераторы (админ назначает модератора раздела), ответы всех, антифлуд, закрытие темы, запрет писать');
 }
+// секретный логин админа: ADMIN_LOGIN — вход только под ним, «admin» отклоняется, в игре ник остаётся admin
+{
+  const adm = g.ensureAdmin('secretpass');
+  process.env.ADMIN_LOGIN = 'Boss@Login';
+  assert.ok(!g.login('admin', 'secretpass') && g.login('boss@login', 'secretpass') === adm && g.login(' BOSS@LOGIN ', 'secretpass') === adm);
+  assert.ok(!g.login('boss@login', 'wrong'));
+  delete process.env.ADMIN_LOGIN;
+  assert.ok(g.login('admin', 'secretpass') === adm && adm.login === 'admin');
+  console.log('✓ секретный логин админа: вход только под ADMIN_LOGIN, «admin» не пускает, ник в игре — admin');
+}
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);

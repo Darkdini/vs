@@ -1,14 +1,15 @@
 'use strict';
 // «Война Королей» — сервер браузерной игры. Отдаёт клиент (web/) и говорит с ним по WebSocket (web.js).
 // Запуск: npm start (из папки server) → http://localhost:8080
-// Переменные окружения: WEB_PORT (8080), HOST (0.0.0.0), SPEED (скорость мира, 1 — как в оригинале), DB (файл базы), ADMIN_PASS (пароль admin)
+// Переменные окружения: WEB_PORT/PORT (8080), HOST (0.0.0.0), SPEED (скорость мира, 1 — как в оригинале), DB (файл базы),
+// ADMIN_LOGIN (секретный логин админа), ADMIN_PASS (пароль админа), TRUST_PROXY=1 (за Cloudflare Tunnel / nginx)
 
 const path = require('path');
 const { Game, Store } = require('./game');
 const { startWeb, WebSession } = require('./web');
 
 const HOST = process.env.HOST || '0.0.0.0';
-const WEB_PORT = Number(process.env.WEB_PORT || 8080);
+const WEB_PORT = Number(process.env.WEB_PORT || process.env.PORT || 8080); // PORT задают хостинги (Render, Railway и т.п.)
 const DB = process.env.DB || path.join(__dirname, '..', 'data', 'db.json');
 
 const store = new Store(DB);
