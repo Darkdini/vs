@@ -2,7 +2,7 @@
 // Звук: фоновая музыка (sound/birds_theme.ogg, по кругу), звуки нажатий и оповещения (синтез WebAudio).
 // Настройки — Кабинет → Профиль → «Настройка звуков» (как в оригинале), хранятся в браузере.
 // по умолчанию всё включено (новый ключ tw.snd2 — старые сохранения со снятыми галочками не мешают)
-const SND = Object.assign({ music: true, sounds: true, notify: true }, store.get('tw.snd2') || {});
+const SND = Object.assign({ music: true, sounds: true, notify: true, anim: true }, store.get('tw.snd2') || {});
 let bgm = null, actx = null, unlocked = false;
 function musicOn() {
   if (!SND.music || document.hidden) return;
@@ -38,7 +38,7 @@ function soundWin() {
   const d = S.sndDraft || SND;
   const row = (k, icon, t) => `<button type="button" class="sndrow" data-sndtg="${k}"><span class="sndbox ${d[k] ? 'on' : ''}"></span><img src="${icon}" alt=""> ${t}</button>`;
   return `${ribbon('Настройка звуков')}<div class="sndlist">
-    ${row('music', 'gfx3d/sound/music.svg', 'Музыка')}${row('sounds', 'gfx3d/sound/sounds.svg', 'Звуки')}${row('notify', 'gfx3d/sound/notify.svg', 'Оповещения')}</div>
+    ${row('music', 'gfx3d/sound/music.svg', 'Музыка')}${row('sounds', 'gfx3d/sound/sounds.svg', 'Звуки')}${row('notify', 'gfx3d/sound/notify.svg', 'Оповещения')}${row('anim', 'gfx3d/king/icon.png', 'Анимация')}</div>
     <button class="pbar" data-sndsave>Сохранить</button>`;
 }
 $('#sheetBody').addEventListener('click', (e) => {
@@ -48,5 +48,5 @@ $('#sheetBody').addEventListener('click', (e) => {
   Object.assign(SND, S.sndDraft || {});
   store.set('tw.snd2', SND);
   if (SND.music) { unlocked = true; musicOn(); } else musicOff();
-  toast('Настройки звука сохранены.'); closeSheet();
+  toast('Настройки сохранены.'); closeSheet(); isoDraw();
 });

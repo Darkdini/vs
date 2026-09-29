@@ -965,6 +965,28 @@ function groundField(n, at) {
   }
 }
 
+// ---------- анимация: король ходит от Ратуши к воротам и обратно (тропинка — клетки ряда 3, x 2..0) ----------
+const KING = { from: 2.75, to: -0.55, speed: 0.32, pause: 1.6, fps: 9, w: 85, h: 120, frames: 8, size: 26 };
+function kingPos(t) {
+  const len = KING.from - KING.to, walk = len / KING.speed, cyc = 2 * (walk + KING.pause), u = t % cyc;
+  if (u < walk) return { x: KING.from - u * KING.speed, back: false, moving: true };
+  if (u < walk + KING.pause) return { x: KING.to, back: true, moving: false };
+  if (u < 2 * walk + KING.pause) return { x: KING.to + (u - walk - KING.pause) * KING.speed, back: true, moving: true };
+  return { x: KING.from, back: false, moving: false };
+}
+function drawKing() {
+  if (typeof SND !== 'undefined' && SND.anim === false) return;
+  const im = pic('../gfx3d/king/walk.png'); if (!im) return;
+  const t = performance.now() / 1000, k = kingPos(t), fr = k.moving ? Math.floor(t * KING.fps) % KING.frames : 0;
+  const p = cellAt(k.x, 3), h = KING.size, w = h * KING.w / KING.h;
+  const fx = p.sx + TW * KC / 2 + TW * (1 - KC) / 2, fy = p.sy + TH * KC / 2 + TH * (1 - KC) / 2 + 3; // ноги — в центре клетки
+  ictx.save(); ictx.imageSmoothingEnabled = true; ictx.imageSmoothingQuality = 'high';
+  if (k.back) { ictx.translate(fx, 0); ictx.scale(-1, 1); ictx.translate(-fx, 0); } // обратно — зеркально
+  ictx.globalAlpha = 0.28; ictx.fillStyle = '#000'; ictx.beginPath(); ictx.ellipse(fx, fy, w * 0.33, h * 0.07, 0, 0, Math.PI * 2); ictx.fill(); ictx.globalAlpha = 1; // тень
+  ictx.drawImage(im, fr * KING.w, 0, KING.w, KING.h, fx - w / 2, fy - h, w, h);
+  ictx.restore();
+}
+setInterval(() => { if (S.tab === 'castle' && !document.hidden && !S.sheets.length && Iso.cv && Iso.cv.isConnected && !(typeof SND !== 'undefined' && SND.anim === false)) isoDraw(); }, 1000 / KING.fps);
 function isoDrawNow() {
   if (!Iso.cv.isConnected || !S.st || !S.cat) return;
   const dpr = window.devicePixelRatio || 1, c = cam(), x = ictx;
@@ -986,8 +1008,9 @@ function isoDrawNow() {
       const p = cellAt(xx, y); if (!onPath(xx, y)) { plotImage('ground/stone.png', p, PLOT); plotDiamond(p, PLOT, null, null); }
       if (isSel(xx, y)) glow(p, PLOT);
     }
-    for (let y = 0; y < 7; y++) for (let xx = 6; xx >= 0; xx--) {
-      const cell = y * 7 + xx; drawCellBuilding(0, cell, st.grid[0][cell], st.levels[0][cell], cellAt(xx, y), BK, isSel(xx, y));
+    for (let y = 0; y < 7; y++) {
+      for (let xx = 6; xx >= 0; xx--) { const cell = y * 7 + xx; drawCellBuilding(0, cell, st.grid[0][cell], st.levels[0][cell], cellAt(xx, y), BK, isSel(xx, y)); }
+      if (y === 3) drawKing(); // король ходит по тропинке 3-го ряда: перед Ратушей и рядом за ним, но позади нижних рядов
     }
     if (fence) fenceFront();
   } else if (S.tab === 'lands') {
