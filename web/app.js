@@ -867,6 +867,33 @@ function newbieDome(p) {
   ictx.save(); ictx.beginPath(); ictx.ellipse(cx, cy, rx, ry, 0, Math.PI, 0); ictx.ellipse(cx, cy, rx, ry * 0.32, 0, 0, Math.PI); ictx.fillStyle = g; ictx.fill();
   ictx.lineWidth = 1.5; ictx.strokeStyle = 'rgba(190, 235, 255, 0.85)'; ictx.stroke(); ictx.restore();
 }
+// тропинки между клетками (как в оригинале): земляная полоса по краю ромба + камушки вдоль травы.
+// Соседние клетки дают по половине тропинки. Текстура рисуется один раз в 4× разрешении.
+let PATH_RING = null;
+function pathRing() {
+  if (PATH_RING) return PATH_RING;
+  const K = 4, w = TW * K, h = TH * K, cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  const g = cv.getContext('2d'), band = 0.17; // доля ширины ромба под тропинку
+  const dia = (k) => { g.beginPath(); g.moveTo(w / 2, h / 2 - h / 2 * k); g.lineTo(w / 2 + w / 2 * k, h / 2); g.lineTo(w / 2, h / 2 + h / 2 * k); g.lineTo(w / 2 - w / 2 * k, h / 2); g.closePath(); };
+  let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  dia(1); g.fillStyle = '#9a6b3c'; g.fill();
+  for (let i = 0; i < 260; i++) { g.fillStyle = rnd() < 0.5 ? '#86592f' : '#b08050'; g.fillRect(rnd() * w, rnd() * h, 2 + rnd() * 3, 2 + rnd() * 2); } // земля
+  g.save(); dia(1); g.clip(); g.globalCompositeOperation = 'destination-out'; dia(1 - band); g.fill(); g.restore();
+  // камушки вдоль внутреннего края (граница с травой)
+  const k = 1 - band * 0.78, pts = [[w / 2, h / 2 - h / 2 * k], [w / 2 + w / 2 * k, h / 2], [w / 2, h / 2 + h / 2 * k], [w / 2 - w / 2 * k, h / 2]];
+  for (let e = 0; e < 4; e++) {
+    const [ax, ay] = pts[e], [bx, by] = pts[(e + 1) % 4], n = 11;
+    for (let i = 0; i < n; i++) {
+      const t = (i + 0.5 + (rnd() - 0.5) * 0.4) / n, x = ax + (bx - ax) * t, y = ay + (by - ay) * t, r = 4.2 + rnd() * 2.2;
+      g.fillStyle = '#5a4a36'; g.beginPath(); g.ellipse(x + 1, y + 1.6, r, r * 0.62, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = rnd() < 0.5 ? '#e4d6b4' : '#cfc0a0'; g.beginPath(); g.ellipse(x, y, r, r * 0.62, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#fff6dc'; g.beginPath(); g.ellipse(x - r * 0.3, y - r * 0.22, r * 0.35, r * 0.2, 0, 0, Math.PI * 2); g.fill();
+    }
+  }
+  return (PATH_RING = cv);
+}
+function pathTile(sx, sy, k = 1) { ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(pathRing(), sx, sy, TW * k, TH * k); ictx.restore(); }
+const GRASSY = (img) => /\/(grass|grass1|ground)\.png$/.test(img);
 function groundField(n, at) {
   for (let y = -5; y < n + 5; y++) for (let x = n + 4; x >= -5; x--) {
     const p = tileScreen(x, y);
@@ -887,6 +914,7 @@ function isoDrawNow() {
     // внутри стен — трава, на ней 49 каменных участков с промежутками
     const onPath = (xx, y) => (S.cat.castlePath || []).includes(y * 7 + xx) || (xx === 3 && y === 3); // и клетка Ратуши — на развилке // тропинка от ворот к Ратуше — не застраивается
     groundField(17, (xx, y) => (xx >= CASTLE_OFF && xx < CASTLE_OFF + 7 && y >= CASTLE_OFF && y < CASTLE_OFF + 7 && !onPath(xx - CASTLE_OFF, y - CASTLE_OFF) ? 'ground/grass.png' : `ground/${GROUND[CASTLE_BASE[y][xx]]}.png`));
+    for (let y = 0; y < 7; y++) for (let xx = 0; xx < 7; xx++) if (!onPath(xx, y)) { const p = cellAt(xx, y); pathTile(p.sx + TW * (1 - KC) / 2, p.sy + TH * (1 - KC) / 2, KC); }
     moat();
     const fence = buildingLevel(22) > 0; // Забор построен — вокруг замка стена
     if (fence) fenceBack();
@@ -901,6 +929,7 @@ function isoDrawNow() {
   } else if (S.tab === 'lands') {
     const L = S.cat.lands;
     groundField(15, (xx, y) => `ground/${GROUND[L.base[y][xx]]}.png`);
+    for (let y = 0; y < 15; y++) for (let xx = 0; xx < 15; xx++) if (GRASSY(`ground/${GROUND[L.base[y][xx]]}.png`) && L.edge[y][xx] < 0) { const p = tileScreen(xx, y); pathTile(p.sx, p.sy); }
     for (let y = 0; y < 15; y++) for (let xx = 0; xx < 15; xx++) { // края дорог и берегов (s.c)
       const e = L.edge[y][xx]; if (e < 0) continue;
       const p = tileScreen(xx, y); raw(`gborder/${e < 12 ? 'ground' : 'water'}/${EDGE[e % 12]}.png`, p.sx, p.sy);
