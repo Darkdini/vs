@@ -1008,7 +1008,7 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .rres { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 2px 0 4px; }
 .rres span { display: inline-flex; align-items: center; gap: 4px; }
 .rres .ri { width: 34px; height: 34px; }
-.runit { display: flex; align-items: center; gap: 6px; }
+.runit { display: block; } .runit img { vertical-align: middle; margin-right: 4px; }
 .runit img { width: 36px; height: 36px; object-fit: contain; image-rendering: pixelated; }
 .rtiles { display: flex; justify-content: space-around; padding: 6px 0 80px; }
 .rtile { width: 34%; aspect-ratio: 1; border: 0; background: none; padding: 0; }
@@ -1159,3 +1159,11 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .smilebox button { padding: 3px; border-radius: 8px; } .smilebox button:active { background: #fff3; }
 .smilebox img { width: 100%; max-width: 44px; height: 40px; object-fit: contain; }
 .csm { height: 1.6em; vertical-align: middle; }
+/* отчёт: «Ход боя» */
+.rsum { margin: 4px 0 8px; padding: 8px 10px; border: 2px solid #c8963e; border-radius: 8px; background: #fff4; font: min(20px, 4.8vw)/1.4 var(--serif); color: #2a1408; }
+.bcalc { font-size: min(19px, 4.5vw); }
+.bch { margin: 8px 0 2px; font-weight: 700; color: #6a1a0a; border-bottom: 1px solid #b08a5a88; }
+.bc { display: flex; justify-content: space-between; gap: 10px; padding: 1px 0; }
+.bc b { white-space: nowrap; }
+.bc.tot { border-top: 1px dashed #8a6a4a; margin-top: 2px; padding-top: 3px; font-size: 1.08em; }
+.bnote { margin-top: 6px; font-size: .92em; color: #4a2e18; }

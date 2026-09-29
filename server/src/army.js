@@ -677,6 +677,7 @@ function install(Game, helpers) {
   };
 
   // сила атаки армии
+  // сила нападения: сырая сумма атак по родам войск (с Кузницей), затем бонусы (наука, пивоварня, храм, артефакты, командование генерала)
   P.armyPower = function armyPower(c, units, withGeneral) {
     const b = this.bonus(c);
     let inf = 0, cav = 0, mag = 0;
@@ -686,11 +687,11 @@ function install(Game, helpers) {
       if (u.type === 'cavalry') cav += atk * n; else inf += atk * n;
       mag += u.magic * n;
     }
-    let gl = 0;
-    let cmd = 0;
-    if (withGeneral && c.general && !c.general.dead) { const gs = this.genStats(c.general); gl = c.general.level; cmd = gs.catk; inf += gs.atk; mag += UNIT[GENERAL_ID].magic; }
+    let gl = 0, cmd = 0, genAtk = 0;
+    if (withGeneral && c.general && !c.general.dead) { const gs = this.genStats(c.general); gl = c.general.level; cmd = gs.catk; genAtk = gs.atk; inf += gs.atk; mag += UNIT[GENERAL_ID].magic; }
     const k = b.atk * (1 + cmd);
-    return { inf: inf * k, cav: cav * k, mag: mag * b.magic * b.atk, gl };
+    return { inf: inf * k, cav: cav * k, mag: mag * b.magic * b.atk, gl,
+      raw: { inf: Math.round(inf), cav: Math.round(cav), mag: Math.round(mag), gen: Math.round(genAtk) }, bonusPct: Math.round((k - 1) * 100), magicPct: Math.round((b.magic * b.atk - 1) * 100) };
   };
   // сила обороны замка против атаки с долями пехоты/кавалерии
   // армии, стоящие в замке d подкреплением (из других замков)
@@ -701,25 +702,33 @@ function install(Game, helpers) {
   };
   // все войска, защищающие замок: Замковая армия, отряды в замке, подкрепления
   P.defenders = function defenders(d) { this.mil(d); return [d.units, ...d.squads.map((q) => q.units), ...this.guestsOf(d).map((g) => g.a.units)]; };
+  // сила обороны: защита войск против того рода атаки, которым идут на замок (доли pInf/pCav), бонусы, затем Забор (+% и +10 за уровень)
   P.defensePower = function defensePower(d, pInf, pCav) {
     const b = this.bonus(d);
     let phys = 0, mag = 0;
     const add = (id, n) => { const u = UNIT[id]; if (!u || !n) return; const fd = this.forgeLvl(d, id, 'd'); phys += ((u.def.inf + fd) * pInf + (u.def.cav + fd) * pCav) * n; mag += u.def.mag * n; };
     for (const m of this.defenders(d)) for (const [id, n] of Object.entries(m)) add(id, n);
     if (d.general && !d.general.dead && !d.general.away) { add(GENERAL_ID, 1); phys += d.general.pts.def * (pInf + pCav); }
-    phys = (phys * b.def + 10 * b.wall) * (1 + b.wallPer * b.wall);
-    return { phys, mag: mag * b.def * b.magic };
+    const rawPhys = phys, rawMag = mag, wallK = 1 + b.wallPer * b.wall;
+    phys = (phys * b.def + 10 * b.wall) * wallK;
+    return { phys, mag: mag * b.def * b.magic, raw: { phys: Math.round(rawPhys), mag: Math.round(rawMag) }, bonusPct: Math.round((b.def - 1) * 100), magicPct: Math.round((b.def * b.magic - 1) * 100),
+      wall: b.wall, wallPct: Math.round((wallK - 1) * 100), wallFlat: 10 * b.wall };
   };
+  // потери: доля frac от каждого вида войск; дробная часть — с соответствующей вероятностью
+  // (иначе отряд из 1–2 воинов при потерях 40% не терял бы никого)
   const applyLoss = (units, frac) => {
     const lost = {};
-    for (const [id, n] of Object.entries(units)) { const l = Math.min(n, Math.round(n * frac)); lost[id] = l; units[id] = n - l; }
+    for (const [id, n] of Object.entries(units)) {
+      const x = n * frac; let l = Math.floor(x); if (process.env.LUCK !== '0' ? Math.random() < x - l : x - l >= 0.5) l++;
+      l = Math.min(n, l); lost[id] = l; units[id] = n - l;
+    }
     return lost;
   };
   const unitsLine = (units, lost) => Object.entries(units).filter(([id]) => UNIT[id]).map(([id, n]) => `${UNIT[id].name}: ${n + (lost ? lost[id] || 0 : 0)}${lost && lost[id] ? ` (−${lost[id]})` : ''}`).join(', ') || '—';
   const mergeUnits = (maps) => { const o = {}; for (const m of maps) for (const [id, n] of Object.entries(m)) if (n > 0) o[id] = (o[id] || 0) + n; return o; };
   // потери в ресурсах: стоимость погибших юнитов + население
   const lossRes = (lost) => { const o = { wood: 0, stone: 0, iron: 0, food: 0, people: 0 };
-    for (const [id, n] of Object.entries(lost)) { const u = UNIT[id]; if (!u || !n) continue; if (Array.isArray(u.cost)) RES4.forEach((r, i) => { o[r] += (u.cost[i] || 0) * n; }); o.people += (u.pop || 0) * n; }
+    for (const [id, n] of Object.entries(lost)) { const u = UNIT[id]; if (!u || !n) continue; RES4.forEach((r, i) => { o[r] += ((Array.isArray(u.cost) ? u.cost[i] : (u.cost || {})[r]) || 0) * n; }); o.people += (u.pop || 0) * n; }
     return o; };
   const popOf = (units) => Object.entries(units).reduce((s, [id, n]) => s + (UNIT[id] ? UNIT[id].pop * n : 0), 0);
 
@@ -770,6 +779,10 @@ function install(Game, helpers) {
     const luck = process.env.LUCK === '0' ? 0 : Math.round(Math.random() * 20 - 10);
     const aSum = aTot * (1 + luck / 100);
     let aLoss, dLoss;
+    const calc = { rule: a.mission === 'attack' ? 'attack' : 'raid', luck,
+      shares: { inf: Math.round(A.inf / aTot * 100), cav: Math.round(A.cav / aTot * 100), mag: Math.round(A.mag / aTot * 100) },
+      att: { raw: A.raw, bonusPct: A.bonusPct, magicPct: A.magicPct, noLuck: Math.round(aTot), total: Math.round(aSum) },
+      def: target ? { raw: D.raw, bonusPct: D.bonusPct, magicPct: D.magicPct, wall: D.wall, wallPct: D.wallPct, wallFlat: D.wallFlat, total: Math.round(Dsum) } : { npc: true, total: Math.round(Dsum) } };
     if (a.mission === 'attack') {
       if (aSum > Dsum) { aLoss = (Dsum / aSum) ** 1.5; dLoss = 1; } else { aLoss = 1; dLoss = (aSum / Dsum) ** 1.5; }
     } else { const q = (aSum / Dsum) ** 1.5; aLoss = 1 / (1 + q); dLoss = q / (1 + q); }
@@ -786,6 +799,7 @@ function install(Game, helpers) {
       dBefore = dAll;
     }
     const win = aSum > Dsum;
+    calc.aLossPct = Math.round(aLoss * 100); calc.dLossPct = Math.round(dLoss * 100);
     const aliveAfter = Object.values(a.units).some((n) => n > 0);
     // генералы
     const genA = [], genD = [];
@@ -807,9 +821,10 @@ function install(Game, helpers) {
     let loot = null;
     if (aliveAfter) {
       let carry = Object.entries(a.units).reduce((s, [id, n]) => s + UNIT[id].carry * n, 0);
+      calc.carry = carry;
       loot = { wood: 0, stone: 0, iron: 0, food: 0 };
       let avail;
-      if (target) { const hid = this.bonus(target).hidden; avail = Object.fromEntries(RES4.map((r) => [r, Math.max(0, Math.floor(target.res[r]) - hid)])); }
+      if (target) { const hid = this.bonus(target).hidden; calc.hidden = hid; avail = Object.fromEntries(RES4.map((r) => [r, Math.max(0, Math.floor(target.res[r]) - hid)])); }
       else {
         const st = (this.db.npc = this.db.npc || {})[where];
         avail = st && st.until > t ? { wood: 0, stone: 0, iron: 0, food: 0 } : { ...npc.loot };
@@ -876,7 +891,7 @@ function install(Game, helpers) {
     const side = (units, lost) => Object.fromEntries(Object.entries(units).map(([id, n]) => [id, { was: n + (lost[id] || 0), lost: lost[id] || 0 }]).filter(([, v]) => v.was > 0));
     const genDied = !!(c.general && c.general.dead && a.general === false && aLoss >= 1);
     const data = {
-      type: 'battle', mission: a.mission, win, x: a.x, y: a.y, luck, power: { att: Math.round(aSum), def: Math.round(Dsum) },
+      type: 'battle', mission: a.mission, win, x: a.x, y: a.y, luck, calc, power: { att: Math.round(aSum), def: Math.round(Dsum) },
       att: { id: att.id, login: att.login, race: att.race, castle: c.name, cx: c.x, cy: c.y, rating: this.rating(c), lossRes: lossRes(aLost), units: side(a.units, aLost), general: a.general || genDied ? (c.general ? c.general.level : 0) : 0, generalDied: genDied },
       def: target ? { id: captured ? captured.prevOwner : defUser.id, login: captured ? captured.prevLogin : defUser.login, race: captured ? captured.prevRace : defUser.race, castle: target.name, rating: this.rating(target), lossRes: lossRes(dLost), units: side(dAll, dLost), wall: this.bonus(target).wall }
         : { npc: npc.name, img: obj.img, lossPct: Math.round(dLoss * 100) },
