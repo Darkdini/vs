@@ -170,7 +170,12 @@ function install(Game) {
     this.goldChange(user, -g.gold, `Подарок «${g.name}» игроку ${to.login}`); user.giftLog.push(now); this.addStat(to.id, 'giftGold', g.gold);
     (to.gifts = to.gifts || []).push({ gift: giftId, from: user.id, at: now, text: String(text || '').trim().slice(0, 100) });
     if (to.gifts.length > 200) to.gifts = to.gifts.slice(-200);
-    if (to.id !== user.id) this.event(to.id, `${user.login} подарил Вам: ${g.name}!`);
+    if (to.id !== user.id) {
+      this.event(to.id, `${user.login} подарил Вам: ${g.name}!`);
+      // сообщение в «Сообщения» от дарителя: какой подарок и подпись — подарок виден в профиле
+      const note = String(text || '').trim().slice(0, 100);
+      this.sendMail(user, to.login, 'Подарок', `🎁 Дарю тебе подарок «${g.name}»!${note ? `\n«${note}»` : ''}\nОн теперь в твоём профиле, раздел «Подарки».`);
+    }
     this.store.save();
     return { ok: true, msg: `Подарок «${g.name}» отправлен игроку ${to.login}.` };
   };

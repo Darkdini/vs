@@ -227,5 +227,13 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   const adm = g.db.users.admin; adm.premium = Date.now() + 86400000; assert.deepStrictEqual(g.profileOf(adm, adm).titles, ['VIP', 'Администратор']);
   console.log('✓ звание VIP в профиле: есть, пока действует премиум; у админа — «VIP, Администратор»');
 }
+// подарок приходит получателю и сообщением от дарителя
+{
+  const [a, b] = ['gfa', 'gfb'].map((l) => g.register({ login: l, password: '123', race: 0 }).user); a.gold = 100;
+  assert.ok(g.sendGift(a, b.id, 'helmet', 'Держи!').ok);
+  const m = (g.db.messages || []).filter((x) => x.from === a.id && x.to === b.id).pop();
+  assert.ok(m && /Шлем Легиона/.test(m.text) && /Держи!/.test(m.text) && !m.read, 'сообщение о подарке');
+  console.log('✓ подарок: получателю приходит сообщение от дарителя с названием и подписью');
+}
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);

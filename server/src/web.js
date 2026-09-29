@@ -277,7 +277,7 @@ const API = {
     if (r.error) return this.error(r.error);
     this.toast(r.msg);
     const to = this.game.userById(Number(m.to));
-    for (const s of WebSession.all || []) if (s.user && to && s.user.id === to.id) s.pushState(); // получателю — оповещение сразу
+    for (const s of WebSession.all || []) if (s.user && to && s.user.id === to.id) { s.pushState(); if (s.dialogWith === this.user.id) API.dialog.call(s, { id: this.user.id, keep: 1 }); } // получателю — оповещение и сообщение сразу
     this.send({ t: 'profile', refresh: true, profile: this.game.profileOf(to, this.user) });
   },
   profile(m) {
