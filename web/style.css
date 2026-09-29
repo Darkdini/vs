@@ -1202,3 +1202,13 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .ribbon.ddate { min-height: 36px; font-size: min(20px, 4.8vw); }
 .giftrow img { display: block; margin: 0 auto; max-width: 70%; max-height: 220px; object-fit: contain; }
 .giftrow .bwline img.ri { display: inline; height: 1.1em; width: auto; max-width: none; margin: 0; vertical-align: -0.15em; }
+
+/* ---------- новая верхняя панель: деревянная полоса с золотыми концами, кнопки-конверты ---------- */
+#top { height: calc(66px + env(safe-area-inset-top, 0px)); gap: 2px; border-bottom: 0; box-shadow: 0 3px 6px #000a;
+  background: url(gfx3d/top/bar_l.png) left bottom / auto 64px no-repeat, url(gfx3d/top/bar_r.png) right bottom / auto 64px no-repeat,
+    url(gfx3d/top/bar_m.png) 0 bottom / auto 64px repeat-x, #1b0c04; }
+#top > .env:not(.mv) { width: 66px; height: 64px; margin-top: auto; background: url(gfx3d/top/btn_mail.png) center / contain no-repeat; filter: drop-shadow(0 2px 2px #0008); }
+#top > #btnRep { background-image: url(gfx3d/top/btn_rep.png); }
+#top > .env:not(.mv)::before { display: none; }
+#top > .env:not(.mv):active { transform: scale(.94); }
+#top > .env .dot { top: 2px; right: 0; }
