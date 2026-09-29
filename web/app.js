@@ -966,7 +966,7 @@ function groundField(n, at) {
 }
 
 // ---------- анимация: король ходит от Ратуши к воротам и обратно (тропинка — клетки ряда 3, x 2..0) ----------
-const KING = { from: 2.75, to: -0.55, speed: 0.32, pause: 1.6, fps: 12, w: 81, h: 120, frames: 12, size: 26 };
+const KING = { from: 2.75, to: -0.55, speed: 0.32, pause: 1.6, fps: 24, w: 92, h: 120, frames: 24, size: 30 };
 function kingPos(t) {
   const len = KING.from - KING.to, walk = len / KING.speed, cyc = 2 * (walk + KING.pause), u = t % cyc;
   if (u < walk) return { x: KING.from - u * KING.speed, back: false, moving: true };
@@ -986,7 +986,7 @@ function drawKing() {
   ictx.drawImage(im, fr * KING.w, 0, KING.w, KING.h, fx - w / 2, fy - h, w, h);
   ictx.restore();
 }
-setInterval(() => { if (S.tab === 'castle' && !document.hidden && !S.sheets.length && Iso.cv && Iso.cv.isConnected && !(typeof SND !== 'undefined' && SND.anim === false)) isoDraw(); }, 1000 / KING.fps);
+setInterval(() => { if (S.tab === 'castle' && !document.hidden && !S.sheets.length && Iso.cv && Iso.cv.isConnected && !(typeof SND !== 'undefined' && SND.anim === false)) isoDraw(); }, 1000 / 30); // плавное движение — 30 кадров/с
 function isoDrawNow() {
   if (!Iso.cv.isConnected || !S.st || !S.cat) return;
   const dpr = window.devicePixelRatio || 1, c = cam(), x = ictx;
