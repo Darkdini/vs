@@ -21,7 +21,10 @@ function adminHtml() {
       <div class="arow">${aNum('res', 100000, 'ресурсов')}${aBtn('res', '+ Ресурсы', 'res/wood.png', 'data-arg="res:n"')}</div>
       <div class="arow">${aNum('royal', 10000, 'лояльности')}${aBtn('royal', '+ Лояльность', 'smallicon/bonus_status/coronalgold.png', 'data-arg="royal:n"')}</div>
       ${a.player ? playerCard(a.player) : ''}`,
-    build: () => `<div class="ptiles">${aBtn('max', 'Полная прокачка', 'build/castle.png')}${aBtn('finish', 'Завершить всё', 'res/time.png')}${aBtn('sciences', 'Науки 20 ур.', 'smallicon/Ekoscience.png')}${aBtn('fill', 'Склады полные', 'build/storage.png')}</div>
+    build: () => `<div class="acard"><div class="cwname"><img class="admbadge s" src="${GFX}ground/castle_small.png" alt=""> Выдать игроку полный замок</div>
+      <p class="small">Новый замок на полной прокачке (все здания 20 ур.) появится рядом со столицей игрока, игроку придёт уведомление.</p>
+      <form class="chatform" data-aform="givecastle"><input name="login" placeholder="Ник игрока" autocapitalize="none" required value="${esc(a.login)}"><input name="n" type="number" min="1" max="50" value="1" style="max-width:70px"><button class="btn primary small">Выдать</button></form></div>
+      <div class="ptiles">${aBtn('max', 'Полная прокачка', 'build/castle.png')}${aBtn('finish', 'Завершить всё', 'res/time.png')}${aBtn('sciences', 'Науки 20 ур.', 'smallicon/Ekoscience.png')}${aBtn('fill', 'Склады полные', 'build/storage.png')}</div>
       <div class="arow">${aNum('castles', 1, 'сколько')}${aBtn('castles', '+ Замки', 'ground/castle_big.png', 'data-arg="castles:n"')}</div>
       <div class="arow">${aNum('loyalty', 100, '0–100')}${aBtn('loyalty', 'Лояльность замка', 'smallicon/bonus_status/coronalgold.png', 'data-arg="loyalty:value"')}</div>`,
     army: () => `<div class="arow"><select data-an="unit"><option value="">Все юниты расы игрока</option>${units.map((u) => `<option value="${u.id}">${esc(u.name)}${u.race !== 'all' ? ` (${esc(S.cat.races[u.race] || '')})` : ''}</option>`).join('')}</select></div>
@@ -69,7 +72,7 @@ function playerCard(p) {
     <div class="ptiles">
       ${p.banned ? aBtn('unban', 'Разблокировать', 'smallicon/greenball.png') : aBtn('ban', 'Заблокировать', 'smallicon/grayball.png', 'data-confirm="Заблокировать игрока?"')}
       ${aBtn('noavatar', 'Удалить аватар', 'smallicon/destroy.png', 'data-confirm="Удалить аватар игрока?"')}
-      ${aBtn('mod', p.mod ? 'Снять модератора' : 'Модератор форума', 'mod_badge_s.png', `data-confirm="${p.mod ? 'Снять с игрока права модератора?' : 'Назначить модератором форума (удаление сообщений и бан в чате)?'}"`)}
+      ${aBtn('castles', 'Дать полный замок', 'ground/castle_small.png', `data-confirm="Выдать игроку ${esc(p.login)} полностью прокачанный замок?"`)}${aBtn('mod', p.mod ? 'Снять модератора' : 'Модератор форума', 'mod_badge_s.png', `data-confirm="${p.mod ? 'Снять с игрока права модератора?' : 'Назначить модератором форума (удаление сообщений и бан в чате)?'}"`)}
       ${aBtn('makeadmin', 'Сделать админом', 'smallicon/status/f_gold.png', 'data-confirm="Дать права администратора?"')}
       ${aBtn('delete', 'Удалить игрока', 'smallicon/destroy.png', 'data-confirm="Удалить игрока и все его замки навсегда?"')}
     </div>
@@ -122,6 +125,7 @@ $('#sheetBody').addEventListener('click', (e) => {
 $('#sheetBody').addEventListener('submit', (e) => {
   const f = e.target, k = f.dataset.aform; if (!k) return;
   e.preventDefault();
+  if (k === 'givecastle') { const l = f.login.value.trim(), n = Math.max(1, Number(f.n.value) || 1); if (!l) return; if (!confirm(`Выдать игроку ${l} полных замков: ${n}?`)) return; return send({ t: 'admin', op: 'castles', login: l, n }); }
   if (k === 'addmod') { const l = f.login.value.trim(); if (!l) return; send({ t: 'admin', op: 'mod', login: l, on: 1 }); f.login.value = ''; return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
   if (k === 'find') { S.adm.players = null; return send({ t: 'admin', op: 'players', q: f.q.value }); }
   if (k === 'mailall') send({ t: 'admin', op: 'mailall', subject: f.subject.value, text: f.text.value });

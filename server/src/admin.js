@@ -111,7 +111,7 @@ function install(Game) {
         for (const c of castles) for (const a of c.armies) if (a.state === 'back') a.back = now; // и сразу домой
         this.tickWorld(now); msg = 'Всё завершено.'; break;
       case 'max': for (const c of castles) this.maxOut(c); msg = `Прокачано замков: ${castles.length}.`; break;
-      case 'castles': { const n = Math.max(1, Math.min(50, num(arg.n, 1))); msg = `Добавлено замков: ${this.adminAddCastles(target, n)}.`; break; }
+      case 'castles': { const n = Math.max(1, Math.min(50, num(arg.n, 1))), made = this.adminAddCastles(target, n); msg = `${target.login}: выдано полных замков — ${made}.`; if (target !== user && made) this.event(target.id, `Администрация выдала вам ${made === 1 ? 'полностью прокачанный замок' : `полностью прокачанные замки (${made})`}! Смотрите «Мои замки».`); break; }
       // --- армия ---
       case 'army': {
         const n = num(arg.n, 1000), list = arg.unit ? [UNIT[arg.unit]].filter(Boolean) : unitsForRace(target.race).filter((u) => u.id !== GENERAL_ID && !u.notrain);
