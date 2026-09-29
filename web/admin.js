@@ -61,7 +61,8 @@ function adminHtml() {
           ${g.dev ? `<button class="btn small ${g.devBanned ? '' : 'danger'}" data-mdev="${esc(g.dev)}" data-on="${g.devBanned ? 0 : 1}">${g.devBanned ? 'Разблокировать устройство' : 'Бан устройства'}</button>` : ''}</div></div>`;
         }).join('') : '<p class="parch-note">Мультов не найдено.</p>'}` : ''}`;
     },
-    world: () => `<form class="stack" data-aform="mailall"><input name="subject" placeholder="Тема письма" value="Сообщение администрации"><textarea name="text" rows="3" placeholder="Письмо всем игрокам" required></textarea><button class="btn primary">Разослать всем</button></form>
+    world: () => `<div class="acard"><div class="cwname"><img class="admbadge s" src="${GFX}smallicon/upgrade.png" alt=""> Новость игрокам</div><p class="small">Всем игрокам придёт фиолетовый конверт в верхней панели; после прочтения он исчезнет, а новость останется в «Инфо → Новости».</p><form class="stack" data-aform="newspub"><input name="title" maxlength="80" placeholder="Заголовок" required><textarea name="text" rows="5" maxlength="4000" placeholder="Текст новости" required></textarea><button class="btn primary">Опубликовать</button></form></div>
+      <form class="stack" data-aform="mailall"><input name="subject" placeholder="Тема письма" value="Сообщение администрации"><textarea name="text" rows="3" placeholder="Письмо всем игрокам" required></textarea><button class="btn primary">Разослать всем</button></form>
       <form class="chatform" data-aform="chat"><input name="text" placeholder="Объявление в общий чат" required><button class="btn primary small">В чат</button></form>
       <div class="ptiles">${aBtn('npc', 'Восстановить лагеря', 'ground/dikari.png')}${aBtn('season', 'Подвести месяц', 'smallicon/bonus_status/ranggold.png', 'data-confirm="Подвести итоги месяца досрочно и выдать награды топ-3?"')}${aBtn('reports', 'Очистить отчёты', 'smallicon/swordgreen.png')}${aBtn('bugs', 'Жалобы и ошибки', 'smallicon/soft_help.png')}</div>
       <div class="arow">${aNum('bots', 1000, 'сколько ботов')}${aBtn('bots', 'Заселить ботами', 'ground/castle_small.png', 'data-arg="bots:n"')}</div>
@@ -144,6 +145,7 @@ $('#sheetBody').addEventListener('submit', (e) => {
   if (k === 'givecastle') { const l = f.login.value.trim(), n = Math.max(1, Number(f.n.value) || 1); if (!l) return; if (!confirm(`Выдать игроку ${l} полных замков: ${n}?`)) return; return send({ t: 'admin', op: 'castles', login: l, n }); }
   if (k === 'addmod') { const l = f.login.value.trim(); if (!l) return; send({ t: 'admin', op: 'mod', login: l, on: 1 }); f.login.value = ''; return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
   if (k === 'find') { S.adm.players = null; return send({ t: 'admin', op: 'players', q: f.q.value }); }
+  if (k === 'newspub') { if (!confirm('Опубликовать новость всем игрокам?')) return; send({ t: 'news', op: 'publish', title: f.title.value, text: f.text.value }); f.reset(); return; }
   if (k === 'mailall') send({ t: 'admin', op: 'mailall', subject: f.subject.value, text: f.text.value });
   if (k === 'chat') { send({ t: 'admin', op: 'chat', text: f.text.value }); f.text.value = ''; }
   if (k === 'pass') admSend('pass', { password: f.password.value });

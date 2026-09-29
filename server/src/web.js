@@ -131,7 +131,7 @@ class WebSession {
         loyalty: Math.round(c.loyalty ?? 100), capital: this.game.isCapital(c),
       },
       castles: this.game.castlesOf(u).map((k, i) => ({ id: k.id, name: k.name, x: k.x, y: k.y, capital: i === 0, active: k.id === c.id, rating: this.game.rating(k), loyalty: Math.round(k.loyalty ?? 100) })),
-      unread: (this.game.db.messages || []).filter((m) => m.to === u.id && !m.read).length,
+      unread: (this.game.db.messages || []).filter((m) => m.to === u.id && !m.read).length, newsUnread: this.game.newsUnread(u), newsFirst: this.game.newsFirst(u),
       moves: this.game.moveCounts(u),
     });
   }
@@ -366,6 +366,16 @@ const API = {
     this.send({ t: 'mail', folder, list });
   },
   // «Сообщения» как в оригинале: список переписок (последнее сообщение от каждого собеседника) и диалог с одним игроком
+  // новости от администрации: список / чтение / публикация / комментарии
+  news(m) {
+    const g = this.game, u = this.user, op = String(m.op || 'list');
+    if (op === 'list') return this.send({ t: 'news', view: 'list', data: g.newsList(u, m.page) });
+    if (op === 'get') { const r = g.newsGet(u, m.id); if (r.error) return this.error(r.error); this.send({ t: 'news', view: 'item', data: r }); return this.pushState(); }
+    const r = g.newsOp(u, m); if (r.error) return this.error(r.error); this.toast(r.msg);
+    if (op === 'comment' || op === 'cmtdel') { const it = g.newsGet(u, r.id); if (!it.error) this.send({ t: 'news', view: 'item', data: it, scroll: op === 'comment' ? 1 : 0 }); }
+    if (op === 'publish' || op === 'delete') { for (const s of WebSession.all || []) if (s.user) s.pushState(); }
+    if (op !== 'publish') this.send({ t: 'news', view: 'list', data: g.newsList(u, 0), quiet: 1 });
+  },
   dialogclose() { this.dialogWith = undefined; },
   dialogs(m) {
     const me = this.user.id, by = new Map();

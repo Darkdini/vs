@@ -207,6 +207,7 @@ function onMsg(m) {
       if (m.refresh && S.sheets.length) { S.sheets[S.sheets.length - 1] = () => profileSheet(m.profile); showSheet(false); } else openSheet(() => profileSheet(m.profile)); break;
     case 'mail': S.mail = m; refreshSheet(); break;
     case 'dialogs': case 'dialog': dialogsMsg(m); break;
+    case 'news': newsMsg(m); break;
     case 'forum': forumMsg(m); break;
     case 'letter': openSheet(() => letterSheet(m.letter)); break;
     case 'toast':
@@ -279,6 +280,7 @@ $('#authForm').addEventListener('submit', (e) => {
 function renderTop() { // конверты сообщений и отчётов наверху (как в 3D-клиенте)
   const u = S.st.unread, rep = S.st.castle.mil.unreadReports;
   $('#unread').textContent = u; $('#unread').classList.toggle('hidden', !u);
+  { const nn = S.st.newsUnread || 0; $('#btnNews').classList.toggle('hidden', !nn); $('#unnews').textContent = nn > 1 ? nn : ''; $('#unnews').classList.toggle('hidden', nn < 2); }
   $('#unrep').textContent = rep; $('#unrep').classList.toggle('hidden', !rep);
   // верхняя панель: сколько армий идёт (подкрепления — зелёный щит, наши нападения — зелёные мечи, на нас — красные мечи)
   const mv = S.st.moves || {};

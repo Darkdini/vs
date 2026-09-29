@@ -61,7 +61,7 @@ const MENUS = {
     ['Лотерея', 'coins_s.png', () => openSoon('Лотерея')],
   ] },
   info: { label: 'Инфо', title: 'Информация', icon: 'menu2/info.png', items: () => [
-    ['Новости', 'smallicon/upgrade.png', () => openSheet(newsWin)],
+    ['Новости', 'smallicon/upgrade.png', () => openNews()],
     ['Служба поддержки', 'smallicon/soft_help.png', () => ACTS.bug()],
     ['Справка', 'build/university.png', () => openSheet(helpWin)],
     ['Контакты', 'smallicon/unmes.png', () => openSheet(contactsWin)],
@@ -111,6 +111,7 @@ $('#menu').addEventListener('click', (e) => {
 // ---------- верх, панель локаций, низ ----------
 $('#btnMail').addEventListener('click', () => ACTS.mail());
 $('#btnRep').addEventListener('click', () => openReports());
+$('#btnNews').addEventListener('click', () => { const id = S.st.newsFirst; if (id) openNewsItem(id); else openNews(); }); // непрочитанная новость открывается сразу
 $('#locsTab').addEventListener('click', () => $('#locs').classList.toggle('open'));
 $('#locs').addEventListener('click', (e) => {
   const b = e.target.closest('[data-loc]'); if (!b) return;

@@ -1212,3 +1212,25 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 #top > .env:not(.mv)::before { display: none; }
 #top > .env:not(.mv):active { transform: scale(.94); }
 #top > .env .dot { top: 2px; right: 0; }
+
+/* ---------- фиолетовый конверт «Новость от администрации» и окна новостей ---------- */
+#top > #btnNews { width: 66px; height: 64px; margin-top: auto; background: url(gfx3d/top/btn_news.png) center / contain no-repeat; filter: drop-shadow(0 2px 2px #0008); animation: newsPulse 1.6s ease-in-out infinite; }
+#top > #btnNews::before { display: none; }
+#top > #btnNews.hidden { display: none; }
+@keyframes newsPulse { 50% { filter: drop-shadow(0 0 7px #d9a0ff) drop-shadow(0 2px 2px #0008); } }
+.nlist { display: grid; gap: 8px; padding-bottom: 70px; }
+.ncard { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 8px 12px; border: 0; border-radius: 10px; color: #fff;
+  background: linear-gradient(#b8724a, #6a3018); box-shadow: 0 2px 4px #0007, inset 0 1px 0 #fff4; text-shadow: 0 1px 1px #0009; }
+.ncard.new { background: linear-gradient(#8a4ab8, #40186a); }
+.ncard img { flex: none; width: 60px; height: 80px; object-fit: contain; }
+.ncard span { display: grid; gap: 4px; font: 700 min(26px, 6vw)/1.15 var(--serif); }
+.ncard small { font: 400 min(22px, 5.2vw) var(--serif); color: #e6d0bc; }
+.ncard:active { filter: brightness(.9); transform: translateY(1px); }
+.nitem h3 { margin: 4px 0 2px; font: 700 min(28px, 6.4vw) var(--serif); color: #2a1408; }
+.ndate { color: #6a5a48; font: min(24px, 5.6vw) var(--serif); border-bottom: 1px solid #b08a5a88; padding-bottom: 2px; }
+.ntext { margin: 6px 0 10px; font: min(25px, 5.8vw)/1.35 var(--serif); color: #2a1408; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ncmts { padding-bottom: 80px; }
+.ncmt { position: relative; margin-bottom: 4px; padding: 6px 34px 6px 10px; border-radius: 6px; background: #e8a870; font: min(22px, 5.2vw)/1.3 var(--serif); color: #2a1408; }
+.ncmt .fnick { display: block; color: #7a1a0a; }
+.ncmt small { display: block; color: #6a4a2a; font-size: .8em; }
+.ncdel { position: absolute; right: 6px; top: 6px; width: 24px; height: 24px; border: 0; border-radius: 50%; background: #8a1010; color: #fff; }

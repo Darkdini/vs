@@ -235,5 +235,20 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(m && /Шлем Легиона/.test(m.text) && /Держи!/.test(m.text) && !m.read, 'сообщение о подарке');
   console.log('✓ подарок: получателю приходит сообщение от дарителя с названием и подписью');
 }
+// новости администрации: непрочитанная → конверт; прочитал — исчезла; комментарии, права
+{
+  const ad = g.db.users.admin, u = g.register({ login: 'newsr', password: '123', race: 0 }).user;
+  assert.ok(g.newsOp(u, { op: 'publish', title: 'Привет', text: 'x' }).error, 'публикует только админ');
+  const id = g.newsOp(ad, { op: 'publish', title: 'Обновление игры', text: 'Что нового' }).id;
+  assert.strictEqual(g.newsUnread(u), 1); assert.strictEqual(g.newsFirst(u), id);
+  const it = g.newsGet(u, id); assert.ok(it.title && !it.error); assert.strictEqual(g.newsUnread(u), 0, 'прочитал — конверт исчез');
+  assert.strictEqual(g.newsList(u, 0).list.length, 1, 'новость осталась в списке');
+  assert.ok(g.newsOp(u, { op: 'comment', id, text: 'Круто!' }).msg);
+  assert.strictEqual(g.newsGet(u, id).comments.length, 1);
+  assert.ok(g.newsOp(u, { op: 'cmtdel', id, comment: g.newsGet(u, id).comments[0].id }).error, 'комментарии удаляют модераторы');
+  const late = g.register({ login: 'newsl', password: '123', race: 0 }).user; late.created = Date.now() + 5000;
+  assert.strictEqual(g.newsUnread(late), 0, 'старые новости новичку не мигают');
+  console.log('✓ новости: публикует админ, непрочитанная → конверт, после прочтения исчезает, остаётся в списке, комментарии');
+}
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);
