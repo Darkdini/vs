@@ -1085,3 +1085,40 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .frtabs button.on { background: #e8c898; }
 .frtext { white-space: pre-wrap; font: min(23px, 5.4vw)/1.35 var(--serif); color: #2a1408; }
 .ribbon.rlong { font-size: min(19px, 4.6vw); line-height: 1.15; min-height: 66px; padding: 6px 12px; text-align: center; }
+
+/* ---------- новая графика: нижнее меню (иконка + табличка с надписью в одной картинке) ---------- */
+#menubar { height: calc(112px + var(--safe-b)); background: linear-gradient(transparent 0 46px, #0f0200 46px 48px, #7c5a3c 48px 53px, #3e1500 53px); }
+#menubar button { padding-bottom: 4px; justify-content: flex-end; }
+#menubar img { width: 100%; max-width: 70px; height: 104px; object-fit: contain; object-position: bottom; image-rendering: auto; margin: 0; filter: drop-shadow(0 3px 3px #000a); }
+#menubar span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+#menubar button.on img { transform: translateY(-6px) scale(1.08); filter: drop-shadow(0 0 6px #ffd35acc) drop-shadow(0 3px 3px #000a); }
+
+/* ---------- новая графика: боковая панель локаций ---------- */
+#locs .lbtns { gap: 10px; padding: 14px 10px 14px 12px; border: 4px solid #d9a441; border-right: 0; border-radius: 18px 0 0 18px; border-image: none;
+  background: linear-gradient(90deg, #3a1a0a, #5a2a12 50%, #3a1a0a); box-shadow: inset 0 0 0 2px #7a4a12, -3px 0 8px #0008; }
+#locs .lbtns button { width: 78px; height: 78px; padding: 0; border: 0; border-radius: 16px; background: none; box-shadow: 0 3px 4px #0008; }
+#locs .lbtns button.on { background: none; filter: brightness(1.12) drop-shadow(0 0 6px #ffd35a); }
+#locs .lbtns button:active { transform: scale(.94); }
+#locs .lbtns img { width: 100%; height: 100%; max-width: none; max-height: none; object-fit: contain; image-rendering: auto; filter: none; }
+#locsTab { left: -52px; width: 56px; height: 104px; border: 0; border-radius: 0; background: url(gfx3d/locs2/tab.png) center / contain no-repeat; box-shadow: none; }
+#locs:not(.open) #locsTab { left: -52px; }
+#locsTab::after { display: none; }
+#locs.open #locsTab { transform: scaleX(-1); }
+
+/* ---------- новая графика: окно «Ресурсы» ---------- */
+.ri { image-rendering: auto; }
+.rsframe { position: relative; margin: 34px 2px 8px; padding: 16px 12px 12px; border: 5px solid #d9a441; border-radius: 14px;
+  background: linear-gradient(#7a200e, #4a0f04); box-shadow: 0 0 0 2px #5a2e06, inset 0 0 0 2px #f5cf72, 0 6px 14px #0008; }
+.rscrown { position: absolute; left: 50%; top: -40px; width: 128px; transform: translateX(-50%); filter: drop-shadow(0 2px 2px #000a); }
+.rsrib { position: relative; margin: 6px -22px 8px; padding: 4px 0; text-align: center; border: 3px solid #e8b44a; border-radius: 8px;
+  background: linear-gradient(#d8402c, #9a160a 60%, #7a0e06); color: #ffe39a; font: 700 min(34px, 8vw) var(--serif);
+  text-shadow: 0 2px 0 #5a0a00, 0 0 4px #000; box-shadow: 0 3px 6px #0008, inset 0 1px 0 #ff9a7a; }
+.rsrib::before, .rsrib::after { content: "◆"; position: absolute; top: 50%; transform: translateY(-50%); color: #e8323a; font-size: 18px; text-shadow: 0 0 0 #e8b44a, 0 0 3px #ffd35a; }
+.rsrib::before { left: 14px; } .rsrib::after { right: 14px; }
+.rspanel { padding: 4px 12px; border: 3px solid #c8963e; border-radius: 8px; background: radial-gradient(#fbecc9, #ecd3a4); box-shadow: inset 0 0 12px #b0783a66; }
+.rsframe .rsline { gap: 16px; padding: 4px 0; font: 700 min(27px, 6.3vw) var(--serif); color: #3a1c08; border-bottom: 1px solid #b08a5a55; }
+.rsframe .rsline:last-of-type { border-bottom: 0; }
+.rsframe .rsline img { width: 58px; height: 58px; }
+.rsclosebtn { display: block; width: 72%; margin: 8px auto 4px; padding: 0; border: 0; background: none; }
+.rsclosebtn img { width: 100%; filter: drop-shadow(0 3px 3px #0008); }
+.rsclosebtn:active { transform: scale(.96); }

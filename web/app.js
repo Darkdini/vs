@@ -32,7 +32,7 @@ const displayId = (def, level) => (!def.tiers ? def.id : level >= 10 ? def.tiers
 const bsrc = (id) => (id === 22 ? `${GFX}fence/fence1.png` : `${GFX}build/${BUILD_IMG[id] || 'build'}.png`);
 const bimg = (id, cls = 'bi') => `<img class="${cls}" src="${bsrc(id)}" alt="">`;
 const gimg = (path, cls = 'gi') => `<img class="${cls}" src="${GFX}${path}" alt="">`;
-const RES_IC = Object.fromEntries(['wood', 'stone', 'iron', 'food', 'people'].map((r) => [r, gimg(`res/${r}.png`, 'ri')]));
+const RES_IC = Object.fromEntries(['wood', 'stone', 'iron', 'food', 'people'].map((r) => [r, gimg(`../gfx3d/res/${r}.png`, 'ri')]));
 const TIME_IC = gimg('res/time.png', 'ri');
 const RES_NAME = { wood: 'Дерево', stone: 'Камень', iron: 'Железо', food: 'Еда', people: 'Люди' };
 const VIEW = { CASTLE: 0, LANDS: 1 };
@@ -275,11 +275,13 @@ setInterval(tick, 500);
 
 
 // окно «Ресурсы» как в оригинале: запасы/вместимость и добыча в час
+// окно «Ресурсы» в новом оформлении: золотая рамка с короной, ленты «Ресурсы» и «Добыча», кнопка «Закрыть»
 function resSheet() {
-  const c = S.st.castle, row = (r, t) => `<div class="rsline"><img src="${GFX}res/${r}.png" alt="">${t}</div>`;
-  return `${ribbon('Ресурсы')}${RES.map((r) => row(r, `${Math.floor(resNow(r))}/${c.cap[r]} ед.`)).join('')}
-    ${ribbon('Добыча')}${RES.map((r) => row(r, `${c.rate[r]} ед/час`)).join('')}
-    <div class="rsclose"><button class="pbtn" data-rsclose>Закрыть</button></div>`;
+  const c = S.st.castle, row = (r, t) => `<div class="rsline"><img src="gfx3d/res/${r}.png" alt="">${t}</div>`;
+  return `<div class="rsframe"><img class="rscrown" src="gfx3d/res/crown.png" alt="">
+    <div class="rsrib">Ресурсы</div><div class="rspanel">${RES.map((r) => row(r, `${Math.floor(resNow(r))}/${c.cap[r]} ед.`)).join('')}</div>
+    <div class="rsrib">Добыча</div><div class="rspanel">${RES.map((r) => row(r, `${c.rate[r]} ед/час`)).join('')}
+    <button class="rsclosebtn" data-rsclose><img src="gfx3d/res/closebtn.png" alt="Закрыть"></button></div></div>`;
 }
 $('#sheetBody').addEventListener('click', (e) => { if (e.target.closest('[data-rsclose]')) closeSheet(); });
 

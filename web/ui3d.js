@@ -12,7 +12,7 @@ const raceIcon = (race) => gimg(RACE_IMG[race] || 'units/human/general.png', 'ri
 
 // ---------- меню ----------
 const MENUS = {
-  cabinet: { label: 'Кабинет', icon: 'menu/cabinet.svg', items: () => [
+  cabinet: { label: 'Кабинет', icon: 'menu2/cabinet.png', items: () => [
     ...(S.st.user.admin ? [['Админ-панель', 'smallicon/status/f_gold.png', () => openSheet(adminHtml)]] : []),
     ['Профиль', '../gfx3d/prof/king.png', () => openAccount()],
     ['Советник', `units/${S.cat.mil.raceDir[S.st.user.race]}/wisdom.png${S.st.user.race === 'orcs' ? '?orc' : ''}`, () => openSheet(advisorWin)],
@@ -28,7 +28,7 @@ const MENUS = {
     ['Поиск друзей', 'user_search.png', () => openPlayers('search')],
     ['Блокнот', 'smallicon/softedit.png', () => { S.notes = null; send({ t: 'notes' }); openSheet(notesWin); }],
   ] },
-  locations: { label: 'Локации', title: 'Локации', icon: 'menu/locations.svg', items: () => [
+  locations: { label: 'Локации', title: 'Локации', icon: 'menu2/locations.png', items: () => [
     ['Замок', 'build/castle.png', () => setTab('castle')],
     ['Земли', 'ground/wood.png', () => setTab('lands')],
     ['Мир', 'ground/castle_big.png', () => setTab('world')],
@@ -41,11 +41,11 @@ const MENUS = {
     ['Здания замка', 'build/build.png', () => openSheet(() => ribbon('Здания замка') + summaryHtml(VIEW.CASTLE))],
     ['Постройки на землях', 'build/farm_big.png', () => openSheet(() => ribbon('Постройки на землях') + summaryHtml(VIEW.LANDS))],
   ] },
-  alliance: { label: 'Альянс', title: 'Альянс', icon: 'menu/alliance.svg', items: () => [
+  alliance: { label: 'Альянс', title: 'Альянс', icon: 'menu2/alliance.png', items: () => [
     ['Мой альянс', 'build/diplomat.png', () => { if (MY().alliance) return openAlly(); const i = S.st.castle.grid[0].indexOf(13); if (i < 0) return toast('Нужен Дипломатический центр — постройте его в замке.', 'err'); openCell(VIEW.CASTLE, i); }],
     ['Рейтинг альянсов', 'smallicon/status/f_gold.png', () => openRating('alliances')],
   ] },
-  mail: { label: 'Почта', title: 'Почта', icon: 'menu/mail.svg', items: () => [
+  mail: { label: 'Почта', title: 'Почта', icon: 'menu2/mail.png', items: () => [
     ['Новое', '../gfx3d/mail/new.png', () => openCompose('')],
     ['Сообщения', '../gfx3d/mail/msgs.png', () => ACTS.mail()],
     ['Отчеты', '../gfx3d/mail/reports.png', () => openReports()],
@@ -56,18 +56,18 @@ const MENUS = {
     ['Блог', '../gfx3d/mail/blog.png', () => openSoon('Блог')],
     ['События', '../gfx3d/mail/events.png', () => openReports()],
   ] },
-  games: { label: 'Игры', title: 'Игры', icon: 'menu/games.svg', items: () => [
+  games: { label: 'Игры', title: 'Игры', icon: 'menu2/games.png', items: () => [
     ['Кости', 'smallicon/surprize.png', () => openSoon('Кости')],
     ['Лотерея', 'coins_s.png', () => openSoon('Лотерея')],
   ] },
-  info: { label: 'Инфо', title: 'Информация', icon: 'menu/info.svg', items: () => [
+  info: { label: 'Инфо', title: 'Информация', icon: 'menu2/info.png', items: () => [
     ['Новости', 'smallicon/upgrade.png', () => openSheet(newsWin)],
     ['Служба поддержки', 'smallicon/soft_help.png', () => ACTS.bug()],
     ['Справка', 'build/university.png', () => openSheet(helpWin)],
     ['Контакты', 'smallicon/unmes.png', () => openSheet(contactsWin)],
     ['Описание меню', 'smallicon/soft_help.png', () => openSheet(menuDescWin)],
   ] },
-  rating: { label: 'Рейтинг', title: 'Рейтинги', icon: 'menu/rating.svg', items: () => [
+  rating: { label: 'Рейтинг', title: 'Рейтинги', icon: 'menu2/rating.png', items: () => [
     ['Зал Славы', '../gfx3d/rating/hof.png', () => { S.halls = null; send({ t: 'halls' }); openSheet(hallsWin); }],
     ['Игрок', '../gfx3d/rating/player.png', () => openRating('players')],
     ['Замок', '../gfx3d/rating/castle.png', () => openRating('castles')],
