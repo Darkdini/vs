@@ -38,7 +38,7 @@ function soundWin() {
   const d = S.sndDraft || SND;
   const row = (k, icon, t) => `<button type="button" class="sndrow" data-sndtg="${k}"><span class="sndbox ${d[k] ? 'on' : ''}"></span><img src="${icon}" alt=""> ${t}</button>`;
   return `${ribbon('Настройка звуков')}<div class="sndlist">
-    ${row('music', 'gfx3d/sound/music.svg', 'Музыка')}${row('sounds', 'gfx3d/sound/sounds.svg', 'Звуки')}${row('notify', 'gfx3d/sound/notify.svg', 'Оповещения')}${row('anim', 'gfx3d/king/icon.png', 'Анимация')}</div>
+    ${row('music', 'gfx3d/sound/music.svg', 'Музыка')}${row('sounds', 'gfx3d/sound/sounds.svg', 'Звуки')}${row('notify', 'gfx3d/sound/notify.svg', 'Оповещения')}</div>
     <button class="pbar" data-sndsave>Сохранить</button>`;
 }
 $('#sheetBody').addEventListener('click', (e) => {
@@ -48,5 +48,5 @@ $('#sheetBody').addEventListener('click', (e) => {
   Object.assign(SND, S.sndDraft || {});
   store.set('tw.snd2', SND);
   if (SND.music) { unlocked = true; musicOn(); } else musicOff();
-  toast('Настройки сохранены.'); closeSheet(); isoDraw();
+  toast('Настройки сохранены.'); closeSheet();
 });
