@@ -46,7 +46,7 @@ const MENUS = {
     ['Рейтинг альянсов', 'smallicon/status/f_gold.png', () => openRating('alliances')],
   ] },
   mail: { label: 'Почта', title: 'Почта', icon: 'menu2/mail.png', items: () => [
-    ['Новое', '../gfx3d/mail/new.png', () => openCompose('')],
+    ['Новое', '../gfx3d/mail/new.png', () => { const who = prompt('Кому написать? Ник игрока:'); if (who && who.trim()) openDialog(who.trim()); }],
     ['Сообщения', '../gfx3d/mail/msgs.png', () => ACTS.mail()],
     ['Отчеты', '../gfx3d/mail/reports.png', () => openReports()],
     ['Приватность', '../gfx3d/mail/privacy.png', () => openSoon('Приватность')],
@@ -180,7 +180,7 @@ $('#sheetBody').addEventListener('click', (e) => {
     S.chatPop = null;
     if (d.cpop === 'del') { if (confirm('Удалить сообщение?')) send({ t: 'chatmod', op: 'del', id: pp.mid }); return refreshSheet(); }
     if (d.cpop === 'profile') { refreshSheet(); return send({ t: 'profile', id: pp.id }); }
-    if (d.cpop === 'private') { refreshSheet(); return openCompose(pp.nick); }
+    if (d.cpop === 'private') { refreshSheet(); return openDialog(pp.nick); }
     if (d.cpop === 'report') {
       const msg = S.chat.find((x) => x.id === pp.mid);
       if (confirm(`Пожаловаться администрации на ${pp.nick}?`)) send({ t: 'bug', text: `Жалоба на ${pp.nick} (чат): «${msg ? msg.text : ''}»` });
@@ -472,7 +472,7 @@ $('#sheetBody').addEventListener('click', (e) => {
     if (d.ptile === 'rep') { S.repTo = p; S.repCoins = 1; return openSheet(repWin); }
     if (d.ptile === 'gift') { S.giftTo = p; return openSheet(giftsWin); }
     if (d.ptile === 'friend') { send({ t: 'friend', op: p.friend ? 'del' : 'add', id }); return send({ t: 'profile', id }); }
-    if (d.ptile === 'msg') { if (p.self) { closeAllSheets(); return ACTS.mail(); } return openCompose(p.login); }
+    if (d.ptile === 'msg') { if (p.self) { closeAllSheets(); return ACTS.mail(); } return openDialog(p.id); }
     if (d.ptile === 'map') { closeAllSheets(); S.world = null; setTab('world'); return send({ t: 'world', cx: p.castles[0].x, cy: p.castles[0].y }); }
     if (d.ptile === 'info') return openSheet(() => profileInfoWin(p));
     if (d.ptile === 'attack') return openArmySheet({ mission: 'attack', x: p.castles[0].x, y: p.castles[0].y });

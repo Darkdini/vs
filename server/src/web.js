@@ -365,6 +365,34 @@ const API = {
     });
     this.send({ t: 'mail', folder, list });
   },
+  // «Сообщения» как в оригинале: список переписок (последнее сообщение от каждого собеседника) и диалог с одним игроком
+  dialogclose() { this.dialogWith = undefined; },
+  dialogs(m) {
+    const me = this.user.id, by = new Map();
+    for (const x of this.game.db.messages || []) {
+      if (x.to !== me && x.from !== me) continue;
+      const o = x.from === me ? x.to : x.from, d = by.get(o) || { unread: 0 };
+      if (x.to === me && !x.read) d.unread++;
+      d.last = x; by.set(o, d);
+    }
+    const list = [...by.entries()].map(([id, d]) => { const u = this.game.userById(id); return u ? { id, login: u.login, race: u.race, avatar: u.avatar || 0,
+      text: d.last.text || d.last.subject || '', at: d.last.at, mine: d.last.from === me, unread: d.unread } : null; }).filter(Boolean).sort((a, b) => b.at - a.at);
+    const page = Math.max(0, Math.floor(Number(m.page)) || 0), pages = Math.max(1, Math.ceil(list.length / 10)), pg = Math.min(page, pages - 1);
+    const filter = m.filter === 'unread' ? list.filter((x) => x.unread) : list;
+    this.send({ t: 'dialogs', page: pg, pages: Math.max(1, Math.ceil(filter.length / 10)), filter: m.filter || 'all', list: filter.slice(pg * 10, pg * 10 + 10), total: list.length });
+  },
+  dialog(m) {
+    const me = this.user.id, key = String(m.with || '').trim().toLowerCase();
+    const o = Number(m.id) ? this.game.userById(Number(m.id)) : Object.prototype.hasOwnProperty.call(this.game.db.users, key) ? this.game.db.users[key] : null;
+    if (!o) return this.error('Игрок не найден.');
+    if (!m.keep || this.dialogWith === undefined) this.dialogWith = o.id;
+    const all = (this.game.db.messages || []).filter((x) => (x.from === me && x.to === o.id) || (x.from === o.id && x.to === me));
+    let changed = false; for (const x of all) if (x.to === me && !x.read) { x.read = true; changed = true; }
+    if (changed) { this.game.store.save(); this.pushState(); }
+    const lim = Math.min(all.length, Math.max(30, Math.floor(Number(m.more)) || 30));
+    this.send({ t: 'dialog', with: { id: o.id, login: o.login, race: o.race, avatar: o.avatar || 0 }, more: all.length > lim,
+      list: all.slice(-lim).map((x) => ({ id: x.id, mine: x.from === me, subject: x.subject, text: x.text, at: x.at })), keep: !!m.keep });
+  },
   read(m) {
     const x = (this.game.db.messages || []).find((y) => y.id === Number(m.id) && (y.to === this.user.id || y.from === this.user.id));
     if (!x) return this.error('Письмо не найдено.');
@@ -373,10 +401,11 @@ const API = {
     this.send({ t: 'letter', letter: { id: x.id, from: from && from.login, to: to && to.login, subject: x.subject, text: x.text, at: x.at } });
   },
   sendmail(m) {
+    if (!String(m.text || '').trim()) return this.error('Пустое сообщение.');
     const res = this.game.sendMail(this.user, m.to, m.subject, m.text);
     if (res.error) return this.error(res.error);
-    this.toast('Сообщение отправлено.');
-    for (const s of WebSession.all || []) if (s.user && s.user.id === res.to.id && s.notifyMail) s.notifyMail(this.user.login);
+    if (m.dialog) API.dialog.call(this, { id: res.to.id, keep: 1 }); else this.toast('Сообщение отправлено.');
+    for (const s of WebSession.all || []) if (s.user && s.user.id === res.to.id) { if (s.dialogWith === this.user.id) API.dialog.call(s, { id: this.user.id, keep: 1 }); else if (s.notifyMail) s.notifyMail(this.user.login); }
   },
   // ---- функции зданий и армия (server/src/army.js) ----
   train(m) { this.result(this.game.train(this.castle, Number(m.unit), Number(m.count))); },

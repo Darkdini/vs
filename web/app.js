@@ -206,6 +206,7 @@ function onMsg(m) {
     case 'profile': if (m.acct) { S.lastAcct = m.profile; S.lastProfile = m.profile; if (m.refresh && S.sheets.length) { S.sheets[S.sheets.length - 1] = () => accountWin(m.profile); showSheet(false); } else openSheet(() => accountWin(m.profile)); break; }
       if (m.refresh && S.sheets.length) { S.sheets[S.sheets.length - 1] = () => profileSheet(m.profile); showSheet(false); } else openSheet(() => profileSheet(m.profile)); break;
     case 'mail': S.mail = m; refreshSheet(); break;
+    case 'dialogs': case 'dialog': dialogsMsg(m); break;
     case 'forum': forumMsg(m); break;
     case 'letter': openSheet(() => letterSheet(m.letter)); break;
     case 'toast':
@@ -404,7 +405,7 @@ $('#sheetBody').addEventListener('click', viewClick); // те же кнопки 
 
 const ACTS = {
   me: () => openAccount(),
-  mail: () => { openSub('mail'); send({ t: 'mail', folder: S.mailFolder }); },
+  mail: () => openDialogs(), // «Сообщения»: список переписок (dialogs.js)
   book: () => openSub('book'),
   army: () => openSub('army'),
   hq: () => { const i = hqCell(); if (i < 0) return toast('Сначала постройте Военный штаб (нужна Ратуша 3 ур.).', 'err'); openCell(VIEW.CASTLE, i); },
@@ -460,8 +461,8 @@ function refreshSheet() {
   if (!S.sheets.length || document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
   const sc = $('#sheetBody').scrollTop; showSheet(false); $('#sheetBody').scrollTop = sc;
 }
-function closeSheet() { if (!S.sheets.length) return; S.sheets.pop(); showSheet(true); popOverlay(); unselect(); }
-function closeAllSheets() { if (!S.sheets.length) return; S.sheets = []; showSheet(); popOverlay(); unselect(); }
+function closeSheet() { if (!S.sheets.length) return; if (S.sheets.pop() === dialogWin) send({ t: 'dialogclose' }); showSheet(true); popOverlay(); unselect(); }
+function closeAllSheets() { if (!S.sheets.length) return; if (S.sheets.includes(dialogWin)) send({ t: 'dialogclose' }); S.sheets = []; showSheet(); popOverlay(); unselect(); }
 // окно закрыто — снять подсветку клетки в замке и на землях
 function unselect() { if (!S.sheets.length && Iso.sel && Iso.sel.tab !== 'world') { Iso.sel = null; isoDraw(); } }
 $('#backdrop').addEventListener('click', closeAllSheets);
@@ -479,7 +480,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   }
   if (d.pick) { const [view, cell, id] = d.pick.split(',').map(Number); return openSheet(() => buildingSheet(S.by[id], 0, { view, cell })); }
   if (d.profile) return send({ t: 'profile', id: Number(d.profile) });
-  if (d.write !== undefined) return openCompose(d.write, d.subj || '');
+  if (d.write !== undefined) return d.write ? openDialog(d.write) : openCompose('', d.subj || '');
   if (d.close !== undefined) return closeSheet();
   if (d.goworld) { closeAllSheets(); const [x, y] = d.goworld.split(',').map(Number); S.world = null; setTab('world'); send({ t: 'world', cx: x, cy: y }); }
 });
