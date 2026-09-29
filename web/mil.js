@@ -235,37 +235,76 @@ function artifactsHtml() {
 
 // ---------- отчёты ----------
 function openReports() { S.reports = null; send({ t: 'reports' }); openSheet(reportsHtml); }
-function reportsHtml() {
-  return `<div class="sh-head"><div class="big">${gimg('smallicon/swordgreen.png')}</div><div><h3>Отчёты</h3><div class="muted small">Бои, разведка, торговля, экспедиции</div></div></div>
-    <div class="list">${!S.reports ? '<p class="muted">Загрузка…</p>' : S.reports.map((r) => `<button class="row" data-report="${r.id}"><div class="grow"><b style="${r.read ? 'font-weight:400' : ''}">${esc(r.title)}</b><span>${fmtDate(r.at)}</span></div>›</button>`).join('') || '<p class="muted">Отчётов пока нет.</p>'}</div>`;
+// дата как в оригинале: «Сегодня, 14:03», «Вчера, 14:03», иначе «27.09.2026 13:07»
+function repDate(t) {
+  const d = new Date(t), hm = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  const day = (x) => new Date(x).toDateString(), now = Date.now();
+  if (day(t) === day(now)) return `Сегодня, ${hm}`;
+  if (day(t) === day(now - 864e5)) return `Вчера, ${hm}`;
+  return `${d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${hm}`;
 }
-// боевой отчёт: результат, стороны с потерями по юнитам, добыча, разрушения, лояльность и захват
+const REPG = 'gfx3d/rep/';
+function reportsHtml() {
+  const list = S.reports || [];
+  return `<div class="ribbon"><span><img class="renv" src="${REPG}envnew.svg" alt=""> Отчеты ${S.reports ? list.length : ''}</span></div>
+    <div class="replist">${!S.reports ? '<p class="parch-note">Загрузка…</p>' : list.map((r) => `<button class="repcard ${r.tone || 'info'} ${r.read ? '' : 'new'}" data-report="${r.id}">
+      <b><img class="renv" src="${REPG}${r.read ? 'env' : 'envnew'}.svg" alt=""> ${esc(r.title)}</b><span>От: ${esc(r.from || 'Советник')}</span><span>${repDate(r.at)}</span></button>`).join('') || '<p class="parch-note">Отчётов пока нет.</p>'}</div>
+    ${list.some((r) => r.read) ? `<button class="repclean" data-repclean title="Удалить прочитанные"><img src="${REPG}mailset.png" alt=""></button>` : ''}`;
+}
+// окно отчёта как в оригинале: шапка «От/Тема/дата», итог похода, стороны, армии с потерями по юнитам
 function reportHtml(r) {
-  const d = r.data;
-  if (!d || d.type !== 'battle') return `${ribbon(r.title)}<div class="rep-date">${fmtDate(r.at)}</div><div class="letter">${r.lines.map(esc).join('\n')}</div>`;
-  const mine = d.side === 'att' ? d.win : !d.win; // победа с точки зрения читателя отчёта
-  const unitsTable = (units, race) => {
-    const rows = Object.entries(units).map(([id, v]) => { const u = unitById(id); return u ? `<tr><td>${`<img class="ui xs" src="${unitSrc(u, race)}" alt="">`}</td><td class="un">${esc(u.name)}</td><td>${fmtFull(v.was)}</td><td class="bad">${v.lost ? `−${fmtFull(v.lost)}` : '0'}</td><td><b>${fmtFull(v.was - v.lost)}</b></td></tr>` : ''; }).join('');
-    return rows ? `<table class="btab"><thead><tr><th></th><th>Юнит</th><th>Было</th><th>Погибло</th><th>Осталось</th></tr></thead><tbody>${rows}</tbody></table>` : '<p class="parch-note">Войск не было.</p>';
-  };
-  const side = (s, who) => `<div class="bside"><div class="bwho">${gimg(RACE_IMG[s.race] || 'units/human/general.png', 'rico')} <b>${who}: ${esc(s.login)}</b><small>${esc(s.castle || '')}</small></div>`;
-  const loot = d.loot ? `<div class="bloot">${RES4.map((k) => `<span>${RES_IC[k]} ${fmtFull(d.loot[k])}</span>`).join('')}</div>` : '<p class="parch-note">Ничего не унесено.</p>';
-  return `${ribbon(d.captured ? 'Захват замка' : r.data.side === 'def' ? 'Оборона' : M().missions[d.mission])}
-    <div class="rep-date">${fmtDate(r.at)} · X: ${d.x} Y: ${d.y}</div>
-    <div class="bres ${mine ? 'win' : 'lose'}">${mine ? 'ПОБЕДА' : 'ПОРАЖЕНИЕ'}</div>
-    <div class="bpow">Сила атаки <b>${fmtFull(d.power.att)}</b> — сила обороны <b>${fmtFull(d.power.def)}</b></div>
-    ${d.captured ? `<div class="bcap"><img src="${GFX}ground/castle.png" alt=""><div><b>Замок захвачен!</b><br>${esc(d.captured.name)} (X: ${d.captured.x}, Y: ${d.captured.y}) ${d.side === 'att' ? 'теперь ваш' : 'перешёл к врагу'}.</div></div>` : ''}
-    <div class="section">Нападающий</div>${side(d.att, 'Игрок')}</div>
-    ${unitsTable(d.att.units, d.att.race)}
-    ${d.att.general ? `<p class="bgen">${gimg('units/human/general.png', 'rico')} Генерал ${d.att.general} ур. ${d.att.generalDied ? '<span class="bad">— пал в бою</span>' : '— в строю'}</p>` : ''}
-    <div class="section">Защитник</div>
-    ${d.def.npc ? `<div class="bside"><div class="bwho"><img class="rico" src="${GFX}ground/${GROUND[d.def.img] || 'grass'}.png" alt=""> <b>${esc(d.def.npc)}</b></div></div><p class="parch-note">Охрана потеряла ${d.def.lossPct}%.</p>`
-      : `${side(d.def, 'Игрок')}</div>${unitsTable(d.def.units, d.def.race)}${d.def.wall ? `<p class="bgen">${gimg('fence/fence1.png', 'rico')} Забор ${d.def.wall} ур.</p>` : ''}`}
-    <div class="section">Добыча</div>${loot}
-    ${d.siege && d.siege.length ? `<div class="section">Разрушения</div><div class="pstats">${d.siege.map(esc).join('<br>')}</div>` : ''}
-    ${d.loyalty ? `<div class="section">Лояльность</div><div class="bloy"><div class="bar"><i style="width:${d.loyalty.to}%"></i></div><b>${d.loyalty.from} → ${d.loyalty.to}</b></div>` : ''}
-    ${d.capitalBlocked ? '<p class="parch-note">Столицу захватить нельзя — бунтари бессильны.</p>' : ''}
-    ${(() => { const gl = (r.lines || []).filter((x) => /генерал/i.test(x) && /опыт|пал/.test(x)); return gl.length ? `<div class="section">Генерал</div><div class="pstats bgenx">${gl.map((x) => `${gimg('units/human/general.png', 'rico')} ${esc(x)}`).join('<br>')}</div>` : ''; })()}`;
+  S.openReport = r;
+  const d = r.data || {}, pct = (a, b) => (b ? Math.round(a / b * 100) : 0);
+  const ic = (n) => `<img class="ric" src="${REPG}${n}.png" alt="">`;
+  const plink = (id, name) => id ? `<button class="rlink" data-profile="${id}">${esc(name)}</button>` : esc(name);
+  const band = (icon, text) => `<div class="ribbon rband"><span><img src="${REPG}${icon}.png" alt=""> ${text}</span></div>`;
+  const bar = (icon, text) => `<div class="rbar"><img src="${REPG}${icon}.png" alt=""> ${text}</div>`;
+  const head = `${ribbon('Отчет')}<div class="rp">От: ${esc(r.from || 'Советник')}<br>Тема: <b>${esc(r.title)}</b><br>${repDate(r.at)}</div><hr class="rhr">`;
+  const foot = `<hr class="rhr"><div class="rtiles"><button class="rtile" data-repfwd="${r.id}"><img src="${REPG}fwd.png" alt="Переслать"></button>
+    ${r.owner === S.st.user.id ? `<button class="rtile" data-repdel="${r.id}"><img src="${REPG}del.png" alt="Удалить"></button>` : ''}</div>`;
+  const sideBlock = (s, rating, x, y, lossLine) => `<div class="rp">Игрок: ${plink(s.id, s.login)}<br>Замок: ${esc(s.castle || '')}<br>(Рейтинг: ${rating ?? '-'}, X: ${x}, Y: ${y})${lossLine ? `<br>${lossLine}` : ''}</div>`;
+  if (d.type === 'scout') {
+    const res = d.ok ? '<span class="rgood">Разведка прошла успешно.</span>' : '<span class="rbad">Разведка провалилась.</span>';
+    return `${head}<div class="rp">Тип похода: Разведка<br>${ic('star')} Результат атаки: ${res}</div><hr class="rhr">
+      ${band('kingatt', 'Нападение')}${sideBlock(d.att, d.att.rating, d.att.cx, d.att.cy, `${ic('skull')} Общие потери: ${d.att.lost} из ${d.att.sent} ( ${pct(d.att.lost, d.att.sent)}% )`)}
+      ${band('kingdef', 'Защита')}${d.def.npc ? `<div class="rp">Игрок: Неизвестный игрок<br>Объект: ${esc(d.def.npc)}<br>(Рейтинг: -, X: ${d.x}, Y: ${d.y})</div>` : sideBlock(d.def, d.def.rating, d.x, d.y)}
+      ${bar('swords', 'Армия атаки')}${bar('glass', 'Разведка')}
+      <div class="rp">${d.info && d.info.length ? d.info.map(esc).join('<br>') : 'Разведчики ничего не узнали.'}</div>${foot}`;
+  }
+  if (d.type !== 'battle') return `${head}<div class="rp">${(r.lines || []).map(esc).join('<br>')}</div>${foot}`;
+  const attV = d.side === 'att';
+  const tot = (u) => Object.values(u || {}).reduce((q, v) => q + v.was, 0), lostN = (u) => Object.values(u || {}).reduce((q, v) => q + v.lost, 0);
+  const aW = tot(d.att.units), aL = lostN(d.att.units), dW = tot(d.def.units), dL = lostN(d.def.units);
+  const what = d.def.npc ? 'Объект' : 'Замок';
+  const result = d.captured ? (attV ? ['rgood', `${what} захвачен!`] : ['rbad', 'Ваш замок захвачен врагом!'])
+    : d.royalBlocked ? [attV ? 'rbad' : 'rgood', `${what} не захвачен! ${d.royalBlocked.wait ? `Захват возможен через ${d.royalBlocked.wait} дн. игры.` : 'Не хватает лояльности населения.'}`]
+    : d.capitalBlocked ? [attV ? 'rbad' : 'rgood', 'Столицу захватить нельзя!']
+    : attV ? (d.win ? ['rgood', 'Победа! Защита разбита.'] : ['rbad', 'Поражение! Армия разбита.'])
+    : (d.win ? ['rbad', 'Оборона прорвана, замок разграблен.'] : ['rgood', 'Нападение отбито!']);
+  const resLoss = (o, keys = ['wood', 'stone', 'iron', 'food', 'people']) => o ? `<div class="rres">${keys.map((k) => `<span>${RES_IC[k]} ${fmtFull(o[k] || 0)}</span>`).join('')}</div>` : '';
+  const unitRows = (units, race) => Object.entries(units || {}).map(([id, v]) => { const u = unitById(id); return u ? `<div class="runit"><img src="${unitSrc(u, race)}" alt=""> ${esc(u.name)}: ${fmtFull(v.lost)} из ${fmtFull(v.was)}</div>` : ''; }).join('');
+  const army = (s, W, L, power) => `<div class="ribbon rband"><span>${power}</span></div>
+    <div class="rp">${ic('skull')} Потери: ${fmtFull(L)} из ${fmtFull(W)} ( ${pct(L, W)}% )<br>Потери в ресурсах:${resLoss(s.lossRes)}${unitRows(s.units, s.race)}</div>`;
+  const gl = (r.lines || []).filter((x) => /генерал/i.test(x) && /опыт|пал/.test(x));
+  return `${head}
+    <div class="rp">Тип похода: ${esc(M().missions[d.mission] || 'Нападение')}<br>
+      ${d.luck !== undefined ? `${ic('horse')} Удача атаки ${d.luck > 0 ? '+' : ''}${d.luck} %<br>` : ''}
+      ${ic('star')} Результат атаки: <span class="${result[0]}">${result[1]}</span></div>
+    ${band('kingatt', 'Нападение')}${sideBlock(d.att, d.att.rating, d.att.cx ?? '-', d.att.cy ?? '-', `${ic('skull')} Общие потери: ${fmtFull(aL)} из ${fmtFull(aW)} ( ${pct(aL, aW)}% )`)}
+    ${band('kingdef', 'Защита')}
+    ${d.def.npc ? `<div class="rp">Игрок: Неизвестный игрок<br>Объект: ${esc(d.def.npc)}<br>(Рейтинг: -, X: ${d.x}, Y: ${d.y})<br>${ic('skull')} Охрана потеряла ${d.def.lossPct}%</div>`
+      : sideBlock(d.def, d.def.rating, d.x, d.y, dW ? `${ic('skull')} Общие потери: ${fmtFull(dL)} из ${fmtFull(dW)} ( ${pct(dL, dW)}% )` : `${ic('skull')} В замке не было защитников!`)}
+    <hr class="rhr">
+    ${bar('swords', 'Армия атаки')}${army(d.att, aW, aL, `Армия атаки: ${fmtFull(d.power.att)}`)}
+    ${d.att.general ? `<div class="rp">${gimg('units/human/general.png', 'ric')} Генерал ${d.att.general} ур. ${d.att.generalDied ? '<span class="rbad">— пал в бою</span>' : '— в строю'}</div>` : ''}
+    ${bar('shield', 'Армия защиты')}
+    ${d.def.npc ? `<div class="rp">Сила охраны: ${fmtFull(d.power.def)}</div>` : dW ? army(d.def, dW, dL, `Армия защиты: ${fmtFull(d.power.def)}`) + (d.def.wall ? `<div class="rp">${gimg('fence/fence1.png', 'ric')} Забор ${d.def.wall} ур.</div>` : '') : '<div class="rp">Нападение не встретило сопротивления в замке.</div>'}
+    ${d.loot ? `${bar('star', attV ? 'Добыча' : 'Унесено врагом')}<div class="rp">${resLoss(d.loot, RES4)}</div>` : ''}
+    ${d.siege && d.siege.length ? `${bar('swords', 'Разрушения')}<div class="rp">${d.siege.map(esc).join('<br>')}</div>` : ''}
+    ${d.loyalty ? `${bar('kingdef', 'Лояльность')}<div class="rp"><div class="bloy"><div class="bar"><i style="width:${d.loyalty.to}%"></i></div><b>${d.loyalty.from} → ${d.loyalty.to}</b></div></div>` : ''}
+    ${d.captured ? `<div class="rp"><span class="rgood">${esc(d.captured.name)} (X: ${d.captured.x}, Y: ${d.captured.y}) ${attV ? 'теперь ваш' : 'перешёл к врагу'}.</span></div>` : ''}
+    ${gl.length ? `${bar('kingatt', 'Генерал')}<div class="rp">${gl.map(esc).join('<br>')}</div>` : ''}
+    ${foot}`;
 }
 
 // ---------- админ — web/admin.js ----------
@@ -315,6 +354,9 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.armyopen !== undefined) return openArmySheet({ mission: d.armyopen || 'raid', x: d.ax !== undefined ? Number(d.ax) : '', y: d.ay !== undefined ? Number(d.ay) : '' });
   if (d.reports !== undefined) return openReports();
   if (d.report) return send({ t: 'report', id: Number(d.report) });
+  if (d.repdel) { send({ t: 'repdel', ids: [Number(d.repdel)] }); return closeSheet(); }
+  if (d.repclean !== undefined) { if (confirm('Удалить все прочитанные отчёты?')) send({ t: 'repdel', ids: 'read' }); return; }
+  if (d.repfwd) { const to = prompt('Кому переслать отчёт? Ник игрока:'); if (to) send({ t: 'repfwd', id: Number(d.repfwd), to }); return; }
   if (d.sci) return send({ t: 'research', sci: d.sci });
   if (d.religion) return send({ t: 'religion', id: d.religion });
   if (d.art) return send({ t: 'artifact', id: Number(d.art), on: d.on === '1' });

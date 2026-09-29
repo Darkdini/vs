@@ -384,7 +384,9 @@ const API = {
       leader: (this.game.userById(a.leader) || {}).login, ad: a.ad || '', requested: (a.requests || []).includes(this.user.id) })).sort((x, y) => y.members - x.members);
     this.send({ t: 'alliances', list });
   },
-  reports() { this.send({ t: 'reports', list: this.game.reportsOf(this.user.id).map((x) => ({ id: x.id, at: x.at, kind: x.kind, title: x.title, read: x.read })) }); },
+  reports() { this.send({ t: 'reports', list: this.game.reportsOf(this.user.id).map((x) => ({ id: x.id, at: x.at, kind: x.kind, title: x.title, read: x.read, tone: this.game.reportTone(x), from: x.from })) }); },
+  repdel(m) { const r = this.game.reportDelete(this.user, m.ids === 'read' ? 'read' : [].concat(m.ids || [])); this.toast(r.n ? `Удалено отчётов: ${r.n}` : 'Нечего удалять.'); API.reports.call(this); this.pushState(); },
+  repfwd(m) { const r = this.game.reportForward(this.user, m.id, m.to); if (r.error) return this.error(r.error); this.toast(r.msg); },
   report(m) {
     const x = (this.game.db.reports || []).find((y) => y.id === Number(m.id) && this.game.canSeeReport(this.user, y));
     if (!x) return this.error('Отчёт не найден.');

@@ -717,6 +717,10 @@ function install(Game, helpers) {
   };
   const unitsLine = (units, lost) => Object.entries(units).filter(([id]) => UNIT[id]).map(([id, n]) => `${UNIT[id].name}: ${n + (lost ? lost[id] || 0 : 0)}${lost && lost[id] ? ` (−${lost[id]})` : ''}`).join(', ') || '—';
   const mergeUnits = (maps) => { const o = {}; for (const m of maps) for (const [id, n] of Object.entries(m)) if (n > 0) o[id] = (o[id] || 0) + n; return o; };
+  // потери в ресурсах: стоимость погибших юнитов + население
+  const lossRes = (lost) => { const o = { wood: 0, stone: 0, iron: 0, food: 0, people: 0 };
+    for (const [id, n] of Object.entries(lost)) { const u = UNIT[id]; if (!u || !n) continue; if (Array.isArray(u.cost)) RES4.forEach((r, i) => { o[r] += (u.cost[i] || 0) * n; }); o.people += (u.pop || 0) * n; }
+    return o; };
   const popOf = (units) => Object.entries(units).reduce((s, [id, n]) => s + (UNIT[id] ? UNIT[id].pop * n : 0), 0);
 
   // отчёт: title и lines — текстом, data — для оформленного окна отчёта в клиенте (стороны, потери, добыча, захват)
@@ -762,7 +766,9 @@ function install(Game, helpers) {
     else D = { phys: npc.def.inf * pInf + npc.def.cav * pCav, mag: npc.def.mag };
     const Aphys = A.inf + A.cav;
     const Dsum = D.phys * (Aphys / aTot) + D.mag * (A.mag / aTot) || 1;
-    const aSum = aTot;
+    // удача атаки ±10% (как «Удача атаки -5 %» в отчёте оригинала); LUCK=0 — без случайности (тесты)
+    const luck = process.env.LUCK === '0' ? 0 : Math.round(Math.random() * 20 - 10);
+    const aSum = aTot * (1 + luck / 100);
     let aLoss, dLoss;
     if (a.mission === 'attack') {
       if (aSum > Dsum) { aLoss = (Dsum / aSum) ** 1.5; dLoss = 1; } else { aLoss = 1; dLoss = (aSum / Dsum) ** 1.5; }
@@ -870,9 +876,9 @@ function install(Game, helpers) {
     const side = (units, lost) => Object.fromEntries(Object.entries(units).map(([id, n]) => [id, { was: n + (lost[id] || 0), lost: lost[id] || 0 }]).filter(([, v]) => v.was > 0));
     const genDied = !!(c.general && c.general.dead && a.general === false && aLoss >= 1);
     const data = {
-      type: 'battle', mission: a.mission, win, x: a.x, y: a.y, power: { att: Math.round(aSum), def: Math.round(Dsum) },
-      att: { login: att.login, race: att.race, castle: c.name, units: side(a.units, aLost), general: a.general || genDied ? (c.general ? c.general.level : 0) : 0, generalDied: genDied },
-      def: target ? { login: captured ? captured.prevLogin : defUser.login, race: captured ? captured.prevRace : defUser.race, castle: target.name, units: side(dAll, dLost), wall: this.bonus(target).wall }
+      type: 'battle', mission: a.mission, win, x: a.x, y: a.y, luck, power: { att: Math.round(aSum), def: Math.round(Dsum) },
+      att: { id: att.id, login: att.login, race: att.race, castle: c.name, cx: c.x, cy: c.y, rating: this.rating(c), lossRes: lossRes(aLost), units: side(a.units, aLost), general: a.general || genDied ? (c.general ? c.general.level : 0) : 0, generalDied: genDied },
+      def: target ? { id: captured ? captured.prevOwner : defUser.id, login: captured ? captured.prevLogin : defUser.login, race: captured ? captured.prevRace : defUser.race, castle: target.name, rating: this.rating(target), lossRes: lossRes(dLost), units: side(dAll, dLost), wall: this.bonus(target).wall }
         : { npc: npc.name, img: obj.img, lossPct: Math.round(dLoss * 100) },
       loot, siege, loyalty, capitalBlocked, royalBlocked, captured: captured ? { name: captured.name, x: a.x, y: a.y } : null,
     };
@@ -978,7 +984,12 @@ function install(Game, helpers) {
       lines.push(npc ? `${npc.name}: охрана ~${npc.def.inf}, запас ${RES4.map((r) => npc.loot[r]).join('/')}` : 'Здесь пусто.');
       if (npc && npc.ruins) lines.push(`Лояльность руин: ${Math.round(((this.db.npc || {})[where] || {}).loyalty ?? 100)} — захват атакой с Бунтарями.`);
     }
-    this.report(c.owner, `Разведка ${target ? target.name : where}${alive ? '' : ' — провал'}`, lines, 'scout');
+    const me = this.ownerOf(c), tu = target && this.ownerOf(target);
+    const sdata = { type: 'scout', ok: alive, x: a.x, y: a.y,
+      att: { id: me.id, login: me.login, castle: c.name, cx: c.x, cy: c.y, rating: this.rating(c), sent, lost: Object.values(lost).reduce((q, n) => q + n, 0) },
+      def: target ? { id: tu.id, login: tu.login, castle: target.name, rating: this.rating(target) } : { npc: ((NPC[(this.worldObjects(a.x, a.y, 1, 1)[0] || {}).img] || {}).name) || 'Пустошь' },
+      info: lines.slice(1) };
+    this.report(c.owner, `Разведка ${target ? target.name : where}${alive ? '' : ' — провал'}`, lines, 'scout', sdata);
     if (target && lossFrac > 0) this.report(target.owner, 'Замечены вражеские разведчики', [`Разведчики игрока ${this.ownerOf(c).login} у вашего замка. Уничтожено: ${Math.round(lossFrac * 100)}%.`], 'scout');
     this.goBack(c, a, t);
   };
@@ -1322,6 +1333,33 @@ function install(Game, helpers) {
       reviveCost: Object.fromEntries(RES4.map((r) => [r, Math.round(UNIT[GENERAL_ID].cost[r] * GEN.revive * g.level)])), resetGold: GEN.resetGold, perLevel: GEN.perLevel };
   };
 
+  // цвет строки в списке отчётов: зелёный — успех, красный — неудача, коричневый — прочее
+  P.reportTone = function reportTone(r) {
+    const d = r.data;
+    if (d && d.type === 'battle') return (d.side === 'att' ? d.win : !d.win) ? 'win' : 'lose';
+    if (d && d.type === 'scout') return d.ok ? 'win' : 'lose';
+    if (r.kind === 'scout' || /напал|захвачен/.test(r.title)) return 'lose';
+    return 'info';
+  };
+  P.reportDelete = function reportDelete(user, ids) {
+    const set = new Set((ids || []).map(Number));
+    const before = (this.db.reports || []).length;
+    this.db.reports = (this.db.reports || []).filter((r) => !(r.owner === user.id && (ids === 'read' ? r.read : set.has(r.id))));
+    this.store.save();
+    return { n: before - this.db.reports.length };
+  };
+  // переслать отчёт другому игроку — копия с пометкой отправителя
+  P.reportForward = function reportForward(user, id, login) {
+    const r = (this.db.reports || []).find((y) => y.id === Number(id) && this.canSeeReport(user, y));
+    if (!r) return { error: 'Отчёт не найден.' };
+    const to = Object.prototype.hasOwnProperty.call(this.db.users, String(login || '').trim().toLowerCase()) ? this.db.users[String(login || '').trim().toLowerCase()] : null;
+    if (!to) return { error: 'Игрок не найден.' };
+    if (to.id === user.id) return { error: 'Нельзя переслать самому себе.' };
+    this.db.reports.push({ ...JSON.parse(JSON.stringify(r)), id: this.db.nextId++, owner: to.id, at: Date.now(), read: false, from: user.login, title: `${r.title} (от ${user.login})` });
+    this.event(to.id, `${user.login} переслал вам отчёт`);
+    this.store.save();
+    return { msg: `Отчёт переслан игроку ${to.login}.` };
+  };
   P.reportsOf = function reportsOf(userId) { return (this.db.reports || []).filter((r) => r.owner === userId).slice(-50).reverse(); };
 
   void buildTime;

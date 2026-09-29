@@ -1,6 +1,7 @@
 'use strict';
 // Баланс лояльности населения: самый активный игрок может захватить первый замок только через ~месяц.
 const assert = require('assert');
+process.env.LUCK = '0';
 const os = require('os'), path = require('path'), fs = require('fs');
 const DB = path.join(os.tmpdir(), `royal-${process.pid}.json`);
 const { Game, Store } = require('../src/game');
@@ -149,6 +150,21 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.deepStrictEqual(got.map((a) => [a.place, a.bonus]), [[1, 80], [2, 40], [3, 20]]);
   assert.ok(us.every((u) => u.reputation > 10), 'репутация начислена');
   console.log(`✓ Зал Славы: бонус репутации за места — Грабежи 80/40/20, репутация ${us.map((u) => u.reputation).join('/')}`);
+}
+// отчёты: цвет в списке, пересылка другому игроку, удаление своих
+{
+  const [a, b] = ['rp1', 'rp2'].map((l) => g.register({ login: l, password: '123', race: 0 }).user);
+  g.report(a.id, 'Нападение: победа', ['x'], 'battle', { type: 'battle', side: 'att', win: true });
+  g.report(a.id, 'Разведка — провал', ['x'], 'scout', { type: 'scout', ok: false });
+  const [r1, r2] = g.reportsOf(a.id).reverse();
+  assert.deepStrictEqual([g.reportTone(r1), g.reportTone(r2)], ['win', 'lose']);
+  assert.ok(g.reportForward(a, r1.id, 'RP2').msg, 'переслан');
+  assert.ok(g.reportForward(a, r1.id, 'nobody').error && g.reportForward(b, r1.id, 'rp1').error, 'чужой отчёт/несуществующий игрок');
+  const fw = g.reportsOf(b.id)[0];
+  assert.ok(fw.from === 'rp1' && fw.owner === b.id);
+  assert.strictEqual(g.reportDelete(b, [r1.id]).n, 0, 'чужой отчёт не удалить');
+  assert.strictEqual(g.reportDelete(a, [r1.id, r2.id]).n, 2);
+  console.log('✓ отчёты: зелёный/красный в списке, «Переслать» игроку, «Удалить» только свои');
 }
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);
