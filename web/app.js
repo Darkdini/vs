@@ -966,7 +966,7 @@ function groundField(n, at) {
 }
 
 // ---------- анимация: король ходит от Ратуши к воротам и обратно (тропинка — клетки ряда 3, x 2..0) ----------
-const KING = { from: 2.75, to: -0.55, speed: 0.32, pause: 1.6, fps: 9, w: 85, h: 120, frames: 8, size: 26 };
+const KING = { from: 2.75, to: -0.55, speed: 0.32, pause: 1.6, fps: 12, w: 81, h: 120, frames: 12, size: 26 };
 function kingPos(t) {
   const len = KING.from - KING.to, walk = len / KING.speed, cyc = 2 * (walk + KING.pause), u = t % cyc;
   if (u < walk) return { x: KING.from - u * KING.speed, back: false, moving: true };
