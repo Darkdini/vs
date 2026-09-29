@@ -68,7 +68,7 @@ const MENUS = {
     ['Описание меню', 'smallicon/soft_help.png', () => openSheet(menuDescWin)],
   ] },
   rating: { label: 'Рейтинг', title: 'Рейтинги', icon: 'menu2/rating.png', items: () => [
-    ['Зал Славы', '../gfx3d/rating/hof.png', () => { S.halls = null; send({ t: 'halls' }); openSheet(hallsWin); }],
+    ['Зал Славы', '../gfx3d/rating/hof.png', () => openHalls()],
     ['Игрок', '../gfx3d/rating/player.png', () => openRating('players')],
     ['Замок', '../gfx3d/rating/castle.png', () => openRating('castles')],
     ['Альянс', '../gfx3d/rating/ally.png', () => openRating('alliances')],
@@ -246,7 +246,7 @@ function medalsWin(p) {
   return `${ribbon('Зал Славы')}<div class="bwline center">${esc(p.login)} · медалей: <b>${list.length}</b><br>Репутация от Зала славы: <b class="good">+${fmtFull(total)}</b></div>
     ${list.length ? list.map((m) => `<div class="award"><img src="${medalSrc(m.icon)}" alt=""><div><b>${esc(m.name)} — ${['I', 'II', 'III'][m.place - 1]} место</b><small>за ${monthName(m.month)} · получено ${fmtDay(m.at)}${m.bonus ? ` · бонус +${fmtFull(m.bonus)} репутации` : ''}</small></div></div>`).join('')
       : '<div class="parch-note">Медалей пока нет.</div>'}
-    <button class="pbar" data-hof>Зал славы</button>`;
+    <button class="pbar" data-hof="${p.id}">Зал славы</button>`;
 }
 function profileMoreWin(p) {
   const tile = (key, icon, text, off) => `<button class="ptile ${off ? 'off' : ''}" data-ptile="${key}" data-pid="${p.id}"><img src="${GFX}${icon}" alt=""><span>${text}</span></button>`;
@@ -270,7 +270,8 @@ function hallsWin() {
   const pages = S.hallPages || [S.halls.map((h) => h.id)], pg = Math.min(S.hallPage, pages.length - 1), by = Object.fromEntries(S.halls.map((h) => [h.id, h]));
   const pager = `<div class="hpager">${pages.map((_, i) => `<button class="${i === pg ? 'on' : ''}" data-hpage="${i}">${i + 1}</button>`).join('')}</div>`;
   const ss = S.hallSeason;
-  return `${ribbon('Зал славы')}${pager}
+  const who = S.hallWho;
+  return `${ribbon('Зал славы')}${who && !who.self ? `<div class="bwline center">Места игрока <b>${esc(who.login)}</b></div>` : ''}${who && who.admin ? '<div class="bwline center small">Администратор в Зале славы не участвует.</div>' : ''}${pager}
     ${pages[pg].map((id) => { const h = by[id]; if (!h) return ''; return `<div class="hall2"><img class="hmed" src="${HALL_IMG(id)}" alt="">
       <div class="hright"><b>${esc(h.name)}</b><div>Позиция: ${fmtFull(h.pos)}</div><button class="hmore" data-hmore="${id}">Подробнее</button></div>
       <div class="hshort">${esc(h.short)}</div></div>`; }).join('')}
@@ -290,7 +291,9 @@ function hallDescWin() {
 }
 // окно «Зал <название>» как в оригинале: медаль (серая «?», пока не в тройке), позиция, дата отсчёта, показатель, «Описание»/«Архив», рейтинг по 10
 const HALL_UNIT = { growth: (v) => `Прирост рейтинга ${fmtFull(v)} единиц.`, wealth: (v) => `${fmtFull(v)} монет.` };
-function openHall(id, page = 0) { S.hallId = id; S.hall = null; send({ t: 'hall', id, page }); openSheet(hallWin); }
+// Зал славы: из меню — свои места, из профиля игрока — места этого игрока (who)
+function openHalls(who) { S.halls = null; S.hallWhoId = who; send({ t: 'halls', ...(who !== undefined ? { who } : {}) }); openSheet(hallsWin); }
+function openHall(id, page = 0) { S.hallId = id; S.hall = null; send({ t: 'hall', id, page, ...(S.hallWhoId !== undefined ? { who: S.hallWhoId } : {}) }); openSheet(hallWin); }
 function hallWin() {
   const h = S.hall, id = S.hallId;
   const name = h ? h.name : ((S.halls || []).find((x) => x.id === id) || {}).name || '';
@@ -304,7 +307,7 @@ function hallWin() {
       <div class="hinfo">Позиция: ${h.pos}<br>Дата отсчета:<br>${m ? `01.${m}.${y}` : '—'}<br>Показатель: ${(HALL_UNIT[id] || ((v) => `${fmtFull(v)} очков.`))(h.value)}
         <button class="hdark" data-hdesc="${id}">Описание</button><button class="hdark" data-harch="${id}">Архив</button></div></div>
     ${ribbon('Рейтинг')}${nav}
-    <div class="htable">${h.rows.map((r) => `<div class="${r.id === me() ? 'me' : ''}"><span>${r.place}</span><a data-cprof="${r.id}">${esc(r.login)}</a><span>${fmtFull(r.value)}</span></div>`).join('') || '<p class="parch-note">В этом месяце пока никто не отличился.</p>'}</div>
+    <div class="htable">${h.rows.map((r) => `<div class="${r.id === (S.hallWhoId ?? me()) ? 'me' : ''}"><span>${r.place}</span><a data-cprof="${r.id}">${esc(r.login)}</a><span>${fmtFull(r.value)}</span></div>`).join('') || '<p class="parch-note">В этом месяце пока никто не отличился.</p>'}</div>
     ${h.rows.length ? nav : ''}`;
 }
 function hallArchWin() {
@@ -431,7 +434,7 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
   if (m.t === 'chatlog') { S.chat = m.list; chatLine(); refreshSheet(); const l = $('#chatList'); if (l) l.scrollTop = l.scrollHeight; return; }
   if (m.t === 'chatmsg') { S.chat.push(m.msg); if (S.chat.length > 50) S.chat.shift(); chatLine(); chatListUpdate(); return; }
   if (m.t === 'hall') { S.hall = m.hall; return refreshSheet(); }
-  if (m.t === 'halls') { S.halls = m.list; S.hallPages = m.pages; S.hallSeason = m.season; S.hallLast = m.last; return refreshSheet(); }
+  if (m.t === 'halls') { S.hallWho = m.who; S.halls = m.list; S.hallPages = m.pages; S.hallSeason = m.season; S.hallLast = m.last; return refreshSheet(); }
   if (m.t === 'ratings') { S.rlist = m.list; return refreshSheet(); }
   if (m.t === 'players') { S.plist = m.list; return refreshSheet(); }
   if (m.t === 'notes') { S.notes = m.text; return refreshSheet(); }
@@ -446,14 +449,14 @@ $('#sheetBody').addEventListener('click', (e) => {
   const hp = e.target.closest('[data-hpage],[data-hmore]');
   if (hp) { if (hp.dataset.hpage !== undefined) { S.hallPage = Number(hp.dataset.hpage); refreshSheet(); $('#sheetBody').scrollTop = 0; return; } return openHall(hp.dataset.hmore); }
   const hx = e.target.closest('[data-hpg],[data-hdesc],[data-harch]');
-  if (hx) { if (hx.dataset.hpg !== undefined) return send({ t: 'hall', id: S.hallId, page: Number(hx.dataset.hpg) }); if (hx.dataset.hdesc) return openSheet(hallDescWin); return openSheet(hallArchWin); }
+  if (hx) { if (hx.dataset.hpg !== undefined) return send({ t: 'hall', id: S.hallId, page: Number(hx.dataset.hpg), ...(S.hallWhoId !== undefined ? { who: S.hallWhoId } : {}) }); if (hx.dataset.hdesc) return openSheet(hallDescWin); return openSheet(hallArchWin); }
   const t = e.target.closest('[data-cprof],[data-ptile],[data-hof],[data-soon],[data-switch],[data-switchxy],[data-saveplace]'); if (!t) return;
   const d = t.dataset;
   if (d.switch) { closeAllSheets(); Iso.cams = {}; S.switchTo = true; return send({ t: 'switch', id: Number(d.switch) }); }
   if (d.switchxy) { const [x, y] = d.switchxy.split(',').map(Number); const c = (S.st.castles || []).find((k) => k.x === x && k.y === y); if (c) { closeAllSheets(); Iso.cams = {}; S.switchTo = true; send({ t: 'switch', id: c.id }); } return; }
   if (d.saveplace) { const [x, y] = d.saveplace.split(',').map(Number); S.places = S.places || []; if (!S.places.some((p) => p.x === x && p.y === y)) S.places.push({ x, y }); store.set('tw.places', S.places); toast('Место запомнено.'); return refreshSheet(); }
   if (d.cprof) return send({ t: 'profile', id: Number(d.cprof) });
-  if (d.hof !== undefined) { S.halls = null; send({ t: 'halls' }); return openSheet(hallsWin); }
+  if (d.hof !== undefined) return openHalls(d.hof ? Number(d.hof) : undefined);
   if (d.soon) return openSoon(d.soon);
   if (d.ptile) {
     if (t.classList.contains('off')) return;
@@ -467,7 +470,7 @@ $('#sheetBody').addEventListener('click', (e) => {
     if (d.ptile === 'map') { closeAllSheets(); S.world = null; setTab('world'); return send({ t: 'world', cx: p.castles[0].x, cy: p.castles[0].y }); }
     if (d.ptile === 'info') return openSheet(() => profileInfoWin(p));
     if (d.ptile === 'attack') return openArmySheet({ mission: 'attack', x: p.castles[0].x, y: p.castles[0].y });
-    if (d.ptile === 'hof') { S.halls = null; send({ t: 'halls' }); return openSheet(hallsWin); }
+    if (d.ptile === 'hof') return openHalls(p.id);
     if (d.ptile === 'more') return openSheet(() => profileMoreWin(p)); // «•••» — остальные действия
   }
 });
