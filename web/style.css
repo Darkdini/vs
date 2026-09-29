@@ -1148,3 +1148,4 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .gabtns { display: flex; gap: 6px; margin-top: 8px; } .gabtns .btn { flex: 1; }
 /* чат: новые сообщения всегда внизу и видны сразу — лента «прилипает» к низу (порядок в разметке обратный) */
 #sheetBody .chatlist { display: flex; flex-direction: column-reverse; }
+img[src*="/hd/"] { image-rendering: auto !important; }

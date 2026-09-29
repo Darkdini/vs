@@ -29,7 +29,7 @@ const UNIT_IMG = {
 const RACE_IMG = { humans: 'units/human/knight.png', elves: 'units/elf/archer.png', dwarves: 'units/dwarv/fighter.png', orcs: 'units/dwarv/fighter.png?orc' }; // ?orc — зелёный оттенок (style.css)
 const displayId = (def, level) => (!def.tiers ? def.id : level >= 10 ? def.tiers[2] : level >= 5 ? def.tiers[1] : def.tiers[0]);
 // у Забора (22) картинки здания в клиенте нет — он виден оградой вокруг замка; в списках — кусок ограды
-const bsrc = (id) => (id === 22 ? `${GFX}fence/fence1.png` : `${GFX}build/${BUILD_IMG[id] || 'build'}.png`);
+const bsrc = (id) => { const p = id === 22 ? 'fence/fence1.png' : `build/${BUILD_IMG[id] || 'build'}.png`; return GFX + (HD[p] ? HD[p][0] : p); };
 const bimg = (id, cls = 'bi') => `<img class="${cls}" src="${bsrc(id)}" alt="">`;
 const gimg = (path, cls = 'gi') => `<img class="${cls}" src="${GFX}${path}" alt="">`;
 const RES_IC = Object.fromEntries(['wood', 'stone', 'iron', 'food', 'people'].map((r) => [r, gimg(`../gfx3d/res/${r}.png`, 'ri')]));
@@ -677,10 +677,26 @@ Iso.cv.className = 'iso';
 window.__iso = { Iso, tileScreen: (x, y) => tileScreen(x, y), cam: () => cam() }; // для автотестов
 const ictx = Iso.cv.getContext('2d');
 const IMGS = new Map();
+// перерисованная графика высокого качества: файл в HD[path] во столько раз крупнее, на карте рисуется в прежнем размере
+const HD = { 'build/castle.png': ['build/hd/castle.png', 8] };
 function pic(path) {
   let e = IMGS.get(path);
-  if (!e) { e = { im: new Image(), ok: false }; e.im.onload = () => { e.ok = true; isoDraw(); }; e.im.src = GFX + path; IMGS.set(path, e); }
+  if (!e) {
+    e = { im: new Image(), ok: false };
+    const hd = HD[path];
+    e.im.onload = () => {
+      if (hd) { const w = e.im.naturalWidth / hd[1], h = e.im.naturalHeight / hd[1]; Object.defineProperty(e.im, 'width', { value: w }); Object.defineProperty(e.im, 'height', { value: h }); e.im.hd = true; }
+      e.ok = true; isoDraw();
+    };
+    e.im.src = GFX + (hd ? hd[0] : path); IMGS.set(path, e);
+  }
   return e.ok ? e.im : null;
+}
+// нарисовать картинку в её (логическом) размере; HD-картинки — со сглаживанием
+function drawPic(im, x, y, w = im.width, h = im.height) {
+  if (!im.hd) return ictx.drawImage(im, x, y, w, h);
+  const sm = ictx.imageSmoothingEnabled; ictx.imageSmoothingEnabled = true; ictx.imageSmoothingQuality = 'high';
+  ictx.drawImage(im, x, y, w, h); ictx.imageSmoothingEnabled = sm;
 }
 const tileScreen = (x, y) => ({ sx: x * TW / 2 + y * TW / 2, sy: y * TH / 2 - x * TH / 2 });
 function screenToTile(px, py) {
@@ -698,7 +714,7 @@ function plotDiamond(p, k, fill, stroke, lw = 2.5) {
   if (fill) { x.fillStyle = fill; x.fill(); }
   if (stroke) { x.save(); x.shadowColor = '#ffd84a'; x.shadowBlur = 8; x.strokeStyle = stroke; x.lineWidth = lw; x.stroke(); x.restore(); }
 }
-function plotImage(path, p, k) { const im = pic(path); if (!im) return; const w = im.width * k, h = im.height * k; ictx.drawImage(im, p.sx + TW / 2 - w / 2, p.sy + TH - TH * (1 - k) / 2 - h, w, h); }
+function plotImage(path, p, k) { const im = pic(path); if (!im) return; const w = im.width * k, h = im.height * k; drawPic(im, p.sx + TW / 2 - w / 2, p.sy + TH - TH * (1 - k) / 2 - h, w, h); }
 // подсветка выбранной клетки
 const isSel = (x, y) => Iso.sel && Iso.sel.tab === S.tab && Iso.sel.x === x && Iso.sel.y === y;
 const glow = (p, k) => plotDiamond(p, k, 'rgba(255, 214, 80, 0.38)', '#ffe27a', 2.5);
@@ -823,10 +839,10 @@ function diamond(sx, sy, fill, stroke) {
   if (fill) { x.fillStyle = fill; x.fill(); }
   if (stroke) { x.strokeStyle = stroke; x.lineWidth = 2.5; x.stroke(); }
 }
-function ground(path, sx, sy) { const im = pic(path); if (im) ictx.drawImage(im, sx, sy - (im.height - TH)); else diamond(sx, sy, '#3f7d2c'); }
-function sprite(path, sx, sy, dy = 0) { const im = pic(path); if (im) ictx.drawImage(im, sx + TW / 2 - im.width / 2, sy - (im.height - TH) + dy); }
+function ground(path, sx, sy) { const im = pic(path); if (im) drawPic(im, sx, sy - (im.height - TH)); else diamond(sx, sy, '#3f7d2c'); }
+function sprite(path, sx, sy, dy = 0) { const im = pic(path); if (im) drawPic(im, sx + TW / 2 - im.width / 2, sy - (im.height - TH) + dy); }
 // картинка без смещения (как graphics.drawImage(img, x, y, 0) в клиенте)
-function raw(path, x, y) { const im = pic(path); if (im) ictx.drawImage(im, x, y); return im; }
+function raw(path, x, y) { const im = pic(path); if (im) drawPic(im, x, y); return im; }
 const imH = (path) => { const im = pic(path); return im ? im.height : 0; };
 function label(text, sx, sy, color = '#ffd27a') {
   const x = ictx; x.font = 'bold 11px system-ui, sans-serif'; x.textAlign = 'center';
@@ -850,7 +866,7 @@ function drawCellBuilding(view, cell, b, lvl, p, k = 1, sel = false) {
   if (path) {
     if (sel) { ictx.save(); ictx.filter = 'brightness(1.25) drop-shadow(0 0 3px #ffd84a) drop-shadow(0 0 2px #ffd84a)'; }
     if (k === 1) sprite(path, p.sx, p.sy);
-    else { const im = pic(path); if (im) { const w = im.width * k, h = im.height * k; ictx.drawImage(im, p.sx + TW / 2 - w / 2, p.sy + TH / 2 + TH * PLOT / 2 - h + 2, w, h); } }
+    else { const im = pic(path); if (im) { const w = im.width * k, h = im.height * k; drawPic(im, p.sx + TW / 2 - w / 2, p.sy + TH / 2 + TH * PLOT / 2 - h + 2, w, h); } }
     if (sel) ictx.restore();
   }
   if (q) bar(p.sx, p.sy, (now() - q.start) / (q.end - q.start));
