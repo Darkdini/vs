@@ -1,7 +1,8 @@
 'use strict';
 // Звук: фоновая музыка (sound/birds_theme.ogg, по кругу), звуки нажатий и оповещения (синтез WebAudio).
 // Настройки — Кабинет → Профиль → «Настройка звуков» (как в оригинале), хранятся в браузере.
-const SND = Object.assign({ music: true, sounds: true, notify: true }, store.get('tw.sound') || {});
+// по умолчанию всё включено (новый ключ tw.snd2 — старые сохранения со снятыми галочками не мешают)
+const SND = Object.assign({ music: true, sounds: true, notify: true }, store.get('tw.snd2') || {});
 let bgm = null, actx = null, unlocked = false;
 function musicOn() {
   if (!SND.music || document.hidden) return;
@@ -31,16 +32,21 @@ for (const ev of ['pointerdown', 'touchstart', 'keydown']) document.addEventList
 document.addEventListener('click', (e) => { if (e.target.closest('button, .ptile, .mitem, a')) sfxClick(); }, true);
 document.addEventListener('visibilitychange', () => { if (document.hidden) musicOff(); else musicOn(); });
 
+// окно «Настройка звуков»: галочки — свои кнопки (без системных checkbox), черновик до «Сохранить»
+function openSound() { S.sndDraft = { ...SND }; openSheet(soundWin); }
 function soundWin() {
-  const row = (k, icon, t) => `<label class="sndrow"><input type="checkbox" data-snd="${k}" ${SND[k] ? 'checked' : ''}><span class="sndbox"></span><img src="${icon}" alt=""> ${t}</label>`;
+  const d = S.sndDraft || SND;
+  const row = (k, icon, t) => `<button type="button" class="sndrow" data-sndtg="${k}"><span class="sndbox ${d[k] ? 'on' : ''}"></span><img src="${icon}" alt=""> ${t}</button>`;
   return `${ribbon('Настройка звуков')}<div class="sndlist">
     ${row('music', 'gfx3d/sound/music.svg', 'Музыка')}${row('sounds', 'gfx3d/sound/sounds.svg', 'Звуки')}${row('notify', 'gfx3d/sound/notify.svg', 'Оповещения')}</div>
     <button class="pbar" data-sndsave>Сохранить</button>`;
 }
 $('#sheetBody').addEventListener('click', (e) => {
+  const tg = e.target.closest('[data-sndtg]');
+  if (tg) { S.sndDraft = S.sndDraft || { ...SND }; S.sndDraft[tg.dataset.sndtg] = !S.sndDraft[tg.dataset.sndtg]; tg.querySelector('.sndbox').classList.toggle('on', S.sndDraft[tg.dataset.sndtg]); return; }
   if (!e.target.closest('[data-sndsave]')) return;
-  for (const i of $$('#sheetBody [data-snd]')) SND[i.dataset.snd] = i.checked;
-  store.set('tw.sound', SND);
+  Object.assign(SND, S.sndDraft || {});
+  store.set('tw.snd2', SND);
   if (SND.music) { unlocked = true; musicOn(); } else musicOff();
   toast('Настройки звука сохранены.'); closeSheet();
 });

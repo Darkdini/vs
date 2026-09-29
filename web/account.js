@@ -37,7 +37,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   const t = e.target.closest('[data-acct]'); if (!t) return;
   const k = t.dataset.acct, p = S.lastAcct;
   if (k === 'premium') return openPremium();
-  if (k === 'sound') return openSheet(soundWin);
+  if (k === 'sound') return openSound();
   if (k === 'viol') return toast(`Нарушений: ${(p.acct || {}).violations || 0}. Нарушения — баны в чате от модераторов.`);
   if (k === 'pass') return openSheet(passWin);
   if (k === 'info') return openSheet(() => profileInfoWin(p));
