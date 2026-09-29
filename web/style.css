@@ -964,3 +964,4 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .pauth { align-items: flex-start; font: min(24px, 5.8vw)/1.35 var(--serif); }
 .pauth img.pcrown { width: 64px; height: auto; image-rendering: auto; flex: none; margin-top: 2px; }
 .pauth img.pking { width: 34px; height: auto; image-rendering: auto; vertical-align: -6px; }
+.good { color: #2f7a10; font-weight: 700; }

@@ -106,14 +106,24 @@ function install(Game) {
   const hallIcon = (h, i) => `gfx3d/halls/${h.id}_${i + 1}.png`;
   // конец месяца (или досрочно админом): награды топ-3 каждого зала, новый месяц
   P.seasonClose = function seasonClose(now = Date.now()) {
-    const s = this.season(), res = this.hallsCalc(), winners = [];
+    const s = this.season(), res = this.hallsCalc(), winners = [], got = new Map(); // игрок → { before, lines }
     for (const h of res) h.top.slice(0, 3).forEach((x, i) => {
       const u = this.userById(x.id); if (!u) return;
-      const bonus = HALLS[h.id].bonus[i]; u.reputation = (u.reputation ?? START_REP) + bonus; // бонус — репутация
+      const bonus = HALLS[h.id].bonus[i];
+      if (!got.has(u)) got.set(u, { before: u.reputation ?? START_REP, lines: [] });
+      got.get(u).lines.push(`${h.name} — ${['I', 'II', 'III'][i]} место: +${bonus} репутации`);
+      u.reputation = (u.reputation ?? START_REP) + bonus; u.hallRep = (u.hallRep || 0) + bonus; // бонус — репутация
       (u.awards = u.awards || []).push({ hall: h.id, name: h.name, place: i + 1, value: x.value, month: s.key, at: now, icon: hallIcon(h, i), bonus });
       this.event(u.id, `Зал Славы «${h.name}»: ${i + 1} место по итогам месяца! Бонус +${bonus} репутации, медаль — в Вашем профиле.`);
       winners.push({ hall: h.name, place: i + 1, login: u.login });
     });
+    // письмо каждому победителю: за что и сколько репутации начислено
+    const from = this.db.users.admin || null;
+    for (const [u, g] of got) {
+      const total = (u.reputation ?? START_REP) - g.before;
+      const text = [`Итоги Зала славы за ${s.key}.`, '', ...g.lines, '', `Всего: +${total} репутации (было ${g.before}, стало ${u.reputation}).`, 'Медали — в Вашем профиле, раздел «Зал Славы».'].join('\n');
+      if (from) this.sendMail(from, u.login, `Зал славы: +${total} репутации`, text);
+    }
     (this.db.hallHistory = this.db.hallHistory || []).push({ key: s.key, at: now, halls: res.map((h) => ({ id: h.id, name: h.name, top: h.top.slice(0, 3) })) });
     if (this.db.hallHistory.length > 24) this.db.hallHistory.shift();
     const n = s.n + 1;
@@ -159,7 +169,7 @@ function install(Game) {
       title: u.admin ? 'Администратор' : u.mod ? 'Модератор форума' : this.isPremium(u) ? 'VIP' : null, premium: this.isPremium(u) && !u.admin ? u.premium : 0,
       chatBan: viewer.admin || viewer.mod || u.id === viewer.id ? u.chatBan || 0 : undefined,
       alliance: al ? { name: al.name, tag: al.tag, role: al.leader === u.id ? 'Глава' : 'Участник' } : null,
-      medals: this.medalsOf(u.id), awards: (u.allyAwards || []).slice().reverse(),
+      medals: this.medalsOf(u.id), hallRep: u.hallRep || 0, awards: (u.allyAwards || []).slice().reverse(),
       castles: this.castlesOf(u).map((k, i) => ({ id: k.id, name: k.name, x: k.x, y: k.y, capital: i === 0, rating: this.rating(k) })),
       self: u.id === viewer.id,
       friend: (viewer.friends || []).includes(u.id),
