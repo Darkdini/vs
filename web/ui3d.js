@@ -130,8 +130,12 @@ function chatLine() {
 }
 // «Главный чат» как в оригинале: Выход / Игроки (N), сообщения «ЧЧ:ММ [ник] текст», смайлы, поле ввода внизу.
 // Нажатие на ник — обращение «ник, » в поле ввода; сообщения, где упомянут я, подсвечены.
-const SMILES = ['smile', 'sad', 'wok', 'angry', 'heart', 'kiss', 'notund', 'Uvula'];
-const smiles = (html) => html.replace(/:(smile|sad|wok|angry|heart|kiss|notund|Uvula):/g, (_, k) => `<img class="csm" src="${GFX}smallicon/smiles/${k}.png" alt="">`);
+// смайлы чата: новые (gfx3d/smiles, код :имя:) и старые пиксельные (код :s-имя: и прежние коды — для старых сообщений)
+const SMILES = ['angel','beer','devil','worry','heart','tongue','kiss','cool','laugh','wink','rose','handshake','cry','hmm','smile','blush','wow','love','angry','confused','dislike','like','coins','swords','shield','lips','ghost','cheers','crown','cup','flower','tulip','sun','gift','cake','strawberry','apple','banana','watermelon','orange','cherry','poop','chicken','goat','bear','cat','panda','butterfly','bomb','pizza'];
+const OLD_SMILES = ['smile', 'sad', 'wok', 'angry', 'heart', 'kiss', 'notund', 'Uvula'];
+const SMILE_SET = new Set(SMILES);
+const smileSrc = (k) => (SMILE_SET.has(k) ? `gfx3d/smiles/${k}.png` : `${GFX}smallicon/smiles/${k}.png`);
+const smiles = (html) => html.replace(/:([A-Za-z]{2,12}):/g, (m, k) => (SMILE_SET.has(k) || OLD_SMILES.includes(k) ? `<img class="csm" src="${smileSrc(k)}" alt="">` : m));
 S.chatUsers = null; S.smileOpen = false;
 function openChat() { send({ t: 'chatlog' }); send({ t: 'chatusers' }); S.smileOpen = false; openSheet(chatWin); setTimeout(() => { const l = $('#chatList'); if (l) l.scrollTop = l.scrollHeight; }, 50); }
 function chatWin() {
@@ -141,7 +145,7 @@ function chatWin() {
     <div class="chattop"><button class="lbar" data-chatexit><img src="gfx3d/mail/events.png" alt=""> Выход</button><button class="lbar" data-chatusers><img src="gfx3d/forum/king.png" alt=""> Игроки (${n})</button></div>
     <div id="chatList" class="chatlist ${S.smileOpen ? 'short' : ''}">${S.chat.slice(-30).reverse().map((m) => { const hit = m.fromId !== me() && m.text.toLowerCase().includes(my);
       return `<div class="cm ${hit ? 'hit' : ''} ${m.fromId === me() ? 'mine' : ''}" data-chatpop="${m.fromId}" data-nick="${esc(m.from)}" data-mid="${m.id}"><small>${new Date(m.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</small> <b>[${esc(m.from)}]</b>${m.role ? ` <img class="admbadge s" src="${GFX}${m.role === 'admin' ? 'admin' : 'mod'}_badge_s.png" alt="">` : ''}${m.rep >= 10 ? ` ${repIcons(m.rep)}` : ''} ${smiles(esc(m.text))}</div>`; }).join('') || '<p class="parch-note">Сообщений пока нет — напишите первым.</p>'}</div>
-    ${S.smileOpen ? `<div class="smilebox">${SMILES.map((k) => `<button data-smile="${k}"><img src="${GFX}smallicon/smiles/${k}.png" alt=""></button>`).join('')}</div>` : ''}
+    ${S.smileOpen ? `<div class="smilebox">${SMILES.map((k) => `<button data-smile="${k}"><img src="${smileSrc(k)}" alt=""></button>`).join('')}</div>` : ''}
     ${S.chatPop ? `<div class="cpop-bg" data-cpopclose><div class="cpop"><button class="cpop-x" data-cpopclose aria-label="Закрыть">✕</button><div class="cpop-nick">${esc(S.chatPop.nick)}</div>
       <div class="cpop-grid"><button class="ptile" data-cpop="reply"><img src="${AI('mail')}" alt=""><span>Обратиться</span></button>
       <button class="ptile" data-cpop="profile"><img src="${GFX}units/human/general.png" alt=""><span>Профиль</span></button>

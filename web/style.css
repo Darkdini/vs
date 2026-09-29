@@ -1154,3 +1154,8 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .mkown button { border: 2px solid #c8963e; border-radius: 6px; background: #f6e2c0; padding: 4px 8px; font: 15px var(--serif); color: #2a1408; }
 .mkown button.on { background: #e8b44a; }
 .mkown small { color: #6a4a2a; }
+/* смайлы: 50 штук — сетка по 7 с прокруткой */
+.smilebox { grid-template-columns: repeat(7, 1fr); gap: 2px; max-height: 38dvh; overflow-y: auto; background: #3a1c0cee; border: 2px solid #c8963e; }
+.smilebox button { padding: 3px; border-radius: 8px; } .smilebox button:active { background: #fff3; }
+.smilebox img { width: 100%; max-width: 44px; height: 40px; object-fit: contain; }
+.csm { height: 1.6em; vertical-align: middle; }
