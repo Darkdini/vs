@@ -1245,15 +1245,20 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 #sheetBody .sndrow { display: flex !important; flex-direction: row !important; grid-template-columns: none; align-items: center; gap: 14px; font-size: min(28px, 6.4vw) !important; color: #2a1408 !important; }
 
 /* меню — плитки 3 в ряд, как в оригинале: пергамент, красная лента ✕ сверху, пустые ячейки пунктиром */
-#menuWin { border: 0; border-image: none; background: url(gfx3d/Window.png) 0 0 / 100% 100%; box-shadow: inset 0 0 0 3px #d9ab55, inset 0 0 0 6px #7a4a18, 0 6px 18px #000a; border-radius: 4px; }
-#menuWin .mclosex { position: absolute; top: 0; right: 12%; width: 58px; height: 62px; border: 0; z-index: 2; background: url(gfx3d/menu3/close.png) 50% 0 / contain no-repeat; filter: drop-shadow(0 2px 2px #0006); }
+#menu { background: #0004; }
+#menuWin { left: calc(8% + 28px); right: calc(8% + 28px); top: calc(146px + env(safe-area-inset-top, 0px)); bottom: calc(164px + var(--safe-b)); overflow: visible;
+  border: 0; border-image: none; background: none; filter: drop-shadow(0 6px 10px #0009); padding: 0; }
+#menuWin::after { content: ""; position: absolute; inset: -36px; border: 36px solid transparent; border-image: url(gfx3d/menu3/frame.png) 80 / 36px round; pointer-events: none; z-index: 1; }
+#menuWin::before { content: ""; position: absolute; inset: -28px; z-index: -1; background: url(gfx3d/menu3/parch.jpg) 50% 0 / cover; box-shadow: inset 0 0 18px #6b3a1466; }
+#menuWin .mscroll { position: absolute; inset: -20px; overflow-y: auto; overscroll-behavior: contain; }
+#menuWin .mclosex { position: absolute; top: -31px; right: 8%; width: 52px; height: 56px; border: 0; z-index: 2; background: url(gfx3d/menu3/close.png) 50% 0 / contain no-repeat; filter: drop-shadow(0 2px 2px #0006); }
 #menuWin .mclosex:active { transform: translateY(2px) scale(.95); }
-#menuWin .mnote { margin: 64px auto 0; max-width: 520px; text-align: center; font: 400 min(28px, 6.6vw)/1.3 var(--serif); color: #3a2410; padding: 0 12px; }
-.ptiles.mgrid { max-width: 520px; margin: 70px auto 16px; padding: 0 7%; gap: min(14px, 3vw); }
+#menuWin .mnote { margin: 44px auto 0; max-width: 520px; text-align: center; font: 400 min(28px, 6.6vw)/1.3 var(--serif); color: #3a2410; padding: 0 12px; }
+.ptiles.mgrid { max-width: 440px; margin: 44px auto 12px; padding: 0 3%; gap: min(14px, 3vw); }
 .mnote + .ptiles.mgrid { margin-top: 18px; }
 .ptiles.mgrid .ptile { box-shadow: 0 5px 6px -2px #0005; border-radius: 10%; }
 .ptiles.mgrid .ptile img { top: 9%; width: 70%; height: 58%; image-rendering: auto; }
-.ptiles.mgrid .ptile span { left: 3%; right: 3%; bottom: 7%; height: 1.9em; font: 400 min(19px, 4.4vw)/1 var(--serif); color: #f6e7b8; text-shadow: 0 1px 1px #000, 0 0 3px #000a; white-space: nowrap; letter-spacing: -.01em; }
+.ptiles.mgrid .ptile span { left: 3%; right: 3%; bottom: 7%; height: 1.9em; font: 400 min(18px, 4.1vw)/1 var(--serif); color: #f6e7b8; text-shadow: 0 1px 1px #000, 0 0 3px #000a; white-space: nowrap; letter-spacing: -.01em; }
 .ptiles.mgrid .ptile span.long { font-size: min(15px, 3.5vw); white-space: normal; }
 .ptiles.mgrid .ptile.empty { background: #0000000d; border: 3px dashed #8a7c68; border-radius: 12%; box-shadow: none; pointer-events: none; }
 

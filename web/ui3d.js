@@ -23,7 +23,7 @@ const MENUS = {
     ['Подарки', M3('gifts'), () => openSoon('Подарки')],
     ['Репутация', M3('reputation'), () => openRating('reputation')],
     ['Авторитет', M3('authority'), () => openSoon('Авторитет города')],
-    ['Уведомления', 'gfx3d/mail/events.png', () => openReports()],
+    ['События', 'gfx3d/mail/events.png', () => openReports()],
     ['Друзья', M3('friends'), () => openPlayers('friends')],
     ['Поиск', M3('search'), () => openPlayers('search')],
     ['Земляки', 'ground/castle_small.png', () => openPlayers('nearby')],
@@ -94,8 +94,8 @@ function renderMenu() {
   S.menuItems = items;
   // плитки 3 в ряд (как в оригинале), последний ряд добивается пустыми ячейками; ✕ — красная лента сверху
   const pad = (3 - (items.length % 3)) % 3, note = m.note ? m.note() : '';
-  $('#menuWin').innerHTML = `<button class="mclosex" data-mclose aria-label="Закрыть"></button>${note ? `<div class="mnote">${esc(note)}</div>` : ''}<div class="ptiles pbig mgrid">${items.map((it, i) =>
-    `<button class="ptile" data-mi="${i}"><img src="${it[1].startsWith('gfx3d/') ? it[1] : GFX + it[1]}" alt=""><span${it[0].length > 10 ? ' class="long"' : ''}>${esc(it[0])}</span></button>`).join('')}${'<i class="ptile empty"></i>'.repeat(pad)}</div>`;
+  $('#menuWin').innerHTML = `<button class="mclosex" data-mclose aria-label="Закрыть"></button><div class="mscroll">${note ? `<div class="mnote">${esc(note)}</div>` : ''}<div class="ptiles pbig mgrid">${items.map((it, i) =>
+    `<button class="ptile" data-mi="${i}"><img src="${it[1].startsWith('gfx3d/') ? it[1] : GFX + it[1]}" alt=""><span${it[0].length > 10 ? ' class="long"' : ''}>${esc(it[0])}</span></button>`).join('')}${'<i class="ptile empty"></i>'.repeat(pad)}</div></div>`;
   // иконки нижней полосы — из оригинального клиента (web/gfx3d/menu)
   $('#menubar').innerHTML = Object.entries(MENUS).map(([k, v]) => `<button data-menu="${k}" class="${k === S.menu ? 'on' : ''}"><img src="${G3}${v.icon}" alt=""><span>${v.label}</span></button>`).join('');
 }
