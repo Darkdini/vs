@@ -719,9 +719,8 @@ const IMGS = new Map();
 const HD = { 'build/castle.png': ['build/hd/castle.png', 8], 'ground/camp1.png': ['ground/hd/camp1.png', 4], 'ground/camp2.png': ['ground/hd/camp2.png', 4], 'ground/camp3.png': ['ground/hd/camp3.png', 4],
   // стена замка (Забор) — HD, нарисована по листу с 5 частями
   ...Object.fromEntries([0, 1, 2, 3, 4].map((i) => [`fence/fence${i}.png`, [`fence/hd/fence${i}.png`, 8]])),
-  // ров вокруг стены и трава в замке — HD, нарисованы по листам (только вид «Замок»)
-  ...Object.fromEntries([0, 1, 2, 3, 4, 5, 6, 7].map((i) => [`ground/rov${i}.png`, [`ground/hd/rov${i}.png`, 8]])),
-  ...Object.fromEntries(['rov0', 'rov1'].flatMap((r) => Array.from({ length: 16 }, (_, f) => [`ground/${r}_f${f}.png`, [`ground/hd/${r}_f${f}.png`, 8]]))), // кадры течения
+  // ров (кольцо из одного нарисованного куска, с течением) и трава в замке — HD
+  ...Object.fromEntries(['TL', 'R', 'BR', 'L', 'cL', 'cT', 'cR', 'cB', 'bL', 'bTL'].flatMap((n) => Array.from({ length: 16 }, (_, f) => [`ground/moat_${n}_${f}.png`, [`ground/hd/moat_${n}_${f}.png`, 6]]))),
   'ground/grassC.png': ['ground/hd/grassC.png', 8], 'ground/grass1C.png': ['ground/hd/grass1C.png', 8] };
 // в замке трава своя (HD): снаружи стены — светлая (grass1C), внутри — с цветами (grassC); на Землях и в Мире — прежняя
 const CASTLE_GRASS = { 'ground/grass.png': 'ground/grass1C.png', 'ground/grass1.png': 'ground/grass1C.png' };
@@ -921,33 +920,28 @@ function drawCellBuilding(view, cell, b, lvl, p, k = 1, sel = false) {
 
 const D = (x, y) => tileScreen(x, y).sx, E = (x, y) => tileScreen(x, y).sy;
 const CG = CASTLE_OFF, CH = CASTLE_OFF, CN = 7;
-// течение во рву: 16 кадров прямых кусков, вода идёт по часовой стрелке вокруг замка
-const FLOW_N = 16, FLOW_MS = 110;
+// ров: кольцо клеток вокруг замка (прямые стороны, закруглённые углы, мосты у ворот); вода течёт по часовой стрелке
+const FLOW_N = 16, FLOW_MS = 165;
 const flowOn = () => typeof SND === 'undefined' || SND.anim !== false;
-const flowF = (rev) => { const f = flowOn() ? Math.floor(Date.now() / FLOW_MS) % FLOW_N : 0; return rev ? (FLOW_N - f) % FLOW_N : f; };
 let flowTimer = null;
 function flowTick() { // перерисовка только пока открыт замок и вкладка видна
   flowTimer = null;
   if (S.tab !== 'castle' || document.hidden || !flowOn() || !Iso.cv.isConnected) return;
   isoDraw(); flowTimer = setTimeout(flowTick, FLOW_MS);
 }
+const MOAT_T = ['TL', 'R', 'BR', 'L', 'cL', 'cT', 'cR', 'cB', 'bL', 'bTL'];
 function moat() {
-  if (!flowTimer) flowTimer = setTimeout(flowTick, FLOW_MS);
-  // все кадры грузятся сразу; пока кадр не загружен — рисуется неподвижный кусок
-  if (!moat.pre) { moat.pre = true; for (const r of ['rov0', 'rov1']) for (let f = 0; f < FLOW_N; f++) pic(`ground/${r}_f${f}.png`); }
-  const fr = (r, rev) => { const p = `ground/${r}_f${flowF(rev)}.png`; return pic(p) ? p : `ground/${r}.png`; };
-  const r1 = fr('rov1', false), r1b = fr('rov1', true); // верх-лево ↗, низ-право ↙
-  const r0 = fr('rov0', false), r0b = fr('rov0', true); // право ↘, лево ↖
-  for (let i = -1; i < CN; i++) raw(r1, D(CG + i, CH) - 10, E(CG + i, CH) - imH('ground/rov1.png') + 5);
-  raw('ground/rov6.png', D(CG + 2, CH), E(CG + 2, CH) - 32);
-  for (let i = -1; i < CN; i++) raw(r0, D(CG + 6, CH + i) + 36, E(CG + 6, CH + i) - 15);
-  raw('ground/rov7.png', D(CG + 7, CH - 1) + 1, E(CG + 7, CH - 1) - 1);
-  for (let i = -1; i < CN; i++) raw(r0b, D(CG - 2, CH + i) + 36, E(CG - 2, CH + i) - 15);
-  for (let i = -1; i < CN; i++) raw(r1b, D(CG + i, CH + 8) - 10, E(CG + i, CH + 8) - imH('ground/rov1.png') + 5);
-  raw('ground/rov3.png', D(CG + 6, CH + 6) + 63, E(CG + 5, CH + 4) + 15);
-  raw('ground/rov2.png', D(CG - 1, CH + 6) + 32, E(CG - 1, CH + 6) + 15);
-  raw('ground/rov5.png', D(CG - 1, CH + 2) + 32, E(CG - 1, CH + 3) - 1);
-  raw('ground/rov4.png', D(CG - 2, CH - 2) + 63, E(CG - 2, CH - 2) - 1);
+  if (!flowTimer && flowOn()) flowTimer = setTimeout(flowTick, FLOW_MS);
+  const f = flowOn() ? Math.floor(Date.now() / FLOW_MS) % FLOW_N : 0;
+  if (!moat.pre) { moat.pre = true; for (const n of MOAT_T) for (let k = 0; k < FLOW_N; k++) pic(`ground/moat_${n}_${k}.png`); } // все кадры — заранее
+  const tile = (n, x, y) => { const p = tileScreen(x, y), im = pic(`ground/moat_${n}_${f}.png`) || pic(`ground/moat_${n}_0.png`); if (im) drawPic(im, p.sx, p.sy); };
+  for (let i = 0; i < CN; i++) {
+    tile(i === 3 ? 'bTL' : 'TL', CG + i, CH - 1); // верхняя левая сторона, мост у задних ворот
+    tile('R', CG + CN, CH + i);
+    tile('BR', CG + i, CH + CN);
+    tile(i === 3 ? 'bL' : 'L', CG - 1, CH + i); // левая сторона, мост у главных ворот
+  }
+  tile('cL', CG - 1, CH - 1); tile('cT', CG + CN, CH - 1); tile('cR', CG + CN, CH + CN); tile('cB', CG - 1, CH + CN);
 }
 function fenceBack() {
   for (const i of [0, 1, 2, 4, 5, 6]) raw('fence/fence2.png', D(CG + i, CH) - 5, E(CG + i, CH) - 26);
