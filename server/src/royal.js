@@ -93,9 +93,9 @@ function install(Game) {
     };
   };
 
-  P.ritual = function ritual(user, castle, id) {
+  P.ritual = function ritual(user, castle, id, anyTemple = false) {
     const r = RITUALS[id]; if (!r) return { error: 'Нет такого ритуала.' };
-    if (!this.buildingLevel(castle, 25)) return { error: 'Нужен Храм.' };
+    if (anyTemple ? !this.castlesOf(user).some((c) => this.buildingLevel(c, 25)) : !this.buildingLevel(castle, 25)) return { error: 'Нужен Храм.' };
     const now = Date.now(); this.ritualBonus(user, now);
     if (user.rituals.some((x) => x.id === id)) return { error: 'Этот ритуал ещё действует.' };
     this.tick(castle);

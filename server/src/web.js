@@ -131,7 +131,7 @@ class WebSession {
         loyalty: Math.round(c.loyalty ?? 100), capital: this.game.isCapital(c),
       },
       castles: this.game.castlesOf(u).map((k, i) => ({ id: k.id, name: k.name, x: k.x, y: k.y, capital: i === 0, active: k.id === c.id, rating: this.game.rating(k), loyalty: Math.round(k.loyalty ?? 100) })),
-      nickPrice: Number(process.env.NICK_PRICE) || 100, unread: (this.game.db.messages || []).filter((m) => m.to === u.id && !m.read).length, newsUnread: this.game.newsUnread(u), newsFirst: this.game.newsFirst(u),
+      nickPrice: Number(process.env.NICK_PRICE) || 100, msgColor: u.msgColor || 0, msgColors: require('./premium').MSG_COLORS, unread: (this.game.db.messages || []).filter((m) => m.to === u.id && !m.read).length, newsUnread: this.game.newsUnread(u), newsFirst: this.game.newsFirst(u),
       moves: this.game.moveCounts(u),
     });
   }
@@ -179,6 +179,13 @@ function hasEvil(v, depth) {
   if (typeof v === 'string') return PROTO_NAMES.has(v);
   if (v && typeof v === 'object') for (const k of Object.keys(v)) if (PROTO_NAMES.has(k) || hasEvil(v[k], depth + 1)) return true;
   return false;
+}
+// замок для действия: текущий или (премиум) любой свой по cid
+function pickCastle(s, m) {
+  const id = Number(m && m.cid); if (!id || id === s.castle.id) return s.castle;
+  if (!s.game.isPremium(s.user)) { s.error('Управление всеми замками из одного окна — с премиумом.'); return null; }
+  const c = s.game.db.castles[id]; if (!c || c.owner !== s.user.id) { s.error('Это не ваш замок.'); return null; }
+  return c;
 }
 const ROYAL_ACTIONS = new Set(['forge', 'ritual', 'calm', 'build', 'train', 'send', 'research', 'exchange', 'squad', 'artifact', 'religion']);
 
@@ -239,8 +246,8 @@ const API = {
     this.toast(m.op === 'del' ? 'Аватар удалён.' : 'Аватар сохранён.');
     API.profile.call(this, { id: this.user.id, acct: m.acct, refresh: 1 });
   },
-  ritual(m) { const r = this.game.ritual(this.user, this.castle, m.id); if (r.msg) this.toast(r.msg); this.result(r); },
-  calm() { const r = this.game.calmRiot(this.user, this.castle); if (r.msg) this.toast(r.msg); this.result(r); },
+  ritual(m) { const c = pickCastle(this, m); if (!c) return; const r = this.game.ritual(this.user, c, m.id, !!m.cid && this.game.isPremium(this.user)); if (m.cid) API.kingdom.call(this); if (r.msg) this.toast(r.msg); this.result(r); },
+  calm(m) { const c = pickCastle(this, m); if (!c) return; const r = this.game.calmRiot(this.user, c); if (m && m.cid) API.kingdom.call(this); if (r.msg) this.toast(r.msg); this.result(r); },
   magic(m) { this.result(this.game.magicOp(this.castle, { unit: Number(m.unit), kind: m.kind })); },
   forge(m) { this.result(this.game.forgeOp(this.castle, { unit: Number(m.unit), kind: m.kind })); },
   ally(m) {
@@ -298,6 +305,7 @@ const API = {
     this.toast('Пароль изменён. На других устройствах нужно войти заново.');
   },
   nickcase(m) { const r = this.game.changeNick(this.user, m.nick); if (r.error) return this.error(r.error); this.send({ t: 'renamed', login: this.user.login }); this.toast(`Ваш новый ник: ${this.user.login} (−${r.price} золота). Входите под ним.`); this.pushState(); API.profile.call(this, { id: this.user.id, acct: 1, refresh: 1 }); },
+  msgcolor(m) { const r = this.game.setMsgColor(this.user, m.i); if (r.msg) this.toast(r.msg); this.result(r); this.pushState(); },
   castleinfo(m) { const r = this.game.castleInfo(this.user, m.name, m.desc); if (r.error) return this.error(r.error); this.toast('Замок переименован.'); API.profile.call(this, { id: this.user.id, acct: 1, refresh: 1 }); },
   // ---- кабинет (server/src/social.js) ----
   rep(m) {
@@ -404,7 +412,7 @@ const API = {
     if (changed) { this.game.store.save(); this.pushState(); }
     const lim = Math.min(all.length, Math.max(30, Math.floor(Number(m.more)) || 30));
     this.send({ t: 'dialog', with: { id: o.id, login: o.login, race: o.race, avatar: o.avatar || 0 }, more: all.length > lim,
-      list: all.slice(-lim).map((x) => ({ id: x.id, mine: x.from === me, subject: x.subject, text: x.text, at: x.at })), keep: !!m.keep });
+      list: all.slice(-lim).map((x) => ({ id: x.id, mine: x.from === me, subject: x.subject, text: x.text, at: x.at, color: x.color || '' })), keep: !!m.keep });
   },
   read(m) {
     const x = (this.game.db.messages || []).find((y) => y.id === Number(m.id) && (y.to === this.user.id || y.from === this.user.id));
@@ -421,7 +429,8 @@ const API = {
     for (const s of WebSession.all || []) if (s.user && s.user.id === res.to.id) { if (s.dialogWith === this.user.id) API.dialog.call(s, { id: this.user.id, keep: 1 }); else if (s.notifyMail) s.notifyMail(this.user.login); }
   },
   // ---- функции зданий и армия (server/src/army.js) ----
-  train(m) { this.result(this.game.train(this.castle, Number(m.unit), Number(m.count))); },
+  train(m) { const c = pickCastle(this, m); if (!c) return; this.result(this.game.train(c, Number(m.unit), Number(m.count))); if (c !== this.castle) API.kingdom.call(this); },
+  kingdom() { if (!this.game.isPremium(this.user)) return this.error('Сводка королевства — с премиумом.'); this.send({ t: 'kingdom', list: this.game.kingdom(this.user) }); },
   send(m) {
     const r = this.game.sendArmy(this.castle, { units: m.units || {}, general: !!m.general, x: m.x, y: m.y, mission: m.mission, res: m.res, from: m.from, portal: !!m.portal, at: Number(m.at) || 0 });
     if (!r.error && m.mission === 'trade') this.toast(`Торговцы (${r.need}) отправились к ${m.x}:${m.y}`);

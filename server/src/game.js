@@ -454,7 +454,7 @@ class Game {
     const to = this.db.users[String(toLogin || '').trim()];
     if (!to) return { error: 'Получатель не найден.' };
     this.db.messages = this.db.messages || [];
-    const m = { id: this.db.nextId++, from: fromUser.id, to: to.id, subject: String(subject || '').slice(0, 80), text: String(text || '').slice(0, 4000), at: Date.now(), read: false };
+    const m = { id: this.db.nextId++, from: fromUser.id, to: to.id, subject: String(subject || '').slice(0, 80), text: String(text || '').slice(0, 4000), at: Date.now(), read: false, color: this.msgColor ? this.msgColor(fromUser) : '' };
     this.db.messages.push(m);
     this.store.save();
     return { message: m, to };

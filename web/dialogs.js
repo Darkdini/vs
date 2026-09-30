@@ -31,7 +31,7 @@ function dialogWin() {
     const dd = new Date(m.at).toLocaleDateString('ru-RU');
     if (dd !== day) { day = dd; body += `<div class="ribbon ddate">${dd}</div>`; }
     body += `<div class="dmsg ${m.mine ? 'mine' : ''}"><div class="dwho"><img src="gfx3d/prof/king.png" alt=""><b>${esc(m.mine ? me : w.login)}</b></div>
-      <div class="dline"><small>${new Date(m.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</small><span>${m.subject && !/^Re:/.test(m.subject) && m.subject !== 'Сообщение' ? `<b>${esc(m.subject)}</b><br>` : ''}${smiles(esc(m.text))}</span></div></div>`;
+      <div class="dline"><small>${new Date(m.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</small><span${/^#[0-9a-f]{6}$/i.test(m.color || '') ? ` style="color:${m.color}"` : ''}>${m.subject && !/^Re:/.test(m.subject) && m.subject !== 'Сообщение' ? `<b>${esc(m.subject)}</b><br>` : ''}${smiles(esc(m.text))}</span></div></div>`;
   }
   return `${ribbon('Диалог')}
     ${d.hasMore ? '<button class="pbar" data-dlgmore>Показать раньше</button>' : ''}

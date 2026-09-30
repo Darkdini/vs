@@ -118,13 +118,15 @@ function resNow(r) {
   const c = S.st.castle, dt = (now() - S.st.now) / 3600000;
   return Math.min(c.cap[r], c.res[r] + c.rate[r] * dt);
 }
+// лимит строек: 3, с премиумом (и у админа) — 5, как на сервере
+const maxQueue = () => (S.st.user.admin || (S.st.user.premium || 0) > Date.now() ? 5 : S.cat.maxQueue);
 const queueAt = (view, cell) => S.st.castle.queue.find((q) => q.view === view && q.cell === cell);
 // можно ли строить: список причин, почему нельзя (пусто — можно)
 function blockers(def, level, view, cell) {
   const c = S.st.castle, out = [];
   if (level > def.max) return ['Достигнут максимальный уровень.'];
   if (queueAt(view, cell)) out.push('Здесь уже идёт стройка.');
-  if (c.queue.length >= S.cat.maxQueue) out.push(`Очередь занята (${c.queue.length}/${S.cat.maxQueue}).`);
+  if (c.queue.length >= maxQueue()) out.push(`Очередь занята (${c.queue.length}/${maxQueue()}).${maxQueue() < 5 ? ' С премиумом — 5 строек.' : ''}`);
   if (level === 1 && def.unique && (buildingLevel(def.id) > 0 || c.queue.some((q) => q.building === def.id))) out.push('Такое здание уже есть.');
   for (const [id, l] of Object.entries(def.req)) if (buildingLevel(Number(id)) < l) out.push(`Нужно: ${S.by[id].name} ${l} ур.`);
   const cost = def.costs[level];

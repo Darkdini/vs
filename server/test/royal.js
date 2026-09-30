@@ -229,7 +229,7 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
 }
 // подарок приходит получателю и сообщением от дарителя
 {
-  const [a, b] = ['gfa', 'gfb'].map((l) => g.register({ login: l, password: '12345', race: 0 }).user); a.gold = 100;
+  const [a, b] = ['gfa', 'gfb'].map((l) => g.register({ login: l, password: '12345', race: 0 }).user); a.gold = 100; a.premium = Date.now() + 86400000; // Шлем Легиона — уникальный (премиум) подарок
   assert.ok(g.sendGift(a, b.id, 'helmet', 'Держи!').ok);
   const m = (g.db.messages || []).filter((x) => x.from === a.id && x.to === b.id).pop();
   assert.ok(m && /Шлем Легиона/.test(m.text) && /Держи!/.test(m.text) && !m.read, 'сообщение о подарке');
@@ -297,6 +297,35 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   z.gold = 250; assert.ok(g.changeNick(z, 'ZeVs').ok); assert.strictEqual(z.login, 'ZeVs'); assert.strictEqual(z.gold, 150); assert.ok(g.login('zevs@mail.ru', '12345') === z, 'логин тот же');
   assert.ok(g.changeNick(z, 'zevs').error, 'занятый ник'); assert.ok(g.changeNick(z, 'Громовержец').error, 'длиннее 10');
   console.log('✓ Регистрация: логин + пароль + ник; вход по логину; Zevs и zevs — разные ники; смена ника за 100 золота');
+}
+{ // премиум: население +50%, 5 строек, расписание (без премиума войска не теряются), +1 репутации себе
+  const pu = g.register({ login: 'premtest', password: '12345', nick: 'PremTest', race: 0 }).user, pc = g.castleOf(pu);
+  const base = g.rates(pc).people;
+  pc.queue.push({ view: 9, cell: 1, building: 1, level: 1, end: Date.now() + 1e9, cost: { people: 0 } }, { view: 9, cell: 2, building: 1, level: 1, end: Date.now() + 1e9, cost: { people: 0 } }, { view: 9, cell: 3, building: 1, level: 1, end: Date.now() + 1e9, cost: { people: 0 } });
+  assert.ok(/не больше 3/.test(g.startBuild(pc, 0, 5, 1).error || ''), 'без премиума — 3 стройки');
+  pc.units = { 1: 10 };
+  assert.ok(/премиумом/.test(g.sendArmy(pc, { units: { 1: 5 }, x: pc.x + 1, y: pc.y, mission: 'raid', at: Date.now() + 3600000 }).error));
+  assert.strictEqual(pc.units[1], 10, 'войска не пропали при отказе');
+  pu.gold = 1000; pu.premium = Date.now() + 86400000;
+  assert.ok(Math.abs(g.rates(pc).people - Math.round(base / 1 * 1.5)) <= 1, `население +50%: ${base} → ${g.rates(pc).people}`);
+  assert.ok(!/не больше/.test(g.startBuild(pc, 0, 5, 1).error || ''), 'с премиумом — до 5 строек');
+  pc.queue = pc.queue.filter((q) => q.view !== 9);
+  const r0 = pu.reputation; g.giveReputation(pu, pu.id, 1); assert.ok(pu.reputation - r0 > 0);
+  const r1 = pu.reputation; pu.premium = 0; pu.gold = 10; g.giveReputation(pu, pu.id, 1); assert.strictEqual(pu.reputation - r1 + 1, r1 - r0, 'премиум даёт +1 репутации себе');
+  console.log('✓ Премиум: население +50%, 5 строек, расписание без потери войск, +1 репутации себе');
+}
+{ // премиум: уникальные подарки, цвет сообщений, сводка королевства
+  const a = g.register({ login: 'giftprem', password: '12345', nick: 'GiftPrem', race: 0 }).user, b = g.register({ login: 'giftto', password: '12345', nick: 'GiftTo', race: 1 }).user;
+  a.gold = 100;
+  assert.ok(/премиумом/.test(g.sendGift(a, b.id, 'diamond').error), 'уникальный подарок без премиума — нельзя');
+  assert.ok(!g.sendGift(a, b.id, 'gift_box').error, 'обычный подарок — всем');
+  assert.ok(/премиумом/.test(g.setMsgColor(a, 2).error));
+  a.premium = Date.now() + 86400000;
+  assert.ok(!g.sendGift(a, b.id, 'diamond').error, 'с премиумом — можно');
+  assert.ok(g.setMsgColor(a, 2).ok); const m = g.sendMail(a, b.login, 'Цвет', 'синий').message; assert.strictEqual(m.color, '#1d4fa0');
+  a.premium = 0; assert.strictEqual(g.sendMail(a, b.login, 'Цвет', 'обычный').message.color, '', 'премиум кончился — цвет обычный');
+  const k = g.kingdom(a); assert.ok(k.length === 1 && k[0].res && Array.isArray(k[0].units));
+  console.log('✓ Премиум: уникальные подарки, цвет сообщений, сводка королевства');
 }
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);

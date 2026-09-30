@@ -18,6 +18,8 @@ function accountWin(p) {
     <div class="acuid">Ваш уникальный номер в игре:<br><b>${a.uid}</b>${a.acctLogin ? `<br>Логин для входа: <b>${esc(a.acctLogin)}</b>` : ''}</div>
     ${bar('data-acct="pass"', '', '🔑 Изменить пароль')}
     ${p.self !== false && !(S.st.user.admin) ? `<form class="acform" data-form="nickcase"><label>Новый ник (3–10 символов):<input name="nick" maxlength="10" value="${esc(p.login)}" autocapitalize="none" required></label><button class="pbar">Сменить ник за ${S.st.nickPrice || 100} золота</button></form>` : ''}
+    ${ribbon('Цвет сообщений')}<div class="mcolors">${(S.st.msgColors || ['']).map((c, i) => `<button type="button" class="mcol ${i === (S.st.msgColor || 0) ? 'on' : ''}" data-mcol="${i}" style="background:${c || '#3a2410'}" aria-label="цвет ${i}">${i ? '' : 'Аа'}</button>`).join('')}</div>
+    <div class="bwline small center">${a.premium ? 'Этим цветом будут видны ваши сообщения в диалогах и на форуме.' : '🔒 Выбор цвета — с премиумом.'}</div>
     ${ribbon('Замок')}
     <form class="acform" data-form="castleinfo"><label>Название:<input name="name" maxlength="24" value="${esc(a.castleName || '')}" required></label>
       <label>Описание:<input name="desc" maxlength="200" value="${esc(a.castleDesc || '')}"></label><button class="pbar">Изменить</button></form>
@@ -35,6 +37,7 @@ function passWin() {
     <p class="small muted">После смены пароля на других устройствах нужно будет войти заново.</p>`;
 }
 $('#sheetBody').addEventListener('click', (e) => {
+  const mc = e.target.closest('[data-mcol]'); if (mc) return send({ t: 'msgcolor', i: Number(mc.dataset.mcol) });
   const t = e.target.closest('[data-acct]'); if (!t) return;
   const k = t.dataset.acct, p = S.lastAcct;
   if (k === 'premium') return openPremium();

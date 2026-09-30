@@ -16,5 +16,6 @@ document.addEventListener('click', (e) => {
 const prevMilW = milMsg;
 milMsg = function (m) { // eslint-disable-line no-global-assign
   if (m.t === 'moves') { S.moves = m.data; return refreshSheet(); }
+  if (m.t === 'kingdom') { S.kingdom = m.list; return refreshSheet(); }
   prevMilW(m);
 };

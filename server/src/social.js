@@ -53,10 +53,16 @@ const HALL_PAGES = [['rule', 'growth', 'loyalty', 'loot', 'archaeology'], ['resp
 const PLACE_ICON = ['gold', 'silver', 'bronze'];
 
 // подарки в профиле: игроки дарят друг другу за золото
+// обычные — всем; premium: true — уникальный набор, дарить можно только с премиумом
 const GIFTS = {
+  gift_box: { name: 'Подарочная коробка', img: 'gifts/gift_box.png', gold: 1 },
+  gold_coin: { name: 'Золотая монета', img: 'gifts/gold_coin.png', gold: 1 },
+  fountain: { name: 'Фонтан желаний', img: 'gifts/fountain.png', gold: 2 },
+  treasure: { name: 'Сундук сокровищ', img: 'gifts/treasure.png', gold: 3 },
   diamond: { name: 'Большой диамант', img: 'gifts/diamond.jpg', gold: 3, premium: true },
   castle_box: { name: 'Королевская шкатулка', img: 'gifts/castle_box.png', gold: 10, premium: true },
   helmet: { name: 'Шлем Легиона', img: 'gifts/helmet.png', gold: 5, premium: true },
+  crown: { name: 'Корона Авторитета', img: 'gifts/crown.png', gold: 8, premium: true },
 };
 const GIFTS_DAY = 20;
 const REP_PER_GOLD = 2; // 1 монета = 2 репутации // сколько подарков игрок может отправить за сутки
@@ -163,6 +169,7 @@ function install(Game) {
   P.sendGift = function sendGift(user, toId, giftId, text) {
     const g = GIFTS[giftId]; if (!g) return { error: 'Нет такого подарка.' };
     const to = this.userById(Number(toId)); if (!to) return { error: 'Игрок не найден.' };
+    if (g.premium && !this.isPremium(user)) return { error: 'Это уникальный подарок — дарить его можно только с премиумом.' };
     const now = Date.now();
     user.giftLog = (user.giftLog || []).filter((t) => t > now - 86400000);
     if (user.giftLog.length >= GIFTS_DAY) return { error: `Не больше ${GIFTS_DAY} подарков в сутки.` };

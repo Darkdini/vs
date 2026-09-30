@@ -63,7 +63,7 @@ function forumPostsWin() {
     ${d.deleted ? '<div class="bwline center small">Тема удалена — её видят только модераторы.</div>' : ''}
     ${fPager(d.page, d.pages, 'data-fppg')}
     ${d.posts.map((p) => `<div class="fpost ${p.deleted ? 'fdel' : ''}"><div class="fph"><img class="fking" src="${FG}king.png" alt="">${fWho(p.by, p.byId, p.role)}<small>${repDate(p.at)}</small></div>
-      <div class="fpt">${esc(p.text)}</div>
+      <div class="fpt"${/^#[0-9a-f]{6}$/i.test(p.color || '') ? ` style="color:${p.color}"` : ''}>${esc(p.text)}</div>
       ${mod ? `<div class="fpm"><button data-fpdel="${p.id}">${p.deleted ? 'Восстановить' : 'Удалить'}</button>${p.role ? '' : `<button data-fban="${p.byId}" data-fbanname="${esc(p.by)}">Запрет</button>`}</div>` : ''}</div>`).join('')}
     ${fPager(d.page, d.pages, 'data-fppg')}
     ${d.canPost ? `<form class="fform" data-form="freply"><textarea name="text" maxlength="1500" rows="3" placeholder="Ваш ответ…" required></textarea><button class="lbar">Ответить</button></form>`

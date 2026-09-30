@@ -19,6 +19,7 @@ const MENUS = {
     ['Советник', `units/${S.cat.mil.raceDir[S.st.user.race]}/wisdom.png${S.st.user.race === 'orcs' ? '?orc' : ''}`, () => openSheet(advisorWin)],
     ['Казна', M3('treasury'), () => openSheet(treasuryWin)],
     ['Премиум', M3('premium'), () => openPremium()],
+    ['Королевство', M3('loyalty'), () => openKingdom()],
     ['Ресурсы', M3('resources'), () => openSheet(resSheet)],
     ['Подарки', M3('gifts'), () => openSoon('Подарки')],
     ['Репутация', M3('reputation'), () => openRating('reputation')],
@@ -415,7 +416,7 @@ function castlesWin() {
 function advisorWin() {
   const c = S.st.castle, tips = [];
   const L = (id) => buildingLevel(id);
-  if (!c.queue.length) tips.push('Очередь строительства пуста — стройте! Одновременно можно до ' + S.cat.maxQueue + ' строек.');
+  if (!c.queue.length) tips.push('Очередь строительства пуста — стройте! Одновременно можно до ' + maxQueue() + ' строек.');
   if (L(0) < 3) tips.push('Развивайте Ратушу до 3 уровня — она открывает Казарму, Военный штаб и Рынок, а каждое её развитие ускоряет стройки на 5%.');
   if (L(1) < 3) tips.push('Склад переполняется — развивайте Склад, иначе излишки ресурсов пропадают.');
   const prodCells = c.grid[1].filter((b) => [5, 7, 8, 9].includes(b)).length;
@@ -543,7 +544,7 @@ function giftsWin() {
     ${list.map(([id, g]) => `<div class="giftrow"><img src="${GFX}${g.img}" alt="">
       ${g.premium ? '<div class="gprem">Премиум подарок</div>' : ''}
       <div class="bwline center">${esc(g.name)} ( ${gimg('coins_s.png', 'ri')} ${g.gold})</div>
-      <div class="center bwline">🎁 <a class="plink" data-giftsend="${id}">Отправить</a> игроку!</div></div>`).join('')}`;
+      ${g.premium && !isPrem() ? '<div class="center bwline muted">🔒 Уникальный подарок — дарить можно с премиумом</div>' : `<div class="center bwline">🎁 <a class="plink" data-giftsend="${id}">Отправить</a> игроку!</div>`}</div>`).join('')}`;
 }
 $('#sheetBody').addEventListener('click', (e) => {
   const t = e.target.closest('[data-giftsend]'); if (!t) return;

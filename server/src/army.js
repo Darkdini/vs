@@ -567,6 +567,8 @@ function install(Game, helpers) {
   // отправка: from = 'castle' (вся Замковая армия) или id отряда (весь отряд), как в оригинале; либо units — выборочно.
   // portal — через Портал (в 4 раза быстрее), at — расписание отправки (время, мс)
   P.sendArmy = function sendArmy(castle, { units = {}, general = false, x, y, mission, res = null, from = null, portal = false, at = 0 }) {
+    // до списания войск: без премиума расписание недоступно
+    if (at && Number(at) > Date.now() + 3000 && !this.isPremium(this.userById(castle.owner))) return { error: 'Расписание отправки доступно с премиумом.' };
     if (mission === 'trade') return this.sendTrade(castle, { x, y, res });
     this.tick(castle); this.mil(castle);
     let squad = null;
@@ -641,7 +643,6 @@ function install(Game, helpers) {
     }
     let sec = this.travelSec(castle, clean, general, x, y, mission === 'trade');
     if (portal) sec = Math.max(5, Math.round(sec / 4));
-    if (at && Number(at) > Date.now() + 3000 && !this.isPremium(this.userById(castle.owner))) return { error: 'Расписание отправки доступно с премиумом.' };
     const now = Date.now(), start = at && Number(at) > now + 3000 ? Number(at) : now;
     const army = { id: this.db.nextId++, units: clean, general: !!general, mission, x, y, depart: start, arrive: start + sec * 1000, sec, state: start > now ? 'wait' : 'go', loot: null, cargo,
       squad: squad ? { id: squad.id, name: squad.name } : from === 'castle' ? { id: 0, name: 'Замковая армия' } : null, portal: !!portal };
@@ -1048,6 +1049,11 @@ function install(Game, helpers) {
     const n = a.units[230] || 0;
     const chance = 0.2 + 0.05 * n + 0.03 * this.buildingLevel(c, B.ARCH_CAMP) + 0.02 * this.buildingLevel(c, B.EXPEDITION);
     const lines = [`Раскопки в руинах ${a.x}:${a.y}, археологов: ${n}. Шанс находки ${Math.round(Math.min(0.95, chance) * 100)}%.`];
+    const owner = this.userById(c.owner);
+    if (!this.isPremium(owner) && Math.random() < 0.2) { // без премиума археологи ждут приказов и иногда уходят ни с чем
+      lines.push('Раскопки остановились: археологи наткнулись на завал и не дождались приказа. С премиумом приказы не нужны — раскопки идут без остановок.');
+      this.report(c.owner, `Экспедиция ${a.x}:${a.y}`, lines, 'expedition'); return this.goBack(c, a, t);
+    }
     if (Math.random() < chance) {
       const types = Object.keys(ART_TYPES), type = types[Math.floor(Math.random() * types.length)];
       const roll = Math.random() + 0.02 * this.buildingLevel(c, B.ARCH_CAMP), rarity = roll > 0.95 ? 2 : roll > 0.7 ? 1 : 0;
