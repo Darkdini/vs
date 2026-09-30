@@ -1049,11 +1049,6 @@ function install(Game, helpers) {
     const n = a.units[230] || 0;
     const chance = 0.2 + 0.05 * n + 0.03 * this.buildingLevel(c, B.ARCH_CAMP) + 0.02 * this.buildingLevel(c, B.EXPEDITION);
     const lines = [`Раскопки в руинах ${a.x}:${a.y}, археологов: ${n}. Шанс находки ${Math.round(Math.min(0.95, chance) * 100)}%.`];
-    const owner = this.userById(c.owner);
-    if (!this.isPremium(owner) && Math.random() < 0.2) { // без премиума археологи ждут приказов и иногда уходят ни с чем
-      lines.push('Раскопки остановились: археологи наткнулись на завал и не дождались приказа. С премиумом приказы не нужны — раскопки идут без остановок.');
-      this.report(c.owner, `Экспедиция ${a.x}:${a.y}`, lines, 'expedition'); return this.goBack(c, a, t);
-    }
     if (Math.random() < chance) {
       const types = Object.keys(ART_TYPES), type = types[Math.floor(Math.random() * types.length)];
       const roll = Math.random() + 0.02 * this.buildingLevel(c, B.ARCH_CAMP), rarity = roll > 0.95 ? 2 : roll > 0.7 ? 1 : 0;
