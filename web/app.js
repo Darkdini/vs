@@ -247,12 +247,22 @@ function onState(m) {
 }
 
 // ---------- вход / регистрация ----------
-// выбор расы — как в оригинале: название выбранной расы и 4 портрета, у выбранного зелёный фон
+// выбор расы — как в оригинале: 4 портрета, у выбранного зелёный фон; при нажатии — окошко с описанием расы
+const RACE_DESC = {
+  humans: 'Доблестная, молодая и свободолюбивая раса. Преимущество расы: Сильная конница.',
+  elves: 'Жители бескрайних лесов, искусные маги и чародеи. Преимущество расы: Самые сильные магические юниты.',
+  dwarves: 'Отважные и безрассудные жители гор и подземелий, привыкшие полагаться на свою пехоту. Преимущество расы: Самая сильная пехота.',
+  orcs: 'Воинственная раса, особенно за крепкой стеной замка. Преимущество расы: Большой запас жизни у боевых юнитов.',
+};
 function renderRaces() {
-  const notes = (S.cat.army && S.cat.army.races) || {}, cur = S.cat.raceOrder[S.race] || S.cat.raceOrder[0];
-  $('#races').innerHTML = `<div class="rpick"><b>${esc(S.cat.races[cur])}</b><small>${esc((notes[cur] && notes[cur].note) || '')}</small></div>
-    <div class="rgrid">${S.cat.raceOrder.map((r, i) => `<button type="button" class="rface ${i === S.race ? 'on' : ''}" data-race="${i}" aria-label="${esc(S.cat.races[r])}">
+  $('#races').innerHTML = `<div class="rgrid">${S.cat.raceOrder.map((r, i) => `<button type="button" class="rface ${i === S.race ? 'on' : ''}" data-race="${i}" aria-label="${esc(S.cat.races[r])}">
       <img src="gfx3d/race/${r}.jpg" alt=""><img class="sel" src="gfx3d/race/${r}_on.jpg" alt=""></button>`).join('')}</div>`;
+}
+function raceInfo(r) {
+  const d = document.createElement('div'); d.className = 'rinfo';
+  d.innerHTML = `<div class="rinfo-box"><p>${esc(RACE_DESC[r] || S.cat.races[r])}</p><button type="button" class="rinfo-ok">Хорошо</button></div>`;
+  d.addEventListener('click', (e) => { if (e.target === d || e.target.closest('.rinfo-ok')) d.remove(); });
+  document.body.appendChild(d);
 }
 function setMode(mode) {
   S.mode = mode;
@@ -283,7 +293,7 @@ async function deviceInfo() {
 let DEVINFO = null; deviceInfo().then((d) => { DEVINFO = d; }).catch(() => {});
 $('#capNew').addEventListener('click', () => send({ t: 'captcha' }));
 $('#authTabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) setMode(b.dataset.mode); });
-$('#races').addEventListener('click', (e) => { const b = e.target.closest('[data-race]'); if (b) { S.race = Number(b.dataset.race); renderRaces(); } });
+$('#races').addEventListener('click', (e) => { const b = e.target.closest('[data-race]'); if (b) { S.race = Number(b.dataset.race); renderRaces(); raceInfo(S.cat.raceOrder[S.race]); } });
 $('#authForm').addEventListener('submit', (e) => {
   e.preventDefault();
   const f = e.target, login = f.login.value.trim(), password = f.password.value;
