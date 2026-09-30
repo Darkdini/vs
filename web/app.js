@@ -261,6 +261,7 @@ function setMode(mode) {
   $('#capBox').classList.toggle('hidden', mode !== 'reg'); if (mode === 'reg') send({ t: 'captcha' });
   $('#authBtn').textContent = mode === 'reg' ? 'Создать аккаунт' : 'Войти';
   $('#authForm').password.autocomplete = mode === 'reg' ? 'new-password' : 'current-password';
+  $('#authForm').password.placeholder = mode === 'reg' ? 'от 5 символов' : ''; $('#authForm').password.minLength = mode === 'reg' ? 5 : 0;
   $('#authErr').textContent = '';
   const locked = mode === 'login' && S.lockUntil > Date.now(); // табличка блокировки — только на вкладке «Вход»
   $('#lockBox').classList.toggle('hidden', !locked); $('#authBtn').disabled = locked;

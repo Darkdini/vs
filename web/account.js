@@ -29,7 +29,7 @@ function accountWin(p) {
 function passWin() {
   return `${ribbon('Изменить пароль')}<form class="stack" data-form="passwd">
     <input name="old" type="password" placeholder="Старый пароль" autocomplete="current-password" required>
-    <input name="new" type="password" placeholder="Новый пароль (от 3 символов)" autocomplete="new-password" required>
+    <input name="new" type="password" placeholder="Новый пароль (от 5 символов)" autocomplete="new-password" required>
     <input name="new2" type="password" placeholder="Повторите новый пароль" autocomplete="new-password" required>
     <button class="btn primary">Изменить пароль</button></form>
     <p class="small muted">После смены пароля на других устройствах нужно будет войти заново.</p>`;

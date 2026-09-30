@@ -307,8 +307,8 @@ function client() {
     // ---- модератор форума: удаление сообщений и бан в чате ----
     adm.send({ t: 'admin', op: 'mod', login: 'Webby' });
     await adm.expect('toast', (m) => /webby — модератор форума/i.test(m.msg));
-    adm.send({ t: 'register', login: 'spammer', password: '123', race: 0 });
-    const sp = client(); await sp.open(); sp.send({ t: 'login', login: 'spammer', password: '123' }); await sp.expect('state');
+    adm.send({ t: 'register', login: 'spammer', password: '12345', race: 0 });
+    const sp = client(); await sp.open(); sp.send({ t: 'login', login: 'spammer', password: '12345' }); await sp.expect('state');
     sp.send({ t: 'chat', text: 'СПАМ' });
     const spm = (await a.expect('chatmsg', (m) => m.msg.text === 'СПАМ')).msg;
     a.send({ t: 'chatmod', op: 'del', id: spm.id });
@@ -342,9 +342,9 @@ function client() {
     // ---- мульты: два аккаунта с одного устройства попадают в одну группу ----
     for (const lg of ['multa', 'multb']) {
       const c = client(); await c.open();
-      c.send({ t: 'register', login: lg, password: '123', race: 0, dev: 'abcdef0123456789abcdef01' });
+      c.send({ t: 'register', login: lg, password: '12345', race: 0, dev: 'abcdef0123456789abcdef01' });
       await c.expect('registered');
-      c.send({ t: 'login', login: lg, password: '123', dev: 'abcdef0123456789abcdef01' }); await c.expect('state'); c.close();
+      c.send({ t: 'login', login: lg, password: '12345', dev: 'abcdef0123456789abcdef01' }); await c.expect('state'); c.close();
     }
     adm.send({ t: 'admin', op: 'multis' });
     const md = (await adm.expect('admininfo', (m) => m.op === 'multis')).data, mg = md.groups;
@@ -355,9 +355,9 @@ function client() {
     adm.send({ t: 'admin', op: 'devban', dev: grp.dev });
     await adm.expect('toast', (m) => /заблокировано/.test(m.msg));
     const cb = client(); await cb.open();
-    cb.send({ t: 'login', login: 'multa', password: '123', dev: 'abcdef0123456789abcdef01' });
+    cb.send({ t: 'login', login: 'multa', password: '12345', dev: 'abcdef0123456789abcdef01' });
     await cb.expect('error', (m) => /устройство заблокировано/.test(m.msg));
-    cb.send({ t: 'register', login: 'multc', password: '123', race: 0, dev: 'abcdef0123456789abcdef01' });
+    cb.send({ t: 'register', login: 'multc', password: '12345', race: 0, dev: 'abcdef0123456789abcdef01' });
     await cb.expect('error', (m) => /с этого устройства запрещена/.test(m.msg)); cb.close();
     adm.send({ t: 'admin', op: 'devunban', dev: grp.dev }); await adm.expect('toast', (m) => /разблокировано/.test(m.msg));
     adm.send({ t: 'admin', op: 'banmany', logins: ['multa', 'multb'] }); await adm.expect('toast', (m) => /Заблокировано аккаунтов: 2/.test(m.msg));

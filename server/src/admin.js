@@ -186,7 +186,7 @@ function install(Game) {
       case 'unban': target.banned = false; msg = `${target.login} разблокирован.`; break;
       case 'pass': {
         const p = String(arg.password || '').toLowerCase();
-        if (p.length < 3) return { error: 'Пароль минимум 3 символа.' };
+        if (p.length < 5) return { error: 'Пароль минимум 5 символов.' };
         const crypto = require('crypto'), salt = crypto.randomBytes(8).toString('hex');
         target.pass = `${salt}:${crypto.scryptSync(p, salt, 32).toString('hex')}`; target.tokens = []; msg = `Пароль ${target.login} изменён, все сессии завершены.`; break;
       }

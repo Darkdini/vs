@@ -170,7 +170,7 @@ class Game {
     password = String(password || '').toLowerCase(); // клиент приводит пароль к нижнему регистру при входе
     if (!/^[a-zа-яё0-9_.@-]{3,40}$/i.test(acct)) return { error: 'Email / Логин: 3–40 символов (буквы, цифры, _ . @ -).' };
     if (!/^[a-zа-яё0-9_]{3,10}$/i.test(nick)) return { error: 'Ник: 3–10 символов (буквы, цифры, _).' };
-    if (password.length < 3) return { error: 'Пароль слишком короткий (минимум 3 символа).' };
+    if (password.length < 5 && !system) return { error: 'Пароль слишком короткий (минимум 5 символов).' };
     if (this.db.accts[acct]) return { error: 'Такой логин (email) уже зарегистрирован.' };
     if (Object.prototype.hasOwnProperty.call(this.db.users, nick)) return { error: 'Такой ник уже занят.' };
     if (!system && (nick.toLowerCase() === 'admin' || acct === 'admin')) return { error: 'Этот ник зарезервирован.' }; // «Admin», «ADMIN» — нельзя, чтобы не выдавать себя за админа
@@ -191,7 +191,7 @@ class Game {
   changePassword(user, oldPass, newPass) {
     if (!checkPassword(String(oldPass || '').toLowerCase(), user.pass)) return { error: 'Старый пароль указан неверно.' };
     newPass = String(newPass || '').toLowerCase();
-    if (newPass.length < 3) return { error: 'Новый пароль слишком короткий (минимум 3 символа).' };
+    if (newPass.length < 5) return { error: 'Новый пароль слишком короткий (минимум 5 символов).' };
     if (newPass.length > 40) return { error: 'Новый пароль слишком длинный.' };
     user.pass = hashPassword(newPass); user.tokens = [];
     this.store.save();

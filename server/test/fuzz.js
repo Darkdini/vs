@@ -23,7 +23,7 @@ const EVIL = [-1, -1e9, 1e300, 0.5, '-5', '1e400', 'Infinity', 'NaN', null, true
   for (const [l, p] of [['hacker', '123'], ['victim', '123']]) { A.send({ t: 'register', login: l, password: p, race: 0 }); await sleep(150); }
   const adm = client(); await adm.open(); adm.send({ t: 'login', login: 'admin', password: 'admin' }); await sleep(300);
   adm.send({ t: 'admin', op: 'max', login: 'hacker' }); adm.send({ t: 'admin', op: 'gold', login: 'hacker', n: 100 }); adm.send({ t: 'admin', op: 'units', login: 'hacker' }); await sleep(500);
-  A.send({ t: 'login', login: 'hacker', password: '123' }); await sleep(500);
+  A.send({ t: 'login', login: 'hacker', password: '12345' }); await sleep(500);
   A.send({ t: 'alliance', op: 'create', name: 'Hack', tag: 'HK' }); await sleep(200);
   const st0 = A.last.state; if (!st0) throw new Error('no state');
   const victimId = (Object.values(JSON.parse(fs.readFileSync(DB))).users || {}).victim;
