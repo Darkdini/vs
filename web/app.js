@@ -247,12 +247,12 @@ function onState(m) {
 }
 
 // ---------- вход / регистрация ----------
+// выбор расы — как в оригинале: название выбранной расы и 4 портрета, у выбранного зелёный фон
 function renderRaces() {
-  const notes = (S.cat.army && S.cat.army.races) || {};
-  $('#races').innerHTML = S.cat.raceOrder.map((r, i) => `
-    <button type="button" class="race ${i === S.race ? 'on' : ''}" data-race="${i}">
-      <i>${gimg(RACE_IMG[r])}</i><div><b>${esc(S.cat.races[r])}</b><span>${esc((notes[r] && notes[r].note) || '')}</span></div>
-    </button>`).join('');
+  const notes = (S.cat.army && S.cat.army.races) || {}, cur = S.cat.raceOrder[S.race] || S.cat.raceOrder[0];
+  $('#races').innerHTML = `<div class="rpick"><b>${esc(S.cat.races[cur])}</b><small>${esc((notes[cur] && notes[cur].note) || '')}</small></div>
+    <div class="rgrid">${S.cat.raceOrder.map((r, i) => `<button type="button" class="rface ${i === S.race ? 'on' : ''}" data-race="${i}" aria-label="${esc(S.cat.races[r])}">
+      <img src="gfx3d/race/${r}.jpg" alt=""><img class="sel" src="gfx3d/race/${r}_on.jpg" alt=""></button>`).join('')}</div>`;
 }
 function setMode(mode) {
   S.mode = mode;

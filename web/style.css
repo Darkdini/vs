@@ -1281,3 +1281,16 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .acard .dcard > .btn { display: block; width: 100%; }
 .doldrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 3px 0; border-top: 1px dashed #b08a5088; font-size: 12px; }
 .doldrow.ban { background: #f5c9c066; }
+
+/* регистрация: выбор расы портретами (как в оригинале), выбранный — на зелёном фоне */
+.rlabel { text-align: center; font-size: 20px; margin-top: 6px; }
+#races { display: block; }
+.rpick { text-align: center; margin: 2px 0 8px; }
+.rpick b { display: block; font-size: 24px; color: #f7e2a8; text-shadow: 0 1px 2px #000; }
+.rpick small { display: block; font-size: 12px; color: var(--muted); min-height: 1.3em; }
+.rgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: min(12px, 3vw); max-width: 420px; margin: 0 auto; }
+.rface { position: relative; aspect-ratio: 1; padding: 0; border: 0; background: none; border-radius: 4px; overflow: hidden; box-shadow: 0 3px 6px #0008; }
+.rface img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.rface .sel { opacity: 0; transition: opacity .15s; }
+.rface.on .sel { opacity: 1; }
+.rface:active { transform: scale(.94); }
