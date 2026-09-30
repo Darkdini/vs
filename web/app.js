@@ -718,7 +718,14 @@ const IMGS = new Map();
 // перерисованная графика высокого качества: файл в HD[path] во столько раз крупнее, на карте рисуется в прежнем размере
 const HD = { 'build/castle.png': ['build/hd/castle.png', 8], 'ground/camp1.png': ['ground/hd/camp1.png', 4], 'ground/camp2.png': ['ground/hd/camp2.png', 4], 'ground/camp3.png': ['ground/hd/camp3.png', 4],
   // стена замка (Забор) — HD, нарисована по листу с 5 частями
-  ...Object.fromEntries([0, 1, 2, 3, 4].map((i) => [`fence/fence${i}.png`, [`fence/hd/fence${i}.png`, 8]])) };
+  ...Object.fromEntries([0, 1, 2, 3, 4].map((i) => [`fence/fence${i}.png`, [`fence/hd/fence${i}.png`, 8]])),
+  // ров вокруг стены и трава в замке — HD, нарисованы по листам (только вид «Замок»)
+  ...Object.fromEntries([0, 1, 2, 3, 4, 5, 6, 7].map((i) => [`ground/rov${i}.png`, [`ground/hd/rov${i}.png`, 8]])),
+  ...Object.fromEntries(['rov0', 'rov1'].flatMap((r) => Array.from({ length: 16 }, (_, f) => [`ground/${r}_f${f}.png`, [`ground/hd/${r}_f${f}.png`, 8]]))), // кадры течения
+  'ground/grassC.png': ['ground/hd/grassC.png', 8], 'ground/grass1C.png': ['ground/hd/grass1C.png', 8] };
+// в замке трава своя (HD): снаружи стены — светлая (grass1C), внутри — с цветами (grassC); на Землях и в Мире — прежняя
+const CASTLE_GRASS = { 'ground/grass.png': 'ground/grass1C.png', 'ground/grass1.png': 'ground/grass1C.png' };
+const gpath = (path) => (S.tab === 'castle' && CASTLE_GRASS[path]) || path;
 function pic(path) {
   let e = IMGS.get(path);
   if (!e) {
@@ -879,7 +886,7 @@ function diamond(sx, sy, fill, stroke) {
   if (fill) { x.fillStyle = fill; x.fill(); }
   if (stroke) { x.strokeStyle = stroke; x.lineWidth = 2.5; x.stroke(); }
 }
-function ground(path, sx, sy) { const im = pic(path); if (im) drawPic(im, sx, sy - (im.height - TH)); else diamond(sx, sy, '#3f7d2c'); }
+function ground(path, sx, sy) { const im = pic(gpath(path)); if (im) drawPic(im, sx, sy - (im.height - TH)); else diamond(sx, sy, '#3f7d2c'); }
 function sprite(path, sx, sy, dy = 0) { const im = pic(path); if (im) drawPic(im, sx + TW / 2 - im.width / 2, sy - (im.height - TH) + dy); }
 // картинка без смещения (как graphics.drawImage(img, x, y, 0) в клиенте)
 function raw(path, x, y) { const im = pic(path); if (im) drawPic(im, x, y); return im; }
@@ -914,13 +921,29 @@ function drawCellBuilding(view, cell, b, lvl, p, k = 1, sel = false) {
 
 const D = (x, y) => tileScreen(x, y).sx, E = (x, y) => tileScreen(x, y).sy;
 const CG = CASTLE_OFF, CH = CASTLE_OFF, CN = 7;
+// течение во рву: 16 кадров прямых кусков, вода идёт по часовой стрелке вокруг замка
+const FLOW_N = 16, FLOW_MS = 110;
+const flowOn = () => typeof SND === 'undefined' || SND.anim !== false;
+const flowF = (rev) => { const f = flowOn() ? Math.floor(Date.now() / FLOW_MS) % FLOW_N : 0; return rev ? (FLOW_N - f) % FLOW_N : f; };
+let flowTimer = null;
+function flowTick() { // перерисовка только пока открыт замок и вкладка видна
+  flowTimer = null;
+  if (S.tab !== 'castle' || document.hidden || !flowOn() || !Iso.cv.isConnected) return;
+  isoDraw(); flowTimer = setTimeout(flowTick, FLOW_MS);
+}
 function moat() {
-  for (let i = -1; i < CN; i++) raw('ground/rov1.png', D(CG + i, CH) - 10, E(CG + i, CH) - imH('ground/rov1.png') + 5);
+  if (!flowTimer) flowTimer = setTimeout(flowTick, FLOW_MS);
+  // все кадры грузятся сразу; пока кадр не загружен — рисуется неподвижный кусок
+  if (!moat.pre) { moat.pre = true; for (const r of ['rov0', 'rov1']) for (let f = 0; f < FLOW_N; f++) pic(`ground/${r}_f${f}.png`); }
+  const fr = (r, rev) => { const p = `ground/${r}_f${flowF(rev)}.png`; return pic(p) ? p : `ground/${r}.png`; };
+  const r1 = fr('rov1', false), r1b = fr('rov1', true); // верх-лево ↗, низ-право ↙
+  const r0 = fr('rov0', false), r0b = fr('rov0', true); // право ↘, лево ↖
+  for (let i = -1; i < CN; i++) raw(r1, D(CG + i, CH) - 10, E(CG + i, CH) - imH('ground/rov1.png') + 5);
   raw('ground/rov6.png', D(CG + 2, CH), E(CG + 2, CH) - 32);
-  for (let i = -1; i < CN; i++) raw('ground/rov0.png', D(CG + 6, CH + i) + 36, E(CG + 6, CH + i) - 15);
+  for (let i = -1; i < CN; i++) raw(r0, D(CG + 6, CH + i) + 36, E(CG + 6, CH + i) - 15);
   raw('ground/rov7.png', D(CG + 7, CH - 1) + 1, E(CG + 7, CH - 1) - 1);
-  for (let i = -1; i < CN; i++) raw('ground/rov0.png', D(CG - 2, CH + i) + 36, E(CG - 2, CH + i) - 15);
-  for (let i = -1; i < CN; i++) raw('ground/rov1.png', D(CG + i, CH + 8) - 10, E(CG + i, CH + 8) - imH('ground/rov1.png') + 5);
+  for (let i = -1; i < CN; i++) raw(r0b, D(CG - 2, CH + i) + 36, E(CG - 2, CH + i) - 15);
+  for (let i = -1; i < CN; i++) raw(r1b, D(CG + i, CH + 8) - 10, E(CG + i, CH + 8) - imH('ground/rov1.png') + 5);
   raw('ground/rov3.png', D(CG + 6, CH + 6) + 63, E(CG + 5, CH + 4) + 15);
   raw('ground/rov2.png', D(CG - 1, CH + 6) + 32, E(CG - 1, CH + 6) + 15);
   raw('ground/rov5.png', D(CG - 1, CH + 2) + 32, E(CG - 1, CH + 3) - 1);
@@ -944,14 +967,16 @@ function fenceFront() {
 // бесшовная трава на весь экран: узор 62×32 из ромба-тайла и четырёх соседей (как сетка изометрии)
 const GRASS_PAT = {};
 function grassBackdrop(path, c, dpr) {
-  const im = pic(path); if (!im) return;
+  path = gpath(path); const im = pic(path); if (!im) return;
+  const k = im.hd ? 4 : 1; // HD-трава: узор в 4 раза чётче
   if (!GRASS_PAT[path]) {
-    const cv = document.createElement('canvas'); cv.width = TW; cv.height = TH; const g = cv.getContext('2d');
-    for (const [dx, dy] of [[0, 0], [-TW / 2, -TH / 2], [TW / 2, -TH / 2], [-TW / 2, TH / 2], [TW / 2, TH / 2]]) g.drawImage(im, dx, dy - (im.height - TH));
+    const cv = document.createElement('canvas'); cv.width = TW * k; cv.height = TH * k; const g = cv.getContext('2d');
+    g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+    for (const [dx, dy] of [[0, 0], [-TW / 2, -TH / 2], [TW / 2, -TH / 2], [-TW / 2, TH / 2], [TW / 2, TH / 2]]) g.drawImage(im, dx * k, (dy - (im.height - TH)) * k, im.width * k, im.height * k);
     GRASS_PAT[path] = ictx.createPattern(cv, 'repeat');
   }
   const pat = GRASS_PAT[path], o = tileScreen(0, 0);
-  pat.setTransform(new DOMMatrix().translate(o.sx, o.sy));
+  pat.setTransform(new DOMMatrix().translate(o.sx, o.sy).scale(1 / k));
   ictx.fillStyle = pat;
   ictx.fillRect(-c.x / c.z - TW, -c.y / c.z - TH, Iso.cv.width / dpr / c.z + 2 * TW, Iso.cv.height / dpr / c.z + 2 * TH);
 }
@@ -1009,7 +1034,7 @@ function isoDrawNow() {
   if (S.tab === 'castle') { // порядок как в клиенте: земля → ров → ограда сзади → здания → ограда спереди → курсор
     // внутри стен — трава, на ней 49 каменных участков с промежутками
     const onPath = (xx, y) => (S.cat.castlePath || []).includes(y * 7 + xx) || (xx === 3 && y === 3); // и клетка Ратуши — на развилке // тропинка от ворот к Ратуше — не застраивается
-    groundField(17, (xx, y) => (xx >= CASTLE_OFF && xx < CASTLE_OFF + 7 && y >= CASTLE_OFF && y < CASTLE_OFF + 7 && !onPath(xx - CASTLE_OFF, y - CASTLE_OFF) ? 'ground/grass.png' : `ground/${GROUND[CASTLE_BASE[y][xx]]}.png`));
+    groundField(17, (xx, y) => (xx >= CASTLE_OFF && xx < CASTLE_OFF + 7 && y >= CASTLE_OFF && y < CASTLE_OFF + 7 && !onPath(xx - CASTLE_OFF, y - CASTLE_OFF) ? 'ground/grassC.png' : `ground/${GROUND[CASTLE_BASE[y][xx]]}.png`));
     for (let y = 0; y < 7; y++) for (let xx = 0; xx < 7; xx++) if (!onPath(xx, y)) { const p = cellAt(xx, y); pathTile(p.sx + TW * (1 - KC) / 2, p.sy + TH * (1 - KC) / 2, KC); }
     moat();
     const fence = buildingLevel(22) > 0; // Забор построен — вокруг замка стена
