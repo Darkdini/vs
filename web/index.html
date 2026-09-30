@@ -22,8 +22,9 @@
       <button data-mode="reg">Регистрация</button>
     </div>
     <form id="authForm" autocomplete="on">
-      <label>Логин<input name="login" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="40" required></label>
+      <label>Email / Логин<input name="login" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="40" required></label>
       <label>Пароль<input name="password" type="password" autocomplete="current-password" required></label>
+      <label id="nickBox" class="hidden">Придумайте ник <small>(имя в игре, 3–10 символов)</small><input name="nick" autocomplete="nickname" autocapitalize="none" spellcheck="false" maxlength="10"></label>
       <div id="raceBox" class="hidden">
         <div class="label">Раса</div>
         <div id="races" class="races"></div>

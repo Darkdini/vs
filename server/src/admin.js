@@ -70,7 +70,7 @@ function install(Game) {
 
   P.playerInfo = function playerInfo(u) {
     const cs = this.castlesOf(u);
-    return { id: u.id, login: u.login, race: C.RACE_NAMES[u.race], castles: cs.length, rating: this.userRating(u), gold: u.gold || 0,
+    return { id: u.id, login: u.login, acct: u.acct || '', email: u.email || '', race: C.RACE_NAMES[u.race], castles: cs.length, rating: this.userRating(u), gold: u.gold || 0,
       online: !!u.online, banned: !!u.banned, admin: !!u.admin, mod: !!u.mod, created: u.created, lastSeen: u.lastSeen || u.created, x: cs[0] && cs[0].x, y: cs[0] && cs[0].y };
   };
 
@@ -197,7 +197,7 @@ function install(Game) {
         this.removeAvatar(target);
         for (const c of this.castlesOf(target)) this.removeCastle(c);
         for (const al of Object.values(this.db.alliances || {})) al.members = al.members.filter((m) => m !== target.id);
-        delete this.db.users[target.login]; this.byId.delete(target.id); msg = `Игрок ${target.login} удалён.`; break;
+        delete this.db.users[target.login]; if (target.acct) delete this.db.accts[target.acct]; this.byId.delete(target.id); msg = `Игрок ${target.login} удалён.`; break;
       }
       case 'rename': {
         const c = this.castleAt(num(arg.x, NaN), num(arg.y, NaN)) || this.castleOf(target);

@@ -15,7 +15,7 @@ function accountWin(p) {
     ${bar('data-acct="premium"', `${GFX}premium_crown.png`, 'Премиум пакеты')}
     ${bar('data-acct="viol"', '', `⚠ Нарушения (${a.violations || 0})`)}
     ${ribbon('Безопасность')}
-    <div class="acuid">Ваш уникальный номер в игре:<br><b>${a.uid}</b></div>
+    <div class="acuid">Ваш уникальный номер в игре:<br><b>${a.uid}</b>${a.acctLogin ? `<br>Логин для входа: <b>${esc(a.acctLogin)}</b>` : ''}</div>
     ${bar('data-acct="pass"', '', '🔑 Изменить пароль')}
     ${p.self !== false && !(S.st.user.admin) ? `<form class="acform" data-form="nickcase"><label>Новый ник (3–10 символов):<input name="nick" maxlength="10" value="${esc(p.login)}" autocapitalize="none" required></label><button class="pbar">Сменить ник за ${S.st.nickPrice || 100} золота</button></form>` : ''}
     ${ribbon('Замок')}

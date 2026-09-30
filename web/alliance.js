@@ -132,7 +132,7 @@ function allyReqWin() {
   const a = S.ally; if (!a) return loading('Заявки и приглашения');
   return `${ribbon('Заявки')}${a.requests.length ? a.requests.map((r) => `<div class="mrow"><span>${esc(r.login)} <small>★ ${fmtFull(r.rating)}</small></span>
       <span><button class="pbtn small" data-al="approve" data-id="${r.id}">Принять</button> <button class="pbtn small" data-al="reject" data-id="${r.id}">Отклонить</button></span></div>`).join('') : '<p class="parch-note">Заявок нет.</p>'}
-    ${ribbon('Пригласить игрока')}<form class="chatform" data-alform="invite"><input name="login" placeholder="Логин игрока" autocapitalize="none" required><button class="pbtn small">Пригласить</button></form>
+    ${ribbon('Пригласить игрока')}<form class="chatform" data-alform="invite"><input name="login" placeholder="Ник игрока" autocapitalize="none" required><button class="pbtn small">Пригласить</button></form>
     ${a.invited.length ? `<div class="bwline">Приглашены: ${a.invited.map(esc).join(', ')}</div>` : ''}`;
 }
 

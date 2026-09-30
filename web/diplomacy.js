@@ -47,7 +47,7 @@ function myAllianceWin() {
       ${al.lead ? `<span>${u.login !== me ? `<button class="pbtn small" data-al="kick" data-login="${esc(u.login)}">Исключить</button> ` : ''}<button class="pbtn small" data-alaward="${esc(u.login)}">Наградить</button></span>` : ''}</div>`).join('')}
     ${al.lead ? `${ribbon('Заявки')}${al.requests.length ? al.requests.map((r) => `<div class="mrow"><span>${esc(r.login)} <small>★ ${fmtFull(r.rating)}</small></span>
         <span><button class="pbtn small" data-al="approve" data-id="${r.id}">Принять</button> <button class="pbtn small" data-al="reject" data-id="${r.id}">Отклонить</button></span></div>`).join('') : '<p class="parch-note">Заявок нет.</p>'}
-      ${ribbon('Пригласить игрока')}<form class="chatform" data-alform="invite"><input name="login" placeholder="Логин игрока" autocapitalize="none" required><button class="pbtn small">Пригласить</button></form>` : ''}
+      ${ribbon('Пригласить игрока')}<form class="chatform" data-alform="invite"><input name="login" placeholder="Ник игрока" autocapitalize="none" required><button class="pbtn small">Пригласить</button></form>` : ''}
     <button class="rbar" data-al="leave" data-confirm="Выйти из альянса?">Выйти из альянса</button>`;
 }
 

@@ -257,7 +257,7 @@ function renderRaces() {
 function setMode(mode) {
   S.mode = mode;
   $$('#authTabs button').forEach((b) => b.classList.toggle('on', b.dataset.mode === mode));
-  $('#raceBox').classList.toggle('hidden', mode !== 'reg');
+  $('#raceBox').classList.toggle('hidden', mode !== 'reg'); $('#nickBox').classList.toggle('hidden', mode !== 'reg'); $('#authForm').nick.required = mode === 'reg';
   $('#capBox').classList.toggle('hidden', mode !== 'reg'); if (mode === 'reg') send({ t: 'captcha' });
   $('#authBtn').textContent = mode === 'reg' ? 'Создать аккаунт' : 'Войти';
   $('#authForm').password.autocomplete = mode === 'reg' ? 'new-password' : 'current-password';
@@ -289,7 +289,7 @@ $('#authForm').addEventListener('submit', (e) => {
   $('#authErr').textContent = '';
   S.remember = f.remember.checked;
   S.pendingCreds = { login, password };
-  if (S.mode === 'reg') { send({ t: 'register', login, password, race: String(S.race), captcha: f.captcha.value, dev: DEV }); f.captcha.value = ''; }
+  if (S.mode === 'reg') { send({ t: 'register', login, password, nick: f.nick.value.trim(), race: String(S.race), captcha: f.captcha.value, dev: DEV }); f.captcha.value = ''; }
   else send({ t: 'login', login, password, dev: DEV });
 });
 

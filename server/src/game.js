@@ -145,6 +145,12 @@ class Game {
     for (const u of Object.values(this.db.users)) this.byId.set(u.id, u);
     // ключ игрока = ник с учётом регистра; старые записи (ключ строчными, ник «Zevs») переносятся на ключ «Zevs»
     for (const [k, u] of Object.entries(this.db.users)) if (k !== u.login) { if (Object.prototype.hasOwnProperty.call(this.db.users, u.login)) u.login = k; else { delete this.db.users[k]; this.db.users[u.login] = u; } }
+    // логин для входа (Email / Логин) — отдельно от ника; у старых игроков логином становится прежний ник (строчными)
+    this.db.accts = Object.create(null);
+    for (const [k, u] of Object.entries(this.db.users)) {
+      if (!u.acct) { u.acct = String(u.login).toLowerCase(); if (this.db.accts[u.acct]) u.acct += `_${u.id}`; }
+      this.db.accts[u.acct] = k;
+    }
     this.cache = {};
   }
   castleAt(x, y) { return this.byXY.get(x * WORLD + y); }
@@ -156,17 +162,23 @@ class Game {
   leaderboard() { return this.cached('lb', 15000, () => Object.values(this.db.users).map((u) => ({ u, r: this.userRating(u) })).sort((a, b) => b.r - a.r)); }
 
   // ----- аккаунты -----
-  register({ login, password, email, race, system }) {
-    const nick = String(login || '').trim(); // ник с учётом регистра: Zevs и zevs — разные игроки
+  // регистрация: логин (Email / Логин — для входа, без учёта регистра), пароль и ник (имя в игре, с учётом регистра: Zevs и zevs — разные)
+  register({ login, password, email, race, nick, system }) {
+    const acct = String(login || '').trim().toLowerCase();
+    nick = String(nick == null || nick === '' ? String(login || '').trim() : nick).trim();
     login = nick;
     password = String(password || '').toLowerCase(); // клиент приводит пароль к нижнему регистру при входе
-    if (!/^[a-zа-яё0-9_]{3,10}$/i.test(login)) return { error: 'Логин: 3–10 символов (буквы, цифры, _).' };
+    if (!/^[a-zа-яё0-9_.@-]{3,40}$/i.test(acct)) return { error: 'Email / Логин: 3–40 символов (буквы, цифры, _ . @ -).' };
+    if (!/^[a-zа-яё0-9_]{3,10}$/i.test(nick)) return { error: 'Ник: 3–10 символов (буквы, цифры, _).' };
     if (password.length < 3) return { error: 'Пароль слишком короткий (минимум 3 символа).' };
-    if (Object.prototype.hasOwnProperty.call(this.db.users, login)) return { error: 'Такой логин уже занят.' };
-    if (!system && login.toLowerCase() === 'admin') return { error: 'Этот логин зарезервирован.' }; // «Admin», «ADMIN» — нельзя, чтобы не выдавать себя за админа
+    if (this.db.accts[acct]) return { error: 'Такой логин (email) уже зарегистрирован.' };
+    if (Object.prototype.hasOwnProperty.call(this.db.users, nick)) return { error: 'Такой ник уже занят.' };
+    if (!system && (nick.toLowerCase() === 'admin' || acct === 'admin')) return { error: 'Этот ник зарезервирован.' }; // «Admin», «ADMIN» — нельзя, чтобы не выдавать себя за админа
+    if (!email && acct.includes('@')) email = acct;
     const id = this.db.nextId++;
     const raceId = C.RACES[Number(race)] || 'humans';
-    this.db.users[login] = { id, login: nick, pass: hashPassword(password), email: String(email || '').slice(0, 60), race: raceId, created: Date.now(), castleId: null, reputation: 10, gold: 30 }; // стартовая репутация 10, золото 30 (на подарки) // стартовая репутация 10
+    this.db.accts[acct] = login;
+    this.db.users[login] = { id, login: nick, acct, pass: hashPassword(password), email: String(email || '').slice(0, 60), race: raceId, created: Date.now(), castleId: null, reputation: 10, gold: 30 }; // стартовая репутация 10, золото 30 (на подарки) // стартовая репутация 10
     this.byId.set(id, this.db.users[login]);
     const castle = this.createCastle(this.db.users[login]);
     this.db.users[login].castleId = castle.id;
@@ -196,7 +208,7 @@ class Game {
     if ((user.gold || 0) < price) return { error: `Смена ника стоит ${price} золота, у вас ${user.gold || 0}.` };
     this.goldChange(user, -price, `Смена ника: ${user.login} → ${nick}`);
     (user.nickLog = user.nickLog || []).push({ at: Date.now(), from: user.login, to: nick });
-    delete this.db.users[oldKey]; this.db.users[key] = user;
+    delete this.db.users[oldKey]; this.db.users[key] = user; this.db.accts[user.acct] = key;
     user.login = nick; this.store.save();
     return { ok: true, price };
   }
@@ -212,13 +224,14 @@ class Game {
   // вход по паролю. Если задан ADMIN_LOGIN (секретный логин админа), админ входит только под ним,
   // а в игре по-прежнему виден как admin; вход под «admin» тогда отклоняется как неверный.
   login(login, password) {
-    let key = String(login || '').trim(); // вход с учётом регистра ника
+    let acct = String(login || '').trim().toLowerCase(); // вход — по логину (Email / Логин), не по нику
     const alias = String(process.env.ADMIN_LOGIN || '').trim().toLowerCase();
     if (alias && alias !== 'admin') {
-      if (key.toLowerCase() === alias) key = 'admin';
-      else if (key.toLowerCase() === 'admin') return null;
-    } else if (key.toLowerCase() === 'admin') key = 'admin';
-    if (!Object.prototype.hasOwnProperty.call(this.db.users, key)) return null;
+      if (acct === alias) acct = (this.db.users.admin && this.db.users.admin.acct) || 'admin';
+      else if (acct === 'admin') return null;
+    }
+    const key = this.db.accts[acct];
+    if (!key || !Object.prototype.hasOwnProperty.call(this.db.users, key)) return null;
     const u = this.db.users[key];
     if (!u || !checkPassword(String(password || '').toLowerCase(), u.pass)) return null;
     return u;

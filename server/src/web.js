@@ -193,7 +193,7 @@ const API = {
     const c = this.captchaAns; this.captchaAns = null;
     const ok = test || (c && c.exp > Date.now() && Number(String(m.captcha || '').trim()) === c.a);
     if (!ok) { API.captcha.call(this); return this.error('Неверный ответ на пример — попробуйте ещё раз.'); }
-    const res = this.game.register({ login: m.login, password: m.password, email: m.email, race: m.race });
+    const res = this.game.register({ login: m.login, password: m.password, email: m.email, race: m.race, nick: m.nick });
     if (res.error) { API.captcha.call(this); return this.error(res.error); }
     this.game.regDone(this.ip);
     res.user.regIp = this.ip; this.game.trackLogin(res.user, this.ip, m.dev); res.user.regDev = String(m.dev || '').slice(0, 40);
@@ -207,11 +207,11 @@ const API = {
     const u = m.token ? this.game.tokenLogin(m.login, m.token) : this.game.login(m.login, m.password);
     if (!u && m.token) return this.error('Сессия устарела — войдите заново.');
     if (!u) {
-      const known = Object.prototype.hasOwnProperty.call(this.game.db.users, String(m.login || '').trim());
+      const known = !!this.game.db.accts[String(m.login || '').trim().toLowerCase()];
       this.log(`вход ${JSON.stringify(String(m.login || '').slice(0, 20))}: ${known ? `неверный пароль (${String(m.password || '').length} симв.)` : 'нет такого игрока'}`);
       const w = this.game.loginFailed(this.ip, m.login); if (w) return lockMsg(w);
       const left = this.game.loginTriesLeft(this.ip);
-      return this.error(`Неверный логин или пароль (большие и маленькие буквы в нике различаются). Осталось попыток: ${left}.`);
+      return this.error(`Неверный логин или пароль . Осталось попыток: ${left}.`);
     }
     if (!m.token) this.game.loginOk(this.ip);
     this.game.trackLogin(u, this.ip, m.dev); this.dev = m.dev;
@@ -287,7 +287,7 @@ const API = {
     const profile = this.game.profileOf(u, this.user);
     if (m.acct && u.id === this.user.id) { // «Кабинет → Профиль»: настройки своего аккаунта
       const c = this.castle, v = this.user.violations || 0;
-      profile.acct = { castleName: c.name, castleDesc: c.desc || '', premium: this.game.isPremium(this.user), violations: v, uid: this.user.id };
+      profile.acct = { castleName: c.name, castleDesc: c.desc || '', premium: this.game.isPremium(this.user), violations: v, uid: this.user.id, acctLogin: this.user.admin ? '' : this.user.acct || '' };
     }
     this.send({ t: 'profile', acct: !!profile.acct, refresh: !!m.refresh, profile });
   },

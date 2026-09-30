@@ -283,16 +283,19 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   g.adminOp(adm, 'devunban', { dev: 'a'.repeat(32), fp: info.fp }); assert.ok(!g.devBanned('a'.repeat(32)));
   console.log('✓ Устройства: модель/система/браузер, совпадение железа, бан устройства вместе с железом');
 }
-{ // ник с учётом регистра: Zevs и zevs — разные игроки, вход тоже с учётом регистра; смена ника — только за золото
-  const z = g.register({ login: 'Zevs', password: '123', race: 0 }).user;
-  assert.strictEqual(z.login, 'Zevs'); assert.ok(g.login('Zevs', '123') === z); assert.ok(!g.login('zevs', '123') && !g.login('ZEVS', '123'));
-  const z2 = g.register({ login: 'zevs', password: '456', race: 0 }).user; assert.ok(z2 && z2 !== z, 'zevs — другой игрок'); assert.ok(g.login('zevs', '456') === z2);
-  assert.ok(g.register({ login: 'Zevs', password: '1', race: 0 }).error, 'точно такой же ник занят');
-  assert.ok(g.register({ login: 'ADMIN', password: '1', race: 0 }).error, 'admin в любом регистре — нельзя');
+{ // регистрация: логин (для входа) + пароль + ник (в игре, с учётом регистра); смена ника — только за золото
+  const z = g.register({ login: 'zevs@mail.ru', password: '123', nick: 'Zevs', race: 0 }).user;
+  assert.strictEqual(z.login, 'Zevs'); assert.strictEqual(z.acct, 'zevs@mail.ru'); assert.strictEqual(z.email, 'zevs@mail.ru');
+  assert.ok(g.login('zevs@mail.ru', '123') === z && g.login('ZEVS@mail.ru', '123') === z, 'вход по логину, регистр логина не важен');
+  assert.ok(!g.login('Zevs', '123'), 'по нику не входят');
+  const z2 = g.register({ login: 'olymp', password: '456', nick: 'zevs', race: 0 }).user; assert.ok(z2 && z2 !== z, 'ник zevs — другой игрок');
+  assert.ok(/ник уже занят/.test(g.register({ login: 'other', password: '123', nick: 'Zevs', race: 0 }).error));
+  assert.ok(/логин/.test(g.register({ login: 'ZEVS@MAIL.RU', password: '123', nick: 'Zeus', race: 0 }).error), 'логин занят');
+  assert.ok(g.register({ login: 'adm2', password: '123', nick: 'ADMIN', race: 0 }).error, 'ник admin в любом регистре — нельзя');
   z.gold = 50; assert.ok(/100 золота/.test(g.changeNick(z, 'ZeVs').error), 'без золота ник не меняется');
-  z.gold = 250; assert.ok(g.changeNick(z, 'ZeVs').ok); assert.strictEqual(z.login, 'ZeVs'); assert.strictEqual(z.gold, 150); assert.ok(g.login('ZeVs', '123') === z && !g.login('Zevs', '123'));
+  z.gold = 250; assert.ok(g.changeNick(z, 'ZeVs').ok); assert.strictEqual(z.login, 'ZeVs'); assert.strictEqual(z.gold, 150); assert.ok(g.login('zevs@mail.ru', '123') === z, 'логин тот же');
   assert.ok(g.changeNick(z, 'zevs').error, 'занятый ник'); assert.ok(g.changeNick(z, 'Громовержец').error, 'длиннее 10');
-  console.log('✓ Ник: Zevs и zevs — разные игроки, вход с учётом регистра, смена ника только за 100 золота');
+  console.log('✓ Регистрация: логин + пароль + ник; вход по логину; Zevs и zevs — разные ники; смена ника за 100 золота');
 }
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);

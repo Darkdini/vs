@@ -93,6 +93,7 @@ function devCard(p) {
 }
 function playerCard(p) {
   return `<div class="acard"><div class="cwname">${esc(p.login)}${p.banned ? ' <span class="bad">[заблокирован]</span>' : ''}</div>
+    <div class="small">Логин для входа: <b>${esc(p.acct || '—')}</b>${p.email ? ` · email: ${esc(p.email)}` : ''}</div>
     <div class="small">${esc(p.race)} · рейтинг ${fmtFull(p.rating)} · монет ${fmtFull(p.gold)} · в игре с ${fmtDate(p.created)}</div>
     ${(p.nickLog || []).length ? `<div class="small">Прежние ники: ${p.nickLog.map((x) => `${esc(x.from)} → ${esc(x.to)} <small>${fmtDate(x.at)}</small>`).join('; ')}</div>` : ''}
     ${devCard(p)}
