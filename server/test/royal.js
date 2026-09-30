@@ -265,5 +265,23 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(g.magicOp(c, { unit: 200, kind: 'md' }).ok, 'маг. защита — у всех');
   console.log('✓ Школа магии: маг. атака (только маги) и маг. защита (все), +1 за уровень, одно улучшение за раз');
 }
+{ // устройства: подробности, совпадение «железа» на другом аккаунте, бан устройства вместе с железом
+  const a = g.register({ login: 'devtest1', password: '123', race: 0 }).user, b = g.register({ login: 'devtest2', password: '123', race: 0 }).user;
+  const ua = 'Mozilla/5.0 (Linux; Android 13; SM-A525F Build/TP1A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36';
+  const info = { ua, fp: 'abcdef0123456789abcd', scr: '412x915', dpr: 2.6, cores: 8, mem: 4, tz: 'Europe/Moscow', lang: 'ru-RU', touch: 5 };
+  g.devInfo(a, '1.2.3.4', { ...info, dev: 'a'.repeat(32) }); g.devInfo(a, '1.2.3.4', { ...info, dev: 'a'.repeat(32) });
+  assert.strictEqual(a.devInfo.length, 1, 'повторный вход — та же запись'); assert.strictEqual(a.devInfo[0].count, 2);
+  assert.strictEqual(a.devInfo[0].model, 'SM-A525F'); assert.strictEqual(a.devInfo[0].os, 'Android 13'); assert.ok(/Chrome/.test(a.devInfo[0].browser));
+  g.devInfo(b, '5.6.7.8', { ...info, dev: 'b'.repeat(32) }); // другой id, то же железо
+  assert.deepStrictEqual(g.devReport(b).devices[0].sameFp, ['devtest1'], 'то же железо у другого аккаунта');
+  assert.ok((g.db.multiLog || []).some((x) => x.login === 'devtest2'), 'оповещение о мульте');
+  const adm = Object.values(g.db.users).find((x) => x.admin) || Object.assign(g.register({ login: 'devadm', password: '123', race: 0 }).user, { admin: true });
+  assert.ok(!g.adminOp(adm, 'devban', { dev: 'a'.repeat(32), fp: info.fp }).error);
+  assert.ok(g.devBanned('a'.repeat(32)));
+  assert.strictEqual(g.devInfo(b, '5.6.7.8', { ...info, dev: 'c'.repeat(32) }), 'banned', 'новый id с забаненным железом — бан');
+  assert.ok(g.devBanned('c'.repeat(32)));
+  g.adminOp(adm, 'devunban', { dev: 'a'.repeat(32), fp: info.fp }); assert.ok(!g.devBanned('a'.repeat(32)));
+  console.log('✓ Устройства: модель/система/браузер, совпадение железа, бан устройства вместе с железом');
+}
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);

@@ -71,10 +71,30 @@ function adminHtml() {
   return head + T[tab]();
 }
 
+// «Устройства» в карточке игрока: модель, система, браузер, экран, железо, часовой пояс, IP; совпадения с другими аккаунтами; бан устройства
+function devCard(p) {
+  const d = p.dev || { devices: [], ips: [], sameIp: [] }, who = (l) => l.map((x) => `<button class="alink" data-apick="${esc(x)}">${esc(x)}</button>`).join(', ');
+  const kv = (k, v) => (v || v === 0 ? `<div><span>${k}</span><b>${v}</b></div>` : '');
+  const dev = (x) => `<div class="dcard ${x.banned ? 'ban' : ''}"><div class="dhead">📱 <b>${esc(x.model || (x.old ? 'Старый вход (без подробностей)' : 'Неизвестная модель'))}</b>${x.banned ? ' <span class="bad">[в бане]</span>' : ''}</div>
+    ${x.old ? '' : `<div class="dgrid">${kv('Система', esc([x.os, x.osv && !String(x.os).includes(x.osv) ? `(${x.osv})` : ''].filter(Boolean).join(' ')))}${kv('Браузер', esc(x.browser || '—'))}${kv('Как играет', x.app ? 'Приложение' : 'Браузер')}
+      ${kv('Экран', esc(`${x.scr || '?'} ×${x.dpr || 1}`))}${kv('Ядер / ОЗУ', `${x.cores || '?'} / ${x.mem ? `${x.mem} ГБ` : '?'}`)}${kv('Видео', esc(x.gpu || '—'))}
+      ${kv('Язык', esc(x.lang))}${kv('Часовой пояс', esc(x.tz))}${kv('Сенсорный', x.touch ? 'да' : 'нет')}
+      ${kv('Первый вход', fmtDate(x.first))}${kv('Последний', fmtDate(x.last))}${kv('Входов', x.count)}${kv('IP', esc((x.ips || []).join(', ')))}
+      ${kv('ID / железо', `<small>${esc(x.dev.slice(0, 12))} / ${esc((x.fp || '—').slice(0, 12))}</small>`)}</div>`}
+    ${x.old ? `<div class="small">id ${esc(x.dev.slice(0, 12))} · ${fmtDate(x.last)} — подробности появятся при следующем входе игрока.</div>` : ''}
+    ${x.sameDev.length ? `<div class="dwarn">⚠ Тот же телефон (id): ${who(x.sameDev)}</div>` : ''}${x.sameFp.length ? `<div class="dwarn">⚠ То же железо: ${who(x.sameFp)}</div>` : ''}
+    ${p.admin ? '' : `<button class="btn small ${x.banned ? '' : 'danger'}" data-mdev="${esc(x.dev)}" data-fp="${esc(x.fp || '')}" data-on="${x.banned ? 0 : 1}">${x.banned ? 'Разблокировать устройство' : '⛔ Бан устройства'}</button>`}</div>`;
+  const full = d.devices.filter((x) => !x.old), old = d.devices.filter((x) => x.old);
+  const oldRow = (x) => `<div class="doldrow ${x.banned ? 'ban' : ''}"><span>id ${esc(x.dev.slice(0, 10))} · ${fmtDate(x.last)}${x.sameDev.length ? ` · <span class="dwarn">⚠ ${who(x.sameDev)}</span>` : ''}</span>${p.admin ? '' : `<button class="btn small ${x.banned ? '' : 'danger'}" data-mdev="${esc(x.dev)}" data-on="${x.banned ? 0 : 1}">${x.banned ? 'Разбан' : 'Бан'}</button>`}</div>`;
+  return `<div class="mhead">Устройства (${d.devices.length})</div>${full.map(dev).join('') || '<p class="small">Подробностей пока нет — появятся при следующем входе игрока.</p>'}
+    ${old.length ? `<div class="dcard"><div class="dhead">Старые входы (без подробностей)</div>${old.map(oldRow).join('')}</div>` : ''}
+    <div class="mhead">IP-адреса</div><div class="small">Регистрация: <b>${esc(d.regIp || p.regIp || '—')}</b><br>${(d.ips || []).slice(0, 10).map((x) => `${esc(x.ip)} <small>${fmtDate(x.at)}</small>`).join('<br>') || '—'}</div>
+    ${d.sameIp && d.sameIp.length ? `<div class="dwarn">🌐 Те же IP: ${who(d.sameIp)}</div>` : ''}`;
+}
 function playerCard(p) {
   return `<div class="acard"><div class="cwname">${esc(p.login)}${p.banned ? ' <span class="bad">[заблокирован]</span>' : ''}</div>
     <div class="small">${esc(p.race)} · рейтинг ${fmtFull(p.rating)} · монет ${fmtFull(p.gold)} · в игре с ${fmtDate(p.created)}</div>
-    <div class="small">IP регистрации: ${esc(p.regIp || '—')} · входы: ${(p.ips || []).slice(0, 5).map((x) => esc(x.ip)).join(', ') || '—'} · устройства: ${(p.devs || []).map(esc).join(', ') || '—'}</div>
+    ${devCard(p)}
     <div class="rlist">${p.castlesList.map((c) => `<div class="rrow"><span class="rn"><b>${esc(c.name)}</b><small>X:${c.x} Y:${c.y} · лояльность ${c.loyalty}</small></span><span class="rv">${fmtFull(c.rating)}</span>
       <button class="btn small" data-goworld="${c.x},${c.y}">карта</button></div>`).join('')}</div>
     <div class="ptiles">
@@ -112,8 +132,8 @@ $('#sheetBody').addEventListener('click', (e) => {
     const d = mb.dataset, on = d.on === '1';
     if (d.mban !== undefined) { if (on && !confirm(`Заблокировать ${d.mban}?`)) return; send({ t: 'admin', op: on ? 'ban' : 'unban', login: d.mban }); }
     if (d.mall !== undefined) { if (!confirm(`Заблокировать аккаунты: ${d.mall.split(',').join(', ')}?`)) return; send({ t: 'admin', op: 'banmany', logins: d.mall.split(',') }); }
-    if (d.mdev !== undefined) { if (on && !confirm('Заблокировать устройство? С него нельзя будет войти и зарегистрироваться.')) return; send({ t: 'admin', op: on ? 'devban' : 'devunban', dev: d.mdev }); }
-    return setTimeout(() => send({ t: 'admin', op: 'multis' }), 200);
+    if (d.mdev !== undefined) { if (on && !confirm(`Заблокировать устройство? С него нельзя будет войти и зарегистрироваться${d.fp ? ' — даже после очистки данных или из другого браузера' : ''}.`)) return; send({ t: 'admin', op: on ? 'devban' : 'devunban', dev: d.mdev, fp: d.fp || undefined }); }
+    return setTimeout(() => (S.adm.tab === 'target' && S.adm.login ? send({ t: 'admin', op: 'player', login: S.adm.login }) : send({ t: 'admin', op: 'multis' })), 200);
   }
   const b = e.target.closest('[data-adm],[data-apick],[data-adm-self]'); if (!b) return;
   if (b.dataset.admSelf !== undefined) { S.adm.login = ''; S.adm.player = null; return refreshSheet(); }

@@ -11,71 +11,80 @@ const openSoon = (title) => openSheet(soonWin(title));
 const raceIcon = (race) => gimg(RACE_IMG[race] || 'units/human/general.png', 'rico');
 
 // ---------- меню ----------
+const M3 = (n) => `gfx3d/menu3/${n}.png`; // иконки плиток меню — как в оригинале
 const MENUS = {
   cabinet: { label: 'Кабинет', icon: 'menu2/cabinet.png', items: () => [
-    ...(S.st.user.admin ? [['Админ-панель', 'smallicon/status/f_gold.png', () => openSheet(adminHtml)]] : []),
-    ['Профиль', '../gfx3d/prof/king.png', () => openAccount()],
+    ...(S.st.user.admin ? [['Админка', 'admin_badge_s.png', () => openSheet(adminHtml)]] : []),
+    ['Профиль', M3('profile'), () => openAccount()],
     ['Советник', `units/${S.cat.mil.raceDir[S.st.user.race]}/wisdom.png${S.st.user.race === 'orcs' ? '?orc' : ''}`, () => openSheet(advisorWin)],
-    ['Казна', 'coins_s.png', () => openSheet(treasuryWin)],
-    ['Премиум', 'premium_crown.png', () => openPremium()],
-    ['Уведомления', 'smallicon/upgrade.png', () => openReports()],
-    ['Подарки', 'smallicon/surprize.png', () => openSoon('Подарки')],
-    ['Репутация', 'smallicon/plus.png', () => openRating('reputation')],
-    ['Авторитет города', 'smallicon/bonus_status/coronalgold.png', () => openSoon('Авторитет города')],
-    ['Биржа Замков', 'ground/castle_old.png', () => openSoon('Биржа Замков')],
+    ['Казна', M3('treasury'), () => openSheet(treasuryWin)],
+    ['Премиум', M3('premium'), () => openPremium()],
+    ['Ресурсы', M3('resources'), () => openSheet(resSheet)],
+    ['Подарки', M3('gifts'), () => openSoon('Подарки')],
+    ['Репутация', M3('reputation'), () => openRating('reputation')],
+    ['Авторитет', M3('authority'), () => openSoon('Авторитет города')],
+    ['Уведомления', 'gfx3d/mail/events.png', () => openReports()],
+    ['Друзья', M3('friends'), () => openPlayers('friends')],
+    ['Поиск', M3('search'), () => openPlayers('search')],
     ['Земляки', 'ground/castle_small.png', () => openPlayers('nearby')],
-    ['Мои друзья', 'smallicon/status/online.png', () => openPlayers('friends')],
-    ['Поиск друзей', 'user_search.png', () => openPlayers('search')],
-    ['Блокнот', 'smallicon/softedit.png', () => { S.notes = null; send({ t: 'notes' }); openSheet(notesWin); }],
+    ['Биржа', 'ground/castle_old.png', () => openSoon('Биржа Замков')],
+    ['Блокнот', M3('files'), () => { S.notes = null; send({ t: 'notes' }); openSheet(notesWin); }],
+    ['Настройки', M3('settings'), () => openSheet(settingsWin)],
   ] },
-  locations: { label: 'Локации', title: 'Локации', icon: 'menu2/locations.png', items: () => [
-    ['Замок', 'build/castle.png', () => setTab('castle')],
-    ['Земли', 'ground/wood.png', () => setTab('lands')],
-    ['Мир', 'ground/castle_big.png', () => setTab('world')],
-    ['Мои замки', 'ground/castle_small.png', () => openSheet(castlesWin)],
-    ['Армия и генерал', 'build/mbases.png', () => ACTS.hq()],
+  locations: { label: 'Локации', icon: 'menu2/locations.png', items: () => [
+    ['Замок', 'gfx3d/locs2/castle.png', () => setTab('castle')],
+    ['Земли', 'gfx3d/locs2/lands.png', () => setTab('lands')],
+    ['Мир', 'gfx3d/locs2/world.png', () => setTab('world')],
+    ['Мои замки', 'gfx3d/locs2/castles.png', () => openSheet(castlesWin)],
+    ['Штаб', 'build/mbases.png', () => ACTS.hq()],
     ['Генерал', 'units/human/general.png', () => openGeneral()],
-    ['Армии в замке', 'build/baraks.png', () => openSheet(armiesWin)],
-    ['Военный поход', 'smallicon/swordred.png', () => openArmySheet({})],
-    ['Ресурсы', 'build/storage.png', () => openSheet(resSheet)],
-    ['Здания замка', 'build/build.png', () => openSheet(() => ribbon('Здания замка') + summaryHtml(VIEW.CASTLE))],
-    ['Постройки на землях', 'build/farm_big.png', () => openSheet(() => ribbon('Постройки на землях') + summaryHtml(VIEW.LANDS))],
+    ['Армии', 'build/baraks.png', () => openSheet(armiesWin)],
+    ['Поход', 'smallicon/swordred.png', () => openArmySheet({})],
+    ['Ресурсы', 'gfx3d/locs2/res.png', () => openSheet(resSheet)],
+    ['Здания', 'build/build.png', () => openSheet(() => ribbon('Здания замка') + summaryHtml(VIEW.CASTLE))],
+    ['Постройки', 'build/farm_big.png', () => openSheet(() => ribbon('Постройки на землях') + summaryHtml(VIEW.LANDS))],
   ] },
-  alliance: { label: 'Альянс', title: 'Альянс', icon: 'menu2/alliance.png', items: () => [
-    ['Мой альянс', 'build/diplomat.png', () => { if (MY().alliance) return openAlly(); const i = S.st.castle.grid[0].indexOf(13); if (i < 0) return toast('Нужен Дипломатический центр — постройте его в замке.', 'err'); openCell(VIEW.CASTLE, i); }],
-    ['Рейтинг альянсов', 'smallicon/status/f_gold.png', () => openRating('alliances')],
+  alliance: { label: 'Альянс', icon: 'menu2/alliance.png', note: () => (MY().alliance ? '' : 'Вы не состоите в альянсе.'), items: () => [
+    [MY().alliance ? 'Мой альянс' : 'Вступить', MY().alliance ? 'gfx3d/rating/ally.png' : M3('fort'), () => { if (MY().alliance) return openAlly(); const i = S.st.castle.grid[0].indexOf(13); if (i < 0) return toast('Нужен Дипломатический центр — постройте его в замке.', 'err'); openCell(VIEW.CASTLE, i); }],
+    ['Рейтинг', 'gfx3d/rating/castle.png', () => openRating('alliances')],
+    ['Справка', M3('help'), () => openSheet(helpWin)],
   ] },
-  mail: { label: 'Почта', title: 'Почта', icon: 'menu2/mail.png', items: () => [
-    ['Новое', '../gfx3d/mail/new.png', () => { const who = prompt('Кому написать? Ник игрока:'); if (who && who.trim()) openDialog(who.trim()); }],
-    ['Сообщения', '../gfx3d/mail/msgs.png', () => ACTS.mail()],
-    ['Отчеты', '../gfx3d/mail/reports.png', () => openReports()],
-    ['Приватность', '../gfx3d/mail/privacy.png', () => openSoon('Приватность')],
-    null,
-    ['Форум', '../gfx3d/mail/forum.png', () => openForum()],
-    ['Чат', '../gfx3d/mail/chat.png', () => openChat()],
-    ['Блог', '../gfx3d/mail/blog.png', () => openSoon('Блог')],
-    ['События', '../gfx3d/mail/events.png', () => openReports()],
+  mail: { label: 'Почта', icon: 'menu2/mail.png', items: () => [
+    ['Новое', 'gfx3d/mail/new.png', () => { const who = prompt('Кому написать? Ник игрока:'); if (who && who.trim()) openDialog(who.trim()); }],
+    ['Сообщения', 'gfx3d/mail/msgs.png', () => ACTS.mail()],
+    ['Отчеты', 'gfx3d/mail/reports.png', () => openReports()],
+    ['Приват.', 'gfx3d/mail/privacy.png', () => openSoon('Приватность')],
+    ['Форум', 'gfx3d/mail/forum.png', () => openForum()],
+    ['Чат', 'gfx3d/mail/chat.png', () => openChat()],
+    ['Блоги', M3('blogs'), () => openSoon('Блог')],
+    ['Горн', M3('horn'), () => openReports()],
   ] },
-  games: { label: 'Игры', title: 'Игры', icon: 'menu2/games.png', items: () => [
-    ['Кости', 'smallicon/surprize.png', () => openSoon('Кости')],
-    ['Лотерея', 'coins_s.png', () => openSoon('Лотерея')],
+  games: { label: 'Игры', icon: 'menu2/games.png', items: () => [
+    ['Сундучки', M3('chests'), () => openSoon('Сундучки')],
+    ['Слот-покер', M3('slots'), () => openSoon('Слот-покер')],
+    ['Игра 21', M3('bj21'), () => openSoon('Игра 21')],
+    ['Лотерея', M3('lottery'), () => openSoon('Лотерея')],
+    ['Фортуна', M3('dice'), () => openSoon('Фортуна')],
+    ['Орел-решка', M3('coin'), () => openSoon('Орел-решка')],
   ] },
-  info: { label: 'Инфо', title: 'Информация', icon: 'menu2/info.png', items: () => [
-    ['Новости', 'smallicon/upgrade.png', () => openNews()],
-    ['Служба поддержки', 'smallicon/soft_help.png', () => ACTS.bug()],
-    ['Справка', 'build/university.png', () => openSheet(helpWin)],
-    ['Контакты', 'smallicon/unmes.png', () => openSheet(contactsWin)],
-    ['Описание меню', 'smallicon/soft_help.png', () => openSheet(menuDescWin)],
+  info: { label: 'Инфо', icon: 'menu2/info.png', items: () => [
+    ['Новости', M3('news'), () => openNews()],
+    ['Поддержка', M3('support'), () => ACTS.bug()],
+    ['Справка', M3('help'), () => openSheet(helpWin)],
+    ['Контакты', 'gfx3d/prof/msg.png', () => openSheet(contactsWin)],
+    ['Обзор', M3('overview'), () => openSheet(menuDescWin)],
+    ['Звуки', 'gfx3d/sound/music.svg', () => openSound()],
   ] },
-  rating: { label: 'Рейтинг', title: 'Рейтинги', icon: 'menu2/rating.png', items: () => [
-    ['Зал Славы', '../gfx3d/rating/hof.png', () => openHalls()],
-    ['Игрок', '../gfx3d/rating/player.png', () => openRating('players')],
-    ['Замок', '../gfx3d/rating/castle.png', () => openRating('castles')],
-    ['Альянс', '../gfx3d/rating/ally.png', () => openRating('alliances')],
-    ['Знаменитость', '../gfx3d/rating/fame.png', () => openSoon('Знаменитость')],
-    ['Авторитет', '../gfx3d/rating/auth.png', () => openRating('reputation')],
-    ['Семейные пары', '../gfx3d/rating/pairs.png', () => openSoon('Семейные пары')],
-    ['Империи', '../gfx3d/rating/empire.png', () => openSoon('Империи')],
+  rating: { label: 'Рейтинг', icon: 'menu2/rating.png', items: () => [
+    ['Зал Славы', 'gfx3d/rating/hof.png', () => openHalls()],
+    ['Игрок', 'gfx3d/rating/player.png', () => openRating('players')],
+    ['Замок', 'gfx3d/rating/castle.png', () => openRating('castles')],
+    ['Альянс', 'gfx3d/rating/ally.png', () => openRating('alliances')],
+    ['Знаменитость', 'gfx3d/rating/fame.png', () => openSoon('Знаменитость')],
+    ['Авторитет', 'gfx3d/rating/auth.png', () => openRating('reputation')],
+    ['Семейные пары', 'gfx3d/rating/pairs.png', () => openSoon('Семейные пары')],
+    ['Империи', 'gfx3d/rating/empire.png', () => openSoon('Империи')],
+    ['Археология', M3('archaeology'), () => openSoon('Археология')],
   ] },
 };
 S.menu = null;
@@ -83,9 +92,10 @@ function renderMenu() {
   const m = MENUS[S.menu];
   const items = m.items();
   S.menuItems = items;
-  $('#menuWin').innerHTML = `${m.title ? ribbon(m.title) : ''}<div class="mitems">${items.map((it, i) => (it
-    ? `<button class="mitem" data-mi="${i}"><img src="${GFX}${it[1]}" alt=""><span>${esc(it[0])}</span></button>` : '<hr>')).join('')}
-    ${m.title ? '<button class="mitem close" data-mclose><i class="xic"></i><span>Закрыть</span></button>' : ''}</div>`;
+  // плитки 3 в ряд (как в оригинале), последний ряд добивается пустыми ячейками; ✕ — красная лента сверху
+  const pad = (3 - (items.length % 3)) % 3, note = m.note ? m.note() : '';
+  $('#menuWin').innerHTML = `<button class="mclosex" data-mclose aria-label="Закрыть"></button>${note ? `<div class="mnote">${esc(note)}</div>` : ''}<div class="ptiles pbig mgrid">${items.map((it, i) =>
+    `<button class="ptile" data-mi="${i}"><img src="${it[1].startsWith('gfx3d/') ? it[1] : GFX + it[1]}" alt=""><span${it[0].length > 10 ? ' class="long"' : ''}>${esc(it[0])}</span></button>`).join('')}${'<i class="ptile empty"></i>'.repeat(pad)}</div>`;
   // иконки нижней полосы — из оригинального клиента (web/gfx3d/menu)
   $('#menubar').innerHTML = Object.entries(MENUS).map(([k, v]) => `<button data-menu="${k}" class="${k === S.menu ? 'on' : ''}"><img src="${G3}${v.icon}" alt=""><span>${v.label}</span></button>`).join('');
 }

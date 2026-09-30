@@ -198,6 +198,7 @@ function onMsg(m) {
       S.creds = { login: m.login, token: m.token, show: (S.pendingCreds && S.pendingCreds.login) || (S.creds && S.creds.show) || m.login }; S.pendingCreds = null;
       store.set('tw.creds', S.remember ? S.creds : null);
       S.auto = false;
+      (DEVINFO ? Promise.resolve(DEVINFO) : deviceInfo()).then((d) => send({ t: 'devinfo', dev: DEV, ...d })).catch(() => {});
       $('#auth').classList.add('hidden'); $('#game').classList.remove('hidden');
       break;
     case 'state': onState(m); if (S.st && S.st.user && S.st.user.admin) loadAdmin(); break;
@@ -263,6 +264,19 @@ function setMode(mode) {
 }
 // id устройства (для поиска мультов админом): случайный, хранится в браузере
 const DEV = (() => { let d = store.get('tw.dev'); if (!/^[a-f0-9]{16,40}$/.test(d || '')) { d = [...crypto.getRandomValues(new Uint8Array(12))].map((x) => x.toString(16).padStart(2, '0')).join(''); store.set('tw.dev', d); } return d; })();
+// данные устройства для админки (поиск мультов): модель, система, браузер, экран, железо; «отпечаток» — хэш железа,
+// он совпадает у одного телефона даже после очистки данных браузера или переустановки приложения
+async function deviceInfo() {
+  const n = navigator, d = { ua: n.userAgent || '', lang: n.language || '', tz: (Intl.DateTimeFormat().resolvedOptions().timeZone) || '', tzo: new Date().getTimezoneOffset(),
+    scr: `${screen.width}x${screen.height}`, dpr: window.devicePixelRatio || 1, cores: n.hardwareConcurrency || 0, mem: n.deviceMemory || 0, touch: n.maxTouchPoints || 0,
+    app: /WarKingsApp/.test(n.userAgent), plat: (n.userAgentData && n.userAgentData.platform) || n.platform || '' };
+  try { if (n.userAgentData && n.userAgentData.getHighEntropyValues) { const h = await n.userAgentData.getHighEntropyValues(['model', 'platformVersion', 'fullVersionList']); d.model = h.model || ''; d.osv = h.platformVersion || ''; } } catch { /* нет */ }
+  try { const gl = document.createElement('canvas').getContext('webgl'); const e = gl && gl.getExtension('WEBGL_debug_renderer_info'); if (e) d.gpu = String(gl.getParameter(e.UNMASKED_RENDERER_WEBGL) || ''); } catch { /* нет */ }
+  const raw = [d.model, d.plat, d.scr, d.dpr, d.cores, d.mem, d.gpu, d.tz, d.touch].join('|');
+  try { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw)); d.fp = [...new Uint8Array(b)].slice(0, 10).map((x) => x.toString(16).padStart(2, '0')).join(''); } catch { d.fp = ''; }
+  return d;
+}
+let DEVINFO = null; deviceInfo().then((d) => { DEVINFO = d; }).catch(() => {});
 $('#capNew').addEventListener('click', () => send({ t: 'captcha' }));
 $('#authTabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) setMode(b.dataset.mode); });
 $('#races').addEventListener('click', (e) => { const b = e.target.closest('[data-race]'); if (b) { S.race = Number(b.dataset.race); renderRaces(); } });

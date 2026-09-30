@@ -50,6 +50,68 @@ function install(Game) {
     log.push({ at: Date.now(), login: user.login, with: others.slice(0, 10), dev }); if (log.length > 200) log.shift();
     for (const a of Object.values(this.db.users)) if (a.admin) this.event(a.id, `⚠ Возможный мульт: ${user.login} — одно устройство с ${others.slice(0, 3).join(', ')}${others.length > 3 ? '…' : ''}`);
   };
+  // подробные данные устройства (присылает клиент после входа): модель, система, браузер, экран, железо, «отпечаток» железа
+  const str = (v, n = 120) => String(v == null ? '' : v).replace(/[<>\u0000-\u001f]/g, '').slice(0, n);
+  const num = (v) => (Number.isFinite(Number(v)) ? Math.round(Number(v) * 100) / 100 : 0);
+  function parseUA(ua) {
+    const r = { os: '', browser: '', model: '' };
+    let m;
+    if ((m = /Android\s+([\d.]+)/.exec(ua))) { r.os = `Android ${m[1]}`; const mm = /Android[^;)]*;\s*(?:[a-z]{2}[-_][A-Za-z]{2};\s*)?([^;)]+?)(?:\s+Build\/|\))/.exec(ua); if (mm && !/^(K|wv|Linux)$/.test(mm[1].trim())) r.model = mm[1].trim(); }
+    else if ((m = /(iPhone|iPad)[^)]*OS ([\d_]+)/.exec(ua))) { r.os = `iOS ${m[2].replace(/_/g, '.')}`; r.model = m[1]; }
+    else if ((m = /Windows NT ([\d.]+)/.exec(ua))) r.os = `Windows ${{ '10.0': '10/11', '6.3': '8.1', '6.1': '7' }[m[1]] || m[1]}`;
+    else if (/Mac OS X/.test(ua)) r.os = 'macOS'; else if (/Linux/.test(ua)) r.os = 'Linux';
+    if (/WarKingsApp/.test(ua)) r.browser = 'Приложение (APK)';
+    else if ((m = /YaBrowser\/([\d.]+)/.exec(ua))) r.browser = `Яндекс ${m[1].split('.')[0]}`;
+    else if ((m = /SamsungBrowser\/([\d.]+)/.exec(ua))) r.browser = `Samsung ${m[1].split('.')[0]}`;
+    else if ((m = /OPR\/([\d.]+)/.exec(ua))) r.browser = `Opera ${m[1].split('.')[0]}`;
+    else if ((m = /Firefox\/([\d.]+)/.exec(ua))) r.browser = `Firefox ${m[1].split('.')[0]}`;
+    else if ((m = /Edg\/([\d.]+)/.exec(ua))) r.browser = `Edge ${m[1].split('.')[0]}`;
+    else if ((m = /Chrome\/([\d.]+)/.exec(ua))) r.browser = `${/; wv\)/.test(ua) ? 'WebView ' : 'Chrome '}${m[1].split('.')[0]}`;
+    else if (/Safari/.test(ua)) r.browser = 'Safari';
+    return r;
+  }
+  P.devInfo = function devInfo(user, ip, m) {
+    const dev = cleanDev(m.dev); if (!dev) return;
+    const ua = str(m.ua, 400), pu = parseUA(ua), now = Date.now();
+    const list = user.devInfo = (user.devInfo || []).filter((x) => x.dev !== dev || (x._keep = true));
+    const old = (user.devInfo || []).find((x) => x._keep) || null; if (old) delete old._keep;
+    const d = old || { dev, first: now, count: 0, ips: [] };
+    Object.assign(d, { fp: /^[a-f0-9]{8,40}$/.test(String(m.fp || '')) ? String(m.fp) : '', ua, os: pu.os + (m.osv && !/iOS/.test(pu.os) ? '' : ''), osv: str(m.osv, 20),
+      model: str(m.model, 60) || pu.model, browser: pu.browser, app: !!m.app, plat: str(m.plat, 40), scr: str(m.scr, 20), dpr: num(m.dpr), cores: num(m.cores), mem: num(m.mem),
+      touch: num(m.touch), lang: str(m.lang, 20), tz: str(m.tz, 40), gpu: str(m.gpu, 100), last: now });
+    d.count = (d.count || 0) + 1;
+    d.ips = [...new Set([ip, ...(d.ips || [])])].slice(0, 10);
+    if (!old) list.push(d);
+    user.devInfo = list.filter((x) => !x._keep).slice(-10);
+    if (d.fp && !user.bot) this.fpAlert(user, d.fp);
+    // железо в бане — блокируется и этот id устройства (игрок очистил данные / сменил браузер)
+    const banned = !user.admin && d.fp && this.db.fpBans && this.db.fpBans[d.fp];
+    if (banned) { this.db.devBans = this.db.devBans || {}; this.db.devBans[dev] = { at: now, by: `железо ${d.fp.slice(0, 8)}` }; }
+    this.store.save();
+    return banned ? 'banned' : '';
+  };
+  // тот же «отпечаток» железа, но другой id устройства — аккаунт с того же телефона после очистки данных / из другого браузера
+  P.fpAlert = function fpAlert(user, fp) {
+    const others = Object.values(this.db.users).filter((u) => u !== user && !u.bot && (u.devInfo || []).some((x) => x.fp === fp)).map((u) => u.login);
+    if (!others.length) return;
+    user.fpSeen = user.fpSeen || [];
+    if (user.fpSeen.includes(fp)) return; user.fpSeen.push(fp);
+    const log = this.db.multiLog = this.db.multiLog || [];
+    log.push({ at: Date.now(), login: user.login, with: others.slice(0, 10), dev: `отпечаток ${fp.slice(0, 8)}` }); if (log.length > 200) log.shift();
+    for (const a of Object.values(this.db.users)) if (a.admin) this.event(a.id, `⚠ Возможный мульт: ${user.login} — то же железо телефона, что у ${others.slice(0, 3).join(', ')}${others.length > 3 ? '…' : ''}`);
+  };
+  // всё об устройствах игрока для админки + совпадения с другими аккаунтами (по id устройства, отпечатку железа, IP)
+  P.devReport = function devReport(user) {
+    const users = Object.values(this.db.users).filter((u) => u !== user && !u.bot);
+    const byDev = (dev) => users.filter((u) => (u.devs || []).some((x) => x.dev === dev) || (u.devInfo || []).some((x) => x.dev === dev)).map((u) => u.login);
+    const byFp = (fp) => (fp ? users.filter((u) => (u.devInfo || []).some((x) => x.fp === fp)).map((u) => u.login) : []);
+    const ips = (user.ips || []).map((x) => x.ip);
+    const byIp = [...new Set(users.filter((u) => (u.ips || []).some((x) => ips.includes(x.ip)) || (u.regIp && ips.includes(u.regIp))).map((u) => u.login))];
+    const known = new Set((user.devInfo || []).map((x) => x.dev));
+    const devices = [...(user.devInfo || []).slice().reverse().map((d) => ({ ...d, banned: !!(this.db.devBans && this.db.devBans[d.dev]), fpBanned: !!(d.fp && this.db.fpBans && this.db.fpBans[d.fp]), sameDev: byDev(d.dev), sameFp: byFp(d.fp) })),
+      ...(user.devs || []).filter((x) => !known.has(x.dev)).map((x) => ({ dev: x.dev, last: x.at, old: true, banned: !!(this.db.devBans && this.db.devBans[x.dev]), sameDev: byDev(x.dev), sameFp: [] }))];
+    return { devices, ips: (user.ips || []).slice().reverse(), regIp: user.regIp || '', sameIp: byIp.slice(0, 50) };
+  };
   P.devBanned = function devBanned(dev) { dev = cleanDev(dev); return !!(dev && this.db.devBans && this.db.devBans[dev]); };
   // токены сессий: в базе хранится только SHA-256 токена, живёт 30 дней, у игрока не больше 5 устройств
   const sha = (t) => crypto.createHash('sha256').update(String(t)).digest('hex');
