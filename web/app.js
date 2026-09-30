@@ -192,6 +192,9 @@ function onMsg(m) {
       toast('Аккаунт создан!');
       send({ t: 'login', login: S.pendingCreds.login, password: S.pendingCreds.password, dev: DEV });
       break;
+    case 'renamed': // сменили ник — сохранённый вход теперь по новому нику
+      if (S.creds) { S.creds.login = m.login; S.creds.show = m.login; if (store.get('tw.creds')) store.set('tw.creds', S.creds); }
+      break;
     case 'auth':
       // браузер хранит только токен сессии, не пароль
       // show — то, что игрок вводил в поле «Логин» (у админа это секретный логин, а в игре он «admin»)

@@ -17,7 +17,7 @@ function accountWin(p) {
     ${ribbon('Безопасность')}
     <div class="acuid">Ваш уникальный номер в игре:<br><b>${a.uid}</b></div>
     ${bar('data-acct="pass"', '', '🔑 Изменить пароль')}
-    ${p.self !== false && !(S.st.user.admin) ? `<form class="acform" data-form="nickcase"><label>Написание ника (только большие/маленькие буквы):<input name="nick" maxlength="10" value="${esc(p.login)}" autocapitalize="none" required></label><button class="pbar">Сохранить ник</button></form>` : ''}
+    ${p.self !== false && !(S.st.user.admin) ? `<form class="acform" data-form="nickcase"><label>Новый ник (3–10 символов):<input name="nick" maxlength="10" value="${esc(p.login)}" autocapitalize="none" required></label><button class="pbar">Сменить ник за ${S.st.nickPrice || 100} золота</button></form>` : ''}
     ${ribbon('Замок')}
     <form class="acform" data-form="castleinfo"><label>Название:<input name="name" maxlength="24" value="${esc(a.castleName || '')}" required></label>
       <label>Описание:<input name="desc" maxlength="200" value="${esc(a.castleDesc || '')}"></label><button class="pbar">Изменить</button></form>
@@ -47,7 +47,7 @@ $('#sheetBody').addEventListener('click', (e) => {
 $('#sheetBody').addEventListener('submit', (e) => {
   const f = e.target, k = f.dataset.form; if (k !== 'passwd' && k !== 'castleinfo' && k !== 'nickcase') return;
   e.preventDefault(); e.stopPropagation();
-  if (k === 'nickcase') return send({ t: 'nickcase', nick: f.nick.value.trim() });
+  if (k === 'nickcase') { const n = f.nick.value.trim(); if (!confirm(`Сменить ник на «${n}» за ${S.st.nickPrice || 100} золота?`)) return; return send({ t: 'nickcase', nick: n }); }
   if (k === 'castleinfo') return send({ t: 'castleinfo', name: f.name.value, desc: f.desc.value });
   if (f.new.value !== f.new2.value) return toast('Новые пароли не совпадают.', 'err');
   send({ t: 'passwd', old: f.old.value, new: f.new.value }); f.reset(); closeSheet();

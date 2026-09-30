@@ -131,7 +131,7 @@ class WebSession {
         loyalty: Math.round(c.loyalty ?? 100), capital: this.game.isCapital(c),
       },
       castles: this.game.castlesOf(u).map((k, i) => ({ id: k.id, name: k.name, x: k.x, y: k.y, capital: i === 0, active: k.id === c.id, rating: this.game.rating(k), loyalty: Math.round(k.loyalty ?? 100) })),
-      unread: (this.game.db.messages || []).filter((m) => m.to === u.id && !m.read).length, newsUnread: this.game.newsUnread(u), newsFirst: this.game.newsFirst(u),
+      nickPrice: Number(process.env.NICK_PRICE) || 100, unread: (this.game.db.messages || []).filter((m) => m.to === u.id && !m.read).length, newsUnread: this.game.newsUnread(u), newsFirst: this.game.newsFirst(u),
       moves: this.game.moveCounts(u),
     });
   }
@@ -297,7 +297,7 @@ const API = {
     this.send({ t: 'auth', login: this.user.login, token: this.token }); // новый токен «Запомнить меня»
     this.toast('Пароль изменён. На других устройствах нужно войти заново.');
   },
-  nickcase(m) { const r = this.game.nickCase(this.user, m.nick); if (r.error) return this.error(r.error); this.toast(`Ник теперь пишется: ${this.user.login}`); this.pushState(); API.profile.call(this, { id: this.user.id, acct: 1, refresh: 1 }); },
+  nickcase(m) { const r = this.game.changeNick(this.user, m.nick); if (r.error) return this.error(r.error); this.send({ t: 'renamed', login: this.user.login }); this.toast(`Ваш новый ник: ${this.user.login} (−${r.price} золота). Входите под ним.`); this.pushState(); API.profile.call(this, { id: this.user.id, acct: 1, refresh: 1 }); },
   castleinfo(m) { const r = this.game.castleInfo(this.user, m.name, m.desc); if (r.error) return this.error(r.error); this.toast('Замок переименован.'); API.profile.call(this, { id: this.user.id, acct: 1, refresh: 1 }); },
   // ---- кабинет (server/src/social.js) ----
   rep(m) {

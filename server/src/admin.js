@@ -179,7 +179,7 @@ function install(Game) {
         this.cache = {};
         msg = `Создано ботов: ${made} за ${((Date.now() - t0) / 1000).toFixed(1)} с. Игроков всего: ${Object.keys(this.db.users).length}.`; break;
       }
-      case 'player': data = { ...this.playerInfo(target), dev: this.devReport(target), ips: (target.ips || []).slice().reverse(), devs: (target.devs || []).map((d) => d.dev.slice(0, 8) + (this.db.devBans && this.db.devBans[d.dev] ? ' [бан]' : '')), regIp: target.regIp || '', castlesList: this.castlesOf(target).map((c) => ({ id: c.id, name: c.name, x: c.x, y: c.y, rating: this.rating(c), loyalty: Math.round(c.loyalty ?? 100) })) }; break;
+      case 'player': data = { ...this.playerInfo(target), dev: this.devReport(target), nickLog: (target.nickLog || []).slice(-10).reverse(), ips: (target.ips || []).slice().reverse(), devs: (target.devs || []).map((d) => d.dev.slice(0, 8) + (this.db.devBans && this.db.devBans[d.dev] ? ' [бан]' : '')), regIp: target.regIp || '', castlesList: this.castlesOf(target).map((c) => ({ id: c.id, name: c.name, x: c.x, y: c.y, rating: this.rating(c), loyalty: Math.round(c.loyalty ?? 100) })) }; break;
       case 'royal': this.royalTick(target); target.royal = Math.max(0, target.royal + num(arg.n, 10000)); msg = `Лояльность населения: ${Math.floor(target.royal)}.`; break;
       case 'rep': target.reputation = Math.max(0, (target.reputation ?? START_REP) + num(arg.n, 10)); msg = `Репутация: ${target.reputation}.`; break;
       case 'ban': if (target.admin) return { error: 'Админа заблокировать нельзя.' }; target.banned = true; target.online = false; msg = `${target.login} заблокирован.`; break;

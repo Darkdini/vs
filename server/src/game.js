@@ -182,13 +182,20 @@ class Game {
     this.store.save();
     return { ok: true };
   }
-  // написание ника: можно менять только большие/маленькие буквы (zevs → Zevs)
-  nickCase(user, nick) {
+  // смена ника — только за золото (цена NICK_PRICE, по умолчанию 100); новый ник должен быть свободен, вход — по новому нику
+  changeNick(user, nick) {
     nick = String(nick || '').trim();
+    const price = Number(process.env.NICK_PRICE) || 100, oldKey = String(user.login).toLowerCase(), key = nick.toLowerCase();
     if (user.admin) return { error: 'Ник администратора не меняется.' };
-    if (nick.toLowerCase() !== String(user.login).toLowerCase()) return { error: 'Можно менять только большие и маленькие буквы ника.' };
+    if (!/^[a-zа-яё0-9_]{3,10}$/i.test(nick)) return { error: 'Ник: 3–10 символов (буквы, цифры, _).' };
+    if (nick === user.login) return { error: 'Это ваш текущий ник.' };
+    if (key !== oldKey && (Object.prototype.hasOwnProperty.call(this.db.users, key) || key === 'admin')) return { error: 'Такой ник уже занят.' };
+    if ((user.gold || 0) < price) return { error: `Смена ника стоит ${price} золота, у вас ${user.gold || 0}.` };
+    this.goldChange(user, -price, `Смена ника: ${user.login} → ${nick}`);
+    (user.nickLog = user.nickLog || []).push({ at: Date.now(), from: user.login, to: nick });
+    if (key !== oldKey) { delete this.db.users[oldKey]; this.db.users[key] = user; }
     user.login = nick; this.store.save();
-    return { ok: true };
+    return { ok: true, price };
   }
   // название и описание активного замка
   castleInfo(user, name, desc) {

@@ -287,8 +287,11 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   const z = g.register({ login: 'Zevs', password: '123', race: 0 }).user;
   assert.strictEqual(z.login, 'Zevs'); assert.ok(g.login('zevs', '123') === z && g.login('ZEVS', '123') === z);
   assert.ok(g.register({ login: 'zEvS', password: '123', race: 0 }).error, 'тот же ник в другом регистре занят');
-  assert.ok(g.nickCase(z, 'Zevs2').error); assert.ok(g.nickCase(z, 'ZeVs').ok); assert.strictEqual(z.login, 'ZeVs'); assert.ok(g.login('zevs', '123') === z);
-  console.log('✓ Ник: регистр сохраняется (Zevs), вход без учёта регистра, смена только регистра');
+  z.gold = 50; assert.ok(/100 золота/.test(g.changeNick(z, 'ZeVs').error), 'без золота ник не меняется');
+  z.gold = 250; assert.ok(g.changeNick(z, 'ZeVs').ok); assert.strictEqual(z.login, 'ZeVs'); assert.strictEqual(z.gold, 150);
+  assert.ok(g.changeNick(z, 'royaltest').error, 'занятый ник'); assert.ok(g.changeNick(z, 'Громовержец').error, 'длиннее 10');
+  assert.ok(g.changeNick(z, 'Perun').ok); assert.strictEqual(z.gold, 50); assert.ok(g.login('perun', '123') === z && !g.login('zevs', '123'));
+  console.log('✓ Ник: регистр сохраняется (Zevs), вход без учёта регистра, смена ника только за 100 золота');
 }
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);

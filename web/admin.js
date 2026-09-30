@@ -94,6 +94,7 @@ function devCard(p) {
 function playerCard(p) {
   return `<div class="acard"><div class="cwname">${esc(p.login)}${p.banned ? ' <span class="bad">[заблокирован]</span>' : ''}</div>
     <div class="small">${esc(p.race)} · рейтинг ${fmtFull(p.rating)} · монет ${fmtFull(p.gold)} · в игре с ${fmtDate(p.created)}</div>
+    ${(p.nickLog || []).length ? `<div class="small">Прежние ники: ${p.nickLog.map((x) => `${esc(x.from)} → ${esc(x.to)} <small>${fmtDate(x.at)}</small>`).join('; ')}</div>` : ''}
     ${devCard(p)}
     <div class="rlist">${p.castlesList.map((c) => `<div class="rrow"><span class="rn"><b>${esc(c.name)}</b><small>X:${c.x} Y:${c.y} · лояльность ${c.loyalty}</small></span><span class="rv">${fmtFull(c.rating)}</span>
       <button class="btn small" data-goworld="${c.x},${c.y}">карта</button></div>`).join('')}</div>
