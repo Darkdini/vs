@@ -197,7 +197,7 @@ function install(Game) {
         this.removeAvatar(target);
         for (const c of this.castlesOf(target)) this.removeCastle(c);
         for (const al of Object.values(this.db.alliances || {})) al.members = al.members.filter((m) => m !== target.id);
-        delete this.db.users[target.login]; this.byId.delete(target.id); msg = `Игрок ${target.login} удалён.`; break;
+        delete this.db.users[String(target.login).toLowerCase()]; this.byId.delete(target.id); msg = `Игрок ${target.login} удалён.`; break;
       }
       case 'rename': {
         const c = this.castleAt(num(arg.x, NaN), num(arg.y, NaN)) || this.castleOf(target);

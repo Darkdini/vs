@@ -155,14 +155,15 @@ class Game {
 
   // ----- аккаунты -----
   register({ login, password, email, race }) {
-    login = String(login || '').trim().toLowerCase();
+    const nick = String(login || '').trim(); // ник показывается как написан (Zevs), ключ и вход — без учёта регистра
+    login = nick.toLowerCase();
     password = String(password || '').toLowerCase(); // клиент приводит пароль к нижнему регистру при входе
     if (!/^[a-zа-яё0-9_]{3,10}$/i.test(login)) return { error: 'Логин: 3–10 символов (буквы, цифры, _).' };
     if (password.length < 3) return { error: 'Пароль слишком короткий (минимум 3 символа).' };
     if (this.db.users[login]) return { error: 'Такой логин уже занят.' };
     const id = this.db.nextId++;
     const raceId = C.RACES[Number(race)] || 'humans';
-    this.db.users[login] = { id, login, pass: hashPassword(password), email: String(email || '').slice(0, 60), race: raceId, created: Date.now(), castleId: null, reputation: 10, gold: 30 }; // стартовая репутация 10, золото 30 (на подарки) // стартовая репутация 10
+    this.db.users[login] = { id, login: nick, pass: hashPassword(password), email: String(email || '').slice(0, 60), race: raceId, created: Date.now(), castleId: null, reputation: 10, gold: 30 }; // стартовая репутация 10, золото 30 (на подарки) // стартовая репутация 10
     this.byId.set(id, this.db.users[login]);
     const castle = this.createCastle(this.db.users[login]);
     this.db.users[login].castleId = castle.id;
@@ -179,6 +180,14 @@ class Game {
     if (newPass.length > 40) return { error: 'Новый пароль слишком длинный.' };
     user.pass = hashPassword(newPass); user.tokens = [];
     this.store.save();
+    return { ok: true };
+  }
+  // написание ника: можно менять только большие/маленькие буквы (zevs → Zevs)
+  nickCase(user, nick) {
+    nick = String(nick || '').trim();
+    if (user.admin) return { error: 'Ник администратора не меняется.' };
+    if (nick.toLowerCase() !== String(user.login).toLowerCase()) return { error: 'Можно менять только большие и маленькие буквы ника.' };
+    user.login = nick; this.store.save();
     return { ok: true };
   }
   // название и описание активного замка
@@ -200,7 +209,7 @@ class Game {
       else if (key === 'admin') return null;
     }
     const u = this.db.users[key];
-    if (!u || !Object.prototype.hasOwnProperty.call(this.db.users, u.login) || !checkPassword(String(password || '').toLowerCase(), u.pass)) return null;
+    if (!u || !Object.prototype.hasOwnProperty.call(this.db.users, String(u.login).toLowerCase()) || !checkPassword(String(password || '').toLowerCase(), u.pass)) return null;
     return u;
   }
 

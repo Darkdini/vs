@@ -297,6 +297,7 @@ const API = {
     this.send({ t: 'auth', login: this.user.login, token: this.token }); // новый токен «Запомнить меня»
     this.toast('Пароль изменён. На других устройствах нужно войти заново.');
   },
+  nickcase(m) { const r = this.game.nickCase(this.user, m.nick); if (r.error) return this.error(r.error); this.toast(`Ник теперь пишется: ${this.user.login}`); this.pushState(); API.profile.call(this, { id: this.user.id, acct: 1, refresh: 1 }); },
   castleinfo(m) { const r = this.game.castleInfo(this.user, m.name, m.desc); if (r.error) return this.error(r.error); this.toast('Замок переименован.'); API.profile.call(this, { id: this.user.id, acct: 1, refresh: 1 }); },
   // ---- кабинет (server/src/social.js) ----
   rep(m) {
@@ -462,7 +463,7 @@ const API = {
     else this.toast(r.msg || 'Готово.');
     if (m.op === 'chat' && r.data) for (const s of WebSession.all || []) if (s.user && s.sendChat) s.sendChat(r.data);
     if (m.op === 'banmany' || m.op === 'devban') for (const s of WebSession.all || []) if (s.user && !s.user.admin && (s.user.banned || this.game.devBanned(s.dev) || (s.fp && this.game.db.fpBans && this.game.db.fpBans[s.fp]))) s.socket.destroy();
-    if (m.login) for (const s of WebSession.all || []) if (s.user && s.user.login === String(m.login).toLowerCase() && s !== this) { if (m.op === 'ban' || m.op === 'delete') s.socket.destroy(); else s.pushState(); }
+    if (m.login) for (const s of WebSession.all || []) if (s.user && String(s.user.login).toLowerCase() === String(m.login).toLowerCase() && s !== this) { if (m.op === 'ban' || m.op === 'delete') s.socket.destroy(); else s.pushState(); }
     this.pushState();
   },
   bug(m) {

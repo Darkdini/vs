@@ -283,5 +283,12 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   g.adminOp(adm, 'devunban', { dev: 'a'.repeat(32), fp: info.fp }); assert.ok(!g.devBanned('a'.repeat(32)));
   console.log('✓ Устройства: модель/система/браузер, совпадение железа, бан устройства вместе с железом');
 }
+{ // ник показывается как написан при регистрации, вход — без учёта регистра; менять можно только регистр
+  const z = g.register({ login: 'Zevs', password: '123', race: 0 }).user;
+  assert.strictEqual(z.login, 'Zevs'); assert.ok(g.login('zevs', '123') === z && g.login('ZEVS', '123') === z);
+  assert.ok(g.register({ login: 'zEvS', password: '123', race: 0 }).error, 'тот же ник в другом регистре занят');
+  assert.ok(g.nickCase(z, 'Zevs2').error); assert.ok(g.nickCase(z, 'ZeVs').ok); assert.strictEqual(z.login, 'ZeVs'); assert.ok(g.login('zevs', '123') === z);
+  console.log('✓ Ник: регистр сохраняется (Zevs), вход без учёта регистра, смена только регистра');
+}
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);
