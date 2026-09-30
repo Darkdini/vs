@@ -716,7 +716,9 @@ window.__iso = { Iso, tileScreen: (x, y) => tileScreen(x, y), cam: () => cam() }
 const ictx = Iso.cv.getContext('2d');
 const IMGS = new Map();
 // перерисованная графика высокого качества: файл в HD[path] во столько раз крупнее, на карте рисуется в прежнем размере
-const HD = { 'build/castle.png': ['build/hd/castle.png', 8], 'ground/camp1.png': ['ground/hd/camp1.png', 4], 'ground/camp2.png': ['ground/hd/camp2.png', 4], 'ground/camp3.png': ['ground/hd/camp3.png', 4] };
+const HD = { 'build/castle.png': ['build/hd/castle.png', 8], 'ground/camp1.png': ['ground/hd/camp1.png', 4], 'ground/camp2.png': ['ground/hd/camp2.png', 4], 'ground/camp3.png': ['ground/hd/camp3.png', 4],
+  // стена замка (Забор) — HD, нарисована по листу с 5 частями
+  ...Object.fromEntries([0, 1, 2, 3, 4].map((i) => [`fence/fence${i}.png`, [`fence/hd/fence${i}.png`, 8]])) };
 function pic(path) {
   let e = IMGS.get(path);
   if (!e) {
