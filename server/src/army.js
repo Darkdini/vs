@@ -1206,7 +1206,7 @@ function install(Game, helpers) {
       if (!cur) return { error: 'Вы не в альянсе.' };
       const right = { invite: 'invite', approve: 'invite', reject: 'invite', kick: 'kick', award: 'rights' }[op];
       if (!this.allyCan(cur, user.id, right)) return { error: 'Нет прав на это действие.' };
-      const t = login !== undefined ? this.db.users[String(login).trim().toLowerCase()] : this.userById(id);
+      const t = login !== undefined ? this.db.users[String(login).trim()] : this.userById(id);
       if (!t) return { error: 'Игрок не найден.' };
       if (op === 'invite') {
         if (t.alliance) return { error: 'Игрок уже в альянсе.' };
@@ -1402,7 +1402,7 @@ function install(Game, helpers) {
   P.reportForward = function reportForward(user, id, login) {
     const r = (this.db.reports || []).find((y) => y.id === Number(id) && this.canSeeReport(user, y));
     if (!r) return { error: 'Отчёт не найден.' };
-    const to = Object.prototype.hasOwnProperty.call(this.db.users, String(login || '').trim().toLowerCase()) ? this.db.users[String(login || '').trim().toLowerCase()] : null;
+    const to = Object.prototype.hasOwnProperty.call(this.db.users, String(login || '').trim()) ? this.db.users[String(login || '').trim()] : null;
     if (!to) return { error: 'Игрок не найден.' };
     if (to.id === user.id) return { error: 'Нельзя переслать самому себе.' };
     this.db.reports.push({ ...JSON.parse(JSON.stringify(r)), id: this.db.nextId++, owner: to.id, at: Date.now(), read: false, from: user.login, title: `${r.title} (от ${user.login})` });

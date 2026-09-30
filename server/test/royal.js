@@ -158,7 +158,7 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   g.report(a.id, 'Разведка — провал', ['x'], 'scout', { type: 'scout', ok: false });
   const [r1, r2] = g.reportsOf(a.id).reverse();
   assert.deepStrictEqual([g.reportTone(r1), g.reportTone(r2)], ['win', 'lose']);
-  assert.ok(g.reportForward(a, r1.id, 'RP2').msg, 'переслан');
+  assert.ok(g.reportForward(a, r1.id, 'rp2').msg, 'переслан');
   assert.ok(g.reportForward(a, r1.id, 'nobody').error && g.reportForward(b, r1.id, 'rp1').error, 'чужой отчёт/несуществующий игрок');
   const fw = g.reportsOf(b.id)[0];
   assert.ok(fw.from === 'rp1' && fw.owner === b.id);
@@ -283,15 +283,16 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   g.adminOp(adm, 'devunban', { dev: 'a'.repeat(32), fp: info.fp }); assert.ok(!g.devBanned('a'.repeat(32)));
   console.log('✓ Устройства: модель/система/браузер, совпадение железа, бан устройства вместе с железом');
 }
-{ // ник показывается как написан при регистрации, вход — без учёта регистра; менять можно только регистр
+{ // ник с учётом регистра: Zevs и zevs — разные игроки, вход тоже с учётом регистра; смена ника — только за золото
   const z = g.register({ login: 'Zevs', password: '123', race: 0 }).user;
-  assert.strictEqual(z.login, 'Zevs'); assert.ok(g.login('zevs', '123') === z && g.login('ZEVS', '123') === z);
-  assert.ok(g.register({ login: 'zEvS', password: '123', race: 0 }).error, 'тот же ник в другом регистре занят');
+  assert.strictEqual(z.login, 'Zevs'); assert.ok(g.login('Zevs', '123') === z); assert.ok(!g.login('zevs', '123') && !g.login('ZEVS', '123'));
+  const z2 = g.register({ login: 'zevs', password: '456', race: 0 }).user; assert.ok(z2 && z2 !== z, 'zevs — другой игрок'); assert.ok(g.login('zevs', '456') === z2);
+  assert.ok(g.register({ login: 'Zevs', password: '1', race: 0 }).error, 'точно такой же ник занят');
+  assert.ok(g.register({ login: 'ADMIN', password: '1', race: 0 }).error, 'admin в любом регистре — нельзя');
   z.gold = 50; assert.ok(/100 золота/.test(g.changeNick(z, 'ZeVs').error), 'без золота ник не меняется');
-  z.gold = 250; assert.ok(g.changeNick(z, 'ZeVs').ok); assert.strictEqual(z.login, 'ZeVs'); assert.strictEqual(z.gold, 150);
-  assert.ok(g.changeNick(z, 'royaltest').error, 'занятый ник'); assert.ok(g.changeNick(z, 'Громовержец').error, 'длиннее 10');
-  assert.ok(g.changeNick(z, 'Perun').ok); assert.strictEqual(z.gold, 50); assert.ok(g.login('perun', '123') === z && !g.login('zevs', '123'));
-  console.log('✓ Ник: регистр сохраняется (Zevs), вход без учёта регистра, смена ника только за 100 золота');
+  z.gold = 250; assert.ok(g.changeNick(z, 'ZeVs').ok); assert.strictEqual(z.login, 'ZeVs'); assert.strictEqual(z.gold, 150); assert.ok(g.login('ZeVs', '123') === z && !g.login('Zevs', '123'));
+  assert.ok(g.changeNick(z, 'zevs').error, 'занятый ник'); assert.ok(g.changeNick(z, 'Громовержец').error, 'длиннее 10');
+  console.log('✓ Ник: Zevs и zevs — разные игроки, вход с учётом регистра, смена ника только за 100 золота');
 }
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);

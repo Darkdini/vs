@@ -127,7 +127,7 @@ function install(Game) {
       case 'secmod': { // назначить / снять модератора раздела — только админ
         if (!user.admin) return { error: 'Назначает только администратор.' };
         const s = this.forumSection(m.section); if (!s) return { error: 'Раздел не найден.' };
-        const key = String(m.login || '').trim().toLowerCase();
+        const key = String(m.login || '').trim();
         const t = Object.prototype.hasOwnProperty.call(this.db.users, key) ? this.db.users[key] : null; if (!t) return { error: 'Игрок не найден.' };
         if (s.mods.includes(t.id)) s.mods = s.mods.filter((x) => x !== t.id);
         else { s.mods.push(t.id); this.event(t.id, `Вас назначили модератором раздела форума «${s.name}».`); }

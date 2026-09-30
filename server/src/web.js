@@ -207,11 +207,11 @@ const API = {
     const u = m.token ? this.game.tokenLogin(m.login, m.token) : this.game.login(m.login, m.password);
     if (!u && m.token) return this.error('Сессия устарела — войдите заново.');
     if (!u) {
-      const known = Object.prototype.hasOwnProperty.call(this.game.db.users, String(m.login || '').trim().toLowerCase());
+      const known = Object.prototype.hasOwnProperty.call(this.game.db.users, String(m.login || '').trim());
       this.log(`вход ${JSON.stringify(String(m.login || '').slice(0, 20))}: ${known ? `неверный пароль (${String(m.password || '').length} симв.)` : 'нет такого игрока'}`);
       const w = this.game.loginFailed(this.ip, m.login); if (w) return lockMsg(w);
       const left = this.game.loginTriesLeft(this.ip);
-      return this.error(`Неверный логин или пароль. Осталось попыток: ${left}.`);
+      return this.error(`Неверный логин или пароль (большие и маленькие буквы в нике различаются). Осталось попыток: ${left}.`);
     }
     if (!m.token) this.game.loginOk(this.ip);
     this.game.trackLogin(u, this.ip, m.dev); this.dev = m.dev;
@@ -395,7 +395,7 @@ const API = {
     this.send({ t: 'dialogs', page: pg, pages: Math.max(1, Math.ceil(filter.length / 10)), filter: m.filter || 'all', list: filter.slice(pg * 10, pg * 10 + 10), total: list.length });
   },
   dialog(m) {
-    const me = this.user.id, key = String(m.with || '').trim().toLowerCase();
+    const me = this.user.id, key = String(m.with || '').trim();
     const o = Number(m.id) ? this.game.userById(Number(m.id)) : Object.prototype.hasOwnProperty.call(this.game.db.users, key) ? this.game.db.users[key] : null;
     if (!o) return this.error('Игрок не найден.');
     if (!m.keep || this.dialogWith === undefined) this.dialogWith = o.id;
@@ -463,7 +463,7 @@ const API = {
     else this.toast(r.msg || 'Готово.');
     if (m.op === 'chat' && r.data) for (const s of WebSession.all || []) if (s.user && s.sendChat) s.sendChat(r.data);
     if (m.op === 'banmany' || m.op === 'devban') for (const s of WebSession.all || []) if (s.user && !s.user.admin && (s.user.banned || this.game.devBanned(s.dev) || (s.fp && this.game.db.fpBans && this.game.db.fpBans[s.fp]))) s.socket.destroy();
-    if (m.login) for (const s of WebSession.all || []) if (s.user && String(s.user.login).toLowerCase() === String(m.login).toLowerCase() && s !== this) { if (m.op === 'ban' || m.op === 'delete') s.socket.destroy(); else s.pushState(); }
+    if (m.login) for (const s of WebSession.all || []) if (s.user && s.user.login === String(m.login).trim() && s !== this) { if (m.op === 'ban' || m.op === 'delete') s.socket.destroy(); else s.pushState(); }
     this.pushState();
   },
   bug(m) {

@@ -10,7 +10,7 @@ function install(Game) {
   P.isPremium = function isPremium(u) { return !!u && (u.admin || (u.premium || 0) > Date.now()); };
   P.buyPremium = function buyPremium(user, days, toLogin) {
     days = Number(days); const cost = PLANS[days]; if (!cost) return { error: 'Нет такого срока.' };
-    const to = toLogin ? this.db.users[String(toLogin).trim().toLowerCase()] : user;
+    const to = toLogin ? this.db.users[String(toLogin).trim()] : user;
     if (!to) return { error: 'Игрок не найден.' };
     if ((user.gold || 0) < cost) return { error: `Не хватает монет: нужно ${cost}, у вас ${user.gold || 0}. Пополните казну.` };
     this.goldChange(user, -cost, to === user ? `Премиум Завоеватель на ${days} дн.` : `Премиум Завоеватель на ${days} дн. в подарок игроку ${to.login}`);

@@ -237,7 +237,7 @@ function install(Game) {
   P.friendsOf = function friendsOf(user) { return (user.friends || []).map((id) => this.userById(id)).filter(Boolean).map((u) => this.playerRow(u)); };
   P.searchPlayers = function searchPlayers(q) {
     q = String(q || '').trim().toLowerCase();
-    const list = q ? Object.values(this.db.users).filter((u) => u.login.includes(q)) : this.leaderboard().slice(0, 30).map((x) => x.u);
+    const list = q ? Object.values(this.db.users).filter((u) => u.login.toLowerCase().includes(q)) : this.leaderboard().slice(0, 30).map((x) => x.u);
     return list.slice(0, 30).map((u) => this.playerRow(u));
   };
   // земляки — игроки в радиусе от замка
@@ -262,7 +262,7 @@ function install(Game) {
   };
   P.chatBanUser = function chatBanUser(user, login, hours) {
     if (!this.canModerate(user)) return { error: 'Нет прав.' };
-    const t = this.db.users[String(login || '').trim().toLowerCase()]; if (!t) return { error: 'Игрок не найден.' };
+    const t = this.db.users[String(login || '').trim()]; if (!t) return { error: 'Игрок не найден.' };
     if (t.admin || (t.mod && !user.admin)) return { error: 'Этого игрока забанить нельзя.' };
     hours = Number(hours);
     t.chatBan = hours === 0 ? 0 : hours < 0 ? -1 : Date.now() + hours * 3600000;

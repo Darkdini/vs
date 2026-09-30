@@ -60,9 +60,9 @@ function client() {
 
     a.send({ t: 'register', login: 'Webby', password: 'pass1', race: '1' });
     await a.expect('registered');
-    a.send({ t: 'login', login: 'webby', password: 'wrong' });
+    a.send({ t: 'login', login: 'Webby', password: 'wrong' });
     await a.expect('error', (m) => /Неверный/.test(m.msg));
-    a.send({ t: 'login', login: 'webby', password: 'pass1' });
+    a.send({ t: 'login', login: 'Webby', password: 'pass1' });
     await a.expect('auth');
     const st = await a.expect('state');
     assert.equal(st.user.race, 'elves');
@@ -89,9 +89,9 @@ function client() {
     await b.open();
     b.send({ t: 'register', login: 'Second', password: 'pass2', race: '0' });
     await b.expect('registered');
-    b.send({ t: 'login', login: 'second', password: 'pass2' });
+    b.send({ t: 'login', login: 'Second', password: 'pass2' });
     await b.expect('auth');
-    b.send({ t: 'sendmail', to: 'webby', subject: 'Привет', text: 'Из браузера' });
+    b.send({ t: 'sendmail', to: 'Webby', subject: 'Привет', text: 'Из браузера' });
     await a.expect('toast', (m) => /Новое письмо/.test(m.msg));
     a.send({ t: 'mail', folder: 0 });
     const mail = await a.expect('mail');
@@ -153,15 +153,15 @@ function client() {
     console.log('✓ рынок, альянс, проверки миссий');
 
     // ---- Дипломатический центр: приглашение, принятие, исключение, заявка и одобрение ----
-    adm.send({ t: 'admin', op: 'max', login: 'webby', all: true });
+    adm.send({ t: 'admin', op: 'max', login: 'Webby', all: true });
     await a.expect('state', (m) => m.castle.grid[0].includes(13));
-    adm.send({ t: 'alliance', op: 'invite', login: 'webby' });
+    adm.send({ t: 'alliance', op: 'invite', login: 'Webby' });
     await adm.expect('toast', (m) => /Приглашение отправлено: webby/i.test(m.msg));
     const inv = (await a.expect('state', (m) => (m.castle.mil.invites || []).length === 1)).castle.mil.invites[0];
     assert.equal(inv.tag, 'KRL');
     a.send({ t: 'alliance', op: 'accept', id: inv.id });
     await a.expect('state', (m) => m.castle.mil.alliance && m.castle.mil.alliance.tag === 'KRL' && !m.castle.mil.invites.length);
-    adm.send({ t: 'alliance', op: 'kick', login: 'webby' });
+    adm.send({ t: 'alliance', op: 'kick', login: 'Webby' });
     await a.expect('state', (m) => !m.castle.mil.alliance);
     a.send({ t: 'alliance', op: 'request', id: inv.id });
     await a.expect('toast', (m) => /Заявка отправлена в \[KRL\]/.test(m.msg));
@@ -173,12 +173,12 @@ function client() {
     { const rl = (await adm.expect('ratings', (m) => m.kind === 'alliances')).list.find((x) => x.tag === 'KRL');
       adm.send({ t: 'sync' }); const st = (await adm.expect('state', (m) => m.castle.mil.alliance && m.castle.mil.alliance.info.length === 2)).castle.mil.alliance;
       assert.equal(rl.rating, st.info.reduce((q, u) => q + u.rating + u.rep, 0)); }
-    adm.send({ t: 'alliance', op: 'award', login: 'webby', kind: 'gold', text: 'За оборону' });
+    adm.send({ t: 'alliance', op: 'award', login: 'Webby', kind: 'gold', text: 'За оборону' });
     await adm.expect('toast', (m) => /Медаль вручена: webby/i.test(m.msg));
     adm.send({ t: 'profile', id: s3.user.id });
     { const pr = (await adm.expect('profile', (m) => (m.profile.awards || []).length > 0)).profile; assert.equal(pr.awards[0].tag, 'KRL'); }
     // окно «Альянс»: права, описание, форум, новости, казна, логи
-    adm.send({ t: 'ally', op: 'rank', login: 'webby', title: 'Казначей', ep: 2, rights: ['treasury', 'logs'] });
+    adm.send({ t: 'ally', op: 'rank', login: 'Webby', title: 'Казначей', ep: 2, rights: ['treasury', 'logs'] });
     await adm.expect('toast', (m) => /Права назначены: webby/i.test(m.msg));
     adm.send({ t: 'ally', op: 'desc', tag: 'KRL', name: 'Короли Мира', desc: 'Лучший альянс' });
     await adm.expect('toast', (m) => /Описание изменено/.test(m.msg));
@@ -188,7 +188,7 @@ function client() {
     await adm.expect('toast', (m) => /Сообщение добавлено/.test(m.msg));
     adm.send({ t: 'ally', op: 'gold', n: 100 });
     await adm.expect('toast', (m) => /Внесено в казну: 100/.test(m.msg));
-    a.send({ t: 'ally', op: 'gold', n: 40, to: 'webby' });
+    a.send({ t: 'ally', op: 'gold', n: 40, to: 'Webby' });
     await a.expect('toast', (m) => /Выдано 40 золота: webby/i.test(m.msg));
     adm.send({ t: 'ally', op: 'get' });
     const av = (await adm.expect('ally', (m) => m.data.treasury === 60)).data;
@@ -199,7 +199,7 @@ function client() {
     // ---- Центр разведки: разведчики тренируются в нём, отчёт зависит от уровня и выживших ----
     assert.ok(mil.units.find((u) => u.id === 202).building === 45 && mil.units.some((u) => u.name === 'Орк загонщик'));
     assert.ok(mil.spyOpen && mil.spyOpen.reinf.level > mil.spyOpen.armies.level);
-    adm.send({ t: 'admin', op: 'noarmy', login: 'webby', all: true }); // без охраны — выживут все, видно всё
+    adm.send({ t: 'admin', op: 'noarmy', login: 'Webby', all: true }); // без охраны — выживут все, видно всё
     adm.send({ t: 'send', units: { 202: 300 }, x: target.x, y: target.y, mission: 'scout' });
     await adm.expect('toast', (m) => /Армия выступила: Разведка/.test(m.msg));
     adm.send({ t: 'admin', op: 'finish' });
@@ -305,7 +305,7 @@ function client() {
     console.log('✓ Зал Славы: итоги месяца, награды топ-3 с датой получения:', aw.map((m) => `${m.name} ${m.place}`).join(', '));
 
     // ---- модератор форума: удаление сообщений и бан в чате ----
-    adm.send({ t: 'admin', op: 'mod', login: 'webby' });
+    adm.send({ t: 'admin', op: 'mod', login: 'Webby' });
     await adm.expect('toast', (m) => /webby — модератор форума/i.test(m.msg));
     adm.send({ t: 'register', login: 'spammer', password: '123', race: 0 });
     const sp = client(); await sp.open(); sp.send({ t: 'login', login: 'spammer', password: '123' }); await sp.expect('state');
@@ -330,7 +330,7 @@ function client() {
     console.log('✓ модератор форума: удаление сообщения, бан в чате на 2 ч, админа забанить нельзя');
 
     // ---- казна: админ выдаёт монеты — игроку письмо «Ваша казна пополнена 50 монетами», история трат ----
-    adm.send({ t: 'admin', op: 'gold', login: 'webby', n: 50 });
+    adm.send({ t: 'admin', op: 'gold', login: 'Webby', n: 50 });
     await a.expect('toast', (m) => /Ваша казна пополнена 50 монетами/.test(m.msg));
     const gl = (await a.expect('state', (m) => (m.user.goldLog || []).some((x) => x.delta === 50))).user.goldLog;
     assert.ok(gl[0].reason === 'Пополнение казны администрацией' && gl.some((x) => /казны альянса/.test(x.reason)), JSON.stringify(gl));
@@ -365,23 +365,23 @@ function client() {
 
     // ---- безопасность: токен вместо пароля, подмена запросов, заголовки, выход за папку web ----
     const t1 = client(); await t1.open();
-    t1.send({ t: 'login', login: 'webby', password: 'pass1' });
+    t1.send({ t: 'login', login: 'Webby', password: 'pass1' });
     const au = await t1.expect('auth'); assert.ok(/^[a-f0-9]{48}$/.test(au.token) && !JSON.stringify(au).includes('pass1'));
     t1.close();
     const t2 = client(); await t2.open();
-    t2.send({ t: 'login', login: 'webby', token: au.token }); await t2.expect('state');
+    t2.send({ t: 'login', login: 'Webby', token: au.token }); await t2.expect('state');
     t2.send({ t: 'research', sci: '__proto__' }); await t2.expect('error', (m) => /Неверный запрос/.test(m.msg));
     t2.send({ t: 'send', units: JSON.parse('{"__proto__":5}'), x: 1, y: 1, mission: 'attack' }); await t2.expect('error', (m) => /Неверный запрос/.test(m.msg));
     t2.send({ t: 'logout' }); await t2.expect('loggedout'); t2.close();
     const t3 = client(); await t3.open();
-    t3.send({ t: 'login', login: 'webby', token: au.token }); await t3.expect('error', (m) => /Сессия устарела/.test(m.msg)); t3.close();
+    t3.send({ t: 'login', login: 'Webby', token: au.token }); await t3.expect('error', (m) => /Сессия устарела/.test(m.msg)); t3.close();
     const hr = await fetch(`http://127.0.0.1:${WEB_PORT}/`);
     assert.ok(/script-src 'self'/.test(hr.headers.get('content-security-policy')) && hr.headers.get('x-frame-options') === 'DENY');
     for (const bad of ['/../server/src/game.js', '/%2e%2e/server/package.json', '/..%2f..%2fetc/passwd']) assert.strictEqual((await fetch(`http://127.0.0.1:${WEB_PORT}${bad}`)).status, 404, bad);
     console.log('✓ безопасность: токен вместо пароля, выход завершает сессию, __proto__ отвергается, CSP, файлы сервера не отдаются');
 
     // ---- премиум: покупка за монеты, звание VIP ----
-    adm.send({ t: 'admin', op: 'gold', login: 'webby', n: 150 });
+    adm.send({ t: 'admin', op: 'gold', login: 'Webby', n: 150 });
     await a.expect('toast', (m) => /пополнена 150/.test(m.msg));
     a.send({ t: 'premium', days: 30 });
     await a.expect('toast', (m) => /Премиум активен до/.test(m.msg));
@@ -433,9 +433,9 @@ function client() {
     adm.close();
     // 3 неверных входа → табличка «попробуйте через 3 минуты», даже правильный пароль не пускает
     const bf = client(); await bf.open();
-    for (let i = 0; i < 2; i++) { bf.send({ t: 'login', login: 'webby', password: 'bad' + i }); await bf.expect('error', (m) => /Неверный логин/.test(m.msg)); }
-    bf.send({ t: 'login', login: 'webby', password: 'bad3' }); const lk = await bf.expect('loginlock'); assert.ok(lk.sec > 170 && /через 3 мин/.test(lk.msg), JSON.stringify(lk));
-    bf.send({ t: 'login', login: 'webby', password: 'pass1' }); await bf.expect('loginlock'); bf.close();
+    for (let i = 0; i < 2; i++) { bf.send({ t: 'login', login: 'Webby', password: 'bad' + i }); await bf.expect('error', (m) => /Неверный логин/.test(m.msg)); }
+    bf.send({ t: 'login', login: 'Webby', password: 'bad3' }); const lk = await bf.expect('loginlock'); assert.ok(lk.sec > 170 && /через 3 мин/.test(lk.msg), JSON.stringify(lk));
+    bf.send({ t: 'login', login: 'Webby', password: 'pass1' }); await bf.expect('loginlock'); bf.close();
     console.log('✓ подбор пароля: 3 неверных входа — «попробуйте через 3 мин», правильный пароль тоже ждёт');
     console.log('\nВЕБ: ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ');
   } catch (e) {

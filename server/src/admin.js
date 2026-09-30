@@ -11,7 +11,7 @@ const RES4 = ['wood', 'stone', 'iron', 'food'];
 
 function install(Game) {
   const P = Game.prototype;
-  const findUser = (g, login) => g.db.users[String(login || '').trim().toLowerCase()];
+  const findUser = (g, login) => { const k = String(login || '').trim(); return Object.prototype.hasOwnProperty.call(g.db.users, k) ? g.db.users[k] : undefined; };
 
   // админ: создаётся при старте. По умолчанию — как обычный игрок: 1 замок, всё с нуля.
   // ADMIN_FULL=1 (автотесты) — ADMIN_CASTLES замков на полной прокачке, миллион золота.
@@ -25,7 +25,7 @@ function install(Game) {
         try { require('fs').mkdirSync(require('path').dirname(this.store.file), { recursive: true }); require('fs').writeFileSync(require('path').join(require('path').dirname(this.store.file), 'ADMIN_PASSWORD.txt'), `admin / ${pass}\n`, { mode: 0o600 }); } catch { /* нет доступа к папке */ }
         this.adminNewPass = pass;
       }
-      const r = this.register({ login: 'admin', password: pass, race: 0 });
+      const r = this.register({ login: 'admin', password: pass, race: 0, system: true });
       if (r.error) return null;
       u = r.user;
       if (FULL) { const c = this.castleOf(u); c.name = 'Королевский замок'; this.maxOut(c); }
@@ -159,7 +159,7 @@ function install(Game) {
         break;
       case 'players': { // первые 100 по рейтингу (+ поиск по части логина)
         const q = String(arg.q || '').trim().toLowerCase();
-        data = (q ? Object.values(this.db.users).filter((u) => u.login.includes(q)) : this.leaderboard().slice(0, 100).map((x) => x.u)).slice(0, 100).map((u) => this.playerInfo(u));
+        data = (q ? Object.values(this.db.users).filter((u) => u.login.toLowerCase().includes(q)) : this.leaderboard().slice(0, 100).map((x) => x.u)).slice(0, 100).map((u) => this.playerInfo(u));
         break;
       }
       case 'bots': { // заселить мир ботами (проверка нагрузки): игроки с замками и случайным развитием
@@ -197,7 +197,7 @@ function install(Game) {
         this.removeAvatar(target);
         for (const c of this.castlesOf(target)) this.removeCastle(c);
         for (const al of Object.values(this.db.alliances || {})) al.members = al.members.filter((m) => m !== target.id);
-        delete this.db.users[String(target.login).toLowerCase()]; this.byId.delete(target.id); msg = `Игрок ${target.login} удалён.`; break;
+        delete this.db.users[target.login]; this.byId.delete(target.id); msg = `Игрок ${target.login} удалён.`; break;
       }
       case 'rename': {
         const c = this.castleAt(num(arg.x, NaN), num(arg.y, NaN)) || this.castleOf(target);

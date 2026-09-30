@@ -91,7 +91,7 @@ function install(Game) {
     const al = alArg || this.allianceOf(user); if (!al) return { error: 'Вы не в альянсе.' };
     const modr = this.canModerate(user); // модератор форума / админ: удаление тем и сообщений в любом альянсе
     const can = (r) => this.allyCan(al, user.id, r) || (modr && r === 'news' && ['topicop', 'postdel'].includes(m.op)), need = (r) => (can(r) ? null : { error: `Нет права: ${RIGHTS[r]}.` });
-    const find = (login) => this.db.users[String(login || '').trim().toLowerCase()];
+    const find = (login) => this.db.users[String(login || '').trim()];
     const member = (login) => { const t = find(login); return t && al.members.includes(t.id) ? t : null; };
     const now = Date.now();
     const done = (msg) => { this.store.save(); return { ok: true, msg }; };
