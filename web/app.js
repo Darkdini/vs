@@ -893,7 +893,7 @@ function isoTap(px, py) {
     openCell(VIEW.CASTLE, y * 7 + x);
   } else if (S.tab === 'lands') {
     const f = screenToTileF((px - c.x) / c.z, (py - c.y) / c.z), lx = Math.round(f.x / SP), ly = Math.round(f.y / SP);
-    if (lx < 0 || lx >= LN() || ly < 0 || ly >= LN()) return;
+    if (lx < 0 || lx >= LN() || ly < 0 || ly >= LN() || !(S.cat.landOptions[ly][lx] || []).length) return; // площадь — не участок
     Iso.sel = { tab: 'lands', x: lx, y: ly }; isoDraw();
     openCell(VIEW.LANDS, ly * LN() + lx);
   } else if (S.tab === 'world' && S.world) {

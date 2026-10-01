@@ -18,12 +18,13 @@ const MAX_QUEUE = Number(process.env.MAX_QUEUE || 3); // оригинал: 3 с�
 // ---------- рельеф «Земель» ----------
 // Земли 7×7 — заранее размеченные участки (как в оригинале: у каждой клетки своё назначение).
 // x — вправо-вверх, y — вправо-вниз; (0,0) — левый угол, (6,0) — верхний, (0,6) — нижний.
-// W лес (Дровосек), F пашня (Огород), S камни (Каменщик), I горы (Рудник), H луг (Хибара), P озеро (Рыболовная заводь)
+// W лес (Дровосек), F пашня (Огород), S камни (Каменщик), I горы (Рудник), H луг (Хибара), P озеро (Рыболовная заводь),
+// X — площадь с фонтаном в центре (не застраивается)
 const LANDS_PLAN = [
   'WWWFFSS',
   'WWWFFSS',
   'WHFFFSS',
-  'HFFFHSI',
+  'HFFXHSI',
   'HHHHHHI',
   'PPHHIII',
   'PPPPIIH',
@@ -37,7 +38,7 @@ const LANDS_EDGE = LANDS_PLAN.map((r) => [...r].map(() => -1));
 // Какие здания можно ставить на клетку земель
 function landOptions(x, y) {
   const c = LANDS_PLAN[y] && LANDS_PLAN[y][x];
-  return c ? [PLAN_B[c]] : [];
+  return c && PLAN_B[c] ? [PLAN_B[c]] : [];
 }
 
 // вместимость: база 1500 + каждый Склад 1000×1.25^ур.; люди: 60 + 20 за уровень каждой Хибары
@@ -138,12 +139,26 @@ function migrateLands(castle) {
   castle.grid[1] = g; castle.levels[1] = l;
 }
 
+// площадь в центре земель: если там стояла постройка (до появления площади) — переезжает на свободную клетку своего вида,
+// а если свободной нет — её уровни добавляются к самой слабой постройке того же вида
+function fixPlaza(castle) {
+  const N = LANDS_N, g = castle.grid[1], l = castle.levels[1];
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const i = y * N + x; if (g[i] < 0 || landOptions(x, y).length) continue;
+    const b = g[i], lv = l[i]; g[i] = -1; l[i] = 0;
+    castle.queue = (castle.queue || []).filter((q) => !(q.view === 1 && q.cell === i));
+    let free = -1, weak = -1;
+    for (let k = 0; k < N * N; k++) { if (landOptions(k % N, Math.floor(k / N))[0] !== b) continue; if (g[k] < 0 && free < 0) free = k; if (g[k] === b && (weak < 0 || l[k] < l[weak])) weak = k; }
+    if (free >= 0) { g[free] = b; l[free] = lv; } else if (weak >= 0) l[weak] = Math.min(C.LANDS_MAX, l[weak] + lv);
+  }
+}
+
 class Game {
   constructor(store) {
     this.store = store; this.db = store.data;
     this.byXY = new Map(); // индекс замков по координатам: карта мира и поиск цели без перебора всех
     this.byId = new Map(); // игроки по id
-    for (const c of Object.values(this.db.castles)) { packCastle(c); if (c.grid[1].length !== LANDS_N * LANDS_N) migrateLands(c); this.byXY.set(c.x * WORLD + c.y, c); }
+    for (const c of Object.values(this.db.castles)) { packCastle(c); if (c.grid[1].length !== LANDS_N * LANDS_N) migrateLands(c); fixPlaza(c); this.byXY.set(c.x * WORLD + c.y, c); }
     for (const u of Object.values(this.db.users)) this.byId.set(u.id, u);
     // ключ игрока = ник с учётом регистра; старые записи (ключ строчными, ник «Zevs») переносятся на ключ «Zevs»
     for (const [k, u] of Object.entries(this.db.users)) if (k !== u.login) { if (Object.prototype.hasOwnProperty.call(this.db.users, u.login)) u.login = k; else { delete this.db.users[k]; this.db.users[u.login] = u; } }
@@ -333,6 +348,7 @@ class Game {
   // довести ресурсы и очередь до момента now (ленивый расчёт)
   tick(castle, now = Date.now()) {
     if (castle.grid[1].length !== LANDS_N * LANDS_N) migrateLands(castle);
+    fixPlaza(castle);
     const done = [];
     castle.queue.sort((a, b) => a.end - b.end);
     while (castle.queue.length && castle.queue[0].end <= now) {
@@ -491,4 +507,4 @@ require('./forum').install(Game);
 require('./news').install(Game);
 require('./quests').install(Game);
 
-module.exports = { migrateLands, LANDS_N, WORLD, Game, Store, STORE, BASE_RATE, PEOPLE_FACTOR, storeBonus, RES_SPEED, buildTime, VIEW, GRID, landOptions, SPEED, MAX_QUEUE, LANDS_BASE, LANDS_DECOR, LANDS_EDGE };
+module.exports = { fixPlaza, migrateLands, LANDS_N, WORLD, Game, Store, STORE, BASE_RATE, PEOPLE_FACTOR, storeBonus, RES_SPEED, buildTime, VIEW, GRID, landOptions, SPEED, MAX_QUEUE, LANDS_BASE, LANDS_DECOR, LANDS_EDGE };

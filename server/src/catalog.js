@@ -95,7 +95,7 @@ const PROD = Array.from({ length: 26 }, (_, l) => (l ? Math.round((2 + (l - 1) *
 // земли 7×7 (было 15×15): клеток меньше, зато здания растут до 25 ур., а добыча за уровень умножена на LAND_MULT —
 // полностью отстроенные земли дают столько же, сколько прежние 225 клеток на 20 ур.
 const LANDS_N = 7, LANDS_MAX = 25;
-const LAND_CELLS_OLD = { 5: 42, 6: 73, 7: 26, 8: 26, 9: 26, 37: 32 }, LAND_CELLS = { 5: 10, 6: 12, 7: 7, 8: 7, 9: 7, 37: 6 };
+const LAND_CELLS_OLD = { 5: 42, 6: 73, 7: 26, 8: 26, 9: 26, 37: 32 }, LAND_CELLS = { 5: 9, 6: 12, 7: 7, 8: 7, 9: 7, 37: 6 };
 const LAND_MULT = Object.fromEntries(Object.keys(LAND_CELLS).map((id) => [id, Math.round(LAND_CELLS_OLD[id] * PROD[20] / (LAND_CELLS[id] * PROD[LANDS_MAX]) * 1000) / 1000]));
 const HUT_CAP_MULT = Math.round(LAND_CELLS_OLD[6] * 20 / (LAND_CELLS[6] * LANDS_MAX) * 1000) / 1000; // места для людей за уровень Хибары
 const PROD_K = { wood: 1, stone: 1, iron: 1, food: 0.5788, people: 1.5163 };

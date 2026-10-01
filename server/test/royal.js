@@ -425,16 +425,18 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
 { // земли 7×7: раскладка, добыча до 25 ур., перенос старых земель 15×15 без потери добычи
   const G = require('../src/game'), Cc = require('../src/catalog');
   const cnt = {}; for (let y = 0; y < 7; y++) for (let x = 0; x < 7; x++) { const o = G.landOptions(x, y)[0]; cnt[o] = (cnt[o] || 0) + 1; }
-  assert.deepStrictEqual(cnt, { 5: 10, 6: 12, 7: 7, 8: 7, 9: 7, 37: 6 }, 'клеток по видам');
+  assert.deepStrictEqual(cnt, { 5: 9, 6: 12, 7: 7, 8: 7, 9: 7, 37: 6, undefined: 1 }, 'клеток по видам (в центре — площадь)');
   const old = { 5: 42, 6: 73, 7: 26, 8: 26, 9: 26, 37: 32 }, gg = [], ll = []; for (const [b, n] of Object.entries(old)) for (let i = 0; i < n; i++) { gg.push(+b); ll.push(20); }
   const oc = { grid: { 1: Int8Array.from(gg) }, levels: { 1: Int8Array.from(ll) }, queue: [{ view: 1, cost: { wood: 100 } }], res: { wood: 0, stone: 0, iron: 0, food: 0 } };
   G.migrateLands(oc);
-  assert.ok(oc.grid[1].length === 49 && Math.min(...oc.levels[1]) >= 24 && oc.res.wood === 100 && !oc.queue.length, 'полные земли → 7×7 на 24–25 ур., стройки возвращены');
+  assert.ok(oc.grid[1].length === 49 && Math.min(...Array.from(oc.levels[1]).filter((v, i) => oc.grid[1][i] >= 0)) >= 24 && oc.res.wood === 100 && !oc.queue.length, 'полные земли → 7×7 на 24–25 ур., стройки возвращены');
   const prodOld = (id) => old[id] * Cc.PROD[20], prodNew = (id) => Array.from(oc.grid[1]).reduce((s, b, i) => s + (b === id ? Cc.PROD[oc.levels[1][i]] * Cc.LAND_MULT[id] : 0), 0);
   for (const id of [5, 6, 7, 37]) assert.ok(Math.abs(prodNew(id) / prodOld(id) - 1) < 0.06, `добыча вида ${id} сохранена`);
   const sc = { grid: { 1: Int8Array.from([7, ...Array(224).fill(-1)]) }, levels: { 1: Int8Array.from([1, ...Array(224).fill(0)]) }, queue: [], res: {} };
   G.migrateLands(sc); assert.ok(Array.from(sc.grid[1]).includes(7), 'единственный дровосек не пропадает');
-  console.log('✓ Земли 7×7: раскладка, перенос старых земель');
+  const pc = { grid: { 1: new Int8Array(49).fill(-1) }, levels: { 1: new Int8Array(49) }, queue: [] }; pc.grid[1][3 * 7 + 3] = 5; pc.levels[1][3 * 7 + 3] = 9;
+  G.fixPlaza(pc); assert.ok(pc.grid[1][24] === -1 && Array.from(pc.grid[1]).includes(5) && Math.max(...pc.levels[1]) === 9, 'огород с площади переехал');
+  console.log('✓ Земли 7×7: раскладка, перенос старых земель, площадь');
 }
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);
