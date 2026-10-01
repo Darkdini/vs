@@ -55,14 +55,14 @@ const PLACE_ICON = ['gold', 'silver', 'bronze'];
 // подарки в профиле: игроки дарят друг другу за золото
 // обычные — всем; premium: true — уникальный набор, дарить можно только с премиумом
 const GIFTS = {
-  gift_box: { name: 'Подарочная коробка', img: 'gifts/gift_box.png', gold: 1 },
-  gold_coin: { name: 'Золотая монета', img: 'gifts/gold_coin.png', gold: 1 },
-  fountain: { name: 'Фонтан желаний', img: 'gifts/fountain.png', gold: 2 },
-  treasure: { name: 'Сундук сокровищ', img: 'gifts/treasure.png', gold: 3 },
-  diamond: { name: 'Большой диамант', img: 'gifts/diamond.jpg', gold: 3, premium: true },
-  castle_box: { name: 'Королевская шкатулка', img: 'gifts/castle_box.png', gold: 10, premium: true },
-  helmet: { name: 'Шлем Легиона', img: 'gifts/helmet.png', gold: 5, premium: true },
-  crown: { name: 'Корона Авторитета', img: 'gifts/crown.png', gold: 8, premium: true },
+  gift_box: { name: 'Подарочная коробка', img: 'gifts/gift_box.png?v=2', gold: 1 },
+  gold_coin: { name: 'Золотая монета', img: 'gifts/gold_coin.png?v=2', gold: 1 },
+  fountain: { name: 'Фонтан желаний', img: 'gifts/fountain.png?v=2', gold: 2 },
+  treasure: { name: 'Сундук сокровищ', img: 'gifts/treasure.png?v=2', gold: 3 },
+  diamond: { name: 'Большой диамант', img: 'gifts/diamond.png?v=2', gold: 3, premium: true },
+  castle_box: { name: 'Королевская шкатулка', img: 'gifts/castle_box.png?v=2', gold: 10, premium: true },
+  helmet: { name: 'Шлем Легиона', img: 'gifts/helmet.png?v=2', gold: 5, premium: true },
+  crown: { name: 'Корона Авторитета', img: 'gifts/crown.png?v=2', gold: 8, premium: true },
 };
 const GIFTS_DAY = 20;
 const REP_PER_GOLD = 2; // 1 монета = 2 репутации // сколько подарков игрок может отправить за сутки
