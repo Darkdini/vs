@@ -152,7 +152,7 @@ function landsScene(c, dpr) {
 // ---------- земли на нарисованном фоне: оригинальные земли 15×15 целиком ложатся на луг-ромб картинки ----------
 const hasPic = () => typeof LANDS_LAYOUT !== 'undefined';
 function landsXf() { // мир плиток → картинка: углы земель (левый, верхний, правый) ложатся точно в углы луга — сетка растянута на весь ромб
-  const q = LANDS_LAYOUT.quad, N = LN(), E = (N - 1) * SP + 0.5, m = 0.97, cx = (q[0][0] + q[2][0]) / 2, cy = (q[1][1] + q[3][1]) / 2;
+  const q = LANDS_LAYOUT.quad, N = LN(), E = (N - 1) * SP + 0.5, m = 0.95, cx = (q[0][0] + q[2][0]) / 2, cy = (q[1][1] + q[3][1]) / 2;
   const sc = (g, h) => { const p = tileScreen(g, h); return [p.sx + TW / 2, p.sy + TH / 2]; };
   const Lw = sc(-0.5, -0.5), Tw = sc(E, -0.5), Rw = sc(E, E);
   const P = (k) => [cx + (q[k][0] - cx) * m, cy + (q[k][1] - cy) * m], L = P(0), T = P(1), R = P(2);
@@ -162,7 +162,7 @@ function landsXf() { // мир плиток → картинка: углы зе�
   return { a, b, c, d, e: L[0] - a * Lw[0] - c * Lw[1], f: L[1] - b * Lw[0] - d * Lw[1] };
 }
 function landsPicBegin() {
-  const L = LANDS_LAYOUT, bg = pic('lands/bg.jpg'), x = ictx, sm = x.imageSmoothingEnabled; x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
+  const L = LANDS_LAYOUT, bg = pic('lands/bg.jpg?v=3'), x = ictx, sm = x.imageSmoothingEnabled; x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
   if (bg) x.drawImage(bg, 0, 0, L.w, L.h);
   const now = Date.now();
   for (const [i, p] of [...L.river, ...L.lake].entries()) { const ph = (now / 1700 + i * 0.37) % 1; if (ph > 0.5) continue; // блики на воде
