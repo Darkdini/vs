@@ -732,7 +732,9 @@ window.__iso = { Iso, tileScreen: (x, y) => tileScreen(x, y), cam: () => cam() }
 const ictx = Iso.cv.getContext('2d');
 const IMGS = new Map();
 // перерисованная графика высокого качества: файл в HD[path] во столько раз крупнее, на карте рисуется в прежнем размере
-const HD = { 'build/castle.png': ['build/hd/castle.png', 8], 'build/spycentr.png': ['build/hd/spycentr.png', 8], 'ground/camp1.png': ['ground/hd/camp1.png', 4], 'ground/camp2.png': ['ground/hd/camp2.png', 4], 'ground/camp3.png': ['ground/hd/camp3.png', 4],
+const HD = { 'build/castle.png': ['build/hd/castle.png', 8], 'build/spycentr.png': ['build/hd/spycentr.png', 8],
+  // все остальные здания — сглаженное увеличение ×8 (Scale2x ×3) старой пиксельной графики
+  ...Object.fromEntries('alchimia arhcamp art_tower baraks beer build builder chip commerce diplomat expedition farm_avg farm_big farm_small gendel guard_tower house_avg house_big house_small iron_avg iron_big iron_small magscool magtower market mbases mount portal reasury resident sawmill_avg sawmill_big sawmill_small secret smith stables stone_avg stone_big stone_small storage temple traveler university walun wisdom_house workshop'.split(' ').map((n) => [`build/${n}.png`, [`build/hd/${n}.png`, 8]])), 'ground/camp1.png': ['ground/hd/camp1.png', 4], 'ground/camp2.png': ['ground/hd/camp2.png', 4], 'ground/camp3.png': ['ground/hd/camp3.png', 4],
   // стена замка (Забор) — HD, нарисована по листу с 5 частями
   ...Object.fromEntries([0, 1, 2, 3, 4].map((i) => [`fence/fence${i}.png`, [`fence/hd/fence${i}.png`, 8]])),
   // ров (кольцо из одного нарисованного куска, с течением) и трава в замке — HD
