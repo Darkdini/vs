@@ -197,7 +197,7 @@ function client() {
     console.log('✓ Дипломатический центр: приглашения, исключение, заявка и одобрение');
 
     // ---- Центр разведки: разведчики тренируются в нём, отчёт зависит от уровня и выживших ----
-    assert.ok(mil.units.find((u) => u.id === 202).req[45] === 1 && mil.units.some((u) => u.name === 'Орк загонщик')) // Разведчик: Центр разведки — в «Необходимо», как в оригинале;
+    assert.ok(mil.units.find((u) => u.id === 202).building === 45 && mil.units.some((u) => u.name === 'Орк загонщик')) // разведчики всех рас тренируются в Центре разведки;
     assert.ok(mil.spyOpen && mil.spyOpen.reinf.level > mil.spyOpen.armies.level);
     adm.send({ t: 'admin', op: 'noarmy', login: 'Webby', all: true }); // без охраны — выживут все, видно всё
     adm.send({ t: 'send', units: { 202: 300 }, x: target.x, y: target.y, mission: 'scout' });

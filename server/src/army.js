@@ -30,7 +30,7 @@ const UNIT_LIST = [
   [200, 'Мечник', 'humans', 'human/hd/swordman', 'atk_inf', B.BARRACKS, 1],
   [201, 'Копейщик', 'humans', 'human/hd/javelineer', 'def_inf', B.BARRACKS, 3, { [B.SMITH]: 1 }],
   [261, 'Кирасир', 'humans', 'human/hd/cuirassier', 'light_cav', B.SMITH, 3],
-  [202, 'Разведчик', 'humans', 'human/hd/scout', 'scout', B.STABLE, 1, { [B.TOWNHALL]: 5, [B.SMITH]: 2, [B.SPY]: 1 }],
+  [202, 'Разведчик', 'humans', 'human/hd/scout', 'scout', B.SPY, 1, { [B.TOWNHALL]: 5, [B.SMITH]: 2, [B.STABLE]: 1 }], // тренируется в Центре разведки
   [203, 'Чародей', 'humans', 'human/hd/mage', 'mage', B.MAGE_ACADEMY, 1, { [B.BARRACKS]: 1 }],
   [204, 'Рыцарь', 'humans', 'human/hd/knight', 'heavy_cav', B.BARRACKS, 10, { [B.STABLE]: 5, [B.WORKSHOP]: 1 }],
   [205, 'Паладин', 'humans', 'human/hd/paladin', 'heavy_cav', B.STABLE, 5, { [B.WORKSHOP]: 5 }],
@@ -41,7 +41,7 @@ const UNIT_LIST = [
   [207, 'Эльф лучник', 'elves', 'elf/hd/archer', 'ranged', B.BARRACKS, 1],
   [208, 'Танцующий с клинками', 'elves', 'elf/hd/fighter', 'atk_inf', B.BARRACKS, 3, { [B.SMITH]: 1 }],
   [257, 'Химера', 'elves', 'elf/hd/chimera', 'atk_inf', B.SMITH, 3],
-  [209, 'Скаут', 'elves', 'elf/hd/scout', 'scout', B.STABLE, 1, { [B.SMITH]: 3, [B.SPY]: 1 }],
+  [209, 'Скаут', 'elves', 'elf/hd/scout', 'scout', B.SPY, 1, { [B.STABLE]: 1, [B.SMITH]: 3 }], // тренируется в Центре разведки
   [210, 'Созидающая', 'elves', 'elf/hd/create', 'mage', B.BARRACKS, 5, { [B.MAGE_ACADEMY]: 1 }],
   [211, 'Кентавр', 'elves', 'elf/hd/kenaur', 'light_cav', B.STABLE, 5, { [B.SMITH]: 7 }], // список на скрине обрезан — видно Конюшня 5, Кузнец 7
   [258, 'Зверь', 'elves', 'elf/hd/beast', 'elite_inf', B.BARRACKS, 10, { [B.SMITH]: 5 }],
@@ -52,7 +52,7 @@ const UNIT_LIST = [
   [215, 'Арбалетчик', 'dwarves', 'dwarv/hd/arbalet', 'ranged', B.BARRACKS, 3, { [B.SMITH]: 1 }],
   [255, 'Горный великан', 'dwarves', 'dwarv/hd/giant', 'def_inf', B.BARRACKS, 1, { [B.SMITH]: 3 }],
   [216, 'Жрец Рун', 'dwarves', 'dwarv/hd/elder', 'mage', B.MAGE_ACADEMY, 1, { [B.BARRACKS]: 5 }],
-  [217, 'Грифон разведчик', 'dwarves', 'dwarv/hd/gryphon', 'scout', B.STABLE, 1, { [B.WORKSHOP]: 1, [B.SMITH]: 3, [B.SPY]: 1 }],
+  [217, 'Грифон разведчик', 'dwarves', 'dwarv/hd/gryphon', 'scout', B.SPY, 1, { [B.STABLE]: 1, [B.WORKSHOP]: 1, [B.SMITH]: 3 }], // тренируется в Центре разведки
   [218, 'Защитник гор', 'dwarves', 'dwarv/hd/defender', 'heavy_cav', B.STABLE, 5, { [B.BARRACKS]: 7, [B.WORKSHOP]: 3, [B.SMITH]: 7 }],
   [256, 'Механический центурион', 'dwarves', 'dwarv/hd/centurion', 'elite_inf', B.MAGE_ACADEMY, 7, { [B.SMITH]: 5 }],
   [219, 'Револьверщик', 'dwarves', 'dwarv/hd/revolver', 'elite_inf', B.BARRACKS, 10, { [B.WORKSHOP]: 10, [B.SMITH]: 8 }],
@@ -60,7 +60,7 @@ const UNIT_LIST = [
   // орки — как в оригинале (скрины окна «Юнит»): имена, требования, характеристики — в ORIG ниже
   [245, 'Мародер', 'orcs', 'orc/hd/marauder', 'atk_inf', B.BARRACKS, 1],
   [247, 'Бугай', 'orcs', 'orc/hd/bugai', 'def_inf', B.BARRACKS, 3, { [B.SMITH]: 1 }],
-  [252, 'Орк загонщик', 'orcs', 'orc/hd/hunter', 'scout', B.BARRACKS, 5, { [B.MAGE_ACADEMY]: 1, [B.SPY]: 1 }],
+  [252, 'Орк загонщик', 'orcs', 'orc/hd/hunter', 'scout', B.SPY, 1, { [B.BARRACKS]: 5, [B.MAGE_ACADEMY]: 1 }], // тренируется в Центре разведки
   [253, 'Осквернитель', 'orcs', 'orc/hd/defiler', 'mage', B.MAGE_ACADEMY, 5],
   [246, 'Урук-хай', 'orcs', 'orc/hd/uruk', 'def_inf', B.STABLE, 1, { [B.WORKSHOP]: 1, [B.SMITH]: 3 }],
   [254, 'Варлок', 'orcs', 'orc/hd/warlock', 'mage', B.STABLE, 5, { [B.BARRACKS]: 7, [B.WORKSHOP]: 3, [B.SMITH]: 7 }],
