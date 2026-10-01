@@ -21,13 +21,11 @@ const MAX_QUEUE = Number(process.env.MAX_QUEUE || 3); // оригинал: 3 с�
 // W лес (Дровосек), F пашня (Огород), S камни (Каменщик), I горы (Рудник), H луг (Хибара), P озеро (Рыболовная заводь),
 // X — площадь с фонтаном в центре (не застраивается)
 const LANDS_PLAN = [
-  'WWWFFSS',
-  'WWWFFSS',
-  'WHFFFSS',
-  'HFFXHSI',
-  'HHHHHHI',
-  'PPHHIII',
-  'PPPPIIH',
+  'WWFSS',
+  'WWFSS',
+  'HFXII',
+  'HFHII',
+  'PPPHH',
 ];
 const PLAN_B = { W: 7, F: 5, S: 8, I: 9, H: 6, P: 37 };
 const LANDS_N = C.LANDS_N;
@@ -117,12 +115,13 @@ const checkPassword = (pass, stored) => { const a = Buffer.from(hashPassword(pas
 // реальное время стройки с учётом скорости мира (не меньше 3 с)
 const buildTime = (def, level, townhall) => Math.max(3, Math.round(C.levelTimeSec(def, level, townhall) / SPEED));
 
-// перенос старых земель 15×15 на 7×7: постройки каждого вида встают на клетки своего вида, а их суммарная добыча
+// перенос старых земель (15×15 или 7×7) на новые: постройки каждого вида встают на клетки своего вида, а их суммарная добыча
 // (уровни прежних зданий) переводится в уровни новых — до 25 ур. Стройки на землях отменяются с возвратом ресурсов.
 function migrateLands(castle) {
   const N = LANDS_N, g0 = castle.grid[1], l0 = castle.levels[1];
   const sum = {};
-  for (let i = 0; i < g0.length; i++) if (g0[i] >= 0 && C.LAND_MULT[g0[i]]) sum[g0[i]] = (sum[g0[i]] || 0) + C.PROD[l0[i]];
+  const om = C.LAND_MULT_BY_SIZE[g0.length] || {}; // множитель добычи прежней раскладки
+  for (let i = 0; i < g0.length; i++) if (g0[i] >= 0 && C.LAND_MULT[g0[i]]) sum[g0[i]] = (sum[g0[i]] || 0) + C.PROD[l0[i]] * (om[g0[i]] || 1);
   const g = new Int8Array(N * N).fill(-1), l = new Int8Array(N * N);
   for (const [b, total] of Object.entries(sum)) {
     const cells = []; for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (landOptions(x, y)[0] === Number(b)) cells.push(y * N + x);
@@ -282,7 +281,7 @@ class Game {
     castleGrid[3 * 7 + 3] = 0; castle.levels[0][3 * 7 + 3] = 1; // Ратуша 1 ур. в центре
     castleGrid[2 * 7 + 1] = 1; castle.levels[0][2 * 7 + 1] = 2; // Склад 2 ур.
     // стартовые постройки на землях: по одной добывающей каждого вида
-    for (const [bx, by, b] of [[1, 1, 7], [5, 1, 8], [6, 4, 9], [3, 2, 5], [3, 4, 6]]) {
+    for (const [bx, by, b] of [[0, 1, 7], [4, 1, 8], [4, 3, 9], [1, 2, 5], [0, 2, 6]]) {
       landsGrid[by * LANDS_N + bx] = b; castle.levels[1][by * LANDS_N + bx] = 1;
     }
     this.db.castles[id] = castle;

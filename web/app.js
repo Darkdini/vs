@@ -96,7 +96,7 @@ const send = (m) => { if (S.ws && S.ws.readyState === 1) S.ws.send(JSON.stringif
 const R = () => S.cat.rules;
 function buildSec(def, level, townhall) {
   const T = R().time, t = def.time ? { base: def.time, growth: T.castle.growth } : def.layer === 'lands' ? T.lands : T.castle;
-  const raw = Math.max(T.min, Math.round(t.base * t.growth ** (Math.min(level, 20) - 1) * 1.07 ** Math.max(0, level - 20) * T.townhallFactor ** townhall));
+  const raw = Math.max(T.min, Math.round(t.base * t.growth ** (Math.min(level, 20) - 1) * 1.03 ** Math.max(0, level - 20) * T.townhallFactor ** townhall));
   return Math.max(R().minBuildSec, Math.round(raw / S.cat.speed));
 }
 const ratingPer = (def) => (def.layer === 'lands' ? R().rating.lands : R().rating.castle);
