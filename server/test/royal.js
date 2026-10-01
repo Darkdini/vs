@@ -201,12 +201,12 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(!g.login('admin', 'secretpass') && g.login('boss@login', 'secretpass') === adm && g.login(' BOSS@LOGIN ', 'secretpass') === adm);
   assert.ok(!g.login('boss@login', 'wrong'));
   delete process.env.ADMIN_LOGIN;
-  assert.ok(g.login('admin', 'secretpass') === adm && adm.login === 'admin');
-  console.log('✓ секретный логин админа: вход только под ADMIN_LOGIN, «admin» не пускает, ник в игре — admin');
+  assert.ok(g.login('admin', 'secretpass') === adm && adm.login === 'Советник');
+  console.log('✓ секретный логин админа: вход только под ADMIN_LOGIN, «admin» не пускает, ник в игре — Советник');
 }
 // админ по умолчанию — с нуля: 1 замок без развития; прокачанный админ из старой базы сбрасывается один раз
 {
-  let adm = g.db.users.admin;
+  let adm = g.adminUser();
   assert.ok(g.castlesOf(adm).length === 1 && g.rating(g.castleOf(adm)) < 100, 'новый админ — 1 неразвитый замок');
   process.env.ADMIN_FULL = '1'; adm.freshStart = false; g.ensureAdmin();
   assert.ok(g.castlesOf(adm).length >= 20 && adm.gold >= 1000000, 'ADMIN_FULL=1 — прокачанный (тесты)');
@@ -233,7 +233,7 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.deepStrictEqual(g.profileOf(v, v).titles, []);
   g.buyPremium(v, 30); assert.deepStrictEqual(g.profileOf(v, v).titles, ['VIP']);
   v.premium = Date.now() - 1; assert.deepStrictEqual(g.profileOf(v, v).titles, [], 'премиум кончился — VIP пропал');
-  const adm = g.db.users.admin; adm.premium = Date.now() + 86400000; assert.deepStrictEqual(g.profileOf(adm, adm).titles, ['VIP', 'Администратор']);
+  const adm = g.adminUser(); adm.premium = Date.now() + 86400000; assert.deepStrictEqual(g.profileOf(adm, adm).titles, ['VIP', 'Администратор']);
   console.log('✓ звание VIP в профиле: есть, пока действует премиум; у админа — «VIP, Администратор»');
 }
 // подарок приходит получателю и сообщением от дарителя
@@ -246,7 +246,7 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
 }
 // новости администрации: непрочитанная → конверт; прочитал — исчезла; комментарии, права
 {
-  const ad = g.db.users.admin, u = g.register({ login: 'newsr', password: '12345', race: 0 }).user;
+  const ad = g.adminUser(), u = g.register({ login: 'newsr', password: '12345', race: 0 }).user;
   assert.ok(g.newsOp(u, { op: 'publish', title: 'Привет', text: 'x' }).error, 'публикует только админ');
   const id = g.newsOp(ad, { op: 'publish', title: 'Обновление игры', text: 'Что нового' }).id;
   assert.strictEqual(g.newsUnread(u), 1); assert.strictEqual(g.newsFirst(u), id);

@@ -189,7 +189,7 @@ class Game {
     if (password.length < 5 && !system) return { error: 'Пароль слишком короткий (минимум 5 символов).' };
     if (this.db.accts[acct]) return { error: 'Такой логин (email) уже зарегистрирован.' };
     if (Object.prototype.hasOwnProperty.call(this.db.users, nick)) return { error: 'Такой ник уже занят.' };
-    if (!system && (nick.toLowerCase() === 'admin' || acct === 'admin')) return { error: 'Этот ник зарезервирован.' }; // «Admin», «ADMIN» — нельзя, чтобы не выдавать себя за админа
+    if (!system && (['admin', 'советник'].includes(nick.toLowerCase()) || acct === 'admin')) return { error: 'Этот ник зарезервирован.' }; // «Admin», «ADMIN» — нельзя, чтобы не выдавать себя за админа
     if (!email && acct.includes('@')) email = acct;
     const id = this.db.nextId++;
     const raceId = C.RACES[Number(race)] || 'humans';
@@ -220,7 +220,7 @@ class Game {
     if (user.admin) return { error: 'Ник администратора не меняется.' };
     if (!/^[a-zа-яё0-9_]{3,10}$/i.test(nick)) return { error: 'Ник: 3–10 символов (буквы, цифры, _).' };
     if (nick === user.login) return { error: 'Это ваш текущий ник.' };
-    if (Object.prototype.hasOwnProperty.call(this.db.users, key) || key.toLowerCase() === 'admin') return { error: 'Такой ник уже занят.' };
+    if (Object.prototype.hasOwnProperty.call(this.db.users, key) || ['admin', 'советник'].includes(key.toLowerCase())) return { error: 'Такой ник уже занят.' };
     if ((user.gold || 0) < price) return { error: `Смена ника стоит ${price} золота, у вас ${user.gold || 0}.` };
     this.goldChange(user, -price, `Смена ника: ${user.login} → ${nick}`);
     (user.nickLog = user.nickLog || []).push({ at: Date.now(), from: user.login, to: nick });
@@ -243,7 +243,7 @@ class Game {
     let acct = String(login || '').trim().toLowerCase(); // вход — по логину (Email / Логин), не по нику
     const alias = String(process.env.ADMIN_LOGIN || '').trim().toLowerCase();
     if (alias && alias !== 'admin') {
-      if (acct === alias) acct = (this.db.users.admin && this.db.users.admin.acct) || 'admin';
+      if (acct === alias) acct = (this.adminUser && this.adminUser() && this.adminUser().acct) || 'admin';
       else if (acct === 'admin') return null;
     }
     const key = this.db.accts[acct];
@@ -253,6 +253,7 @@ class Game {
     return u;
   }
 
+  passOk(u, password) { return !!u && checkPassword(String(password || '').toLowerCase(), u.pass); }
   userById(id) { return this.byId.get(id); }
 
   // ----- замки -----

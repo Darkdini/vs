@@ -5,6 +5,7 @@
 const C = require('./catalog');
 const { UNIT, GENERAL_ID, GEN, unitsForRace } = require('./army');
 
+const ADMIN_NICK = 'Советник';
 const ADMIN_CASTLES = Number(process.env.ADMIN_CASTLES || 20);
 const START_REP = 10; // стартовая репутация (как в social.js)
 const RES4 = ['wood', 'stone', 'iron', 'food'];
@@ -15,9 +16,14 @@ function install(Game) {
 
   // админ: создаётся при старте. По умолчанию — как обычный игрок: 1 замок, всё с нуля.
   // ADMIN_FULL=1 (автотесты) — ADMIN_CASTLES замков на полной прокачке, миллион золота.
+  // ник админа в игре — «Советник»; вход — по логину admin (или секретному ADMIN_LOGIN)
+  P.adminUser = function adminUser() { const k = this.db.accts && this.db.accts.admin; return (k && this.db.users[k]) || this.db.users[ADMIN_NICK] || this.db.users.admin || null; };
   P.ensureAdmin = function ensureAdmin(pass = process.env.ADMIN_PASS) {
     const FULL = process.env.ADMIN_FULL === '1';
-    let u = this.db.users.admin;
+    let u = this.adminUser();
+    if (u && u.login !== ADMIN_NICK && !Object.prototype.hasOwnProperty.call(this.db.users, ADMIN_NICK)) { // старая база: ник admin → Советник (логин для входа — прежний)
+      delete this.db.users[u.login]; u.login = ADMIN_NICK; this.db.users[ADMIN_NICK] = u; if (u.acct) this.db.accts[u.acct] = ADMIN_NICK;
+    }
     if (!u) {
       // без ADMIN_PASS генерируется случайный пароль и пишется в консоль и файл рядом с базой
       if (!pass) {
@@ -25,13 +31,13 @@ function install(Game) {
         try { require('fs').mkdirSync(require('path').dirname(this.store.file), { recursive: true }); require('fs').writeFileSync(require('path').join(require('path').dirname(this.store.file), 'ADMIN_PASSWORD.txt'), `admin / ${pass}\n`, { mode: 0o600 }); } catch { /* нет доступа к папке */ }
         this.adminNewPass = pass;
       }
-      const r = this.register({ login: 'admin', password: pass, race: 0, system: true });
+      const r = this.register({ login: 'admin', nick: ADMIN_NICK, password: pass, race: 0, system: true });
       if (r.error) return null;
       u = r.user;
       if (FULL) { const c = this.castleOf(u); c.name = 'Королевский замок'; this.maxOut(c); }
     } else if (!FULL && !u.freshStart && (u.adminGold || this.castlesOf(u).length > 1)) this.adminFresh(u); // прокачанный админ из старой базы → с нуля (один раз)
     // сброс пароля админа при запуске: ADMIN_PASS=новый ADMIN_RESET=1 sh ~/game/start.sh
-    if (pass && process.env.ADMIN_RESET === '1' && !this.login(u.login, pass)) { const cr = require('crypto'), salt = cr.randomBytes(8).toString('hex'); u.pass = `${salt}:${cr.scryptSync(String(pass).toLowerCase(), salt, 32).toString('hex')}`; u.tokens = []; this.adminReset = true; }
+    if (pass && process.env.ADMIN_RESET === '1' && !this.passOk(u, pass)) { const cr = require('crypto'), salt = cr.randomBytes(8).toString('hex'); u.pass = `${salt}:${cr.scryptSync(String(pass).toLowerCase(), salt, 32).toString('hex')}`; u.tokens = []; this.adminReset = true; }
     u.admin = true;
     if (FULL) {
       if (!u.adminGold) { u.gold = Math.max(u.gold || 0, 1000000); u.adminGold = true; } // миллион золота админу — один раз
@@ -278,4 +284,4 @@ function install(Game) {
   };
 }
 
-module.exports = { install };
+module.exports = { ADMIN_NICK, install };

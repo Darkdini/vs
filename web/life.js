@@ -209,7 +209,7 @@ function landsScene(c, dpr) {
 // ================= земли по нарисованной картинке (gfx/lands/bg.jpg + LANDS_LAYOUT) =================
 // мир = пиксели картинки. Клетки сервера стоят на полянках картинки, жители ходят по нарисованным тропинкам (граф рёбер-ломаных).
 const LDEC = { trees: [23.1, 29.8], trees2: [35.8, 37.7], rocks: [27.1, 30.0], rocksB: [24.5, 25.8], mine: [29.5, 48.7], cow: [37.0, 38.3], cart: [20.8, 29.2], tent: [24.2, 30.2], boat: [11.5, 17.2] };
-const BK_L = 1.6; // масштаб построек на полянках
+const BK_L = 2.9; // масштаб построек на полянках
 const LP = { walkers: [], last: 0, fish: null, birds: [], adj: null, loiter: [], pigeons: [] };
 const hasPic = () => typeof LANDS_LAYOUT !== 'undefined';
 const scrToDir = (dx, dy) => DIR_ROW(dx / TW - dy / TH, dx / TW + dy / TH);
@@ -263,15 +263,15 @@ function lpPerson(sheet, row, f, x, y, cols) {
   c.drawImage(im, (Math.floor(f) % cols) * AN.CW, row * AN.CH, AN.CW, AN.CH, x - AN.FX / k, y - AN.FY / k, AN.CW / k, AN.CH / k);
 }
 function lpDecor(d, now) {
-  if (d.k === 'mill') { const im = lifeSheet('mill'); if (!im) return; const k = AN.KM / MILL_S, f = Math.floor(now / 140) % 12; ictx.drawImage(im, f * AN.MW, 0, AN.MW, AN.MH, d.x - AN.MX / k, d.y + 8 - AN.MY / k, AN.MW / k, AN.MH / k); return; }
+  if (d.k === 'mill') { const im = lifeSheet('mill'); if (!im) return; const k = AN.KM / 2.8, f = Math.floor(now / 140) % 12; ictx.drawImage(im, f * AN.MW, 0, AN.MW, AN.MH, d.x - AN.MX / k, d.y + 8 - AN.MY / k, AN.MW / k, AN.MH / k); return; }
   const im = pic(`lands/${d.k}.png`), a = LDEC[d.k]; if (!im || !a) return;
-  const k = 6 / (d.k === 'boat' ? 1 : 1.1); ictx.drawImage(im, d.x - a[0] * 6 / k, d.y - a[1] * 6 / k + (d.k === 'boat' ? 20 : 4), im.width / k, im.height / k);
+  const k = 6 / (d.k === 'boat' ? 1.8 : 1.9); ictx.drawImage(im, d.x - a[0] * 6 / k, d.y - a[1] * 6 / k + (d.k === 'boat' ? 30 : 8), im.width / k, im.height / k);
 }
 // пустая полянка, где можно строить: мерцающий золотой контур
 function lpEmpty(x, y, now) {
   const c = ictx, a = 0.35 + 0.25 * Math.sin(now / 500 + x);
   c.save(); c.setLineDash([6, 5]); c.lineDashOffset = -now / 60; c.strokeStyle = `rgba(255,220,90,${a})`; c.lineWidth = 2;
-  c.beginPath(); c.ellipse(x, y, 34, 21, 0, 0, Math.PI * 2); c.stroke(); c.restore();
+  c.beginPath(); c.ellipse(x, y, 52, 32, 0, 0, Math.PI * 2); c.stroke(); c.restore();
 }
 function landsPicScene(c, dpr) {
   const L = LANDS_LAYOUT, st = S.st.castle, now = Date.now(), x = ictx, N = LN();
@@ -287,14 +287,14 @@ function landsPicScene(c, dpr) {
   for (let i = 0; i < N * N; i++) {
     const pt = L.cells[i]; if (!pt || !(S.cat.landOptions[Math.floor(i / N)][i % N] || []).length) continue;
     const [px, py] = pt, b = st.grid[1][i], q = queueAt(1, i);
-    if (Iso.sel && Iso.sel.tab === 'lands' && Iso.sel.y * N + Iso.sel.x === i) { x.fillStyle = 'rgba(255,214,80,0.35)'; x.strokeStyle = '#ffe27a'; x.lineWidth = 2.5; x.beginPath(); x.ellipse(px, py, 38, 24, 0, 0, Math.PI * 2); x.fill(); x.stroke(); }
+    if (Iso.sel && Iso.sel.tab === 'lands' && Iso.sel.y * N + Iso.sel.x === i) { x.fillStyle = 'rgba(255,214,80,0.35)'; x.strokeStyle = '#ffe27a'; x.lineWidth = 2.5; x.beginPath(); x.ellipse(px, py, 58, 36, 0, 0, Math.PI * 2); x.fill(); x.stroke(); }
     if (b < 0 && !q) { lpEmpty(px, py, now); continue; }
     items.push([py, () => { drawCellBuilding(1, i, b, st.levels[1][i], { sx: px - TW / 2, sy: py - TH / 2 - TH * PLOT / 2 + 6 }, BK_L, false);
       if (HOUSES.has(b)) { const im = pic(`build/${BUILD_IMG[displayId(S.by[b], st.levels[1][i])]}.png`); if (im) for (let k = 0; k < 4; k++) { const ph = ((now / 2600) + k / 4 + i * 0.13) % 1;
-        x.fillStyle = `rgba(235,235,235,${0.45 * (1 - ph)})`; x.beginPath(); x.arc(px + 7 + Math.sin(ph * 5 + i) * 3 + ph * 6, py - im.height * BK_L + 18 - ph * 22, 2 + ph * 6, 0, Math.PI * 2); x.fill(); } }
+        x.fillStyle = `rgba(235,235,235,${0.45 * (1 - ph)})`; x.beginPath(); x.arc(px + 12 + Math.sin(ph * 5 + i) * 4 + ph * 8, py - im.height * BK_L + 34 - ph * 30, 2 + ph * 6, 0, Math.PI * 2); x.fill(); } }
       if (FARMS.has(b)) for (let k = 0; k < 2; k++) { const t = now / 1000 + i * 1.7 + k * 2.3, bx = px + Math.sin(t * 0.7) * 20, by = py - 14 + Math.cos(t * 1.1) * 7, fl = Math.abs(Math.sin(t * 14)) * 2.2 + 0.4;
         x.fillStyle = k ? '#ffe14d' : '#fff'; x.beginPath(); x.ellipse(bx - fl * 0.6, by, fl, 1.6, 0, 0, Math.PI * 2); x.ellipse(bx + fl * 0.6, by, fl, 1.6, 0, 0, Math.PI * 2); x.fill(); } }]);
-    if (q || SAWS.has(b)) items.push([py + 14, () => lpPerson('builder', 2, (now / 110 + i * 3) % 7, px - 30, py + 14, 7)]);
+    if (q || SAWS.has(b)) items.push([py + 30, () => lpPerson('builder', 2, (now / 110 + i * 3) % 7, px - 52, py + 30, 7)]);
   }
   for (const d of L.decor) items.push([d.y, () => lpDecor(d, now)]);
   for (const w of LP.walkers) items.push([w.y, () => lpPerson(`villager${w.skin}`, w.look, w.wait > 0 || w.mode === 2 ? 0 : w.frame, w.x, w.y, 8)]);

@@ -129,7 +129,7 @@ function install(Game) {
       winners.push({ hall: h.name, place: i + 1, login: u.login });
     });
     // письмо каждому победителю: за что и сколько репутации начислено
-    const from = this.db.users.admin || null;
+    const from = this.adminUser() || null;
     for (const [u, g] of got) {
       const total = (u.reputation ?? START_REP) - g.before;
       const text = [`Итоги Зала славы за ${s.key}.`, '', ...g.lines, '', `Всего: +${total} репутации (было ${g.before}, стало ${u.reputation}).`, 'Медали — в Вашем профиле, раздел «Зал Славы».'].join('\n');

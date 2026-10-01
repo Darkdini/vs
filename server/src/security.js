@@ -122,7 +122,8 @@ function install(Game) {
     this.store.save(); return t;
   };
   P.tokenLogin = function tokenLogin(login, token) {
-    const u = Object.prototype.hasOwnProperty.call(this.db.users, String(login || '').trim()) ? this.db.users[String(login).trim()] : null;
+    const k = String(login || '').trim(); // «admin» — прежний ник админа (сохранённые входы «Запомнить меня»)
+    const u = Object.prototype.hasOwnProperty.call(this.db.users, k) ? this.db.users[k] : k.toLowerCase() === 'admin' ? this.adminUser() : null;
     if (!u || !/^[a-f0-9]{48}$/.test(String(token || ''))) return null;
     const h = Buffer.from(sha(token)), now = Date.now();
     return (u.tokens || []).some((x) => x.exp > now && crypto.timingSafeEqual(Buffer.from(x.h), h)) ? u : null;

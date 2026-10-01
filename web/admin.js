@@ -8,7 +8,7 @@ const aNum = (name, value, ph) => `<input class="anum" type="number" inputmode="
 
 const ADM_TABS = [['target', 'Цель'], ['build', 'Замки'], ['army', 'Армия'], ['players', 'Игроки'], ['multi', 'Мульты'], ['world', 'Мир']];
 function adminHtml() {
-  const a = S.adm, who = a.login ? `игрок <b>${esc(a.login)}</b>` : '<b>вы (admin)</b>';
+  const a = S.adm, who = a.login ? `игрок <b>${esc(a.login)}</b>` : '<b>вы (Советник)</b>';
   const units = (S.cat.mil.units || []).filter((u) => u.id !== S.cat.mil.generalId);
   const tab = a.tab || 'target';
   const head = `${ribbon('Админ-панель')}

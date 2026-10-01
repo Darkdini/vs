@@ -102,7 +102,7 @@ function client() {
     a.send({ t: 'rating' });
     const rows = (await a.expect('rating')).rows;
     assert.equal(rows.length, 3);
-    assert.equal(rows[0].login, 'admin'); // админ на полной прокачке — первый
+    assert.equal(rows[0].login, 'Советник'); // админ на полной прокачке — первый
     a.send({ t: 'profile', id: 0 });
     assert.equal((await a.expect('profile')).profile.login, 'Webby');
     console.log('✓ рейтинг и кабинет');
@@ -135,7 +135,7 @@ function client() {
     await adm.expect('toast', (m) => /Армия выступила/.test(m.msg));
     adm.send({ t: 'admin', op: 'finish' });
     await adm.expect('toast', (m) => /Набег: Замок webby/i.test(m.msg));
-    await a.expect('toast', (m) => /напал admin/.test(m.msg));
+    await a.expect('toast', (m) => /напал Советник/.test(m.msg));
     adm.send({ t: 'reports' });
     const reps = (await adm.expect('reports')).list;
     adm.send({ t: 'report', id: reps.find((x) => /Набег/.test(x.title)).id });
@@ -216,7 +216,7 @@ function client() {
     await a.expect('toast', (m) => /Караульная башня: Набег на/.test(m.msg));
     a.send({ t: 'moves' });
     const mv = (await a.expect('moves')).data;
-    assert.ok(mv.incoming.some((x) => x.mission === 'raid' && x.from === 'admin'));
+    assert.ok(mv.incoming.some((x) => x.mission === 'raid' && x.from === 'Советник'));
     adm.send({ t: 'admin', op: 'finish' });
     await adm.expect('toast', (m) => /Набег: /.test(m.msg));
     console.log('✓ Караульная башня: оповещение о набеге, передвижения армий королевства');
@@ -284,9 +284,9 @@ function client() {
     adm.send({ t: 'gift', to: s3.user.id, gift: 'diamond', text: 'Удачи!' });
     await adm.expect('toast', (m) => /Подарок «Большой диамант» отправлен игроку webby/i.test(m.msg));
     const gp = (await adm.expect('profile', (m) => m.refresh)).profile;
-    assert.ok(gp.gifts[0].gift === 'diamond' && gp.gifts[0].from === 'admin' && gp.gifts[0].text === 'Удачи!');
+    assert.ok(gp.gifts[0].gift === 'diamond' && gp.gifts[0].from === 'Советник' && gp.gifts[0].text === 'Удачи!');
     adm.send({ t: 'gift', to: as.user.id, gift: 'diamond' }); // себе — тоже можно
-    await adm.expect('toast', (m) => /отправлен игроку admin/.test(m.msg));
+    await adm.expect('toast', (m) => /отправлен игроку Советник/.test(m.msg));
     adm.send({ t: 'rep', id: s3.user.id, coins: 50 });
     await adm.expect('toast', (m) => /Репутация \+100/.test(m.msg));
     console.log('✓ репутация за золото: 50 монет = +100');
@@ -317,7 +317,7 @@ function client() {
     await a.expect('toast', (m) => /spammer: бан в чате на 2 ч/.test(m.msg));
     sp.send({ t: 'chat', text: 'ещё' });
     await sp.expect('error', (m) => /запрещено писать в чат/.test(m.msg));
-    adm.send({ t: 'chatmod', op: 'ban', login: 'admin', hours: -1 });
+    adm.send({ t: 'chatmod', op: 'ban', login: 'Советник', hours: -1 });
     await adm.expect('error', (m) => /забанить нельзя/.test(m.msg));
     sp.close();
     // модератор удаляет сообщение в форуме альянса (права «Новости и форум» у него нет) и может открыть форум чужого альянса
@@ -336,7 +336,7 @@ function client() {
     assert.ok(gl[0].reason === 'Пополнение казны администрацией' && gl.some((x) => /казны альянса/.test(x.reason)), JSON.stringify(gl));
     a.send({ t: 'mail', folder: 'in' });
     const mb = await a.expect('mail');
-    assert.ok(mb.list.some((x) => x.subject === 'Казна пополнена' && x.other === 'admin'));
+    assert.ok(mb.list.some((x) => x.subject === 'Казна пополнена' && x.other === 'Советник'));
     console.log('✓ казна: пополнение админом, письмо игроку, история трат');
 
     // ---- мульты: два аккаунта с одного устройства попадают в одну группу ----
