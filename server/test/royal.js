@@ -392,5 +392,21 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   console.log('✓ Бой в один удар: стена, Кузница, тараны, раненые, бегство, набег');
   if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
 }
+{ // задания: обучение, ежедневные, поход в логово
+  const luck0 = process.env.LUCK; process.env.LUCK = '0';
+  const u = g.register({ login: 'questU', password: '12345', race: 3 }).user, c = g.castleOf(u);
+  let st = g.questsState(u, c);
+  assert.ok(st.tut.idx === 0 && !st.tut.done && st.daily.length === 3 && st.camp.k === 0 && st.camp.x !== undefined, 'задания на старте');
+  c.levels[0][c.grid[0].indexOf(1)] = 3; const w0 = c.res.wood; c.res.wood = 0;
+  assert.ok(g.questClaim(u, c, 'tut').ok && c.res.wood === 300 && g.questsState(u, c).tut.idx === 1, 'награда за обучение');
+  assert.ok(g.questClaim(u, c, 'tut').error, 'невыполненное не забрать');
+  g.maxOut(c); g.mil(c); c.units = { 246: 60 }; const L = g.lairOf(u);
+  assert.ok(!g.sendArmy(c, { units: { 246: 60 }, x: L.x, y: L.y, mission: 'attack' }).error, 'поход в логово');
+  g.arrive(c, c.armies[0], Date.now());
+  const gold = u.gold; assert.ok(g.questsState(u, c).camp.won && g.questClaim(u, c, 'camp').ok && u.gold === gold + 5 && g.questsState(u, c).camp.k === 1, 'логово разорено, глава 2');
+  assert.ok(g.sendArmy(c, { units: { 246: 1 }, x: L.x, y: L.y, mission: 'attack' }).error, 'старое логово исчезло');
+  void w0; console.log('✓ Задания: обучение, награды, поход в логово с боссом');
+  if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
+}
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);

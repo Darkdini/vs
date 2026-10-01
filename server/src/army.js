@@ -264,6 +264,7 @@ const GUARD = {
 };
 function npcGarrison(npc) {
   if (!npc) return [];
+  if (npc.garrison) return npc.garrison.map((g) => ({ ...g }));
   const big = npc.def.inf >= 1000, g = big ? GUARD.troll : GUARD.guard;
   return [{ key: big ? 'troll' : 'guard', n: Math.max(1, Math.round(npc.def.inf / g.def / (big ? 1.1 : 1))), ...g }, { key: 'shaman', n: Math.max(0, Math.round(npc.def.mag / GUARD.shaman.mdef)), ...GUARD.shaman }].filter((x) => x.n > 0);
 }
@@ -338,7 +339,7 @@ function install(Game, helpers) {
     for (const r of RES4) castle.res[r] -= cargo[r];
     const units = { [MERCHANT_ID]: need }, sec = Math.max(5, Math.round(Math.hypot(x - castle.x, y - castle.y) / m.speed * 3600 / SPEED)), now = Date.now();
     const army = { id: this.db.nextId++, units, general: false, mission: 'trade', x, y, depart: now, arrive: now + sec * 1000, sec, state: 'go', loot: null, cargo, squad: null, portal: false };
-    castle.armies.push(army); this.store.save();
+    castle.armies.push(army); this.addStat(castle.owner, 'trades', 1); this.store.save();
     return { army, sec, need };
   };
   P.ownerOf = function ownerOf(castle) { return this.userById(castle.owner); };
@@ -427,6 +428,7 @@ function install(Game, helpers) {
     const job = { id: this.db.nextId++, unit: unit.id, building: unit.building, count, done: 0, each, start: last };
     castle.training.push(job);
     if (unit.id !== GENERAL_ID) (castle.trainLog = castle.trainLog || []).push({ at: now, n: count });
+    if (unit.id !== GENERAL_ID) this.addStat(castle.owner, 'trained', count); // задания
     this.store.save();
     return { job };
   };
@@ -498,6 +500,7 @@ function install(Game, helpers) {
     for (const r of RES4) castle.res[r] -= cost[r];
     castle.res.people -= people;
     castle.upJobs[kind] = { unit: u.id, kind, level: s + 1, people, start: Date.now(), end: Date.now() + sec * 1000 };
+    this.addStat(castle.owner, 'upgrades', 1);
     this.store.save();
     return { ok: true, msg: `Начато улучшение на уровень ${T} !` };
   };
@@ -752,7 +755,8 @@ function install(Game, helpers) {
     }
     const me = this.ownerOf(castle);
     if (target && ['attack', 'raid', 'scout'].includes(mission) && !me.admin && this.rating(target) < NEWBIE_RATING) return { error: `Игрок под защитой новичка (рейтинг ниже ${NEWBIE_RATING}).` };
-    if (!target && (!obj || (!NPC[obj.img] && mission !== 'scout'))) return { error: 'Здесь некого атаковать.' };
+    const lair = !target && !obj && ['attack', 'raid'].includes(mission) ? this.lairAt(castle.owner, x, y) : null; // логово похода «Тёмные земли»
+    if (!target && !lair && (!obj || (!NPC[obj.img] && mission !== 'scout'))) return { error: 'Здесь некого атаковать.' };
     const src = squad ? squad.units : castle.units;
     for (const [id, n] of Object.entries(clean)) { src[id] -= n; if (!src[id]) delete src[id]; }
     if (squad) { // то, что не пошло в поход, остаётся в Замковой армии
@@ -766,6 +770,7 @@ function install(Game, helpers) {
       squad: squad ? { id: squad.id, name: squad.name } : from === 'castle' ? { id: 0, name: 'Замковая армия' } : null, portal: !!portal };
     if (general) { g.away = army.id; delete g.squad; }
     castle.armies.push(army);
+    if (mission === 'expedition') this.addStat(castle.owner, 'expeds', 1);
     if (army.state === 'go') this.warnIncoming(castle, army);
     this.store.save();
     return { army, sec };
@@ -1010,13 +1015,16 @@ function install(Game, helpers) {
     if (a.mission === 'scout') return this.scout(c, a, t, target);
 
     // бой: атака или набег
-    const obj = target ? null : this.worldObjects(a.x, a.y, 1, 1)[0];
-    const npc = obj && NPC[obj.img];
+    const lair = target ? null : this.lairAt(c.owner, a.x, a.y);
+    const obj = target ? null : lair ? { img: 32 } : this.worldObjects(a.x, a.y, 1, 1)[0];
+    const npc = lair ? lair.npc : obj && NPC[obj.img];
+    if (!target && !npc) { this.report(c.owner, `Поход ${where}: цель исчезла`, ['Армия вернулась домой.'], 'battle'); return this.goBack(c, a, t); }
     if (target) { this.tick(target); this.mil(target); }
     const R = this.clash(c, a, target, npc, t);
     const { win, luck, calc, aLost, dLost, dAll } = R;
     const aLoss = R.aLoss, dLoss = R.dLoss, aSum = calc.att.total, Dsum = calc.def.total;
     const aliveAfter = Object.values(a.units).some((n) => n > 0);
+    if (win) { this.addStat(c.owner, 'wins', 1); if (!target) this.addStat(c.owner, 'npcWins', 1); if (lair) this.lairWon(c.owner, lair.k); } // задания
     // генералы
     const genA = [], genD = [];
     if (a.general && c.general) {
@@ -1333,6 +1341,7 @@ function install(Game, helpers) {
     const sages = castle.units[227] || 0;
     const sec = Math.max(3, Math.round(scienceTime(next) * Math.max(0.5, 1 - 0.02 * sages) / SPEED));
     castle.research = { sci, level: next, start: Date.now(), end: Date.now() + sec * 1000 };
+    this.addStat(castle.owner, 'research', 1);
     this.store.save();
     return { ok: true };
   };
@@ -1608,4 +1617,4 @@ const catalogJson = () => ({
   scienceTime: Array.from({ length: 21 }, (_, l) => (l ? scienceTime(l) : 0)),
 });
 
-module.exports = { NEWBIE_RATING, install, UNITS, UNIT, B, GENERAL_ID, GEN, SCIENCES, RELIGIONS, NPC, MISSIONS, unitsForRace, unitImg, catalogJson };
+module.exports = { NEWBIE_RATING, install, UNITS, UNIT, B, GENERAL_ID, GEN, SCIENCES, RELIGIONS, NPC, MISSIONS, unitsForRace, unitImg, catalogJson, ART_TYPES };

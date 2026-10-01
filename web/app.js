@@ -213,7 +213,9 @@ function onMsg(m) {
       (DEVINFO ? Promise.resolve(DEVINFO) : deviceInfo()).then((d) => send({ t: 'devinfo', dev: DEV, ...d })).catch(() => {});
       $('#auth').classList.add('hidden'); $('#game').classList.remove('hidden');
       break;
-    case 'state': onState(m); if (S.st && S.st.user && S.st.user.admin) loadAdmin(); break;
+    case 'state': onState(m); if (S.st && S.st.user && S.st.user.admin) loadAdmin(); if (typeof questBtn === 'function') questBtn(); break;
+    case 'quests': S.quests = m.q; refreshSheet(); break;
+    case 'qdone': questDone(m.msg); break;
     case 'world': if (!S.world || S.world.cx !== m.cx || S.world.cy !== m.cy) { delete Iso.cams.world; if (Iso.sel && Iso.sel.tab === 'world') Iso.sel = null; } S.world = m; if (S.tab === 'world') renderView(); break;
     case 'rating': S.ratingRows = m.rows; refreshSheet(); break;
     case 'profile': if (m.acct) { S.lastAcct = m.profile; S.lastProfile = m.profile; if (m.refresh && S.sheets.length) { S.sheets[S.sheets.length - 1] = () => accountWin(m.profile); showSheet(false); } else openSheet(() => accountWin(m.profile)); break; }

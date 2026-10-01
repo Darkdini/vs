@@ -338,6 +338,7 @@ class Game {
       castle.grid[item.view][item.cell] = item.building;
       castle.levels[item.view][item.cell] = item.level;
       done.push(item);
+      if (this.addStat) this.addStat(castle.owner, 'built', 1); // задания: улучшено зданий
     }
     this.accrue(castle, now);
     this.tickTraining(castle, now); // тренировка войск, исследования, воскрешение генерала (army.js)
@@ -485,5 +486,6 @@ require('./premium').install(Game);
 require('./security').install(Game);
 require('./forum').install(Game);
 require('./news').install(Game);
+require('./quests').install(Game);
 
 module.exports = { WORLD, Game, Store, STORE, BASE_RATE, PEOPLE_FACTOR, storeBonus, RES_SPEED, buildTime, VIEW, GRID, landOptions, SPEED, MAX_QUEUE, LANDS_BASE, LANDS_DECOR, LANDS_EDGE };

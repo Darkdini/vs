@@ -15,6 +15,7 @@ const M3 = (n) => `gfx3d/menu3/${n}.png`; // иконки плиток меню 
 const MENUS = {
   cabinet: { label: 'Кабинет', icon: 'menu2/cabinet.png', items: () => [
     ...(S.st.user.admin ? [['Админка', 'admin_badge_s.png', () => openSheet(adminHtml)]] : []),
+    ['Задания', M3('quests'), () => openQuests()],
     ['Профиль', M3('profile'), () => openAccount()],
     ['Советник', `units/${S.cat.mil.raceDir[S.st.user.race]}/wisdom.png${S.st.user.race === 'orcs' ? '?orc' : ''}`, () => openSheet(advisorWin)],
     ['Казна', M3('treasury'), () => openSheet(treasuryWin)],

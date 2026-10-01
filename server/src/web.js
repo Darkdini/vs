@@ -115,12 +115,14 @@ class WebSession {
   error(msg) { this.failed = true; this.send({ t: 'error', msg }); }
   toast(msg) { this.send({ t: 'toast', msg }); }
 
+  questsLite() { try { const q = this.game.questsState(this.user, this.castle); return { ready: q.ready, tut: q.tut.finished ? null : { title: q.tut.title, have: q.tut.have, need: q.tut.need, done: q.tut.done } }; } catch (e) { return null; } }
   pushState() {
     const c = this.castle; this.game.tick(c);
     const u = this.user;
     this.send({
       t: 'state',
       now: Date.now(),
+      quests: this.questsLite(),
       user: { id: u.id, login: u.login, race: u.race, raceName: C.RACE_NAMES[u.race], premium: u.premium || 0, gold: u.gold || 0, goldLog: (u.goldLog || []).slice(-50).reverse(), admin: !!u.admin, mod: !!u.mod, multiNew: u.admin ? (this.game.db.multiLog || []).filter((x) => x.at > (u.multiSeen || 0)).length : 0 },
       castle: {
         id: c.id, name: c.name, x: c.x, y: c.y, grid: { 0: Array.from(c.grid[0]), 1: Array.from(c.grid[1]) }, levels: { 0: Array.from(c.levels[0]), 1: Array.from(c.levels[1]) },
@@ -278,7 +280,10 @@ const API = {
     const c = this.castle, R = 7;
     const lim = (v) => Math.max(R, Math.min(G.WORLD - 1 - R, Math.round(v))); // не за край карты
     const cx = lim(Number.isFinite(m.cx) ? m.cx : c.x), cy = lim(Number.isFinite(m.cy) ? m.cy : c.y);
-    this.send({ t: 'world', cx, cy, radius: R, objects: this.game.worldObjects(cx - R, cy - R, 2 * R + 1, 2 * R + 1), home: { x: c.x, y: c.y } });
+    const objects = this.game.worldObjects(cx - R, cy - R, 2 * R + 1, 2 * R + 1);
+    const lair = this.game.lairOf(this.user); // логово похода «Тёмные земли» видно только хозяину
+    if (lair && !this.game.qinit(this.user).campWon && Math.abs(lair.x - cx) <= R && Math.abs(lair.y - cy) <= R) objects.push({ kind: 'object', x: lair.x, y: lair.y, img: 32, name: lair.npc.name, lair: true });
+    this.send({ t: 'world', cx, cy, radius: R, objects, home: { x: c.x, y: c.y } });
   },
   gift(m) {
     const r = this.game.sendGift(this.user, m.to, m.gift, m.text);
@@ -303,6 +308,13 @@ const API = {
     this.token = this.game.issueToken(this.user);
     this.send({ t: 'auth', login: this.user.login, token: this.token }); // новый токен «Запомнить меня»
     this.toast('Пароль изменён. На других устройствах нужно войти заново.');
+  },
+  // задания: окно «Задания» и награды
+  quests() { this.send({ t: 'quests', q: this.game.questsState(this.user, this.castle) }); },
+  qclaim(m) {
+    const r = this.game.questClaim(this.user, this.castle, String(m.kind || ''), String(m.id || ''));
+    if (r.error) return this.error(r.error);
+    this.send({ t: 'qdone', msg: r.msg }); this.pushState(); API.quests.call(this);
   },
   nickcase(m) { const r = this.game.changeNick(this.user, m.nick); if (r.error) return this.error(r.error); this.send({ t: 'renamed', login: this.user.login }); this.toast(`Ваш новый ник: ${this.user.login} (−${r.price} золота). Входите под ним.`); this.pushState(); API.profile.call(this, { id: this.user.id, acct: 1, refresh: 1 }); },
   msgcolor(m) { const r = this.game.setMsgColor(this.user, m.i); if (r.msg) this.toast(r.msg); this.result(r); this.pushState(); },
