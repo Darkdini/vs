@@ -205,3 +205,115 @@ function landsScene(c, dpr) {
   for (const [, f] of items) f();
   lifeFish(); lifeBirds(dpr);
 }
+
+// ================= земли по нарисованной картинке (gfx/lands/bg.jpg + LANDS_LAYOUT) =================
+// мир = пиксели картинки. Клетки сервера стоят на полянках картинки, жители ходят по нарисованным тропинкам (граф рёбер-ломаных).
+const LDEC = { trees: [23.1, 29.8], trees2: [35.8, 37.7], rocks: [27.1, 30.0], rocksB: [24.5, 25.8], mine: [29.5, 48.7], cow: [37.0, 38.3], cart: [20.8, 29.2], tent: [24.2, 30.2], boat: [11.5, 17.2] };
+const BK_L = 1.6; // масштаб построек на полянках
+const LP = { walkers: [], last: 0, fish: null, birds: [], adj: null, loiter: [], pigeons: [] };
+const hasPic = () => typeof LANDS_LAYOUT !== 'undefined';
+const scrToDir = (dx, dy) => DIR_ROW(dx / TW - dy / TH, dx / TW + dy / TH);
+function lpGraph() {
+  if (LP.adj) return LP.adj;
+  const L = LANDS_LAYOUT, adj = L.nodes.map(() => []);
+  for (const [a, b, poly] of L.edges) { adj[a].push({ to: b, poly }); adj[b].push({ to: a, poly: poly.slice().reverse() }); }
+  return (LP.adj = adj);
+}
+function lpSpawn() {
+  const L = LANDS_LAYOUT, adj = lpGraph(), ok = adj.map((e, i) => (e.length ? i : -1)).filter((i) => i >= 0);
+  LP.walkers = Array.from({ length: 9 }, (_, k) => { const n = ok[Math.floor(Math.random() * ok.length)], [x, y] = L.nodes[n];
+    return { n, prev: -1, x, y, poly: null, seg: 0, d: 0, skin: k % 4, frame: 0, wait: Math.random() * 3, look: 3, mode: 0 }; });
+  const [px, py] = L.plaza;
+  LP.loiter = [0, 1, 2].map((k) => { const a = k * 2.1 + 0.5, x = px + Math.cos(a) * 52, y = py + 8 + Math.sin(a) * 30; return { x, y, skin: (k + 1) % 4, base: scrToDir(px - x, py - y), look: scrToDir(px - x, py - y), turn: 2 + Math.random() * 4 }; });
+  LP.pigeons = Array.from({ length: 6 }, () => { const a = Math.random() * 6.28, r = 60 + Math.random() * 40; return { x: px + Math.cos(a) * r, y: py + 10 + Math.sin(a) * r * 0.6, peck: Math.random() * 6, hop: Math.random() * 3 }; });
+}
+function lpStep(dt) {
+  const L = LANDS_LAYOUT, adj = lpGraph(), [px, py] = L.plaza;
+  if (!LP.walkers.length) lpSpawn();
+  for (const w of LP.walkers) {
+    if (w.wait > 0) { w.wait -= dt; continue; }
+    if (!w.poly) {
+      if (w.mode === 1) { w.mode = 2; w.look = scrToDir(px - w.x, py - w.y); w.wait = 3 + Math.random() * 5; continue; } // у фонтана постоять
+      if (w.mode === 2) { w.mode = 0; const [nx, ny] = L.nodes[w.n]; w.poly = [[w.x, w.y], [nx, ny]]; w.seg = 0; w.d = 0; w.nextN = w.n; continue; } // вернуться на тропинку
+      if (L.plazaNodes.includes(w.n) && Math.random() < 0.35) { const a = Math.random() * 6.28; w.mode = 1; w.poly = [[w.x, w.y], [px + Math.cos(a) * 62, py + 6 + Math.sin(a) * 36]]; w.seg = 0; w.d = 0; w.nextN = w.n; continue; }
+      if (Math.random() < 0.22) { w.look = Math.floor(Math.random() * 4); w.wait = 1.5 + Math.random() * 3; w.frame = 0; continue; } // постоять, поглазеть
+      let opts = adj[w.n]; if (opts.length > 1) opts = opts.filter((e) => e.to !== w.prev);
+      const e = opts[Math.floor(Math.random() * opts.length)]; if (!e) { w.wait = 2; continue; }
+      w.poly = e.poly; w.seg = 0; w.d = 0; w.nextN = e.to;
+    }
+    let move = dt * 26; // пикселей в секунду
+    while (move > 0 && w.poly) {
+      const a = w.poly[w.seg], b = w.poly[w.seg + 1]; if (!b) { w.prev = w.n; w.n = w.nextN; w.poly = null; break; }
+      const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 0.01, left = len - w.d;
+      if (move < left) { w.d += move; move = 0; } else { move -= left; w.seg++; w.d = 0; }
+      const q = w.poly[w.seg], r = w.poly[w.seg + 1] || q, t = r === q ? 0 : w.d / (Math.hypot(r[0] - q[0], r[1] - q[1]) || 1);
+      w.x = q[0] + (r[0] - q[0]) * t; w.y = q[1] + (r[1] - q[1]) * t; if (r !== q) w.look = scrToDir(r[0] - q[0], r[1] - q[1]);
+    }
+    w.frame = (w.frame + dt * 9) % 8;
+  }
+  for (const l of LP.loiter) { l.turn -= dt; if (l.turn < 0) { l.turn = 2 + Math.random() * 5; l.look = Math.random() < 0.6 ? l.base : Math.floor(Math.random() * 4); } }
+  for (const g of LP.pigeons) { g.peck += dt * 6; g.hop -= dt; if (g.hop < 0) { g.hop = 1 + Math.random() * 3; g.x += (Math.random() - 0.5) * 8; g.y += (Math.random() - 0.5) * 5; } }
+  if (LP.fish) { LP.fish.t += dt; if (LP.fish.t > 1.6) LP.fish = null; } else if (Math.random() < dt / 3) { const p = L.lake[Math.floor(Math.random() * L.lake.length)]; LP.fish = { x: p[0], y: p[1], t: 0, dx: Math.random() < 0.5 ? -1 : 1 }; }
+  LIFE.birds = LIFE.birds.filter((b) => b.t < b.dur); for (const b of LIFE.birds) b.t += dt;
+  if (!LIFE.birds.length && Math.random() < dt / 25) LIFE.birds.push({ t: 0, dur: 14, y0: Math.random() * 0.6, dir: Math.random() < 0.5 ? 1 : -1, n: 3 + Math.floor(Math.random() * 4) });
+}
+function lpPerson(sheet, row, f, x, y, cols) {
+  const im = lifeSheet(sheet); if (!im) return;
+  const k = AN.K / MAN_S, c = ictx; c.fillStyle = 'rgba(0,0,0,0.25)'; c.beginPath(); c.ellipse(x, y, 5, 2.2, 0, 0, Math.PI * 2); c.fill();
+  c.drawImage(im, (Math.floor(f) % cols) * AN.CW, row * AN.CH, AN.CW, AN.CH, x - AN.FX / k, y - AN.FY / k, AN.CW / k, AN.CH / k);
+}
+function lpDecor(d, now) {
+  if (d.k === 'mill') { const im = lifeSheet('mill'); if (!im) return; const k = AN.KM / MILL_S, f = Math.floor(now / 140) % 12; ictx.drawImage(im, f * AN.MW, 0, AN.MW, AN.MH, d.x - AN.MX / k, d.y + 8 - AN.MY / k, AN.MW / k, AN.MH / k); return; }
+  const im = pic(`lands/${d.k}.png`), a = LDEC[d.k]; if (!im || !a) return;
+  const k = 6 / (d.k === 'boat' ? 1 : 1.1); ictx.drawImage(im, d.x - a[0] * 6 / k, d.y - a[1] * 6 / k + (d.k === 'boat' ? 20 : 4), im.width / k, im.height / k);
+}
+// пустая полянка, где можно строить: мерцающий золотой контур
+function lpEmpty(x, y, now) {
+  const c = ictx, a = 0.35 + 0.25 * Math.sin(now / 500 + x);
+  c.save(); c.setLineDash([6, 5]); c.lineDashOffset = -now / 60; c.strokeStyle = `rgba(255,220,90,${a})`; c.lineWidth = 2;
+  c.beginPath(); c.ellipse(x, y, 34, 21, 0, 0, Math.PI * 2); c.stroke(); c.restore();
+}
+function landsPicScene(c, dpr) {
+  const L = LANDS_LAYOUT, st = S.st.castle, now = Date.now(), x = ictx, N = LN();
+  const dt = Math.min(0.25, (now - (LP.last || now)) / 1000); LP.last = now;
+  if (flowOn()) lpStep(dt);
+  if (flowOn() && !flowTimer) flowTimer = setTimeout(flowTick, ANIM_MS);
+  const bg = pic('lands/bg.jpg'); const sm = x.imageSmoothingEnabled; x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
+  if (bg) x.drawImage(bg, 0, 0, L.w, L.h);
+  // блики на реке и озере
+  for (const [i, p] of [...L.river, ...L.lake].entries()) { const ph = (now / 1700 + i * 0.37) % 1; if (ph > 0.5) continue;
+    x.fillStyle = `rgba(255,255,255,${0.7 * Math.sin(ph * 2 * Math.PI)})`; x.beginPath(); x.ellipse(p[0] + ph * 8, p[1], 3 + ph * 4, 1.1, 0, 0, Math.PI * 2); x.fill(); }
+  const items = [];
+  for (let i = 0; i < N * N; i++) {
+    const pt = L.cells[i]; if (!pt || !(S.cat.landOptions[Math.floor(i / N)][i % N] || []).length) continue;
+    const [px, py] = pt, b = st.grid[1][i], q = queueAt(1, i);
+    if (Iso.sel && Iso.sel.tab === 'lands' && Iso.sel.y * N + Iso.sel.x === i) { x.fillStyle = 'rgba(255,214,80,0.35)'; x.strokeStyle = '#ffe27a'; x.lineWidth = 2.5; x.beginPath(); x.ellipse(px, py, 38, 24, 0, 0, Math.PI * 2); x.fill(); x.stroke(); }
+    if (b < 0 && !q) { lpEmpty(px, py, now); continue; }
+    items.push([py, () => { drawCellBuilding(1, i, b, st.levels[1][i], { sx: px - TW / 2, sy: py - TH / 2 - TH * PLOT / 2 + 6 }, BK_L, false);
+      if (HOUSES.has(b)) { const im = pic(`build/${BUILD_IMG[displayId(S.by[b], st.levels[1][i])]}.png`); if (im) for (let k = 0; k < 4; k++) { const ph = ((now / 2600) + k / 4 + i * 0.13) % 1;
+        x.fillStyle = `rgba(235,235,235,${0.45 * (1 - ph)})`; x.beginPath(); x.arc(px + 7 + Math.sin(ph * 5 + i) * 3 + ph * 6, py - im.height * BK_L + 18 - ph * 22, 2 + ph * 6, 0, Math.PI * 2); x.fill(); } }
+      if (FARMS.has(b)) for (let k = 0; k < 2; k++) { const t = now / 1000 + i * 1.7 + k * 2.3, bx = px + Math.sin(t * 0.7) * 20, by = py - 14 + Math.cos(t * 1.1) * 7, fl = Math.abs(Math.sin(t * 14)) * 2.2 + 0.4;
+        x.fillStyle = k ? '#ffe14d' : '#fff'; x.beginPath(); x.ellipse(bx - fl * 0.6, by, fl, 1.6, 0, 0, Math.PI * 2); x.ellipse(bx + fl * 0.6, by, fl, 1.6, 0, 0, Math.PI * 2); x.fill(); } }]);
+    if (q || SAWS.has(b)) items.push([py + 14, () => lpPerson('builder', 2, (now / 110 + i * 3) % 7, px - 30, py + 14, 7)]);
+  }
+  for (const d of L.decor) items.push([d.y, () => lpDecor(d, now)]);
+  for (const w of LP.walkers) items.push([w.y, () => lpPerson(`villager${w.skin}`, w.look, w.wait > 0 || w.mode === 2 ? 0 : w.frame, w.x, w.y, 8)]);
+  for (const l of LP.loiter) items.push([l.y, () => lpPerson(`villager${l.skin}`, l.look, 0, l.x, l.y, 8)]);
+  for (const g of LP.pigeons) items.push([g.y, () => { const pk = Math.max(0, Math.sin(g.peck)) * 1.5; x.fillStyle = 'rgba(0,0,0,0.2)'; x.beginPath(); x.ellipse(g.x, g.y, 2.4, 1, 0, 0, Math.PI * 2); x.fill();
+    x.fillStyle = '#8d9aa6'; x.beginPath(); x.ellipse(g.x, g.y - 2, 2.6, 1.6, 0, 0, Math.PI * 2); x.fill(); x.fillStyle = '#5f6b75'; x.beginPath(); x.arc(g.x + 2, g.y - 3.2 + pk, 1.1, 0, Math.PI * 2); x.fill(); }]);
+  { const [fx, fy] = L.plaza; items.push([fy - 5, () => { for (let k = 0; k < 16; k++) { const ph = ((now / 1100) + k / 16) % 1, ang = k * 2.4, r = ph * 12;
+    x.fillStyle = `rgba(215,242,255,${0.9 * (1 - ph)})`; x.beginPath(); x.arc(fx + Math.cos(ang) * r, fy - 22 - Math.sin(ph * Math.PI) * 16 + ph * 12 + Math.sin(ang) * r * 0.45, 1.3, 0, Math.PI * 2); x.fill(); } }]); }
+  items.sort((a, b) => a[0] - b[0]);
+  for (const [, f] of items) f();
+  if (LP.fish) { const F = LP.fish, t = Math.min(1, F.t / 0.9);
+    if (F.t < 0.9) { x.save(); x.translate(F.x + F.dx * (t - 0.5) * 16, F.y - Math.sin(t * Math.PI) * 14); x.rotate(F.dx * (t - 0.5) * 2.2); x.fillStyle = '#d4e1ec'; x.beginPath(); x.ellipse(0, 0, 4.5, 1.8, 0, 0, Math.PI * 2); x.fill(); x.restore(); }
+    for (const s0 of [0, 0.9]) { const q = (F.t - s0) / 0.7; if (q < 0 || q > 1) continue; x.strokeStyle = `rgba(255,255,255,${0.7 * (1 - q)})`; x.lineWidth = 1; x.beginPath(); x.ellipse(F.x + F.dx * (s0 ? 8 : -8), F.y, 2 + q * 9, 1 + q * 4, 0, 0, Math.PI * 2); x.stroke(); } }
+  x.imageSmoothingEnabled = sm;
+  lifeBirds(dpr);
+}
+// нажатие по картинке земель → клетка сервера (ближайшая полянка)
+function landsPicCell(wx, wy) {
+  const L = LANDS_LAYOUT, N = LN(); let best = -1, bd = 46 * 46;
+  for (let i = 0; i < N * N; i++) { const p = L.cells[i]; if (!p || !(S.cat.landOptions[Math.floor(i / N)][i % N] || []).length) continue; const d = (p[0] - wx) ** 2 + ((p[1] - wy) * 1.4) ** 2; if (d < bd) { bd = d; best = i; } }
+  return best;
+}

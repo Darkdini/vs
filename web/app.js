@@ -805,6 +805,7 @@ function isoResize() {
 window.addEventListener('resize', () => { if (Iso.cv.isConnected) { isoResize(); isoDraw(); } });
 // начальная камера: замок целиком, земли и мир — примерно 8 клеток по ширине экрана, по центру
 function isoFit() {
+  if (S.tab === 'lands' && typeof hasPic === 'function' && hasPic()) { const r = Iso.cv.getBoundingClientRect(), L = LANDS_LAYOUT, z = r.width / (L.w * 0.62); return { z, x: r.width / 2 - L.plaza[0] * z, y: r.height / 2 - L.plaza[1] * z }; }
   const r = Iso.cv.getBoundingClientRect(), n = gridN(), vis = S.tab === 'castle' ? 4.4 : S.tab === 'lands' ? 5.6 : 8; // замок — сразу крупно (ров чуть за краями), отдалить можно щипком
   const z = Math.max(0.35, Math.min(2.5, Math.min(r.width / (vis * TW), r.height / (vis * TH + 60))));
   const c = tileScreen(n / 2 - 0.5, n / 2 - 0.5);
@@ -814,6 +815,12 @@ function isoFit() {
 function clampCam(c) {
   if (S.tab !== 'castle' && S.tab !== 'lands') return c;
   const r = Iso.cv.getBoundingClientRect(); if (!r.width) return c;
+  if (S.tab === 'lands' && typeof hasPic === 'function' && hasPic()) { // картинка земель: экран не выходит за её края
+    const L = LANDS_LAYOUT, zb = Math.max(r.width / L.w, r.height / L.h); if (c.z < zb) c.z = zb;
+    let mx = (r.width / 2 - c.x) / c.z, my = (r.height / 2 - c.y) / c.z; const hw = r.width / 2 / c.z, hh = r.height / 2 / c.z;
+    mx = Math.min(Math.max(mx, hw), L.w - hw); my = Math.min(Math.max(my, hh), L.h - hh);
+    c.x = r.width / 2 - mx * c.z; c.y = r.height / 2 - my * c.z; return c;
+  }
   // центр экрана не уходит дальше самого замка (со рвом) / земель; отдалить можно, пока замок во всю ширину
   const box = (a, b) => ({ L: tileScreen(a, a).sx, R: tileScreen(b, b).sx + TW, T: tileScreen(b, a).sy, B: tileScreen(a, b).sy + TH });
   const outer = S.tab === 'castle' ? box(CASTLE_OFF - 1, CASTLE_OFF + 7) : box(-1.4 * SP, LN() * SP + 0.4); // замок со рвом; земли — с полосой травы
@@ -892,6 +899,7 @@ function isoTap(px, py) {
     Iso.sel = { tab: 'castle', x, y }; isoDraw();
     openCell(VIEW.CASTLE, y * 7 + x);
   } else if (S.tab === 'lands') {
+    if (hasPic()) { const cell = landsPicCell((px - c.x) / c.z, (py - c.y) / c.z); if (cell < 0) return; Iso.sel = { tab: 'lands', x: cell % LN(), y: Math.floor(cell / LN()) }; isoDraw(); return openCell(VIEW.LANDS, cell); }
     const f = screenToTileF((px - c.x) / c.z, (py - c.y) / c.z), lx = Math.round(f.x / SP), ly = Math.round(f.y / SP);
     if (lx < 0 || lx >= LN() || ly < 0 || ly >= LN() || !(S.cat.landOptions[ly][lx] || []).length) return; // площадь — не участок
     Iso.sel = { tab: 'lands', x: lx, y: ly }; isoDraw();
@@ -1128,7 +1136,7 @@ function isoDrawNow() {
     }
     if (fence) fenceFront();
   } else if (S.tab === 'lands') {
-    landsScene(c, dpr); // участки с тропинками и жизнью (life.js)
+    if (hasPic()) landsPicScene(c, dpr); else landsScene(c, dpr); // нарисованная карта земель или участки-плитки (life.js)
   } else if (S.world) {
     const w = S.world, R0 = w.radius, n = 2 * R0 + 1, objs = new Map(w.objects.map((o) => [`${o.x}:${o.y}`, o]));
     for (let y = 0; y < n; y++) for (let xx = n - 1; xx >= 0; xx--) {
