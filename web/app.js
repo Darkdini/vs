@@ -380,7 +380,7 @@ $('#sheetBody').addEventListener('click', (e) => { if (e.target.closest('[data-r
 function setTab(tab) {
   S.tab = tab;
   $$('#locs [data-loc]').forEach((b) => b.classList.toggle('on', b.dataset.loc === tab));
-  if (tab === 'world') send({ t: 'world', ...(S.world ? { cx: S.world.cx, cy: S.world.cy } : {}) });
+  if (tab === 'world') { S.wJump = true; S.world = null; send({ t: 'world', cx: S.st.castle.x, cy: S.st.castle.y }); } // выход в мир — всегда к текущему замку
   renderView();
 }
 
@@ -1207,7 +1207,7 @@ function isoDrawNow() {
     }
     if (Iso.sel && Iso.sel.tab === 'world') glow(tileScreen(Iso.sel.x, Iso.sel.y), 0.92);
     for (const o of w.objects) worldClearing(tileScreen(o.x - (w.cx - R0), o.y - (w.cy - R0))); // под замками и лагерями — поляна (без деревьев фона)
-    const myRings = w.objects.filter((o) => o.kind === 'castle' && S.st && o.ownerId === S.st.user.id).map((o) => [tileScreen(o.x - (w.cx - R0), o.y - (w.cy - R0)), o.castleId === S.st.castle.id]);
+    const myRings = w.objects.filter((o) => o.kind === 'castle' && S.st && o.castleId === S.st.castle.id).map((o) => [tileScreen(o.x - (w.cx - R0), o.y - (w.cy - R0)), o.castleId === S.st.castle.id]);
     for (const [p, a] of myRings) myCastleRing(p, a, -1); // свои замки — кольцо: задняя половина под объектами
     for (let y = 0; y < n; y++) for (let xx = n - 1; xx >= 0; xx--) {
       const o = objs.get(`${w.cx - R0 + xx}:${w.cy - R0 + y}`); if (!o) continue;
@@ -1223,6 +1223,13 @@ function isoDrawNow() {
       if (o.newbie) newbieDome(p);
     }
     for (const [p, a] of myRings) myCastleRing(p, a, 1); // передняя половина кольца — поверх замка и соседей
+    for (const [p, a] of myRings) if (a) { // текущий замок: прыгающая золотая стрелка над ним и подпись «Вы здесь»
+      const x = ictx, cx = p.sx + TW / 2, top = p.sy - TH * 0.8 - Math.abs(Math.sin(Date.now() / 300)) * 8;
+      x.save(); x.fillStyle = '#ffd84a'; x.strokeStyle = '#7a4a00'; x.lineWidth = 1.5;
+      x.beginPath(); x.moveTo(cx, top + 14); x.lineTo(cx - 9, top); x.lineTo(cx - 3.5, top); x.lineTo(cx - 3.5, top - 10); x.lineTo(cx + 3.5, top - 10); x.lineTo(cx + 3.5, top); x.lineTo(cx + 9, top); x.closePath(); x.fill(); x.stroke();
+      x.font = 'bold 10px system-ui, sans-serif'; x.textAlign = 'center'; x.lineWidth = 3; x.strokeStyle = 'rgba(0,0,0,0.75)'; x.strokeText('Вы здесь', cx, top - 14); x.fillStyle = '#fff3b0'; x.fillText('Вы здесь', cx, top - 14);
+      x.restore();
+    }
   }
 }
 
