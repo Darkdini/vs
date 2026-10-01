@@ -119,13 +119,24 @@ function trainHtml(def, units) {
     ${jobs.map((t) => { const u = unitById(t.unit), end = t.start + t.each * t.count; return `<div class="card job">${uimg(u, 'ui s')}
       <div class="grow"><b>${esc(u.name)} ×${t.count}</b> <span class="muted small">готово ${t.done}</span>
       <div class="bar"><i data-s="${t.start}" data-e="${end}"></i></div></div><span class="cd" data-e="${end}"></span></div>`; }).join('')}
-    ${units.map((u) => { const lock = unitLock(u), n = S.cnt[u.id] || 1; return `<div class="card unit">
-      <div class="top">${uimg(u)}<div class="grow"><b>${esc(u.name)}</b><span class="muted small">${TYPE_NAME[u.type] || ''} · в замке: ${u.id === M().generalId ? (MY().general ? 1 : 0) : MY().units[u.id] || 0}</span></div></div>
-      ${unitStatsHtml(u)}
-      ${lock ? `<div class="needlist"><div class="needhead">Необходимо:</div>${unitNeeds(u).map((x) => `<div class="need ${x.ok ? 'ok' : ''}">${x.ok ? '✔' : '✖'} ${esc(x.name)} ${x.lvl} ур.</div>`).join('')}${unitNeeds(u).every((x) => x.ok) ? `<p class="reasons">${esc(lock)}</p>` : ''}</div>` : `<div class="trainrow"><button class="btn small" data-cnt="${u.id}:-1">−</button>
-        <input type="number" inputmode="numeric" min="1" value="${n}" data-cnt-input="${u.id}"><button class="btn small" data-cnt="${u.id}:1">+</button>
-        <button class="btn small" data-max="${u.id}">MAX</button><button class="btn primary small" data-train="${u.id}">Тренировать</button></div>`}
-    </div>`; }).join('')}`;
+    ${units.map((u) => trainCard(u)).join('')}`;
+}
+// карточка тренировки — как «Постройка юнитов» в оригинале: параметры значками, зелёная плашка стоимости,
+// «Количество: N /макс», ползунок (картинки ProgressBar из клиента) и кнопка «Тренировать»
+const STAT_IC = (f) => `<img src="${GFX}smallicon/${f}.png" alt="">`;
+function trainCard(u) {
+  const lock = unitLock(u), max = unitMax(u), n = Math.min(S.cnt[u.id] ?? Math.min(1, max), max);
+  const fg = (MY().forge && MY().forge[u.id]) || {}, plus = (v, k) => v + (k || 0);
+  return `<div class="tcard"><div class="tname">${esc(u.name)}</div>${uimg(u, 'timg')}
+    <div class="tparams-h">Параметры юнита:</div>
+    <div class="tparams"><div>${STAT_IC('health')}<b>${u.hp}</b></div><div>${STAT_IC('phiattack')}<b>${plus(u.attack, u.attack ? fg.a : 0)}</b></div><div>${STAT_IC('magattack')}<b>${plus(u.magic, u.magic ? fg.m : 0)}</b></div>
+      <div>${STAT_IC('phidef')}<b>${plus(u.def.inf, fg.d)}</b></div><div>${STAT_IC('magdef')}<b>${plus(u.def.mag, fg.md)}</b></div><div>${STAT_IC('speed')}<b>${u.speed}</b></div><div>${STAT_IC('carry')}<b>${u.carry}</b></div></div>
+    <div class="tcost"><div class="tcost-h">Стоимость тренировки:</div><div class="tcost-r">${RES4.map((r) => `<span data-need="${r}:${u.cost[r]}">${RES_IC[r]}<b>${fmtFull(u.cost[r])}</b></span>`).join('')}
+      <span>${RES_IC.people}<b>${u.pop}</b></span><span>${TIME_IC}<b>${fmtT(unitTrainSec(u))}</b></span></div></div>
+    ${lock ? `<div class="needlist"><div class="needhead">Необходимо:</div>${unitNeeds(u).map((x) => `<div class="need ${x.ok ? 'ok' : ''}">${x.ok ? '✔' : '✖'} ${esc(x.name)} ${x.lvl} ур.</div>`).join('')}${unitNeeds(u).every((x) => x.ok) ? `<p class="reasons">${esc(lock)}</p>` : ''}</div>`
+    : `<div class="tqty">Количество: <input type="number" inputmode="numeric" min="0" max="${max}" value="${n}" data-cnt-input="${u.id}"> /${max}</div>
+    <input type="range" class="tslider" min="0" max="${Math.max(1, max)}" value="${n}" data-cnt-range="${u.id}" style="--p:${max ? n / max * 100 : 0}%" ${max ? '' : 'disabled'}>
+    <button class="pbar tbtn" data-train="${u.id}" ${max ? '' : 'disabled'}>Тренировать</button>`}</div>`;
 }
 
 function unitsListHtml(units, empty = 'нет') {
@@ -403,7 +414,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   const d = t.dataset;
   if (d.cnt) { const [id, k] = d.cnt.split(':').map(Number); S.cnt[id] = Math.max(1, (S.cnt[id] || 1) + k); const i = $(`[data-cnt-input="${id}"]`); if (i) i.value = S.cnt[id]; return; }
   if (d.max) { const u = unitById(d.max); S.cnt[u.id] = Math.max(1, unitMax(u)); const i = $(`[data-cnt-input="${u.id}"]`); if (i) i.value = S.cnt[u.id]; return; }
-  if (d.train) return send({ t: 'train', unit: Number(d.train), count: S.cnt[d.train] || 1 });
+  if (d.train) { const c = S.cnt[d.train] ?? 1; if (!(c > 0)) return toast('Выберите количество ползунком.', 'err'); return send({ t: 'train', unit: Number(d.train), count: c }); }
   if (d.revive !== undefined) return send({ t: 'general', op: 'revive' });
   if (d.armyopen === 'trade') { S.mkt = { x: d.ax ?? '', y: d.ay ?? '', res: {} }; return openSheet(mktGiveWin); }
   if (d.armyopen !== undefined) return openArmySheet({ mission: d.armyopen || 'raid', x: d.ax !== undefined ? Number(d.ax) : '', y: d.ay !== undefined ? Number(d.ay) : '' });
@@ -419,7 +430,12 @@ $('#sheetBody').addEventListener('click', (e) => {
 });
 $('#sheetBody').addEventListener('input', (e) => {
   const d = e.target.dataset, v = e.target.value;
-  if (d.cntInput) S.cnt[d.cntInput] = Math.max(1, Math.floor(Number(v)) || 1);
+  if (d.cntInput || d.cntRange) { // поле и ползунок связаны
+    const id = d.cntInput || d.cntRange, u = unitById(id), max = unitMax(u), c = Math.max(0, Math.min(max, Math.floor(Number(v)) || 0)); S.cnt[id] = c;
+    const r = $(`[data-cnt-range="${id}"]`), i = $(`[data-cnt-input="${id}"]`);
+    if (r) { if (d.cntInput) r.value = c; r.style.setProperty('--p', `${max ? c / max * 100 : 0}%`); }
+    if (i && d.cntRange) i.value = c;
+  }
 });
 $('#sheetBody').addEventListener('submit', (e) => {
   const f = e.target, k = f.dataset.form;
