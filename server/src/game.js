@@ -11,7 +11,7 @@ const C = require('./catalog');
 const SPEED = Number(process.env.SPEED || 1);
 // мир: карта WORLD×WORLD клеток, рассчитан на ~5 000 игроков (заселённый круг ~220 клеток)
 const WORLD = Number(process.env.WORLD_SIZE || 1000);
-const SPAWN_DENSITY = 9; // клеток карты на один замок в зоне заселения
+const SPAWN_DENSITY = 4.5; // клеток карты на один замок в зоне заселения (соседи близко — походы короткие)
 const SPAWN_GAP = 2;
 // где на нарисованном фоне карты мира луг, а не роща (world_open.json — маска картинки web/gfx/ground/world_bg.jpg):
 // клетка мира (X, Y) лежит в точке фона ((X+Y)·31+31, (Y−X)·16+16) по модулю размера картинки
