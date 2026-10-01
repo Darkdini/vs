@@ -40,13 +40,16 @@ const UNIT_LIST = [
   [211, 'Кентавр', 'elves', 'elf/kenaur', 'light_cav', B.STABLE, 3],
   [212, 'Единорог', 'elves', 'elf/edinorog', 'heavy_cav', B.STABLE, 10, { [B.SMITH]: 10 }],
   [213, 'Энт', 'elves', 'elf/ent', 'legendary', B.PORTAL, 1],
-  [214, 'Топорщик', 'dwarves', 'dwarv/fighter', 'atk_inf', B.BARRACKS, 1],
-  [215, 'Арбалетчик', 'dwarves', 'dwarv/arbalet', 'ranged', B.BARRACKS, 3],
-  [216, 'Жрец рун', 'dwarves', 'dwarv/elder', 'mage', B.MAGE_ACADEMY, 1],
-  [217, 'Грифон', 'dwarves', 'dwarv/gryphon', 'heavy_cav', B.STABLE, 5],
-  [218, 'Защитник гор', 'dwarves', 'dwarv/defender', 'def_inf', B.BARRACKS, 1],
-  [219, 'Револьверщик', 'dwarves', 'dwarv/revolver', 'elite_inf', B.WORKSHOP, 5],
-  [220, 'Йетти', 'dwarves', 'dwarv/yeti', 'legendary', B.PORTAL, 1],
+  // гномы — как в оригинале (скрины окна «Юнит»): имена, требования, характеристики — в ORIG ниже
+  [214, 'Гном топорщик', 'dwarves', 'dwarv/hd/fighter', 'atk_inf', B.BARRACKS, 1],
+  [215, 'Арбалетчик', 'dwarves', 'dwarv/hd/arbalet', 'ranged', B.BARRACKS, 3, { [B.SMITH]: 1 }],
+  [255, 'Горный великан', 'dwarves', 'dwarv/hd/giant', 'def_inf', B.BARRACKS, 1, { [B.SMITH]: 3 }],
+  [216, 'Жрец Рун', 'dwarves', 'dwarv/hd/elder', 'mage', B.MAGE_ACADEMY, 1, { [B.BARRACKS]: 5 }],
+  [217, 'Грифон разведчик', 'dwarves', 'dwarv/hd/gryphon', 'scout', B.STABLE, 1, { [B.WORKSHOP]: 1, [B.SMITH]: 3, [B.SPY]: 1 }],
+  [218, 'Защитник гор', 'dwarves', 'dwarv/hd/defender', 'heavy_cav', B.STABLE, 5, { [B.BARRACKS]: 7, [B.WORKSHOP]: 3, [B.SMITH]: 7 }],
+  [256, 'Механический центурион', 'dwarves', 'dwarv/hd/centurion', 'elite_inf', B.MAGE_ACADEMY, 7, { [B.SMITH]: 5 }],
+  [219, 'Револьверщик', 'dwarves', 'dwarv/hd/revolver', 'elite_inf', B.BARRACKS, 10, { [B.WORKSHOP]: 10, [B.SMITH]: 8 }],
+  [220, 'Йетти', 'dwarves', 'dwarv/hd/yeti', 'legendary', B.MAGE_ACADEMY, 10, { [B.WORKSHOP]: 10 }],
   // орки: имена и характеристики — из оригинала (скрины окна тренировки, таблица ORIG ниже)
   [245, 'Мародёр', 'orcs', 'human/swordman', 'atk_inf', B.BARRACKS, 1],
   [247, 'Бугай', 'orcs', 'dwarv/fighter', 'def_inf', B.BARRACKS, 1],
@@ -60,17 +63,17 @@ const UNIT_LIST = [
   [252, 'Орк загонщик', 'orcs', 'human/scout', 'scout', B.SPY, 1],
   // специальные — у каждой расы своя картинка (units/<раса>/torg.png и т.д.)
   [221, 'Торговец', 'all', 'torg', 'merchant', B.MARKET, 1],
-  [224, 'Путешественник', 'all', 'traveler', 'settler', B.TRAVELER, 1],
-  [227, 'Мудрец', 'all', 'wisdom', 'sage', B.SAGES, 1],
+  [224, 'Путешественник', 'all', 'traveler', 'settler', B.TRAVELER, 5],
+  [227, 'Ученый', 'all', 'wisdom', 'sage', B.SAGES, 1],
   [230, 'Археолог', 'all', 'arheolog', 'archaeologist', B.ARCH_CAMP, 1],
-  [233, 'Бунтарь', 'all', 'buntar', 'rebel', B.HQ, 5],
+  [233, 'Бунтарь', 'all', 'buntar', 'rebel', B.TRAVELER, 10],
   [236, 'Генерал', 'all', 'general', 'general', B.HQ, 1],
   // уникальные (units/unical)
   [239, 'Великан', 'all', 'unical/giant', 'giant', B.TAVERN, 1],
   [240, 'Катапульта', 'all', 'unical/katapulta', 'catapult', B.WORKSHOP, 5],
   [241, 'Око', 'all', 'unical/oko', 'eye', B.SPY, 1],
   [242, 'Тень', 'all', 'unical/shadow', 'shadow', B.SPY, 5],
-  [243, 'Таран', 'all', 'unical/taran', 'ram', B.WORKSHOP, 1],
+  [243, 'Таран', 'all', 'unical/taran', 'ram', B.WORKSHOP, 10, { [B.SMITH]: 10 }],
   [244, 'Валькирия', 'all', 'unical/valkiriya', 'valkyrie', B.TAVERN, 5],
 ];
 // роли, которых нет в GDD, — свой баланс в том же формате
@@ -94,6 +97,22 @@ const ORIG = {
   248: { type: 'magic', hp: 120, atk: 40, mag: 60, def: 35, mdef: 60, speed: 9, carry: 70, cost: [82, 85, 87, 107], pop: 25, time: 810 }, // Шаман 13:30
   249: { type: 'infantry', hp: 140, atk: 27, mag: 13, def: 27, mdef: 13, speed: 4, carry: 70, cost: [340, 337, 332, 440], pop: 45, time: 1087 }, // Кулак Ярости 18:07
   252: { type: 'cavalry', hp: 25, atk: 25, mag: 0, def: 20, mdef: 0, speed: 14, carry: 0, cost: [40, 37, 42, 85], pop: 7, time: 440 }, // Орк загонщик 7:20
+  // гномы (скрины окна «Юнит» оригинала)
+  214: { type: 'infantry', hp: 20, atk: 20, mag: 0, def: 5, mdef: 0, speed: 11, carry: 55, cost: [55, 100, 70, 50], pop: 3, time: 1160 }, // Гном топорщик 19:20
+  215: { type: 'infantry', hp: 25, atk: 15, mag: 0, def: 15, mdef: 0, speed: 7, carry: 47, cost: [70, 115, 85, 60], pop: 12, time: 1460 }, // Арбалетчик 24:20
+  255: { type: 'infantry', hp: 30, atk: 5, mag: 0, def: 25, mdef: 0, speed: 7, carry: 70, cost: [77, 90, 85, 60], pop: 7, time: 1260 }, // Горный великан 21:00
+  216: { type: 'magic', hp: 25, atk: 0, mag: 30, def: 0, mdef: 30, speed: 9, carry: 62, cost: [90, 145, 105, 50], pop: 15, time: 1620 }, // Жрец Рун 27:00
+  217: { type: 'cavalry', hp: 25, atk: 20, mag: 0, def: 5, mdef: 0, speed: 13, carry: 0, cost: [55, 105, 70, 70], pop: 21, time: 2180 }, // Грифон разведчик 36:20
+  218: { type: 'cavalry', hp: 60, atk: 56, mag: 5, def: 25, mdef: 0, speed: 8, carry: 86, cost: [100, 175, 95, 80], pop: 33, time: 2800 }, // Защитник гор 46:40
+  256: { type: 'infantry', hp: 70, atk: 30, mag: 0, def: 45, mdef: 25, speed: 9, carry: 80, cost: [125, 185, 130, 85], pop: 53, time: 3000 }, // Механический центурион 50:00
+  219: { type: 'infantry', hp: 80, atk: 40, mag: 20, def: 45, mdef: 5, speed: 9, carry: 78, cost: [165, 205, 175, 85], pop: 51, time: 3330 }, // Револьверщик 55:30
+  220: { type: 'infantry', hp: 100, atk: 25, mag: 5, def: 20, mdef: 5, speed: 2, carry: 55, cost: [655, 750, 665, 620], pop: 89, time: 4640, bldDmg: 27 }, // Йетти 1:17:20
+  // общие юниты (те же скрины): у Археолога и Ученого в оригинале скорость 0 — оставлена прежняя, иначе они не дойдут до цели
+  224: { type: 'special', hp: 10, atk: 1, mag: 1, def: 1, mdef: 1, speed: 10, carry: 0, cost: [5000, 7500, 5000, 5000], pop: 3000, time: 136800 }, // Путешественник 38:00:00
+  233: { type: 'special', hp: 10, atk: 2, mag: 2, def: 1, mdef: 1, speed: 9, carry: 0, cost: [12012, 13316, 10412, 24031], pop: 3026, time: 486000 }, // Бунтарь 135:00:00
+  230: { type: 'special', hp: 0, atk: 0, mag: 0, def: 0, mdef: 0, keepSpeed: true, carry: 0, cost: [123, 141, 125, 250], pop: 12, time: 960 }, // Археолог 16:00
+  227: { type: 'special', hp: 0, atk: 0, mag: 0, def: 0, mdef: 0, keepSpeed: true, carry: 0, cost: [36, 41, 29, 40], pop: 2, time: 1700 }, // Ученый 28:20
+  243: { type: 'siege', hp: 60, atk: 0, mag: 0, def: 0, mdef: 0, speed: 7, carry: 0, cost: [97, 97, 96, 105], pop: 14, time: 1620, wallDmg: 50, oneUse: true }, // Таран 27:00
 };
 // остальные юниты (люди, эльфы, гномы, общие) переводятся из нашей GDD-таблицы в масштаб оригинала:
 // атака/защита ×0.42 (Мечник 50 → 21, как Мародёр), цена ×0.5, время ×0.45
@@ -102,12 +121,14 @@ const SCALE = { stat: 0.42, cost: 0.5, time: 0.45 };
 const POP_K = (role) => (['elite_inf', 'heavy_cav', 'legendary', 'mage', 'valkyrie', 'giant', 'shadow'].includes(role) ? 8 : 4);
 // лимит тренировки: не больше TRAIN_DAY воинов на замок за последние 24 часа (Генерал не считается)
 const TRAIN_DAY = Number(process.env.TRAIN_DAY || 400);
-function buildUnit([id, name, race, img, role, building, level, req = {}, stats]) {
+function buildUnit([id, name, race, img, role, building, level, req = {}, stats], noOrig = false) {
   const base = { id, name, race, img, role, building, level, req, spy: role === 'scout' ? 1 : 0 };
-  const o = ORIG[id];
+  const o = !noOrig && ORIG[id];
   if (o) {
-    return { ...base, type: o.type, hp: o.hp, attack: o.atk, magic: o.mag, def: { inf: o.def, cav: o.def, mag: o.mdef }, speed: o.speed, carry: o.carry,
-      upkeep: Math.max(1, Math.round(o.pop / 3)), pop: o.pop, cost: { wood: o.cost[0], stone: o.cost[1], iron: o.cost[2], food: o.cost[3] }, time: o.time };
+    const gdd = o.keepSpeed ? buildUnit([id, name, race, img, role, building, level, req, stats], true) : null;
+    return { ...base, type: o.type, hp: o.hp, attack: o.atk, magic: o.mag, def: { inf: o.def, cav: o.def, mag: o.mdef }, speed: gdd ? gdd.speed : o.speed, carry: o.carry,
+      upkeep: Math.max(1, Math.round(o.pop / 3)), pop: o.pop, cost: { wood: o.cost[0], stone: o.cost[1], iron: o.cost[2], food: o.cost[3] }, time: o.time,
+      ...(o.wallDmg ? { wallDmg: o.wallDmg } : {}), ...(o.bldDmg ? { bldDmg: o.bldDmg } : {}), ...(o.oneUse ? { oneUse: true } : {}) };
   }
   const src = CUSTOM[stats] || CUSTOM[role] || GDD.units.find((u) => u.race === (race === 'all' ? 'humans' : race) && u.role === role);
   const st = (v) => Math.round((v || 0) * SCALE.stat);
@@ -120,7 +141,7 @@ function buildUnit([id, name, race, img, role, building, level, req = {}, stats]
     time: Math.max(30, Math.round(src.trainTimeSec * SCALE.time)), spy: role === 'scout' ? 1 : src.spy || 0,
   };
 }
-const UNITS = UNIT_LIST.map(buildUnit);
+const UNITS = UNIT_LIST.map((x) => buildUnit(x));
 const UNIT = Object.fromEntries(UNITS.map((u) => [u.id, u]));
 // Торговцы — как в оригинале: не тренируются и не воюют, их всегда 20 при построенном Рынке; скорость 20 полей/час,
 // груз — 45 ед. за уровень Рынка (20 ур. — 900 ед.)

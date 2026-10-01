@@ -11,7 +11,7 @@ function sciJob() {
 function sciWin() {
   const my = MY(), uni = buildingLevel(15);
   return `${ribbon('Науки')}${sciJob()}
-    <div class="bwline small center">Университет ${uni} ур. — науки изучаются до ${uni} ур. · мудрецов в замке: ${my.units[227] || 0}</div>
+    <div class="bwline small center">Университет ${uni} ур. — науки изучаются до ${uni} ур. · ученых в замке: ${my.units[227] || 0}</div>
     ${Object.entries(M().sciences).map(([k, s]) => `<button class="fbar sbar" data-scik="${k}"><img src="${FLASK(s)}" alt="">
       <span class="grow"><b>${esc(s.name)}</b><br><small>${esc(s.sub)}</small></span><span class="slvl">${my.sciences[k]}<small>/20</small></span></button>`).join('')}`;
 }
