@@ -745,7 +745,10 @@ function landGroundImg(cell) {
 const Iso = { cv: document.createElement('canvas'), cams: {}, sel: null, queued: false };
 Iso.cv.className = 'iso';
 window.__iso = { Iso, tileScreen: (x, y) => tileScreen(x, y), cam: () => cam() }; // для автотестов
-const ictx = Iso.cv.getContext('2d');
+let ictx = Iso.cv.getContext('2d'); // let: статичный слой карты мира рисуется теми же функциями в свой холст
+// плотность пикселей холста не больше 2: на телефонах с ×3 рисовать в 2,25 раза меньше точек (на глаз почти не видно)
+const isoDpr = () => Math.min(2, window.devicePixelRatio || 1);
+let PIC_LOADED = 0; // сколько картинок догрузилось — чтобы обновить готовый слой карты мира
 const IMGS = new Map();
 // перерисованная графика высокого качества: файл в HD[path] во столько раз крупнее, на карте рисуется в прежнем размере
 const HD = { 'build/castle.png': ['build/hd/castle.png', 8], 'build/spycentr.png': ['build/hd/spycentr.png', 8],
@@ -767,7 +770,7 @@ function pic(path) {
     const hd = HD[path];
     e.im.onload = () => {
       if (hd) { const w = e.im.naturalWidth / hd[1], h = e.im.naturalHeight / hd[1]; Object.defineProperty(e.im, 'width', { value: w }); Object.defineProperty(e.im, 'height', { value: h }); e.im.hd = true; }
-      e.ok = true; isoDraw();
+      e.ok = true; PIC_LOADED++; isoDraw();
     };
     e.im.src = GFX + (hd ? hd[0] : path); IMGS.set(path, e);
   }
@@ -811,7 +814,7 @@ function isoMount(wrap) {
   isoDraw();
 }
 function isoResize() {
-  const r = Iso.cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  const r = Iso.cv.getBoundingClientRect(), dpr = isoDpr();
   Iso.cv.width = Math.max(1, Math.round(r.width * dpr)); Iso.cv.height = Math.max(1, Math.round(r.height * dpr));
 }
 window.addEventListener('resize', () => { if (Iso.cv.isConnected) { isoResize(); isoDraw(); } });
@@ -1092,9 +1095,9 @@ function worldBackdrop(w, c, dpr) {
 }
 // уменьшенные копии картинок (рисовать маленькую копию быстрее, чем каждый кадр сжимать большую) — чтобы карта не подвисала
 const SCALED = new Map();
-function scaledPic(path, w) {
+function scaledPic(path, w, k = isoDpr() * Math.max(1, cam().z)) { // k — во сколько раз крупнее рисуется на экране
   const im = pic(path); if (!im) return null;
-  const want = Math.max(16, Math.ceil(w * (window.devicePixelRatio || 1) * Math.max(1, cam().z) / 32) * 32), key = `${path}|${want}`;
+  const want = Math.max(16, Math.min(im.width, Math.ceil(w * k / 32) * 32)), key = `${path}|${want}`;
   let cv = SCALED.get(key);
   if (!cv) { cv = document.createElement('canvas'); cv.width = want; cv.height = Math.round(im.height * want / im.width); const g = cv.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(im, 0, 0, cv.width, cv.height); SCALED.set(key, cv); }
   return cv;
@@ -1123,6 +1126,41 @@ function myCastleRing(p, active, half) { // half: −1 — задняя (вер�
   x.lineWidth = 1.2; x.strokeStyle = 'rgba(255,255,255,0.7)';
   for (let i = 0; i < 3; i++) { const a = -t * 1.4 + i * Math.PI * 2 / 3; x.beginPath(); x.ellipse(cx, cy, rx * 0.86, ry * 0.86, 0, a, a + 0.9); x.stroke(); }
   x.restore();
+}
+// один объект карты мира (замок по рейтингу, лагерь, логово похода); sel — золотая подводка по контуру
+function worldObj(o, p, sel, k, noDome) {
+  if (sel) { ictx.save(); ictx.filter = 'drop-shadow(0 0 3px #fff3a0) drop-shadow(0 0 3px #ffe030) drop-shadow(0 0 4px #ffc400) drop-shadow(0 0 7px #ff9d00) brightness(1.18)'; }
+  const path = o.kind === 'castle' ? `world/castle${castleStage(o.rating)}.png?v=1` : !o.qimg && WORLD_OBJ_IMG[o.img] ? WORLD_OBJ_IMG[o.img] : null, cimg = path && pic(path);
+  if (cimg) { const dw = TW * (o.kind === 'castle' ? [0.78, 0.84, 0.92, 1.0][castleStage(o.rating)] : 0.8), sc = scaledPic(path, dw, k || undefined) || cimg, dh = dw * cimg.height / cimg.width;
+    ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(sc, p.sx + TW / 2 - dw / 2, p.sy + TH * 0.85 - dh, dw, dh); ictx.restore(); }
+  else if (o.qimg && pic(o.qimg)) { const im = pic(o.qimg), q = TW * 1.25 / im.width; ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(im, p.sx + TW / 2 - im.width * q / 2, p.sy + TH * 0.85 - im.height * q, im.width * q, im.height * q); ictx.restore(); } // логово похода
+  else ground(WORLD_NAME_IMG(o), p.sx, p.sy);
+  if (sel) ictx.restore();
+  if (o.newbie && !noDome) newbieDome(p);
+}
+// статичный слой карты мира: рисуется заново только когда пришёл новый участок, сменилось выделение,
+// догрузилась картинка или заметно изменился масштаб; иначе — одна готовая картинка на кадр
+const WLAYER = { cv: null, key: '', s: 1, x0: 0, y0: 0, seq: 0 };
+function worldLayer(w, c, dpr) {
+  const R0 = w.radius, n = 2 * R0 + 1, x0 = -TW, y0 = -(n - 1) * TH / 2 - 120, W = (n - 1) * TW + 3 * TW, H = (n - 1) * TH + TH + 170;
+  const s = Math.min(Math.ceil(c.z * dpr * 4) / 4, 2, Math.sqrt(9e6 / (W * H))); // ступенями по 0,25 — щипок не перерисовывает слой каждый кадр
+  if (!w.lv) w.lv = ++WLAYER.seq;
+  const sel = Iso.sel && Iso.sel.tab === 'world' ? `${Iso.sel.x}:${Iso.sel.y}` : '', key = `${w.lv}|${s}|${sel}|${PIC_LOADED}|${S.st && S.st.castle.id}`;
+  if (WLAYER.key === key && WLAYER.cv) return WLAYER;
+  const cv = WLAYER.cv || document.createElement('canvas'), Wp = Math.ceil(W * s), Hp = Math.ceil(H * s);
+  if (cv.width !== Wp || cv.height !== Hp) { cv.width = Wp; cv.height = Hp; }
+  const g = cv.getContext('2d'), keep = ictx; g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, Wp, Hp); g.setTransform(s, 0, 0, s, -x0 * s, -y0 * s); g.imageSmoothingEnabled = false;
+  ictx = g;
+  try {
+    const objs = new Map(w.objects.map((o) => [`${o.x}:${o.y}`, o]));
+    if (Iso.sel && Iso.sel.tab === 'world') glow(tileScreen(Iso.sel.x, Iso.sel.y), 0.92);
+    for (const o of w.objects) worldClearing(tileScreen(o.x - (w.cx - R0), o.y - (w.cy - R0))); // под замками и лагерями — поляна (без деревьев фона)
+    for (let y = 0; y < n; y++) for (let xx = n - 1; xx >= 0; xx--) {
+      const o = objs.get(`${w.cx - R0 + xx}:${w.cy - R0 + y}`); if (o) worldObj(o, tileScreen(xx, y), isSel(xx, y), s);
+    }
+  } finally { ictx = keep; }
+  Object.assign(WLAYER, { cv, key, s, x0, y0 });
+  return WLAYER;
 }
 // купол защиты новичка над замком
 function newbieDome(p) {
@@ -1168,7 +1206,7 @@ function groundField(n, at, m = 5) { // m — сколько клеток тра
 
 function isoDrawNow() {
   if (!Iso.cv.isConnected || !S.st || !S.cat) return;
-  const dpr = window.devicePixelRatio || 1, c = cam(), x = ictx;
+  const dpr = isoDpr(), c = cam(), x = ictx;
   x.setTransform(1, 0, 0, 1, 0, 0);
   x.fillStyle = '#16240f'; x.fillRect(0, 0, Iso.cv.width, Iso.cv.height);
   x.setTransform(c.z * dpr, 0, 0, c.z * dpr, c.x * dpr, c.y * dpr);
@@ -1199,29 +1237,17 @@ function isoDrawNow() {
     landsScene(c, dpr); // клетки с тропинками между ними, жизнь (life.js)
     if (onPic) landsPicEnd();
   } else if (S.world) {
-    const w = S.world, R0 = w.radius, n = 2 * R0 + 1, objs = new Map(w.objects.map((o) => [`${o.x}:${o.y}`, o]));
+    const w = S.world, R0 = w.radius;
     worldBackdrop(w, c, dpr); // нарисованная местность (бесшовная), привязана к координатам мира
     { // центр экрана ушёл к краю загруженного участка — подгрузить новый (без перерисовки, см. case 'world')
       const r = Iso.cv.getBoundingClientRect(), f = screenToTileF((r.width / 2 - c.x) / c.z, (r.height / 2 - c.y) / c.z), ex = Math.round(f.x) - R0, ey = Math.round(f.y) - R0;
       if ((Math.abs(ex) > R0 - 5 || Math.abs(ey) > R0 - 5) && (!S.wPending || Date.now() - S.wPending > 1500)) { S.wPending = Date.now(); send({ t: 'world', cx: w.cx + ex, cy: w.cy + ey }); }
     }
-    if (Iso.sel && Iso.sel.tab === 'world') glow(tileScreen(Iso.sel.x, Iso.sel.y), 0.92);
-    for (const o of w.objects) worldClearing(tileScreen(o.x - (w.cx - R0), o.y - (w.cy - R0))); // под замками и лагерями — поляна (без деревьев фона)
-    const myRings = w.objects.filter((o) => o.kind === 'castle' && S.st && o.castleId === S.st.castle.id).map((o) => [tileScreen(o.x - (w.cx - R0), o.y - (w.cy - R0)), o.castleId === S.st.castle.id]);
-    for (const [p, a] of myRings) myCastleRing(p, a, -1); // свои замки — кольцо: задняя половина под объектами
-    for (let y = 0; y < n; y++) for (let xx = n - 1; xx >= 0; xx--) {
-      const o = objs.get(`${w.cx - R0 + xx}:${w.cy - R0 + y}`); if (!o) continue;
-      const p = tileScreen(xx, y), sel = isSel(xx, y);
-      // выбранный замок/объект — золотая подводка по контуру
-      if (sel) { ictx.save(); ictx.filter = 'drop-shadow(0 0 3px #fff3a0) drop-shadow(0 0 3px #ffe030) drop-shadow(0 0 4px #ffc400) drop-shadow(0 0 7px #ff9d00) brightness(1.18)'; }
-      const cimg = o.kind === 'castle' ? pic(`world/castle${castleStage(o.rating)}.png?v=1`) : !o.qimg && WORLD_OBJ_IMG[o.img] ? pic(WORLD_OBJ_IMG[o.img]) : null;
-      if (cimg) { const path = o.kind === 'castle' ? `world/castle${castleStage(o.rating)}.png?v=1` : WORLD_OBJ_IMG[o.img], dw = TW * (o.kind === 'castle' ? [0.78, 0.84, 0.92, 1.0][castleStage(o.rating)] : 0.8), sc = scaledPic(path, dw) || cimg, dh = dw * cimg.height / cimg.width;
-        ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(sc, p.sx + TW / 2 - dw / 2, p.sy + TH * 0.85 - dh, dw, dh); ictx.restore(); }
-      else if (o.qimg && pic(o.qimg)) { const im = pic(o.qimg), k = TW * 1.25 / im.width; ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(im, p.sx + TW / 2 - im.width * k / 2, p.sy + TH * 0.85 - im.height * k, im.width * k, im.height * k); ictx.restore(); } // логово похода
-      else ground(WORLD_NAME_IMG(o), p.sx, p.sy);
-      if (sel) ictx.restore();
-      if (o.newbie) newbieDome(p);
-    }
+    // статичное (поляны, замки, лагеря, купола, выделение) — готовым холстом; каждый кадр рисуется только фон, кольцо и стрелка
+    const L = worldLayer(w, c, dpr);
+    if (L) { x.save(); x.imageSmoothingEnabled = true; x.drawImage(L.cv, L.x0, L.y0, L.cv.width / L.s, L.cv.height / L.s); x.restore(); }
+    const myRings = w.objects.filter((o) => o.kind === 'castle' && S.st && o.castleId === S.st.castle.id).map((o) => [tileScreen(o.x - (w.cx - R0), o.y - (w.cy - R0)), true, o]);
+    for (const [p, , o] of myRings) { myCastleRing(p, true, -1); worldObj(o, p, false, 0, true); } // задняя половина кольца — под своим замком (замок поверх)
     for (const [p, a] of myRings) myCastleRing(p, a, 1); // передняя половина кольца — поверх замка и соседей
     for (const [p, a] of myRings) if (a) { // текущий замок: прыгающая золотая стрелка над ним и подпись «Вы здесь»
       const x = ictx, cx = p.sx + TW / 2, top = p.sy - TH * 0.8 - Math.abs(Math.sin(Date.now() / 300)) * 8;
