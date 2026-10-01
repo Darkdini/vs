@@ -258,12 +258,12 @@ class Game {
       id, owner: user.id, name: `Замок ${user.login}`, x, y,
       grid: { 0: castleGrid, 1: landsGrid },
       levels: { 0: new Int8Array(49), 1: new Int8Array(225) },
-      res: { wood: 300, stone: 300, iron: 300, food: 300, people: 40 },
+      res: { wood: 500, stone: 500, iron: 500, food: 500, people: 40 }, // старт: склад 2 ур. полон (вмещает 500)
       resAt: Date.now(),
       queue: [],
     };
     castleGrid[3 * 7 + 3] = 0; castle.levels[0][3 * 7 + 3] = 1; // Ратуша 1 ур. в центре
-    castleGrid[2 * 7 + 1] = 1; castle.levels[0][2 * 7 + 1] = 1; // Склад 1 ур.
+    castleGrid[2 * 7 + 1] = 1; castle.levels[0][2 * 7 + 1] = 2; // Склад 2 ур.
     // стартовые постройки на землях: по одной добывающей каждого вида
     for (const [bx, by, b] of [[1, 8, 7], [10, 0, 8], [12, 0, 9], [3, 5, 5], [6, 3, 6]]) {
       landsGrid[by * 15 + bx] = b; castle.levels[1][by * 15 + bx] = 1;
