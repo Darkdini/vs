@@ -63,6 +63,15 @@ const GIFTS = {
   castle_box: { name: 'Королевская шкатулка', img: 'gifts/castle_box.png?v=2', gold: 10, premium: true },
   helmet: { name: 'Шлем Легиона', img: 'gifts/helmet.png?v=2', gold: 5, premium: true },
   crown: { name: 'Корона Авторитета', img: 'gifts/crown.png?v=2', gold: 8, premium: true },
+  // премиум-подарки (новые)
+  p_roses: { name: 'Королевский букет', img: 'gifts/p_roses.png', gold: 6, premium: true },
+  p_goblet: { name: 'Кубок пиршества', img: 'gifts/p_goblet.png', gold: 7, premium: true },
+  p_heart: { name: 'Рубиновое сердце', img: 'gifts/p_heart.png', gold: 9, premium: true },
+  p_sword: { name: 'Меч героя', img: 'gifts/p_sword.png', gold: 10, premium: true },
+  p_potion: { name: 'Эликсир чародея', img: 'gifts/p_potion.png', gold: 8, premium: true },
+  p_horse: { name: 'Белый скакун', img: 'gifts/p_horse.png', gold: 12, premium: true },
+  p_decree: { name: 'Королевский указ', img: 'gifts/p_decree.png', gold: 11, premium: true },
+  p_scepter: { name: 'Скипетр власти', img: 'gifts/p_scepter.png', gold: 15, premium: true },
 };
 const GIFTS_DAY = 20;
 const REP_PER_GOLD = 2; // 1 монета = 2 репутации // сколько подарков игрок может отправить за сутки
