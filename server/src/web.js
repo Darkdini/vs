@@ -277,7 +277,7 @@ const API = {
     this.toast(`Здание разрушено: ${r.name}`); this.pushState();
   },
   world(m) {
-    const c = this.castle, R = 7;
+    const c = this.castle, R = 13; // окно мира 27×27 — подгрузка при прокрутке реже
     const lim = (v) => Math.max(R, Math.min(G.WORLD - 1 - R, Math.round(v))); // не за край карты
     const cx = lim(Number.isFinite(m.cx) ? m.cx : c.x), cy = lim(Number.isFinite(m.cy) ? m.cy : c.y);
     const objects = this.game.worldObjects(cx - R, cy - R, 2 * R + 1, 2 * R + 1);

@@ -12,7 +12,13 @@ const SPEED = Number(process.env.SPEED || 1);
 // мир: карта WORLD×WORLD клеток, рассчитан на ~5 000 игроков (заселённый круг ~220 клеток)
 const WORLD = Number(process.env.WORLD_SIZE || 1000);
 const SPAWN_DENSITY = 9; // клеток карты на один замок в зоне заселения
-const SPAWN_GAP = 2;     // новый замок — не ближе 2 клеток к другим замкам (между замками хотя бы одна пустая клетка)
+const SPAWN_GAP = 2;
+// где на нарисованном фоне карты мира луг, а не роща (world_open.json — маска картинки web/gfx/ground/world_bg.jpg):
+// клетка мира (X, Y) лежит в точке фона ((X+Y)·31+31, (Y−X)·16+16) по модулю размера картинки
+const WOPEN = (() => { try { const j = require('./world_open.json'); return { ...j, b: Buffer.from(j.bits, 'base64') }; } catch { return null; } })();
+const meadowAt = (X, Y) => { if (!WOPEN) return true; const m = (a, n) => ((a % n) + n) % n;
+  const px = m((X + Y) * 31 + 31, WOPEN.W), py = m((Y - X) * 16 + 16, WOPEN.H), i = Math.floor(py / WOPEN.S) * WOPEN.w + Math.floor(px / WOPEN.S);
+  return !!(WOPEN.b[i >> 3] & (128 >> (i & 7))); };     // новый замок — не ближе 2 клеток к другим замкам (между замками хотя бы одна пустая клетка)
 const SAVE_MS = Number(process.env.SAVE_MS || 10000); // автосохранение раз в 10 с (и при остановке)
 const MAX_QUEUE = Number(process.env.MAX_QUEUE || 3); // оригинал: 3 стройки одновременно (премиум — 5)
 
@@ -292,7 +298,7 @@ class Game {
         if (x < 0 || y < 0 || x >= WORLD || y >= WORLD) continue;
         let near = false; // соседи ближе SPAWN_GAP (после 300 попыток — только сама клетка свободна)
         for (let dx = -SPAWN_GAP; dx <= SPAWN_GAP && !near; dx++) for (let dy = -SPAWN_GAP; dy <= SPAWN_GAP; dy++) if ((k < 300 || (!dx && !dy)) && this.byXY.has((x + dx) * WORLD + (y + dy))) { near = true; break; }
-        if (!near && !this.worldObjects(x, y, 1, 1).some((o) => o.kind === 'object')) break;
+        if (!near && (k > 600 || meadowAt(x, y)) && !this.worldObjects(x, y, 1, 1).some((o) => o.kind === 'object')) break; // на лугу, не в роще
       }
     }
     const castleGrid = new Int8Array(49).fill(-1);

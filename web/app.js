@@ -218,7 +218,19 @@ function onMsg(m) {
     case 'state': onState(m); if (S.st && S.st.user && S.st.user.admin) loadAdmin(); if (typeof questBtn === 'function') questBtn(); break;
     case 'quests': S.quests = m.q; refreshSheet(); break;
     case 'qdone': questDone(m.msg); break;
-    case 'world': if (!S.world || S.world.cx !== m.cx || S.world.cy !== m.cy) { delete Iso.cams.world; if (Iso.sel && Iso.sel.tab === 'world') Iso.sel = null; } S.world = m; if (S.tab === 'world') renderView(); break;
+    case 'world': {
+      const old = S.world; S.wPending = 0;
+      // плавная прокрутка: новый участок мира подгружается без перерисовки экрана — камера сдвигается на разницу центров
+      if (old && S.tab === 'world' && Iso.cams.world && $('.mapwrap') && !S.wJump) {
+        const dx = m.cx - old.cx, dy = m.cy - old.cy, c = Iso.cams.world, t = tileScreen(dx, dy);
+        c.x += t.sx * c.z; c.y += t.sy * c.z;
+        if (Iso.sel && Iso.sel.tab === 'world') { Iso.sel.x -= dx; Iso.sel.y -= dy; }
+        S.world = m; const f = $('[data-wsearch]'); if (f && document.activeElement !== f.x && document.activeElement !== f.y) { f.x.value = m.cx; f.y.value = m.cy; } isoDraw(); break;
+      }
+      S.wJump = false;
+      if (!old || old.cx !== m.cx || old.cy !== m.cy) { delete Iso.cams.world; if (Iso.sel && Iso.sel.tab === 'world') Iso.sel = null; }
+      S.world = m; if (S.tab === 'world') renderView(); break;
+    }
     case 'rating': S.ratingRows = m.rows; refreshSheet(); break;
     case 'profile': if (m.acct) { S.lastAcct = m.profile; S.lastProfile = m.profile; if (m.refresh && S.sheets.length) { S.sheets[S.sheets.length - 1] = () => accountWin(m.profile); showSheet(false); } else openSheet(() => accountWin(m.profile)); break; }
       if (m.refresh && S.sheets.length) { S.sheets[S.sheets.length - 1] = () => profileSheet(m.profile); showSheet(false); } else openSheet(() => profileSheet(m.profile)); break;
@@ -698,9 +710,9 @@ $('#view').addEventListener('submit', (e) => {
   const f = e.target.closest('[data-wsearch]'); if (!f) return; e.preventDefault(); document.activeElement && document.activeElement.blur();
   const x = Math.round(Number(f.x.value)), y = Math.round(Number(f.y.value));
   if (!Number.isFinite(x) || !Number.isFinite(y)) return toast('Введите X и Y.', 'err');
-  send({ t: 'world', cx: x, cy: y });
+  S.wJump = true; send({ t: 'world', cx: x, cy: y });
 });
-$('#view').addEventListener('click', (e) => { if (e.target.closest('[data-whome]')) send({ t: 'world', cx: S.st.castle.x, cy: S.st.castle.y }); });
+$('#view').addEventListener('click', (e) => { if (e.target.closest('[data-whome]')) { S.wJump = true; send({ t: 'world', cx: S.st.castle.x, cy: S.st.castle.y }); } });
 $('#view').addEventListener('click', (e) => { const b = e.target.closest('.infobox'); if (b && Iso.sel && S.world) openWorldCell(S.world.cx - S.world.radius + Iso.sel.x, S.world.cy - S.world.radius + Iso.sel.y); });
 
 function openWorldCell(x, y) {
@@ -1078,13 +1090,24 @@ function worldBackdrop(w, c, dpr) {
   const x = ictx, sm = x.imageSmoothingEnabled; x.imageSmoothingEnabled = true; x.fillStyle = WORLD_PAT;
   x.fillRect(-c.x / c.z - TW, -c.y / c.z - TH, Iso.cv.width / dpr / c.z + 2 * TW, Iso.cv.height / dpr / c.z + 2 * TH); x.imageSmoothingEnabled = sm;
 }
+// уменьшенные копии картинок (рисовать маленькую копию быстрее, чем каждый кадр сжимать большую) — чтобы карта не подвисала
+const SCALED = new Map();
+function scaledPic(path, w) {
+  const im = pic(path); if (!im) return null;
+  const want = Math.max(16, Math.ceil(w * (window.devicePixelRatio || 1) * Math.max(1, cam().z) / 32) * 32), key = `${path}|${want}`;
+  let cv = SCALED.get(key);
+  if (!cv) { cv = document.createElement('canvas'); cv.width = want; cv.height = Math.round(im.height * want / im.width); const g = cv.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(im, 0, 0, cv.width, cv.height); SCALED.set(key, cv); }
+  return cv;
+}
 // объекты карты мира — новая графика (старые плитки с зелёными ромбами не используются)
 const WORLD_OBJ_IMG = { 24: 'world/ruins.png', 25: 'world/savage.png', 26: 'world/lumber.png', 27: 'world/troll_mine.png', 30: 'world/bandit_s.png', 31: 'world/bandit_m.png', 32: 'quest/lair_orc.png' };
 // поляна: мягкое пятно травы, закрывающее деревья и камни фона под объектом
+let CLEARING = null;
 function worldClearing(p) {
-  const x = ictx, cx = p.sx + TW / 2, cy = p.sy + TH / 2, g = x.createRadialGradient(cx, cy, 4, cx, cy, TW * 0.8);
-  g.addColorStop(0, 'rgba(143,174,40,1)'); g.addColorStop(0.6, 'rgba(143,174,40,0.9)'); g.addColorStop(1, 'rgba(143,174,40,0)');
-  x.save(); x.translate(cx, cy); x.scale(1, 0.55); x.translate(-cx, -cy); x.fillStyle = g; x.beginPath(); x.arc(cx, cy, TW * 0.8, 0, Math.PI * 2); x.fill(); x.restore();
+  if (!CLEARING) { const R = 64, cv = document.createElement('canvas'); cv.width = 2 * R; cv.height = Math.ceil(R * 1.12); const g = cv.getContext('2d'), cy0 = cv.height / 2, gr = g.createRadialGradient(R, cy0 / 0.55, 4, R, cy0 / 0.55, R);
+    gr.addColorStop(0, 'rgba(143,174,40,1)'); gr.addColorStop(0.6, 'rgba(143,174,40,0.9)'); gr.addColorStop(1, 'rgba(143,174,40,0)');
+    g.scale(1, 0.55); g.fillStyle = gr; g.beginPath(); g.arc(R, cy0 / 0.55, R, 0, Math.PI * 2); g.fill(); CLEARING = cv; }
+  const w = TW * 1.6, h = w * CLEARING.height / CLEARING.width; ictx.drawImage(CLEARING, p.sx + TW / 2 - w / 2, p.sy + TH / 2 - h / 2, w, h);
 }
 // кольцо под своим замком на карте мира: свечение и вращающиеся золотые черты; активный замок — ярче
 function myCastleRing(p, active, half) { // half: −1 — задняя (верхняя) половина, 1 — передняя (нижняя)
@@ -1093,7 +1116,7 @@ function myCastleRing(p, active, half) { // half: −1 — задняя (вер�
   x.save(); x.beginPath(); if (half < 0) x.rect(cx - rx - 20, cy - ry - 20, 2 * rx + 40, ry + 20); else x.rect(cx - rx - 20, cy, 2 * rx + 40, ry + 20); x.clip();
   const g = x.createRadialGradient(cx, cy, 2, cx, cy, rx); g.addColorStop(0, `rgba(255,220,90,${active ? 0.45 : 0.25})`); g.addColorStop(1, 'rgba(255,200,60,0)');
   x.fillStyle = g; x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); x.fill();
-  x.lineWidth = 2.2; x.strokeStyle = active ? '#ffe066' : '#ffd24a'; x.shadowColor = '#ffcc33'; x.shadowBlur = 8;
+  x.lineWidth = 2.6; x.strokeStyle = active ? '#ffe066' : '#ffd24a';
   x.globalAlpha = 0.85; x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); x.stroke(); x.globalAlpha = 1; // сплошное кольцо
   x.lineWidth = 3.2; x.strokeStyle = '#fff6c8';
   for (let i = 0; i < 3; i++) { const a = t * 1.2 + i * Math.PI * 2 / 3; x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, a, a + 0.45); x.stroke(); } // бегущие блики
@@ -1178,9 +1201,9 @@ function isoDrawNow() {
   } else if (S.world) {
     const w = S.world, R0 = w.radius, n = 2 * R0 + 1, objs = new Map(w.objects.map((o) => [`${o.x}:${o.y}`, o]));
     worldBackdrop(w, c, dpr); // нарисованная местность (бесшовная), привязана к координатам мира
-    const mid = R0; // стрелки перехода по краям, как в клиенте
-    for (const [ax, ay, img] of [[mid, -1, 'arrowup'], [n, mid, 'arrowright'], [mid, n, 'arrowdown'], [-1, mid, 'arrowleft']]) {
-      const p = tileScreen(ax, ay); ground(`ground/${img}.png`, p.sx, p.sy);
+    { // центр экрана ушёл к краю загруженного участка — подгрузить новый (без перерисовки, см. case 'world')
+      const r = Iso.cv.getBoundingClientRect(), f = screenToTileF((r.width / 2 - c.x) / c.z, (r.height / 2 - c.y) / c.z), ex = Math.round(f.x) - R0, ey = Math.round(f.y) - R0;
+      if ((Math.abs(ex) > R0 - 5 || Math.abs(ey) > R0 - 5) && (!S.wPending || Date.now() - S.wPending > 1500)) { S.wPending = Date.now(); send({ t: 'world', cx: w.cx + ex, cy: w.cy + ey }); }
     }
     if (Iso.sel && Iso.sel.tab === 'world') glow(tileScreen(Iso.sel.x, Iso.sel.y), 0.92);
     for (const o of w.objects) worldClearing(tileScreen(o.x - (w.cx - R0), o.y - (w.cy - R0))); // под замками и лагерями — поляна (без деревьев фона)
@@ -1192,7 +1215,8 @@ function isoDrawNow() {
       // выбранный замок/объект — золотая подводка по контуру
       if (sel) { ictx.save(); ictx.filter = 'drop-shadow(0 0 3px #fff3a0) drop-shadow(0 0 3px #ffe030) drop-shadow(0 0 4px #ffc400) drop-shadow(0 0 7px #ff9d00) brightness(1.18)'; }
       const cimg = o.kind === 'castle' ? pic(`world/castle${castleStage(o.rating)}.png?v=1`) : !o.qimg && WORLD_OBJ_IMG[o.img] ? pic(WORLD_OBJ_IMG[o.img]) : null;
-      if (cimg) { const k = TW * (o.kind === 'castle' ? [1.0, 1.1, 1.25, 1.4][castleStage(o.rating)] : 0.92) / cimg.width; ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(cimg, p.sx + TW / 2 - cimg.width * k / 2, p.sy + TH * 0.85 - cimg.height * k, cimg.width * k, cimg.height * k); ictx.restore(); }
+      if (cimg) { const path = o.kind === 'castle' ? `world/castle${castleStage(o.rating)}.png?v=1` : WORLD_OBJ_IMG[o.img], dw = TW * (o.kind === 'castle' ? [1.0, 1.1, 1.25, 1.4][castleStage(o.rating)] : 0.92), sc = scaledPic(path, dw) || cimg, dh = dw * cimg.height / cimg.width;
+        ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(sc, p.sx + TW / 2 - dw / 2, p.sy + TH * 0.85 - dh, dw, dh); ictx.restore(); }
       else if (o.qimg && pic(o.qimg)) { const im = pic(o.qimg), k = TW * 1.25 / im.width; ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(im, p.sx + TW / 2 - im.width * k / 2, p.sy + TH * 0.85 - im.height * k, im.width * k, im.height * k); ictx.restore(); } // логово похода
       else ground(WORLD_NAME_IMG(o), p.sx, p.sy);
       if (sel) ictx.restore();
