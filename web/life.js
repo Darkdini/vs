@@ -4,24 +4,26 @@
 // Фигурки — кадры 3D-моделей из клиента (gfx/anim/*.png, ноги — в точке FX,FY ячейки; K — во сколько раз крупнее).
 const LIFE = { walkers: [], last: 0, fish: null, birds: [] };
 const AN = { K: 4, CW: 56, CH: 88, FX: 28, FY: 76, KM: 6, MW: 276, MH: 384, MX: 138, MY: 300 };
-const LIFE_N = 7, WALK_SPEED = 0.55; // жителей; клеток в секунду
+const LIFE_N = 5, WALK_SPEED = 0.55; // жителей; клеток в секунду
 const DIR_ROW = (dx, dy) => (Math.abs(dx) >= Math.abs(dy) ? (dx < 0 ? 0 : 2) : (dy < 0 ? 1 : 3)); // −x, −y, +x, +y → строка листа
 const HOUSES = new Set([6, 31, 36]), FARMS = new Set([5, 30, 35]), SAWS = new Set([7, 27, 32]);
-const MILL_AT = [-2, 10], MILL_S = 1.7, MAN_S = 1.25; // мельница за левым нижним краем земель; масштабы мельницы и человечков
+const MILL_AT = [-2, 4], MILL_S = 1.7, MAN_S = 1.25; // мельница за левым нижним краем земель; масштабы мельницы и человечков
 
 // где можно ходить: свободная клетка земель (не вода, без здания, стройки и украшения) или полоса травы за краем
 function lifeFree(x, y) {
   const L = S.cat.lands, st = S.st.castle;
   if (x === MILL_AT[0] && y === MILL_AT[1]) return false;
-  if (x < 0 || y < 0 || x > 14 || y > 14) return x >= -2 && y >= -2 && x <= 16 && y <= 16;
-  const cell = y * 15 + x;
+  const N = LN();
+  if (x < 0 || y < 0 || x > N - 1 || y > N - 1) return x >= -2 && y >= -2 && x <= N + 1 && y <= N + 1;
+  const cell = y * N + x;
   return L.base[y][x] !== 9 && st.grid[1][cell] < 0 && !queueAt(1, cell) && L.decor[y][x] < 0;
 }
 function lifeNeighbours(x, y) { return [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => [x + dx, y + dy]).filter(([a, b]) => lifeFree(a, b)); }
 function lifeSpawn() {
   const cells = [];
-  for (let y = -2; y <= 16; y++) for (let x = -2; x <= 16; x++) if (lifeFree(x, y)) cells.push([x, y]);
-  const inside = cells.filter(([x, y]) => x >= 0 && y >= 0 && x < 15 && y < 15), pool = inside.length >= 4 ? inside : cells;
+  const N = LN();
+  for (let y = -2; y <= N + 1; y++) for (let x = -2; x <= N + 1; x++) if (lifeFree(x, y)) cells.push([x, y]);
+  const inside = cells.filter(([x, y]) => x >= 0 && y >= 0 && x < N && y < N), pool = inside.length >= 4 ? inside : cells;
   LIFE.walkers = Array.from({ length: LIFE_N }, (_, i) => { const [x, y] = pool[Math.floor(Math.random() * pool.length)] || [-1, 7];
     return { x, y, fx: x, fy: y, tx: x, ty: y, px: x, py: y, t: 1, skin: i % 4, frame: Math.random() * 8, wait: Math.random() * 3 }; });
 }
@@ -45,7 +47,7 @@ function lifeStep(dt) {
   // рыба в озере: раз в несколько секунд
   if (!LIFE.fish || LIFE.fish.t > 1.6) {
     const L = S.cat.lands, water = [];
-    for (let y = 0; y < 15; y++) for (let x = 0; x < 15; x++) if (L.base[y][x] === 9 && S.st.castle.grid[1][y * 15 + x] < 0) water.push([x, y]);
+    const N = LN(); for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (L.base[y][x] === 9 && S.st.castle.grid[1][y * N + x] < 0) water.push([x, y]);
     LIFE.fish = water.length && Math.random() < 0.02 ? { c: water[Math.floor(Math.random() * water.length)], t: 0, dx: Math.random() < 0.5 ? -1 : 1 } : (LIFE.fish && LIFE.fish.t <= 1.6 ? LIFE.fish : null);
   } else LIFE.fish.t += dt;
   // птицы: стайка пролетает раз в 20–40 с
@@ -68,7 +70,7 @@ function lifePerson(sheet, row, f, fx, fy, cols) {
 }
 // всё, что стоит на клетке (x, y) — рисуется сразу после неё (правильный порядок по глубине)
 function lifeAt(xx, y, now) {
-  const st = S.st.castle, cell = xx >= 0 && y >= 0 && xx < 15 && y < 15 ? y * 15 + xx : -1;
+  const N = LN(), st = S.st.castle, cell = xx >= 0 && y >= 0 && xx < N && y < N ? y * N + xx : -1;
   for (const w of LIFE.walkers) if (Math.round(w.fx) === xx && Math.round(w.fy) === y)
     lifePerson(`villager${w.skin}`, w.t < 1 && !w.wait ? DIR_ROW(w.tx - w.x, w.ty - w.y) : 3, w.wait > 0 ? 0 : w.frame, w.fx, w.fy, 8);
   if (cell < 0) return;
@@ -137,12 +139,13 @@ function lifeDraw(phase, c, dpr) {
     if (flowOn() && !flowTimer) flowTimer = setTimeout(flowTick, ANIM_MS);
     // всё, что за верхними краями земель (позади зданий)
     const seen = new Set();
-    for (const w of LIFE.walkers) { const a = Math.round(w.fx), b = Math.round(w.fy), k = `${a}:${b}`; if ((b < 0 || a > 14) && !seen.has(k)) { seen.add(k); lifeAt(a, b, now); } }
+    for (const w of LIFE.walkers) { const a = Math.round(w.fx), b = Math.round(w.fy), k = `${a}:${b}`; if ((b < 0 || a > LN() - 1) && !seen.has(k)) { seen.add(k); lifeAt(a, b, now); } }
     return;
   }
   // перед зданиями: нижние края и мельница
-  for (let y = -2; y <= 16; y++) for (let xx = 16; xx >= -2; xx--) {
-    if (!(xx < 0 || y > 14) || y < 0 || xx > 14) continue;
+  const N = LN();
+  for (let y = -2; y <= N + 1; y++) for (let xx = N + 1; xx >= -2; xx--) {
+    if (!(xx < 0 || y > N - 1) || y < 0 || xx > N - 1) continue;
     if (xx === MILL_AT[0] && y === MILL_AT[1]) lifeMill(now);
     lifeAt(xx, y, now);
   }

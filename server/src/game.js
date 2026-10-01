@@ -15,49 +15,29 @@ const SPAWN_DENSITY = 2.5; // клеток карты на один замок �
 const SAVE_MS = Number(process.env.SAVE_MS || 10000); // автосохранение раз в 10 с (и при остановке)
 const MAX_QUEUE = Number(process.env.MAX_QUEUE || 3); // оригинал: 3 стройки одновременно (премиум — 5)
 
-// ---------- рельеф «Земель» 15×15: массивы j/k/l из клиента (класс k) ----------
-// base: 0 трава, 7 земля, 8 камни, 9 вода; decor: 0 лес, 1 валун, 2 гора; edge: дороги/берега (не застраиваются)
-const LANDS_BASE = [
-  [7, 7, 7, 7, 7, 7, 0, 0, 0, 8, 8, 8, 8, 8, 8], [7, 7, 7, 7, 7, 0, 0, 0, 0, 8, 8, 8, 8, 8, 8],
-  [7, 7, 7, 7, 7, 0, 0, 0, 0, 8, 8, 8, 8, 8, 8], [7, 7, 7, 7, 7, 7, 0, 0, 0, 8, 8, 8, 8, 8, 8],
-  [7, 7, 7, 7, 7, 7, 0, 0, 0, 8, 8, 8, 8, 8, 8], [7, 7, 7, 7, 7, 7, 0, 0, 0, 0, 0, 8, 8, 8, 8],
-  [7, 7, 7, 7, 7, 0, 0, 0, 0, 0, 0, 8, 8, 8, 8], [0, 0, 7, 7, 7, 0, 0, 0, 0, 0, 0, 0, 0, 8, 8],
-  [0, 0, 7, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 7, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 7, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 9, 9, 9, 9, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 9, 9, 9, 9, 9, 9, 0, 0, 0], [0, 0, 9, 9, 9, 9, 9, 9, 0, 0, 9, 9, 9, 9, 9],
-  [0, 0, 9, 9, 9, 9, 9, 9, 0, 0, 9, 9, 9, 9, 9],
+// ---------- рельеф «Земель» ----------
+// Земли 7×7 — заранее размеченные участки (как в оригинале: у каждой клетки своё назначение).
+// x — вправо-вверх, y — вправо-вниз; (0,0) — левый угол, (6,0) — верхний, (0,6) — нижний.
+// W лес (Дровосек), F пашня (Огород), S камни (Каменщик), I горы (Рудник), H луг (Хибара), P озеро (Рыболовная заводь)
+const LANDS_PLAN = [
+  'WWWFFSS',
+  'WWWFFSS',
+  'WHFFFSS',
+  'HFFFHSI',
+  'HHHHHHI',
+  'PPHHIII',
+  'PPPPIIH',
 ];
-const LANDS_DECOR = [
-  [-1, -1, -1, -1, -1, -1, -1, -1, -1, 1, 1, 2, 2, 2, 2], [-1, 1, 1, 1, -1, -1, -1, -1, -1, 2, 1, 1, 2, 2, 2],
-  [-1, -1, 1, 1, -1, -1, -1, -1, -1, 2, 2, 1, 2, 2, 2], [-1, -1, -1, -1, 1, -1, -1, -1, -1, 1, 2, 1, 1, 2, 2],
-  [-1, -1, -1, -1, -1, -1, -1, -1, -1, 2, 2, 2, 2, 1, 2], [-1, -1, -1, -1, -1, -1, -1, -1, -1, 1, 1, 1, 2, 1, 2],
-  [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 1, 1, 1, 2, 1], [0, 0, -1, -1, -1, -1, -1, -1, -1, -1, 1, 1, 1, 2, 2],
-  [0, 0, -1, -1, -1, -1, -1, -1, -1, -1, 0, 0, 0, 0, 0], [0, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 0, 0],
-  [0, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 0], [0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 0],
-  [0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0], [0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
-  [0, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
-];
-const LANDS_EDGE = [
-  [-1, -1, -1, -1, -1, 4, -1, -1, -1, 2, -1, -1, -1, -1, -1], [-1, -1, -1, -1, 0, -1, -1, -1, -1, 2, -1, -1, -1, -1, -1],
-  [-1, -1, -1, -1, 0, -1, -1, -1, -1, 2, -1, -1, -1, -1, -1], [-1, -1, -1, -1, -1, 10, -1, -1, -1, 2, -1, -1, -1, -1, -1],
-  [-1, -1, -1, -1, -1, 0, -1, -1, -1, 6, 1, -1, -1, -1, -1], [-1, -1, -1, -1, -1, 4, -1, -1, -1, -1, -1, 2, -1, -1, -1],
-  [1, 1, -1, -1, 0, -1, -1, -1, -1, -1, -1, 6, 1, -1, -1], [-1, -1, 2, -1, 4, -1, -1, -1, -1, -1, -1, -1, -1, 6, 1],
-  [-1, -1, 2, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1], [-1, -1, 2, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
-  [-1, -1, 6, 4, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1], [-1, -1, -1, -1, -1, -1, -1, 20, 15, 15, 22, -1, -1, -1, -1],
-  [-1, -1, -1, -1, -1, -1, 20, 17, 13, 13, 19, 22, -1, -1, -1], [-1, -1, 20, 15, 15, 15, 21, 12, -1, -1, 14, 23, 15, 15, 15],
-  [-1, -1, 14, -1, -1, -1, -1, 12, -1, -1, 14, -1, -1, -1, -1],
-];
+const PLAN_B = { W: 7, F: 5, S: 8, I: 9, H: 6, P: 37 };
+const LANDS_N = C.LANDS_N;
+const LANDS_BASE = LANDS_PLAN.map((r) => [...r].map((c) => ({ F: 7, S: 8, I: 8, P: 9 })[c] ?? 0)); // 0 трава, 7 пашня, 8 камень, 9 вода
+const LANDS_DECOR = LANDS_PLAN.map((r) => [...r].map((c) => ({ W: 0, S: 1, I: 2 })[c] ?? -1)); // 0 лес, 1 валуны, 2 горы
+const LANDS_EDGE = LANDS_PLAN.map((r) => [...r].map(() => -1));
 
 // Какие здания можно ставить на клетку земель
 function landOptions(x, y) {
-  // края дорог и берегов (LANDS_EDGE) — только рисунок, застраивать можно все 225 клеток
-  if (LANDS_BASE[y][x] === 9 || LANDS_EDGE[y][x] >= 12) return [37]; // вода и берег — Рыболовная заводь
-  switch (LANDS_DECOR[y][x]) {
-    case 0: return [7];
-    case 1: return [8];
-    case 2: return [9];
-    default: return LANDS_BASE[y][x] === 7 ? [5] : [6]; // как в оригинале: Огород — на вспаханной земле, Хибара — на траве
-  }
+  const c = LANDS_PLAN[y] && LANDS_PLAN[y][x];
+  return c ? [PLAN_B[c]] : [];
 }
 
 // вместимость: база 1500 + каждый Склад 1000×1.25^ур.; люди: 60 + 20 за уровень каждой Хибары
@@ -72,7 +52,7 @@ const BASE_RATE = { wood: 29.5, stone: 29.5, iron: 29.5, food: 29.5, people: 14 
 const PEOPLE_FACTOR = C.PROD_K.people;
 
 const VIEW = { CASTLE: 0, LANDS: 1, WORLD: 2 };
-const GRID = { [VIEW.CASTLE]: 7, [VIEW.LANDS]: 15 };
+const GRID = { [VIEW.CASTLE]: 7, [VIEW.LANDS]: LANDS_N };
 
 // ---------- хранилище ----------
 // сетки замков (здания и уровни) — байтовые массивы Int8Array: в памяти в ~8 раз меньше обычных массивов,
@@ -136,12 +116,34 @@ const checkPassword = (pass, stored) => { const a = Buffer.from(hashPassword(pas
 // реальное время стройки с учётом скорости мира (не меньше 3 с)
 const buildTime = (def, level, townhall) => Math.max(3, Math.round(C.levelTimeSec(def, level, townhall) / SPEED));
 
+// перенос старых земель 15×15 на 7×7: постройки каждого вида встают на клетки своего вида, а их суммарная добыча
+// (уровни прежних зданий) переводится в уровни новых — до 25 ур. Стройки на землях отменяются с возвратом ресурсов.
+function migrateLands(castle) {
+  const N = LANDS_N, g0 = castle.grid[1], l0 = castle.levels[1];
+  const sum = {};
+  for (let i = 0; i < g0.length; i++) if (g0[i] >= 0 && C.LAND_MULT[g0[i]]) sum[g0[i]] = (sum[g0[i]] || 0) + C.PROD[l0[i]];
+  const g = new Int8Array(N * N).fill(-1), l = new Int8Array(N * N);
+  for (const [b, total] of Object.entries(sum)) {
+    const cells = []; for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (landOptions(x, y)[0] === Number(b)) cells.push(y * N + x);
+    let left = total / C.LAND_MULT[b]; // столько «добычи на новом уровне» надо набрать
+    for (const c of cells) {
+      if (left < C.PROD[1] * 0.5 && c !== cells[0]) break; // хотя бы одна постройка вида остаётся
+      let lv = 1; while (lv < C.LANDS_MAX && C.PROD[lv + 1] <= left + 1e-9) lv++;
+      g[c] = Number(b); l[c] = lv; left -= C.PROD[lv];
+    }
+  }
+  const back = (castle.queue || []).filter((q) => q.view === 1);
+  for (const q of back) for (const r of ['wood', 'stone', 'iron', 'food']) castle.res[r] += (q.cost && q.cost[r]) || 0;
+  castle.queue = (castle.queue || []).filter((q) => q.view !== 1);
+  castle.grid[1] = g; castle.levels[1] = l;
+}
+
 class Game {
   constructor(store) {
     this.store = store; this.db = store.data;
     this.byXY = new Map(); // индекс замков по координатам: карта мира и поиск цели без перебора всех
     this.byId = new Map(); // игроки по id
-    for (const c of Object.values(this.db.castles)) { packCastle(c); this.byXY.set(c.x * WORLD + c.y, c); }
+    for (const c of Object.values(this.db.castles)) { packCastle(c); if (c.grid[1].length !== LANDS_N * LANDS_N) migrateLands(c); this.byXY.set(c.x * WORLD + c.y, c); }
     for (const u of Object.values(this.db.users)) this.byId.set(u.id, u);
     // ключ игрока = ник с учётом регистра; старые записи (ключ строчными, ник «Zevs») переносятся на ключ «Zevs»
     for (const [k, u] of Object.entries(this.db.users)) if (k !== u.login) { if (Object.prototype.hasOwnProperty.call(this.db.users, u.login)) u.login = k; else { delete this.db.users[k]; this.db.users[u.login] = u; } }
@@ -253,11 +255,11 @@ class Game {
       }
     }
     const castleGrid = new Int8Array(49).fill(-1);
-    const landsGrid = new Int8Array(225).fill(-1);
+    const landsGrid = new Int8Array(LANDS_N * LANDS_N).fill(-1);
     const castle = {
       id, owner: user.id, name: `Замок ${user.login}`, x, y,
       grid: { 0: castleGrid, 1: landsGrid },
-      levels: { 0: new Int8Array(49), 1: new Int8Array(225) },
+      levels: { 0: new Int8Array(49), 1: new Int8Array(LANDS_N * LANDS_N) },
       res: { wood: 500, stone: 500, iron: 500, food: 500, people: 40 }, // старт: склад 2 ур. полон (вмещает 500)
       resAt: Date.now(),
       queue: [],
@@ -265,8 +267,8 @@ class Game {
     castleGrid[3 * 7 + 3] = 0; castle.levels[0][3 * 7 + 3] = 1; // Ратуша 1 ур. в центре
     castleGrid[2 * 7 + 1] = 1; castle.levels[0][2 * 7 + 1] = 2; // Склад 2 ур.
     // стартовые постройки на землях: по одной добывающей каждого вида
-    for (const [bx, by, b] of [[1, 8, 7], [10, 0, 8], [12, 0, 9], [3, 5, 5], [6, 3, 6]]) {
-      landsGrid[by * 15 + bx] = b; castle.levels[1][by * 15 + bx] = 1;
+    for (const [bx, by, b] of [[1, 1, 7], [5, 1, 8], [6, 4, 9], [3, 2, 5], [3, 4, 6]]) {
+      landsGrid[by * LANDS_N + bx] = b; castle.levels[1][by * LANDS_N + bx] = 1;
     }
     this.db.castles[id] = castle;
     this.byXY.set(x * WORLD + y, castle);
@@ -310,7 +312,7 @@ class Game {
     castle.grid[0].forEach((b, i) => { if (b === 1) store += storeBonus(castle.levels[0][i]); });
     let huts = 0;
     castle.grid[1].forEach((b, i) => { if (b === 6) huts += castle.levels[1][i]; });
-    const people = Math.round(STORE.people + STORE.peoplePerHut * huts);
+    const people = Math.round(STORE.people + STORE.peoplePerHut * C.HUT_CAP_MULT * huts);
     return { wood: store, stone: store, iron: store, food: store, people };
   }
 
@@ -319,7 +321,7 @@ class Game {
     const r = { ...BASE_RATE };
     castle.grid[1].forEach((b, i) => {
       const def = C.BY_ID[b];
-      if (def && def.produces) r[def.produces] += C.PROD[castle.levels[1][i]] * C.PROD_K[def.produces];
+      if (def && def.produces) r[def.produces] += C.PROD[castle.levels[1][i]] * C.PROD_K[def.produces] * (C.LAND_MULT[b] || 1);
     });
     if (this.isPremium(this.userById(castle.owner))) r.people *= 1.5; // премиум: население +50%
     const prod = this.bonus(castle).prod; // наука Экономика, религия Природа, артефакты
@@ -330,6 +332,7 @@ class Game {
 
   // довести ресурсы и очередь до момента now (ленивый расчёт)
   tick(castle, now = Date.now()) {
+    if (castle.grid[1].length !== LANDS_N * LANDS_N) migrateLands(castle);
     const done = [];
     castle.queue.sort((a, b) => a.end - b.end);
     while (castle.queue.length && castle.queue[0].end <= now) {
@@ -369,7 +372,7 @@ class Game {
     if (current === -1) {
       if ((view === VIEW.CASTLE) !== (def.layer === 'castle')) return { error: 'Это здание строится в другом месте.' };
       if (view === VIEW.LANDS) {
-        const x = cell % 15, y = Math.floor(cell / 15);
+        const x = cell % LANDS_N, y = Math.floor(cell / LANDS_N);
         if (!landOptions(x, y).includes(buildingId)) return { error: 'На этой клетке такое здание не построить.' };
       }
       if (view === VIEW.CASTLE && C.CASTLE_PATH.includes(cell)) return { error: 'На тропинке строить нельзя.' };
@@ -488,4 +491,4 @@ require('./forum').install(Game);
 require('./news').install(Game);
 require('./quests').install(Game);
 
-module.exports = { WORLD, Game, Store, STORE, BASE_RATE, PEOPLE_FACTOR, storeBonus, RES_SPEED, buildTime, VIEW, GRID, landOptions, SPEED, MAX_QUEUE, LANDS_BASE, LANDS_DECOR, LANDS_EDGE };
+module.exports = { migrateLands, LANDS_N, WORLD, Game, Store, STORE, BASE_RATE, PEOPLE_FACTOR, storeBonus, RES_SPEED, buildTime, VIEW, GRID, landOptions, SPEED, MAX_QUEUE, LANDS_BASE, LANDS_DECOR, LANDS_EDGE };

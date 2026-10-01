@@ -197,7 +197,7 @@ function install(Game) {
           const c = this.createCastle(u); u.castleId = c.id; u.castleIds = [c.id];
           const lv = 1 + Math.floor(Math.random() * 12);
           c.levels[0][24] = lv; c.levels[0][8] = Math.max(1, lv - 2); // Ратуша и Склад
-          for (let k = 0; k < 225; k++) if (c.grid[1][k] >= 0) c.levels[1][k] = Math.max(1, Math.floor(Math.random() * lv));
+          for (let k = 0; k < c.grid[1].length; k++) if (c.grid[1][k] >= 0) c.levels[1][k] = Math.max(1, Math.floor(Math.random() * lv));
           made++;
         }
         this.cache = {};

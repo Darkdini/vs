@@ -321,9 +321,6 @@ function install(Game, helpers) {
     delete castle.forgeJob; delete castle.magicJob; delete castle.magicJobs;
     if (!castle.squads) castle.squads = []; // отряды в замке («Армия: …»); castle.units — «Замковая армия»
     if (castle.loyalty === undefined) { castle.loyalty = 100; castle.loyAt = Date.now(); }
-    // старые замки: стартовый Огород стоял на траве (7:7) — переносим на землю (3:5), как в оригинале
-    if (!castle.farmFix) { castle.farmFix = 1; const g = castle.grid[1], lv = castle.levels[1], a = 7 * 15 + 7, b = 5 * 15 + 3;
-      if (g[a] === 5 && g[b] < 0 && !(castle.queue || []).some((q) => q.view === 1 && (q.cell === a || q.cell === b))) { g[b] = 5; lv[b] = lv[a]; g[a] = -1; lv[a] = 0; } }
     // торговцы больше не юниты армии — убрать старые записи из войск и очередей
     if (castle.units[MERCHANT_ID]) delete castle.units[MERCHANT_ID];
     for (const q of castle.squads) delete q.units[MERCHANT_ID];
@@ -1532,11 +1529,12 @@ function install(Game, helpers) {
     for (const b of castleBuildings) { const i = cells[k++]; castle.grid[0][i] = b.id; castle.levels[0][i] = b.max; }
 
     while (k < cells.length) { const i = cells[k++]; castle.grid[0][i] = 1; castle.levels[0][i] = C.BY_ID[1].max; } // оставшиеся клетки — тоже склады (повторяться может только Склад)
-    for (let i = 0; i < 225; i++) {
-      const opts = helpers.landOptions(i % 15, Math.floor(i / 15));
+    const LN = C.LANDS_N; castle.grid[1] = new Int8Array(LN * LN).fill(-1); castle.levels[1] = new Int8Array(LN * LN);
+    for (let i = 0; i < LN * LN; i++) {
+      const opts = helpers.landOptions(i % LN, Math.floor(i / LN));
       if (!opts.length) { castle.grid[1][i] = -1; castle.levels[1][i] = 0; continue; }
       const id = opts.length > 1 ? opts[i % opts.length] : opts[0];
-      castle.grid[1][i] = id; castle.levels[1][i] = 20;
+      castle.grid[1][i] = id; castle.levels[1][i] = C.LANDS_MAX;
     }
     castle.queue = [];
     for (const u of unitsForRace(race)) if (u.id !== GENERAL_ID) castle.units[u.id] = Math.max(castle.units[u.id] || 0, u.role === 'merchant' ? 200 : u.race === 'all' && !['giant', 'valkyrie', 'ram', 'catapult', 'eye', 'shadow'].includes(u.role) ? 20 : 1000);

@@ -18,11 +18,11 @@ const BUILDINGS = [
   B(2, 'Военный штаб', 'Производит управления всеми военными операциями.', 'castle', { max: 20, unique: true, req: { 0: 3 } }),
   B(3, 'Казарма', 'Позволяет тренеровать легких воинов.', 'castle', { max: 20, unique: true, req: { 0: 3 } }),
   B(4, 'Рынок', 'Позволяет Вам совершать действия купли/продажи ресурсов.', 'castle', { max: 20, unique: true, req: { 0: 3, 1: 1 } }),
-  B(5, 'Огород', 'Производит еду.', 'lands', { produces: 'food', tiers: [5, 30, 35] }),
-  B(6, 'Хибара', 'В данном здании проживают Ваши подданые.', 'lands', { produces: 'people', tiers: [6, 31, 36] }),
-  B(7, 'Дровосек', 'Производит дерево.', 'lands', { produces: 'wood', tiers: [7, 27, 32] }),
-  B(8, 'Каменьщик', 'Добывает камень.', 'lands', { produces: 'stone', tiers: [8, 28, 33] }),
-  B(9, 'Рудник', 'Добывает железо.', 'lands', { produces: 'iron', tiers: [9, 29, 34] }),
+  B(5, 'Огород', 'Производит еду.', 'lands', { max: 25, produces: 'food', tiers: [5, 30, 35] }),
+  B(6, 'Хибара', 'В данном здании проживают Ваши подданые.', 'lands', { max: 25, produces: 'people', tiers: [6, 31, 36] }),
+  B(7, 'Дровосек', 'Производит дерево.', 'lands', { max: 25, produces: 'wood', tiers: [7, 27, 32] }),
+  B(8, 'Каменьщик', 'Добывает камень.', 'lands', { max: 25, produces: 'stone', tiers: [8, 28, 33] }),
+  B(9, 'Рудник', 'Добывает железо.', 'lands', { max: 25, produces: 'iron', tiers: [9, 29, 34] }),
   B(10, '-Строимся-', 'Здание строится', 'none'),
   B(11, 'Кузнец', 'Позволяет усилить физические параметры Ваших воинов.', 'castle', { max: 20, unique: true, req: { 0: 3, 2: 1 }, hp: 660,
     base: { wood: 120, stone: 95, iron: 160, food: 100, people: 3 }, time: 120,
@@ -59,7 +59,7 @@ const BUILDINGS = [
   B(34, 'Сталелитейный завод', 'Добыча железа.', 'none'),
   B(35, 'Ферма', 'Добыча еды.', 'none'),
   B(36, 'Усадьба', 'Вмещает людей.', 'none'),
-  B(37, 'Рыболовная заводь', 'Производит еду.', 'lands', { produces: 'food', tiers: [37, 37, 37], water: true }),
+  B(37, 'Рыболовная заводь', 'Производит еду.', 'lands', { max: 25, produces: 'food', tiers: [37, 37, 37], water: true }),
   B(38, 'Портал', 'Служит для вызова юнитов', 'castle', { max: 10, unique: true, req: { 20: 10 } }),
   B(39, 'Школа магии', 'Школа для повышения магической атаки и защиты воинам.', 'castle', { max: 20, unique: true, req: { 20: 3 } }),
   B(40, 'Каменотес', 'Увеличивает устойчивость зданий к разрушению.', 'castle', { max: 20, unique: true, req: { 0: 5 } }),
@@ -91,7 +91,13 @@ const RACE_NAMES = { humans: 'Люди', elves: 'Эльфы', dwarves: 'Гном
 // добыча одного здания земель в час по уровням (2/ч на 1 ур. … 8.25/ч на 20 ур.), PROD_K — множитель по ресурсу.
 // Подогнано под оригинал: полностью отстроенный замок с максимальными бонусами (Экономика 20, легендарный артефакт)
 // даёт 527 дерева/камня/железа, 992 еды и 727 людей в час.
-const PROD = Array.from({ length: 21 }, (_, l) => (l ? Math.round((2 + (l - 1) * 6.25 / 19) * 1000) / 1000 : 0));
+const PROD = Array.from({ length: 26 }, (_, l) => (l ? Math.round((2 + (l - 1) * 6.25 / 19) * 1000) / 1000 : 0));
+// земли 7×7 (было 15×15): клеток меньше, зато здания растут до 25 ур., а добыча за уровень умножена на LAND_MULT —
+// полностью отстроенные земли дают столько же, сколько прежние 225 клеток на 20 ур.
+const LANDS_N = 7, LANDS_MAX = 25;
+const LAND_CELLS_OLD = { 5: 42, 6: 73, 7: 26, 8: 26, 9: 26, 37: 32 }, LAND_CELLS = { 5: 10, 6: 12, 7: 7, 8: 7, 9: 7, 37: 6 };
+const LAND_MULT = Object.fromEntries(Object.keys(LAND_CELLS).map((id) => [id, Math.round(LAND_CELLS_OLD[id] * PROD[20] / (LAND_CELLS[id] * PROD[LANDS_MAX]) * 1000) / 1000]));
+const HUT_CAP_MULT = Math.round(LAND_CELLS_OLD[6] * 20 / (LAND_CELLS[6] * LANDS_MAX) * 1000) / 1000; // места для людей за уровень Хибары
 const PROD_K = { wood: 1, stone: 1, iron: 1, food: 0.5788, people: 1.5163 };
 
 function levelCost(b, level) {
@@ -100,7 +106,7 @@ function levelCost(b, level) {
     ? { wood: 60, stone: 50, iron: 40, food: 30, people: 1 }
     : { wood: 120, stone: 110, iron: 80, food: 60, people: 2 };
   if (b.produces) base[b.produces === 'people' ? 'food' : b.produces] = Math.round(base.wood * 0.5);
-  const k = growth ** (level - 1);
+  const k = growth ** (Math.min(level, 20) - 1) * 1.07 ** Math.max(0, level - 20); // после 20 ур. (земли до 25) цена растёт мягко — влезает в склады
   const cost = {};
   for (const r of RES) cost[r] = r === 'people' ? Math.ceil(base.people * level) : b.base ? Math.round(base[r] * k) : Math.round((base[r] * k) / 5) * 5;
   return cost;
@@ -110,7 +116,7 @@ function levelCost(b, level) {
 const TIME = { lands: { base: 60, growth: 1.45 }, castle: { base: 180, growth: 1.25 }, townhallFactor: 0.95, min: 5 };
 function levelTimeSec(b, level, townhallLevel) {
   const t = b.time ? { base: b.time, growth: TIME.castle.growth } : b.layer === 'lands' ? TIME.lands : TIME.castle;
-  return Math.max(TIME.min, Math.round(t.base * t.growth ** (level - 1) * TIME.townhallFactor ** townhallLevel));
+  return Math.max(TIME.min, Math.round(t.base * t.growth ** (Math.min(level, 20) - 1) * 1.07 ** Math.max(0, level - 20) * TIME.townhallFactor ** townhallLevel));
 }
 
 // рейтинг: полностью отстроенный замок = 2300 (замок до 1300 + земли до 1000).
@@ -124,7 +130,7 @@ const CASTLE_TYPES = BUILDINGS.filter((b) => b.layer === 'castle');
 const CASTLE_PATH = [3, 10, 17, 21, 22, 23];
 const CASTLE_CELLS = 49 - CASTLE_PATH.length;
 const CASTLE_FULL_LEVELS = CASTLE_TYPES.reduce((s, b) => s + (b.max || 20), 0) + (CASTLE_CELLS - CASTLE_TYPES.length) * BY_ID_MAX_STORE;
-const LANDS_FULL_LEVELS = 225 * 20; // все клетки земель застраиваемые
+const LANDS_FULL_LEVELS = LANDS_N * LANDS_N * LANDS_MAX; // все клетки земель застраиваемые
 const RATING = { max: 2300, castleMax: 1300, landsMax: 1000, castle: 1300 / CASTLE_FULL_LEVELS, lands: 1000 / LANDS_FULL_LEVELS };
 
 // Какую картинку показывать для уровня (земли «растут»: маленькое → среднее → большое здание)
@@ -133,4 +139,4 @@ function displayId(b, level) {
   return level >= 10 ? b.tiers[2] : level >= 5 ? b.tiers[1] : b.tiers[0];
 }
 
-module.exports = { TIME, RATING, RES, RES_ICON, TIME_ICON, BUILDINGS, BY_ID, UNITS, RACES, RACE_NAMES, PROD, PROD_K, CASTLE_PATH, durability, levelCost, levelTimeSec, displayId };
+module.exports = { LANDS_N, LANDS_MAX, LAND_MULT, HUT_CAP_MULT, LAND_CELLS, TIME, RATING, RES, RES_ICON, TIME_ICON, BUILDINGS, BY_ID, UNITS, RACES, RACE_NAMES, PROD, PROD_K, CASTLE_PATH, durability, levelCost, levelTimeSec, displayId };

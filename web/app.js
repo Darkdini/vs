@@ -96,7 +96,7 @@ const send = (m) => { if (S.ws && S.ws.readyState === 1) S.ws.send(JSON.stringif
 const R = () => S.cat.rules;
 function buildSec(def, level, townhall) {
   const T = R().time, t = def.time ? { base: def.time, growth: T.castle.growth } : def.layer === 'lands' ? T.lands : T.castle;
-  const raw = Math.max(T.min, Math.round(t.base * t.growth ** (level - 1) * T.townhallFactor ** townhall));
+  const raw = Math.max(T.min, Math.round(t.base * t.growth ** (Math.min(level, 20) - 1) * 1.07 ** Math.max(0, level - 20) * T.townhallFactor ** townhall));
   return Math.max(R().minBuildSec, Math.round(raw / S.cat.speed));
 }
 const ratingPer = (def) => (def.layer === 'lands' ? R().rating.lands : R().rating.castle);
@@ -106,11 +106,11 @@ function effect(def, level) {
   if (level <= 0) return { text: '—', short: '—' };
   const sp = S.cat.resSpeed || 1, K = S.cat.prodK || {};
   if (def.produces === 'people') {
-    const cap = Math.round(R().store.peoplePerHut * level), p = Math.round(S.cat.prod[level] * K.people * sp);
+    const LM = (S.cat.lands && S.cat.lands.mult) || {}, cap = Math.round(R().store.peoplePerHut * (S.cat.lands.hutCap || 1) * level), p = Math.round(S.cat.prod[level] * K.people * (LM[def.id] || 1) * sp);
     return { text: `+${cap} мест для людей, +${p} людей/ч`, short: `+${cap} мест` };
   }
   const GEN = { wood: 'дерева', stone: 'камня', iron: 'железа', food: 'еды' }; // текст (экранируется в окнах), без HTML-иконок
-  if (def.produces) { const p = Math.round(S.cat.prod[level] * (K[def.produces] || 1) * sp); return { text: `+${fmtFull(p)} ${GEN[def.produces]} в час`, short: `+${fmtN(p)}/ч` }; }
+  if (def.produces) { const p = Math.round(S.cat.prod[level] * (K[def.produces] || 1) * (((S.cat.lands && S.cat.lands.mult) || {})[def.id] || 1) * sp); return { text: `+${fmtFull(p)} ${GEN[def.produces]} в час`, short: `+${fmtN(p)}/ч` }; }
   if (def.id === 1) { const c = R().store.levels[level]; return { text: `вместимость склада ${fmtFull(c)} ед.`, short: fmtN(c) }; }
   if (def.id === 0) { const p = Math.round((1 - R().time.townhallFactor ** level) * 100); return { text: `стройки быстрее на ${p}%`, short: `−${p}%` }; }
   const m = typeof milEffect === 'function' && S.st && milEffect(def, level); // функции зданий (mil.js)
@@ -624,7 +624,7 @@ function emptySheet(view, cell) {
   }
   let opts, title, sub;
   if (view === VIEW.LANDS) {
-    const x = cell % 15, y = Math.floor(cell / 15), L = S.cat.lands;
+    const x = cell % LN(), y = Math.floor(cell / LN()), L = S.cat.lands;
     opts = S.cat.landOptions[y][x];
     title = ['Лес', 'Валуны', 'Горы'][L.decor[y][x]] || { 0: 'Луг', 7: 'Пашня', 8: 'Каменистая земля', 9: 'Вода' }[L.base[y][x]] || 'Земля';
     sub = `Земли: строительство · клетка ${x + 1}:${y + 1}`;
@@ -724,7 +724,7 @@ const CASTLE_BASE = [
 ];
 const CASTLE_OFF = 5, TW = 62, TH = 32;
 function landGroundImg(cell) {
-  const x = cell % 15, y = Math.floor(cell / 15), L = S.cat.lands;
+  const x = cell % LN(), y = Math.floor(cell / LN()), L = S.cat.lands;
   return L.decor[y][x] >= 0 ? `ground/${DECOR[L.decor[y][x]]}.png` : `ground/${GROUND[L.base[y][x]]}.png`;
 }
 
@@ -789,7 +789,8 @@ function plotImage(path, p, k) { const im = pic(path); if (!im) return; const w 
 // подсветка выбранной клетки
 const isSel = (x, y) => Iso.sel && Iso.sel.tab === S.tab && Iso.sel.x === x && Iso.sel.y === y;
 const glow = (p, k) => plotDiamond(p, k, 'rgba(255, 214, 80, 0.38)', '#ffe27a', 2.5);
-const gridN = () => (S.tab === 'castle' ? 17 : S.tab === 'lands' ? 15 : S.world ? 2 * S.world.radius + 1 : 15);
+const LN = () => (S.cat && S.cat.lands && S.cat.lands.n) || 15; // сторона земель (7)
+const gridN = () => (S.tab === 'castle' ? 17 : S.tab === 'lands' ? LN() : S.world ? 2 * S.world.radius + 1 : 15);
 const cam = () => Iso.cams[S.tab] || (Iso.cams[S.tab] = clampCam(isoFit()));
 
 function isoMount(wrap) {
@@ -804,7 +805,7 @@ function isoResize() {
 window.addEventListener('resize', () => { if (Iso.cv.isConnected) { isoResize(); isoDraw(); } });
 // начальная камера: замок целиком, земли и мир — примерно 8 клеток по ширине экрана, по центру
 function isoFit() {
-  const r = Iso.cv.getBoundingClientRect(), n = gridN(), vis = S.tab === 'castle' ? 4.4 : 8; // замок — сразу крупно (ров чуть за краями), отдалить можно щипком
+  const r = Iso.cv.getBoundingClientRect(), n = gridN(), vis = S.tab === 'castle' ? 4.4 : S.tab === 'lands' ? 5.4 : 8; // замок — сразу крупно (ров чуть за краями), отдалить можно щипком
   const z = Math.max(0.35, Math.min(2.5, Math.min(r.width / (vis * TW), r.height / (vis * TH + 60))));
   const c = tileScreen(n / 2 - 0.5, n / 2 - 0.5);
   return { z, x: r.width / 2 - (c.sx + TW / 2) * z, y: r.height / 2 - (c.sy + TH / 2) * z + 18 * z };
@@ -815,8 +816,8 @@ function clampCam(c) {
   const r = Iso.cv.getBoundingClientRect(); if (!r.width) return c;
   // центр экрана не уходит дальше самого замка (со рвом) / земель; отдалить можно, пока замок во всю ширину
   const box = (a, b) => ({ L: tileScreen(a, a).sx, R: tileScreen(b, b).sx + TW, T: tileScreen(b, a).sy, B: tileScreen(a, b).sy + TH });
-  const outer = S.tab === 'castle' ? box(CASTLE_OFF - 1, CASTLE_OFF + 7) : box(0, 14); // замок со рвом
-  const { L, R, T, B } = S.tab === 'castle' ? box(CASTLE_OFF, CASTLE_OFF + 6) : box(2, 12); // куда может смотреть центр экрана
+  const outer = S.tab === 'castle' ? box(CASTLE_OFF - 1, CASTLE_OFF + 7) : box(-1, LN()); // замок со рвом; земли — с полосой травы
+  const { L, R, T, B } = S.tab === 'castle' ? box(CASTLE_OFF, CASTLE_OFF + 6) : box(1, LN() - 2); // куда может смотреть центр экрана
   const zMin = r.width / (outer.R - outer.L);
   if (c.z < zMin) c.z = zMin;
   let mx = (r.width / 2 - c.x) / c.z, my = (r.height / 2 - c.y) / c.z;
@@ -891,9 +892,9 @@ function isoTap(px, py) {
     Iso.sel = { tab: 'castle', x, y }; isoDraw();
     openCell(VIEW.CASTLE, y * 7 + x);
   } else if (S.tab === 'lands') {
-    if (t.x < 0 || t.x >= 15 || t.y < 0 || t.y >= 15) return;
+    if (t.x < 0 || t.x >= LN() || t.y < 0 || t.y >= LN()) return;
     Iso.sel = { tab: 'lands', x: t.x, y: t.y }; isoDraw();
-    openCell(VIEW.LANDS, t.y * 15 + t.x);
+    openCell(VIEW.LANDS, t.y * LN() + t.x);
   } else if (S.tab === 'world' && S.world) {
     const R0 = S.world.radius, n = 2 * R0 + 1, w = S.world;
     // стрелки за краем карты: сдвиг мира (вверх — y−, вправо — x+, вниз — y+, влево — x−)
@@ -1127,17 +1128,18 @@ function isoDrawNow() {
     if (fence) fenceFront();
   } else if (S.tab === 'lands') {
     const L = S.cat.lands;
-    groundField(15, (xx, y) => `ground/${GROUND[L.base[y][xx]]}.png`);
-    for (let y = 0; y < 15; y++) for (let xx = 0; xx < 15; xx++) if (GRASSY(`ground/${GROUND[L.base[y][xx]]}.png`) && L.edge[y][xx] < 0) { const p = tileScreen(xx, y); pathTile(p.sx, p.sy); }
-    for (let y = 0; y < 15; y++) for (let xx = 0; xx < 15; xx++) { // края дорог и берегов (s.c)
+    const N = LN();
+    groundField(N, (xx, y) => `ground/${GROUND[L.base[y][xx]]}.png`);
+    for (let y = 0; y < N; y++) for (let xx = 0; xx < N; xx++) if (GRASSY(`ground/${GROUND[L.base[y][xx]]}.png`) && L.edge[y][xx] < 0) { const p = tileScreen(xx, y); pathTile(p.sx, p.sy); }
+    for (let y = 0; y < N; y++) for (let xx = 0; xx < N; xx++) { // края дорог и берегов (s.c)
       const e = L.edge[y][xx]; if (e < 0) continue;
       const p = tileScreen(xx, y); raw(`gborder/${e < 12 ? 'ground' : 'water'}/${EDGE[e % 12]}.png`, p.sx, p.sy);
     }
     if (Iso.sel && Iso.sel.tab === 'lands') glow(tileScreen(Iso.sel.x, Iso.sel.y), 0.92);
     const life = typeof lifeDraw === 'function', tnow = Date.now();
     if (life) lifeDraw('begin', c, dpr); // жители, строители, дым, мельница, рыба, птицы (life.js)
-    for (let y = 0; y < 15; y++) for (let xx = 14; xx >= 0; xx--) {
-      const cell = y * 15 + xx, b = st.grid[1][cell], p = tileScreen(xx, y), d = L.decor[y][xx];
+    for (let y = 0; y < N; y++) for (let xx = N - 1; xx >= 0; xx--) {
+      const cell = y * N + xx, b = st.grid[1][cell], p = tileScreen(xx, y), d = L.decor[y][xx];
       if (b < 0 && !queueAt(1, cell) && d >= 0) sprite(`ground/${DECOR[d]}.png`, p.sx, p.sy, d === 1 ? 3 : d === 2 ? -2 : 0);
       else drawCellBuilding(1, cell, b, st.levels[1][cell], p, 1, isSel(xx, y));
       if (life) lifeAt(xx, y, tnow);
