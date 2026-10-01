@@ -970,7 +970,7 @@ const flowOn = () => typeof SND === 'undefined' || SND.anim !== false;
 let flowTimer = null;
 function flowTick() { // перерисовка только пока открыт замок и вкладка видна
   flowTimer = null;
-  if ((S.tab !== 'castle' && S.tab !== 'lands') || document.hidden || !flowOn() || !Iso.cv.isConnected) return;
+  if (!['castle', 'lands', 'world'].includes(S.tab) || document.hidden || !flowOn() || !Iso.cv.isConnected) return;
   isoDraw(); flowTimer = setTimeout(flowTick, ANIM_MS);
 }
 const MOAT_T = ['TL', 'R', 'BR', 'L', 'cL', 'cT', 'cR', 'cB', 'bL', 'bTL'];
@@ -1078,6 +1078,19 @@ function worldBackdrop(w, c, dpr) {
   const x = ictx, sm = x.imageSmoothingEnabled; x.imageSmoothingEnabled = true; x.fillStyle = WORLD_PAT;
   x.fillRect(-c.x / c.z - TW, -c.y / c.z - TH, Iso.cv.width / dpr / c.z + 2 * TW, Iso.cv.height / dpr / c.z + 2 * TH); x.imageSmoothingEnabled = sm;
 }
+// кольцо под своим замком на карте мира: свечение и вращающиеся золотые черты; активный замок — ярче
+function myCastleRing(p, active) {
+  const x = ictx, cx = p.sx + TW / 2, cy = p.sy + TH / 2 + 2, t = Date.now() / 1000, rx = TW * 0.78, ry = TH * 0.78;
+  if (flowOn() && !flowTimer) flowTimer = setTimeout(flowTick, ANIM_MS);
+  x.save();
+  const g = x.createRadialGradient(cx, cy, 2, cx, cy, rx); g.addColorStop(0, `rgba(255,220,90,${active ? 0.45 : 0.25})`); g.addColorStop(1, 'rgba(255,200,60,0)');
+  x.fillStyle = g; x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); x.fill();
+  x.lineWidth = 2.2; x.strokeStyle = active ? '#ffe066' : '#ffd24a'; x.shadowColor = '#ffcc33'; x.shadowBlur = 8;
+  for (let i = 0; i < 6; i++) { const a = t * 0.9 + i * Math.PI / 3; x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, a, a + 0.6); x.stroke(); }
+  x.lineWidth = 1.2; x.strokeStyle = 'rgba(255,255,255,0.7)';
+  for (let i = 0; i < 3; i++) { const a = -t * 1.4 + i * Math.PI * 2 / 3; x.beginPath(); x.ellipse(cx, cy, rx * 0.86, ry * 0.86, 0, a, a + 0.9); x.stroke(); }
+  x.restore();
+}
 // купол защиты новичка над замком
 function newbieDome(p) {
   const cx = p.sx + TW / 2, cy = p.sy + TH / 2 + 1, rx = TW * 0.4, ry = TH * 1.05; // купол по размеру замка
@@ -1160,13 +1173,14 @@ function isoDrawNow() {
       const p = tileScreen(ax, ay); ground(`ground/${img}.png`, p.sx, p.sy);
     }
     if (Iso.sel && Iso.sel.tab === 'world') glow(tileScreen(Iso.sel.x, Iso.sel.y), 0.92);
+    for (const o of w.objects) if (o.kind === 'castle' && S.st && o.ownerId === S.st.user.id) myCastleRing(tileScreen(o.x - (w.cx - R0), o.y - (w.cy - R0)), o.castleId === S.st.castle.id); // свои замки — вращающееся кольцо (под всеми объектами)
     for (let y = 0; y < n; y++) for (let xx = n - 1; xx >= 0; xx--) {
       const o = objs.get(`${w.cx - R0 + xx}:${w.cy - R0 + y}`); if (!o) continue;
       const p = tileScreen(xx, y), sel = isSel(xx, y);
       // выбранный замок/объект — золотая подводка по контуру
       if (sel) { ictx.save(); ictx.filter = 'drop-shadow(0 0 3px #fff3a0) drop-shadow(0 0 3px #ffe030) drop-shadow(0 0 4px #ffc400) drop-shadow(0 0 7px #ff9d00) brightness(1.18)'; }
-      const cimg = o.kind === 'castle' && pic(`world/castle${castleStage(o.rating)}.png`);
-      if (cimg) { const k = TW * [1.05, 1.2, 1.35, 1.5][castleStage(o.rating)] / cimg.width; ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(cimg, p.sx + TW / 2 - cimg.width * k / 2, p.sy + TH * 0.85 - cimg.height * k, cimg.width * k, cimg.height * k); ictx.restore(); }
+      const cimg = o.kind === 'castle' && pic(`world/castle${castleStage(o.rating)}.png?v=1`);
+      if (cimg) { const k = TW * [1.0, 1.1, 1.25, 1.4][castleStage(o.rating)] / cimg.width; ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(cimg, p.sx + TW / 2 - cimg.width * k / 2, p.sy + TH * 0.85 - cimg.height * k, cimg.width * k, cimg.height * k); ictx.restore(); }
       else if (o.qimg && pic(o.qimg)) { const im = pic(o.qimg), k = TW * 1.25 / im.width; ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(im, p.sx + TW / 2 - im.width * k / 2, p.sy + TH * 0.85 - im.height * k, im.width * k, im.height * k); ictx.restore(); } // логово похода
       else ground(WORLD_NAME_IMG(o), p.sx, p.sy);
       if (sel) ictx.restore();
