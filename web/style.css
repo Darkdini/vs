@@ -1456,3 +1456,7 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .artlife .bar i { background: linear-gradient(90deg, #9c27b0, #e1bee7); }
 
 .qplace { image-rendering: auto; height: 118px; } .qscene { height: 160px; }
+/* карта мира: слои фона и объектов под холстом, двигаются через transform */
+.wview { position: absolute; inset: 0; overflow: hidden; pointer-events: none; background: #6f9a2c; }
+.wview-in { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
+.wview-in canvas { position: absolute; display: block; }

@@ -861,7 +861,7 @@ function isoZoom(k, mx, my) {
   const c = cam(), r = Iso.cv.getBoundingClientRect();
   if (mx === undefined) { mx = r.width / 2; my = r.height / 2; }
   const z = Math.max(0.3, Math.min(3, c.z * k));
-  c.x = mx - (mx - c.x) * (z / c.z); c.y = my - (my - c.y) * (z / c.z); c.z = z;
+  c.x = mx - (mx - c.x) * (z / c.z); c.y = my - (my - c.y) * (z / c.z); c.z = z; Iso.zt = Date.now();
   clampCam(c); isoDraw();
 }
 
@@ -888,7 +888,7 @@ function isoZoom(k, mx, my) {
       if (g.moved) { c.x = g.cx + dx; c.y = g.cy + dy; clampCam(c); isoDraw(); }
     } else if (g.mode === 'pinch' && P.size >= 2) {
       const [a, b] = [...P.values()], m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-      c.z = Math.max(0.3, Math.min(3, g.z0 * Math.hypot(a.x - b.x, a.y - b.y) / g.d0));
+      c.z = Math.max(0.3, Math.min(3, g.z0 * Math.hypot(a.x - b.x, a.y - b.y) / g.d0)); Iso.zt = Date.now();
       c.x = m.x - g.wx * c.z; c.y = m.y - g.wy * c.z;
       clampCam(c); isoDraw();
     }
@@ -1083,15 +1083,34 @@ function grassBackdrop(path, c, dpr) {
   ictx.fillStyle = pat;
   ictx.fillRect(-c.x / c.z - TW, -c.y / c.z - TH, Iso.cv.width / dpr / c.z + 2 * TW, Iso.cv.height / dpr / c.z + 2 * TH);
 }
-// фон карты мира: бесшовная картинка-плитка (отражённая 2×2), сдвигается вместе с миром
-let WORLD_PAT = null;
-function worldBackdrop(w, c, dpr) {
+// Карта мира двигается как готовая картинка (CSS-transform — сдвигает видеокарта, без перерисовки):
+// под холстом лежат два слоя — фон (с запасом вокруг экрана) и объекты участка; холст рисует только кольцо и стрелку.
+const WV = { box: null, inner: null, bg: null, bx: 0, by: 0, bw: 0, bh: 0, bs: 0, bkey: '' };
+function worldView(on) {
+  if (!on) { if (WV.box && WV.box.isConnected) WV.box.remove(); return null; }
+  if (!WV.box) {
+    WV.box = document.createElement('div'); WV.box.className = 'wview';
+    WV.inner = document.createElement('div'); WV.inner.className = 'wview-in'; WV.box.appendChild(WV.inner);
+    WV.bg = document.createElement('canvas'); WV.inner.appendChild(WV.bg);
+  }
+  if (Iso.cv.parentNode && (WV.box.parentNode !== Iso.cv.parentNode || WV.box.nextSibling !== Iso.cv)) Iso.cv.parentNode.insertBefore(WV.box, Iso.cv);
+  return WV;
+}
+// фон: бесшовная картинка-плитка, привязана к координатам мира; перерисовывается, только когда экран вышел за запас
+function worldBg(w, c, dpr) {
   const im = pic('ground/world_bg.jpg?v=2'); if (!im) return;
-  if (!WORLD_PAT) WORLD_PAT = ictx.createPattern(im, 'repeat');
-  const o = tileScreen(-(w.cx - w.radius), -(w.cy - w.radius)); // где на экране точка мира (0, 0)
-  WORLD_PAT.setTransform(new DOMMatrix().translate(o.sx % im.width, o.sy % im.height));
-  const x = ictx, sm = x.imageSmoothingEnabled; x.imageSmoothingEnabled = true; x.fillStyle = WORLD_PAT;
-  x.fillRect(-c.x / c.z - TW, -c.y / c.z - TH, Iso.cv.width / dpr / c.z + 2 * TW, Iso.cv.height / dpr / c.z + 2 * TH); x.imageSmoothingEnabled = sm;
+  const vw = Iso.cv.width / dpr / c.z, vh = Iso.cv.height / dpr / c.z, vx = -c.x / c.z, vy = -c.y / c.z, zooming = Date.now() - (Iso.zt || 0) < 300;
+  const key = `${w.cx}:${w.cy}`, want = Math.min(2, Math.ceil(c.z * dpr * 4) / 4);
+  const out = vx < WV.bx || vy < WV.by || vx + vw > WV.bx + WV.bw || vy + vh > WV.by + WV.bh;
+  if (!out && WV.bkey === key && (WV.bs >= want || zooming)) { if (WV.bs < want) setTimeout(isoDraw, 320); return; }
+  const M = 0.4 * Math.max(vw, vh), bw = vw + 2 * M, bh = vh + 2 * M, sc = Math.min(want, Math.sqrt(5e6 / (bw * bh)));
+  const cv = WV.bg, W = Math.ceil(bw * sc), H = Math.ceil(bh * sc); if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+  const g = cv.getContext('2d'), o = tileScreen(-(w.cx - w.radius), -(w.cy - w.radius)), bx = vx - M, by = vy - M; // o — где точка мира (0, 0)
+  const pat = g.createPattern(im, 'repeat'), md = (a, m) => ((a % m) + m) % m;
+  pat.setTransform(new DOMMatrix().translate(md(o.sx - bx, im.width), md(o.sy - by, im.height)));
+  g.setTransform(sc, 0, 0, sc, 0, 0); g.imageSmoothingEnabled = true; g.fillStyle = pat; g.fillRect(0, 0, bw, bh);
+  Object.assign(cv.style, { left: `${bx}px`, top: `${by}px`, width: `${bw}px`, height: `${bh}px` });
+  Object.assign(WV, { bx, by, bw, bh, bs: sc, bkey: key });
 }
 // уменьшенные копии картинок (рисовать маленькую копию быстрее, чем каждый кадр сжимать большую) — чтобы карта не подвисала
 const SCALED = new Map();
@@ -1140,13 +1159,14 @@ function worldObj(o, p, sel, k, noDome) {
 }
 // статичный слой карты мира: рисуется заново только когда пришёл новый участок, сменилось выделение,
 // догрузилась картинка или заметно изменился масштаб; иначе — одна готовая картинка на кадр
-const WLAYER = { cv: null, key: '', s: 1, x0: 0, y0: 0, seq: 0 };
+const WLAYER = { cv: null, key: '', base: '', s: 1, x0: 0, y0: 0, seq: 0 };
 function worldLayer(w, c, dpr) {
   const R0 = w.radius, n = 2 * R0 + 1, x0 = -TW, y0 = -(n - 1) * TH / 2 - 120, W = (n - 1) * TW + 3 * TW, H = (n - 1) * TH + TH + 170;
-  const s = Math.min(Math.ceil(c.z * dpr * 4) / 4, 2, Math.sqrt(9e6 / (W * H))); // ступенями по 0,25 — щипок не перерисовывает слой каждый кадр
+  const s = Math.min(Math.ceil(c.z * dpr * 4) / 4, 2.5, Math.sqrt(8e6 / (W * H))); // ступенями по 0,25
   if (!w.lv) w.lv = ++WLAYER.seq;
-  const sel = Iso.sel && Iso.sel.tab === 'world' ? `${Iso.sel.x}:${Iso.sel.y}` : '', key = `${w.lv}|${s}|${sel}|${PIC_LOADED}|${S.st && S.st.castle.id}`;
+  const sel = Iso.sel && Iso.sel.tab === 'world' ? `${Iso.sel.x}:${Iso.sel.y}` : '', base = `${w.lv}|${sel}|${PIC_LOADED}|${S.st && S.st.castle.id}`, key = `${base}|${s}`;
   if (WLAYER.key === key && WLAYER.cv) return WLAYER;
+  if (WLAYER.cv && WLAYER.base === base && Date.now() - (Iso.zt || 0) < 300) { setTimeout(isoDraw, 320); return WLAYER; } // во время щипка — старый слой (его масштабирует видеокарта)
   const cv = WLAYER.cv || document.createElement('canvas'), Wp = Math.ceil(W * s), Hp = Math.ceil(H * s);
   if (cv.width !== Wp || cv.height !== Hp) { cv.width = Wp; cv.height = Hp; }
   const g = cv.getContext('2d'), keep = ictx; g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, Wp, Hp); g.setTransform(s, 0, 0, s, -x0 * s, -y0 * s); g.imageSmoothingEnabled = false;
@@ -1159,7 +1179,8 @@ function worldLayer(w, c, dpr) {
       const o = objs.get(`${w.cx - R0 + xx}:${w.cy - R0 + y}`); if (o) worldObj(o, tileScreen(xx, y), isSel(xx, y), s);
     }
   } finally { ictx = keep; }
-  Object.assign(WLAYER, { cv, key, s, x0, y0 });
+  Object.assign(WLAYER, { cv, key, base, s, x0, y0 });
+  Object.assign(cv.style, { left: `${x0}px`, top: `${y0}px`, width: `${Wp / s}px`, height: `${Hp / s}px` });
   return WLAYER;
 }
 // купол защиты новичка над замком
@@ -1208,7 +1229,9 @@ function isoDrawNow() {
   if (!Iso.cv.isConnected || !S.st || !S.cat) return;
   const dpr = isoDpr(), c = cam(), x = ictx;
   x.setTransform(1, 0, 0, 1, 0, 0);
-  x.fillStyle = '#16240f'; x.fillRect(0, 0, Iso.cv.width, Iso.cv.height);
+  const wv = S.tab === 'world' && S.world; worldView(wv);
+  if (wv) x.clearRect(0, 0, Iso.cv.width, Iso.cv.height); // мир — прозрачный холст поверх слоёв фона и объектов
+  else { x.fillStyle = '#16240f'; x.fillRect(0, 0, Iso.cv.width, Iso.cv.height); }
   x.setTransform(c.z * dpr, 0, 0, c.z * dpr, c.x * dpr, c.y * dpr);
   x.imageSmoothingEnabled = false;
   if (S.tab !== 'world') grassBackdrop('ground/grass1.png', c, dpr); // трава до краёв экрана — без чёрных краёв (мир — своим фоном)
@@ -1238,14 +1261,15 @@ function isoDrawNow() {
     if (onPic) landsPicEnd();
   } else if (S.world) {
     const w = S.world, R0 = w.radius;
-    worldBackdrop(w, c, dpr); // нарисованная местность (бесшовная), привязана к координатам мира
+    worldBg(w, c, dpr); // нарисованная местность (бесшовная), привязана к координатам мира
     { // центр экрана ушёл к краю загруженного участка — подгрузить новый (без перерисовки, см. case 'world')
-      const r = Iso.cv.getBoundingClientRect(), f = screenToTileF((r.width / 2 - c.x) / c.z, (r.height / 2 - c.y) / c.z), ex = Math.round(f.x) - R0, ey = Math.round(f.y) - R0;
+      const f = screenToTileF((Iso.cv.width / dpr / 2 - c.x) / c.z, (Iso.cv.height / dpr / 2 - c.y) / c.z), ex = Math.round(f.x) - R0, ey = Math.round(f.y) - R0;
       if ((Math.abs(ex) > R0 - 5 || Math.abs(ey) > R0 - 5) && (!S.wPending || Date.now() - S.wPending > 1500)) { S.wPending = Date.now(); send({ t: 'world', cx: w.cx + ex, cy: w.cy + ey }); }
     }
     // статичное (поляны, замки, лагеря, купола, выделение) — готовым холстом; каждый кадр рисуется только фон, кольцо и стрелка
     const L = worldLayer(w, c, dpr);
-    if (L) { x.save(); x.imageSmoothingEnabled = true; x.drawImage(L.cv, L.x0, L.y0, L.cv.width / L.s, L.cv.height / L.s); x.restore(); }
+    if (L.cv.parentNode !== WV.inner) WV.inner.appendChild(L.cv);
+    WV.inner.style.transform = `translate(${c.x}px, ${c.y}px) scale(${c.z})`;
     const myRings = w.objects.filter((o) => o.kind === 'castle' && S.st && o.castleId === S.st.castle.id).map((o) => [tileScreen(o.x - (w.cx - R0), o.y - (w.cy - R0)), true, o]);
     for (const [p, , o] of myRings) { myCastleRing(p, true, -1); worldObj(o, p, false, 0, true); } // задняя половина кольца — под своим замком (замок поверх)
     for (const [p, a] of myRings) myCastleRing(p, a, 1); // передняя половина кольца — поверх замка и соседей
