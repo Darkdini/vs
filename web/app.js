@@ -1079,7 +1079,7 @@ function worldBackdrop(w, c, dpr) {
   x.fillRect(-c.x / c.z - TW, -c.y / c.z - TH, Iso.cv.width / dpr / c.z + 2 * TW, Iso.cv.height / dpr / c.z + 2 * TH); x.imageSmoothingEnabled = sm;
 }
 // объекты карты мира — новая графика (старые плитки с зелёными ромбами не используются)
-const WORLD_OBJ_IMG = { 24: 'quest/ruins.png', 25: 'quest/lair_barrow.png', 26: 'quest/lair_wolf.png', 27: 'quest/lair_swamp.png', 30: 'quest/lair_bandit.png', 31: 'quest/lair_bandit.png', 32: 'quest/lair_orc.png' };
+const WORLD_OBJ_IMG = { 24: 'world/ruins.png', 25: 'world/savage.png', 26: 'world/lumber.png', 27: 'world/troll_mine.png', 30: 'world/bandit_s.png', 31: 'world/bandit_m.png', 32: 'quest/lair_orc.png' };
 // поляна: мягкое пятно травы, закрывающее деревья и камни фона под объектом
 function worldClearing(p) {
   const x = ictx, cx = p.sx + TW / 2, cy = p.sy + TH / 2, g = x.createRadialGradient(cx, cy, 4, cx, cy, TW * 0.8);
