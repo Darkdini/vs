@@ -502,8 +502,13 @@ function showSheet(scrollTop) {
   if (scrollTop) $('#sheetBody').scrollTop = 0;
   tick();
 }
+// пока палец держит ползунок (тренировка), окно не перерисовывается — иначе ползунок под пальцем заменяется и «слетает»
+let sliderHeld = false, refreshLater = false;
+document.addEventListener('pointerdown', (e) => { if (e.target.closest && e.target.closest('input[type=range]')) sliderHeld = true; }, true);
+for (const ev of ['pointerup', 'pointercancel', 'touchend', 'touchcancel']) document.addEventListener(ev, () => { if (!sliderHeld) return; sliderHeld = false; if (refreshLater) { refreshLater = false; setTimeout(refreshSheet, 50); } }, true);
 function refreshSheet() {
-  if (!S.sheets.length || document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+  if (sliderHeld) { refreshLater = true; return; }
+  if (!S.sheets.length || document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName) && document.activeElement.type !== 'range') return;
   const sc = $('#sheetBody').scrollTop; showSheet(false); $('#sheetBody').scrollTop = sc;
 }
 function closeSheet() { if (!S.sheets.length) return; if (S.sheets.pop() === dialogWin) send({ t: 'dialogclose' }); showSheet(true); popOverlay(); unselect(); }
