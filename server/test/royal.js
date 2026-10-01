@@ -345,6 +345,8 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.deepStrictEqual([rc.cost.wood, rc.cost.stone, rc.cost.iron, rc.cost.food, rc.people, rc.sec, rc.gold], [537000, 572800, 608600, 1181400, 8592, 1403360, 29].map((v, i) => (i < 4 ? rc.cost[['wood', 'stone', 'iron', 'food'][i]] : v)), 'Бугай 716');
   assert.ok(Math.abs(rc.cost.wood - 537060) / 537060 < 0.002 && rc.people === 8592 && rc.sec === 1403360 && rc.gold === 29, `Бугай 716: ${JSON.stringify(rc)}`);
   g.maxOut(c); c.units = { 245: 5 }; c.general = null; Object.assign(c.res, { wood: 5e4, stone: 5e4, iron: 5e4, food: 5e4, people: 5000 });
+  c.units[252] = 3; c.units[233] = 3; c.units[243] = 3;
+  for (const id of [252, 233, 243]) assert.ok(g.trainGeneral(c, id).error, `${UNIT[id].name} — не генерал`);
   assert.ok(g.trainGeneral(c, 245).ok); assert.strictEqual(c.units[245], 4, 'юнит ушёл в генералы');
   assert.ok(g.trainGeneral(c, 245).error, 'второй генерал не тренируется');
   c.training.find((t) => t.unit === 236).start = 0; g.tick(c);

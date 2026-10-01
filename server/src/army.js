@@ -602,7 +602,8 @@ function install(Game, helpers) {
   P.deadList = function deadList(castle) { return [...(castle.general && castle.general.dead ? [castle.general] : []), ...(castle.deadGenerals || [])]; };
   P.genTrainUnits = function genTrainUnits(castle) {
     const race = this.raceOf(castle);
-    return UNITS.filter((u) => u.race === race && u.building !== B.PORTAL && (castle.units[u.id] || 0) > 0);
+    // генералом не может стать разведчик, бунтарь, таран (и прочие особые/осадные), юниты Портала
+    return UNITS.filter((u) => u.race === race && u.building !== B.PORTAL && !['scout', 'eye', 'rebel', 'ram', 'catapult', 'merchant', 'settler', 'sage', 'archaeologist'].includes(u.role) && (castle.units[u.id] || 0) > 0);
   };
   P.genTrainCost = (u) => ({ cost: Object.fromEntries(RES4.map((r) => [r, u.cost[r] * 20])), people: u.pop * 20, sec: u.time * 10 });
   P.reviveGeneral = function reviveGeneral(castle, user, idx = 0, gold = false) {
