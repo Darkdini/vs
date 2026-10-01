@@ -1215,7 +1215,7 @@ function isoDrawNow() {
       // выбранный замок/объект — золотая подводка по контуру
       if (sel) { ictx.save(); ictx.filter = 'drop-shadow(0 0 3px #fff3a0) drop-shadow(0 0 3px #ffe030) drop-shadow(0 0 4px #ffc400) drop-shadow(0 0 7px #ff9d00) brightness(1.18)'; }
       const cimg = o.kind === 'castle' ? pic(`world/castle${castleStage(o.rating)}.png?v=1`) : !o.qimg && WORLD_OBJ_IMG[o.img] ? pic(WORLD_OBJ_IMG[o.img]) : null;
-      if (cimg) { const path = o.kind === 'castle' ? `world/castle${castleStage(o.rating)}.png?v=1` : WORLD_OBJ_IMG[o.img], dw = TW * (o.kind === 'castle' ? [1.0, 1.1, 1.25, 1.4][castleStage(o.rating)] : 0.92), sc = scaledPic(path, dw) || cimg, dh = dw * cimg.height / cimg.width;
+      if (cimg) { const path = o.kind === 'castle' ? `world/castle${castleStage(o.rating)}.png?v=1` : WORLD_OBJ_IMG[o.img], dw = TW * (o.kind === 'castle' ? [0.78, 0.84, 0.92, 1.0][castleStage(o.rating)] : 0.8), sc = scaledPic(path, dw) || cimg, dh = dw * cimg.height / cimg.width;
         ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(sc, p.sx + TW / 2 - dw / 2, p.sy + TH * 0.85 - dh, dw, dh); ictx.restore(); }
       else if (o.qimg && pic(o.qimg)) { const im = pic(o.qimg), k = TW * 1.25 / im.width; ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(im, p.sx + TW / 2 - im.width * k / 2, p.sy + TH * 0.85 - im.height * k, im.width * k, im.height * k); ictx.restore(); } // логово похода
       else ground(WORLD_NAME_IMG(o), p.sx, p.sy);

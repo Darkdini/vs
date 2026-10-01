@@ -87,8 +87,9 @@ function install(Game) {
     let r = 2, a = 0, made = 0;
     while (made < n && r < 200) {
       const x = cap.x + Math.round(Math.cos(a) * r), y = cap.y + Math.round(Math.sin(a) * r);
-      a += 0.9; if (a > Math.PI * 2) { a = 0; r += 2; }
-      if (this.castleAt(x, y)) continue;
+      a += 0.5; if (a > Math.PI * 2) { a = 0; r += 2; }
+      let near = false; for (let dx = -2; dx <= 2 && !near; dx++) for (let dy = -2; dy <= 2; dy++) if (this.castleAt(x + dx, y + dy)) { near = true; break; } // не вплотную к другим замкам
+      if (near) continue;
       const c = this.createCastle(user, { x, y });
       c.name = `Королевский замок ${this.castlesOf(user).length + 1}`;
       user.castleIds = [...this.castlesOf(user).map((k) => k.id), c.id];
