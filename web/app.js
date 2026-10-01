@@ -1071,12 +1071,20 @@ function grassBackdrop(path, c, dpr) {
 // фон карты мира: бесшовная картинка-плитка (отражённая 2×2), сдвигается вместе с миром
 let WORLD_PAT = null;
 function worldBackdrop(w, c, dpr) {
-  const im = pic('ground/world_bg.jpg?v=1'); if (!im) return;
+  const im = pic('ground/world_bg.jpg?v=2'); if (!im) return;
   if (!WORLD_PAT) WORLD_PAT = ictx.createPattern(im, 'repeat');
   const o = tileScreen(-(w.cx - w.radius), -(w.cy - w.radius)); // где на экране точка мира (0, 0)
   WORLD_PAT.setTransform(new DOMMatrix().translate(o.sx % im.width, o.sy % im.height));
   const x = ictx, sm = x.imageSmoothingEnabled; x.imageSmoothingEnabled = true; x.fillStyle = WORLD_PAT;
   x.fillRect(-c.x / c.z - TW, -c.y / c.z - TH, Iso.cv.width / dpr / c.z + 2 * TW, Iso.cv.height / dpr / c.z + 2 * TH); x.imageSmoothingEnabled = sm;
+}
+// объекты карты мира — новая графика (старые плитки с зелёными ромбами не используются)
+const WORLD_OBJ_IMG = { 24: 'quest/ruins.png', 25: 'quest/lair_barrow.png', 26: 'quest/lair_wolf.png', 27: 'quest/lair_swamp.png', 30: 'quest/lair_bandit.png', 31: 'quest/lair_bandit.png', 32: 'quest/lair_orc.png' };
+// поляна: мягкое пятно травы, закрывающее деревья и камни фона под объектом
+function worldClearing(p) {
+  const x = ictx, cx = p.sx + TW / 2, cy = p.sy + TH / 2, g = x.createRadialGradient(cx, cy, 4, cx, cy, TW * 0.8);
+  g.addColorStop(0, 'rgba(143,174,40,1)'); g.addColorStop(0.6, 'rgba(143,174,40,0.9)'); g.addColorStop(1, 'rgba(143,174,40,0)');
+  x.save(); x.translate(cx, cy); x.scale(1, 0.55); x.translate(-cx, -cy); x.fillStyle = g; x.beginPath(); x.arc(cx, cy, TW * 0.8, 0, Math.PI * 2); x.fill(); x.restore();
 }
 // кольцо под своим замком на карте мира: свечение и вращающиеся золотые черты; активный замок — ярче
 function myCastleRing(p, active) {
@@ -1173,14 +1181,15 @@ function isoDrawNow() {
       const p = tileScreen(ax, ay); ground(`ground/${img}.png`, p.sx, p.sy);
     }
     if (Iso.sel && Iso.sel.tab === 'world') glow(tileScreen(Iso.sel.x, Iso.sel.y), 0.92);
+    for (const o of w.objects) worldClearing(tileScreen(o.x - (w.cx - R0), o.y - (w.cy - R0))); // под замками и лагерями — поляна (без деревьев фона)
     for (const o of w.objects) if (o.kind === 'castle' && S.st && o.ownerId === S.st.user.id) myCastleRing(tileScreen(o.x - (w.cx - R0), o.y - (w.cy - R0)), o.castleId === S.st.castle.id); // свои замки — вращающееся кольцо (под всеми объектами)
     for (let y = 0; y < n; y++) for (let xx = n - 1; xx >= 0; xx--) {
       const o = objs.get(`${w.cx - R0 + xx}:${w.cy - R0 + y}`); if (!o) continue;
       const p = tileScreen(xx, y), sel = isSel(xx, y);
       // выбранный замок/объект — золотая подводка по контуру
       if (sel) { ictx.save(); ictx.filter = 'drop-shadow(0 0 3px #fff3a0) drop-shadow(0 0 3px #ffe030) drop-shadow(0 0 4px #ffc400) drop-shadow(0 0 7px #ff9d00) brightness(1.18)'; }
-      const cimg = o.kind === 'castle' && pic(`world/castle${castleStage(o.rating)}.png?v=1`);
-      if (cimg) { const k = TW * [1.0, 1.1, 1.25, 1.4][castleStage(o.rating)] / cimg.width; ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(cimg, p.sx + TW / 2 - cimg.width * k / 2, p.sy + TH * 0.85 - cimg.height * k, cimg.width * k, cimg.height * k); ictx.restore(); }
+      const cimg = o.kind === 'castle' ? pic(`world/castle${castleStage(o.rating)}.png?v=1`) : !o.qimg && WORLD_OBJ_IMG[o.img] ? pic(WORLD_OBJ_IMG[o.img]) : null;
+      if (cimg) { const k = TW * (o.kind === 'castle' ? [1.0, 1.1, 1.25, 1.4][castleStage(o.rating)] : 0.92) / cimg.width; ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(cimg, p.sx + TW / 2 - cimg.width * k / 2, p.sy + TH * 0.85 - cimg.height * k, cimg.width * k, cimg.height * k); ictx.restore(); }
       else if (o.qimg && pic(o.qimg)) { const im = pic(o.qimg), k = TW * 1.25 / im.width; ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(im, p.sx + TW / 2 - im.width * k / 2, p.sy + TH * 0.85 - im.height * k, im.width * k, im.height * k); ictx.restore(); } // логово похода
       else ground(WORLD_NAME_IMG(o), p.sx, p.sy);
       if (sel) ictx.restore();
