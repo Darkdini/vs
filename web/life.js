@@ -206,42 +206,56 @@ function landsScene(c, dpr) {
   lifeFish(); lifeBirds(dpr);
 }
 
-// ================= земли по нарисованной картинке (gfx/lands/bg.jpg + LANDS_LAYOUT) =================
-// мир = пиксели картинки. Клетки сервера стоят на полянках картинки, жители ходят по нарисованным тропинкам (граф рёбер-ломаных).
-const LDEC = { trees: [23.1, 29.8], trees2: [35.8, 37.7], rocks: [27.1, 30.0], rocksB: [24.5, 25.8], mine: [29.5, 48.7], cow: [37.0, 38.3], cart: [20.8, 29.2], tent: [24.2, 30.2], boat: [11.5, 17.2] };
-const BK_L = 2.9; // масштаб построек на полянках
-const LP = { walkers: [], last: 0, fish: null, birds: [], adj: null, loiter: [], pigeons: [] };
+// ================= земли на нарисованном фоне (gfx/lands/bg.jpg + LANDS_LAYOUT) =================
+// Мир = пиксели картинки. В центре картинки — пустой луг-ромб (LANDS_LAYOUT.quad: левый, верхний, правый, нижний углы),
+// на него ложится сетка участков N×N: между участками — тропинки с камушками, в центре — площадь с фонтаном.
+// Точка сетки (gx, gy), 0..N: gx → к верхнему углу, gy → к нижнему (как tileScreen).
+const BK_G = 1.75;                 // масштаб построек
+const LP = { walkers: [], last: 0, fish: null, adj: null, loiter: [], pigeons: [], geo: null };
 const hasPic = () => typeof LANDS_LAYOUT !== 'undefined';
 const scrToDir = (dx, dy) => DIR_ROW(dx / TW - dy / TH, dx / TW + dy / TH);
+function gp(gx, gy) { // точка сетки → пиксель картинки (билинейно по углам ромба, с отступом от края луга)
+  const N = LN(), [Lc, Tc, Rc, Bc] = LANDS_LAYOUT.quad, m = 0.035, u = m + (1 - 2 * m) * gx / N, v = m + (1 - 2 * m) * gy / N;
+  return [Lc[0] * (1 - u) * (1 - v) + Tc[0] * u * (1 - v) + Rc[0] * u * v + Bc[0] * (1 - u) * v, Lc[1] * (1 - u) * (1 - v) + Tc[1] * u * (1 - v) + Rc[1] * u * v + Bc[1] * (1 - u) * v];
+}
+function lpGeo() {
+  if (LP.geo) return LP.geo;
+  const N = LN(), nodes = [], idx = (i, j) => j * (N + 1) + i, edges = [];
+  for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) nodes.push(gp(i, j));
+  for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) { if (i < N) edges.push([idx(i, j), idx(i + 1, j)]); if (j < N) edges.push([idx(i, j), idx(i, j + 1)]); }
+  let pc = -1; for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (!(S.cat.landOptions[y][x] || []).length) pc = y * N + x;
+  const px = pc % N, py = Math.floor(pc / N), plazaNodes = pc < 0 ? [] : [idx(px, py), idx(px + 1, py), idx(px, py + 1), idx(px + 1, py + 1)];
+  return (LP.geo = { nodes, edges, plazaNodes, plaza: pc < 0 ? gp(N / 2, N / 2) : gp(px + 0.5, py + 0.5), pc });
+}
 function lpGraph() {
   if (LP.adj) return LP.adj;
-  const L = LANDS_LAYOUT, adj = L.nodes.map(() => []);
-  for (const [a, b, poly] of L.edges) { adj[a].push({ to: b, poly }); adj[b].push({ to: a, poly: poly.slice().reverse() }); }
+  const G = lpGeo(), adj = G.nodes.map(() => []);
+  for (const [a, b] of G.edges) { adj[a].push({ to: b, poly: [G.nodes[a], G.nodes[b]] }); adj[b].push({ to: a, poly: [G.nodes[b], G.nodes[a]] }); }
   return (LP.adj = adj);
 }
 function lpSpawn() {
-  const L = LANDS_LAYOUT, adj = lpGraph(), ok = adj.map((e, i) => (e.length ? i : -1)).filter((i) => i >= 0);
-  LP.walkers = Array.from({ length: 9 }, (_, k) => { const n = ok[Math.floor(Math.random() * ok.length)], [x, y] = L.nodes[n];
+  const G = lpGeo(), n0 = G.nodes.length;
+  LP.walkers = Array.from({ length: 9 }, (_, k) => { const n = Math.floor(Math.random() * n0), [x, y] = G.nodes[n];
     return { n, prev: -1, x, y, poly: null, seg: 0, d: 0, skin: k % 4, frame: 0, wait: Math.random() * 3, look: 3, mode: 0 }; });
-  const [px, py] = L.plaza;
-  LP.loiter = [0, 1, 2].map((k) => { const a = k * 2.1 + 0.5, x = px + Math.cos(a) * 52, y = py + 8 + Math.sin(a) * 30; return { x, y, skin: (k + 1) % 4, base: scrToDir(px - x, py - y), look: scrToDir(px - x, py - y), turn: 2 + Math.random() * 4 }; });
-  LP.pigeons = Array.from({ length: 6 }, () => { const a = Math.random() * 6.28, r = 60 + Math.random() * 40; return { x: px + Math.cos(a) * r, y: py + 10 + Math.sin(a) * r * 0.6, peck: Math.random() * 6, hop: Math.random() * 3 }; });
+  const [px, py] = G.plaza;
+  LP.loiter = [0, 1, 2].map((k) => { const a = k * 2.1 + 0.5, x = px + Math.cos(a) * 34, y = py + 6 + Math.sin(a) * 19; return { x, y, skin: (k + 1) % 4, base: scrToDir(px - x, py - y), look: scrToDir(px - x, py - y), turn: 2 + Math.random() * 4 }; });
+  LP.pigeons = Array.from({ length: 5 }, () => { const a = Math.random() * 6.28, r = 30 + Math.random() * 12; return { x: px + Math.cos(a) * r, y: py + 6 + Math.sin(a) * r * 0.55, peck: Math.random() * 6, hop: Math.random() * 3 }; });
 }
 function lpStep(dt) {
-  const L = LANDS_LAYOUT, adj = lpGraph(), [px, py] = L.plaza;
+  const L = LANDS_LAYOUT, G = lpGeo(), adj = lpGraph(), [px, py] = G.plaza;
   if (!LP.walkers.length) lpSpawn();
   for (const w of LP.walkers) {
     if (w.wait > 0) { w.wait -= dt; continue; }
     if (!w.poly) {
       if (w.mode === 1) { w.mode = 2; w.look = scrToDir(px - w.x, py - w.y); w.wait = 3 + Math.random() * 5; continue; } // у фонтана постоять
-      if (w.mode === 2) { w.mode = 0; const [nx, ny] = L.nodes[w.n]; w.poly = [[w.x, w.y], [nx, ny]]; w.seg = 0; w.d = 0; w.nextN = w.n; continue; } // вернуться на тропинку
-      if (L.plazaNodes.includes(w.n) && Math.random() < 0.35) { const a = Math.random() * 6.28; w.mode = 1; w.poly = [[w.x, w.y], [px + Math.cos(a) * 62, py + 6 + Math.sin(a) * 36]]; w.seg = 0; w.d = 0; w.nextN = w.n; continue; }
-      if (Math.random() < 0.22) { w.look = Math.floor(Math.random() * 4); w.wait = 1.5 + Math.random() * 3; w.frame = 0; continue; } // постоять, поглазеть
+      if (w.mode === 2) { w.mode = 0; const [nx, ny] = G.nodes[w.n]; w.poly = [[w.x, w.y], [nx, ny]]; w.seg = 0; w.d = 0; w.nextN = w.n; continue; }
+      if (G.plazaNodes.includes(w.n) && Math.random() < 0.4) { const a = Math.random() * 6.28; w.mode = 1; w.poly = [[w.x, w.y], [px + Math.cos(a) * 40, py + 5 + Math.sin(a) * 22]]; w.seg = 0; w.d = 0; w.nextN = w.n; continue; }
+      if (Math.random() < 0.2) { w.look = Math.floor(Math.random() * 4); w.wait = 1.5 + Math.random() * 3; w.frame = 0; continue; } // постоять, посмотреть на участки
       let opts = adj[w.n]; if (opts.length > 1) opts = opts.filter((e) => e.to !== w.prev);
       const e = opts[Math.floor(Math.random() * opts.length)]; if (!e) { w.wait = 2; continue; }
       w.poly = e.poly; w.seg = 0; w.d = 0; w.nextN = e.to;
     }
-    let move = dt * 26; // пикселей в секунду
+    let move = dt * 24;
     while (move > 0 && w.poly) {
       const a = w.poly[w.seg], b = w.poly[w.seg + 1]; if (!b) { w.prev = w.n; w.n = w.nextN; w.poly = null; break; }
       const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 0.01, left = len - w.d;
@@ -252,7 +266,7 @@ function lpStep(dt) {
     w.frame = (w.frame + dt * 9) % 8;
   }
   for (const l of LP.loiter) { l.turn -= dt; if (l.turn < 0) { l.turn = 2 + Math.random() * 5; l.look = Math.random() < 0.6 ? l.base : Math.floor(Math.random() * 4); } }
-  for (const g of LP.pigeons) { g.peck += dt * 6; g.hop -= dt; if (g.hop < 0) { g.hop = 1 + Math.random() * 3; g.x += (Math.random() - 0.5) * 8; g.y += (Math.random() - 0.5) * 5; } }
+  for (const g of LP.pigeons) { g.peck += dt * 6; g.hop -= dt; if (g.hop < 0) { g.hop = 1 + Math.random() * 3; const nx = g.x + (Math.random() - 0.5) * 6, ny = g.y + (Math.random() - 0.5) * 4, d = Math.hypot((nx - px) / 1, (ny - py - 6) / 0.55); if (d > 26 && d < 46) { g.x = nx; g.y = ny; } } }
   if (LP.fish) { LP.fish.t += dt; if (LP.fish.t > 1.6) LP.fish = null; } else if (Math.random() < dt / 3) { const p = L.lake[Math.floor(Math.random() * L.lake.length)]; LP.fish = { x: p[0], y: p[1], t: 0, dx: Math.random() < 0.5 ? -1 : 1 }; }
   LIFE.birds = LIFE.birds.filter((b) => b.t < b.dur); for (const b of LIFE.birds) b.t += dt;
   if (!LIFE.birds.length && Math.random() < dt / 25) LIFE.birds.push({ t: 0, dur: 14, y0: Math.random() * 0.6, dir: Math.random() < 0.5 ? 1 : -1, n: 3 + Math.floor(Math.random() * 4) });
@@ -262,47 +276,66 @@ function lpPerson(sheet, row, f, x, y, cols) {
   const k = AN.K / MAN_S, c = ictx; c.fillStyle = 'rgba(0,0,0,0.25)'; c.beginPath(); c.ellipse(x, y, 5, 2.2, 0, 0, Math.PI * 2); c.fill();
   c.drawImage(im, (Math.floor(f) % cols) * AN.CW, row * AN.CH, AN.CW, AN.CH, x - AN.FX / k, y - AN.FY / k, AN.CW / k, AN.CH / k);
 }
-function lpDecor(d, now) {
-  if (d.k === 'mill') { const im = lifeSheet('mill'); if (!im) return; const k = AN.KM / 2.8, f = Math.floor(now / 140) % 12; ictx.drawImage(im, f * AN.MW, 0, AN.MW, AN.MH, d.x - AN.MX / k, d.y + 8 - AN.MY / k, AN.MW / k, AN.MH / k); return; }
-  const im = pic(`lands/${d.k}.png`), a = LDEC[d.k]; if (!im || !a) return;
-  const k = 6 / (d.k === 'boat' ? 1.8 : 1.9); ictx.drawImage(im, d.x - a[0] * 6 / k, d.y - a[1] * 6 / k + (d.k === 'boat' ? 30 : 8), im.width / k, im.height / k);
+// тропинки по линиям сетки: земляная полоса с тёмной кромкой и белыми камушками по краям (один раз в кэш-холст)
+function lpPaths() {
+  if (LP.pathCv) return LP.pathCv;
+  const L = LANDS_LAYOUT, G = lpGeo(), K = 2, cv = document.createElement('canvas'); cv.width = L.w * K; cv.height = L.h * K;
+  const c = cv.getContext('2d'); c.scale(K, K); c.lineCap = 'round'; c.lineJoin = 'round';
+  const seg = (w, col) => { c.strokeStyle = col; c.lineWidth = w; c.beginPath(); for (const [a, b] of G.edges) { c.moveTo(...G.nodes[a]); c.lineTo(...G.nodes[b]); } c.stroke(); };
+  seg(17, 'rgba(90,60,30,0.55)'); seg(14, '#b58a54'); seg(8, '#c79d63');
+  let s = 11; const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  for (let i = 0; i < 4000; i++) { const [a, b] = G.edges[Math.floor(rnd() * G.edges.length)], t = rnd(), [x0, y0] = G.nodes[a], [x1, y1] = G.nodes[b]; c.fillStyle = rnd() < 0.5 ? 'rgba(120,85,45,0.6)' : 'rgba(225,195,140,0.6)'; c.fillRect(x0 + (x1 - x0) * t + (rnd() - 0.5) * 9, y0 + (y1 - y0) * t + (rnd() - 0.5) * 6, 1.4, 1); }
+  for (const [a, b] of G.edges) { // камушки по обеим сторонам
+    const [x0, y0] = G.nodes[a], [x1, y1] = G.nodes[b], len = Math.hypot(x1 - x0, y1 - y0), nx = -(y1 - y0) / len, ny = (x1 - x0) / len, n = Math.floor(len / 7);
+    for (let i = 1; i < n; i++) for (const sd of [-1, 1]) { const t = (i + (rnd() - 0.5) * 0.5) / n, x = x0 + (x1 - x0) * t + nx * 7.5 * sd, y = y0 + (y1 - y0) * t + ny * 7.5 * sd * 0.6, r = 1.6 + rnd();
+      c.fillStyle = 'rgba(70,55,35,0.6)'; c.beginPath(); c.ellipse(x + 0.5, y + 0.9, r, r * 0.65, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = rnd() < 0.5 ? '#ece0c2' : '#d6c6a4'; c.beginPath(); c.ellipse(x, y, r, r * 0.65, 0, 0, Math.PI * 2); c.fill(); }
+  }
+  // площадь: брусчатка и клумбы
+  if (G.pc >= 0) { const [px, py] = G.plaza, N = LN(), q = [gp(G.pc % N + 0.12, Math.floor(G.pc / N) + 0.12), gp(G.pc % N + 0.88, Math.floor(G.pc / N) + 0.12), gp(G.pc % N + 0.88, Math.floor(G.pc / N) + 0.88), gp(G.pc % N + 0.12, Math.floor(G.pc / N) + 0.88)];
+    c.fillStyle = '#9d9488'; c.beginPath(); c.moveTo(...q[0]); for (const p of q.slice(1)) c.lineTo(...p); c.closePath(); c.fill();
+    c.fillStyle = '#b9b0a2'; c.beginPath(); c.ellipse(px, py, 50, 28, 0, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = 'rgba(110,100,90,0.5)'; c.lineWidth = 0.8; for (let r = 10; r < 50; r += 7) { c.beginPath(); c.ellipse(px, py, r, r * 0.56, 0, 0, Math.PI * 2); c.stroke(); }
+    const cols = ['#e53935', '#fdd835', '#ffffff', '#ab47bc'];
+    for (const p of q) { const fx = p[0] + (px - p[0]) * 0.2, fy = p[1] + (py - p[1]) * 0.2; c.fillStyle = '#5d4037'; c.beginPath(); c.ellipse(fx, fy, 10, 5.5, 0, 0, Math.PI * 2); c.fill(); c.fillStyle = '#2e7d32'; c.beginPath(); c.ellipse(fx, fy - 1, 9, 4.6, 0, 0, Math.PI * 2); c.fill();
+      for (let i = 0; i < 9; i++) { c.fillStyle = cols[i & 3]; c.beginPath(); c.arc(fx + Math.cos(i * 0.7) * 6, fy - 1.5 + Math.sin(i * 0.7) * 2.8, 1.3, 0, Math.PI * 2); c.fill(); } } }
+  return (LP.pathCv = cv);
 }
-// пустая полянка, где можно строить: мерцающий золотой контур
-function lpEmpty(x, y, now) {
-  const c = ictx, a = 0.35 + 0.25 * Math.sin(now / 500 + x);
-  c.save(); c.setLineDash([6, 5]); c.lineDashOffset = -now / 60; c.strokeStyle = `rgba(255,220,90,${a})`; c.lineWidth = 2;
-  c.beginPath(); c.ellipse(x, y, 52, 32, 0, 0, Math.PI * 2); c.stroke(); c.restore();
-}
+const cellQuad = (i, k = 0.1) => { const N = LN(), x = i % N, y = Math.floor(i / N); return [gp(x + k, y + k), gp(x + 1 - k, y + k), gp(x + 1 - k, y + 1 - k), gp(x + k, y + 1 - k)]; };
+function quadPath(q) { const c = ictx; c.beginPath(); c.moveTo(...q[0]); for (const p of q.slice(1)) c.lineTo(...p); c.closePath(); }
 function landsPicScene(c, dpr) {
-  const L = LANDS_LAYOUT, st = S.st.castle, now = Date.now(), x = ictx, N = LN();
+  const L = LANDS_LAYOUT, G = lpGeo(), st = S.st.castle, now = Date.now(), x = ictx, N = LN();
   const dt = Math.min(0.25, (now - (LP.last || now)) / 1000); LP.last = now;
   if (flowOn()) lpStep(dt);
   if (flowOn() && !flowTimer) flowTimer = setTimeout(flowTick, ANIM_MS);
   const bg = pic('lands/bg.jpg'); const sm = x.imageSmoothingEnabled; x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
   if (bg) x.drawImage(bg, 0, 0, L.w, L.h);
-  // блики на реке и озере
-  for (const [i, p] of [...L.river, ...L.lake].entries()) { const ph = (now / 1700 + i * 0.37) % 1; if (ph > 0.5) continue;
+  for (const [i, p] of [...L.river, ...L.lake].entries()) { const ph = (now / 1700 + i * 0.37) % 1; if (ph > 0.5) continue; // блики на воде
     x.fillStyle = `rgba(255,255,255,${0.7 * Math.sin(ph * 2 * Math.PI)})`; x.beginPath(); x.ellipse(p[0] + ph * 8, p[1], 3 + ph * 4, 1.1, 0, 0, Math.PI * 2); x.fill(); }
+  x.drawImage(lpPaths(), 0, 0, L.w, L.h);
   const items = [];
   for (let i = 0; i < N * N; i++) {
-    const pt = L.cells[i]; if (!pt || !(S.cat.landOptions[Math.floor(i / N)][i % N] || []).length) continue;
-    const [px, py] = pt, b = st.grid[1][i], q = queueAt(1, i);
-    if (Iso.sel && Iso.sel.tab === 'lands' && Iso.sel.y * N + Iso.sel.x === i) { x.fillStyle = 'rgba(255,214,80,0.35)'; x.strokeStyle = '#ffe27a'; x.lineWidth = 2.5; x.beginPath(); x.ellipse(px, py, 58, 36, 0, 0, Math.PI * 2); x.fill(); x.stroke(); }
-    if (b < 0 && !q) { lpEmpty(px, py, now); continue; }
-    items.push([py, () => { drawCellBuilding(1, i, b, st.levels[1][i], { sx: px - TW / 2, sy: py - TH / 2 - TH * PLOT / 2 + 6 }, BK_L, false);
+    if (i === G.pc) continue;
+    const [px, py] = gp(i % N + 0.5, Math.floor(i / N) + 0.5), b = st.grid[1][i], q = queueAt(1, i);
+    if (Iso.sel && Iso.sel.tab === 'lands' && Iso.sel.y * N + Iso.sel.x === i) { quadPath(cellQuad(i)); x.fillStyle = 'rgba(255,214,80,0.35)'; x.fill(); x.strokeStyle = '#ffe27a'; x.lineWidth = 2.5; x.stroke(); }
+    if (b < 0 && !q) { const a = 0.35 + 0.25 * Math.sin(now / 500 + i); x.save(); x.setLineDash([7, 6]); x.lineDashOffset = -now / 60; x.strokeStyle = `rgba(255,225,100,${a})`; x.lineWidth = 2; quadPath(cellQuad(i, 0.2)); x.stroke(); x.restore(); continue; }
+    if (b === 37) { // Рыболовная заводь — прудик под лодкой
+      const g = x.createRadialGradient(px, py, 4, px, py, 46); g.addColorStop(0, '#5ec8f0'); g.addColorStop(0.75, '#2f97c9'); g.addColorStop(1, 'rgba(40,120,90,0)');
+      x.fillStyle = g; x.beginPath(); x.ellipse(px, py, 46, 28, 0, 0, Math.PI * 2); x.fill();
+      for (let k = 0; k < 3; k++) { const ph = (now / 2200 + k / 3 + i * 0.2) % 1; x.strokeStyle = `rgba(255,255,255,${0.5 * (1 - ph)})`; x.lineWidth = 1; x.beginPath(); x.ellipse(px - 18 + k * 16, py + 8 - k * 6, 3 + ph * 8, 1.2 + ph * 3, 0, 0, Math.PI * 2); x.stroke(); }
+    }
+    items.push([py, () => { drawCellBuilding(1, i, b, st.levels[1][i], { sx: px - TW / 2, sy: py - TH / 2 - TH * PLOT / 2 + 6 }, BK_G, false);
       if (HOUSES.has(b)) { const im = pic(`build/${BUILD_IMG[displayId(S.by[b], st.levels[1][i])]}.png`); if (im) for (let k = 0; k < 4; k++) { const ph = ((now / 2600) + k / 4 + i * 0.13) % 1;
-        x.fillStyle = `rgba(235,235,235,${0.45 * (1 - ph)})`; x.beginPath(); x.arc(px + 12 + Math.sin(ph * 5 + i) * 4 + ph * 8, py - im.height * BK_L + 34 - ph * 30, 2 + ph * 6, 0, Math.PI * 2); x.fill(); } }
-      if (FARMS.has(b)) for (let k = 0; k < 2; k++) { const t = now / 1000 + i * 1.7 + k * 2.3, bx = px + Math.sin(t * 0.7) * 20, by = py - 14 + Math.cos(t * 1.1) * 7, fl = Math.abs(Math.sin(t * 14)) * 2.2 + 0.4;
+        x.fillStyle = `rgba(235,235,235,${0.45 * (1 - ph)})`; x.beginPath(); x.arc(px + 9 + Math.sin(ph * 5 + i) * 3 + ph * 7, py - im.height * BK_G + 26 - ph * 26, 2 + ph * 6, 0, Math.PI * 2); x.fill(); } }
+      if (FARMS.has(b)) for (let k = 0; k < 2; k++) { const t = now / 1000 + i * 1.7 + k * 2.3, bx = px + Math.sin(t * 0.7) * 22, by = py - 16 + Math.cos(t * 1.1) * 8, fl = Math.abs(Math.sin(t * 14)) * 2.2 + 0.4;
         x.fillStyle = k ? '#ffe14d' : '#fff'; x.beginPath(); x.ellipse(bx - fl * 0.6, by, fl, 1.6, 0, 0, Math.PI * 2); x.ellipse(bx + fl * 0.6, by, fl, 1.6, 0, 0, Math.PI * 2); x.fill(); } }]);
-    if (q || SAWS.has(b)) items.push([py + 30, () => lpPerson('builder', 2, (now / 110 + i * 3) % 7, px - 52, py + 30, 7)]);
+    if (q || SAWS.has(b)) { const [bx, by] = gp(i % N + 0.08, Math.floor(i / N) + 0.6); items.push([by, () => lpPerson('builder', 2, (now / 110 + i * 3) % 7, bx, by, 7)]); }
   }
-  for (const d of L.decor) items.push([d.y, () => lpDecor(d, now)]);
   for (const w of LP.walkers) items.push([w.y, () => lpPerson(`villager${w.skin}`, w.look, w.wait > 0 || w.mode === 2 ? 0 : w.frame, w.x, w.y, 8)]);
   for (const l of LP.loiter) items.push([l.y, () => lpPerson(`villager${l.skin}`, l.look, 0, l.x, l.y, 8)]);
   for (const g of LP.pigeons) items.push([g.y, () => { const pk = Math.max(0, Math.sin(g.peck)) * 1.5; x.fillStyle = 'rgba(0,0,0,0.2)'; x.beginPath(); x.ellipse(g.x, g.y, 2.4, 1, 0, 0, Math.PI * 2); x.fill();
     x.fillStyle = '#8d9aa6'; x.beginPath(); x.ellipse(g.x, g.y - 2, 2.6, 1.6, 0, 0, Math.PI * 2); x.fill(); x.fillStyle = '#5f6b75'; x.beginPath(); x.arc(g.x + 2, g.y - 3.2 + pk, 1.1, 0, Math.PI * 2); x.fill(); }]);
-  { const [fx, fy] = L.plaza; items.push([fy - 5, () => { for (let k = 0; k < 16; k++) { const ph = ((now / 1100) + k / 16) % 1, ang = k * 2.4, r = ph * 12;
-    x.fillStyle = `rgba(215,242,255,${0.9 * (1 - ph)})`; x.beginPath(); x.arc(fx + Math.cos(ang) * r, fy - 22 - Math.sin(ph * Math.PI) * 16 + ph * 12 + Math.sin(ang) * r * 0.45, 1.3, 0, Math.PI * 2); x.fill(); } }]); }
+  if (G.pc >= 0) { const [fx, fy] = G.plaza; items.push([fy, () => lifeFountain({ cx: fx, cy: fy + 4 }, now)]); }
   items.sort((a, b) => a[0] - b[0]);
   for (const [, f] of items) f();
   if (LP.fish) { const F = LP.fish, t = Math.min(1, F.t / 0.9);
@@ -311,9 +344,14 @@ function landsPicScene(c, dpr) {
   x.imageSmoothingEnabled = sm;
   lifeBirds(dpr);
 }
-// нажатие по картинке земель → клетка сервера (ближайшая полянка)
+// нажатие по картинке → участок, в чей ромб попала точка
 function landsPicCell(wx, wy) {
-  const L = LANDS_LAYOUT, N = LN(); let best = -1, bd = 46 * 46;
-  for (let i = 0; i < N * N; i++) { const p = L.cells[i]; if (!p || !(S.cat.landOptions[Math.floor(i / N)][i % N] || []).length) continue; const d = (p[0] - wx) ** 2 + ((p[1] - wy) * 1.4) ** 2; if (d < bd) { bd = d; best = i; } }
-  return best;
+  const N = LN();
+  for (let i = 0; i < N * N; i++) {
+    if (!(S.cat.landOptions[Math.floor(i / N)][i % N] || []).length) continue;
+    const q = cellQuad(i, 0); let ins = true;
+    for (let k = 0; k < 4; k++) { const [ax, ay] = q[k], [bx, by] = q[(k + 1) % 4]; if ((bx - ax) * (wy - ay) - (by - ay) * (wx - ax) < 0) { ins = false; break; } }
+    if (ins) return i;
+  }
+  return -1;
 }
