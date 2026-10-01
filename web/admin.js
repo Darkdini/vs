@@ -20,6 +20,8 @@ function adminHtml() {
       <div class="arow">${aNum('gold', 100, 'монет (минус — забрать)')}${aBtn('gold', '+ Монеты', 'coins_s.png', 'data-arg="gold:n"')}</div>
       <div class="arow">${aNum('res', 100000, 'ресурсов')}${aBtn('res', '+ Ресурсы', 'res/wood.png', 'data-arg="res:n"')}</div>
       <div class="arow">${aNum('royal', 10000, 'лояльности')}${aBtn('royal', '+ Лояльность', 'smallicon/bonus_status/coronalgold.png', 'data-arg="royal:n"')}</div>
+      <div class="arow"><select data-an="race">${S.cat.raceOrder.map((r) => `<option value="${r}">${esc(S.cat.races[r])}</option>`).join('')}</select>${aBtn('race', 'Сменить расу', 'smallicon/plus.png', `data-arg="race:race" data-confirm="Сменить расу? Юниты прежней расы пропадут."`)}</div>
+      <div class="ptiles">${aBtn('reset', 'Сброс на старт', 'build/build.png', `data-confirm="Сбросить ${a.login ? `игрока ${esc(a.login)}` : 'себя'} к началу игры? Все замки, войска и постройки пропадут — будет один новый замок, как сразу после регистрации."`)}</div>
       ${a.player ? playerCard(a.player) : ''}`,
     build: () => `<div class="acard"><div class="cwname"><img class="admbadge s" src="${GFX}ground/castle_small.png" alt=""> Выдать игроку полный замок</div>
       <p class="small">Новый замок на полной прокачке (все здания 20 ур.) появится рядом со столицей игрока, игроку придёт уведомление.</p>

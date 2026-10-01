@@ -51,6 +51,30 @@ function install(Game) {
     return c;
   };
 
+  // смена расы игрока (и админа): юниты чужой расы убираются из замков, отрядов, армий и очереди тренировки
+  P.adminSetRace = function adminSetRace(u, race) {
+    if (!C.RACE_NAMES[race]) return { error: 'Неизвестная раса.' };
+    if (u.race === race) return { error: `Раса и так — ${C.RACE_NAMES[race]}.` };
+    const ok = (id) => { const x = UNIT[id]; return !x || x.race === 'all' || x.race === race || Number(id) === GENERAL_ID; };
+    const clean = (units) => { for (const id of Object.keys(units || {})) if (!ok(id)) delete units[id]; };
+    for (const c of this.castlesOf(u)) {
+      this.mil(c);
+      clean(c.units); c.squads.forEach((q) => clean(q.units)); c.armies.forEach((a) => clean(a.units));
+      c.training = c.training.filter((t) => ok(t.unit));
+    }
+    u.race = race;
+    return { ok: true };
+  };
+  // игрок (или админ) — как сразу после регистрации: один новый стартовый замок, золото 30, репутация 10; ник, пароль, раса, премиум и союз остаются
+  P.adminResetPlayer = function adminResetPlayer(u) {
+    for (const c of this.castlesOf(u)) this.removeCastle(c);
+    const c = this.createCastle(u);
+    u.castleId = c.id; u.castleIds = [c.id];
+    u.gold = 30; u.reputation = START_REP; u.royal = 0; u.royalAt = Date.now(); u.captures = 0;
+    if (u.admin) { u.adminGold = true; u.freshStart = true; }
+    return c;
+  };
+
   // новые замки рядом со столицей (свободные клетки по спирали), сразу на полной прокачке
   P.adminAddCastles = function adminAddCastles(user, n) {
     const cap = this.castlesOf(user)[0];
@@ -191,6 +215,8 @@ function install(Game) {
         target.pass = `${salt}:${crypto.scryptSync(p, salt, 32).toString('hex')}`; target.tokens = []; msg = `Пароль ${target.login} изменён, все сессии завершены.`; break;
       }
       case 'mod': if (target.admin) return { error: 'Админ и так может всё.' }; target.mod = arg.on === undefined ? !target.mod : !!Number(arg.on); msg = `${target.login} — ${target.mod ? 'модератор форума' : 'больше не модератор'}.`; if (target.mod) this.event(target.id, 'Вас назначили модератором форума.'); break;
+      case 'race': { const r = this.adminSetRace(target, String(arg.race || '')); if (r.error) return r; msg = `${target.login}: раса — ${C.RACE_NAMES[target.race]}.`; break; }
+      case 'reset': { this.adminResetPlayer(target); msg = `${target.login}: замок сброшен, как после регистрации.`; if (target !== user) this.event(target.id, 'Администрация вернула ваш замок в начальное состояние.'); break; }
       case 'makeadmin': target.admin = true; msg = `${target.login} — администратор.`; break;
       case 'delete': {
         if (target.admin) return { error: 'Админа удалить нельзя.' };

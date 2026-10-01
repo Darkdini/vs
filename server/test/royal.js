@@ -357,5 +357,22 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(g.deleteDeadGeneral(c, 0).ok && !c.deadGenerals.length);
   console.log('✓ Генерал: тренировка из юнита (цены по скрину), воскрешение за ресурсы/золото, павшие списком, удаление');
 }
+{ // админ: смена расы и сброс на старт
+  const { UNIT } = require('../src/army');
+  const ad = g.register({ login: 'adm2test', password: '12345', race: 0 }).user; ad.admin = true;
+  const pl = g.register({ login: 'racetest', password: '12345', race: 0 }).user, pc = g.castleOf(pl);
+  g.mil(pc); const hum = Object.values(UNIT).find((x) => x.race === 'humans'), all = Object.values(UNIT).find((x) => x.race === 'all' && x.role === 'ram');
+  pc.units = { [hum.id]: 5, [all.id]: 3 };
+  assert.ok(g.adminOp(ad, 'race', { login: 'racetest', race: 'orcs' }).msg);
+assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'юниты людей убраны, общие остались');
+  assert.ok(g.adminOp(ad, 'race', { login: 'racetest', race: 'xx' }).error);
+  g.maxOut(pc); g.adminAddCastles(pl, 2); pl.gold = 999;
+  assert.ok(g.castlesOf(pl).length === 3);
+  g.adminOp(ad, 'reset', { login: 'racetest' });
+  const nc = g.castleOf(pl);
+  assert.ok(g.castlesOf(pl).length === 1 && pl.gold === 30 && pl.race === 'orcs' && nc.grid[0][24] === 0 && nc.levels[0][24] === 1 && !g.db.castles[pc.id], 'как после регистрации');
+  g.adminOp(ad, 'reset', {}); assert.ok(g.castlesOf(ad).length === 1 && ad.admin, 'админ сбрасывает себя');
+  console.log('✓ Админ: смена расы игрока, сброс игрока и себя к началу');
+}
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);
