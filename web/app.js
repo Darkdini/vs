@@ -819,7 +819,8 @@ function clampCam(c) {
   void L; void R;
   if (S.tab === 'castle' && pic(CASTLE_BG.src)) { // фон-картинка: экран не выходит за её края
     const G = CASTLE_BG, zb = Math.max(r.width / G.w, r.height / G.h);
-    if (c.z < zb) { c.z = zb; mx = (r.width / 2 - c.x) / c.z; my = (r.height / 2 - c.y) / c.z; }
+    if (c.z < zb) c.z = zb;
+    mx = (r.width / 2 - c.x) / c.z; my = (r.height / 2 - c.y) / c.z; // с фоном можно смотреть всю картинку (мельница, водопад по краям)
     const hw2 = r.width / 2 / c.z, hh = r.height / 2 / c.z;
     mx = Math.min(Math.max(mx, G.x + hw2), G.x + G.w - hw2); my = Math.min(Math.max(my, G.y + hh), G.y + G.h - hh);
   }
@@ -945,13 +946,13 @@ function drawCellBuilding(view, cell, b, lvl, p, k = 1, sel = false) {
 const D = (x, y) => tileScreen(x, y).sx, E = (x, y) => tileScreen(x, y).sy;
 const CG = CASTLE_OFF, CH = CASTLE_OFF, CN = 7;
 // ров: кольцо клеток вокруг замка (прямые стороны, закруглённые углы, мосты у ворот); вода течёт по часовой стрелке
-const FLOW_N = 16, FLOW_MS = 165;
+const FLOW_N = 16, FLOW_MS = 165, ANIM_MS = 90; // кадр течения рва / частота перерисовки (плавнее для мельниц)
 const flowOn = () => typeof SND === 'undefined' || SND.anim !== false;
 let flowTimer = null;
 function flowTick() { // перерисовка только пока открыт замок и вкладка видна
   flowTimer = null;
   if (S.tab !== 'castle' || document.hidden || !flowOn() || !Iso.cv.isConnected) return;
-  isoDraw(); flowTimer = setTimeout(flowTick, FLOW_MS);
+  isoDraw(); flowTimer = setTimeout(flowTick, ANIM_MS);
 }
 const MOAT_T = ['TL', 'R', 'BR', 'L', 'cL', 'cT', 'cR', 'cB', 'bL', 'bTL'];
 function moat() {
@@ -983,12 +984,47 @@ function fenceFront() {
 }
 // фон вокруг королевства: одна картинка (местность с лесом, рекой, скалами) под замком; стены картинки совпадают с нашими.
 // Сверху и снизу картинка продолжена лесом с её краёв (полосы с отражением); камера не выходит за картинку.
-const CASTLE_BG = { src: 'ground/castle_bg.jpg', moat: false,
-  x: 527 - 817.5 * 0.449, y: 16 - (517 + 760) * 0.461, w: 1606 * 0.449, h: 2455 * 0.461 }; // углы стены на картинке → углы сетки замка
+// Оживление: течёт река, ручей и водопад (12 кадров воды), крутятся лопасти мельницы и водяное колесо.
+const CASTLE_BG = { src: 'ground/bg/castle.jpg', moat: false, iw: 1606, ih: 2455, pad: 760, // pad — сколько добавлено сверху
+  x: 527 - 817.5 * 0.449, y: 16 - (517 + 760) * 0.461, w: 1606 * 0.449, h: 2455 * 0.461, // углы стены на картинке → углы сетки замка
+  water: { n: 12, x: 2, y: 2 },
+  mill: { hub: [132, 190], u: [28.5, -58.5], v: [45, 17.5], speed: 0.9 }, // ветряк: плоскость лопастей (u, v — оси), рад/с
+  wheel: { hub: [1549, 317], u: [-7, -43], v: [29, 9], speed: 0.7, step: Math.PI / 6 } }; // колесо: крутится на шаг между спицами по кругу
 function castleBackdrop() {
-  const im = pic(CASTLE_BG.src); if (!im) return null;
-  const sm = ictx.imageSmoothingEnabled; ictx.imageSmoothingEnabled = true; ictx.imageSmoothingQuality = 'high';
-  ictx.drawImage(im, CASTLE_BG.x, CASTLE_BG.y, CASTLE_BG.w, CASTLE_BG.h); ictx.imageSmoothingEnabled = sm;
+  const G = CASTLE_BG, im = pic(G.src); if (!im) return null;
+  const x = ictx, sm = x.imageSmoothingEnabled; x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
+  x.drawImage(im, G.x, G.y, G.w, G.h);
+  if (flowOn() && !flowTimer) flowTimer = setTimeout(flowTick, ANIM_MS);
+  const t = flowOn() ? Date.now() / 1000 : 0;
+  x.save(); x.translate(G.x, G.y); x.scale(G.w / G.iw, G.h / G.ih); x.translate(0, G.pad); // дальше — в точках исходной картинки
+  const wf = pic(`ground/bg/water_${flowOn() ? Math.floor(Date.now() / FLOW_MS) % G.water.n : 0}.webp`);
+  if (!castleBackdrop.pre) { castleBackdrop.pre = true; for (let k = 0; k < G.water.n; k++) pic(`ground/bg/water_${k}.webp`); }
+  if (wf) x.drawImage(wf, G.water.x, G.water.y);
+  { // водяное колесо: содержимое эллипса поворачивается вокруг оси
+    const W = G.wheel, a = (t * W.speed) % W.step;
+    x.save(); x.translate(W.hub[0], W.hub[1]); x.transform(W.u[0], W.u[1], W.v[0], W.v[1], 0, 0);
+    x.beginPath(); x.arc(0, 0, 0.98, 0, Math.PI * 2); x.clip(); x.rotate(a);
+    const det = W.u[0] * W.v[1] - W.u[1] * W.v[0]; // обратно в точки картинки
+    x.transform(W.v[1] / det, -W.u[1] / det, -W.v[0] / det, W.u[0] / det, 0, 0); x.translate(-W.hub[0], -W.hub[1]);
+    x.drawImage(im, W.hub[0] - 70, W.hub[1] - 70 + G.pad, 140, 140, W.hub[0] - 70, W.hub[1] - 70, 140, 140);
+    x.restore();
+  }
+  { // ветряк: 4 решётчатых крыла
+    const Mw = G.mill, a0 = t * Mw.speed;
+    x.save(); x.translate(Mw.hub[0], Mw.hub[1]); x.transform(Mw.u[0], Mw.u[1], Mw.v[0], Mw.v[1], 0, 0);
+    for (let k = 0; k < 4; k++) {
+      x.save(); x.rotate(a0 + k * Math.PI / 2);
+      x.fillStyle = 'rgba(214,196,150,0.88)'; x.fillRect(0.22, 0.02, 0.8, 0.24);
+      x.strokeStyle = '#5f3e22'; x.lineWidth = 0.022; x.beginPath();
+      for (let i = 0; i <= 5; i++) { const sx = 0.22 + i * 0.16; x.moveTo(sx, 0.02); x.lineTo(sx, 0.26); }
+      x.moveTo(0.22, 0.14); x.lineTo(1.02, 0.14); x.moveTo(0.22, 0.26); x.lineTo(1.02, 0.26); x.stroke();
+      x.strokeStyle = '#462d19'; x.lineWidth = 0.045; x.beginPath(); x.moveTo(0, 0); x.lineTo(1.06, 0); x.stroke();
+      x.restore();
+    }
+    x.fillStyle = '#3c2816'; x.beginPath(); x.arc(0, 0, 0.06, 0, Math.PI * 2); x.fill();
+    x.restore();
+  }
+  x.restore(); x.imageSmoothingEnabled = sm;
   return im;
 }
 // земля только внутри стен (вокруг — фон-картинка)
