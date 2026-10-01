@@ -248,8 +248,8 @@ const API = {
   },
   ritual(m) { const c = pickCastle(this, m); if (!c) return; const r = this.game.ritual(this.user, c, m.id, !!m.cid && this.game.isPremium(this.user)); if (m.cid) API.kingdom.call(this); if (r.msg) this.toast(r.msg); this.result(r); },
   calm(m) { const c = pickCastle(this, m); if (!c) return; const r = this.game.calmRiot(this.user, c); if (m && m.cid) API.kingdom.call(this); if (r.msg) this.toast(r.msg); this.result(r); },
-  magic(m) { this.result(this.game.magicOp(this.castle, { unit: Number(m.unit), kind: m.kind })); },
-  forge(m) { this.result(this.game.forgeOp(this.castle, { unit: Number(m.unit), kind: m.kind })); },
+  magic(m) { const r = this.game.magicOp(this.castle, { unit: Number(m.unit), kind: m.kind }); if (r.msg) this.toast(r.msg); this.result(r); },
+  forge(m) { const r = this.game.forgeOp(this.castle, { unit: Number(m.unit), kind: m.kind }); if (r.msg) this.toast(r.msg); this.result(r); },
   ally(m) {
     // модератор форума / админ может открыть форум любого альянса (m.ally) — только просмотр и удаление
     const mod = this.game.canModerate(this.user), foreign = mod && m.ally && Number(m.ally) !== this.user.alliance;

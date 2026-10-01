@@ -272,10 +272,10 @@ function client() {
 
     // ---- Кузница: улучшение атаки/защиты юнита, +1 к базе за уровень ----
     adm.send({ t: 'admin', op: 'max' });
-    let fs0 = (await adm.expect('state', (m) => m.castle.mil.forge && m.castle.mil.forge[200] && m.castle.mil.forge[200].a === 20)).castle.mil;
-    assert.ok(fs0.forgeUnits.some((u) => u.id === 240));
+    let fs0 = (await adm.expect('state', (m) => m.castle.mil.forge && m.castle.mil.forge[200] && m.castle.mil.forge[200].a === 19)).castle.mil;
+    assert.ok(fs0.forgeUnits.includes(240));
     adm.send({ t: 'forge', unit: 200, kind: 'a' });
-    await adm.expect('error', (m) => /Достигнут максимум/.test(m.msg));
+    await adm.expect('error', (m) => /Достигнут максимальный/.test(m.msg));
     adm.send({ t: 'forge', unit: 221, kind: 'a' });
     await adm.expect('error', (m) => /нельзя улучшить/.test(m.msg));
     console.log('✓ Кузница: улучшения 20/20, торговца улучшить нельзя');

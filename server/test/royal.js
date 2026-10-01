@@ -43,15 +43,24 @@ v.created = T - 31 * 86400000; assert.ok(g.royalCanCapture(v));
 console.log('✓ Храм: +12 в сутки; ритуал +5%; первый захват не раньше 30-го дня игры');
 // Кузница: улучшение атаки Мечника +1 за уровень, не выше уровня Кузнеца
 const w = g.register({ login: 'forgetest', password: '12345', race: 0 }).user, fc = g.castlesOf(w)[0];
-fc.grid[0][1] = 11; fc.levels[0][1] = 1; fc.grid[0][2] = 1; fc.levels[0][2] = 10;
-g.mil(fc); Object.assign(fc.res, { wood: 5000, stone: 5000, iron: 5000, food: 5000 });
+fc.grid[0][1] = 11; fc.levels[0][1] = 2; fc.grid[0][2] = 1; fc.levels[0][2] = 10;
+g.mil(fc); Object.assign(fc.res, { wood: 5000, stone: 5000, iron: 5000, food: 5000, people: 500 });
 const p0 = g.armyPower(fc, { 200: 100 }, false).inf;
 assert.ok(g.forgeOp(fc, { unit: 200, kind: 'a' }).ok);
-fc.forgeJob.end = Date.now() - 1; g.tick(fc);
+fc.upJobs.a.end = Date.now() - 1; g.tick(fc);
 assert.equal(fc.forge[200].a, 1);
 const p1 = g.armyPower(fc, { 200: 100 }, false).inf;
 assert.ok(Math.abs(p1 / p0 - (g.UNIT_ATK = require('../src/army').UNIT[200].attack + 1) / require('../src/army').UNIT[200].attack) < 1e-9);
-assert.ok(/Нужен Кузнец 2/.test(g.forgeOp(fc, { unit: 200, kind: 'a' }).error));
+assert.ok(/уровень здания 3/.test(g.forgeOp(fc, { unit: 200, kind: 'a' }).error));
+{ // стоимость — как на скринах оригинала (±2%)
+  const { UNIT } = require('../src/army'), near = (a, b) => Math.abs(a - b) <= Math.max(2, b * 0.02);
+  const chk = (id, k, T, exp) => { const c = g.forgeCost(UNIT[id], k, T); const got = [c.cost.wood, c.cost.stone, c.cost.iron, c.cost.food, c.people];
+    assert.ok(got.every((v, i) => near(v, exp[i])) && c.sec === Math.round((T + 2) * 1800 / Number(process.env.SPEED || 1)), `${UNIT[id].name} ${k}→${T}: ${got} ≠ ${exp}`); };
+  chk(245, 'a', 2, [114, 107, 121, 242, 8]); chk(245, 'd', 2, [110, 104, 117, 234, 7]);
+  chk(248, 'a', 18, [6507, 6707, 6911, 8520, 1943]); chk(248, 'd', 19, [6145, 6365, 6543, 8056, 1859]);
+  chk(250, 'm', 4, [230, 219, 239, 461, 109]); chk(250, 'md', 3, [196, 187, 206, 393, 94]);
+  chk(246, 'm', 12, [1251, 1190, 1308, 2769, 481]); chk(246, 'md', 13, [1190, 1124, 1248, 2636, 450]);
+}
 console.log(`✓ Кузница: атака Мечника +1 (сила армии ${Math.round(p0)} → ${Math.round(p1)}), выше уровня Кузнеца нельзя`);
 // науки: процент за уровень + вехи 5/10/15/20
 {
@@ -254,16 +263,17 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
 {
   const u = g.register({ login: 'mschool', password: '12345', race: 0 }).user, c = g.castleOf(u);
   assert.ok(g.magicOp(c, { unit: 203, kind: 'm' }).error, 'без Школы магии нельзя');
-  g.maxOut(c); for (const r of ['wood', 'stone', 'iron', 'food']) c.res[r] = 1e9;
+  g.maxOut(c); c.forge = {}; for (const r of ['wood', 'stone', 'iron', 'food']) c.res[r] = 1e9;
   const mag0 = g.armyPower(c, { 203: 10 }, false).mag;
-  assert.ok(g.magicOp(c, { unit: 200, kind: 'm' }).error, 'у Мечника нет маг. атаки');
+  c.res.people = 1e6;
+  assert.ok(g.magicOp(c, { unit: 200, kind: 'm' }).error, 'Мечника (без маг. атаки) в Школе магии нет');
   assert.ok(g.magicOp(c, { unit: 203, kind: 'm' }).ok);
-  assert.ok(g.magicOp(c, { unit: 203, kind: 'md' }).error, 'одно улучшение за раз');
-  c.magicJob.end = Date.now() - 1; g.tick(c);
+  assert.ok(/Уже проводится/.test(g.magicOp(c, { unit: 261, kind: 'm' }).error || '') || g.magicOp(c, { unit: 203, kind: 'm' }).error, 'одно улучшение маг. атаки за раз');
+  assert.ok(g.magicOp(c, { unit: 203, kind: 'md' }).ok, 'маг. защита — параллельно');
+  c.upJobs.m.end = Date.now() - 1; g.tick(c);
   assert.strictEqual(g.forgeLvl(c, 203, 'm'), 1);
   assert.ok(g.armyPower(c, { 203: 10 }, false).mag > mag0, 'маг. атака выросла');
-  assert.ok(g.magicOp(c, { unit: 200, kind: 'md' }).ok, 'маг. защита — у всех');
-  console.log('✓ Школа магии: маг. атака (только маги) и маг. защита (все), +1 за уровень, одно улучшение за раз');
+  console.log('✓ Школа магии: юниты с маг. атакой, +1 за уровень, по одному улучшению на параметр, стоимость по скринам');
 }
 { // устройства: подробности, совпадение «железа» на другом аккаунте, бан устройства вместе с железом
   const a = g.register({ login: 'devtest1', password: '12345', race: 0 }).user, b = g.register({ login: 'devtest2', password: '12345', race: 0 }).user;

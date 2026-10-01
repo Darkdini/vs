@@ -90,8 +90,8 @@ function buildingFunctions(def, lvl) {
   if (!lvl || !S.cat.mil) return '';
   let h = '';
   if (def.id === 46) return residenceHtml(); // Резиденция: лояльность населения (residence.js)
-  if (def.id === 11) return '<button class="rbar" data-forge>Юниты</button>'; // Кузница (forge.js)
-  if (def.id === 39) return '<button class="rbar" data-magic>Юниты</button>'; // Школа магии (magic.js)
+  if (def.id === 11) return '<button class="rbar" data-forge>Юниты</button>' + upJobsHtml(11); // Кузница (forge.js)
+  if (def.id === 39) return '<button class="rbar" data-magic>Юниты</button>' + upJobsHtml(39); // Школа магии (forge.js)
   if (def.id === 21) return '<button class="rbar" data-moves>Передвижения армий</button>'; // Караульная башня (watch.js)
   if (def.id === 45) return spyButtons(); // Центр разведки: Возможности / Тренировать / Разведка (spy.js)
   if (def.id === HQ) h += hqHtml();

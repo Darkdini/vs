@@ -1,31 +1,47 @@
 'use strict';
-// Кузница — как в оригинале: список юнитов с уровнями улучшения атаки ⚔ и защиты 🛡; +1 к базовому параметру за уровень,
-// максимум — уровень Кузнеца. Одновременно идёт одно улучшение. Сервер: forgeOp в army.js.
-const FI = { a: `${GFX}smallicon/phiattack.png`, d: `${GFX}smallicon/phidef.png` };
-const fLvl = (id, k) => ((MY().forge || {})[id] || {})[k] || 0;
-function forgeWin() {
-  const my = MY(), job = my.forgeJob;
-  return `${ribbon('Кузница')}
-    ${job ? `<div class="bwline center">Улучшается: <b>${esc(unitById(job.unit).name)}</b> — ${job.kind === 'a' ? 'атака' : 'защита'} ${job.level} ур., <span class="cd" data-e="${job.end}"></span></div>` : ''}
-    ${(my.forgeUnits || []).map((f) => { const u = unitById(f.id); return `<button class="fbar" data-funit="${u.id}"><img src="${unitSrc(u)}" alt="">
-      <span><b>${esc(u.name)}</b><br><img class="fi" src="${FI.a}" alt=""> ${fLvl(u.id, 'a')} <img class="fi" src="${FI.d}" alt=""> ${fLvl(u.id, 'd')}</span></button>`; }).join('')}`;
+// Кузница и Школа магии — как в оригинале. Список юнитов: значок, имя, уровни двух параметров (с 1).
+// Окно юнита: «Текущий уровень атаки ⚔ N», «Стоимость улучшения на N+1 уровень» (ресурсы, люди, время) и кнопка
+// «Улучшить на N+1-й уровень»; если этот параметр уже улучшается у другого юнита — «Уже проводится улучшение…».
+// Одновременно — по одному улучшению на параметр (атака/защита, маг. атака/маг. защита). Сервер: upgradeOp в army.js.
+const FI = { a: `${GFX}smallicon/phiattack.png`, d: `${GFX}smallicon/phidef.png`, m: `${GFX}smallicon/magattack.png`, md: `${GFX}smallicon/magdef.png` };
+const UPK = {
+  forge: { title: 'Кузница', kinds: ['a', 'd'], bld: 11, list: 'forgeUnits', op: 'forge', names: { a: 'атаки', d: 'защиты' } },
+  magic: { title: 'Магическая школа', kinds: ['m', 'md'], bld: 39, list: 'magicUnits', op: 'magic', names: { m: 'магической атаки', md: 'магической защиты' } },
+};
+const fLvl = (id, k) => ((MY().forge || {})[id] || {})[k] || 0; // число улучшений (бонус к параметру)
+const shownLvl = (id, k) => fLvl(id, k) + 1; // как в оригинале: без улучшений — 1
+S.upw = 'forge'; S.upUnit = null;
+function upListWin() {
+  const w = UPK[S.upw], ids = MY()[w.list] || [];
+  return `${ribbon(w.title)}${ids.map((id) => { const u = unitById(id); return `<button class="fbar" data-upunit="${id}"><img src="${unitSrc(u)}" alt="">
+    <span><b>${esc(u.name)}</b><br>${w.kinds.map((k) => `<img class="fi" src="${FI[k]}" alt=""> ${shownLvl(id, k)}`).join(' ')}</span></button>`; }).join('') || '<p class="parch-note">Нет юнитов для улучшения.</p>'}`;
 }
-S.funit = null;
-function forgeUnitWin() {
-  const my = MY(), u = unitById(S.funit), f = (my.forgeUnits || []).find((x) => x.id === u.id), L = buildingLevel(11), job = my.forgeJob;
-  const row = (k, title, base) => { const lv = fLvl(u.id, k), n = f.next[k];
-    return `<div class="fest"><b><img class="fi" src="${FI[k]}" alt=""> ${title}: ${base} + ${lv}</b> <span class="small">(ур. ${lv} из ${Math.min(20, L)})</span>
-      ${lv >= Math.min(20, L) ? `<div class="small muted">${lv >= 20 ? 'Максимум.' : `Нужен Кузнец ${lv + 1} ур.`}</div>` : `<div class="chips">${RES4.map((r) => `<span>${RES_IC[r]} ${fmtFull(n.cost[r])}</span>`).join('')}<span>${TIME_IC} ${fmtT(n.sec)}</span></div>
-      <button class="pbtn" data-fdo="${k}" ${job ? 'disabled' : ''}>Улучшить до ${lv + 1} ур.</button>`}</div>`; };
-  return `${ribbon(u.name)}<div class="center"><img class="fbig" src="${unitSrc(u)}" alt=""></div>
-    ${job ? '<div class="bwline center muted">Кузница занята — дождитесь окончания улучшения.</div>' : ''}
-    ${row('a', 'Атака', u.attack)}${row('d', 'Защита', `${u.def.inf}/${u.def.cav}`)}
-    <p class="small muted">Каждое улучшение увеличивает базовый параметр атаки/защиты на 1 единицу для всех таких воинов замка.</p>`;
+function upUnitWin() {
+  const w = UPK[S.upw], u = unitById(S.upUnit), my = MY(), next = (my.upNext || {})[u.id] || {}, L = buildingLevel(w.bld), jobs = my.upJobs || {};
+  const row = (k) => {
+    const cur = shownLvl(u.id, k), T = cur + 1, n = next[k], job = jobs[k];
+    const head = `<div class="uphead">Текущий уровень ${w.names[k]} <img class="fi" src="${FI[k]}" alt=""> ${cur}</div>`;
+    if (job) return `${head}<div class="upbody">${job.unit === u.id ? `Идёт улучшение на ${job.level + 1} уровень. Осталось: <span class="cd" data-e="${job.end}"></span>` : 'Уже проводится улучшение данного параметра для другого юнита!'}</div>`;
+    if (T > 20) return `${head}<div class="upbody">Достигнут максимальный уровень.</div>`;
+    if (T > L) return `${head}<div class="upbody">Для улучшения на ${T} уровень нужен ${esc(S.by[w.bld].name)} ${T} ур.</div>`;
+    return `${head}<div class="upbody">Стоимость улучшения на ${T} уровень:</div>
+      <div class="upcost">${RES4.map((r) => `<span data-need="${r}:${n.cost[r]}">${RES_IC[r]}<b>${fmtFull(n.cost[r])}</b></span>`).join('')}<span>${RES_IC.people}<b>${fmtFull(n.people)}</b></span><span>${TIME_IC}<b>${fmtT(n.sec)}</b></span></div>
+      <button class="pbar" data-updo="${k}">Улучшить на ${T}-й уровень</button>`;
+  };
+  return `${ribbon(u.name)}<div class="center"><img class="fbig" src="${unitSrc(u)}" alt=""></div>${w.kinds.map(row).join('')}`;
 }
+// «Юниты:» в окне здания — идущие улучшения
+function upJobsHtml(bld) {
+  const w = Object.values(UPK).find((x) => x.bld === bld), jobs = Object.values(MY().upJobs || {}).filter((j) => w.kinds.includes(j.kind));
+  return jobs.length ? `${ribbon('Юниты:')}${jobs.map((j) => { const u = unitById(j.unit); return `<div class="upjob"><img src="${unitSrc(u)}" alt=""> ${esc(u.name)} улучшение на <img class="fi" src="${FI[j.kind]}" alt=""> ${j.level + 1}<br>Осталось: <span class="cd" data-e="${j.end}"></span></div>`; }).join('')}` : '';
+}
+function forgeWin() { S.upw = 'forge'; return upListWin(); }
+function magicWin() { S.upw = 'magic'; return upListWin(); }
 $('#sheetBody').addEventListener('click', (e) => {
-  const t = e.target.closest('[data-forge],[data-funit],[data-fdo]'); if (!t) return;
+  const t = e.target.closest('[data-forge],[data-magic],[data-upunit],[data-updo]'); if (!t) return;
   const d = t.dataset;
-  if (d.forge !== undefined) return openSheet(forgeWin);
-  if (d.funit) { S.funit = Number(d.funit); return openSheet(forgeUnitWin); }
-  if (d.fdo) return send({ t: 'forge', unit: S.funit, kind: d.fdo });
+  if (d.forge !== undefined) { S.upw = 'forge'; return openSheet(upListWin); }
+  if (d.magic !== undefined) { S.upw = 'magic'; return openSheet(upListWin); }
+  if (d.upunit) { S.upUnit = Number(d.upunit); return openSheet(upUnitWin); }
+  if (d.updo) return send({ t: UPK[S.upw].op, unit: S.upUnit, kind: d.updo });
 });

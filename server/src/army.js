@@ -254,6 +254,10 @@ const NPC_REGEN_SEC = 3600;
 const NEWBIE_RATING = Number(process.env.NEWBIE_RATING || 100); // защита новичка: на слабых игроков нападать нельзя
 
 // Центр разведки: какой уровень здания открывает пункт и какая доля разведчиков должна выжить
+const UP = {
+  a: { name: 'атака', bld: B.SMITH, c: 0.88, g: 1.2355 }, d: { name: 'защита', bld: B.SMITH, c: 0.8756, g: 1.2185 },
+  m: { name: 'магическая атака', bld: B.MAGIC_SCHOOL, c: 0.86, g: 1.25 }, md: { name: 'магическая защита', bld: B.MAGIC_SCHOOL, c: 1.01, g: 1.209 },
+};
 const SPY_OPEN = {
   armies: { name: 'Армий в замке', level: 1, survive: 0, cond: 'выжил хотя-бы 1 разведчик' },
   res: { name: 'Ресурсов', level: 4, survive: 0.5, cond: 'выжило больше 50% разведчиков' },
@@ -279,8 +283,10 @@ function install(Game, helpers) {
     if (castle.research === undefined) castle.research = null;
     if (castle.religion === undefined) castle.religion = null;
     if (!castle.forge) castle.forge = {}; // Кузница: { unitId: { a: ур. атаки, d: ур. защиты } }
-    if (castle.forgeJob === undefined) castle.forgeJob = null;
-    if (castle.magicJob === undefined) castle.magicJob = null;
+    // улучшения Кузницы (a, d) и Школы магии (m, md): по одному на параметр одновременно, как в оригинале
+    if (!castle.upJobs) castle.upJobs = {};
+    for (const j of [castle.forgeJob, castle.magicJob, ...Object.values(castle.magicJobs || {})]) if (j) castle.upJobs[j.kind] = j;
+    delete castle.forgeJob; delete castle.magicJob; delete castle.magicJobs;
     if (!castle.squads) castle.squads = []; // отряды в замке («Армия: …»); castle.units — «Замковая армия»
     if (castle.loyalty === undefined) { castle.loyalty = 100; castle.loyAt = Date.now(); }
     // старые замки: стартовый Огород стоял на траве (7:7) — переносим на землю (3:5), как в оригинале
@@ -428,20 +434,13 @@ function install(Game, helpers) {
     const g = castle.general;
     if (g && g.dead && g.reviveAt && g.reviveAt <= now) { g.dead = false; delete g.reviveAt; delete g.reviveStart; this.event(owner, 'Генерал снова в строю.'); }
     // улучшение в Кузнице
-    const fj = castle.forgeJob;
-    if (fj && fj.end <= now) {
-      const f = castle.forge[fj.unit] || (castle.forge[fj.unit] = { a: 0, d: 0 });
-      f[fj.kind] = fj.level;
-      this.event(owner, `Кузница: ${UNIT[fj.unit].name} — ${fj.kind === 'a' ? 'атака' : 'защита'} ${fj.level} ур.`);
-      castle.forgeJob = null;
-    }
-    // улучшение в Школе магии
-    const mj = castle.magicJob;
-    if (mj && mj.end <= now) {
-      const f = castle.forge[mj.unit] || (castle.forge[mj.unit] = { a: 0, d: 0 });
-      f[mj.kind] = mj.level;
-      this.event(owner, `Школа магии: ${UNIT[mj.unit].name} — ${mj.kind === 'm' ? 'магическая атака' : 'магическая защита'} ${mj.level} ур.`);
-      castle.magicJob = null;
+    for (const [k, j] of Object.entries(castle.upJobs || {})) {
+      if (!j || j.end > now) continue;
+      const f = castle.forge[j.unit] || (castle.forge[j.unit] = { a: 0, d: 0 });
+      f[j.kind] = j.level;
+      castle.res.people += j.people || 0; // люди возвращаются после улучшения
+      this.event(owner, `${UP[j.kind].bld === B.SMITH ? 'Кузница' : 'Школа магии'}: ${UNIT[j.unit].name} — ${UP[j.kind].name} ${j.level + 1} ур.`);
+      delete castle.upJobs[k];
     }
     // исследование
     if (castle.research && castle.research.end <= now) {
@@ -456,48 +455,36 @@ function install(Game, helpers) {
   P.forgeUnits = function forgeUnits(castle) {
     return unitsForRace(this.raceOf(castle)).filter((u) => (u.race !== 'all' || ['catapult', 'ram'].includes(u.role)) && u.id !== GENERAL_ID);
   };
-  P.forgeCost = function forgeCost(u, level) {
-    const k = 2 + level; // дороже с каждым уровнем
-    return { cost: Object.fromEntries(RES4.map((r) => [r, Math.round(u.cost[r] * k)])), sec: Math.max(5, Math.round(u.time * (1 + level / 2) / SPEED)) };
+  // Кузница и Школа магии — как в оригинале. Уровень параметра показывается с 1 (без улучшений — 1), каждое улучшение +1 к базе.
+  // Стоимость улучшения до уровня T (показываемого) = цена юнита × c·g^T, люди — население юнита × тот же множитель × 0,97,
+  // время (T+2)×30 мин. Коэффициенты подобраны по скринам (Мародер, Шаман — Кузница; Тиран, Урук-хай — Школа магии).
+  P.forgeCost = function forgeCost(u, kind, T) {
+    const f = UP[kind].c * UP[kind].g ** T;
+    return { cost: Object.fromEntries(RES4.map((r) => [r, Math.round(u.cost[r] * f)])), people: Math.round(u.pop * f * 0.97), sec: Math.max(5, Math.round((T + 2) * 1800 / SPEED)) };
   };
-  P.forgeOp = function forgeOp(castle, { unit, kind }) {
+  P.magicUnits = function magicUnits(castle) { return unitsForRace(this.raceOf(castle)).filter((u) => u.magic > 0 && u.id !== GENERAL_ID); };
+  P.upgradeOp = function upgradeOp(castle, { unit, kind }) {
     this.tick(castle); this.mil(castle);
-    const L = this.buildingLevel(castle, B.SMITH), u = UNIT[unit];
-    if (!L) return { error: 'Нужен Кузнец.' };
-    if (!u || !this.forgeUnits(castle).includes(u)) return { error: 'Этот юнит нельзя улучшить.' };
-    if (!['a', 'd'].includes(kind)) return { error: 'Неверный параметр.' };
-    if (castle.forgeJob) return { error: 'Кузница занята другим улучшением.' };
-    const next = this.forgeLvl(castle, u.id, kind) + 1;
-    if (next > 20) return { error: 'Достигнут максимум (20).' };
-    if (next > L) return { error: `Нужен Кузнец ${next} ур.` };
-    const { cost, sec } = this.forgeCost(u, next);
+    const up = UP[kind]; if (!up) return { error: 'Неверный параметр.' };
+    const L = this.buildingLevel(castle, up.bld), u = UNIT[unit];
+    if (!L) return { error: up.bld === B.SMITH ? 'Нужен Кузнец.' : 'Нужна Школа магии.' };
+    const list = up.bld === B.SMITH ? this.forgeUnits(castle) : this.magicUnits(castle);
+    if (!u || !list.includes(u)) return { error: 'Этот юнит нельзя улучшить.' };
+    if (castle.upJobs[kind]) return { error: 'Уже проводится улучшение данного параметра для другого юнита!' };
+    const s = this.forgeLvl(castle, u.id, kind), T = s + 2; // показываемый уровень после улучшения
+    if (T > 20) return { error: 'Достигнут максимальный уровень (20).' };
+    if (T > L) return { error: `Нужен уровень здания ${T}.` };
+    const { cost, people, sec } = this.forgeCost(u, kind, T);
     for (const r of RES4) if (castle.res[r] < cost[r]) return { error: 'Недостаточно ресурсов.' };
+    if (castle.res.people < people) return { error: 'Не хватает людей.' };
     for (const r of RES4) castle.res[r] -= cost[r];
-    castle.forgeJob = { unit: u.id, kind, level: next, start: Date.now(), end: Date.now() + sec * 1000 };
+    castle.res.people -= people;
+    castle.upJobs[kind] = { unit: u.id, kind, level: s + 1, people, start: Date.now(), end: Date.now() + sec * 1000 };
     this.store.save();
-    return { ok: true };
+    return { ok: true, msg: `Начато улучшение на уровень ${T} !` };
   };
-
-  // ----- Школа магии: как Кузница, но магическая атака (m, только у магов) и магическая защита (md, у всех) -----
-  // +1 к базовому параметру за уровень, до уровня Школы магии (макс. 20); одновременно одно улучшение
-  P.magicKinds = (u) => (u.magic > 0 ? ['m', 'md'] : ['md']);
-  P.magicOp = function magicOp(castle, { unit, kind }) {
-    this.tick(castle); this.mil(castle);
-    const L = this.buildingLevel(castle, B.MAGIC_SCHOOL), u = UNIT[unit];
-    if (!L) return { error: 'Нужна Школа магии.' };
-    if (!u || !this.forgeUnits(castle).includes(u)) return { error: 'Этот юнит нельзя улучшить.' };
-    if (!this.magicKinds(u).includes(kind)) return { error: u.magic > 0 || kind !== 'm' ? 'Неверный параметр.' : 'У этого юнита нет магической атаки.' };
-    if (castle.magicJob) return { error: 'Школа магии занята другим улучшением.' };
-    const next = this.forgeLvl(castle, u.id, kind) + 1;
-    if (next > 20) return { error: 'Достигнут максимум (20).' };
-    if (next > L) return { error: `Нужна Школа магии ${next} ур.` };
-    const { cost, sec } = this.forgeCost(u, next);
-    for (const r of RES4) if (castle.res[r] < cost[r]) return { error: 'Недостаточно ресурсов.' };
-    for (const r of RES4) castle.res[r] -= cost[r];
-    castle.magicJob = { unit: u.id, kind, level: next, start: Date.now(), end: Date.now() + sec * 1000 };
-    this.store.save();
-    return { ok: true };
-  };
+  P.forgeOp = function forgeOp(castle, m) { return ['a', 'd'].includes(m.kind) ? this.upgradeOp(castle, m) : { error: 'Неверный параметр.' }; };
+  P.magicOp = function magicOp(castle, m) { return ['m', 'md'].includes(m.kind) ? this.upgradeOp(castle, m) : { error: 'Неверный параметр.' }; };
 
   // ----- генерал -----
   P.generalNeed = (level) => 50 * level * level; // всего опыта для следующего уровня: 10 ур. — 5 000, 100 ур. — 500 000, 500 ур. — 12,5 млн
@@ -1344,7 +1331,7 @@ function install(Game, helpers) {
     castle.general = this.newGeneral(castle, 100); // полная прокачка: очки уже распределены
     Object.assign(castle.general.pts, { atk: 20, def: 20, catk: 80, cdef: 60, heal: 10, career: 8 }); castle.general.free = 0;
     castle.sciences = { eco: 20, eng: 20, fhi: 20, war: 20 };
-    for (const u of this.forgeUnits(castle)) castle.forge[u.id] = { a: 20, d: 20 }; // Кузница 20/20
+    for (const u of this.forgeUnits(castle)) castle.forge[u.id] = { a: 19, d: 19, ...(u.magic > 0 ? { m: 19, md: 19 } : {}) }; // Кузница и Школа магии — 20 ур. (уровень показывается с 1)
     castle.religion = castle.religion || 'war';
     if (castle.artifacts.length < 4) for (const type of ['atk', 'def', 'prod', 'speed']) castle.artifacts.push({ id: this.db.nextId++, type, rarity: 2, active: true, found: Date.now() });
     const cap = this.capacity(castle);
@@ -1422,7 +1409,8 @@ function install(Game, helpers) {
         score: this.allianceScore(al),
         requests: this.allyCan(al, user.id, 'invite') ? (al.requests || []).map((id) => { const m = this.userById(id); return m ? { id, login: m.login, rating: this.userRating(m) } : null; }).filter(Boolean) : [] } : null,
       invites: (user.invites || []).map((id) => this.db.alliances && this.db.alliances[id]).filter(Boolean).map((a) => ({ id: a.id, name: a.name, tag: a.tag })),
-      forge: castle.forge, forgeJob: castle.forgeJob, magicJob: castle.magicJob, magicNext: Object.fromEntries(this.forgeUnits(castle).map((u) => [u.id, Object.fromEntries(this.magicKinds(u).map((k) => [k, this.forgeCost(u, this.forgeLvl(castle, u.id, k) + 1)]))])), forgeUnits: this.forgeUnits(castle).map((u) => ({ id: u.id, ...this.forgeCost(u, 0), next: { a: this.forgeCost(u, this.forgeLvl(castle, u.id, 'a') + 1), d: this.forgeCost(u, this.forgeLvl(castle, u.id, 'd') + 1) } })),
+      forge: castle.forge, upJobs: castle.upJobs, forgeUnits: this.forgeUnits(castle).map((u) => u.id), magicUnits: this.magicUnits(castle).map((u) => u.id),
+      upNext: Object.fromEntries([...new Set([...this.forgeUnits(castle), ...this.magicUnits(castle)])].map((u) => [u.id, Object.fromEntries(['a', 'd', 'm', 'md'].map((k) => [k, this.forgeCost(u, k, this.forgeLvl(castle, u.id, k) + 2)]))])),
       admin: !!user.admin, royal: this.royalView(user, castle), watch: this.hasWatch(user),
       unreadReports: (this.db.reports || []).filter((r) => r.owner === user.id && !r.read).length,
     };
