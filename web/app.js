@@ -742,9 +742,7 @@ const HD = { 'build/castle.png': ['build/hd/castle.png', 8], 'build/spycentr.png
   // ров (кольцо из одного нарисованного куска, с течением) и трава в замке — HD
   ...Object.fromEntries(['TL', 'R', 'BR', 'L', 'cL', 'cT', 'cR', 'cB', 'bL', 'bTL'].flatMap((n) => Array.from({ length: 16 }, (_, f) => [`ground/moat_${n}_${f}.png`, [`ground/hd/moat_${n}_${f}.png`, 6]]))),
   'ground/grassC.png': ['ground/hd/grassC.png', 8], 'ground/grass1C.png': ['ground/hd/grass1C.png', 8] };
-// постройки на землях — отрисованы из 3D-моделей оригинального 3D-клиента (масштаб ×6)
-for (const n of ['farm_small', 'farm_avg', 'farm_big', 'house_small', 'house_avg', 'house_big', 'sawmill_small', 'sawmill_avg', 'sawmill_big',
-  'stone_small', 'stone_avg', 'stone_big', 'iron_small', 'iron_avg', 'iron_big', 'chip']) HD[`build/${n}.png`] = [`build/hd/${n}.png?v=3d`, 6];
+
 // в замке трава своя (HD): снаружи стены — светлая (grass1C), внутри — с цветами (grassC); на Землях и в Мире — прежняя
 const CASTLE_GRASS = { 'ground/grass.png': 'ground/grass1C.png', 'ground/grass1.png': 'ground/grass1C.png' };
 const gpath = (path) => (S.tab === 'castle' && CASTLE_GRASS[path]) || path;
@@ -790,7 +788,7 @@ function plotImage(path, p, k) { const im = pic(path); if (!im) return; const w 
 const isSel = (x, y) => Iso.sel && Iso.sel.tab === S.tab && Iso.sel.x === x && Iso.sel.y === y;
 const glow = (p, k) => plotDiamond(p, k, 'rgba(255, 214, 80, 0.38)', '#ffe27a', 2.5);
 const LN = () => (S.cat && S.cat.lands && S.cat.lands.n) || 15; // сторона земель (7)
-const gridN = () => (S.tab === 'castle' ? 17 : S.tab === 'lands' ? (LN() - 1) * SP + 1 : S.world ? 2 * S.world.radius + 1 : 15);
+const gridN = () => (S.tab === 'castle' ? 17 : S.tab === 'lands' ? LN() : S.world ? 2 * S.world.radius + 1 : 15);
 const cam = () => Iso.cams[S.tab] || (Iso.cams[S.tab] = clampCam(isoFit()));
 
 function isoMount(wrap) {
@@ -823,8 +821,8 @@ function clampCam(c) {
   }
   // центр экрана не уходит дальше самого замка (со рвом) / земель; отдалить можно, пока замок во всю ширину
   const box = (a, b) => ({ L: tileScreen(a, a).sx, R: tileScreen(b, b).sx + TW, T: tileScreen(b, a).sy, B: tileScreen(a, b).sy + TH });
-  const outer = S.tab === 'castle' ? box(CASTLE_OFF - 1, CASTLE_OFF + 7) : box(-1.4 * SP, LN() * SP + 0.4); // замок со рвом; земли — с полосой травы
-  const { L, R, T, B } = S.tab === 'castle' ? box(CASTLE_OFF, CASTLE_OFF + 6) : box(SP, (LN() - 2) * SP); // куда может смотреть центр экрана
+  const outer = S.tab === 'castle' ? box(CASTLE_OFF - 1, CASTLE_OFF + 7) : box(0, LN() - 1); // замок со рвом
+  const { L, R, T, B } = S.tab === 'castle' ? box(CASTLE_OFF, CASTLE_OFF + 6) : box(2, LN() - 3); // куда может смотреть центр экрана
   const zMin = r.width / (outer.R - outer.L);
   if (c.z < zMin) c.z = zMin;
   let mx = (r.width / 2 - c.x) / c.z, my = (r.height / 2 - c.y) / c.z;
@@ -899,11 +897,10 @@ function isoTap(px, py) {
     Iso.sel = { tab: 'castle', x, y }; isoDraw();
     openCell(VIEW.CASTLE, y * 7 + x);
   } else if (S.tab === 'lands') {
-    if (hasPic()) { const cell = landsPicCell((px - c.x) / c.z, (py - c.y) / c.z); if (cell < 0) return; Iso.sel = { tab: 'lands', x: cell % LN(), y: Math.floor(cell / LN()) }; isoDraw(); return openCell(VIEW.LANDS, cell); }
-    const f = screenToTileF((px - c.x) / c.z, (py - c.y) / c.z), lx = Math.round(f.x / SP), ly = Math.round(f.y / SP);
-    if (lx < 0 || lx >= LN() || ly < 0 || ly >= LN() || !(S.cat.landOptions[ly][lx] || []).length) return; // площадь — не участок
-    Iso.sel = { tab: 'lands', x: lx, y: ly }; isoDraw();
-    openCell(VIEW.LANDS, ly * LN() + lx);
+    const t2 = hasPic() ? landsPicTile((px - c.x) / c.z, (py - c.y) / c.z) : t;
+    if (t2.x < 0 || t2.x >= LN() || t2.y < 0 || t2.y >= LN()) return;
+    Iso.sel = { tab: 'lands', x: t2.x, y: t2.y }; isoDraw();
+    openCell(VIEW.LANDS, t2.y * LN() + t2.x);
   } else if (S.tab === 'world' && S.world) {
     const R0 = S.world.radius, n = 2 * R0 + 1, w = S.world;
     // стрелки за краем карты: сдвиг мира (вверх — y−, вправо — x+, вниз — y+, влево — x−)
@@ -1101,8 +1098,8 @@ function pathRing() {
 }
 function pathTile(sx, sy, k = 1) { ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(pathRing(), sx, sy, TW * k, TH * k); ictx.restore(); }
 const GRASSY = (img) => /\/(grass|grass1|ground)\.png$/.test(img);
-function groundField(n, at) {
-  for (let y = -5; y < n + 5; y++) for (let x = n + 4; x >= -5; x--) {
+function groundField(n, at, m = 5) { // m — сколько клеток травы вокруг
+  for (let y = -m; y < n + m; y++) for (let x = n + m - 1; x >= -m; x--) {
     const p = tileScreen(x, y);
     ground(x >= 0 && x < n && y >= 0 && y < n ? at(x, y) : 'ground/grass1.png', p.sx, p.sy);
   }
@@ -1136,7 +1133,25 @@ function isoDrawNow() {
     }
     if (fence) fenceFront();
   } else if (S.tab === 'lands') {
-    if (hasPic()) landsPicScene(c, dpr); else landsScene(c, dpr); // нарисованная карта земель или участки-плитки (life.js)
+    const L = S.cat.lands, N = LN(), onPic = hasPic();
+    if (onPic) landsPicBegin(); // фон-картинка, дальше земли — на центральном лугу картинки (life.js)
+    groundField(N, (xx, y) => `ground/${GROUND[L.base[y][xx]]}.png`, onPic ? 0 : 5);
+    for (let y = 0; y < N; y++) for (let xx = 0; xx < N; xx++) if (GRASSY(`ground/${GROUND[L.base[y][xx]]}.png`) && L.edge[y][xx] < 0) { const p = tileScreen(xx, y); pathTile(p.sx, p.sy); }
+    for (let y = 0; y < N; y++) for (let xx = 0; xx < N; xx++) { // края дорог и берегов (s.c)
+      const e = L.edge[y][xx]; if (e < 0) continue;
+      const p = tileScreen(xx, y); raw(`gborder/${e < 12 ? 'ground' : 'water'}/${EDGE[e % 12]}.png`, p.sx, p.sy);
+    }
+    if (Iso.sel && Iso.sel.tab === 'lands') glow(tileScreen(Iso.sel.x, Iso.sel.y), 0.92);
+    const life = typeof lifeDraw === 'function', tnow = Date.now();
+    if (life) lifeDraw('begin', c, dpr); // жители, строители, дым, мельница, рыба, птицы (life.js)
+    for (let y = 0; y < N; y++) for (let xx = N - 1; xx >= 0; xx--) {
+      const cell = y * N + xx, b = st.grid[1][cell], p = tileScreen(xx, y), d = L.decor[y][xx];
+      if (b < 0 && !queueAt(1, cell) && d >= 0) sprite(`ground/${DECOR[d]}.png`, p.sx, p.sy, d === 1 ? 3 : d === 2 ? -2 : 0);
+      else drawCellBuilding(1, cell, b, st.levels[1][cell], p, 1, isSel(xx, y));
+      if (life) lifeAt(xx, y, tnow);
+    }
+    if (life) lifeDraw('end', c, dpr);
+    if (onPic) landsPicEnd();
   } else if (S.world) {
     const w = S.world, R0 = w.radius, n = 2 * R0 + 1, objs = new Map(w.objects.map((o) => [`${o.x}:${o.y}`, o]));
     for (let y = 0; y < n; y++) for (let xx = n - 1; xx >= 0; xx--) {
