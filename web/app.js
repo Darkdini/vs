@@ -1029,7 +1029,7 @@ function castleBackdrop() {
 }
 // земля только внутри стен (вокруг — фон-картинка)
 function groundIn(at) {
-  for (let y = CASTLE_OFF; y < CASTLE_OFF + 7; y++) for (let x = CASTLE_OFF + 6; x >= CASTLE_OFF; x--) { const p = tileScreen(x, y); ground(at(x, y), p.sx, p.sy); }
+  for (let y = CASTLE_OFF; y < CASTLE_OFF + 7; y++) for (let x = CASTLE_OFF + 6; x >= CASTLE_OFF; x--) { const g = at(x, y); if (g) { const p = tileScreen(x, y); ground(g, p.sx, p.sy); } }
 }
 // земля сетки + поле grass1 на 5 клеток вокруг (s.a(g, true) в клиенте)
 // бесшовная трава на весь экран: узор 62×32 из ромба-тайла и четырёх соседей (как сетка изометрии)
@@ -1103,14 +1103,14 @@ function isoDrawNow() {
     // внутри стен — трава, на ней 49 каменных участков с промежутками
     const onPath = (xx, y) => (S.cat.castlePath || []).includes(y * 7 + xx) || (xx === 3 && y === 3); // и клетка Ратуши — на развилке // тропинка от ворот к Ратуше — не застраивается
     const bg = castleBackdrop();
-    if (bg) groundIn((xx, y) => (!onPath(xx - CASTLE_OFF, y - CASTLE_OFF) ? 'ground/grassC.png' : `ground/${GROUND[CASTLE_BASE[y][xx]]}.png`));
+    if (bg) groundIn((xx, y) => (!onPath(xx - CASTLE_OFF, y - CASTLE_OFF) ? null : `ground/${GROUND[CASTLE_BASE[y][xx]]}.png`)); // с фоном трава в замке — луг с картинки, рисуется только дорога
     else groundField(17, (xx, y) => (xx >= CASTLE_OFF && xx < CASTLE_OFF + 7 && y >= CASTLE_OFF && y < CASTLE_OFF + 7 && !onPath(xx - CASTLE_OFF, y - CASTLE_OFF) ? 'ground/grassC.png' : `ground/${GROUND[CASTLE_BASE[y][xx]]}.png`));
     for (let y = 0; y < 7; y++) for (let xx = 0; xx < 7; xx++) if (!onPath(xx, y)) { const p = cellAt(xx, y); pathTile(p.sx + TW * (1 - KC) / 2, p.sy + TH * (1 - KC) / 2, KC); }
     if (!bg || CASTLE_BG.moat) moat();
     const fence = buildingLevel(22) > 0; // Забор построен — вокруг замка стена
     if (fence) fenceBack();
     for (let y = 0; y < 7; y++) for (let xx = 6; xx >= 0; xx--) {
-      const p = cellAt(xx, y); if (!onPath(xx, y)) { plotImage('ground/stone.png', p, PLOT); plotDiamond(p, PLOT, null, null); }
+      const p = cellAt(xx, y); if (!onPath(xx, y) && !bg) plotImage('ground/stone.png', p, PLOT); // с фоном участок — тот же луг в рамке тропинки
       if (isSel(xx, y)) glow(p, PLOT);
     }
     for (let y = 0; y < 7; y++) {
