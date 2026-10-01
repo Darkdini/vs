@@ -951,7 +951,10 @@ function drawCellBuilding(view, cell, b, lvl, p, k = 1, sel = false) {
   if (path) {
     if (sel) { ictx.save(); ictx.filter = 'brightness(1.25) drop-shadow(0 0 3px #ffd84a) drop-shadow(0 0 2px #ffd84a)'; }
     if (k === 1) sprite(path, p.sx, p.sy);
-    else { const im = pic(path); if (im) { if (k === 'fit') k = Math.max(1.25, Math.min(1.9, TW * 0.95 / im.width)); const w = im.width * k, h = im.height * k; drawPic(im, p.sx + TW / 2 - w / 2, p.sy + TH / 2 + TH * PLOT / 2 - h + 2, w, h); } }
+    else if (k === 'fit') { // земли: постройка на всю клетку, основание (ромб шириной в картинку) — по центру клетки
+      const im = pic(path); if (im) { const kk = Math.max(1.25, Math.min(1.9, TW * 0.95 / im.width)), w = im.width * kk, h = im.height * kk;
+        drawPic(im, p.sx + TW / 2 - w / 2, p.sy + TH / 2 + w / 4 - h, w, h); } }
+    else { const im = pic(path); if (im) { const w = im.width * k, h = im.height * k; drawPic(im, p.sx + TW / 2 - w / 2, p.sy + TH / 2 + TH * PLOT / 2 - h + 2, w, h); } }
     if (sel) ictx.restore();
   }
   if (q) bar(p.sx, p.sy, (now() - q.start) / (q.end - q.start));
