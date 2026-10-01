@@ -769,7 +769,9 @@ function screenToTile(px, py) {
 }
 // участки замка сдвинуты к центру (KC) и меньше клетки (PLOT): промежутки между ними и отступ от стены
 const KC = 0.8, PLOT = 0.62, BK = 0.72, CC = CASTLE_OFF + 3; // шаг сетки, размер участка, масштаб зданий
-const cellAt = (cx, cy) => tileScreen(CC + (CASTLE_OFF + cx - CC) * KC, CC + (CASTLE_OFF + cy - CC) * KC);
+// IN_DY: всё внутри стен (участки, здания, дорога) чуть выше — передняя стена закрывает низ, и отступы до стен на глаз равные
+const IN_DY = -12;
+const cellAt = (cx, cy) => { const p = tileScreen(CC + (CASTLE_OFF + cx - CC) * KC, CC + (CASTLE_OFF + cy - CC) * KC); return { sx: p.sx, sy: p.sy + IN_DY }; };
 function screenToTileF(px, py) { const a = (px - TW / 2) / (TW / 2), b = (py - TH / 2) / (TH / 2); return { x: (a - b) / 2, y: (a + b) / 2 }; }
 // ромб (участок) уменьшенного размера k с центром в центре клетки p
 function plotDiamond(p, k, fill, stroke, lw = 2.5) {
@@ -878,7 +880,7 @@ function isoZoom(k, mx, my) {
 function isoTap(px, py) {
   const c = cam(), t = screenToTile((px - c.x) / c.z, (py - c.y) / c.z);
   if (S.tab === 'castle') {
-    const f = screenToTileF((px - c.x) / c.z, (py - c.y) / c.z);
+    const f = screenToTileF((px - c.x) / c.z, (py - c.y) / c.z - IN_DY);
     const x = Math.round(CC + (f.x - CC) / KC) - CASTLE_OFF, y = Math.round(CC + (f.y - CC) / KC) - CASTLE_OFF;
     if (x < 0 || x >= 7 || y < 0 || y >= 7) return;
     Iso.sel = { tab: 'castle', x, y }; isoDraw();
@@ -1030,7 +1032,7 @@ function castleBackdrop() {
 }
 // земля только внутри стен (вокруг — фон-картинка)
 function groundIn(at) {
-  for (let y = CASTLE_OFF; y < CASTLE_OFF + 7; y++) for (let x = CASTLE_OFF + 6; x >= CASTLE_OFF; x--) { const g = at(x, y); if (g) { const p = tileScreen(x, y); ground(g, p.sx, p.sy); } }
+  for (let y = CASTLE_OFF; y < CASTLE_OFF + 7; y++) for (let x = CASTLE_OFF + 6; x >= CASTLE_OFF; x--) { const g = at(x, y); if (g) { const p = tileScreen(x, y); ground(g, p.sx, p.sy + IN_DY); } }
 }
 // земля сетки + поле grass1 на 5 клеток вокруг (s.a(g, true) в клиенте)
 // бесшовная трава на весь экран: узор 62×32 из ромба-тайла и четырёх соседей (как сетка изометрии)
