@@ -406,13 +406,19 @@ const treasuryWin = () => {
 
 // ---------- прочие окна ----------
 const notesWin = () => `${ribbon('Блокнот')}${S.notes === null ? '<p class="parch-note">Загрузка…</p>' : `<form class="stack" data-form="notes"><textarea name="text" rows="14" placeholder="Заметки видите только вы">${esc(S.notes)}</textarea><button class="btn primary">Сохранить</button></form>`}`;
+// «Замки» — как в оригинале: страницы по 15, строка-кнопка «№. Название / X: , Y: / Столица»; нажатие — перейти в замок.
+// Справа в строке — маленькие кнопки: «На карте» и «Отправить ресурсы» (кроме текущего замка); текущий подсвечен золотом
+const CASTLES_PAGE = 15;
+S.castlesPage = 0;
 function castlesWin() {
-  const list = S.st.castles || [];
-  return `${ribbon(`Мои замки - ${list.length}`)}${list.map((c) => `<div class="pcastle ${c.active ? 'active' : ''}"><img src="${GFX}ground/castle_small.png" alt=""> ${esc(c.name)}<br>X: ${c.x}, Y: ${c.y}${c.capital ? ' (Столица)' : ''}
-    <div class="pcsub">★ ${fmtFull(c.rating)} · лояльность ${c.loyalty}${c.active ? ' · вы здесь' : ''}</div>
-    <div class="btns">${c.active ? '' : `<button class="btn primary small" data-switch="${c.id}">Перейти в замок</button>`}<button class="btn small" data-goworld="${c.x},${c.y}">На карте</button>${c.active ? '' : `<button class="btn small" data-mksend="${c.x},${c.y}">Отправить ресурсы</button>`}</div></div>`).join('')}
-    <p class="parch-note">Новые замки захватывают: атака с Бунтарями на Заброшенный замок или на не-столичный замок игрока.</p>`;
+  const list = S.st.castles || [], pages = Math.max(1, Math.ceil(list.length / CASTLES_PAGE));
+  const pg = S.castlesPage = Math.min(S.castlesPage, pages - 1);
+  return `${ribbon('Замки')}${pages > 1 ? `<div class="cpages">${Array.from({ length: pages }, (_, i) => `<button class="cpage ${i === pg ? 'on' : ''}" data-cpage="${i}">${i + 1}</button>`).join('')}</div>` : ''}
+    ${list.slice(pg * CASTLES_PAGE, pg * CASTLES_PAGE + CASTLES_PAGE).map((c, i) => `<div class="cbarw"><button class="cbar ${c.active ? 'active' : ''}" ${c.active ? '' : `data-switch="${c.id}"`}>
+      ${pg * CASTLES_PAGE + i + 1}. ${esc(c.name)}<br>X: ${c.x}, Y: ${c.y}${c.capital ? '<br>Столица' : ''}</button>
+      <span class="cbar-ic"><button data-goworld="${c.x},${c.y}" title="На карте"><img src="${G3}locs2/world.png" alt="На карте"></button>${c.active ? '' : `<button data-mksend="${c.x},${c.y}" title="Отправить ресурсы"><img src="${G3}locs2/res.png" alt="Ресурсы"></button>`}</span></div>`).join('')}`;
 }
+$('#sheetBody').addEventListener('click', (e) => { const b = e.target.closest('[data-cpage]'); if (b) { S.castlesPage = Number(b.dataset.cpage); refreshSheet(); } });
 function advisorWin() {
   const c = S.st.castle, tips = [];
   const L = (id) => buildingLevel(id);
