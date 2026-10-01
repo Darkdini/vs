@@ -283,6 +283,7 @@ function reportsHtml() {
 }
 // короткий итог боя простыми словами
 function battleSummary(d, attV) {
+  if (d.calc && d.calc.model === 2) return battleSummary2(d, attV);
   const A = d.calc.att.total, D = d.calc.def.total, k = A >= D ? A / Math.max(1, D) : D / Math.max(1, A);
   const who = attV ? 'Ваше войско' : `Войско ${esc(d.att.login)}`;
   const vs = d.def.npc ? `охрану объекта «${esc(d.def.npc)}»` : attV ? 'защиту замка' : 'вашу защиту';
@@ -293,8 +294,42 @@ function battleSummary(d, attV) {
       : `Набег: нападающий потерял <b>${d.calc.aLossPct}%</b>, защита — <b>${d.calc.dLossPct}%</b>.`)
     + (got ? ` ${attV ? 'Унесено' : 'Враг унёс'} ресурсов: <b>${fmtFull(got)}</b>.` : '');
 }
+// бой в один удар (model 2): кто сколько урона нанёс, сколько воинов пало, стена, тараны, боевой дух, раненые
+function battleSummary2(d, attV) {
+  const c = d.calc, who = attV ? 'Ваше войско' : `Войско ${esc(d.att.login)}`;
+  const vs = d.def.npc ? `охрану «${esc(d.def.npc)}»` : attV ? 'защитников замка' : 'ваших защитников';
+  const got = d.loot ? RES4.reduce((q, r) => q + (d.loot[r] || 0), 0) : 0;
+  return `${who} ${d.win ? 'одолело' : 'не смогло одолеть'} ${vs}. Урон нападения <b>${fmtFull(c.att.total)}</b>, ответный урон <b>${fmtFull(c.def.total)}</b>. `
+    + `Нападающий потерял <b>${c.aLossPct}%</b> воинов, защита — <b>${c.dLossPct}%</b>.`
+    + (c.routed ? ` Разбитые защитники бежали, по пути пало ещё <b>${fmtFull(c.routed)}</b>.` : '')
+    + (c.healed ? ` Лекари замка спасли <b>${fmtFull(c.healed)}</b> раненых.` : '')
+    + (c.ramsUsed ? ` Тараны (${fmtFull(c.ramsUsed)}) израсходованы.` : '')
+    + (got ? ` ${attV ? 'Унесено' : 'Враг унёс'} ресурсов: <b>${fmtFull(got)}</b>.` : '');
+}
+function battleCalcHtml2(d, attV, bar) {
+  const c = d.calc, a = c.att, f = c.def, pct = (v) => `${v >= 0 ? '+' : ''}${v}%`;
+  const line = (t, v) => `<div class="bc"><span>${t}</span><b>${v}</b></div>`;
+  const attack = `<div class="bch">Нападение</div>
+    ${a.phys ? line('Физический урон (атака + Кузница)', fmtFull(a.phys)) : ''}${a.mag ? line('Магический урон (маг. атака + Школа магии)', fmtFull(a.mag)) : ''}
+    ${a.gen ? line('в т.ч. генерал', `+${fmtFull(a.gen)}`) : ''}
+    ${a.bonusPct ? line('Бонусы (наука, генерал, артефакты…)', pct(a.bonusPct)) : ''}
+    ${c.morale < 100 ? line('Боевой дух (напали на намного слабее)', `${c.morale}%`) : ''}
+    ${line('Удача', pct(c.luck))}
+    <div class="bc tot"><span>Пало нападающих</span><b>${c.aLossPct}%</b></div>`;
+  const defense = `<div class="bch">Защита</div>
+    ${f.phys ? line('Ответный физический урон', fmtFull(f.phys)) : ''}${f.mag ? line('Ответный магический урон', fmtFull(f.mag)) : ''}
+    ${f.bonusPct ? line('Бонусы защиты', pct(f.bonusPct)) : ''}
+    ${f.npc ? '' : f.wall0 ? line(`Забор ${f.wall0 !== f.wall ? `${f.wall0} → ${f.wall}` : f.wall} ур.`, `защита ${pct(f.wallPct)}`) : line('Забор', 'нет')}
+    <div class="bc tot"><span>Пало защитников</span><b>${c.dLossPct}%</b></div>`;
+  const rule = `<b>Бой в один удар.</b> Обе стороны бьют одновременно. Физический урон гасится защитой, магический — магической защитой
+    (Кузница и Школа магии усиливают и то, и другое), урон делится на здоровье воинов. Первыми удар принимает пехота, затем кавалерия; маги и осадные стоят сзади.
+    Побеждает тот, кто потерял меньшую долю войска.${c.rule === 'raid' ? ' <b>Набег</b> — короткая стычка: урон вдвое меньше.' : ' При <b>нападении</b> разбитые защитники бегут и несут ещё потери.'}`;
+  const loot = c.carry !== undefined ? `<div class="bnote">Выжившие могли унести до <b>${fmtFull(c.carry)}</b> ресурсов${c.hidden ? `; Тайник спрятал от грабежа по <b>${fmtFull(c.hidden)}</b> каждого ресурса` : ''}.</div>` : '';
+  return `${bar('swords', 'Ход боя')}<div class="rp bcalc">${attack}${defense}<div class="bnote">${rule}</div>${loot}</div>`;
+}
 // «Ход боя»: откуда взялись силы сторон и почему такие потери
 function battleCalcHtml(d, attV, bar) {
+  if (d.calc && d.calc.model === 2) return battleCalcHtml2(d, attV, bar);
   const c = d.calc, a = c.att, f = c.def, pct = (v) => `${v >= 0 ? '+' : ''}${v}%`;
   const line = (t, v) => `<div class="bc"><span>${t}</span><b>${v}</b></div>`;
   const kinds = [['Пехота', a.raw.inf, c.shares.inf], ['Кавалерия', a.raw.cav, c.shares.cav], ['Магия', a.raw.mag, c.shares.mag]].filter((x) => x[1]);
@@ -361,7 +396,7 @@ function reportHtml(r) {
     ${d.calc ? `<div class="rsum">${battleSummary(d, attV)}</div>` : ''}
     ${band('kingatt', 'Нападение')}${sideBlock(d.att, d.att.rating, d.att.cx ?? '-', d.att.cy ?? '-', `${ic('skull')} Общие потери: ${fmtFull(aL)} из ${fmtFull(aW)} ( ${pct(aL, aW)}% )`)}
     ${band('kingdef', 'Защита')}
-    ${d.def.npc ? `<div class="rp">Игрок: Неизвестный игрок<br>Объект: ${esc(d.def.npc)}<br>(Рейтинг: -, X: ${d.x}, Y: ${d.y})<br>${ic('skull')} Охрана потеряла ${d.def.lossPct}%</div>`
+    ${d.def.npc ? `<div class="rp">Игрок: Неизвестный игрок<br>Объект: ${esc(d.def.npc)}<br>(Рейтинг: -, X: ${d.x}, Y: ${d.y})<br>${ic('skull')} Охрана потеряла ${d.def.lossPct}%${(d.def.garrison || []).length ? `<br>Охрана: ${d.def.garrison.map((g) => `${esc(g.name)} ×${g.n}${g.lost ? ` (−${g.lost})` : ''}`).join(', ')}` : ''}</div>`
       : sideBlock(d.def, d.def.rating, d.x, d.y, dW ? `${ic('skull')} Общие потери: ${fmtFull(dL)} из ${fmtFull(dW)} ( ${pct(dL, dW)}% )` : `${ic('skull')} В замке не было защитников!`)}
     <hr class="rhr">
     ${bar('swords', 'Армия атаки')}${army(d.att, aW, aL, `${fmtFull(aW)} воинов · сила ${fmtFull(d.power.att)}`)}

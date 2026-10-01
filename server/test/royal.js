@@ -374,5 +374,23 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   g.adminOp(ad, 'reset', {}); assert.ok(g.castlesOf(ad).length === 1 && ad.admin, 'админ сбрасывает себя');
   console.log('✓ Админ: смена расы игрока, сброс игрока и себя к началу');
 }
+{ // бой в один удар: стена, Кузница, тараны, лечение раненых, бегство, урон по зданиям
+  const luck0 = process.env.LUCK; process.env.LUCK = '0';
+  const A = g.register({ login: 'btlA', password: '12345', race: 3 }).user, Dd = g.register({ login: 'btlD', password: '12345', race: 3 }).user;
+  const ca = g.castleOf(A), cd = g.castleOf(Dd); g.mil(ca); g.mil(cd);
+  const fence = (L) => { let i = cd.grid[0].indexOf(22); if (i < 0) i = cd.grid[0].indexOf(-1); cd.grid[0][i] = L ? 22 : -1; cd.levels[0][i] = L; };
+  const fight = (au, du, opt = {}) => { cd.units = { ...du }; cd.squads = []; ca.forge = opt.fa || {}; cd.forge = {}; fence(opt.wall || 0); return g.clash(ca, { units: { ...au }, mission: opt.m || 'attack' }, cd, null, Date.now()); };
+  const even = fight({ 247: 100 }, { 247: 100 });
+  assert.ok(!even.win && even.calc.aLossPct > 30 && even.calc.aLossPct < 60, 'равный бой: ничья в пользу защиты, потери около половины');
+  assert.ok(fight({ 247: 100 }, { 247: 100 }, { fa: { 247: { a: 10 } } }).win, 'Кузница решает исход');
+  const w = fight({ 247: 100 }, { 247: 100 }, { wall: 10 }); assert.ok(w.calc.dLossPct < even.calc.dLossPct, 'стена бережёт защитников');
+  const r = fight({ 243: 20, 247: 150 }, { 247: 100 }, { wall: 10 });
+  assert.ok(r.siege.some((x) => /Забор: 10 → \d/.test(x)) && r.aLost[243] === 20, 'тараны ломают стену до боя и исчезают');
+  assert.ok(r.calc.healed > 0 && r.calc.routed > 0, 'раненые выздоравливают, разбитые бегут');
+  const raid = fight({ 247: 200 }, { 247: 200 }, { m: 'raid' }), att = fight({ 247: 200 }, { 247: 200 });
+  assert.ok(raid.calc.aLossPct < att.calc.aLossPct, 'набег легче нападения');
+  console.log('✓ Бой в один удар: стена, Кузница, тараны, раненые, бегство, набег');
+  if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
+}
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);

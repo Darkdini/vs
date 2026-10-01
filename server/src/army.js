@@ -251,6 +251,22 @@ const NPC = {
   24: { name: 'Заброшенный замок', def: { inf: 2520, cav: 2310, mag: 1050 }, loot: { wood: 4000, stone: 4000, iron: 4000, food: 4000 }, ruins: true },
 };
 const NPC_REGEN_SEC = 3600;
+// бой: ряды строя (кто первым принимает удар), множитель урона, лечение раненых дома, бегство разбитых защитников
+const ROW = { infantry: 3, cavalry: 2, magic: 1, siege: 1, special: 1 };
+const DMG = 2, HEAL_HOME = 0.25, ROUT = 0.3;
+const wallHp = (L) => Math.round(40 * 1.2 ** L); // прочность одного уровня Забора (таран — 50 урона)
+const bldHp = (bid, L) => Math.round(((C.BY_ID[bid] && C.BY_ID[bid].hp) || 600) * (0.5 + 0.1 * L)); // прочность уровня здания
+// охрана лагерей и руин — воины со здоровьем, атакой и защитами (численность — из прежней силы охраны)
+const GUARD = {
+  guard: { name: 'Страж', type: 'infantry', hp: 60, atk: 14, mag: 0, def: 18, mdef: 6 },
+  shaman: { name: 'Шаман', type: 'magic', hp: 35, atk: 0, mag: 12, def: 5, mdef: 20 },
+  troll: { name: 'Тролль', type: 'infantry', hp: 220, atk: 40, mag: 0, def: 45, mdef: 15 },
+};
+function npcGarrison(npc) {
+  if (!npc) return [];
+  const big = npc.def.inf >= 1000, g = big ? GUARD.troll : GUARD.guard;
+  return [{ key: big ? 'troll' : 'guard', n: Math.max(1, Math.round(npc.def.inf / g.def / (big ? 1.1 : 1))), ...g }, { key: 'shaman', n: Math.max(0, Math.round(npc.def.mag / GUARD.shaman.mdef)), ...GUARD.shaman }].filter((x) => x.n > 0);
+}
 const NEWBIE_RATING = Number(process.env.NEWBIE_RATING || 100); // защита новичка: на слабых игроков нападать нельзя
 
 // Центр разведки: какой уровень здания открывает пункт и какая доля разведчиков должна выжить
@@ -877,6 +893,98 @@ function install(Game, helpers) {
     this.event(userId, title);
   };
 
+  // ===== бой: один общий удар (без раундов) =====
+  // Обе стороны бьют одновременно. Физический урон (атака + Кузница) гасится защитой (защита + Кузница, стена),
+  // магический (маг. атака + Школа магии) — магической защитой. Урон делится на здоровье юнитов → гибнут целые воины.
+  // Первый удар держит пехота, за ней кавалерия, маги и осадные — сзади (ROW). Магия бьёт по всем поровну.
+  // Победил тот, кто потерял меньшую долю войска (по здоровью). Тараны бьют стену до боя и после него исчезают.
+  P.clash = function clash(c, a, target, npc, t) {
+    const att = this.ownerOf(c), bA = this.bonus(c);
+    const luck = process.env.LUCK === '0' ? 0 : Math.round(Math.random() * 20 - 10);
+    // боевой дух: сильный против намного более слабого бьёт хуже (до −50%)
+    let morale = 1;
+    const defUser = target && this.ownerOf(target);
+    if (defUser && att && defUser.id !== att.id) { const aR = this.userRating(att), dR = Math.max(1, this.userRating(defUser)); if (aR > dR) morale = Math.max(0.5, (dR / aR) ** 0.3); }
+    const stack = (m, id, n, own, castle, extra) => { const u = UNIT[id]; if (!u || !n) return null; const f = (k) => (castle ? this.forgeLvl(castle, id, k) : 0);
+      return { m, id, n, own, hp: u.hp || 50, atk: u.attack ? u.attack + f('a') : 0, mag: u.magic ? u.magic + f('m') : 0, def: (u.def ? u.def.inf : 0) + f('d'), mdef: (u.def ? u.def.mag : 0) + f('md'), row: ROW[u.type] || 1, ...extra }; };
+    // нападающие
+    const A = Object.entries(a.units).map(([id, n]) => stack(a.units, id, n, false, c)).filter(Boolean);
+    let genA = 0, cmd = 0; if (a.general && c.general && !c.general.dead) { const gs = this.genStats(c.general); genA = gs.atk; cmd = gs.catk; }
+    const kA = bA.atk * (1 + cmd) * morale * (1 + luck / 100), kmA = bA.magic * bA.atk * morale * (1 + luck / 100);
+    // защитники: Замковая армия и отряды (свои), подкрепления (со своей Кузницей), генерал; у NPC — охрана лагеря
+    let D = [], bD = null, wallL = 0, wall0 = 0, genD = 0;
+    const siege = []; let siegeN = 0;
+    if (target) {
+      bD = this.bonus(target); wall0 = wallL = bD.wall;
+      // тараны: урон по стене (со скринов) до боя
+      let ram = Object.entries(a.units).reduce((q, [id, n]) => q + ((UNIT[id] && UNIT[id].wallDmg) || 0) * n, 0);
+      if (ram && a.mission === 'attack') { while (wallL > 0 && ram >= wallHp(wallL)) { ram -= wallHp(wallL); wallL--; } }
+      if (wallL < wall0) { this.setBuildingLevel(target, B.FENCE, wallL); siege.push(`Забор: ${wall0} → ${wallL} ур. (тараны)`); siegeN += wall0 - wallL; }
+      for (const m of [target.units, ...target.squads.map((q) => q.units)]) for (const [id, n] of Object.entries(m)) { const s = stack(m, id, n, true, target); if (s) D.push(s); }
+      for (const g of this.guestsOf(target)) for (const [id, n] of Object.entries(g.a.units)) { const s = stack(g.a.units, id, n, false, g.c); if (s) D.push(s); }
+      if (target.general && !target.general.dead && !target.general.away) genD = this.genStats(target.general).atk + (target.general.pts.def || 0);
+    } else for (const g of npcGarrison(npc)) D.push({ m: null, id: g.key, n: g.n, own: false, npc: g, hp: g.hp, atk: g.atk, mag: g.mag, def: g.def, mdef: g.mdef, row: ROW[g.type] || 1 });
+    const wallK = bD ? 1 + bD.wallPer * wallL : 1;
+    const kD = bD ? bD.atk : 1, kmD = bD ? bD.magic * bD.atk : 1, dK = bD ? bD.def * wallK : 1, mdK = bD ? bD.def * bD.magic : 1;
+    const aDK = bA.def, aMdK = bA.def * bA.magic;
+    // урон сторон
+    const sum = (L, f) => L.reduce((q, s) => q + f(s), 0);
+    const RK = a.mission === 'raid' ? 0.5 : 1; // набег — короткая стычка: урон вдвое меньше
+    const PA = (sum(A, (s) => s.n * s.atk) + genA) * kA * DMG * RK, MA = sum(A, (s) => s.n * s.mag) * kmA * DMG * RK;
+    const PD = (sum(D, (s) => s.n * s.atk) + genD) * kD * DMG * RK, MD = sum(D, (s) => s.n * s.mag) * kmD * DMG * RK;
+    const nA = sum(A, (s) => (s.atk ? s.n : 0)) || 1, nD = sum(D, (s) => (s.atk ? s.n : 0)) || 1;
+    const nAm = sum(A, (s) => (s.mag ? s.n : 0)) || 1, nDm = sum(D, (s) => (s.mag ? s.n : 0)) || 1;
+    // распределение урона по стекам (с перераспределением лишнего, если стек погиб целиком)
+    const hit = (dmg, ref, L, armor, byRow) => {
+      const kill = new Map(L.map((s) => [s, 0]));
+      let left = dmg;
+      for (let pass = 0; pass < 4 && left > 1e-6; pass++) {
+        const alive = L.filter((s) => s.n - kill.get(s) > 1e-9); if (!alive.length) break;
+        const W = sum(alive, (s) => (s.n - kill.get(s)) * s.hp * (byRow ? s.row : 1)); let spent = 0;
+        for (const s of alive) {
+          const share = left * (s.n - kill.get(s)) * s.hp * (byRow ? s.row : 1) / W, ar = armor(s), f = ref / (ref + ar);
+          const k = Math.min(s.n - kill.get(s), share * f / s.hp); kill.set(s, kill.get(s) + k); spent += k * s.hp / f;
+        }
+        left -= spent;
+      }
+      return kill;
+    };
+    const wallFlat = bD ? 0.5 * wallL : 0;
+    const killD = hit(PA, PA / nA / DMG / RK || 1, D, (s) => (s.def + wallFlat) * dK, true), killDm = hit(MA, MA / nAm / DMG / RK || 1, D, (s) => s.mdef * mdK, false);
+    const killA = hit(PD, PD / nD / DMG / RK || 1, A, (s) => s.def * aDK, true), killAm = hit(MD, MD / nDm / DMG / RK || 1, A, (s) => s.mdef * aMdK, false);
+    const roll = (x) => { let l = Math.floor(x); if (process.env.LUCK !== '0' ? Math.random() < x - l : x - l >= 0.5) l++; return l; };
+    const lostOf = (s, k1, k2) => Math.min(s.n, roll(k1.get(s) + k2.get(s)));
+    const hpOf = (L) => sum(L, (s) => s.n * s.hp) || 1;
+    const aLostN = new Map(A.map((s) => [s, lostOf(s, killA, killAm)])), dLostN = new Map(D.map((s) => [s, lostOf(s, killD, killDm)]));
+    const aShare = sum(A, (s) => aLostN.get(s) * s.hp) / hpOf(A), dShare = D.length ? sum(D, (s) => dLostN.get(s) * s.hp) / hpOf(D) : 1;
+    const win = !D.length || aShare < dShare || (aShare >= 1 ? false : dShare >= 1);
+    // нападение отбито у защитника — бегство: из уцелевших защитников гибнет ещё ROUT
+    let routed = 0;
+    if (win && a.mission === 'attack' && target) for (const s of D) { const r = roll((s.n - dLostN.get(s)) * ROUT); dLostN.set(s, dLostN.get(s) + r); routed += r; }
+    // применяем потери; раненые защитники в своём замке частично выздоравливают
+    const aLost = {}, dLost = {}, dAll = {};
+    for (const s of A) { const l = aLostN.get(s); if (l) { s.m[s.id] -= l; aLost[s.id] = (aLost[s.id] || 0) + l; } }
+    let healed = 0;
+    for (const s of D) {
+      let l = dLostN.get(s); if (!l) { if (s.m) dAll[s.id] = (dAll[s.id] || 0) + s.n; continue; }
+      if (s.own) { const h = Math.floor(l * HEAL_HOME); l -= h; healed += h; }
+      if (s.m) { s.m[s.id] -= l; if (!s.m[s.id]) delete s.m[s.id]; }
+      dLost[s.id] = (dLost[s.id] || 0) + l;
+      if (s.m && s.m[s.id]) dAll[s.id] = (dAll[s.id] || 0) + s.m[s.id];
+    }
+    // тараны одноразовые: после боя их больше нет
+    const ramsUsed = Object.entries(a.units).filter(([id]) => UNIT[id] && UNIT[id].oneUse).reduce((q, [id, n]) => { if (n) { aLost[id] = (aLost[id] || 0) + n; a.units[id] = 0; } return q + n; }, 0);
+    for (const id of Object.keys(a.units)) if (!a.units[id]) delete a.units[id];
+    const cnt = (L) => sum(L, (s) => s.n) || 1;
+    const aLoss = sum(A, (s) => aLostN.get(s)) / cnt(A), dLoss = D.length ? sum(D, (s) => dLostN.get(s)) / cnt(D) : 1;
+    const calc = { rule: a.mission === 'attack' ? 'attack' : 'raid', model: 2, luck, morale: Math.round(morale * 100),
+      att: { phys: Math.round(PA / DMG / RK), mag: Math.round(MA / DMG / RK), gen: Math.round(genA), bonusPct: Math.round((kA / (1 + luck / 100) / morale - 1) * 100), total: Math.round((PA + MA) / DMG / RK), hpLostPct: Math.round(aShare * 100) },
+      def: { npc: !target, phys: Math.round(PD / DMG / RK), mag: Math.round(MD / DMG / RK), bonusPct: bD ? Math.round((bD.def - 1) * 100) : 0, wall: wallL, wall0, wallPct: Math.round((wallK - 1) * 100), total: Math.round((PD + MD) / DMG / RK), hpLostPct: Math.round(dShare * 100) },
+      aLossPct: Math.round(aLoss * 100), dLossPct: Math.round(dLoss * 100), routed, healed, ramsUsed };
+    const garrison = target ? null : D.map((s) => ({ name: s.npc.name, n: s.n, lost: dLostN.get(s) }));
+    return { garrison, win, luck, calc, aLost, dLost, dAll, aLoss: aShare >= 1 ? 1 : aLoss, dLoss: dShare >= 1 ? 1 : dLoss, siege, siegeN };
+  };
+
   // прибытие армии к цели
   P.arrive = function arrive(c, a, t) {
     const att = this.ownerOf(c);
@@ -904,39 +1012,10 @@ function install(Game, helpers) {
     // бой: атака или набег
     const obj = target ? null : this.worldObjects(a.x, a.y, 1, 1)[0];
     const npc = obj && NPC[obj.img];
-    const A = this.armyPower(c, a.units, a.general);
-    const aTot = A.inf + A.cav + A.mag || 1;
-    const pInf = A.inf + A.cav ? A.inf / (A.inf + A.cav) : 1, pCav = 1 - pInf;
-    let D;
-    if (target) { this.tick(target); this.mil(target); D = this.defensePower(target, pInf, pCav); }
-    else D = { phys: npc.def.inf * pInf + npc.def.cav * pCav, mag: npc.def.mag };
-    const Aphys = A.inf + A.cav;
-    const Dsum = D.phys * (Aphys / aTot) + D.mag * (A.mag / aTot) || 1;
-    // удача атаки ±10% (как «Удача атаки -5 %» в отчёте оригинала); LUCK=0 — без случайности (тесты)
-    const luck = process.env.LUCK === '0' ? 0 : Math.round(Math.random() * 20 - 10);
-    const aSum = aTot * (1 + luck / 100);
-    let aLoss, dLoss;
-    const calc = { rule: a.mission === 'attack' ? 'attack' : 'raid', luck,
-      shares: { inf: Math.round(A.inf / aTot * 100), cav: Math.round(A.cav / aTot * 100), mag: Math.round(A.mag / aTot * 100) },
-      att: { raw: A.raw, bonusPct: A.bonusPct, magicPct: A.magicPct, noLuck: Math.round(aTot), total: Math.round(aSum) },
-      def: target ? { raw: D.raw, bonusPct: D.bonusPct, magicPct: D.magicPct, wall: D.wall, wallPct: D.wallPct, wallFlat: D.wallFlat, total: Math.round(Dsum) } : { npc: true, total: Math.round(Dsum) } };
-    if (a.mission === 'attack') {
-      if (aSum > Dsum) { aLoss = (Dsum / aSum) ** 1.5; dLoss = 1; } else { aLoss = 1; dLoss = (aSum / Dsum) ** 1.5; }
-    } else { const q = (aSum / Dsum) ** 1.5; aLoss = 1 / (1 + q); dLoss = q / (1 + q); }
-    const aBefore = { ...a.units };
-    const aLost = applyLoss(a.units, aLoss);
-    let dLost = {}, dBefore = {};
-    let dAll = {};
-    if (target) {
-      for (const m of this.defenders(target)) {
-        const l = applyLoss(m, dLoss);
-        for (const [id, n] of Object.entries(l)) dLost[id] = (dLost[id] || 0) + n;
-        for (const id of Object.keys(m)) { if (m[id]) dAll[id] = (dAll[id] || 0) + m[id]; else delete m[id]; }
-      }
-      dBefore = dAll;
-    }
-    const win = aSum > Dsum;
-    calc.aLossPct = Math.round(aLoss * 100); calc.dLossPct = Math.round(dLoss * 100);
+    if (target) { this.tick(target); this.mil(target); }
+    const R = this.clash(c, a, target, npc, t);
+    const { win, luck, calc, aLost, dLost, dAll } = R;
+    const aLoss = R.aLoss, dLoss = R.dLoss, aSum = calc.att.total, Dsum = calc.def.total;
     const aliveAfter = Object.values(a.units).some((n) => n > 0);
     // генералы
     const genA = [], genD = [];
@@ -956,7 +1035,7 @@ function install(Game, helpers) {
     }
     // добыча
     let loot = null;
-    if (aliveAfter) {
+    if (aliveAfter && win) {
       let carry = Object.entries(a.units).reduce((s, [id, n]) => s + UNIT[id].carry * n, 0);
       calc.carry = carry;
       loot = { wood: 0, stone: 0, iron: 0, food: 0 };
@@ -976,20 +1055,20 @@ function install(Game, helpers) {
       if (target) for (const r of RES4) target.res[r] -= loot[r];
       else if (RES4.some((r) => loot[r] > 0)) this.db.npc[where] = { until: t + NPC_REGEN_SEC / SPEED * 1000 };
     }
-    // осада: тараны ломают Забор, катапульты — здания (только атака и победа)
-    const siege = []; let siegeN = 0;
+    // осада: стена и тараны — до боя (в clash), здания ломают после победы Йетти, Энт, Нурух, Кулак Ярости (урон по зданиям) и катапульты
+    const siege = [...R.siege]; let siegeN = R.siegeN;
     if (target && a.mission === 'attack' && win) {
-      const b = this.bonus(target);
-      let ram = (a.units[243] || 0) * UNIT[243].attack;
-      let wallL = b.wall;
-      while (wallL > 0 && ram >= Math.round(2 * 1.25 ** wallL)) { ram -= Math.round(2 * 1.25 ** wallL); wallL--; }
-      if (wallL < b.wall) { this.setBuildingLevel(target, B.FENCE, wallL); siege.push(`Забор: ${b.wall} → ${wallL} ур.`); siegeN += b.wall - wallL; }
-      let cat = (a.units[240] || 0) * UNIT[240].attack / (1 + 0.05 * b.mason);
-      const cells = Array.from(target.grid[0], (id, i) => [id, i]).filter(([id, i]) => id > 0 && target.levels[0][i] > 0);
-      if (cat > 0 && cells.length) {
-        const [bid, cell] = cells[Math.floor(Math.random() * cells.length)];
+      const bD = this.bonus(target), bA = this.bonus(c);
+      let dmg = Object.entries(a.units).reduce((q, [id, n]) => q + ((UNIT[id] && UNIT[id].bldDmg) || 0) * n, 0) * bA.atk;
+      dmg += (a.units[240] || 0) * (UNIT[240] ? UNIT[240].attack : 0) * 4;
+      dmg /= 1 + 0.05 * bD.mason; // Каменотёс бережёт здания
+      const cells = Array.from(target.grid[0], (id, i) => [id, i]).filter(([id, i]) => id > 0 && id !== B.FENCE && target.levels[0][i] > 0);
+      for (let k = 0; dmg >= 1 && cells.length && k < 3; k++) { // до трёх случайных зданий
+        const [bid, cell] = cells.splice(Math.floor(Math.random() * cells.length), 1)[0];
+        let part = k === 2 || !cells.length ? dmg : dmg / 2; dmg -= part;
         let L = target.levels[0][cell]; const L0 = L;
-        while (L > 0 && cat >= Math.round(3 * 1.25 ** L)) { cat -= Math.round(3 * 1.25 ** L); L--; }
+        while (L > 0 && part >= bldHp(bid, L)) { part -= bldHp(bid, L); L--; }
+        dmg += part; // остаток урона — следующему зданию
         if (L < L0) { target.levels[0][cell] = L; if (!L) target.grid[0][cell] = -1; siege.push(`${C.BY_ID[bid].name}: ${L0} → ${L} ур.`); siegeN += L0 - L; }
       }
     }
@@ -1031,7 +1110,7 @@ function install(Game, helpers) {
       type: 'battle', mission: a.mission, win, x: a.x, y: a.y, luck, calc, power: { att: Math.round(aSum), def: Math.round(Dsum) },
       att: { id: att.id, login: att.login, race: att.race, castle: c.name, cx: c.x, cy: c.y, rating: this.rating(c), lossRes: lossRes(aLost), units: side(a.units, aLost), general: a.general || genDied ? (c.general ? c.general.level : 0) : 0, generalDied: genDied },
       def: target ? { id: captured ? captured.prevOwner : defUser.id, login: captured ? captured.prevLogin : defUser.login, race: captured ? captured.prevRace : defUser.race, castle: target.name, rating: this.rating(target), lossRes: lossRes(dLost), units: side(dAll, dLost), wall: this.bonus(target).wall }
-        : { npc: npc.name, img: obj.img, lossPct: Math.round(dLoss * 100) },
+        : { npc: npc.name, img: obj.img, lossPct: Math.round(dLoss * 100), garrison: R.garrison },
       loot, siege, loyalty, capitalBlocked, royalBlocked, captured: captured ? { name: captured.name, x: a.x, y: a.y } : null,
     };
     const lines = [
