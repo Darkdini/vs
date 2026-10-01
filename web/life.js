@@ -5,7 +5,7 @@
 // Координаты: участок (x, y) стоит в точке (x·SP, y·SP) изометрической сетки; тропинки — между участками.
 const LIFE = { walkers: [], last: 0, fish: null, birds: [] };
 const AN = { K: 4, CW: 56, CH: 88, FX: 28, FY: 76, KM: 6, MW: 276, MH: 384, MX: 138, MY: 300 };
-const SP = 1.2;                       // шаг клеток (1 — вплотную), промежуток — тропинка
+const SP = 1.38;                       // шаг клеток (1 — вплотную), промежуток — тропинка
 const LIFE_N = 10, WALK_SPEED = 0.7;    // жителей; клеток сетки в секунду
 const DIR_ROW = (dx, dy) => (Math.abs(dx) >= Math.abs(dy) ? (dx < 0 ? 0 : 2) : (dy < 0 ? 1 : 3)); // −x, −y, +x, +y → строка листа
 const HOUSES = new Set([6, 31, 36]), FARMS = new Set([5, 30, 35]), SAWS = new Set([7, 27, 32]);
@@ -151,9 +151,15 @@ function landsScene(c, dpr) {
 
 // ---------- земли на нарисованном фоне: оригинальные земли 15×15 целиком ложатся на луг-ромб картинки ----------
 const hasPic = () => typeof LANDS_LAYOUT !== 'undefined';
-function landsXf() { // перенос «мира плиток» на картинку: центр ромба земель → центр луга, ширина → ширина луга
-  const q = LANDS_LAYOUT.quad, N = LN(), span = (N - 1) * SP + 1, s = (q[2][0] - q[0][0]) * 0.98 / (span * TW), c0 = tileScreen((N - 1) * SP / 2, (N - 1) * SP / 2);
-  return { s, cx: (q[0][0] + q[2][0]) / 2, cy: (q[1][1] + q[3][1]) / 2, ox: c0.sx + TW / 2, oy: c0.sy + TH / 2 };
+function landsXf() { // мир плиток → картинка: углы земель (левый, верхний, правый) ложатся точно в углы луга — сетка растянута на весь ромб
+  const q = LANDS_LAYOUT.quad, N = LN(), E = (N - 1) * SP + 0.5, m = 0.97, cx = (q[0][0] + q[2][0]) / 2, cy = (q[1][1] + q[3][1]) / 2;
+  const sc = (g, h) => { const p = tileScreen(g, h); return [p.sx + TW / 2, p.sy + TH / 2]; };
+  const Lw = sc(-0.5, -0.5), Tw = sc(E, -0.5), Rw = sc(E, E);
+  const P = (k) => [cx + (q[k][0] - cx) * m, cy + (q[k][1] - cy) * m], L = P(0), T = P(1), R = P(2);
+  const w1 = [Tw[0] - Lw[0], Tw[1] - Lw[1]], w2 = [Rw[0] - Lw[0], Rw[1] - Lw[1]], p1 = [T[0] - L[0], T[1] - L[1]], p2 = [R[0] - L[0], R[1] - L[1]];
+  const det = w1[0] * w2[1] - w2[0] * w1[1], i00 = w2[1] / det, i01 = -w2[0] / det, i10 = -w1[1] / det, i11 = w1[0] / det;
+  const a = p1[0] * i00 + p2[0] * i10, c = p1[0] * i01 + p2[0] * i11, b = p1[1] * i00 + p2[1] * i10, d = p1[1] * i01 + p2[1] * i11;
+  return { a, b, c, d, e: L[0] - a * Lw[0] - c * Lw[1], f: L[1] - b * Lw[0] - d * Lw[1] };
 }
 function landsPicBegin() {
   const L = LANDS_LAYOUT, bg = pic('lands/bg.jpg'), x = ictx, sm = x.imageSmoothingEnabled; x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
@@ -162,8 +168,8 @@ function landsPicBegin() {
   for (const [i, p] of [...L.river, ...L.lake].entries()) { const ph = (now / 1700 + i * 0.37) % 1; if (ph > 0.5) continue; // блики на воде
     x.fillStyle = `rgba(255,255,255,${0.7 * Math.sin(ph * 2 * Math.PI)})`; x.beginPath(); x.ellipse(p[0] + ph * 8, p[1], 3 + ph * 4, 1.1, 0, 0, Math.PI * 2); x.fill(); }
   x.imageSmoothingEnabled = sm;
-  const t = landsXf(); x.save(); x.translate(t.cx, t.cy); x.scale(t.s, t.s); x.translate(-t.ox, -t.oy);
+  const t = landsXf(); x.save(); x.transform(t.a, t.b, t.c, t.d, t.e, t.f);
 }
 function landsPicEnd() { ictx.restore(); }
 // нажатие по картинке → клетка земель
-function landsPicTile(wx, wy) { const t = landsXf(), f = screenToTileF((wx - t.cx) / t.s + t.ox, (wy - t.cy) / t.s + t.oy); return { x: Math.round(f.x / SP), y: Math.round(f.y / SP) }; }
+function landsPicTile(wx, wy) { const t = landsXf(), det = t.a * t.d - t.b * t.c, X = wx - t.e, Y = wy - t.f, f = screenToTileF((t.d * X - t.c * Y) / det, (-t.b * X + t.a * Y) / det); return { x: Math.round(f.x / SP), y: Math.round(f.y / SP) }; }
