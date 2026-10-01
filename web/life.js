@@ -5,7 +5,7 @@
 // Координаты: участок (x, y) стоит в точке (x·SP, y·SP) изометрической сетки; тропинки — между участками.
 const LIFE = { walkers: [], last: 0, fish: null, birds: [] };
 const AN = { K: 4, CW: 56, CH: 88, FX: 28, FY: 76, KM: 6, MW: 276, MH: 384, MX: 138, MY: 300 };
-const SP = 1.38;                       // шаг клеток (1 — вплотную), промежуток — тропинка
+const SP = 1.3;                       // шаг клеток (1 — вплотную), промежуток — тропинка
 const LIFE_N = 10, WALK_SPEED = 0.7;    // жителей; клеток сетки в секунду
 const DIR_ROW = (dx, dy) => (Math.abs(dx) >= Math.abs(dy) ? (dx < 0 ? 0 : 2) : (dy < 0 ? 1 : 3)); // −x, −y, +x, +y → строка листа
 const HOUSES = new Set([6, 31, 36]), FARMS = new Set([5, 30, 35]), SAWS = new Set([7, 27, 32]);
@@ -152,10 +152,11 @@ function landsScene(c, dpr) {
 // ---------- земли на нарисованном фоне: оригинальные земли 15×15 целиком ложатся на луг-ромб картинки ----------
 const hasPic = () => typeof LANDS_LAYOUT !== 'undefined';
 function landsXf() { // мир плиток → картинка: углы земель (левый, верхний, правый) ложатся точно в углы луга — сетка растянута на весь ромб
-  const q = LANDS_LAYOUT.quad, N = LN(), E = (N - 1) * SP + 0.5, m = 0.95, cx = (q[0][0] + q[2][0]) / 2, cy = (q[1][1] + q[3][1]) / 2;
+  const q = LANDS_LAYOUT.quad, N = LN(), E = (N - 1) * SP + 0.5, m = 0.985, cx = (q[0][0] + q[2][0]) / 2, cy = (q[1][1] + q[3][1]) / 2;
   const sc = (g, h) => { const p = tileScreen(g, h); return [p.sx + TW / 2, p.sy + TH / 2]; };
   const Lw = sc(-0.5, -0.5), Tw = sc(E, -0.5), Rw = sc(E, E);
-  const P = (k) => [cx + (q[k][0] - cx) * m, cy + (q[k][1] - cy) * m], L = P(0), T = P(1), R = P(2);
+  const my = (q[1][1] + q[3][1]) / 2, hw = (q[2][0] - q[0][0]) / 2 * m, hh = (q[3][1] - q[1][1]) / 2 * m; // ромб по ширине и высоте (все 4 угла)
+  const L = [cx - hw, my], T = [cx, my - hh], R = [cx + hw, my];
   const w1 = [Tw[0] - Lw[0], Tw[1] - Lw[1]], w2 = [Rw[0] - Lw[0], Rw[1] - Lw[1]], p1 = [T[0] - L[0], T[1] - L[1]], p2 = [R[0] - L[0], R[1] - L[1]];
   const det = w1[0] * w2[1] - w2[0] * w1[1], i00 = w2[1] / det, i01 = -w2[0] / det, i10 = -w1[1] / det, i11 = w1[0] / det;
   const a = p1[0] * i00 + p2[0] * i10, c = p1[0] * i01 + p2[0] * i11, b = p1[1] * i00 + p2[1] * i10, d = p1[1] * i01 + p2[1] * i11;
