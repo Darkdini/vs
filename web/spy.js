@@ -17,10 +17,7 @@ function spyInfoWin() {
       <div class="st"><img src="${k === 'riot' ? riot : SPY_ICON[k]}" alt=""> <b>${esc(o.name)}</b></div>
       <div>Условие: ${esc(o.cond)}.</div>${ok ? '' : `<div class="lock">Откроется на ${o.level} уровне Центра разведки.</div>`}</div>`; }).join('')}`;
 }
-function spyTrainWin() {
-  const def = S.by[45], units = myUnitList().filter((u) => u.building === 45);
-  return `${units.length ? trainHtml(def, units) : '<p class="parch-note">Нет юнитов для тренировки.</p>'}`;
-}
+function spyTrainWin() { return trainWin(45); }
 $('#sheetBody').addEventListener('click', (e) => {
   const t = e.target.closest('[data-spy]'); if (!t) return;
   const k = t.dataset.spy;

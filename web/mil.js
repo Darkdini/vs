@@ -93,7 +93,7 @@ function buildingFunctions(def, lvl) {
   if (def.id === 11) return '<button class="rbar" data-forge>Юниты</button>' + upJobsHtml(11); // Кузница (forge.js)
   if (def.id === 39) return '<button class="rbar" data-magic>Юниты</button>' + upJobsHtml(39); // Школа магии (forge.js)
   if (def.id === 21) return '<button class="rbar" data-moves>Передвижения армий</button>'; // Караульная башня (watch.js)
-  if (def.id === 45) return spyButtons(); // Центр разведки: Возможности / Тренировать / Разведка (spy.js)
+  if (def.id === 45) return spyButtons() + trainJobsHtml(45); // Центр разведки: Возможности / Тренировать / Разведка (spy.js)
   if (def.id === HQ) h += hqHtml();
   if (def.id === 4) h += marketHtml();
   if (def.id === 13) h += diplomacyButtons();
@@ -107,25 +107,31 @@ function buildingFunctions(def, lvl) {
   if (def.id === 24) h += `<div class="section">Бунтари</div><div class="card small">Количество доступных бунтарей является общим для всего Королевства, и зависит от количества лояльности для захвата последующих замков.</div>
     <div class="card small">Бунтарей и путешественников — не больше 3 за один заказ. «Освоение» (основание нового замка путешественниками) — в разработке.</div>`;
   const units = myUnitList().filter((u) => u.building === def.id);
-  if (units.length) h += trainHtml(def, units);
+  // как в оригинале: кнопка «Тренировать» открывает окно «Постройка юнитов», ниже — «Юниты:» с идущими партиями
+  if (units.length) h += `<button class="rbar" data-trainopen="${def.id}">Тренировать</button>${trainJobsHtml(def.id)}`;
   return h;
+}
+// «Юниты:» — партии в тренировке: «Мародер 8/402 · Осталось 23:17:25» (готово/всего, время до конца партии)
+function trainJobsHtml(bid) {
+  const jobs = MY().training.filter((t) => t.building === bid);
+  return jobs.length ? `${ribbon('Юниты:')}${jobs.map((t) => { const u = unitById(t.unit), end = t.start + t.each * t.count;
+    return `<div class="upjob"><img src="${unitSrc(u)}" alt=""> ${esc(u.name)} ${t.done}/${t.count}<br>Осталось <img class="ri" src="${GFX}res/time.png" alt=""> <span class="cd" data-e="${end}"></span></div>`; }).join('')}` : '';
+}
+function trainWin(bid) {
+  const units = myUnitList().filter((u) => u.building === bid);
+  return `${ribbon('Постройка юнитов')}${units.length ? trainHtml(S.by[bid], units) : '<p class="parch-note">Нет юнитов для тренировки.</p>'}`;
 }
 
 function trainHtml(def, units) {
-  const jobs = MY().training.filter((t) => t.building === def.id);
   const td = MY().trainDay;
-  return `<div class="section">Тренировка</div>
-    ${td ? `<p class="small">Обучено за сутки: <b>${td.used} из ${td.max}</b>${td.used >= td.max && td.next ? ` · лимит обновится через <span class="cd" data-e="${td.next}"></span>` : ''}</p>` : ''}
-    ${jobs.map((t) => { const u = unitById(t.unit), end = t.start + t.each * t.count; return `<div class="card job">${uimg(u, 'ui s')}
-      <div class="grow"><b>${esc(u.name)} ×${t.count}</b> <span class="muted small">готово ${t.done}</span>
-      <div class="bar"><i data-s="${t.start}" data-e="${end}"></i></div></div><span class="cd" data-e="${end}"></span></div>`; }).join('')}
+  return `${td ? `<p class="small center">Обучено за сутки: <b>${td.used} из ${td.max}</b>${td.used >= td.max && td.next ? ` · лимит обновится через <span class="cd" data-e="${td.next}"></span>` : ''}</p>` : ''}
     ${units.map((u) => trainCard(u)).join('')}`;
 }
 // карточка тренировки — как «Постройка юнитов» в оригинале: параметры значками, зелёная плашка стоимости,
 // «Количество: N /макс», ползунок (картинки ProgressBar из клиента) и кнопка «Тренировать»
 const STAT_IC = (f) => `<img src="${GFX}smallicon/${f}.png" alt="">`;
 function trainCard(u) {
-  const lock = unitLock(u), max = unitMax(u), n = Math.min(S.cnt[u.id] ?? Math.min(1, max), max);
+  const lock = unitLock(u), max = unitMax(u), n = Math.min(S.cnt[u.id] ?? 0, max); // как в оригинале: по умолчанию 0
   const fg = (MY().forge && MY().forge[u.id]) || {}, plus = (v, k) => v + (k || 0);
   return `<div class="tcard"><div class="tname">${esc(u.name)}</div>${uimg(u, 'timg')}
     <div class="tparams-h">Параметры юнита:</div>
@@ -414,6 +420,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   const d = t.dataset;
   if (d.cnt) { const [id, k] = d.cnt.split(':').map(Number); S.cnt[id] = Math.max(1, (S.cnt[id] || 1) + k); const i = $(`[data-cnt-input="${id}"]`); if (i) i.value = S.cnt[id]; return; }
   if (d.max) { const u = unitById(d.max); S.cnt[u.id] = Math.max(1, unitMax(u)); const i = $(`[data-cnt-input="${u.id}"]`); if (i) i.value = S.cnt[u.id]; return; }
+  if (d.trainopen) { const bid = Number(d.trainopen); S.cnt = {}; return openSheet(() => trainWin(bid)); }
   if (d.train) { const c = S.cnt[d.train] ?? 1; if (!(c > 0)) return toast('Выберите количество ползунком.', 'err'); return send({ t: 'train', unit: Number(d.train), count: c }); }
   if (d.revive !== undefined) return send({ t: 'general', op: 'revive' });
   if (d.armyopen === 'trade') { S.mkt = { x: d.ax ?? '', y: d.ay ?? '', res: {} }; return openSheet(mktGiveWin); }
