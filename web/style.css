@@ -1361,3 +1361,6 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .upjob > img { width: 34px; height: 34px; object-fit: contain; vertical-align: middle; }
 .upjob .cd { color: #fff1d0 !important; font-weight: 400; }
 .upjob .ri { width: 30px; height: 30px; vertical-align: middle; }
+.okbox { background: #f8e8b8; border: 3px solid #d9b46a; box-shadow: 0 8px 24px #000c; text-align: center; }
+.okbox p { color: #4a2410; text-align: center; font: 400 min(26px, 6vw) var(--serif); margin: 30px 0 10px; }
+.okbtn { width: 86%; padding: 6px; border: 1px solid #a8824a; border-radius: 4px; background: linear-gradient(#d4b080, #b08a58); color: #fff; font: 400 min(26px, 6vw) var(--serif); margin-bottom: 30px; }

@@ -123,8 +123,7 @@ function trainWin(bid) {
 }
 
 function trainHtml(def, units) {
-  const td = MY().trainDay;
-  return `${td ? `<p class="small center">Обучено за сутки: <b>${td.used} из ${td.max}</b>${td.used >= td.max && td.next ? ` · лимит обновится через <span class="cd" data-e="${td.next}"></span>` : ''}</p>` : ''}
+  return `
     ${units.map((u) => trainCard(u)).join('')}`;
 }
 // карточка тренировки — как «Постройка юнитов» в оригинале: параметры значками, зелёная плашка стоимости,

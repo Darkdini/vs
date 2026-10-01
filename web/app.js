@@ -46,6 +46,13 @@ const S = {
 };
 
 // ---------- утилиты ----------
+// окно-сообщение с кнопкой «Ок» (как «Тренировка начата!» в оригинале)
+function okPopup(text) {
+  const d = document.createElement('div'); d.className = 'rinfo';
+  d.innerHTML = `<div class="rinfo-box okbox"><p>${esc(text)}</p><button type="button" class="okbtn">Ок</button></div>`;
+  d.addEventListener('click', (e) => { if (e.target.closest('.okbtn')) d.remove(); });
+  document.body.appendChild(d);
+}
 const now = () => Date.now() + S.offset;
 const fmtN = (n) => { n = Math.floor(n); return n >= 100000 ? `${Math.round(n / 1000)}k` : n >= 10000 ? `${(n / 1000).toFixed(1)}k` : String(n); };
 const fmtFull = (n) => Math.floor(n).toLocaleString('ru-RU');
@@ -217,6 +224,7 @@ function onMsg(m) {
     case 'forum': forumMsg(m); break;
     case 'letter': openSheet(() => letterSheet(m.letter)); break;
     case 'toast':
+      if (m.msg === 'Тренировка начата!') { closeAllSheets(); okPopup(m.msg); break; } // как в оригинале: окно «Ок», затем замок
       toast(m.msg);
       if (/отправлено/.test(m.msg) && S.sheets.length && S.composing) { S.composing = false; closeSheet(); }
       if (/Армия выступила|Поход запланирован/.test(m.msg) && (S.army || S.cmp)) { S.army = null; S.cmp = null; closeAllSheets(); }
@@ -544,6 +552,7 @@ function costChips(cost) {
 // строка «Текущая …» в окне здания (как в оригинале: «Текущая вместимость склада: 5000 ед.»)
 function currentLine(def, lvl) {
   if ([13, 21, 25, 46].includes(def.id)) return ''; // в оригинале у Дипломатического центра и Резиденции этой строки нет
+  if (S.cat.mil && S.cat.mil.units.some((u) => u.building === def.id)) return ''; // и у зданий тренировки (видео оригинала)
   if (def.id === 1) return `Текущая вместимость склада: <b>${fmtFull(R().store.levels[lvl])} ед.</b>`;
   const e = effect(def, lvl).text;
   return e && e !== '—' ? `Сейчас даёт: <b>${esc(e)}</b>` : '';
