@@ -1317,3 +1317,9 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .cbar-ic { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 4px; }
 .cbar-ic button { width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%; background: #0003; display: grid; place-items: center; }
 .cbar-ic img { width: 32px; height: 32px; object-fit: contain; filter: drop-shadow(0 1px 1px #000a); }
+
+/* «Необходимо» у недоступного юнита (окно тренировки) */
+.needlist { margin-top: 6px; }
+.needhead { font-weight: 700; color: #8a1a10; margin-bottom: 2px; }
+.need { padding: 3px 8px; margin: 2px 0; border-radius: 5px; background: linear-gradient(#7a3a20, #5a2410); color: #f6e7b8; font-size: 14px; }
+.need.ok { background: linear-gradient(#4f7a2a, #345a18); }

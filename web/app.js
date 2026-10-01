@@ -22,11 +22,11 @@ const BUILD_IMG = ['castle', 'storage', 'mbases', 'baraks', 'market', 'farm_smal
   'sawmill_big', 'stone_big', 'iron_big', 'farm_big', 'house_big', 'chip', 'portal', 'magscool', 'builder', 'beer', 'gendel',
   'alchimia', 'reasury', 'spycentr', 'resident'];
 const UNIT_IMG = {
-  200: 'human/swordman', 201: 'human/javelineer', 202: 'human/scout', 203: 'human/mage', 204: 'human/knight', 205: 'human/paladin', 206: 'human/jin',
+  200: 'human/hd/swordman', 201: 'human/hd/javelineer', 202: 'human/hd/scout', 203: 'human/hd/mage', 204: 'human/hd/knight', 205: 'human/hd/paladin', 206: 'human/jin', 259: 'human/hd/nuruh', 260: 'human/hd/colossus', 261: 'human/hd/cuirassier',
   207: 'elf/hd/archer', 208: 'elf/hd/fighter', 209: 'elf/hd/scout', 210: 'elf/hd/create', 211: 'elf/hd/kenaur', 212: 'elf/hd/edinorog', 213: 'elf/hd/ent', 257: 'elf/hd/chimera', 258: 'elf/hd/beast',
   214: 'dwarv/hd/fighter', 215: 'dwarv/hd/arbalet', 216: 'dwarv/hd/elder', 217: 'dwarv/hd/gryphon', 218: 'dwarv/hd/defender', 219: 'dwarv/hd/revolver', 220: 'dwarv/hd/yeti', 255: 'dwarv/hd/giant', 256: 'dwarv/hd/centurion',
 };
-const RACE_IMG = { humans: 'units/human/knight.png', elves: 'units/elf/archer.png', dwarves: 'units/dwarv/fighter.png', orcs: 'units/dwarv/fighter.png?orc' }; // ?orc — зелёный оттенок (style.css)
+const RACE_IMG = { humans: 'units/human/hd/knight.png', elves: 'units/elf/hd/archer.png', dwarves: 'units/dwarv/hd/fighter.png', orcs: 'units/orc/hd/marauder.png' };
 const displayId = (def, level) => (!def.tiers ? def.id : level >= 10 ? def.tiers[2] : level >= 5 ? def.tiers[1] : def.tiers[0]);
 // у Забора (22) картинки здания в клиенте нет — он виден оградой вокруг замка; в списках — кусок ограды
 const bsrc = (id) => { const p = id === 22 ? 'fence/fence1.png' : `build/${BUILD_IMG[id] || 'build'}.png`; return GFX + (HD[p] ? HD[p][0] : p); };

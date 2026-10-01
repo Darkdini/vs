@@ -9,9 +9,9 @@ const HQ = 2;
 let UNIT_BY = null;
 const unitById = (id) => { if (!UNIT_BY) UNIT_BY = Object.fromEntries(M().units.map((u) => [u.id, u])); return UNIT_BY[id]; };
 // у орков нет своих спрайтов в клиенте: берутся похожие, ?orc красит их в зелёный (style.css)
-const DW_HD = ['traveler', 'buntar', 'arheolog', 'wisdom']; // у гномов, орков и эльфов — новые картинки (оригинал), у остальных рас прежние
-const HD_DIR = { dwarves: 'dwarv/hd', orcs: 'orc/hd', elves: 'elf/hd' };
-const unitSrc = (u, race = S.st.user.race) => `${GFX}units/${u.img === 'unical/taran' ? 'dwarv/hd/taran' : u.race === 'all' && !u.img.includes('/') ? (HD_DIR[race] && DW_HD.includes(u.img) ? `${HD_DIR[race]}/${u.img}` : `${M().raceDir[race]}/${u.img}`) : u.img}.png${(u.race === 'orcs' && !u.img.startsWith('orc/')) || (u.race === 'all' && race === 'orcs' && !u.img.includes('/') && !DW_HD.includes(u.img)) ? '?orc' : ''}`;
+const DW_HD = ['traveler', 'buntar', 'arheolog', 'wisdom']; // у всех рас — новые картинки (оригинал); у людей нет нового Путешественника — прежний
+const HD_DIR = { dwarves: 'dwarv/hd', orcs: 'orc/hd', elves: 'elf/hd', humans: 'human/hd' };
+const unitSrc = (u, race = S.st.user.race) => `${GFX}units/${u.img === 'unical/taran' ? 'dwarv/hd/taran' : u.race === 'all' && !u.img.includes('/') ? (HD_DIR[race] && DW_HD.includes(u.img) && !(race === 'humans' && u.img === 'traveler') ? `${HD_DIR[race]}/${u.img}` : `${M().raceDir[race]}/${u.img}`) : u.img}.png${(u.race === 'orcs' && !u.img.startsWith('orc/')) || (u.race === 'all' && race === 'orcs' && !u.img.includes('/') && !DW_HD.includes(u.img)) ? '?orc' : ''}`;
 const uimg = (u, cls = 'ui') => `<img class="${cls}" src="${unitSrc(u)}" alt="">`;
 const raceUnit = (u, race = S.st.user.race) => (u && u.raceOvr && u.raceOvr[race] ? { ...u, ...u.raceOvr[race] } : u); // цена общих юнитов по расе
 const myUnitList = () => M().units.filter((u) => (u.race === S.st.user.race || u.race === 'all') && !u.notrain).map((u) => raceUnit(u));
@@ -22,6 +22,8 @@ S.cnt = {}; S.army = null; S.reports = null; S.alliances = null;
 function unitTrainSec(u) {
   return Math.max(1, Math.round(u.time * MY().bonus.train / S.cat.speed)); // уровень здания тренировку не ускоряет
 }
+// все условия тренировки юнита (как «Необходимо» в оригинале): основное здание + доп. требования
+const unitNeeds = (u) => [[u.building, u.level], ...Object.entries(u.req).map(([id, l]) => [Number(id), l])].map(([id, l]) => ({ name: S.by[id].name, lvl: l, ok: buildingLevel(id) >= l }));
 function unitLock(u) {
   if (buildingLevel(u.building) < u.level) return `Нужно: ${S.by[u.building].name} ${u.level} ур.`;
   for (const [id, l] of Object.entries(u.req)) if (buildingLevel(Number(id)) < l) return `Нужно: ${S.by[id].name} ${l} ур.`;
@@ -118,7 +120,7 @@ function trainHtml(def, units) {
     ${units.map((u) => { const lock = unitLock(u), n = S.cnt[u.id] || 1; return `<div class="card unit">
       <div class="top">${uimg(u)}<div class="grow"><b>${esc(u.name)}</b><span class="muted small">${TYPE_NAME[u.type] || ''} · в замке: ${u.id === M().generalId ? (MY().general ? 1 : 0) : MY().units[u.id] || 0}</span></div></div>
       ${unitStatsHtml(u)}
-      ${lock ? `<p class="reasons">${esc(lock)}</p>` : `<div class="trainrow"><button class="btn small" data-cnt="${u.id}:-1">−</button>
+      ${lock ? `<div class="needlist"><div class="needhead">Необходимо:</div>${unitNeeds(u).map((x) => `<div class="need ${x.ok ? 'ok' : ''}">${x.ok ? '✔' : '✖'} ${esc(x.name)} ${x.lvl} ур.</div>`).join('')}${unitNeeds(u).every((x) => x.ok) ? `<p class="reasons">${esc(lock)}</p>` : ''}</div>` : `<div class="trainrow"><button class="btn small" data-cnt="${u.id}:-1">−</button>
         <input type="number" inputmode="numeric" min="1" value="${n}" data-cnt-input="${u.id}"><button class="btn small" data-cnt="${u.id}:1">+</button>
         <button class="btn small" data-max="${u.id}">MAX</button><button class="btn primary small" data-train="${u.id}">Тренировать</button></div>`}
     </div>`; }).join('')}`;
