@@ -282,7 +282,7 @@ const API = {
     const cx = lim(Number.isFinite(m.cx) ? m.cx : c.x), cy = lim(Number.isFinite(m.cy) ? m.cy : c.y);
     const objects = this.game.worldObjects(cx - R, cy - R, 2 * R + 1, 2 * R + 1);
     const lair = this.game.lairOf(this.user); // логово похода «Тёмные земли» видно только хозяину
-    if (lair && !this.game.qinit(this.user).campWon && Math.abs(lair.x - cx) <= R && Math.abs(lair.y - cy) <= R) objects.push({ kind: 'object', x: lair.x, y: lair.y, img: 32, name: lair.npc.name, lair: true });
+    if (lair && !this.game.qinit(this.user).campWon && Math.abs(lair.x - cx) <= R && Math.abs(lair.y - cy) <= R) objects.push({ kind: 'object', x: lair.x, y: lair.y, img: 32, name: lair.npc.name, lair: true, qimg: (require('./quests').CAMP[lair.k] || {}).img });
     this.send({ t: 'world', cx, cy, radius: R, objects, home: { x: c.x, y: c.y } });
   },
   gift(m) {

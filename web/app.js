@@ -1066,6 +1066,16 @@ function grassBackdrop(path, c, dpr) {
   ictx.fillStyle = pat;
   ictx.fillRect(-c.x / c.z - TW, -c.y / c.z - TH, Iso.cv.width / dpr / c.z + 2 * TW, Iso.cv.height / dpr / c.z + 2 * TH);
 }
+// фон карты мира: бесшовная картинка-плитка (отражённая 2×2), сдвигается вместе с миром
+let WORLD_PAT = null;
+function worldBackdrop(w, c, dpr) {
+  const im = pic('ground/world_bg.jpg?v=1'); if (!im) return;
+  if (!WORLD_PAT) WORLD_PAT = ictx.createPattern(im, 'repeat');
+  const o = tileScreen(-(w.cx - w.radius), -(w.cy - w.radius)); // где на экране точка мира (0, 0)
+  WORLD_PAT.setTransform(new DOMMatrix().translate(o.sx % im.width, o.sy % im.height));
+  const x = ictx, sm = x.imageSmoothingEnabled; x.imageSmoothingEnabled = true; x.fillStyle = WORLD_PAT;
+  x.fillRect(-c.x / c.z - TW, -c.y / c.z - TH, Iso.cv.width / dpr / c.z + 2 * TW, Iso.cv.height / dpr / c.z + 2 * TH); x.imageSmoothingEnabled = sm;
+}
 // купол защиты новичка над замком
 function newbieDome(p) {
   const cx = p.sx + TW / 2, cy = p.sy + TH / 2 + 1, rx = TW * 0.4, ry = TH * 1.05; // купол по размеру замка
@@ -1115,7 +1125,7 @@ function isoDrawNow() {
   x.fillStyle = '#16240f'; x.fillRect(0, 0, Iso.cv.width, Iso.cv.height);
   x.setTransform(c.z * dpr, 0, 0, c.z * dpr, c.x * dpr, c.y * dpr);
   x.imageSmoothingEnabled = false;
-  grassBackdrop(S.tab === 'world' ? 'ground/grass.png' : 'ground/grass1.png', c, dpr); // трава до краёв экрана — без чёрных краёв
+  if (S.tab !== 'world') grassBackdrop('ground/grass1.png', c, dpr); // трава до краёв экрана — без чёрных краёв (мир — своим фоном)
   const st = S.st.castle;
   if (S.tab === 'castle') { // порядок как в клиенте: земля → ров → ограда сзади → здания → ограда спереди → курсор
     // внутри стен — трава, на ней 49 каменных участков с промежутками
@@ -1142,9 +1152,7 @@ function isoDrawNow() {
     if (onPic) landsPicEnd();
   } else if (S.world) {
     const w = S.world, R0 = w.radius, n = 2 * R0 + 1, objs = new Map(w.objects.map((o) => [`${o.x}:${o.y}`, o]));
-    for (let y = 0; y < n; y++) for (let xx = n - 1; xx >= 0; xx--) {
-      const p = tileScreen(xx, y); ground('ground/grass.png', p.sx, p.sy);
-    }
+    worldBackdrop(w, c, dpr); // нарисованная местность (бесшовная), привязана к координатам мира
     const mid = R0; // стрелки перехода по краям, как в клиенте
     for (const [ax, ay, img] of [[mid, -1, 'arrowup'], [n, mid, 'arrowright'], [mid, n, 'arrowdown'], [-1, mid, 'arrowleft']]) {
       const p = tileScreen(ax, ay); ground(`ground/${img}.png`, p.sx, p.sy);
@@ -1155,7 +1163,8 @@ function isoDrawNow() {
       const p = tileScreen(xx, y), sel = isSel(xx, y);
       // выбранный замок/объект — золотая подводка по контуру
       if (sel) { ictx.save(); ictx.filter = 'drop-shadow(0 0 3px #fff3a0) drop-shadow(0 0 3px #ffe030) drop-shadow(0 0 4px #ffc400) drop-shadow(0 0 7px #ff9d00) brightness(1.18)'; }
-      ground(WORLD_NAME_IMG(o), p.sx, p.sy);
+      if (o.qimg && pic(o.qimg)) { const im = pic(o.qimg), k = TW * 1.25 / im.width; ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(im, p.sx + TW / 2 - im.width * k / 2, p.sy + TH * 0.85 - im.height * k, im.width * k, im.height * k); ictx.restore(); } // логово похода
+      else ground(WORLD_NAME_IMG(o), p.sx, p.sy);
       if (sel) ictx.restore();
       if (o.newbie) newbieDome(p);
     }

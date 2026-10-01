@@ -2,7 +2,7 @@
 // Окно «Задания»: обучение (цепочка), ежедневные (3 в день + сундук), поход «Тёмные земли» (логова с боссами).
 // Данные — с сервера (server/src/quests.js): t:'quests' → S.quests; награда — t:'qclaim'; итог — t:'qdone' (окно «Задание выполнено!»).
 
-const QT = [['tut', 'Обучение', 'gfx3d/menu3/quests.png'], ['daily', 'Ежедневные', 'gfx3d/menu3/chests.png'], ['camp', 'Поход', 'gfx3d/menu3/treasure.png']];
+const QT = [['tut', 'Обучение', 'quest/scroll.png'], ['daily', 'Ежедневные', 'quest/chest.png'], ['camp', 'Поход', 'quest/lair_dragon.png']];
 function openQuests(tab) { if (tab) S.qtab = tab; S.quests = null; send({ t: 'quests' }); openSheet(questsWin); }
 const qImg = (p, cls = '') => `<img class="${cls}" src="${p.startsWith('gfx3d/') ? p : GFX + p}" alt="">`;
 function qReward(r) {
@@ -25,16 +25,16 @@ function questsWin() {
   let body = '';
   if (tab === 'tut') {
     const t = q.tut;
-    body = t.finished ? `<div class="qcard"><div class="qhead"><div class="qic">${qImg('gfx3d/menu3/quests.png')}</div><div class="grow"><b>Обучение пройдено!</b><p>Вы освоили все premudrosti управления королевством. Впереди — ежедневные задания и поход в Тёмные земли.</p></div></div></div>`.replace('premudrosti', 'премудрости')
+    body = t.finished ? `<div class="qcard"><div class="qhead"><div class="qic">${qImg('quest/scroll.png')}</div><div class="grow"><b>Обучение пройдено!</b><p>Вы освоили все premudrosti управления королевством. Впереди — ежедневные задания и поход в Тёмные земли.</p></div></div></div>`.replace('premudrosti', 'премудрости')
       : `<div class="qstep">Задание ${t.idx + 1} из ${t.total}</div><div class="qchain"><i style="width:${t.idx / t.total * 100}%"></i></div>${qCard(t, 'tut')}`;
   } else if (tab === 'daily') {
     const ch = q.chest;
     body = `<div class="qstep">Новые задания — каждый день</div>${q.daily.map((d) => qCard(d, 'daily')).join('')}
-      <div class="qchest ${ch.ready ? 'ready' : ''} ${ch.taken ? 'claimed' : ''}">${qImg('gfx3d/menu3/chests.png')}<div class="grow"><b>Сундук дня</b><p>${ch.taken ? 'Открыт. Новый — завтра.' : 'Откроется, когда все три задания дня выполнены: 3 золота и шанс на артефакт.'}</p></div>
+      <div class="qchest ${ch.ready ? 'ready' : ''} ${ch.taken ? 'claimed' : ''}">${qImg(ch.ready || ch.taken ? 'quest/chest_open.png' : 'quest/chest.png')}<div class="grow"><b>Сундук дня</b><p>${ch.taken ? 'Открыт. Новый — завтра.' : 'Откроется, когда все три задания дня выполнены: ресурсы и шанс на артефакт.'}</p></div>
       ${ch.ready ? '<button class="qbtn" data-qclaim="chest">Открыть</button>' : ''}</div>`;
   } else {
     const c = q.camp;
-    body = c.finished ? `<div class="qcard"><div class="qhead"><div class="qic">${qImg('gfx3d/menu3/treasure.png')}</div><div class="grow"><b>Тёмные земли очищены!</b><p>Дракон повержен, о вашем королевстве слагают легенды.</p></div></div></div>`
+    body = c.finished ? `<div class="qcard"><div class="qhead"><div class="qic">${qImg('quest/ruins.png')}</div><div class="grow"><b>Тёмные земли очищены!</b><p>Дракон повержен, о вашем королевстве слагают легенды.</p></div></div></div>`
       : `<div class="qstep">Глава ${c.k + 1} из ${c.total}</div>
       <div class="qscene"><img class="qplace" src="${GFX}${c.img}" alt=""><img class="qboss" src="${GFX}${c.boss}" alt=""><div class="qtitle">${esc(c.title)}</div></div>
       <div class="qcard"><p class="qstory">${esc(c.text)}</p>
@@ -52,14 +52,14 @@ const qTabReady = (q, k) => (k === 'tut' ? q.tut.done : k === 'daily' ? q.daily.
 // значок заданий на экране: свиток с числом готовых наград
 function questBtn() {
   let b = $('#qbtn');
-  if (!b) { b = document.createElement('button'); b.id = 'qbtn'; b.type = 'button'; b.innerHTML = `<img src="gfx3d/menu3/quests.png" alt="Задания"><b></b>`; b.addEventListener('click', () => openQuests()); $('#game').appendChild(b); }
+  if (!b) { b = document.createElement('button'); b.id = 'qbtn'; b.type = 'button'; b.innerHTML = `<img src="${GFX}quest/scroll.png" alt="Задания"><b></b>`; b.addEventListener('click', () => openQuests()); $('#game').appendChild(b); }
   const r = (S.st && S.st.quests && S.st.quests.ready) || 0;
   b.classList.toggle('glow', r > 0); b.querySelector('b').textContent = r ? String(r) : '';
 }
 // окно «Задание выполнено!»
 function questDone(msg) {
   const d = document.createElement('div'); d.className = 'rinfo qwin';
-  d.innerHTML = `<div class="rinfo-box okbox qwin-box"><div class="qrays"></div><img src="gfx3d/menu3/quests.png" alt=""><h3>Задание выполнено!</h3><p>${esc(msg)}</p><button type="button" class="okbtn">Ок</button></div>`;
+  d.innerHTML = `<div class="rinfo-box okbox qwin-box"><div class="qrays"></div><img src="${GFX}quest/chest_open.png" alt=""><h3>Задание выполнено!</h3><p>${esc(msg)}</p><button type="button" class="okbtn">Ок</button></div>`;
   d.addEventListener('click', (e) => { if (e.target.closest('.okbtn')) d.remove(); });
   document.body.appendChild(d);
   if (typeof SND !== 'undefined' && SND.play) try { SND.play('quest'); } catch (e) { /* звука может не быть */ }

@@ -7,7 +7,8 @@ const C = require('./catalog');
 const RES4 = ['wood', 'stone', 'iron', 'food'];
 const DAY = 86400000;
 const b = (id) => `build/${({ 0: 'castle', 1: 'storage', 2: 'mbases', 3: 'baraks', 4: 'market', 5: 'farm_small', 11: 'smith', 15: 'university', 17: 'expedition', 18: 'art_tower', 39: 'magscool', 44: 'reasury', 6: 'house_small' })[id] || 'build'}.png`;
-const R = (n, gold = 0, extra = {}) => ({ wood: n, stone: n, iron: n, food: n, gold, ...extra });
+// награды заданий — только ресурсы и артефакты: золото и премиум покупаются (донат), заданиями не раздаются
+const R = (n, gold = 0, extra = {}) => { const { premium, ...rest } = extra; void gold; void premium; return { wood: n, stone: n, iron: n, food: n, ...rest }; };
 
 // ---------- обучение ----------
 // need(g, u, c, base) → [есть, нужно]; base — счётчики игрока на момент начала задания
@@ -49,19 +50,19 @@ const DAILY = [
 // охрана: стеки воинов (как охрана лагерей), последний — босс; логово стоит рядом со столицей, у каждого игрока своё
 const S_ = (name, type, hp, atk, mag, def, mdef, n) => ({ key: name, name, type, hp, atk, mag, def, mdef, n });
 const CAMP = [
-  { title: 'Волчье логово', text: 'Стая волков режет скот у стен. Её ведёт Вожак — матёрый зверь с шрамом через морду.', img: 'ground/dikari.png', boss: 'units/orc/hd/hunter.png',
+  { title: 'Волчье логово', text: 'Стая волков режет скот у стен. Её ведёт Вожак — матёрый зверь с шрамом через морду.', img: 'quest/lair_wolf.png', boss: 'quest/boss_wolf.png',
     g: [S_('Волк', 'cavalry', 30, 10, 0, 6, 2, 12), S_('Вожак стаи', 'cavalry', 400, 30, 0, 20, 5, 1)], reward: R(1500, 5) },
-  { title: 'Разбойничий брод', text: 'Атаман Кривой Нож собрал шайку и берёт мзду с каждого каравана.', img: 'ground/bandit_camp.png', boss: 'units/orc/hd/marauder.png',
+  { title: 'Разбойничий брод', text: 'Атаман Кривой Нож собрал шайку и берёт мзду с каждого каравана.', img: 'quest/lair_bandit.png', boss: 'quest/boss_bandit.png',
     g: [S_('Разбойник', 'infantry', 45, 14, 0, 12, 3, 30), S_('Лучник', 'infantry', 30, 12, 0, 6, 3, 15), S_('Атаман Кривой Нож', 'infantry', 900, 45, 0, 35, 10, 1)], reward: R(2500, 5) },
-  { title: 'Курган мертвецов', text: 'В кургане проснулись мертвецы. Против их колдуна железо почти бессильно — нужна магия.', img: 'ground/castle_old.png', boss: 'units/unical/shadow.png',
+  { title: 'Курган мертвецов', text: 'В кургане проснулись мертвецы. Против их колдуна железо почти бессильно — нужна магия.', img: 'quest/lair_barrow.png', boss: 'units/unical/shadow.png',
     g: [S_('Мертвец', 'infantry', 60, 16, 0, 30, 2, 50), S_('Призрак', 'magic', 40, 0, 18, 40, 10, 20), S_('Колдун кургана', 'magic', 1200, 0, 60, 60, 25, 1)], reward: R(4000, 8, { art: 0 }) },
-  { title: 'Тролличья топь', text: 'Болотные тролли перекрыли дорогу. Шкура толстая, удар — как таран.', img: 'ground/troll_rudnik.png', boss: 'units/unical/giant.png',
+  { title: 'Тролличья топь', text: 'Болотные тролли перекрыли дорогу. Шкура толстая, удар — как таран.', img: 'quest/lair_swamp.png', boss: 'quest/boss_troll.png',
     g: [S_('Тролль', 'infantry', 220, 40, 0, 45, 15, 25), S_('Болотный шаман', 'magic', 35, 0, 14, 5, 20, 20), S_('Король троллей', 'infantry', 4000, 120, 0, 80, 30, 1)], reward: R(6000, 10) },
-  { title: 'Крепость отступников', text: 'Орки-отступники засели в старой крепости за частоколом. Без таранов к ним не подступиться.', img: 'ground/camp3.png', boss: 'units/orc/hd/tyrant.png',
+  { title: 'Крепость отступников', text: 'Орки-отступники засели в старой крепости за частоколом. Без таранов к ним не подступиться.', img: 'quest/lair_orc.png', boss: 'units/orc/hd/tyrant.png',
     g: [S_('Орк-отступник', 'infantry', 100, 30, 0, 35, 8, 120), S_('Наездник на варге', 'cavalry', 90, 40, 0, 25, 8, 60), S_('Вождь Гром-Гар', 'infantry', 8000, 220, 0, 120, 40, 1)], reward: R(9000, 15, { art: 1 }) },
-  { title: 'Башня некроманта', text: 'Некромант Мор-Аэль поднимает армию тьмы. Его чары сжигают пехоту целыми рядами.', img: 'ground/camp2.png', boss: 'units/orc/hd/warlock.png',
+  { title: 'Башня некроманта', text: 'Некромант Мор-Аэль поднимает армию тьмы. Его чары сжигают пехоту целыми рядами.', img: 'quest/lair_necro.png', boss: 'units/orc/hd/warlock.png',
     g: [S_('Скелет', 'infantry', 70, 25, 0, 40, 5, 200), S_('Тёмный маг', 'magic', 50, 0, 35, 10, 45, 80), S_('Некромант Мор-Аэль', 'magic', 10000, 0, 300, 150, 120, 1)], reward: R(14000, 20) },
-  { title: 'Логово дракона', text: 'Древний дракон Игнитар проснулся под горой. Его пламя видно из столицы. Это последнее испытание Тёмных земель.', img: 'ground/mount.png', boss: 'units/orc/hd/fist.png',
+  { title: 'Логово дракона', text: 'Древний дракон Игнитар проснулся под горой. Его пламя видно из столицы. Это последнее испытание Тёмных земель.', img: 'quest/lair_dragon.png', boss: 'quest/boss_dragon.png',
     g: [S_('Драконид', 'cavalry', 160, 60, 10, 60, 30, 150), S_('Кобольд-жрец', 'magic', 60, 0, 40, 20, 50, 100), S_('Дракон Игнитар', 'cavalry', 30000, 600, 200, 250, 150, 1)], reward: R(25000, 50, { art: 2, premium: 3 }) },
 ];
 const CAMP_GARRISON = (k) => CAMP[k] && { name: `Логово: ${CAMP[k].title}`, garrison: CAMP[k].g.map((x) => ({ ...x })), def: { inf: 0, cav: 0, mag: 0 },
@@ -114,9 +115,7 @@ function install(Game) {
   const give = (g, u, c, rw, why) => {
     const cap = g.capacity(c), got = [];
     for (const r of RES4) if (rw[r]) { c.res[r] = Math.min(cap[r], c.res[r] + rw[r]); }
-    if (rw.gold) g.goldChange(u, rw.gold, why);
     if (rw.art !== undefined) { g.mil(c); const types = Object.keys(require('./army').ART_TYPES); const type = types[Math.floor(Math.random() * types.length)]; c.artifacts.push({ id: g.db.nextId++, type, rarity: rw.art, active: false, found: Date.now() }); got.push('артефакт'); }
-    if (rw.premium) u.premium = Math.max(u.premium || 0, Date.now()) + rw.premium * DAY;
     return got;
   };
 
@@ -152,14 +151,14 @@ function install(Game) {
     if (kind === 'chest') {
       if (!st.chest.ready) return { error: 'Сундук откроется, когда все три задания дня выполнены.' };
       const art = Math.random() < 0.25; q.daily.chest = true;
-      give(this, u, c, { gold: 3, ...(art ? { art: 0 } : {}) }, 'Сундук дня'); this.store.save();
-      return { ok: true, msg: art ? 'Сундук дня: 3 золота и артефакт!' : 'Сундук дня: 3 золота!' };
+      give(this, u, c, { ...R(400 + 200 * th(this, c)), ...(art ? { art: 0 } : {}) }, 'Сундук дня'); this.store.save();
+      return { ok: true, msg: art ? 'Сундук дня: ресурсы и артефакт!' : 'Сундук дня: ресурсы!' };
     }
     if (kind === 'camp') {
       if (!q.campWon) return { error: 'Сначала разорите логово.' };
       const k = q.camp, got = give(this, u, c, CAMP[k].reward, `Поход «Тёмные земли»: ${CAMP[k].title}`);
       q.camp++; q.campWon = false; q.lair = null; this.store.save();
-      return { ok: true, msg: `«${CAMP[k].title}» — награда получена!${got.length ? ' Артефакт в Сокровищнице!' : ''}${CAMP[k].reward.premium ? ` Премиум на ${CAMP[k].reward.premium} дн.!` : ''}` };
+      return { ok: true, msg: `«${CAMP[k].title}» — награда получена!${got.length ? ' Артефакт в Сокровищнице!' : ''}` };
     }
     return { error: 'Неизвестное задание.' };
   };

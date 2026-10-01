@@ -1454,3 +1454,5 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .exstats { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 12px; margin-bottom: 6px; } .exstats span { display: inline-flex; align-items: center; gap: 3px; }
 .artlife { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-top: 6px; } .artlife .bar { flex: 1; }
 .artlife .bar i { background: linear-gradient(90deg, #9c27b0, #e1bee7); }
+
+.qplace { image-rendering: auto; height: 118px; } .qscene { height: 160px; }

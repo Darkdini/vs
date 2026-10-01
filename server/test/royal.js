@@ -403,7 +403,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   g.maxOut(c); g.mil(c); c.units = { 246: 60 }; const L = g.lairOf(u);
   assert.ok(!g.sendArmy(c, { units: { 246: 60 }, x: L.x, y: L.y, mission: 'attack' }).error, 'поход в логово');
   g.arrive(c, c.armies[0], Date.now());
-  const gold = u.gold; assert.ok(g.questsState(u, c).camp.won && g.questClaim(u, c, 'camp').ok && u.gold === gold + 5 && g.questsState(u, c).camp.k === 1, 'логово разорено, глава 2');
+  const gold = u.gold; assert.ok(g.questsState(u, c).camp.won && g.questClaim(u, c, 'camp').ok && u.gold === gold && g.questsState(u, c).camp.k === 1, 'логово разорено, глава 2');
   assert.ok(g.sendArmy(c, { units: { 246: 1 }, x: L.x, y: L.y, mission: 'attack' }).error, 'старое логово исчезло');
   void w0; console.log('✓ Задания: обучение, награды, поход в логово с боссом');
   if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
