@@ -35,6 +35,7 @@ function unitMax(u) {
   for (const r of RES4) if (u.cost[r]) n = Math.min(n, Math.floor(resNow(r) / u.cost[r]));
   if (u.pop) n = Math.min(n, Math.floor(S.st.castle.res.people / u.pop));
   if (u.id === M().generalId) n = Math.min(n, 1);
+  if (u.id === 224 || u.id === 233) n = Math.min(n, 3); // за один заказ — не больше 3
   else if (MY().trainDay) n = Math.min(n, MY().trainDay.max - MY().trainDay.used);
   return Math.max(0, n === Infinity ? 0 : n);
 }
@@ -103,7 +104,8 @@ function buildingFunctions(def, lvl) {
     Шанс находки: 20% + 5% за археолога + 3% за ур. Лагеря археологов + 2% за ур. Экспедиции.</p>
     <p class="small">Археологов в замке: <b>${MY().units[230] || 0}</b></p></div>`;
   if (def.id === 18 || def.id === 44) h += artifactsHtml();
-  if (def.id === 24) h += '<div class="card small">Путешественники основывают новые замки — эта функция в разработке.</div>';
+  if (def.id === 24) h += `<div class="section">Бунтари</div><div class="card small">Количество доступных бунтарей является общим для всего Королевства, и зависит от количества лояльности для захвата последующих замков.</div>
+    <div class="card small">Бунтарей и путешественников — не больше 3 за один заказ. «Освоение» (основание нового замка путешественниками) — в разработке.</div>`;
   const units = myUnitList().filter((u) => u.building === def.id);
   if (units.length) h += trainHtml(def, units);
   return h;

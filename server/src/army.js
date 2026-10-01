@@ -179,6 +179,7 @@ const GENERAL_ID = 236;
 // у общих юнитов цена бывает разной по расам (скрины оригинала): Путешественник у орков — 5000/5000/5000/7500
 UNIT[224].raceOvr = { orcs: { cost: { wood: 5000, stone: 5000, iron: 5000, food: 7500 } }, elves: { cost: { wood: 7500, stone: 5000, iron: 5000, food: 5000 } } };
 UNIT[233].raceOvr = { elves: { cost: { wood: 13316, stone: 10412, iron: 12012, food: 24031 } }, humans: { cost: { wood: 10412, stone: 12012, iron: 13316, food: 24031 } } }; // Бунтарь у эльфов и людей
+const ORDER_MAX = { 224: 3, 233: 3 }; // Путешественник, Бунтарь: не больше 3 за один заказ (оригинал: «Количество: … /3»)
 const raceUnit = (u, race) => (u && u.raceOvr && u.raceOvr[race] ? { ...u, ...u.raceOvr[race] } : u);
 const unitsForRace = (race) => UNITS.filter((u) => u.race === race || u.race === 'all');
 // генерал как в оригинале: за уровень — очки опыта, игрок распределяет их в окне «Генерал».
@@ -387,6 +388,7 @@ function install(Game, helpers) {
     if (!unit) return { error: 'Неизвестный юнит.' };
     if (unit.notrain) return { error: 'Торговцы не тренируются — их 20 на Рынке.' };
     if (!(count > 0)) return { error: 'Укажите количество.' };
+    if (ORDER_MAX[unit.id] && count > ORDER_MAX[unit.id]) return { error: `${unit.name}: не больше ${ORDER_MAX[unit.id]} за один заказ.` };
     const lock = this.unitLock(castle, unit); if (lock) return { error: lock };
     if (unit.id === GENERAL_ID) {
       if (castle.general || castle.training.some((t) => t.unit === GENERAL_ID)) return { error: 'Генерал в замке может быть только один.' };
