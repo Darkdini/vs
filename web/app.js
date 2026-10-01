@@ -23,7 +23,7 @@ const BUILD_IMG = ['castle', 'storage', 'mbases', 'baraks', 'market', 'farm_smal
   'alchimia', 'reasury', 'spycentr', 'resident'];
 const UNIT_IMG = {
   200: 'human/swordman', 201: 'human/javelineer', 202: 'human/scout', 203: 'human/mage', 204: 'human/knight', 205: 'human/paladin', 206: 'human/jin',
-  207: 'elf/archer', 208: 'elf/fighter', 209: 'elf/scout', 210: 'elf/create', 211: 'elf/kenaur', 212: 'elf/edinorog', 213: 'elf/ent',
+  207: 'elf/hd/archer', 208: 'elf/hd/fighter', 209: 'elf/hd/scout', 210: 'elf/hd/create', 211: 'elf/hd/kenaur', 212: 'elf/hd/edinorog', 213: 'elf/hd/ent', 257: 'elf/hd/chimera', 258: 'elf/hd/beast',
   214: 'dwarv/hd/fighter', 215: 'dwarv/hd/arbalet', 216: 'dwarv/hd/elder', 217: 'dwarv/hd/gryphon', 218: 'dwarv/hd/defender', 219: 'dwarv/hd/revolver', 220: 'dwarv/hd/yeti', 255: 'dwarv/hd/giant', 256: 'dwarv/hd/centurion',
 };
 const RACE_IMG = { humans: 'units/human/knight.png', elves: 'units/elf/archer.png', dwarves: 'units/dwarv/fighter.png', orcs: 'units/dwarv/fighter.png?orc' }; // ?orc — зелёный оттенок (style.css)

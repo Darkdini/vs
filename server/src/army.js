@@ -33,13 +33,16 @@ const UNIT_LIST = [
   [204, 'Рыцарь', 'humans', 'human/knight', 'elite_inf', B.BARRACKS, 10, { [B.SMITH]: 5 }],
   [205, 'Паладин', 'humans', 'human/paladin', 'heavy_cav', B.STABLE, 10, { [B.SMITH]: 10 }],
   [206, 'Джин', 'humans', 'human/jin', 'legendary', B.PORTAL, 1],
-  [207, 'Эльф лучник', 'elves', 'elf/archer', 'ranged', B.BARRACKS, 1],
-  [208, 'Танцующий', 'elves', 'elf/fighter', 'atk_inf', B.BARRACKS, 1],
-  [209, 'Скаут', 'elves', 'elf/scout', 'scout', B.SPY, 1],
-  [210, 'Созидающая', 'elves', 'elf/create', 'mage', B.MAGE_ACADEMY, 1],
-  [211, 'Кентавр', 'elves', 'elf/kenaur', 'light_cav', B.STABLE, 3],
-  [212, 'Единорог', 'elves', 'elf/edinorog', 'heavy_cav', B.STABLE, 10, { [B.SMITH]: 10 }],
-  [213, 'Энт', 'elves', 'elf/ent', 'legendary', B.PORTAL, 1],
+  // эльфы — как в оригинале (скрины окна «Юнит»): имена, требования, характеристики — в ORIG ниже
+  [207, 'Эльф лучник', 'elves', 'elf/hd/archer', 'ranged', B.BARRACKS, 1],
+  [208, 'Танцующий с клинками', 'elves', 'elf/hd/fighter', 'atk_inf', B.BARRACKS, 3, { [B.SMITH]: 1 }],
+  [257, 'Химера', 'elves', 'elf/hd/chimera', 'atk_inf', B.SMITH, 3],
+  [209, 'Скаут', 'elves', 'elf/hd/scout', 'scout', B.STABLE, 1, { [B.SMITH]: 3, [B.SPY]: 1 }],
+  [210, 'Созидающая', 'elves', 'elf/hd/create', 'mage', B.BARRACKS, 5, { [B.MAGE_ACADEMY]: 1 }],
+  [211, 'Кентавр', 'elves', 'elf/hd/kenaur', 'light_cav', B.STABLE, 5, { [B.SMITH]: 7 }], // список на скрине обрезан — видно Конюшня 5, Кузнец 7
+  [258, 'Зверь', 'elves', 'elf/hd/beast', 'elite_inf', B.BARRACKS, 10, { [B.SMITH]: 5 }],
+  [212, 'Единорог', 'elves', 'elf/hd/edinorog', 'heavy_cav', B.STABLE, 7, { [B.MAGE_ACADEMY]: 5, [B.WORKSHOP]: 5 }], // список обрезан
+  [213, 'Энт', 'elves', 'elf/hd/ent', 'legendary', B.MAGE_ACADEMY, 10, { [B.WORKSHOP]: 10 }], // список обрезан
   // гномы — как в оригинале (скрины окна «Юнит»): имена, требования, характеристики — в ORIG ниже
   [214, 'Гном топорщик', 'dwarves', 'dwarv/hd/fighter', 'atk_inf', B.BARRACKS, 1],
   [215, 'Арбалетчик', 'dwarves', 'dwarv/hd/arbalet', 'ranged', B.BARRACKS, 3, { [B.SMITH]: 1 }],
@@ -98,6 +101,16 @@ const ORIG = {
   250: { type: 'infantry', hp: 80, atk: 20, mag: 10, def: 30, mdef: 20, speed: 9, carry: 90, cost: [110, 105, 115, 220], pop: 53, time: 3720 }, // Тиран 1:02:00
   248: { type: 'magic', hp: 120, atk: 20, mag: 40, def: 15, mdef: 40, speed: 9, carry: 70, cost: [165, 170, 175, 215], pop: 51, time: 4380 }, // Шаман 1:13:00
   249: { type: 'infantry', hp: 140, atk: 25, mag: 5, def: 25, mdef: 5, speed: 4, carry: 70, cost: [680, 675, 665, 880], pop: 91, time: 5880, bldDmg: 32 }, // Кулак Ярости 1:38:00
+  // эльфы (скрины окна «Юнит» оригинала) — значения один в один
+  207: { type: 'infantry', hp: 30, atk: 8, mag: 0, def: 20, mdef: 0, speed: 6, carry: 47, cost: [95, 80, 70, 50], pop: 6, time: 990 }, // Эльф лучник 16:30
+  208: { type: 'infantry', hp: 25, atk: 10, mag: 0, def: 15, mdef: 0, speed: 8, carry: 55, cost: [120, 100, 60, 50], pop: 12, time: 1580 }, // Танцующий с клинками 26:20
+  257: { type: 'infantry', hp: 30, atk: 20, mag: 0, def: 10, mdef: 0, speed: 10, carry: 70, cost: [97, 77, 78, 60], pop: 9, time: 1080 }, // Химера 18:00
+  209: { type: 'cavalry', hp: 20, atk: 10, mag: 0, def: 15, mdef: 0, speed: 16, carry: 0, cost: [105, 70, 45, 30], pop: 9, time: 1920 }, // Скаут 32:00
+  210: { type: 'magic', hp: 35, atk: 0, mag: 20, def: 0, mdef: 35, speed: 7, carry: 62, cost: [135, 100, 85, 60], pop: 27, time: 1540 }, // Созидающая 25:40
+  211: { type: 'cavalry', hp: 60, atk: 40, mag: 0, def: 30, mdef: 0, speed: 12, carry: 94, cost: [175, 105, 135, 80], pop: 39, time: 2640 }, // Кентавр 44:00
+  258: { type: 'infantry', hp: 70, atk: 60, mag: 0, def: 40, mdef: 0, speed: 9, carry: 80, cost: [185, 110, 140, 90], pop: 48, time: 2880 }, // Зверь 48:00
+  212: { type: 'cavalry', hp: 65, atk: 20, mag: 30, def: 35, mdef: 50, speed: 9, carry: 78, cost: [210, 130, 140, 110], pop: 45, time: 3520 }, // Единорог 58:40
+  213: { type: 'infantry', hp: 100, atk: 25, mag: 5, def: 20, mdef: 10, speed: 4, carry: 47, cost: [720, 655, 645, 410], pop: 87, time: 4720, bldDmg: 33 }, // Энт 1:18:40
   // гномы (скрины окна «Юнит» оригинала)
   214: { type: 'infantry', hp: 20, atk: 20, mag: 0, def: 5, mdef: 0, speed: 11, carry: 55, cost: [55, 100, 70, 50], pop: 3, time: 1160 }, // Гном топорщик 19:20
   215: { type: 'infantry', hp: 25, atk: 15, mag: 0, def: 15, mdef: 0, speed: 7, carry: 47, cost: [70, 115, 85, 60], pop: 12, time: 1460 }, // Арбалетчик 24:20
@@ -150,7 +163,8 @@ const MERCHANT_ID = 221, MERCHANTS = 20;
 Object.assign(UNIT[MERCHANT_ID], { speed: 20, notrain: true, carry: 45 });
 const GENERAL_ID = 236;
 // у общих юнитов цена бывает разной по расам (скрины оригинала): Путешественник у орков — 5000/5000/5000/7500
-UNIT[224].raceOvr = { orcs: { cost: { wood: 5000, stone: 5000, iron: 5000, food: 7500 } } };
+UNIT[224].raceOvr = { orcs: { cost: { wood: 5000, stone: 5000, iron: 5000, food: 7500 } }, elves: { cost: { wood: 7500, stone: 5000, iron: 5000, food: 5000 } } };
+UNIT[233].raceOvr = { elves: { cost: { wood: 13316, stone: 10412, iron: 12012, food: 24031 } } }; // Бунтарь у эльфов
 const raceUnit = (u, race) => (u && u.raceOvr && u.raceOvr[race] ? { ...u, ...u.raceOvr[race] } : u);
 const unitsForRace = (race) => UNITS.filter((u) => u.race === race || u.race === 'all');
 // генерал как в оригинале: за уровень — очки опыта, игрок распределяет их в окне «Генерал».
