@@ -897,7 +897,7 @@ function isoTap(px, py) {
     Iso.sel = { tab: 'castle', x, y }; isoDraw();
     openCell(VIEW.CASTLE, y * 7 + x);
   } else if (S.tab === 'lands') {
-    const t2 = hasPic() ? landsPicTile((px - c.x) / c.z, (py - c.y) / c.z) : t;
+    const t2 = hasPic() ? landsPicTile((px - c.x) / c.z, (py - c.y) / c.z) : (() => { const f = screenToTileF((px - c.x) / c.z, (py - c.y) / c.z); return { x: Math.round(f.x / SP), y: Math.round(f.y / SP) }; })();
     if (t2.x < 0 || t2.x >= LN() || t2.y < 0 || t2.y >= LN()) return;
     Iso.sel = { tab: 'lands', x: t2.x, y: t2.y }; isoDraw();
     openCell(VIEW.LANDS, t2.y * LN() + t2.x);
@@ -1133,24 +1133,9 @@ function isoDrawNow() {
     }
     if (fence) fenceFront();
   } else if (S.tab === 'lands') {
-    const L = S.cat.lands, N = LN(), onPic = hasPic();
-    if (onPic) landsPicBegin(); // фон-картинка, дальше земли — на центральном лугу картинки (life.js)
-    groundField(N, (xx, y) => `ground/${GROUND[L.base[y][xx]]}.png`, onPic ? 0 : 5);
-    for (let y = 0; y < N; y++) for (let xx = 0; xx < N; xx++) if (GRASSY(`ground/${GROUND[L.base[y][xx]]}.png`) && L.edge[y][xx] < 0) { const p = tileScreen(xx, y); pathTile(p.sx, p.sy); }
-    for (let y = 0; y < N; y++) for (let xx = 0; xx < N; xx++) { // края дорог и берегов (s.c)
-      const e = L.edge[y][xx]; if (e < 0) continue;
-      const p = tileScreen(xx, y); raw(`gborder/${e < 12 ? 'ground' : 'water'}/${EDGE[e % 12]}.png`, p.sx, p.sy);
-    }
-    if (Iso.sel && Iso.sel.tab === 'lands') glow(tileScreen(Iso.sel.x, Iso.sel.y), 0.92);
-    const life = typeof lifeDraw === 'function', tnow = Date.now();
-    if (life) lifeDraw('begin', c, dpr); // жители, строители, дым, мельница, рыба, птицы (life.js)
-    for (let y = 0; y < N; y++) for (let xx = N - 1; xx >= 0; xx--) {
-      const cell = y * N + xx, b = st.grid[1][cell], p = tileScreen(xx, y), d = L.decor[y][xx];
-      if (b < 0 && !queueAt(1, cell) && d >= 0) sprite(`ground/${DECOR[d]}.png`, p.sx, p.sy, d === 1 ? 3 : d === 2 ? -2 : 0);
-      else drawCellBuilding(1, cell, b, st.levels[1][cell], p, 1, isSel(xx, y));
-      if (life) lifeAt(xx, y, tnow);
-    }
-    if (life) lifeDraw('end', c, dpr);
+    const onPic = hasPic();
+    if (onPic) landsPicBegin(); // фон-картинка; земли — на центральном лугу картинки (life.js)
+    landsScene(c, dpr); // клетки с тропинками между ними, жизнь (life.js)
     if (onPic) landsPicEnd();
   } else if (S.world) {
     const w = S.world, R0 = w.radius, n = 2 * R0 + 1, objs = new Map(w.objects.map((o) => [`${o.x}:${o.y}`, o]));
