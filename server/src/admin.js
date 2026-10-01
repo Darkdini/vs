@@ -104,6 +104,7 @@ function install(Game) {
           for (const j of Object.values(c.upJobs || {})) j.end = now;
           for (const a of c.armies) { if (a.state === 'go') { const d = a.arrive - a.depart; a.arrive = now; a.depart = now - d; } else a.back = now; }
           if (c.general && c.general.reviveAt) c.general.reviveAt = now;
+          for (const d of c.deadGenerals || []) if (d.reviveAt) d.reviveAt = now;
           if (c.general && c.general.dead && !c.general.reviveAt) { c.general.dead = false; delete c.general.away; }
           this.tick(c);
         }

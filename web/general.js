@@ -15,10 +15,7 @@ const pct = (v) => `${(v * 100).toFixed(1)}%`;
 
 function generalWin() {
   const g = MY().general, gu = unitById(M().generalId);
-  if (!g) {
-    return `${ribbon('Генерал')}<p class="parch-note">Генерала нет. Наймите его в Военном штабе (раздел «Найм», 1 генерал на замок).
-      Генерал ведёт армию в поход, усиливает её командованием и получает опыт за каждую победу.</p>`;
-  }
+  if (!g) return noGeneralWin();
   const s = g.stats, span = Math.max(1, g.need - g.prevNeed), done = Math.max(0, Math.min(1, (g.exp - g.prevNeed) / span));
   const seg = Array.from({ length: 12 }, (_, i) => `<i class="${i < Math.round(done * 12) ? 'on' : ''}"></i>`).join('');
   const line = (icon, label, value) => `<div class="gline"><img src="${GS(icon)}" alt=""><span>${label}:</span><b>${value}</b></div>`;
@@ -80,7 +77,37 @@ function genDistWin() {
     <button class="pbar" data-gddo>Распределить</button>`;
 }
 
+// генерала нет (погиб или не нанят) — как в оригинале: павшие генералы (воскресить / за золото / удалить),
+// «Тренировка» — выбор юнита из замковой армии; идёт тренировка — «Тренировка Генерала (Мародер) Осталось»
+const genCost = (c) => `<div class="upcost">${RES4.map((r) => `<span data-need="${r}:${c.cost[r]}">${RES_IC[r]}<b>${fmtFull(c.cost[r])}</b></span>`).join('')}<span>${RES_IC.people}<b>${fmtFull(c.people)}</b></span><span>${TIME_IC}<b>${fmtT(c.sec / S.cat.speed)}</b></span></div>`;
+const gico = (id) => (id ? `<img class="fi" src="${unitSrc(unitById(id))}" alt="">` : '');
+function noGeneralWin() {
+  const my = MY(), dead = my.deadGenerals || [], tr = my.genTrain;
+  const deadHtml = dead.map((d, i) => `<div class="upbody center">Мертвый ${gico(d.kindId)} Генерал (${esc(d.kind || '')})<br>${esc(d.name)}</div>
+    ${d.reviveAt ? `<div class="upbody center">Воскрешение. Осталось: <span class="cd" data-e="${d.reviveAt}"></span></div>`
+    : `<div class="upbody center">Стоимость воскрешения:</div>${genCost(d)}<div class="upbody center">или ${fmtFull(d.gold)} ${gimg('coins_s.png', 'ri')}</div>
+      <button class="pbar" data-genrev="${i}">Воскресить</button><button class="pbar" data-genrevg="${i}">Воскресить за золото</button>`}
+    <div class="upbody">Удалить генерала ${esc(d.kind || '')}.</div><button class="pbar" data-gendel="${i}">Удалить</button><hr class="cwhr">`).join('');
+  const train = tr ? `<div class="upbody center">Тренировка ${gico(tr.kindId)} Генерала (${esc(tr.kind)})<br>Осталось: <span class="cd" data-e="${tr.end}"></span></div>`
+    : `${ribbon('Тренировка')}<div class="upbody center">Выберите юнита из замковой армии для тренировки:</div>
+      ${(my.genUnits || []).map((x) => { const u = unitById(x.id); return `<button class="pbar" data-gentu="${x.id}"><img class="fi" src="${unitSrc(u)}" alt=""> ${esc(u.name)}</button>`; }).join('') || '<p class="parch-note">В замковой армии нет подходящих юнитов.</p>'}`;
+  return `${ribbon('Генерал')}${tr ? '' : deadHtml}${train}`;
+}
+S.gtu = null;
+function genTrainWin() {
+  const x = (MY().genUnits || []).find((y) => y.id === S.gtu); if (!x) return noGeneralWin();
+  return `${ribbon('Генерал')}<div class="upbody center">Стоимость тренировки ${gico(x.id)} генерала:</div>${genCost(x)}<button class="pbar" data-gentdo>Тренировать</button>`;
+}
 function openGeneral() { openSheet(generalWin); }
+$('#sheetBody').addEventListener('click', (e) => {
+  const t = e.target.closest('[data-genrev],[data-genrevg],[data-gendel],[data-gentu],[data-gentdo]'); if (!t) return;
+  const d = t.dataset;
+  if (d.genrev) return send({ t: 'general', op: 'revive', idx: Number(d.genrev) });
+  if (d.genrevg) return send({ t: 'general', op: 'revive', idx: Number(d.genrevg), gold: true });
+  if (d.gendel) { if (confirm('Удалить генерала навсегда?')) send({ t: 'general', op: 'delete', idx: Number(d.gendel) }); return; }
+  if (d.gentu) { S.gtu = Number(d.gentu); return openSheet(genTrainWin); }
+  if (d.gentdo !== undefined) return send({ t: 'general', op: 'train', unit: S.gtu });
+});
 
 $('#sheetBody').addEventListener('click', (e) => {
   const t = e.target.closest('[data-general],[data-genreset],[data-gendist],[data-genname],[data-genkill],[data-gddo]'); if (!t) return;

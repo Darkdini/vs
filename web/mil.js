@@ -108,7 +108,8 @@ function buildingFunctions(def, lvl) {
     <div class="card small">Бунтарей и путешественников — не больше 3 за один заказ. «Освоение» (основание нового замка путешественниками) — в разработке.</div>`;
   const units = myUnitList().filter((u) => u.building === def.id);
   // как в оригинале: кнопка «Тренировать» открывает окно «Постройка юнитов», ниже — «Юниты:» с идущими партиями
-  if (units.length && !(def.id === HQ && MY().general)) h += `<button class="rbar" data-trainopen="${def.id}">Тренировать</button>${trainJobsHtml(def.id)}`; // в штабе — только чтобы нанять генерала, если его нет
+  if (units.length && def.id !== HQ) h += // генерал — через «Генерал» (general.js), как в оригинале
+    `<button class="rbar" data-trainopen="${def.id}">Тренировать</button>${trainJobsHtml(def.id)}`; // в штабе — только чтобы нанять генерала, если его нет
   return h;
 }
 // «Юниты:» — партии в тренировке: «Мародер 8/402 · Осталось 23:17:25» (готово/всего, время до конца партии)

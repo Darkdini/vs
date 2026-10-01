@@ -424,15 +424,17 @@ function install(Game, helpers) {
       const ready = Math.max(0, Math.min(t.count, Math.floor((now - t.start) / t.each)));
       if (ready > t.done) {
         const n = ready - t.done; t.done = ready;
-        if (t.unit === GENERAL_ID) castle.general = this.newGeneral(castle, 1);
+        if (t.unit === GENERAL_ID) { castle.general = this.newGeneral(castle, 1); if (t.kindId && UNIT[t.kindId]) { castle.general.kind = UNIT[t.kindId].name; castle.general.kindId = t.kindId; } }
         else castle.units[t.unit] = (castle.units[t.unit] || 0) + n;
-        if (t.done === t.count) this.event(owner, `Готово: ${UNIT[t.unit].name} ×${t.count}`);
+        if (t.done === t.count) this.event(owner, t.unit === GENERAL_ID ? 'Генерал готов!' : `Готово: ${UNIT[t.unit].name} ×${t.count}`);
       }
       return t.done < t.count;
     });
     // генерал воскрес
     const g = castle.general;
     if (g && g.dead && g.reviveAt && g.reviveAt <= now) { g.dead = false; delete g.reviveAt; delete g.reviveStart; this.event(owner, 'Генерал снова в строю.'); }
+    for (const d of castle.deadGenerals || []) if (d.reviveAt && d.reviveAt <= now && !castle.general) { // воскрешённый из списка павших — снова генерал замка
+      castle.deadGenerals = castle.deadGenerals.filter((x) => x !== d); d.dead = false; delete d.reviveAt; delete d.reviveStart; delete d.away; delete d.squad; castle.general = d; this.event(owner, 'Генерал снова в строю.'); }
     // улучшение в Кузнице
     for (const [k, j] of Object.entries(castle.upJobs || {})) {
       if (!j || j.end > now) continue;
@@ -553,10 +555,12 @@ function install(Game, helpers) {
   };
   const genLine = (who, r, e) => (r ? `${who} «${r.name}» получил ${r.got.toLocaleString('ru-RU')} опыта${e.weak ? ' (слабый противник ×0,25)' : ''}${e.repeat ? ` (${e.repeat + 1}-й бой с этим игроком за сутки)` : ''}${r.capped === 'battle' ? ' — лимит за бой' : r.capped === 'day' ? ' — дневной лимит опыта исчерпан' : ''}${r.level > r.from ? `. Новый уровень: ${r.level}!` : ''}` : null);
   // окно «Генерал»: rename, dist (распределить очки), reset (сбросить очки), kill (убить)
-  P.generalOp = function generalOp(castle, user, { op, name, pts } = {}) {
+  P.generalOp = function generalOp(castle, user, { op, name, pts, idx, gold, unit } = {}) {
     this.tick(castle); this.mil(castle);
     const g = castle.general;
-    if (op === 'revive') return this.reviveGeneral(castle);
+    if (op === 'revive') return this.reviveGeneral(castle, user, idx, !!gold);
+    if (op === 'delete') return this.deleteDeadGeneral(castle, idx);
+    if (op === 'train') return this.trainGeneral(castle, Number(unit));
     if (!g) return { error: 'Генерала нет.' };
     if (op === 'rename') {
       name = String(name || '').trim().slice(0, 20); if (!name) return { error: 'Введите имя.' };
@@ -582,18 +586,73 @@ function install(Game, helpers) {
     this.store.save();
     return { ok: true };
   };
-  P.reviveGeneral = function reviveGeneral(castle) {
+  // ----- генерал как в оригинале: павшие генералы списком (воскресить за ресурсы или золото, удалить),
+  // тренировка нового — из юнита Замковой армии («Генерал (Мародер)»). Цены по скринам оригинала:
+  // тренировка = цена юнита ×20 (ресурсы и люди), время ×10; воскрешение = цена юнита ×10×уровень (с долей опыта),
+  // люди ×уровень, время = время юнита ×уровень, или ⌈уровень/25⌉ золота (сразу).
+  const genUnit = (g) => UNIT[g.kindId] || UNIT[GENERAL_ID];
+  P.genLevelF = function genLevelF(g) {
+    const need = this.generalNeed(g.level), prev = g.level > 1 ? this.generalNeed(g.level - 1) : 0;
+    return g.level + Math.max(0, Math.min(0.999, (g.exp - prev) / Math.max(1, need - prev)));
+  };
+  P.reviveCostOf = function reviveCostOf(g) {
+    const u = genUnit(g), L = this.genLevelF(g);
+    return { cost: Object.fromEntries(RES4.map((r) => [r, Math.round(u.cost[r] * 10 * L)])), people: Math.round(u.pop * L), sec: Math.round(u.time * g.level), gold: Math.max(1, Math.ceil(L / 25)) };
+  };
+  P.deadList = function deadList(castle) { return [...(castle.general && castle.general.dead ? [castle.general] : []), ...(castle.deadGenerals || [])]; };
+  P.genTrainUnits = function genTrainUnits(castle) {
+    const race = this.raceOf(castle);
+    return UNITS.filter((u) => u.race === race && u.building !== B.PORTAL && (castle.units[u.id] || 0) > 0);
+  };
+  P.genTrainCost = (u) => ({ cost: Object.fromEntries(RES4.map((r) => [r, u.cost[r] * 20])), people: u.pop * 20, sec: u.time * 10 });
+  P.reviveGeneral = function reviveGeneral(castle, user, idx = 0, gold = false) {
     this.tick(castle);
-    const g = castle.general;
-    if (!g || !g.dead) return { error: 'Генерал жив.' };
+    const list = this.deadList(castle), g = list[Number(idx) || 0];
+    if (!g) return { error: 'Генерал не найден.' };
     if (g.reviveAt) return { error: 'Воскрешение уже идёт.' };
-    const cost = UNIT[GENERAL_ID].cost, k = GEN.revive * g.level; // чем выше уровень, тем дороже
-    for (const r of RES4) if (castle.res[r] < cost[r] * k) return { error: 'Недостаточно ресурсов.' };
-    for (const r of RES4) castle.res[r] -= Math.round(cost[r] * k);
+    if (g !== castle.general && castle.general) return { error: 'В замке уже есть генерал.' };
+    if (list.some((x) => x.reviveAt)) return { error: 'Уже воскрешается другой генерал.' };
+    if (castle.training.some((t) => t.unit === GENERAL_ID)) return { error: 'Идёт тренировка генерала.' };
+    const c = this.reviveCostOf(g);
+    if (gold) {
+      if ((user.gold || 0) < c.gold) return { error: `Нужно ${c.gold} золота.` };
+      this.goldChange(user, -c.gold, `Воскрешение генерала (${g.kind})`);
+      if (g !== castle.general) { castle.deadGenerals = castle.deadGenerals.filter((x) => x !== g); castle.general = g; }
+      g.dead = false; delete g.reviveAt; delete g.reviveStart; delete g.away; this.store.save();
+      return { ok: true, msg: 'Генерал воскрешён!' };
+    }
+    for (const r of RES4) if (castle.res[r] < c.cost[r]) return { error: 'Недостаточно ресурсов.' };
+    if (castle.res.people < c.people) return { error: 'Не хватает людей.' };
+    for (const r of RES4) castle.res[r] -= c.cost[r];
+    castle.res.people -= c.people;
     g.reviveStart = Date.now();
-    g.reviveAt = Date.now() + Math.max(5, Math.round(Math.min(g.level, 100) * 3600 / SPEED / (1 + GEN.heal * g.pts.heal))) * 1000;
+    g.reviveAt = Date.now() + Math.max(5, Math.round(c.sec / SPEED)) * 1000;
     this.store.save();
-    return { ok: true };
+    return { ok: true, msg: 'Воскрешение генерала начато!' };
+  };
+  P.deleteDeadGeneral = function deleteDeadGeneral(castle, idx = 0) {
+    const list = this.deadList(castle), g = list[Number(idx) || 0];
+    if (!g) return { error: 'Генерал не найден.' };
+    if (g === castle.general) castle.general = null; else castle.deadGenerals = castle.deadGenerals.filter((x) => x !== g);
+    this.store.save(); return { ok: true, msg: 'Генерал удалён.' };
+  };
+  P.trainGeneral = function trainGeneral(castle, unitId) {
+    this.tick(castle); this.mil(castle);
+    if (castle.general && !castle.general.dead) return { error: 'В замке уже есть генерал.' };
+    if (castle.training.some((t) => t.unit === GENERAL_ID)) return { error: 'Генерал уже тренируется.' };
+    if (this.deadList(castle).some((x) => x.reviveAt)) return { error: 'Идёт воскрешение генерала.' };
+    const u = UNIT[unitId]; if (!u || !this.genTrainUnits(castle).includes(u)) return { error: 'Выберите юнита из замковой армии.' };
+    const c = this.genTrainCost(u);
+    for (const r of RES4) if (castle.res[r] < c.cost[r]) return { error: 'Недостаточно ресурсов.' };
+    if (castle.res.people < c.people) return { error: 'Не хватает людей.' };
+    for (const r of RES4) castle.res[r] -= c.cost[r];
+    castle.res.people -= c.people;
+    castle.units[u.id] -= 1; if (!castle.units[u.id]) delete castle.units[u.id];
+    if (castle.general && castle.general.dead) { (castle.deadGenerals = castle.deadGenerals || []).push(castle.general); castle.general = null; } // павший остаётся в списке
+    const each = Math.max(1, Math.round(c.sec / SPEED)) * 1000;
+    castle.training.push({ id: this.db.nextId++, unit: GENERAL_ID, kindId: u.id, building: B.HQ, count: 1, done: 0, each, start: Date.now() });
+    this.store.save();
+    return { ok: true, msg: 'Тренировка генерала начата!' };
   };
 
   // ----- марши -----
@@ -1397,7 +1456,10 @@ function install(Game, helpers) {
     return {
       trainDay: { used: this.trainedToday(castle), max: TRAIN_DAY, next: (castle.trainLog || [])[0] ? castle.trainLog[0].at + 86400000 : 0 },
       units: castle.units, training: castle.training.map((t) => ({ id: t.id, unit: t.unit, building: t.building, count: t.count, done: t.done, each: t.each, start: t.start })),
-      general: castle.general && this.generalView(castle), armies: castle.armies.map((a) => ({ id: a.id, units: a.units, general: a.general, mission: a.mission, x: a.x, y: a.y, depart: a.depart, arrive: a.arrive, back: a.back, state: a.state, loot: a.loot, cargo: a.cargo, squad: a.squad, portal: a.portal,
+      general: castle.general && !castle.general.dead && this.generalView(castle),
+      deadGenerals: this.deadList(castle).map((g) => ({ name: g.name, kind: g.kind, kindId: g.kindId, level: g.level, reviveAt: g.reviveAt || 0, ...this.reviveCostOf(g) })),
+      genTrain: (() => { const t = castle.training.find((x) => x.unit === GENERAL_ID); return t ? { kind: (UNIT[t.kindId] || {}).name || 'Генерал', kindId: t.kindId, end: t.start + t.each } : null; })(),
+      genUnits: this.genTrainUnits(castle).map((u) => ({ id: u.id, ...this.genTrainCost(u) })), armies: castle.armies.map((a) => ({ id: a.id, units: a.units, general: a.general, mission: a.mission, x: a.x, y: a.y, depart: a.depart, arrive: a.arrive, back: a.back, state: a.state, loot: a.loot, cargo: a.cargo, squad: a.squad, portal: a.portal,
         stayName: a.state === 'stay' && this.db.castles[a.stayAt] ? this.db.castles[a.stayAt].name : null })),
       squads: castle.squads, merchants: this.merchants(castle),
       guests: this.guestsOf(castle).map((g) => ({ id: g.a.id, from: this.ownerOf(g.c).login, castle: g.c.name, units: g.a.units })),

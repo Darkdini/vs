@@ -337,5 +337,23 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   const k = g.kingdom(a); assert.ok(k.length === 1 && k[0].res && Array.isArray(k[0].units));
   console.log('✓ Премиум: уникальные подарки, цвет сообщений, сводка королевства');
 }
+{ // генерал как в оригинале: тренировка из юнита замковой армии, павшие — воскресить за ресурсы/золото, удалить
+  const { UNIT } = require('../src/army');
+  const u = g.register({ login: 'gentest', password: '12345', nick: 'GenTest', race: 3 }).user, c = g.castleOf(u); g.mil(c);
+  const tc = g.genTrainCost(UNIT[245]); assert.deepStrictEqual([tc.cost.wood, tc.cost.stone, tc.cost.iron, tc.cost.food, tc.people, tc.sec], [1700, 1600, 1800, 3600, 120, 14400], 'Мародер → генерал: как на скрине');
+  const rc = g.reviveCostOf({ kindId: 247, level: 716, exp: g.generalNeed(715) + 1 });
+  assert.deepStrictEqual([rc.cost.wood, rc.cost.stone, rc.cost.iron, rc.cost.food, rc.people, rc.sec, rc.gold], [537000, 572800, 608600, 1181400, 8592, 1403360, 29].map((v, i) => (i < 4 ? rc.cost[['wood', 'stone', 'iron', 'food'][i]] : v)), 'Бугай 716');
+  assert.ok(Math.abs(rc.cost.wood - 537060) / 537060 < 0.002 && rc.people === 8592 && rc.sec === 1403360 && rc.gold === 29, `Бугай 716: ${JSON.stringify(rc)}`);
+  g.maxOut(c); c.units = { 245: 5 }; c.general = null; Object.assign(c.res, { wood: 5e4, stone: 5e4, iron: 5e4, food: 5e4, people: 5000 });
+  assert.ok(g.trainGeneral(c, 245).ok); assert.strictEqual(c.units[245], 4, 'юнит ушёл в генералы');
+  assert.ok(g.trainGeneral(c, 245).error, 'второй генерал не тренируется');
+  c.training.find((t) => t.unit === 236).start = 0; g.tick(c);
+  assert.ok(c.general && c.general.kind === 'Мародер');
+  c.general.dead = true; u.gold = 10;
+  assert.ok(g.reviveGeneral(c, u, 0, true).ok && !c.general.dead && u.gold === 9, 'воскрешение за 1 золото');
+  c.general.dead = true; c.units[245] = 2; assert.ok(g.trainGeneral(c, 245).ok); assert.strictEqual(c.deadGenerals.length, 1, 'павший остаётся в списке');
+  assert.ok(g.deleteDeadGeneral(c, 0).ok && !c.deadGenerals.length);
+  console.log('✓ Генерал: тренировка из юнита (цены по скрину), воскрешение за ресурсы/золото, павшие списком, удаление');
+}
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);
