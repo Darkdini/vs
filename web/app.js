@@ -37,7 +37,9 @@ const TIME_IC = gimg('res/time.png', 'ri');
 const RES_NAME = { wood: 'Дерево', stone: 'Камень', iron: 'Железо', food: 'Еда', people: 'Люди' };
 const VIEW = { CASTLE: 0, LANDS: 1 };
 const WORLD_NAME_IMG = (o) => `ground/${GROUND[o.kind === 'castle' ? castleTile(o.rating) : o.img]}.png`;
-const castleTile = (rating) => (rating < 400 ? 28 : rating < 1500 ? 10 : 29); // маленький / средний / большой замок (из 2300)
+// замок на карте мира растёт с рейтингом: 4 стадии (старт, 500, 1000, 1500)
+const castleStage = (rating) => (rating < 500 ? 0 : rating < 1000 ? 1 : rating < 1500 ? 2 : 3);
+const castleTile = (rating) => [28, 28, 10, 29][castleStage(rating)]; // старые картинки — пока нет новых gfx/world/castleN.png
 
 const S = {
   ws: null, cat: null, by: {}, st: null, offset: 0, tab: 'castle', sub: null, world: null,
@@ -1163,7 +1165,9 @@ function isoDrawNow() {
       const p = tileScreen(xx, y), sel = isSel(xx, y);
       // выбранный замок/объект — золотая подводка по контуру
       if (sel) { ictx.save(); ictx.filter = 'drop-shadow(0 0 3px #fff3a0) drop-shadow(0 0 3px #ffe030) drop-shadow(0 0 4px #ffc400) drop-shadow(0 0 7px #ff9d00) brightness(1.18)'; }
-      if (o.qimg && pic(o.qimg)) { const im = pic(o.qimg), k = TW * 1.25 / im.width; ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(im, p.sx + TW / 2 - im.width * k / 2, p.sy + TH * 0.85 - im.height * k, im.width * k, im.height * k); ictx.restore(); } // логово похода
+      const cimg = o.kind === 'castle' && pic(`world/castle${castleStage(o.rating)}.png`);
+      if (cimg) { const k = TW * [1.05, 1.2, 1.35, 1.5][castleStage(o.rating)] / cimg.width; ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(cimg, p.sx + TW / 2 - cimg.width * k / 2, p.sy + TH * 0.85 - cimg.height * k, cimg.width * k, cimg.height * k); ictx.restore(); }
+      else if (o.qimg && pic(o.qimg)) { const im = pic(o.qimg), k = TW * 1.25 / im.width; ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(im, p.sx + TW / 2 - im.width * k / 2, p.sy + TH * 0.85 - im.height * k, im.width * k, im.height * k); ictx.restore(); } // логово похода
       else ground(WORLD_NAME_IMG(o), p.sx, p.sy);
       if (sel) ictx.restore();
       if (o.newbie) newbieDome(p);
