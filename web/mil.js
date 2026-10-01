@@ -9,10 +9,12 @@ const HQ = 2;
 let UNIT_BY = null;
 const unitById = (id) => { if (!UNIT_BY) UNIT_BY = Object.fromEntries(M().units.map((u) => [u.id, u])); return UNIT_BY[id]; };
 // у орков нет своих спрайтов в клиенте: берутся похожие, ?orc красит их в зелёный (style.css)
-const DW_HD = ['traveler', 'buntar', 'arheolog', 'wisdom']; // у гномов — новые картинки (оригинал), у остальных рас прежние
-const unitSrc = (u, race = S.st.user.race) => `${GFX}units/${u.img === 'unical/taran' ? 'dwarv/hd/taran' : u.race === 'all' && !u.img.includes('/') ? `${M().raceDir[race]}/${race === 'dwarves' && DW_HD.includes(u.img) ? 'hd/' : ''}${u.img}` : u.img}.png${u.race === 'orcs' || (u.race === 'all' && race === 'orcs' && !u.img.includes('/')) ? '?orc' : ''}`;
+const DW_HD = ['traveler', 'buntar', 'arheolog', 'wisdom']; // у гномов и орков — новые картинки (оригинал), у остальных рас прежние
+const HD_DIR = { dwarves: 'dwarv/hd', orcs: 'orc/hd' };
+const unitSrc = (u, race = S.st.user.race) => `${GFX}units/${u.img === 'unical/taran' ? 'dwarv/hd/taran' : u.race === 'all' && !u.img.includes('/') ? (HD_DIR[race] && DW_HD.includes(u.img) ? `${HD_DIR[race]}/${u.img}` : `${M().raceDir[race]}/${u.img}`) : u.img}.png${(u.race === 'orcs' && !u.img.startsWith('orc/')) || (u.race === 'all' && race === 'orcs' && !u.img.includes('/') && !DW_HD.includes(u.img)) ? '?orc' : ''}`;
 const uimg = (u, cls = 'ui') => `<img class="${cls}" src="${unitSrc(u)}" alt="">`;
-const myUnitList = () => M().units.filter((u) => (u.race === S.st.user.race || u.race === 'all') && !u.notrain);
+const raceUnit = (u, race = S.st.user.race) => (u && u.raceOvr && u.raceOvr[race] ? { ...u, ...u.raceOvr[race] } : u); // цена общих юнитов по расе
+const myUnitList = () => M().units.filter((u) => (u.race === S.st.user.race || u.race === 'all') && !u.notrain).map((u) => raceUnit(u));
 const ART_ICON = { atk: 'smallicon/artefacts/artefakt_dragon.png', def: 'smallicon/artefacts/artefakt_spider.png', prod: 'smallicon/artefacts/artefakt_wampire_blood.png', speed: 'smallicon/artefacts/artefakt_bat.png', train: 'smallicon/magattack.png' };
 const TYPE_NAME = { infantry: 'пехота', cavalry: 'кавалерия', magic: 'магия', siege: 'осада', special: 'особый' };
 S.cnt = {}; S.army = null; S.reports = null; S.alliances = null;
@@ -380,7 +382,7 @@ function armyBookHtml() {
   const list = M().units.filter((u) => u.race === S.bookRace);
   return `<div class="vhead"><button class="iconbtn" data-back>‹</button><h2>Войска</h2></div>
     <div class="pad" style="padding-top:8px"><div class="pills">${races.map((r) => `<button data-brace="${r}" class="${r === S.bookRace ? 'on' : ''}">${r === 'all' ? 'Общие' : esc(S.cat.races[r])}</button>`).join('')}</div>
-    <div class="list" style="margin-top:8px">${list.map((u) => `<div class="card unit"><div class="top">${`<img class="ui" src="${unitSrc(u, S.bookRace === 'all' ? S.st.user.race : S.bookRace)}" alt="">`}<div class="grow"><b>${esc(u.name)}</b>
+    <div class="list" style="margin-top:8px">${list.map((u0) => raceUnit(u0, S.bookRace === 'all' ? S.st.user.race : S.bookRace)).map((u) => `<div class="card unit"><div class="top">${`<img class="ui" src="${unitSrc(u, S.bookRace === 'all' ? S.st.user.race : S.bookRace)}" alt="">`}<div class="grow"><b>${esc(u.name)}</b>
       <span class="muted small">${TYPE_NAME[u.type] || ''} · ${esc(S.by[u.building].name)} ${u.level} ур.${Object.entries(u.req).map(([id, l]) => `, ${esc(S.by[id].name)} ${l} ур.`).join('')}</span></div></div>${unitStatsHtml(u)}</div>`).join('')}</div></div>`;
 }
 

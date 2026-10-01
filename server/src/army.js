@@ -50,17 +50,17 @@ const UNIT_LIST = [
   [256, 'Механический центурион', 'dwarves', 'dwarv/hd/centurion', 'elite_inf', B.MAGE_ACADEMY, 7, { [B.SMITH]: 5 }],
   [219, 'Револьверщик', 'dwarves', 'dwarv/hd/revolver', 'elite_inf', B.BARRACKS, 10, { [B.WORKSHOP]: 10, [B.SMITH]: 8 }],
   [220, 'Йетти', 'dwarves', 'dwarv/hd/yeti', 'legendary', B.MAGE_ACADEMY, 10, { [B.WORKSHOP]: 10 }],
-  // орки: имена и характеристики — из оригинала (скрины окна тренировки, таблица ORIG ниже)
-  [245, 'Мародёр', 'orcs', 'human/swordman', 'atk_inf', B.BARRACKS, 1],
-  [247, 'Бугай', 'orcs', 'dwarv/fighter', 'def_inf', B.BARRACKS, 1],
-  [246, 'Урук-хай', 'orcs', 'dwarv/defender', 'def_inf', B.BARRACKS, 3],
-  [250, 'Тиран', 'orcs', 'human/javelineer', 'elite_inf', B.BARRACKS, 10, { [B.SMITH]: 5 }],
-  [253, 'Осквернитель', 'orcs', 'human/mage', 'mage', B.MAGE_ACADEMY, 1],
-  [254, 'Чернокнижник', 'orcs', 'elf/create', 'mage', B.MAGE_ACADEMY, 3],
-  [248, 'Шаман', 'orcs', 'dwarv/elder', 'mage', B.MAGE_ACADEMY, 10, { [B.SMITH]: 5 }],
-  [249, 'Кулак Ярости', 'orcs', 'human/knight', 'heavy_cav', B.STABLE, 10, { [B.SMITH]: 10 }],
-  [251, 'Изувер', 'orcs', 'dwarv/yeti', 'legendary', B.PORTAL, 1],
-  [252, 'Орк загонщик', 'orcs', 'human/scout', 'scout', B.SPY, 1],
+  // орки — как в оригинале (скрины окна «Юнит»): имена, требования, характеристики — в ORIG ниже
+  [245, 'Мародер', 'orcs', 'orc/hd/marauder', 'atk_inf', B.BARRACKS, 1],
+  [247, 'Бугай', 'orcs', 'orc/hd/bugai', 'def_inf', B.BARRACKS, 3, { [B.SMITH]: 1 }],
+  [252, 'Орк загонщик', 'orcs', 'orc/hd/hunter', 'scout', B.BARRACKS, 5, { [B.MAGE_ACADEMY]: 1, [B.SPY]: 1 }],
+  [253, 'Осквернитель', 'orcs', 'orc/hd/defiler', 'mage', B.MAGE_ACADEMY, 5],
+  [246, 'Урук-хай', 'orcs', 'orc/hd/uruk', 'def_inf', B.STABLE, 1, { [B.WORKSHOP]: 1, [B.SMITH]: 3 }],
+  [254, 'Варлок', 'orcs', 'orc/hd/warlock', 'mage', B.STABLE, 5, { [B.BARRACKS]: 7, [B.WORKSHOP]: 3, [B.SMITH]: 7 }],
+  [250, 'Тиран', 'orcs', 'orc/hd/tyrant', 'elite_inf', B.BARRACKS, 10, { [B.SMITH]: 10 }],
+  [248, 'Шаман', 'orcs', 'orc/hd/shaman', 'mage', B.BARRACKS, 10, { [B.WORKSHOP]: 10, [B.SMITH]: 8 }],
+  [249, 'Кулак Ярости', 'orcs', 'orc/hd/fist', 'legendary', B.STABLE, 10, { [B.SMITH]: 10 }], // требования на скрине не видны — прежние
+  [251, 'Изувер', 'orcs', 'dwarv/yeti', 'legendary', B.PORTAL, 1], // на скринах оригинала нет — оставлен как был
   // специальные — у каждой расы своя картинка (units/<раса>/torg.png и т.д.)
   [221, 'Торговец', 'all', 'torg', 'merchant', B.MARKET, 1],
   [224, 'Путешественник', 'all', 'traveler', 'settler', B.TRAVELER, 5],
@@ -88,15 +88,16 @@ const CUSTOM = {
 // характеристики оригинала (окно «Постройка юнитов»): ❤ здоровье, ⚔ атака, маг. атака, 🛡 защита, маг. защита, скорость, груз;
 // цена дерево/камень/железо/еда, людей, время (сек)
 const ORIG = {
-  245: { type: 'infantry', hp: 40, atk: 21, mag: 0, def: 16, mdef: 0, speed: 11, carry: 101, cost: [42, 40, 45, 90], pop: 3, time: 266 }, // Мародёр 4:26
-  247: { type: 'infantry', hp: 50, atk: 21, mag: 0, def: 16, mdef: 0, speed: 6, carry: 31, cost: [37, 40, 42, 82], pop: 6, time: 362 }, // Бугай 6:02
-  246: { type: 'infantry', hp: 60, atk: 18, mag: 0, def: 26, mdef: 8, speed: 6, carry: 40, cost: [45, 48, 50, 90], pop: 8, time: 420 }, // Урук-хай (скрина нет — между Бугаем и Тираном)
-  250: { type: 'infantry', hp: 80, atk: 40, mag: 22, def: 50, mdef: 31, speed: 9, carry: 90, cost: [55, 52, 57, 110], pop: 26, time: 688 }, // Тиран 11:28
-  253: { type: 'magic', hp: 25, atk: 0, mag: 11, def: 0, mdef: 26, speed: 7, carry: 60, cost: [42, 42, 45, 85], pop: 4, time: 288 }, // Осквернитель 4:48
-  254: { type: 'magic', hp: 55, atk: 0, mag: 22, def: 0, mdef: 32, speed: 6, carry: 60, cost: [62, 40, 35, 107], pop: 12, time: 499 }, // 8:19
-  248: { type: 'magic', hp: 120, atk: 40, mag: 60, def: 35, mdef: 60, speed: 9, carry: 70, cost: [82, 85, 87, 107], pop: 25, time: 810 }, // Шаман 13:30
-  249: { type: 'infantry', hp: 140, atk: 27, mag: 13, def: 27, mdef: 13, speed: 4, carry: 70, cost: [340, 337, 332, 440], pop: 45, time: 1087 }, // Кулак Ярости 18:07
-  252: { type: 'cavalry', hp: 25, atk: 25, mag: 0, def: 20, mdef: 0, speed: 14, carry: 0, cost: [40, 37, 42, 85], pop: 7, time: 440 }, // Орк загонщик 7:20
+  // орки (скрины окна «Юнит» оригинала) — значения один в один
+  245: { type: 'infantry', hp: 40, atk: 15, mag: 0, def: 10, mdef: 0, speed: 11, carry: 101, cost: [85, 80, 90, 180], pop: 6, time: 1440 }, // Мародер 24:00
+  247: { type: 'infantry', hp: 50, atk: 20, mag: 0, def: 15, mdef: 0, speed: 6, carry: 31, cost: [75, 80, 85, 165], pop: 12, time: 1960 }, // Бугай 32:40
+  252: { type: 'cavalry', hp: 25, atk: 15, mag: 0, def: 10, mdef: 0, speed: 14, carry: 0, cost: [80, 75, 85, 170], pop: 15, time: 2380 }, // Орк загонщик 39:40
+  253: { type: 'magic', hp: 25, atk: 0, mag: 10, def: 0, mdef: 25, speed: 7, carry: 60, cost: [85, 85, 90, 170], pop: 9, time: 1560 }, // Осквернитель 26:00
+  246: { type: 'cavalry', hp: 100, atk: 50, mag: 10, def: 45, mdef: 15, speed: 12, carry: 60, cost: [100, 95, 105, 220], pop: 39, time: 3480 }, // Урук-хай 58:00
+  254: { type: 'magic', hp: 55, atk: 0, mag: 15, def: 0, mdef: 25, speed: 6, carry: 60, cost: [125, 80, 70, 215], pop: 24, time: 2700 }, // Варлок 45:00
+  250: { type: 'infantry', hp: 80, atk: 20, mag: 10, def: 30, mdef: 20, speed: 9, carry: 90, cost: [110, 105, 115, 220], pop: 53, time: 3720 }, // Тиран 1:02:00
+  248: { type: 'magic', hp: 120, atk: 20, mag: 40, def: 15, mdef: 40, speed: 9, carry: 70, cost: [165, 170, 175, 215], pop: 51, time: 4380 }, // Шаман 1:13:00
+  249: { type: 'infantry', hp: 140, atk: 25, mag: 5, def: 25, mdef: 5, speed: 4, carry: 70, cost: [680, 675, 665, 880], pop: 91, time: 5880, bldDmg: 32 }, // Кулак Ярости 1:38:00
   // гномы (скрины окна «Юнит» оригинала)
   214: { type: 'infantry', hp: 20, atk: 20, mag: 0, def: 5, mdef: 0, speed: 11, carry: 55, cost: [55, 100, 70, 50], pop: 3, time: 1160 }, // Гном топорщик 19:20
   215: { type: 'infantry', hp: 25, atk: 15, mag: 0, def: 15, mdef: 0, speed: 7, carry: 47, cost: [70, 115, 85, 60], pop: 12, time: 1460 }, // Арбалетчик 24:20
@@ -107,11 +108,11 @@ const ORIG = {
   256: { type: 'infantry', hp: 70, atk: 30, mag: 0, def: 45, mdef: 25, speed: 9, carry: 80, cost: [125, 185, 130, 85], pop: 53, time: 3000 }, // Механический центурион 50:00
   219: { type: 'infantry', hp: 80, atk: 40, mag: 20, def: 45, mdef: 5, speed: 9, carry: 78, cost: [165, 205, 175, 85], pop: 51, time: 3330 }, // Револьверщик 55:30
   220: { type: 'infantry', hp: 100, atk: 25, mag: 5, def: 20, mdef: 5, speed: 2, carry: 55, cost: [655, 750, 665, 620], pop: 89, time: 4640, bldDmg: 27 }, // Йетти 1:17:20
-  // общие юниты (те же скрины): у Археолога и Ученого в оригинале скорость 0 — оставлена прежняя, иначе они не дойдут до цели
+  // общие юниты (те же скрины), значения один в один; у Путешественника орков другая цена (raceOvr ниже)
   224: { type: 'special', hp: 10, atk: 1, mag: 1, def: 1, mdef: 1, speed: 10, carry: 0, cost: [5000, 7500, 5000, 5000], pop: 3000, time: 136800 }, // Путешественник 38:00:00
   233: { type: 'special', hp: 10, atk: 2, mag: 2, def: 1, mdef: 1, speed: 9, carry: 0, cost: [12012, 13316, 10412, 24031], pop: 3026, time: 486000 }, // Бунтарь 135:00:00
-  230: { type: 'special', hp: 0, atk: 0, mag: 0, def: 0, mdef: 0, keepSpeed: true, carry: 0, cost: [123, 141, 125, 250], pop: 12, time: 960 }, // Археолог 16:00
-  227: { type: 'special', hp: 0, atk: 0, mag: 0, def: 0, mdef: 0, keepSpeed: true, carry: 0, cost: [36, 41, 29, 40], pop: 2, time: 1700 }, // Ученый 28:20
+  230: { type: 'special', hp: 0, atk: 0, mag: 0, def: 0, mdef: 0, speed: 0, carry: 0, cost: [123, 141, 125, 250], pop: 12, time: 960 }, // Археолог 16:00
+  227: { type: 'special', hp: 0, atk: 0, mag: 0, def: 0, mdef: 0, speed: 0, carry: 0, cost: [36, 41, 29, 40], pop: 2, time: 1700 }, // Ученый 28:20
   243: { type: 'siege', hp: 60, atk: 0, mag: 0, def: 0, mdef: 0, speed: 7, carry: 0, cost: [97, 97, 96, 105], pop: 14, time: 1620, wallDmg: 50, oneUse: true }, // Таран 27:00
 };
 // остальные юниты (люди, эльфы, гномы, общие) переводятся из нашей GDD-таблицы в масштаб оригинала:
@@ -148,6 +149,9 @@ const UNIT = Object.fromEntries(UNITS.map((u) => [u.id, u]));
 const MERCHANT_ID = 221, MERCHANTS = 20;
 Object.assign(UNIT[MERCHANT_ID], { speed: 20, notrain: true, carry: 45 });
 const GENERAL_ID = 236;
+// у общих юнитов цена бывает разной по расам (скрины оригинала): Путешественник у орков — 5000/5000/5000/7500
+UNIT[224].raceOvr = { orcs: { cost: { wood: 5000, stone: 5000, iron: 5000, food: 7500 } } };
+const raceUnit = (u, race) => (u && u.raceOvr && u.raceOvr[race] ? { ...u, ...u.raceOvr[race] } : u);
 const unitsForRace = (race) => UNITS.filter((u) => u.race === race || u.race === 'all');
 // генерал как в оригинале: за уровень — очки опыта, игрок распределяет их в окне «Генерал».
 // Личная атака/защита — +1 за очко; командование атакой/защитой — +0,3% к армии; восстановление — быстрее воскрешение; карьера — больше опыта.
@@ -351,7 +355,7 @@ function install(Game, helpers) {
   };
   P.train = function train(castle, unitId, count) {
     this.tick(castle);
-    const unit = UNIT[unitId]; count = Math.floor(Number(count));
+    const unit = raceUnit(UNIT[unitId], this.raceOf(castle)); count = Math.floor(Number(count));
     if (!unit) return { error: 'Неизвестный юнит.' };
     if (unit.notrain) return { error: 'Торговцы не тренируются — их 20 на Рынке.' };
     if (!(count > 0)) return { error: 'Укажите количество.' };
@@ -578,9 +582,9 @@ function install(Game, helpers) {
   // ----- марши -----
   // castleAt(x, y) — индекс по координатам в game.js
   P.travelSec = function travelSec(castle, units, general, x, y, merchants = false) {
-    const speeds = Object.keys(units).filter((id) => units[id] > 0).map((id) => UNIT[id].speed);
+    const speeds = Object.keys(units).filter((id) => units[id] > 0 && UNIT[id].speed > 0).map((id) => UNIT[id].speed);
     if (general) speeds.push(UNIT[GENERAL_ID].speed);
-    if (!speeds.length) return 0;
+    if (!speeds.length) speeds.push(5); // у юнитов со скоростью 0 (как в оригинале) — временно 5 полей/час, пока не поправим ходьбу
     const b = this.bonus(castle);
     const v = Math.min(...speeds) * b.speed * (merchants ? b.tradeSpeed : 1);
     return Math.max(5, Math.round(Math.hypot(x - castle.x, y - castle.y) / v * 3600 / SPEED));
