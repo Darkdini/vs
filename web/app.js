@@ -742,6 +742,9 @@ const HD = { 'build/castle.png': ['build/hd/castle.png', 8], 'build/spycentr.png
   // ров (кольцо из одного нарисованного куска, с течением) и трава в замке — HD
   ...Object.fromEntries(['TL', 'R', 'BR', 'L', 'cL', 'cT', 'cR', 'cB', 'bL', 'bTL'].flatMap((n) => Array.from({ length: 16 }, (_, f) => [`ground/moat_${n}_${f}.png`, [`ground/hd/moat_${n}_${f}.png`, 6]]))),
   'ground/grassC.png': ['ground/hd/grassC.png', 8], 'ground/grass1C.png': ['ground/hd/grass1C.png', 8] };
+// постройки на землях — отрисованы из 3D-моделей оригинального 3D-клиента (масштаб ×6)
+for (const n of ['farm_small', 'farm_avg', 'farm_big', 'house_small', 'house_avg', 'house_big', 'sawmill_small', 'sawmill_avg', 'sawmill_big',
+  'stone_small', 'stone_avg', 'stone_big', 'iron_small', 'iron_avg', 'iron_big', 'chip']) HD[`build/${n}.png`] = [`build/hd/${n}.png?v=3d`, 6];
 // в замке трава своя (HD): снаружи стены — светлая (grass1C), внутри — с цветами (grassC); на Землях и в Мире — прежняя
 const CASTLE_GRASS = { 'ground/grass.png': 'ground/grass1C.png', 'ground/grass1.png': 'ground/grass1C.png' };
 const gpath = (path) => (S.tab === 'castle' && CASTLE_GRASS[path]) || path;
@@ -955,7 +958,7 @@ const flowOn = () => typeof SND === 'undefined' || SND.anim !== false;
 let flowTimer = null;
 function flowTick() { // перерисовка только пока открыт замок и вкладка видна
   flowTimer = null;
-  if (S.tab !== 'castle' || document.hidden || !flowOn() || !Iso.cv.isConnected) return;
+  if ((S.tab !== 'castle' && S.tab !== 'lands') || document.hidden || !flowOn() || !Iso.cv.isConnected) return;
   isoDraw(); flowTimer = setTimeout(flowTick, ANIM_MS);
 }
 const MOAT_T = ['TL', 'R', 'BR', 'L', 'cL', 'cT', 'cR', 'cB', 'bL', 'bTL'];
@@ -1131,11 +1134,15 @@ function isoDrawNow() {
       const p = tileScreen(xx, y); raw(`gborder/${e < 12 ? 'ground' : 'water'}/${EDGE[e % 12]}.png`, p.sx, p.sy);
     }
     if (Iso.sel && Iso.sel.tab === 'lands') glow(tileScreen(Iso.sel.x, Iso.sel.y), 0.92);
+    const life = typeof lifeDraw === 'function', tnow = Date.now();
+    if (life) lifeDraw('begin', c, dpr); // жители, строители, дым, мельница, рыба, птицы (life.js)
     for (let y = 0; y < 15; y++) for (let xx = 14; xx >= 0; xx--) {
       const cell = y * 15 + xx, b = st.grid[1][cell], p = tileScreen(xx, y), d = L.decor[y][xx];
       if (b < 0 && !queueAt(1, cell) && d >= 0) sprite(`ground/${DECOR[d]}.png`, p.sx, p.sy, d === 1 ? 3 : d === 2 ? -2 : 0);
       else drawCellBuilding(1, cell, b, st.levels[1][cell], p, 1, isSel(xx, y));
+      if (life) lifeAt(xx, y, tnow);
     }
+    if (life) lifeDraw('end', c, dpr);
   } else if (S.world) {
     const w = S.world, R0 = w.radius, n = 2 * R0 + 1, objs = new Map(w.objects.map((o) => [`${o.x}:${o.y}`, o]));
     for (let y = 0; y < n; y++) for (let xx = n - 1; xx >= 0; xx--) {
