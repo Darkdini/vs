@@ -408,5 +408,19 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   void w0; console.log('✓ Задания: обучение, награды, поход в логово с боссом');
   if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
 }
+{ // экспедиции из здания и временные артефакты
+  const u = g.register({ login: 'expedU', password: '12345', race: 0 }).user, c = g.castleOf(u); g.maxOut(c); g.mil(c);
+  c.units[230] = 25; c.artifacts = []; c.expeds = [];
+  assert.ok(require('../src/army').UNIT[230].building === 17, 'археологи тренируются в Экспедиции');
+  const r = g.expedGo(c, 'tomb', 30); assert.ok(r.ok && c.units[230] === 5 && c.expeds.length === 1 && c.expeds[0].n === 20, 'в экспедицию — не больше 20');
+  assert.ok(g.expedGo(c, 'nope', 1).error, 'неизвестная экспедиция');
+  c.expeds[0].end = Date.now() - 1; g.tick(c);
+  assert.ok(!c.expeds.length && c.units[230] >= 5 && g.db.reports.slice(-1)[0].title.startsWith('Экспедиция вернулась'), 'экспедиция вернулась с отчётом');
+  c.artifacts = [{ id: 1, type: 'atk', rarity: 0, active: false }];
+  const a = g.activateArtifact(c, 1, true); assert.ok(a.ok && c.artifacts[0].until > Date.now(), 'пробуждение на время');
+  assert.ok(g.activateArtifact(c, 1, false).error, 'усыпить нельзя');
+  c.artifacts[0].until = Date.now() - 1; g.mil(c); assert.ok(!c.artifacts.length, 'истёкший артефакт рассыпается');
+  console.log('✓ Экспедиции из здания, временные артефакты');
+}
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);

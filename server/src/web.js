@@ -454,7 +454,8 @@ const API = {
   exchange(m) { const r = this.game.exchange(this.castle, m.from, m.to, m.amount); if (!r.error) this.toast(`Обмен: получено ${r.got}`); this.result(r); },
   research(m) { this.result(this.game.research(this.castle, m.sci)); },
   religion(m) { this.result(this.game.setReligion(this.castle, m.id)); },
-  artifact(m) { this.result(this.game.activateArtifact(this.castle, m.id, !!m.on)); },
+  artifact(m) { const r = this.game.activateArtifact(this.castle, m.id, !!m.on); if (r.msg) this.toast(r.msg); this.result(r); },
+  exped(m) { const r = this.game.expedGo(this.castle, String(m.kind || ''), m.n); if (r.msg) this.toast(r.msg); this.result(r); },
   alliance(m) {
     const r = this.game.alliance(this.user, this.castle, m);
     if (r && r.msg) this.toast(r.msg);

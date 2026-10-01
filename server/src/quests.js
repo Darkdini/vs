@@ -24,10 +24,10 @@ const TUT = [
   { id: 'market', title: 'Торговый путь', text: 'Постройте Рынок и отправьте торговцев с ресурсами в любой замок (можно другу).', icon: b(4), need: (g, u, c, base) => [g.qstat(u, 'trades', base), 1], reward: R(700, 2) },
   { id: 'univ', title: 'Свет знаний', text: 'Постройте Университет и начните изучать любую науку.', icon: b(15), need: (g, u, c, base) => [g.qstat(u, 'research', base), 1], reward: R(800, 2) },
   { id: 'general', title: 'Полководец', text: 'Генерал ведёт армию и усиливает её. Натренируйте генерала в Военном штабе.', icon: b(2), need: (g, u, c) => [c.general && !c.general.dead ? 1 : 0, 1], reward: R(900, 3) },
-  { id: 'expcorp', title: 'Экспедиционный корпус', text: 'Постройте Экспедицию и отправьте археологов в руины (Заброшенный замок на карте мира).', icon: b(17), need: (g, u, c, base) => [g.qstat(u, 'expeds', base), 1], reward: R(1000, 3) },
-  { id: 'relic', title: 'Древняя реликвия', text: 'Найдите в экспедиции артефакт. Чем больше археологов и выше Лагерь археологов — тем выше шанс.', icon: 'smallicon/artefacts/artefakt_dragon.png', need: (g, u, c, base) => [g.qstat(u, 'arts', base), 1], reward: R(1200, 5) },
+  { id: 'expcorp', title: 'Экспедиционный корпус', text: 'Постройте Экспедицию, обучите в ней археологов и отправьте их на поиски.', icon: b(17), need: (g, u, c, base) => [g.qstat(u, 'expeds', base), 1], reward: R(1000, 3) },
+  { id: 'relic', title: 'Древняя реликвия', text: 'Найдите в экспедиции артефакт. Чем больше археологов, дальше экспедиция и выше Лагерь археологов — тем выше шанс.', icon: 'smallicon/artefacts/artefakt_dragon.png', need: (g, u, c, base) => [g.qstat(u, 'arts', base), 1], reward: R(1200, 5) },
   { id: 'treasury', title: 'Хранитель сокровищ', text: 'Артефакты хранятся в Сокровищнице. Постройте её до 3 уровня.', icon: b(44), need: (g, u, c) => [g.buildingLevel(c, 44), 3], reward: R(1200) },
-  { id: 'arttower', title: 'Сила реликвий', text: 'Постройте Башню артефактов и активируйте в ней артефакт — его бонус начнёт работать.', icon: b(18), need: (g, u, c) => [(c.artifacts || []).some((a) => a.active) ? 1 : 0, 1], reward: R(1500, 5, { art: 1 }) },
+  { id: 'arttower', title: 'Сила реликвий', text: 'Постройте Башню артефактов и пробудите в ней артефакт — он будет действовать несколько часов, затем рассыплется.', icon: b(18), need: (g, u, c) => [(c.artifacts || []).some((a) => a.active) ? 1 : 0, 1], reward: R(1500, 5, { art: 1 }) },
   { id: 'darklands', title: 'Тёмные земли зовут', text: 'Разорите первое логово похода «Тёмные земли» (вкладка «Поход»).', icon: 'ground/dikari.png', need: (g, u) => [Math.min(1, (g.qinit(u).camp || 0)), 1], reward: R(2000, 10) },
 ];
 

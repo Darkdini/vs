@@ -72,7 +72,7 @@ const UNIT_LIST = [
   [221, 'Торговец', 'all', 'torg', 'merchant', B.MARKET, 1],
   [224, 'Путешественник', 'all', 'traveler', 'settler', B.TRAVELER, 5],
   [227, 'Ученый', 'all', 'wisdom', 'sage', B.SAGES, 1],
-  [230, 'Археолог', 'all', 'arheolog', 'archaeologist', B.ARCH_CAMP, 1],
+  [230, 'Археолог', 'all', 'arheolog', 'archaeologist', B.EXPEDITION, 1], // тренируются в Экспедиции и уходят оттуда на поиски
   [233, 'Бунтарь', 'all', 'buntar', 'rebel', B.TRAVELER, 10],
   [236, 'Генерал', 'all', 'general', 'general', B.HQ, 1],
   // уникальные (units/unical)
@@ -236,6 +236,16 @@ const ART_TYPES = {
   train: { name: 'Свиток мастера', desc: 'скорость тренировки' },
 };
 const RARITY = [{ name: 'обычный', bonus: 0.10 }, { name: 'редкий', bonus: 0.20 }, { name: 'легендарный', bonus: 0.35 }];
+// пробуждённый артефакт действует ограниченное время (часы по редкости, делятся на скорость мира), затем рассыпается
+const ART_HOURS = [12, 24, 48];
+// экспедиции из здания «Экспедиция»: археологи уходят на время; дальше — выше шанс и редкость, но опаснее
+const EXPED = {
+  near: { name: 'Окрестные руины', hours: 2, chance: 0.25, bias: 0, risk: 0, lvl: 1, desc: 'Ближние развалины. Безопасно, но находки скромные.' },
+  city: { name: 'Древний город', hours: 6, chance: 0.4, bias: 0.12, risk: 0.1, lvl: 3, desc: 'Засыпанные песком улицы. Бывают обвалы — часть археологов может не вернуться.' },
+  tomb: { name: 'Затерянная гробница', hours: 12, chance: 0.55, bias: 0.25, risk: 0.25, lvl: 6, desc: 'Ловушки и проклятия древних королей. Здесь чаще всего находят легендарные реликвии.' },
+};
+const rndPick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const EXPED_MAXN = 20; // больше 20 археологов в одну экспедицию — без толку
 
 // ---------- NPC-объекты мира: охрана и добыча ----------
 // img — тайл клиента; def — сила охраны против пехоты/кавалерии/магии; loot — запас ресурсов (восстанавливается)
@@ -295,6 +305,11 @@ function install(Game, helpers) {
     if (!castle.armies) castle.armies = [];
     if (!castle.sciences) castle.sciences = { eco: 0, eng: 0, fhi: 0, war: 0 };
     if (!castle.artifacts) castle.artifacts = [];
+    if (!castle.expeds) castle.expeds = [];
+    { const now = Date.now(); // пробуждённые артефакты: срок действия; истёкшие рассыпаются
+      for (const a of castle.artifacts) if (a.active && !a.until) a.until = now + ART_HOURS[a.rarity || 0] * 3600000 / SPEED;
+      const gone = castle.artifacts.filter((a) => a.active && a.until <= now);
+      if (gone.length) { castle.artifacts = castle.artifacts.filter((a) => !gone.includes(a)); for (const a of gone) this.event(castle.owner, `Сила артефакта «${ART_TYPES[a.type].name}» иссякла — он рассыпался в пыль.`); } }
     if (castle.general === undefined) castle.general = null;
     if (castle.general) this.normGeneral(castle.general, castle);
     if (castle.research === undefined) castle.research = null;
@@ -453,6 +468,8 @@ function install(Game, helpers) {
     if (g && g.dead && g.reviveAt && g.reviveAt <= now) { g.dead = false; delete g.reviveAt; delete g.reviveStart; this.event(owner, 'Генерал снова в строю.'); }
     for (const d of castle.deadGenerals || []) if (d.reviveAt && d.reviveAt <= now && !castle.general) { // воскрешённый из списка павших — снова генерал замка
       castle.deadGenerals = castle.deadGenerals.filter((x) => x !== d); d.dead = false; delete d.reviveAt; delete d.reviveStart; delete d.away; delete d.squad; castle.general = d; this.event(owner, 'Генерал снова в строю.'); }
+    // экспедиции из здания вернулись
+    if (castle.expeds && castle.expeds.some((x) => x.end <= now)) { const done = castle.expeds.filter((x) => x.end <= now); castle.expeds = castle.expeds.filter((x) => x.end > now); for (const x of done) this.expedBack(castle, x); }
     // улучшение в Кузнице
     for (const [k, j] of Object.entries(castle.upJobs || {})) {
       if (!j || j.end > now) continue;
@@ -1251,6 +1268,51 @@ function install(Game, helpers) {
     this.goBack(c, a, t);
   };
 
+  // ----- экспедиции из здания «Экспедиция» -----
+  P.expedInfo = function expedInfo(castle) {
+    const L = this.buildingLevel(castle, B.EXPEDITION), camp = this.buildingLevel(castle, B.ARCH_CAMP);
+    return { slots: L ? 1 + Math.floor(L / 4) : 0, maxN: EXPED_MAXN, have: castle.units[230] || 0,
+      kinds: Object.entries(EXPED).map(([k, e]) => ({ k, name: e.name, desc: e.desc, sec: Math.max(10, Math.round(e.hours * 3600 / SPEED)), lvl: e.lvl, open: L >= e.lvl, risk: Math.round(e.risk * 100),
+        base: Math.round((e.chance + 0.03 * camp + 0.02 * L) * 100), per: 2, rare: Math.round(Math.min(1, 0.3 + e.bias + 0.02 * camp) * 100), legend: Math.round(Math.min(1, 0.05 + e.bias + 0.02 * camp) * 100) })) };
+  };
+  P.expedGo = function expedGo(castle, kind, n) {
+    this.tick(castle); this.mil(castle);
+    const e = EXPED[kind]; if (!e) return { error: 'Неизвестная экспедиция.' };
+    const L = this.buildingLevel(castle, B.EXPEDITION); if (!L) return { error: 'Нужна Экспедиция.' };
+    if (L < e.lvl) return { error: `«${e.name}» — с Экспедиции ${e.lvl} ур.` };
+    const slots = 1 + Math.floor(L / 4); if (castle.expeds.length >= slots) return { error: `Одновременно экспедиций: не больше ${slots} (растёт с уровнем Экспедиции).` };
+    n = Math.floor(Number(n)); if (!(n > 0)) return { error: 'Сколько археологов отправить?' };
+    n = Math.min(n, EXPED_MAXN);
+    if ((castle.units[230] || 0) < n) return { error: 'Не хватает археологов — тренируйте их в Экспедиции.' };
+    castle.units[230] -= n; if (!castle.units[230]) delete castle.units[230];
+    const now = Date.now(), sec = Math.max(10, Math.round(e.hours * 3600 / SPEED));
+    castle.expeds.push({ id: this.db.nextId++, kind, n, start: now, end: now + sec * 1000 });
+    this.addStat(castle.owner, 'expeds', 1); this.store.save();
+    return { ok: true, msg: `Экспедиция «${e.name}» выступила: ${n} археологов.` };
+  };
+  P.expedBack = function expedBack(castle, x) {
+    const e = EXPED[x.kind], L = this.buildingLevel(castle, B.EXPEDITION), camp = this.buildingLevel(castle, B.ARCH_CAMP);
+    const lines = [`«${e.name}»: ушло археологов ${x.n}.`];
+    let lost = 0; for (let i = 0; i < x.n; i++) if (Math.random() < e.risk) lost++;
+    if (lost) lines.push(rndPick(['Обвал в галерее', 'Древняя ловушка', 'Проклятие гробницы', 'Нападение песчаных гиен']) + `: не вернулось ${lost}.`);
+    const back = x.n - lost; if (back) castle.units[230] = (castle.units[230] || 0) + back;
+    const chance = Math.min(0.95, e.chance + 0.02 * x.n + 0.03 * camp + 0.02 * L);
+    if (back && Math.random() < chance) {
+      const type = rndPick(Object.keys(ART_TYPES)), roll = Math.random() + e.bias + 0.02 * camp, rarity = roll > 0.95 ? 2 : roll > 0.7 ? 1 : 0;
+      if (castle.artifacts.length >= this.bonus(castle).artStore) lines.push(`Найден артефакт «${ART_TYPES[type].name}», но Сокровищница полна — его пришлось оставить в руинах. Развейте Сокровищницу.`);
+      else {
+        castle.artifacts.push({ id: this.db.nextId++, type, rarity, active: false, found: Date.now() });
+        this.addStat(castle.owner, 'arts', 1 + rarity * 2);
+        lines.push(`Найден артефакт: ${ART_TYPES[type].name} (${RARITY[rarity].name}, +${RARITY[rarity].bonus * 100}% — ${ART_TYPES[type].desc}). Он в Сокровищнице — пробудите его в Башне артефактов.`);
+      }
+    } else if (back) {
+      const g = Math.round((50 + Math.random() * 150) * (1 + Object.keys(EXPED).indexOf(x.kind))); const cap = this.capacity(castle);
+      for (const r of RES4) castle.res[r] = Math.min(cap[r], castle.res[r] + g);
+      lines.push(`Артефактов не нашли, зато принесли черепки и старые монеты — по ${g} каждого ресурса.`);
+    } else lines.push('Никто не вернулся…');
+    this.report(castle.owner, `Экспедиция вернулась: ${e.name}`, lines, 'expedition');
+  };
+
   P.activateArtifact = function activateArtifact(castle, id, on) {
     this.mil(castle);
     const a = castle.artifacts.find((x) => x.id === Number(id)); if (!a) return { error: 'Артефакт не найден.' };
@@ -1259,9 +1321,11 @@ function install(Game, helpers) {
       if (!slots) return { error: 'Нужна Башня артефактов.' };
       if (castle.artifacts.filter((x) => x.active).length >= slots) return { error: `Активных артефактов не больше ${slots} (растёт с Башней).` };
     }
-    if (on && !a.active) this.addStat(castle.owner, 'boost', 1); // Зал Славы «Усиление»
-    a.active = !!on; this.store.save();
-    return { ok: true };
+    if (!on) return { error: 'Пробуждённый артефакт не усыпить — его сила иссякнет сама.' };
+    if (a.active) return { error: 'Артефакт уже пробуждён.' };
+    this.addStat(castle.owner, 'boost', 1); // Зал Славы «Усиление»
+    a.active = true; a.until = Date.now() + ART_HOURS[a.rarity || 0] * 3600000 / SPEED; this.store.save();
+    return { ok: true, msg: `«${ART_TYPES[a.type].name}» пробуждён на ${ART_HOURS[a.rarity || 0]} ч. Потом он рассыплется.` };
   };
 
   // входящие армии к замку
@@ -1553,7 +1617,7 @@ function install(Game, helpers) {
       squads: castle.squads, merchants: this.merchants(castle),
       guests: this.guestsOf(castle).map((g) => ({ id: g.a.id, from: this.ownerOf(g.c).login, castle: g.c.name, units: g.a.units })),
       incoming: this.incoming(castle), sciences: castle.sciences, research: castle.research, religion: castle.religion,
-      artifacts: castle.artifacts, upkeep: Math.round(this.upkeep(castle) * SPEED),
+      artifacts: castle.artifacts, expeds: castle.expeds, expedInfo: this.expedInfo(castle), upkeep: Math.round(this.upkeep(castle) * SPEED),
       bonus: { atk: b.atk, def: b.def, magic: b.magic, prod: b.prod, speed: b.speed, train: b.train, build: b.build, wall: b.wall, wallPer: b.wallPer, hidden: b.hidden, marketRate: b.marketRate, artSlots: b.artSlots, artStore: b.artStore, tradeCarry: b.tradeCarry },
       alliance: al ? { id: al.id, name: al.name, tag: al.tag, leader: al.leader, leaderLogin: (this.userById(al.leader) || {}).login, lead: al.leader === user.id, slots: this.allianceSlots(al),
         members: al.members.map((id) => { const m = this.userById(id); return m ? m.login : '?'; }),
@@ -1617,4 +1681,4 @@ const catalogJson = () => ({
   scienceTime: Array.from({ length: 21 }, (_, l) => (l ? scienceTime(l) : 0)),
 });
 
-module.exports = { NEWBIE_RATING, install, UNITS, UNIT, B, GENERAL_ID, GEN, SCIENCES, RELIGIONS, NPC, MISSIONS, unitsForRace, unitImg, catalogJson, ART_TYPES };
+module.exports = { EXPED, ART_HOURS, NEWBIE_RATING, install, UNITS, UNIT, B, GENERAL_ID, GEN, SCIENCES, RELIGIONS, NPC, MISSIONS, unitsForRace, unitImg, catalogJson, ART_TYPES };

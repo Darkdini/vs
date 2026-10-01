@@ -1442,3 +1442,15 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .qwin-box p, .qwin-box .okbtn { position: relative; }
 .qrays { position: absolute; left: 50%; top: 52px; width: 340px; height: 340px; margin: -170px 0 0 -170px; background: repeating-conic-gradient(rgba(255,210,80,.35) 0 10deg, rgba(255,210,80,0) 10deg 20deg); border-radius: 50%; animation: qspin 8s linear infinite; }
 @keyframes qspin { to { transform: rotate(360deg); } }
+
+/* ---------- Экспедиция и артефакты ---------- */
+.exrun { display: flex; gap: 8px; align-items: center; } .exic { width: 40px; height: 40px; object-fit: contain; }
+.exhead { font-size: 14px; } .exn { display: block; margin-top: 6px; } .exn input { width: 70px; }
+.excard { display: flex; gap: 10px; background: rgba(255,248,230,.7); border: 2px solid #b8894a; border-radius: 12px; padding: 8px; margin-bottom: 8px; }
+.excard.off { opacity: .55; filter: grayscale(.6); }
+.excard p { margin: 2px 0 4px; font-size: 13px; color: #4a3218; }
+.exscene { flex: 0 0 76px; height: 76px; border-radius: 10px; background: radial-gradient(#f3d9a4, #8a5a2b); display: flex; align-items: center; justify-content: center; border: 2px solid #5a3519; }
+.exscene img { max-width: 68px; max-height: 68px; image-rendering: pixelated; }
+.exstats { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 12px; margin-bottom: 6px; } .exstats span { display: inline-flex; align-items: center; gap: 3px; }
+.artlife { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-top: 6px; } .artlife .bar { flex: 1; }
+.artlife .bar i { background: linear-gradient(90deg, #9c27b0, #e1bee7); }

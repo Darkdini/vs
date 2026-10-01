@@ -100,9 +100,7 @@ function buildingFunctions(def, lvl) {
   if (def.id === 15) return `<button class="rbar" data-scilist>Науки</button>${sciJob()}`; // Университет (science.js)
   if (def.id === 14) h += universityHtml(def.id);
   if (def.id === 25) h += templeHtml();
-  if (def.id === 17) h += `<div class="section">Экспедиции</div><div class="card"><p class="small">Археологи ищут артефакты в руинах. На карте мира нажмите на <b>Заброшенный замок</b> → «Экспедиция».
-    Шанс находки: 20% + 5% за археолога + 3% за ур. Лагеря археологов + 2% за ур. Экспедиции.</p>
-    <p class="small">Археологов в замке: <b>${MY().units[230] || 0}</b></p></div>`;
+  if (def.id === 17) h += expedHtml();
   if (def.id === 18 || def.id === 44) h += artifactsHtml();
   if (def.id === 24) h += `<div class="section">Бунтари</div><div class="card small">Количество доступных бунтарей является общим для всего Королевства, и зависит от количества лояльности для захвата последующих замков.</div>
     <div class="card small">Бунтарей и путешественников — не больше 3 за один заказ. «Освоение» (основание нового замка путешественниками) — в разработке.</div>`;
@@ -253,12 +251,29 @@ function religionHtml() {
   return `<div class="section">Выбор веры (один раз)</div>${Object.entries(M().religions).map(([k, r]) => `<div class="card"><b>${esc(r.name)}</b><p class="small">${esc(r.desc)}</p><button class="btn primary small" data-religion="${k}">Принять</button></div>`).join('')}`;
 }
 
+// Экспедиция: археологи тренируются здесь же и уходят на поиски (три вида экспедиций)
+function expedHtml() {
+  const my = MY(), I = my.expedInfo, ex = my.expeds || []; if (!I) return '';
+  const free = I.slots - ex.length, n = Math.max(0, Math.min(I.have, I.maxN, S.exN ?? Math.min(10, I.have)));
+  const KIMG = { near: 'build/arhcamp.png', city: 'ground/castle_old.png', tomb: 'ground/mount.png' };
+  return `<div class="section">Экспедиции</div>
+    ${ex.map((x) => { const k = I.kinds.find((y) => y.k === x.kind); return `<div class="card job exrun"><img class="exic" src="${GFX}units/human/arheolog.png" alt="">
+      <div class="grow"><b>${esc(k ? k.name : '')}</b> · археологов ${x.n}<div class="bar"><i data-s="${x.start}" data-e="${x.end}"></i></div></div><span class="cd" data-e="${x.end}"></span></div>`; }).join('')}
+    <div class="card exhead"><div>Археологов в замке: <b>${fmtFull(I.have)}</b> · экспедиций: <b>${ex.length} из ${I.slots}</b></div>
+      <label class="exn">В экспедицию: <input type="number" inputmode="numeric" min="1" max="${Math.min(I.have, I.maxN)}" value="${n}" data-exn> <small>(не больше ${I.maxN}; +2% к находке за каждого)</small></label></div>
+    ${I.kinds.map((k) => `<div class="excard ${k.open ? '' : 'off'}"><div class="exscene"><img src="${GFX}${KIMG[k.k]}" alt=""></div>
+      <div class="grow"><b>${esc(k.name)}</b><p>${esc(k.desc)}</p>
+        <div class="exstats"><span>${TIME_IC} ${fmtT(k.sec)}</span><span>🔍 ${Math.min(95, k.base + 2 * n)}%</span><span>💠 редкий ${k.rare}% · легенд. ${k.legend}%</span>${k.risk ? `<span class="bad">☠ риск ${k.risk}%</span>` : '<span>🛡 без риска</span>'}</div>
+        ${k.open ? `<button class="btn primary small" data-exgo="${k.k}" ${free > 0 && n > 0 ? '' : 'disabled'}>Отправить</button>` : `<p class="reasons">Откроется с Экспедицией ${k.lvl} ур.</p>`}</div></div>`).join('')}`;
+}
+const ART_HOURS = [12, 24, 48];
 function artifactsHtml() {
   const my = MY(), active = my.artifacts.filter((a) => a.active).length;
-  return `<div class="section">Артефакты</div><p class="small muted">Активно ${active} из ${my.bonus.artSlots} (Башня артефактов), хранится ${my.artifacts.length} из ${my.bonus.artStore} (Сокровищница).</p>
+  return `<div class="section">Артефакты</div><p class="small muted">Пробуждено ${active} из ${my.bonus.artSlots} (Башня артефактов), хранится ${my.artifacts.length} из ${my.bonus.artStore} (Сокровищница).</p>
     ${my.artifacts.map((a) => { const t = M().artifacts[a.type], r = M().rarity[a.rarity]; return `<div class="card unit"><div class="top">${gimg(ART_ICON[a.type] || 'smallicon/magattack.png', 'ui s')}
-      <div class="grow"><b>${esc(t.name)}</b><span class="muted small">${r.name}: +${Math.round(r.bonus * 100)}% — ${esc(t.desc)}${a.active ? ' · активен' : ''}</span></div>
-      <button class="btn small ${a.active ? '' : 'primary'}" data-art="${a.id}" data-on="${a.active ? 0 : 1}">${a.active ? 'Снять' : 'Активировать'}</button></div></div>`; }).join('') || '<p class="muted small">Артефактов нет — их находят экспедиции археологов.</p>'}`;
+      <div class="grow"><b>${esc(t.name)}</b><span class="muted small">${r.name}: +${Math.round(r.bonus * 100)}% — ${esc(t.desc)}${a.active ? ' · <b class="good">пробуждён</b>' : ''}</span></div>
+      ${a.active ? '' : `<button class="btn small primary" data-art="${a.id}" data-on="1" data-hours="${ART_HOURS[a.rarity]}">Пробудить</button>`}</div>
+      ${a.active && a.until ? `<div class="artlife"><div class="bar"><i data-s="${a.until - ART_HOURS[a.rarity] * 3600000 / S.cat.speed}" data-e="${a.until}"></i></div><span>иссякнет через <span class="cd" data-e="${a.until}"></span></span></div>` : `<p class="small muted">Пробуждённый действует ${ART_HOURS[a.rarity]} ч, затем рассыпается.</p>`}</div>`; }).join('') || '<p class="muted small">Артефактов нет — их приносят экспедиции археологов (здание «Экспедиция»).</p>'}`;
 }
 
 // ---------- отправка войск — окно «Военный поход» в armies.js ----------
@@ -468,11 +483,13 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.repfwd) { const to = prompt('Кому переслать отчёт? Ник игрока:'); if (to) send({ t: 'repfwd', id: Number(d.repfwd), to }); return; }
   if (d.sci) return send({ t: 'research', sci: d.sci });
   if (d.religion) return send({ t: 'religion', id: d.religion });
-  if (d.art) return send({ t: 'artifact', id: Number(d.art), on: d.on === '1' });
+  if (d.art) { if (!confirm(`Пробудить артефакт? Он будет действовать ${d.hours} ч, а затем рассыплется.`)) return; return send({ t: 'artifact', id: Number(d.art), on: true }); }
+  if (d.exgo) { const n = Number(($('[data-exn]') || {}).value) || 0; if (!(n > 0)) return toast('Сколько археологов отправить?', 'err'); return send({ t: 'exped', kind: d.exgo, n }); }
   if (d.alleave !== undefined) return send({ t: 'alliance', op: 'leave' });
 });
 $('#sheetBody').addEventListener('input', (e) => {
   const d = e.target.dataset, v = e.target.value;
+  if (d.exn !== undefined) { S.exN = Math.max(0, Math.floor(Number(v)) || 0); return; }
   if (d.cntInput || d.cntRange) { // поле и ползунок связаны
     const id = d.cntInput || d.cntRange, u = unitById(id), max = unitMax(u), c = Math.max(0, Math.min(max, Math.floor(Number(v)) || 0)); S.cnt[id] = c;
     const r = $(`[data-cnt-range="${id}"]`), i = $(`[data-cnt-input="${id}"]`);
