@@ -137,7 +137,7 @@ function landsScene(c, dpr) {
     const cell = y * N + xx, b = st.grid[1][cell], d = L.decor[y][xx], P = plotXY(xx, y);
     items.push([P.cy, () => {
       if (b < 0 && !queueAt(1, cell) && d >= 0) sprite(`ground/${DECOR[d]}.png`, P.sx, P.sy, d === 1 ? 3 : d === 2 ? -2 : 0);
-      else drawCellBuilding(1, cell, b, st.levels[1][cell], { sx: P.sx, sy: P.sy }, 1, isSel(xx, y));
+      else drawCellBuilding(1, cell, b, st.levels[1][cell], { sx: P.sx, sy: P.sy - TH * (1 - PLOT) / 2 + 3 }, 'fit', isSel(xx, y)); // постройка на всю клетку
       plotFx(xx, y, b, cell, now);
     }]);
     // строитель: на стройке и у лесопилки — на тропинке перед участком, лицом к нему
