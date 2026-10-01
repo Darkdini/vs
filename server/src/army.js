@@ -1342,7 +1342,7 @@ function install(Game, helpers) {
   // админ и его команды — server/src/admin.js
 
   // ----- армии в замке: переформирование, переименование, роспуск, генерал, отзыв подкрепления -----
-  P.squadOp = function squadOp(castle, { op, from, to, units = {}, id, name, general = false }) {
+  P.squadOp = function squadOp(castle, { op, from, to, units = {}, id, name, general = false }) { // eslint-disable-line
     this.tick(castle); this.mil(castle);
     const pick = (k) => (k === 'castle' ? { units: castle.units, castle: true } : castle.squads.find((q) => q.id === Number(k)));
     if (op === 'regroup') { // перенести войска из from в to ('castle', id отряда или 'new')
@@ -1357,7 +1357,8 @@ function install(Game, helpers) {
       if (!dst) {
         if (castle.squads.length >= 20) return { error: 'Не больше 20 армий в замке.' };
         const sid = this.db.nextId++;
-        dst = { id: sid, name: `${castle.id}.${sid}`, units: {} }; castle.squads.push(dst);
+        const nm = String(name || '').replace(/[<>]/g, '').trim().slice(0, 20);
+        dst = { id: sid, name: nm || `${castle.id}.${sid}`, units: {} }; castle.squads.push(dst);
       }
       if (dst === src) return { error: 'Выберите другую армию.' };
       for (const [u, n] of Object.entries(move)) { src.units[u] -= n; if (!src.units[u]) delete src.units[u]; dst.units[u] = (dst.units[u] || 0) + n; }

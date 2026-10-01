@@ -108,7 +108,7 @@ function buildingFunctions(def, lvl) {
     <div class="card small">Бунтарей и путешественников — не больше 3 за один заказ. «Освоение» (основание нового замка путешественниками) — в разработке.</div>`;
   const units = myUnitList().filter((u) => u.building === def.id);
   // как в оригинале: кнопка «Тренировать» открывает окно «Постройка юнитов», ниже — «Юниты:» с идущими партиями
-  if (units.length) h += `<button class="rbar" data-trainopen="${def.id}">Тренировать</button>${trainJobsHtml(def.id)}`;
+  if (units.length && !(def.id === HQ && MY().general)) h += `<button class="rbar" data-trainopen="${def.id}">Тренировать</button>${trainJobsHtml(def.id)}`; // в штабе — только чтобы нанять генерала, если его нет
   return h;
 }
 // «Юниты:» — партии в тренировке: «Мародер 8/402 · Осталось 23:17:25» (готово/всего, время до конца партии)
@@ -149,24 +149,25 @@ function unitsListHtml(units, empty = 'нет') {
   return rows.length ? `<div class="ulist">${rows.join('')}</div>` : `<p class="muted small">${empty}</p>`;
 }
 
+// Военный штаб — как в оригинале (видео): кнопки Армии, Симулятор, Генерал, Расписание походов, Обзор армий, Учения
 function hqHtml() {
-  const my = MY(), g = my.general;
-  const gu = unitById(M().generalId);
-  let gen;
-  if (!g) gen = '<p class="small">Генерала нет — наймите его ниже. Генерал ведёт армию: +1% к атаке за уровень, опыт — за убитых врагов, только с ним захватываются оазисы.</p>';
-  else {
-    const st = g.dead ? (g.reviveAt ? `воскресает: <span class="cd" data-e="${g.reviveAt}"></span>` : 'погиб') : g.away ? 'в походе' : 'в замке';
-    const span = Math.max(1, g.need - g.prevNeed);
-    gen = `<div class="top">${uimg(gu)}<div class="grow"><b>${esc(g.name)} (${esc(g.kind || '')}) · ${fmtFull(g.level)} ур.</b><span class="muted small">${st}${g.free ? ` · <b style="color:#2f7a10">свободных очков: ${g.free}</b>` : ''}</span>
-      <div class="bar"><i style="width:${Math.max(0, Math.min(100, (g.exp - g.prevNeed) / span * 100))}%"></i></div></div></div>
-      <p class="small">Командование атакой +${(g.stats.catk * 100).toFixed(1)}%, защитой +${(g.stats.cdef * 100).toFixed(1)}%.</p>
-      <button class="btn primary" data-general>Генерал</button>`;
-  }
-  return `<div class="section">Генерал</div><div class="card unit">${gen}</div>
-    <div class="section">Армии</div>${armiesListHtml()}
-    <div class="btns" style="margin-top:6px"><button class="btn" data-reports>Отчёты${my.unreadReports ? ` (${my.unreadReports})` : ''}</button></div>
-    <p class="small muted">Атака ×${my.bonus.atk.toFixed(2)} · защита ×${my.bonus.def.toFixed(2)}</p>`;
+  return `<button class="rbar" data-armies>Армии</button><button class="rbar" data-hq="sim">Симулятор</button>
+    <button class="rbar" data-general>Генерал</button><button class="rbar" data-hq="sched">Расписание походов</button>
+    <button class="rbar" data-moves>Обзор армий</button><button class="rbar" data-hq="drill">Учения</button>`;
 }
+// «Расписание походов» — армии, отправленные по расписанию и ещё не вышедшие
+function schedWin() {
+  const list = (MY().armies || []).filter((a) => a.state === 'wait');
+  return `${ribbon('Расписание походов')}${list.map((a) => `<div class="arow2"><div class="aicon"><img class="aswords" src="${G3}menu/swords.svg" alt=""></div><div class="ainfo">
+    <div class="aname">${M().missions[a.mission]} ${a.x}:${a.y}</div><div class="acount"><img src="${G3}hq/helmet.png" alt=""> ${fmtFull(Object.values(a.units).reduce((q, n) => q + n, 0))} · выйдет через <span class="cd" data-e="${a.depart}"></span></div></div></div>`).join('') || '<p class="parch-note">Запланированных походов нет.</p>'}`;
+}
+$('#sheetBody').addEventListener('click', (e) => {
+  const t = e.target.closest('[data-hq]'); if (!t) return;
+  const k = t.dataset.hq;
+  if (k === 'sched') return openSheet(schedWin);
+  if (k === 'sim') return openSoon('Симулятор');
+  if (k === 'drill') return openSoon('Учения');
+});
 
 // Рынок — как в оригинале: груз и скорость торговца, «Передать», «Бартер» (обмен), «Торговцы»
 function marketHtml() {

@@ -23,12 +23,12 @@ function armiesListHtml() {
   const rows = list.slice(S.armPage * ARM_PER, S.armPage * ARM_PER + ARM_PER).map((a) => `
     <div class="arow2"><div class="aicon"><img class="aswords" src="${ICO('swords')}" alt=""></div>
       <div class="ainfo"><div class="aname">${esc(a.name)}${genHere(a) ? ` <img class="rico" src="${unitSrc(unitById(M().generalId))}" alt="" title="генерал">` : ''}</div>
-      <div class="acount"><img src="${ICO('helmet')}" alt=""> ${fmtFull(armyTotal(a.units)) }</div>
+      <div class="acount"><img src="${G3}hq/helmet.png" alt=""> ${fmtFull(armyTotal(a.units))}</div>
       <button class="pbar amanage" data-army="${a.key}"><img src="${G3}Gears/a1.png" alt=""> Управление</button></div></div>`).join('');
   const my = MY(), n = armSections();
   const bar = (k, icon, text, cnt) => `<button class="pbar asec" data-asec="${k}"><img src="${icon}" alt=""> ${text}${cnt ? ` (${cnt})` : ''}</button>`;
-  return `${rows}
-    <div class="pager"><button data-apage="first">◀◀</button><button data-apage="prev">◀</button><span>${S.armPage + 1}</span><button data-apage="next">▶</button><button data-apage="last">▶▶</button></div>
+  return `<div class="pager"><button data-apage="first">◀◀</button><button data-apage="prev">◀</button><span>${S.armPage + 1}</span><button data-apage="next">▶</button><button data-apage="last">▶▶</button></div>
+    ${rows}
     ${bar('inc', `${TOP}inc.png`, 'Приближающиеся армии', n.inc.length)}
     ${bar('mine', `${TOP}att.png`, 'Ваши армии', n.mine.length)}
     ${bar('reinf', `${TOP}reinf.png`, 'Ваши подкрепления', n.reinf.length)}
@@ -77,32 +77,29 @@ function armyWin(k) {
   const tile = (attr, icon, text) => `<button class="ptile" ${attr}><img src="${icon}" alt=""><span>${text}</span></button>`;
   return `${ribbon(a.name)}
     ${genHere(a) ? `<button class="uline ulink" data-general><img src="${unitSrc(unitById(M().generalId))}" alt=""> ${esc(g.name)}: 1 <small>(${fmtFull(g.level)} ур.)</small></button>` : ''}
-    ${units || '<p class="parch-note">В армии нет войск.</p>'}
-    <hr class="cwhr"><div class="ptiles ${a.castle && !(g && !g.dead && !g.away && !genHere(a)) ? 'solo' : ''}">
-      ${tile(`data-regroup="${a.key}"`, `${G3}Gears/a1.png`, 'Переформировать')}
-      ${a.castle ? '' : tile(`data-campaign="${a.key}"`, ICO('swords'), 'В поход')}
+    ${units || '<p class="parch-note">В армии нет войск.</p>'}<hr class="cwhr">
+    ${a.castle ? `<div class="center"><button class="regroupbtn" data-regroup="${a.key}" aria-label="Переформировать"><img src="${G3}hq/regroup.png" alt="Переформировать"></button></div>`
+    : `<div class="ptiles">${tile(`data-regroup="${a.key}"`, `${G3}hq/regroup.png`, 'Переформировать')}${tile(`data-campaign="${a.key}"`, ICO('swords'), 'В поход')}
       ${g && !g.dead && !g.away && !genHere(a) ? tile(`data-genhere="${a.key}"`, unitSrc(unitById(M().generalId)), 'Генерал сюда') : ''}
-      ${a.castle ? '' : tile(`data-rename="${a.key}"`, `${GFX}smallicon/softedit.png`, 'Переименовать')}
-      ${a.castle ? '' : tile(`data-disband="${a.key}"`, `${GFX}smallicon/destroy.png`, 'Распустить')}
-    </div>`;
+      ${tile(`data-rename="${a.key}"`, `${GFX}smallicon/softedit.png`, 'Переименовать')}${tile(`data-disband="${a.key}"`, `${GFX}smallicon/destroy.png`, 'Распустить')}</div>`}`;
 }
 
-// ---------- Переформировать: перевести войска в другую армию или в новую ----------
+// ---------- Переформирование — как в оригинале: у каждого юнита поле (сколько перевести) и плашка со шлемом (сколько есть,
+// нажатие — все); ниже — куда («Создать новую» или другая армия), «Название новой армии:» и «Переформировать» ----------
 function regroupWin(k) {
   const a = armyByKey(k); if (!a) return armyWin(k);
-  S.rg = S.rg && S.rg.from === a.key ? S.rg : { from: a.key, to: 'new', units: {} };
-  const targets = [['new', 'Новая армия'], ...allArmies().filter((x) => x.key !== a.key).map((x) => [x.key, x.name])];
-  const rows = Object.entries(a.units).filter(([, n]) => n > 0).map(([id, n]) => { const u = unitById(id); return u ? `<div class="row"><img class="ui s" src="${unitSrc(u)}" alt="">
-      <div class="grow"><b>${esc(u.name)}</b><span>есть ${fmtFull(n)}</span></div>
-      <input class="num" type="number" inputmode="numeric" min="0" max="${n}" value="${S.rg.units[id] || ''}" placeholder="0" data-rgu="${id}"><button class="btn small" data-rgall="${id}" data-rgmax="${n}">все</button></div>` : ''; }).join('');
-  return `${ribbon('Переформировать')}
-    <div class="clabel">Из армии: <b>${esc(a.name)}</b></div>
-    <div class="clabel">В армию:</div>
-    <div class="combo"><select data-rgto>${targets.map(([v, t]) => `<option value="${v}" ${String(S.rg.to) === String(v) ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></div>
-    ${genHere(a) ? `<label class="cchk"><input type="checkbox" data-rggen ${S.rg.gen ? 'checked' : ''}><i></i><img src="${unitSrc(unitById(M().generalId))}" alt=""> Генерал «${esc(MY().general.name)}» (${fmtFull(MY().general.level)} ур.) — перевести в выбранную армию</label>` : ''}
-    <div class="list" style="margin-top:8px">${rows || (genHere(a) ? '' : '<p class="parch-note">В армии нет войск.</p>')}</div>
-    <button class="pbar" data-rgdo>Переформировать</button>
-    <p class="small muted">Генерала можно перевести в любую армию замка. В другой свой замок генерал уходит подкреплением: «Военный поход» → «Подкрепление» на координаты своего замка — там он появится в Военном штабе.</p>`;
+  S.rg = S.rg && S.rg.from === a.key ? S.rg : { from: a.key, to: 'new', units: {}, name: '' };
+  const targets = [['new', 'Создать новую'], ...allArmies().filter((x) => x.key !== a.key).map((x) => [x.key, x.name])];
+  const rows = Object.entries(a.units).filter(([, n]) => n > 0).map(([id, n]) => { const u = unitById(id); return u ? `<div class="rgrow">
+      <div class="rgname"><img src="${unitSrc(u)}" alt=""> ${esc(u.name)}</div>
+      <div class="rgline"><input class="rgin" type="number" inputmode="numeric" min="0" max="${n}" value="${S.rg.units[id] || ''}" data-rgu="${id}">
+      <button class="rghave" data-rgall="${id}" data-rgmax="${n}"><img src="${G3}hq/helmet.png" alt=""> ${fmtFull(n)}</button></div></div>` : ''; }).join('');
+  return `${ribbon('Переформирование')}
+    ${genHere(a) ? `<label class="cchk"><input type="checkbox" data-rggen ${S.rg.gen ? 'checked' : ''}><i></i><img src="${unitSrc(unitById(M().generalId))}" alt=""> ${esc(MY().general.name)} (${fmtFull(MY().general.level)} ур.)</label>` : ''}
+    ${rows || (genHere(a) ? '' : '<p class="parch-note">В армии нет войск.</p>')}
+    <div class="rgto"><select data-rgto>${targets.map(([v, t]) => `<option value="${v}" ${String(S.rg.to) === String(v) ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></div>
+    ${S.rg.to === 'new' ? `<div class="rgnh">Название новой армии:</div><input class="rgin wide" maxlength="20" value="${esc(S.rg.name || '')}" data-rgname>` : ''}
+    <button class="pbar" data-rgdo>Переформировать</button>`;
 }
 
 // ---------- Военный поход ----------
@@ -166,7 +163,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.disband !== undefined) { if (confirm('Распустить армию в Замковую армию?')) { send({ t: 'squad', op: 'disband', id: Number(d.disband) }); closeSheet(); } return; }
   if (d.recall) return send({ t: 'squad', op: 'recall', id: Number(d.recall) });
   if (d.rgall) { S.rg.units[d.rgall] = Number(d.rgmax); const i = $(`[data-rgu="${d.rgall}"]`); if (i) i.value = d.rgmax; return; }
-  if (d.rgdo !== undefined) { send({ t: 'squad', op: 'regroup', from: S.rg.from, to: S.rg.to, units: S.rg.units, general: !!S.rg.gen }); S.rg.units = {}; S.rg.gen = false; return closeSheet(); }
+  if (d.rgdo !== undefined) { send({ t: 'squad', op: 'regroup', from: S.rg.from, to: S.rg.to, units: S.rg.units, general: !!S.rg.gen, name: S.rg.to === 'new' ? S.rg.name : undefined }); return; }
   if (d.cmpgo !== undefined) {
     const c = S.cmp, at = c.sched && c.at ? new Date(c.at).getTime() : 0;
     return send({ t: 'send', from: c.army, mission: c.mission, x: Number(c.x), y: Number(c.y), portal: c.portal, at, res: c.res });
@@ -175,6 +172,7 @@ $('#sheetBody').addEventListener('click', (e) => {
 $('#sheetBody').addEventListener('input', (e) => {
   const d = e.target.dataset, v = e.target.value;
   if (d.rgu && S.rg) S.rg.units[d.rgu] = Math.max(0, Math.floor(Number(v)) || 0);
+  if (d.rgname !== undefined && S.rg) S.rg.name = v;
   if (!S.cmp) return;
   if (d.cmp === 'x' || d.cmp === 'y') { S.cmp[d.cmp] = v === '' ? '' : Number(v); const s = campaignSec(); const el = $('#cmpTime'); if (el) el.textContent = s ? fmtT(s) : '—'; }
   if (d.cmp === 'at') S.cmp.at = v;
@@ -183,7 +181,7 @@ $('#sheetBody').addEventListener('input', (e) => {
 $('#sheetBody').addEventListener('change', (e) => {
   const d = e.target.dataset;
   if (d.rggen !== undefined && S.rg) S.rg.gen = e.target.checked;
-  if (d.rgto !== undefined && S.rg) S.rg.to = e.target.value === 'new' || e.target.value === 'castle' ? e.target.value : Number(e.target.value);
+  if (d.rgto !== undefined && S.rg) { S.rg.to = e.target.value === 'new' || e.target.value === 'castle' ? e.target.value : Number(e.target.value); e.target.blur(); refreshSheet(); }
   if (!S.cmp) return;
   if (d.cmp === 'army' || d.cmp === 'mission') { e.target.blur(); S.cmp[d.cmp] = e.target.value; refreshSheet(); }
   if (d.cchk) { e.target.blur(); S.cmp[d.cchk] = e.target.checked; if (d.cchk === 'sched' && e.target.checked && !S.cmp.at) { const t = new Date(Date.now() + 3600000 - new Date().getTimezoneOffset() * 60000); S.cmp.at = t.toISOString().slice(0, 16); } refreshSheet(); }

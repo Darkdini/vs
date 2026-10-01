@@ -225,6 +225,7 @@ function onMsg(m) {
     case 'letter': openSheet(() => letterSheet(m.letter)); break;
     case 'toast':
       if (m.msg === 'Тренировка начата!') { closeAllSheets(); okPopup(m.msg); break; } // как в оригинале: окно «Ок», затем замок
+      if (m.msg === 'Армия переформирована!') { if (S.rg) { S.rg.units = {}; S.rg.gen = false; S.rg.name = ''; } closeSheet(); okPopup(m.msg); break; } // назад к армии
       toast(m.msg);
       if (/отправлено/.test(m.msg) && S.sheets.length && S.composing) { S.composing = false; closeSheet(); }
       if (/Армия выступила|Поход запланирован/.test(m.msg) && (S.army || S.cmp)) { S.army = null; S.cmp = null; closeAllSheets(); }

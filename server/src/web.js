@@ -437,7 +437,7 @@ const API = {
     else if (!r.error) this.toast(r.army.state === 'wait' ? `Поход запланирован: ${ARMY.MISSIONS[m.mission]} ${m.x}:${m.y}` : `Армия выступила: ${ARMY.MISSIONS[m.mission]} ${m.x}:${m.y}`);
     this.result(r);
   },
-  squad(m) { this.result(this.game.squadOp(this.castle, m)); },
+  squad(m) { const r = this.game.squadOp(this.castle, m); if (m.op === 'regroup' && r && r.ok) this.toast('Армия переформирована!'); this.result(r); },
   general(m) { this.result(this.game.generalOp(this.castle, this.user, { op: m.op, name: m.name, pts: m.pts })); },
   exchange(m) { const r = this.game.exchange(this.castle, m.from, m.to, m.amount); if (!r.error) this.toast(`Обмен: получено ${r.got}`); this.result(r); },
   research(m) { this.result(this.game.research(this.castle, m.sci)); },
