@@ -817,6 +817,12 @@ function clampCam(c) {
   mx = hw * 2 >= outer.R - outer.L ? (outer.L + outer.R) / 2 : Math.min(Math.max(mx, outer.L + hw), outer.R - hw);
   my = Math.min(Math.max(my, T), B);
   void L; void R;
+  if (S.tab === 'castle' && pic(CASTLE_BG.src)) { // фон-картинка: экран не выходит за её края
+    const G = CASTLE_BG, zb = Math.max(r.width / G.w, r.height / G.h);
+    if (c.z < zb) { c.z = zb; mx = (r.width / 2 - c.x) / c.z; my = (r.height / 2 - c.y) / c.z; }
+    const hw2 = r.width / 2 / c.z, hh = r.height / 2 / c.z;
+    mx = Math.min(Math.max(mx, G.x + hw2), G.x + G.w - hw2); my = Math.min(Math.max(my, G.y + hh), G.y + G.h - hh);
+  }
   c.x = r.width / 2 - mx * c.z; c.y = r.height / 2 - my * c.z;
   return c;
 }
@@ -975,6 +981,20 @@ function fenceFront() {
   raw('fence/fence3.png', D(CG + 6, CH + 6) + 54, E(CG + 6, CH + 6) + 20 - imH('fence/fence3.png'));
   raw('fence/fence1.png', D(CG - 1, CH + 3) + 25, E(CG - 1, CH + 3) - 25);
 }
+// фон вокруг королевства: одна картинка (местность с лесом, рекой, скалами) под замком; стены картинки совпадают с нашими.
+// Сверху и снизу картинка продолжена лесом с её краёв (полосы с отражением); камера не выходит за картинку.
+const CASTLE_BG = { src: 'ground/castle_bg.jpg', moat: false,
+  x: 527 - 817.5 * 0.449, y: 16 - (517 + 760) * 0.461, w: 1606 * 0.449, h: 2455 * 0.461 }; // углы стены на картинке → углы сетки замка
+function castleBackdrop() {
+  const im = pic(CASTLE_BG.src); if (!im) return null;
+  const sm = ictx.imageSmoothingEnabled; ictx.imageSmoothingEnabled = true; ictx.imageSmoothingQuality = 'high';
+  ictx.drawImage(im, CASTLE_BG.x, CASTLE_BG.y, CASTLE_BG.w, CASTLE_BG.h); ictx.imageSmoothingEnabled = sm;
+  return im;
+}
+// земля только внутри стен (вокруг — фон-картинка)
+function groundIn(at) {
+  for (let y = CASTLE_OFF; y < CASTLE_OFF + 7; y++) for (let x = CASTLE_OFF + 6; x >= CASTLE_OFF; x--) { const p = tileScreen(x, y); ground(at(x, y), p.sx, p.sy); }
+}
 // земля сетки + поле grass1 на 5 клеток вокруг (s.a(g, true) в клиенте)
 // бесшовная трава на весь экран: узор 62×32 из ромба-тайла и четырёх соседей (как сетка изометрии)
 const GRASS_PAT = {};
@@ -1046,9 +1066,11 @@ function isoDrawNow() {
   if (S.tab === 'castle') { // порядок как в клиенте: земля → ров → ограда сзади → здания → ограда спереди → курсор
     // внутри стен — трава, на ней 49 каменных участков с промежутками
     const onPath = (xx, y) => (S.cat.castlePath || []).includes(y * 7 + xx) || (xx === 3 && y === 3); // и клетка Ратуши — на развилке // тропинка от ворот к Ратуше — не застраивается
-    groundField(17, (xx, y) => (xx >= CASTLE_OFF && xx < CASTLE_OFF + 7 && y >= CASTLE_OFF && y < CASTLE_OFF + 7 && !onPath(xx - CASTLE_OFF, y - CASTLE_OFF) ? 'ground/grassC.png' : `ground/${GROUND[CASTLE_BASE[y][xx]]}.png`));
+    const bg = castleBackdrop();
+    if (bg) groundIn((xx, y) => (!onPath(xx - CASTLE_OFF, y - CASTLE_OFF) ? 'ground/grassC.png' : `ground/${GROUND[CASTLE_BASE[y][xx]]}.png`));
+    else groundField(17, (xx, y) => (xx >= CASTLE_OFF && xx < CASTLE_OFF + 7 && y >= CASTLE_OFF && y < CASTLE_OFF + 7 && !onPath(xx - CASTLE_OFF, y - CASTLE_OFF) ? 'ground/grassC.png' : `ground/${GROUND[CASTLE_BASE[y][xx]]}.png`));
     for (let y = 0; y < 7; y++) for (let xx = 0; xx < 7; xx++) if (!onPath(xx, y)) { const p = cellAt(xx, y); pathTile(p.sx + TW * (1 - KC) / 2, p.sy + TH * (1 - KC) / 2, KC); }
-    moat();
+    if (!bg || CASTLE_BG.moat) moat();
     const fence = buildingLevel(22) > 0; // Забор построен — вокруг замка стена
     if (fence) fenceBack();
     for (let y = 0; y < 7; y++) for (let xx = 6; xx >= 0; xx--) {
