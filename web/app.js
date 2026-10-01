@@ -1087,14 +1087,16 @@ function worldClearing(p) {
   x.save(); x.translate(cx, cy); x.scale(1, 0.55); x.translate(-cx, -cy); x.fillStyle = g; x.beginPath(); x.arc(cx, cy, TW * 0.8, 0, Math.PI * 2); x.fill(); x.restore();
 }
 // кольцо под своим замком на карте мира: свечение и вращающиеся золотые черты; активный замок — ярче
-function myCastleRing(p, active) {
-  const x = ictx, cx = p.sx + TW / 2, cy = p.sy + TH / 2 + 2, t = Date.now() / 1000, rx = TW * 0.78, ry = TH * 0.78;
+function myCastleRing(p, active, half) { // half: −1 — задняя (верхняя) половина, 1 — передняя (нижняя)
+  const x = ictx, cx = p.sx + TW / 2, cy = p.sy + TH * 0.3, t = Date.now() / 1000, rx = TW * 0.74, ry = TH * 0.74;
   if (flowOn() && !flowTimer) flowTimer = setTimeout(flowTick, ANIM_MS);
-  x.save();
+  x.save(); x.beginPath(); if (half < 0) x.rect(cx - rx - 20, cy - ry - 20, 2 * rx + 40, ry + 20); else x.rect(cx - rx - 20, cy, 2 * rx + 40, ry + 20); x.clip();
   const g = x.createRadialGradient(cx, cy, 2, cx, cy, rx); g.addColorStop(0, `rgba(255,220,90,${active ? 0.45 : 0.25})`); g.addColorStop(1, 'rgba(255,200,60,0)');
   x.fillStyle = g; x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); x.fill();
   x.lineWidth = 2.2; x.strokeStyle = active ? '#ffe066' : '#ffd24a'; x.shadowColor = '#ffcc33'; x.shadowBlur = 8;
-  for (let i = 0; i < 6; i++) { const a = t * 0.9 + i * Math.PI / 3; x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, a, a + 0.6); x.stroke(); }
+  x.globalAlpha = 0.85; x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); x.stroke(); x.globalAlpha = 1; // сплошное кольцо
+  x.lineWidth = 3.2; x.strokeStyle = '#fff6c8';
+  for (let i = 0; i < 3; i++) { const a = t * 1.2 + i * Math.PI * 2 / 3; x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, a, a + 0.45); x.stroke(); } // бегущие блики
   x.lineWidth = 1.2; x.strokeStyle = 'rgba(255,255,255,0.7)';
   for (let i = 0; i < 3; i++) { const a = -t * 1.4 + i * Math.PI * 2 / 3; x.beginPath(); x.ellipse(cx, cy, rx * 0.86, ry * 0.86, 0, a, a + 0.9); x.stroke(); }
   x.restore();
@@ -1182,7 +1184,8 @@ function isoDrawNow() {
     }
     if (Iso.sel && Iso.sel.tab === 'world') glow(tileScreen(Iso.sel.x, Iso.sel.y), 0.92);
     for (const o of w.objects) worldClearing(tileScreen(o.x - (w.cx - R0), o.y - (w.cy - R0))); // под замками и лагерями — поляна (без деревьев фона)
-    for (const o of w.objects) if (o.kind === 'castle' && S.st && o.ownerId === S.st.user.id) myCastleRing(tileScreen(o.x - (w.cx - R0), o.y - (w.cy - R0)), o.castleId === S.st.castle.id); // свои замки — вращающееся кольцо (под всеми объектами)
+    const myRings = w.objects.filter((o) => o.kind === 'castle' && S.st && o.ownerId === S.st.user.id).map((o) => [tileScreen(o.x - (w.cx - R0), o.y - (w.cy - R0)), o.castleId === S.st.castle.id]);
+    for (const [p, a] of myRings) myCastleRing(p, a, -1); // свои замки — кольцо: задняя половина под объектами
     for (let y = 0; y < n; y++) for (let xx = n - 1; xx >= 0; xx--) {
       const o = objs.get(`${w.cx - R0 + xx}:${w.cy - R0 + y}`); if (!o) continue;
       const p = tileScreen(xx, y), sel = isSel(xx, y);
@@ -1195,6 +1198,7 @@ function isoDrawNow() {
       if (sel) ictx.restore();
       if (o.newbie) newbieDome(p);
     }
+    for (const [p, a] of myRings) myCastleRing(p, a, 1); // передняя половина кольца — поверх замка и соседей
   }
 }
 
