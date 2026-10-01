@@ -11,7 +11,8 @@ const C = require('./catalog');
 const SPEED = Number(process.env.SPEED || 1);
 // мир: карта WORLD×WORLD клеток, рассчитан на ~5 000 игроков (заселённый круг ~220 клеток)
 const WORLD = Number(process.env.WORLD_SIZE || 1000);
-const SPAWN_DENSITY = 2.5; // клеток карты на один замок в зоне заселения — мир сплошной, соседи в 1–2 клетках
+const SPAWN_DENSITY = 9; // клеток карты на один замок в зоне заселения
+const SPAWN_GAP = 2;     // новый замок — не ближе 2 клеток к другим замкам (между замками хотя бы одна пустая клетка)
 const SAVE_MS = Number(process.env.SAVE_MS || 10000); // автосохранение раз в 10 с (и при остановке)
 const MAX_QUEUE = Number(process.env.MAX_QUEUE || 3); // оригинал: 3 стройки одновременно (премиум — 5)
 
@@ -288,7 +289,10 @@ class Game {
       for (let k = 0; ; k++) {
         const a = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * (R + k * 0.2);
         x = Math.round(C0 + Math.cos(a) * d); y = Math.round(C0 + Math.sin(a) * d);
-        if (x >= 0 && y >= 0 && x < WORLD && y < WORLD && !this.byXY.has(x * WORLD + y)) break;
+        if (x < 0 || y < 0 || x >= WORLD || y >= WORLD) continue;
+        let near = false; // соседи ближе SPAWN_GAP (после 300 попыток — только сама клетка свободна)
+        for (let dx = -SPAWN_GAP; dx <= SPAWN_GAP && !near; dx++) for (let dy = -SPAWN_GAP; dy <= SPAWN_GAP; dy++) if ((k < 300 || (!dx && !dy)) && this.byXY.has((x + dx) * WORLD + (y + dy))) { near = true; break; }
+        if (!near && !this.worldObjects(x, y, 1, 1).some((o) => o.kind === 'object')) break;
       }
     }
     const castleGrid = new Int8Array(49).fill(-1);
