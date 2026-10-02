@@ -96,6 +96,7 @@ function client() {
     await b.expect('registered');
     b.send({ t: 'login', login: 'Second', password: 'pass2' });
     await b.expect('auth');
+    assert.equal((await b.expect('welcome')).players, 2, 'советник: онлайн — двое (Webby и Second), а не все зарегистрированные');
     b.send({ t: 'sendmail', to: 'Webby', subject: 'Привет', text: 'Из браузера' });
     await a.expect('toast', (m) => /Новое письмо/.test(m.msg));
     a.send({ t: 'mail', folder: 0 });

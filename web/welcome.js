@@ -26,7 +26,7 @@ function welcomeShow(m) {
   // отступ текста от скруток папируса — в пикселях от ширины самого папируса (проценты считались бы от всего окна — на компьютере ломалось)
   d.innerHTML = `<div class="wlc-box" style="width:${W}px;padding:0 ${Math.round(W * 0.18)}px;border-width:${A.top * k}px 0 ${A.bot * k}px;border-image:url('${src}') ${A.top} 0 ${A.bot} fill / ${A.top * k}px 0 ${A.bot * k}px stretch;min-height:${A.h * k}px">
     <h3>Приветствую, мой правитель!</h3><div class="wlc-who">${A.name}</div>
-    <p>Сейчас в игре ${fmtFull(m.players)} ${plural(m.players, 'игрок', 'игрока', 'игроков')}.</p>
+    <p>Сейчас в игре (онлайн): ${fmtFull(m.players)} ${plural(m.players, 'игрок', 'игрока', 'игроков')}.</p>
     ${items.length ? `<p>За Ваше отсутствие:</p>${items.map(([go, ic, t]) => `<button type="button" class="wlc-row" data-wgo="${go}"><i>${ic}</i><span>${t}</span><b>›</b></button>`).join('')}`
       : '<p>За Ваше отсутствие ничего не произошло.</p>'}${bossRow}
     <button type="button" class="wlc-close">Закрыть</button></div>`;

@@ -10,16 +10,15 @@ function install(Game) {
   const P = Game.prototype;
   P.newsDb = function newsDb() { return (this.db.news = this.db.news || []); };
   // сколько новостей игрок ещё не читал (не считаются опубликованные до его регистрации)
-  // доклад советника при входе: игроков в игре, нападения и отчёты за время отсутствия, новые подарки, непрочитанные письма и новости
+  // доклад советника при входе (число игроков онлайн добавляет web.js), нападения и отчёты за время отсутствия, новые подарки, непрочитанные письма и новости
   P.welcomeInfo = function welcomeInfo(u, since) {
-    const players = Object.values(this.db.users).filter((x) => !x.bot && !x.banned).length;
     const mine = (this.db.reports || []).filter((r) => r.owner === u.id && !r.read);
     const attacks = mine.filter((r) => r.at > since && r.data && r.data.type === 'battle' && r.data.side === 'def').length;
     const mail = (this.db.messages || []).filter((x) => x.to === u.id && !x.read).length;
     const gifts = (u.gifts || []).filter((x) => x.at > since).length;
     const b = this.bossNow(), bs = this.db.boss; // мировой босс: где он сейчас или когда появится
     void bs; const boss = b ? { on: true, kind: b.kind, name: b.name, x: b.x, y: b.y } : null;
-    return { players, reports: mine.length, attacks, mail, gifts, news: this.newsUnread(u), boss };
+    return { reports: mine.length, attacks, mail, gifts, news: this.newsUnread(u), boss };
   };
   P.newsUnread = function newsUnread(u) {
     const seen = new Set(u.newsRead || []);

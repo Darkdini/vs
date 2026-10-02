@@ -104,6 +104,14 @@ function catalogJson() {
   };
 }
 
+// кто сейчас в игре (открытые соединения с входом; один игрок с двух устройств — один раз)
+function onlineUsers() {
+  const seen = new Map();
+  for (const s of WebSession.all || []) if (s.user && !s.user.bot) seen.set(s.user.id, { id: s.user.id, login: s.user.login, rep: s.user.reputation ?? 10 });
+  return seen;
+}
+const onlineCount = () => onlineUsers().size;
+
 // ---------- сессия браузера ----------
 class WebSession {
   constructor(game, socket, log) {
@@ -238,7 +246,7 @@ const API = {
     this.pushState();
     // советник встречает при входе: сколько игроков, что случилось за время отсутствия.
     // Сервер шлёт доклад при каждом входе; клиент показывает его один раз за открытие игры (после обрыва связи — не повторяет)
-    this.send({ t: 'welcome', ...this.game.welcomeInfo(u, prevSeen) });
+    this.send({ t: 'welcome', ...this.game.welcomeInfo(u, prevSeen), players: onlineCount() }); // сколько сейчас в игре — как «Игроки (N)» в чате
   },
   logout() { this.game.dropToken(this.user, this.token); this.user.online = false; this.user = null; this.send({ t: 'loggedout' }); },
   sync() { this.pushState(); },
@@ -355,8 +363,7 @@ const API = {
   chatlog() { this.send({ t: 'chatlog', list: this.game.chatLog() }); },
   // «Игроки (N)» в главном чате: кто сейчас в игре (только ники)
   chatusers() {
-    const seen = new Map();
-    for (const s of WebSession.all || []) if (s.user && !s.user.bot) seen.set(s.user.id, { id: s.user.id, login: s.user.login, rep: s.user.reputation ?? 10 });
+    const seen = onlineUsers();
     this.send({ t: 'chatusers', list: [...seen.values()].sort((a, b) => a.login.localeCompare(b.login)) });
   },
   ratings(m) {
