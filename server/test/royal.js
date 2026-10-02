@@ -623,6 +623,15 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(Math.abs(c.res.wood - cap) <= 1 && Math.abs(((u.stash && u.stash.res.wood) || 0) - sw - 400) <= 1, 'в замок до Склада, остаток — в Кладовую');
   c.res.wood = 0;
   assert.strictEqual(g.advState(u, c).idx, 1, 'следующий шаг');
+  { // урок Кладовой: появляется, когда в Кладовой есть ресурсы и на Складе есть место; выполняется извлечением
+    const w0 = g.register({ login: 'advstash', password: '12345', race: 0 }).user, cw = g.castleOf(w0);
+    assert.ok(!g.advState(w0, cw).stash, 'Кладовая пуста — урока нет');
+    g.stashAdd(w0, { wood: 300 }); cw.res.wood = 0; let s1 = g.advState(w0, cw);
+    assert.ok(s1.stash && !s1.done && s1.idx === 0, 'урок Кладовой вставлен, номер шага прежний');
+    assert.ok(g.stashTake(w0, cw, 'res', 'wood', 100).ok && g.advState(w0, cw).done, 'забрал — выполнено');
+    assert.ok(g.questClaim(w0, cw, 'adv').ok && !g.advState(w0, cw).stash && g.advState(w0, cw).idx === 0, 'награда, дальше — обычная цепочка');
+    g.stashAdd(w0, { wood: 300 }); assert.ok(!g.advState(w0, cw).stash, 'урок — один раз');
+  }
   const v = g.register({ login: 'advold1', password: '12345', race: 0 }).user, cv = g.castleOf(v); cv.levels[0][cv.grid[0].indexOf(0)] = 7;
   assert.ok(g.advState(v, cv).finished, 'опытному (Ратуша 7) — цепочка пройдена');
   console.log('✓ Советник-строитель: шаги, ресурсы в замок до Склада, остаток в Кладовую');

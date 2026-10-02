@@ -121,15 +121,16 @@ function advBar() {
   let h = $('#advhand'); const hand = a.done || a.idx < 3;
   if (hand && !h) { h = document.createElement('img'); h.id = 'advhand'; h.src = `${GFX}tut/hand.png`; h.alt = ''; $('#stage').appendChild(h); }
   if (!hand && h) h.remove();
-  const nm = S.by && S.by[a.bid] ? S.by[a.bid].name : a.title, short = a.need > 1 ? `${nm} → ${a.need} ур.` : `Построить: ${nm}`;
-  b.innerHTML = `<span class="ab-t"><img src="${GFX}tut/${a.done ? 'star' : a.need > 1 ? 'ic_up' : 'ic_build'}.png" alt="">Задание:</span><span class="ab-x">${esc(short)}</span><span class="ab-b">${a.done ? 'Награда!' : 'Выполнить'}</span>`;
+  const sb = $('#stbtn'); if (sb) sb.classList.toggle('advpulse', !!a.stash && !a.done); // шаг Кладовой — сундук светится
+  const nm = S.by && S.by[a.bid] ? S.by[a.bid].name : a.title, short = a.stash ? 'Кладовая → забрать' : a.need > 1 ? `${nm} → ${a.need} ур.` : `Построить: ${nm}`;
+  b.innerHTML = `<span class="ab-t"><img src="${GFX}tut/${a.done ? 'star' : a.stash ? 'ic_reward' : a.need > 1 ? 'ic_up' : 'ic_build'}.png" alt="">Задание:</span><span class="ab-x">${esc(short)}</span><span class="ab-b">${a.done ? 'Награда!' : 'Выполнить'}</span>`;
 }
 function advWin() {
   const a = S.st.quests && S.st.quests.adv;
   if (!a || a.finished) return `${ribbon('Советник')}<div class="advdone"><img src="${GFX}tut/laurel.png" alt=""><p>Все задания советника выполнены! Дальше помогут Задания (свиток слева).</p></div>`;
   return `${ribbon('Советник')}<div class="advisor"><img src="${advPic()}" alt=""><div>
-      <p><b>${a.done ? `<img class="advic" src="${GFX}tut/done.png" alt="">` : `<img class="advic" src="${GFX}tut/${a.need > 1 ? 'ic_up' : 'ic_build'}.png" alt="">`} Задание ${a.idx + 1} из ${a.total}</b></p><p>${esc(a.title)}.</p>
-      <p class="small">${a.done ? 'Отлично, правитель! Забирайте награду.' : `Сейчас: ${a.have} из ${a.need}. Здание — ${a.layer === 'lands' ? 'на Землях (дерево на панели справа)' : 'в замке'}. Ресурсы награды пойдут сразу в замок, а что не поместится на Складе — в Кладовую (сундук справа вверху), они не пропадут.`}</p></div></div>
+      <p><b>${a.done ? `<img class="advic" src="${GFX}tut/done.png" alt="">` : `<img class="advic" src="${GFX}tut/${a.stash ? 'ic_reward' : a.need > 1 ? 'ic_up' : 'ic_build'}.png" alt="">`} ${a.stash ? 'Урок: Кладовая' : `Задание ${a.idx + 1} из ${a.total}`}</b></p><p>${esc(a.title)}.</p>
+      <p class="small">${a.done ? 'Отлично, правитель! Забирайте награду.' : a.stash ? 'Награды, которым не хватило места на Складе, ждут в Кладовой — сундук справа вверху. Откройте её, выберите ресурс, ползунком отметьте сколько и нажмите «Извлечь». Забирать можно, пока на Складе есть место.' : `Сейчас: ${a.have} из ${a.need}. Здание — ${a.layer === 'lands' ? 'на Землях (дерево на панели справа)' : 'в замке'}. Ресурсы награды пойдут сразу в замок, а что не поместится на Складе — в Кладовую (сундук справа вверху), они не пропадут.`}</p></div></div>
     <div class="qcard ${a.done ? 'ready' : ''}">${qBar(a.have, a.need)}${qReward(a.reward)}
       ${a.done ? '<button class="qbtn" data-qclaim="adv">Забрать награду</button>' : '<button class="pbar" data-advgo>Выполнить — к зданию</button>'}</div>`;
 }
@@ -138,7 +139,7 @@ $('#sheetBody').addEventListener('click', (e) => { if (e.target.closest('[data-a
 // ---------- советник ведёт за руку: нужная клетка, переход к ней, подсветка кнопки ----------
 // клетка для задания: здание этого вида ниже нужного уровня (самое развитое), иначе — свободное место, где его можно построить
 function advTarget() {
-  const a = S.st && S.st.quests && S.st.quests.adv; if (!a || a.finished || a.done) return null;
+  const a = S.st && S.st.quests && S.st.quests.adv; if (!a || a.finished || a.done || a.stash) return null;
   const v = a.layer === 'lands' ? VIEW.LANDS : VIEW.CASTLE, c = S.st.castle, N = v ? LN() : 7, g = c.grid[v], lv = c.levels[v];
   let best = -1;
   for (let i = 0; i < g.length; i++) { const q = queueAt(v, i); if ((g[i] === a.bid || (q && q.building === a.bid)) && (best < 0 || lv[i] > lv[best])) best = i; }
@@ -155,6 +156,8 @@ function advTarget() {
   return best < 0 ? null : { view: v, tab: v ? 'lands' : 'castle', cell: best, x: best % N, y: Math.floor(best / N), bid: a.bid };
 }
 function advGo() {
+  const a0 = S.st.quests && S.st.quests.adv;
+  if (a0 && a0.stash && !a0.done) { closeAllSheets(); if (S.tab !== 'castle') setTab('castle'); S.advHL = { stash: true }; openStash(); return; } // урок Кладовой
   const t = advTarget(); if (!t) return openSheet(advWin);
   closeAllSheets(); if (S.tab !== t.tab) setTab(t.tab);
   if (t.view === VIEW.CASTLE) { // камера — на нужную клетку
@@ -167,13 +170,20 @@ function advGo() {
 // в открытом окне — пульсирующая кнопка «Развить/Построить» нужного здания и рука над ней
 function advHighlight() {
   const t = S.advHL; if (!t) return;
+  if (t.stash) { // Кладовая: сначала строка с ресурсом, после её открытия — «Извлечь»
+    const btn = $('#sheetBody [data-sttake^="res:"]') || $('#sheetBody .str[data-stid^="res:"]');
+    if (!btn || btn.classList.contains('advpulse')) return;
+    $$('#sheetBody .advpulse').forEach((x) => x.classList.remove('advpulse')); $$('#sheetBody .advhand2').forEach((x) => x.remove());
+    btn.classList.add('advpulse'); btn.scrollIntoView({ block: 'center' });
+    const h = document.createElement('img'); h.className = 'advhand2'; h.src = `${GFX}tut/hand.png`; h.alt = ''; btn.appendChild(h); return;
+  }
   const btn = $(`#sheetBody [data-build="${t.view},${t.cell},${t.bid}"]`) || $(`#sheetBody [data-pick="${t.view},${t.cell},${t.bid}"]`);
   if (!btn || btn.classList.contains('advpulse')) return;
   btn.classList.add('advpulse'); btn.scrollIntoView({ block: 'center' });
   const h = document.createElement('img'); h.className = 'advhand2'; h.src = `${GFX}tut/hand.png`; h.alt = ''; btn.appendChild(h);
 }
 new MutationObserver(() => { if (S.advHL) advHighlight(); }).observe($('#sheetBody'), { childList: true, subtree: true });
-document.addEventListener('click', (e) => { if (e.target.closest('[data-build],[data-pick]')) setTimeout(() => { S.advHL = null; }, 0); }, true);
+document.addEventListener('click', (e) => { if (e.target.closest('[data-build],[data-pick],[data-sttake]')) setTimeout(() => { S.advHL = null; }, 0); }, true);
 // на карте замка/земель: золотое кольцо и прыгающая стрелка над нужной клеткой (рисуется из isoDrawNow)
 function advMarker(view, at, big = view === VIEW.LANDS ? 2 : 1) { // на Землях вид издалека — метка крупнее
   const t = advTarget(); if (!t || t.view !== view) return;

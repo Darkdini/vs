@@ -203,6 +203,16 @@ function install(Game) {
     const q = this.qinit(u);
     if (q.adv === undefined) q.adv = this.buildingLevel(c, 0) >= 6 ? ADV.length : 0;
     const t = ADV[q.adv]; if (!t) return { finished: true, total: ADV.length };
+    // обучение Кладовой — вставной шаг: в Кладовой есть ресурсы, а на Складе освободилось место (один раз)
+    if (!q.advStash) {
+      const st = this.stashOf(u), cap = this.capacity(c), took = this.stats(u).stashTake || 0;
+      const can = ['wood', 'stone', 'iron', 'food'].some((r) => (st.res[r] || 0) > 0 && c.res[r] < cap[r] - 1);
+      if (q.advStashBase !== undefined || can) {
+        if (q.advStashBase === undefined) q.advStashBase = took;
+        const done = took > q.advStashBase;
+        return { idx: q.adv, total: ADV.length, id: 'a_stash', title: 'Заберите ресурсы из Кладовой', layer: 'stash', have: done ? 1 : 0, need: 1, done, reward: R(300), stash: true };
+      }
+    }
     const have = this.buildingLevel(c, t.bid), def = C.BY_ID[t.bid];
     return { idx: q.adv, total: ADV.length, id: t.id, title: t.title, bid: t.bid, layer: def ? def.layer : 'castle', have: Math.min(have, t.lvl), need: t.lvl, done: have >= t.lvl, reward: t.reward };
   };
@@ -260,7 +270,9 @@ function install(Game) {
     }
     if (kind === 'adv') {
       const a = this.advState(u, c); if (a.finished || !a.done) return { error: 'Задание советника ещё не выполнено.' };
-      const r = giveNow(this, u, c, ADV[q.adv].reward); q.adv++; this.store.save();
+      const r = giveNow(this, u, c, a.stash ? a.reward : ADV[q.adv].reward);
+      if (a.stash) { q.advStash = true; delete q.advStashBase; } else q.adv++;
+      this.store.save();
       return { ok: true, msg: `Советник: «${a.title}» — выполнено!${r.inCastle ? ` В замок: ${r.inCastle.toLocaleString('ru-RU')} ресурсов.` : ''}${r.toS ? ` Не поместилось на Складе — ${r.toS.toLocaleString('ru-RU')} в Кладовой (сундук справа вверху).` : ''}${r.stash.length ? ` В Кладовую: ${r.stash.join(', ')}.` : ''}` };
     }
     if (kind === 'weekly') {
