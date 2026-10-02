@@ -636,5 +636,15 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(g.advState(v, cv).finished, 'опытному (Ратуша 7) — цепочка пройдена');
   console.log('✓ Советник-строитель: шаги, ресурсы в замок до Склада, остаток в Кладовую');
 }
+{ // «Пригласить в альянс» в профиле игрока без альянса — видит тот, у кого есть право приглашать
+  const lead = g.register({ login: 'allyLeadP', password: '12345', race: 0 }).user, free = g.register({ login: 'freeGuyP', password: '12345', race: 0 }).user, nob = g.register({ login: 'noAllyP', password: '12345', race: 0 }).user;
+  g.db.alliances = g.db.alliances || {}; const aid = g.db.nextId++; g.db.alliances[aid] = { id: aid, name: 'Тест профиля', tag: 'TPF', leader: lead.id, members: [lead.id], created: Date.now() }; lead.alliance = aid;
+  let pr = g.profileOf(free, lead); assert.ok(pr.allyInvite && pr.allyInvite.tag === 'TPF' && !pr.allyInvite.sent, 'глава видит кнопку приглашения');
+  assert.ok(!g.profileOf(free, nob).allyInvite, 'без альянса — кнопки нет');
+  assert.ok(!g.profileOf(lead, free).allyInvite && !g.profileOf(lead, lead).allyInvite, 'у игрока в альянсе и у себя — нет');
+  assert.ok(g.alliance(lead, g.castleOf(lead), { op: 'invite', id: free.id }).ok, 'приглашение');
+  pr = g.profileOf(free, lead); assert.ok(pr.allyInvite.sent, 'отмечено «отправлено»');
+  console.log('✓ Профиль: «Пригласить в альянс» для игрока без альянса');
+}
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);

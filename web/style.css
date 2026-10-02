@@ -1788,3 +1788,7 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .qw2 .qw-chest { width: 112px; height: 112px; margin: 4px auto 2px; display: block; }
 .qw2 .qw-ribbon { margin-top: 2px; }
 .qw-sec { padding: 0 4px 4px; } .qw-sec small { margin-bottom: 2px; }
+.noally { color: #8a2a1a; }
+.allyinv { display: block; width: 100%; margin: 6px 0 8px; padding: 10px; border: 2px solid #c8f5a0; border-radius: 12px; background: linear-gradient(#5fd35f, #1f8f1f); color: #fff;
+  font: 700 18px var(--serif); text-shadow: 0 1px 2px #0008; box-shadow: 0 0 10px #4fd14f99; animation: qglow 1.6s ease-in-out infinite; }
+.allyinv.sent { background: #e6f5dc; color: #1f6b1f; border-color: #8fd18f; box-shadow: none; animation: none; text-shadow: none; text-align: center; font-size: 15px; }

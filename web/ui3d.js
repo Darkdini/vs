@@ -250,7 +250,8 @@ function profileWin(p) {
     <button class="pline plink2" data-reptable>Репутация (${fmtFull(p.reputation)}): ${repIcons(p.reputation)}</button>
     ${best.length ? `<div class="pline">Зал Славы: ${medals}</div>` : ''}
     ${(p.titles || []).length ? `<div class="ptitle">Звание: ${p.titles.map((t) => `${t === 'Администратор' ? `<img class="admbadge" src="${GFX}admin_badge.png" alt="">` : t === 'Модератор форума' ? `<img class="admbadge" src="${GFX}mod_badge.png" alt="">` : `<img class="admbadge crownp" src="${GFX}premium_crown.png" alt="">`} ${esc(t)}`).join(', ')}</div>` : ''}
-    <div class="pline">Альянс: ${p.alliance ? `<a class="plink" data-allyinfo="${p.alliance.id}">${esc(p.alliance.name)} [${esc(p.alliance.tag)}]</a>` : '—'}</div>
+    <div class="pline">Альянс: ${p.alliance ? `<a class="plink" data-allyinfo="${p.alliance.id}">${esc(p.alliance.name)} [${esc(p.alliance.tag)}]</a>` : '<b class="noally">нет</b>'}</div>
+    ${p.allyInvite ? (p.allyInvite.sent ? `<div class="allyinv sent">✔ Приглашение в [${esc(p.allyInvite.tag)}] отправлено</div>` : `<button class="allyinv" data-allyinv="${p.id}">➕ Пригласить в альянс [${esc(p.allyInvite.tag)}]</button>`) : ''}
     ${p.alliance ? `<div class="pline">Звание в альянсе: ${esc(p.alliance.role)}</div>` : ''}
     <div class="ptiles pbig">
       ${tile('treasury', 'gfx3d/prof/treasury.png', 'Пополнить Казну', !p.self)}
@@ -628,4 +629,11 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (!e.target.closest('[data-repgo]')) return;
   document.activeElement && document.activeElement.blur();
   send({ t: 'rep', id: S.repTo.id, coins: S.repCoins || 1 }); closeSheet();
+});
+
+// «Пригласить в альянс» из профиля игрока без альянса
+$('#sheetBody').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-allyinv]'); if (!b) return;
+  b.disabled = true; send({ t: 'alliance', op: 'invite', id: Number(b.dataset.allyinv) });
+  setTimeout(() => send({ t: 'profile', id: Number(b.dataset.allyinv) }), 300);
 });
