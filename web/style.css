@@ -1700,3 +1700,5 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .calc.now { border-color: #2fae2f; box-shadow: 0 0 0 2px #7ef07e, 0 0 10px #4fd14f; animation: qglow 1.4s ease-in-out infinite; }
 .calt { display: block; margin-bottom: 4px; font: 700 17px var(--serif); color: #4a2410; text-align: center; }
 .qtabs button span { font-size: 12px; }
+/* сохранённый вход: точки-подсказка в пустом поле пароля выглядят как введённый пароль */
+#authForm input[name=password].saved::placeholder { color: inherit; opacity: 1; letter-spacing: 2px; }

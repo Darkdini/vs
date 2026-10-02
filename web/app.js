@@ -349,7 +349,7 @@ $('#authForm').addEventListener('submit', (e) => {
   S.remember = f.remember.checked;
   S.pendingCreds = { login, password };
   // сохранённый вход: пароль не нужен, если логин тот же — вход по токену
-  if (S.mode !== 'reg' && (!password || password === SAVED_PASS) && S.creds && S.creds.token && login === (S.creds.show || S.creds.login)) { S.pendingCreds = { login, password: '' }; S.auto = true; return send({ t: 'login', ...S.creds, dev: DEV }); }
+  if (S.mode !== 'reg' && (!password || password === SAVED_PASS) && S.creds && S.creds.token && login === (S.creds.show || S.creds.login)) { S.pendingCreds = { login, password: '' }; S.auto = true; $('#authForm').password.value = ''; return send({ t: 'login', ...S.creds, dev: DEV }); }
   if (S.mode !== 'reg' && !password) { $('#authErr').textContent = 'Введите пароль.'; return; }
   if (S.mode === 'reg' && login.length < 5) { $('#authErr').textContent = 'Логин слишком короткий (минимум 5 символов).'; return; }
   if (S.mode === 'reg') { send({ t: 'register', login, password, nick: f.nick.value.trim(), race: String(S.race), captcha: f.captcha.value, dev: DEV }); f.captcha.value = ''; }
@@ -1347,18 +1347,19 @@ if (S.creds && S.creds.password) { S.creds = null; store.set('tw.creds', null); 
 S.remember = true;
 store.set('tw.lock', null); // блокировку решает только сервер: после его перезапуска старая табличка не нужна
 // сохранённый вход: логин подставлен, пароль можно не вводить — достаточно нажать «Войти»
-// сохранённый пароль показан точками (это не сам пароль — в браузере хранится только токен входа); игрок просто жмёт «Войти»
+// сохранённый вход показан точками-подсказкой (placeholder) при ПУСТОМ поле пароля: в поле ничего не кладём, иначе браузер
+// принимает метку за новый пароль и каждый раз предлагает «обновить» сохранённый (и подставляет его вместо настоящего).
+// Старая метка (могла попасть в менеджер паролей браузера) по-прежнему понимается как «войти по сохранённому входу».
 const SAVED_PASS = '\u2063saved\u2063';
 function savedLoginUi() {
   const f = $('#authForm'), saved = !!(S.creds && S.creds.token);
   if (saved && !f.login.value) f.login.value = S.creds.show || S.creds.login;
-  if (saved && !f.password.value) f.password.value = SAVED_PASS;
-  if (!saved && f.password.value === SAVED_PASS) f.password.value = '';
-  f.password.required = !saved; f.password.placeholder = '';
+  if (f.password.value === SAVED_PASS) f.password.value = '';
+  f.password.required = !saved; f.password.placeholder = saved ? '•••••••' : '';
+  f.password.classList.toggle('saved', saved);
 }
 savedLoginUi();
-$('#authForm').password.addEventListener('focus', (e) => { if (e.target.value === SAVED_PASS) e.target.select(); }); // начнёт печатать — сохранённый заменится
-$('#authForm').login.addEventListener('input', (e) => { const saved = S.creds && S.creds.token && e.target.value.trim() === (S.creds.show || S.creds.login); const pw = $('#authForm').password; pw.required = !saved; if (!saved && pw.value === SAVED_PASS) pw.value = ''; });
+$('#authForm').login.addEventListener('input', (e) => { const saved = !!(S.creds && S.creds.token && e.target.value.trim() === (S.creds.show || S.creds.login)); const pw = $('#authForm').password; pw.required = !saved; pw.placeholder = saved ? '•••••••' : ''; pw.classList.toggle('saved', saved); });
 connect();
 // помощник кэша (sw.js): картинки — из памяти телефона, после обновления — только изменившиеся (нужен https или localhost)
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) navigator.serviceWorker.register('sw.js').catch(() => {});
