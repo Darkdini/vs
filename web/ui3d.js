@@ -223,11 +223,15 @@ function profileWin(p) {
   for (const m of fresh.sort((a, b) => a.place - b.place || b.at - a.at)) if (!seen[m.hall]) { seen[m.hall] = 1; best.push(m); }
   const mtitle = (m) => `Зал «${esc(m.name)}» — ${['I', 'II', 'III'][m.place - 1]} место за ${monthName(m.month)}, получено ${fmtDay(m.at)}`;
   const medals = best.length ? `<span class="hofrow">${best.map((m) => `<img class="medal" src="${medalSrc(m.icon)}" alt="" title="${mtitle(m)}" data-medal="${m.at}:${m.hall}">`).join('')}</span>` : '<span class="muted">нет</span>';
-  const hof = p.medals.length ? `<div class="hofbig">${p.medals.slice(0, 5).map((m) => `<img src="${medalSrc(m.icon)}" alt="" title="${mtitle(m)}" data-medal="${m.at}:${m.hall}">`).join('')}</div>`
-    : '<div class="parch-note">Пока нет — медали получают топ-3 игрока каждой категории в конце соревновательного месяца.</div>';
+  // разделы профиля компактно: ряд значков (до 12, дальше «+N»); нажатие на заголовок или ряд — полный список
+  const row = (list, f) => `<div class="prow">${list.slice(0, 12).map(f).join('')}${list.length > 12 ? `<b>+${list.length - 12}</b>` : ''}</div>`;
+  const hof = p.medals.length ? `<div data-mymedals>${ribbon(`Зал Славы - ${p.medals.length} ›`)}${row(p.medals, (m) => `<img class="pmed" src="${medalSrc(m.icon)}" alt="" title="${mtitle(m)}">`)}</div>`
+    : `${ribbon('Зал Славы')}<div class="parch-note">Пока нет — медали получают топ-3 игрока каждой категории в конце соревновательного месяца.</div>`;
   // Награждения: медали от альянса за заслуги
   const aw = p.awards || [];
-  const awards = aw.length ? aw.map((m) => `<div class="award"><img src="${GFX}smallicon/status/${m.kind}.png" alt=""><div><b>${esc(ALLY_MEDAL[m.kind] || 'Медаль')} от альянса [${esc(m.tag)}]</b><small>${m.text ? `«${esc(m.text)}» · ` : ''}вручил ${esc(m.by)} · получено ${fmtDay(m.at)}</small></div></div>`).join('') : '<div class="parch-note">Пока нет — медали за заслуги вручает глава альянса.</div>';
+  const awards = aw.length ? `<div data-plist="awards">${ribbon(`Награждения - ${aw.length} ›`)}${row(aw, (m) => `<img class="pmed" src="${GFX}smallicon/status/${m.kind}.png" alt="">`)}</div>` : '';
+  const gifts = p.gifts || [];
+  const giftsRow = gifts.length ? `<div data-plist="gifts">${ribbon(`Подарки - ${gifts.length} ›`)}${row(gifts, (g) => `<img class="pgi" src="${GFX}${(S.cat.gifts[g.gift] || {}).img}" alt="">`)}</div>` : `${ribbon('Подарки - 0')}<div class="parch-note">Подарков пока нет.</div>`;
   // значки убийцы мирового босса (boss.js)
   const bb = p.bossBadges || [], SLAY = { dragon: 'Драконоборец', troll: 'Сокрушитель троллей', lich: 'Изгоняющий тьму' };
   // в профиле — только ряд значков; нажатие на заголовок или значки — полный список (bossBadgesWin)
@@ -255,9 +259,7 @@ function profileWin(p) {
       ${tile('info', 'gfx3d/prof/info.png', 'Личная информация')}
       ${tile('more', 'gfx3d/prof/more.png', '')}
     </div>
-    ${ribbon(`Подарки - ${(p.gifts || []).length}`)}${(p.gifts || []).length ? `<div class="pgifts">${p.gifts.map((g) => { const G = S.cat.gifts[g.gift] || {}; return `<button class="pgift" data-cprof="${g.fromId}" title="${esc(G.name || '')}"><img src="${GFX}${G.img}" alt=""><small>от ${esc(g.from)}</small>${g.text ? `<i>«${esc(g.text)}»</i>` : ''}</button>`; }).join('')}</div>` : '<div class="parch-note">Подарков пока нет.</div>'}
-    ${ribbon('Зал Славы')}${hof}<button class="pbar pview" data-mymedals><img src="${HALL_IMG('rule', 1)}" alt=""> Посмотреть</button>
-    ${ribbon(`Награждения - ${aw.length}`)}${awards}${slayer}
+    ${giftsRow}${hof}${awards}${slayer}
     ${ribbon(`Замки - ${p.castles.length}`)}
     ${p.castles.map((c) => `<button class="pcastle" data-goworld="${c.x},${c.y}"><img src="${GFX}ground/castle_small.png" alt=""> ${esc(c.name)}<br>X: ${c.x}, Y: ${c.y}${c.capital ? ' (Столица)' : ''}</button>`).join('')}`;
 }
@@ -468,6 +470,13 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
   if (m.t === 'notes') { S.notes = m.text; return refreshSheet(); }
   prevMilMsg(m);
 };
+// полные списки разделов профиля (нажатие на ряд значков)
+function profileListWin(kind) {
+  const p = S.lastProfile; if (!p) return '';
+  if (kind === 'gifts') return `${ribbon(`Подарки - ${(p.gifts || []).length}`)}<p class="center"><b>${esc(p.login)}</b></p><div class="pgifts">${(p.gifts || []).map((g) => { const G = S.cat.gifts[g.gift] || {}; return `<button class="pgift" data-cprof="${g.fromId}" title="${esc(G.name || '')}"><img src="${GFX}${G.img}" alt=""><small>от ${esc(g.from)}</small>${g.text ? `<i>«${esc(g.text)}»</i>` : ''}</button>`; }).join('')}</div>`;
+  return `${ribbon('Награждения')}<p class="center"><b>${esc(p.login)}</b></p>${(p.awards || []).map((m) => `<div class="award"><img src="${GFX}smallicon/status/${m.kind}.png" alt=""><div><b>${esc(ALLY_MEDAL[m.kind] || 'Медаль')} от альянса [${esc(m.tag)}]</b><small>${m.text ? `«${esc(m.text)}» · ` : ''}вручил ${esc(m.by)} · получено ${fmtDay(m.at)}</small></div></div>`).join('')}`;
+}
+$('#sheetBody').addEventListener('click', (e) => { const t = e.target.closest('[data-plist]'); if (t) openSheet(() => profileListWin(t.dataset.plist)); });
 // профиль — новый вид
 profileSheet = function (p) { S.lastProfile = p; return profileWin(p); }; // eslint-disable-line no-global-assign
 

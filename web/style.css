@@ -1550,3 +1550,6 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .bbadges .bmedal img { width: 40px; height: 50px; } .bbadges > b { align-self: center; color: #6a3a10; }
 [data-bbl] .ribbon { cursor: pointer; }
 .bmedal img[src*="/medal_"] { filter: none !important; }
+.prow { display: flex; flex-wrap: wrap; gap: 6px 8px; justify-content: center; padding: 8px 4px; cursor: pointer; }
+.prow img.pmed { width: 40px; height: 40px; object-fit: contain; } .prow img.pgi { width: 44px; height: 44px; object-fit: contain; filter: drop-shadow(0 1px 2px #0006); }
+.prow > b { align-self: center; color: #6a3a10; } [data-plist] .ribbon, [data-mymedals] .ribbon { cursor: pointer; }
