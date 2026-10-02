@@ -1738,3 +1738,9 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 #advbar.done { animation: qglow 1.4s ease-in-out infinite; } #advbar.done .ab-b { background: linear-gradient(#ffd76a, #d18a12); color: #4a2410; text-shadow: none; }
 #game.adv #qbtn { bottom: 140px; }
 #game.adv #bbtn { bottom: 204px; }
+#advbar .ab-t { gap: 4px; padding: 0 8px 0 4px; } #advbar .ab-t img { width: 30px; height: 30px; object-fit: contain; filter: drop-shadow(0 1px 2px #000a); }
+#advhand { position: absolute; right: 26px; bottom: 40px; z-index: 7; width: 40px; pointer-events: none; filter: drop-shadow(0 3px 4px #000a); animation: advtap 1s ease-in-out infinite; }
+@keyframes advtap { 0%, 100% { transform: translateY(-8px); } 50% { transform: translateY(2px); } }
+.advisor img[src*="tut/adv_"] { width: 96px; height: auto; flex: none; image-rendering: auto; align-self: flex-start; }
+.advisor img.advic { width: 26px; height: 26px; vertical-align: middle; image-rendering: auto; }
+.advdone { text-align: center; padding: 10px; } .advdone img { width: 110px; } .advdone p { font: 600 17px var(--serif); color: #4a2410; }

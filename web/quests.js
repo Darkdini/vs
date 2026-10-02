@@ -101,23 +101,27 @@ $('#sheetBody').addEventListener('click', (e) => {
 
 // ---------- советник-строитель: полоска «Задание: … [Выполнить]» над чатом (как в оригинале) ----------
 // Сервер: quests.js advState / qclaim kind 'adv'. Ресурсы награды — сразу в замок, лишнее — в Кладовую.
-function advPic() { const r = S.st.user.race; return `${GFX}units/${S.cat.mil.raceDir[r]}/wisdom.png${r === 'orcs' ? '?orc' : ''}`; }
+function advPic() { return `${GFX}tut/adv_${S.st.user.race}.png`; } // портрет советника своей расы (gfx/tut)
 function advBar() {
   const a = S.st && S.st.quests && S.st.quests.adv;
   let b = $('#advbar');
   const show = !!a && !a.finished && ['castle', 'lands', undefined].includes(S.tab);
   $('#game').classList.toggle('adv', show); // свиток заданий и кнопка босса поднимаются над полоской
-  if (!show) { if (b) b.remove(); return; }
+  if (!show) { if (b) b.remove(); const h = $('#advhand'); if (h) h.remove(); return; }
   if (!b) { b = document.createElement('button'); b.id = 'advbar'; b.type = 'button'; b.addEventListener('click', () => openSheet(advWin)); $('#stage').appendChild(b); }
   b.classList.toggle('done', !!a.done);
+  // рука-указатель: на первых шагах и когда награда готова — «нажми сюда»
+  let h = $('#advhand'); const hand = a.done || a.idx < 3;
+  if (hand && !h) { h = document.createElement('img'); h.id = 'advhand'; h.src = `${GFX}tut/hand.png`; h.alt = ''; $('#stage').appendChild(h); }
+  if (!hand && h) h.remove();
   const nm = S.by && S.by[a.bid] ? S.by[a.bid].name : a.title, short = a.need > 1 ? `${nm} → ${a.need} ур.` : `Построить: ${nm}`;
-  b.innerHTML = `<span class="ab-t">Задание:</span><span class="ab-x">${esc(short)}</span><span class="ab-b">${a.done ? 'Награда!' : 'Выполнить'}</span>`;
+  b.innerHTML = `<span class="ab-t"><img src="${GFX}tut/${a.done ? 'star' : a.need > 1 ? 'ic_up' : 'ic_build'}.png" alt="">Задание:</span><span class="ab-x">${esc(short)}</span><span class="ab-b">${a.done ? 'Награда!' : 'Выполнить'}</span>`;
 }
 function advWin() {
   const a = S.st.quests && S.st.quests.adv;
-  if (!a || a.finished) return `${ribbon('Советник')}<p class="parch-note">Все задания советника выполнены — дальше помогут Задания (свиток слева).</p>`;
+  if (!a || a.finished) return `${ribbon('Советник')}<div class="advdone"><img src="${GFX}tut/laurel.png" alt=""><p>Все задания советника выполнены! Дальше помогут Задания (свиток слева).</p></div>`;
   return `${ribbon('Советник')}<div class="advisor"><img src="${advPic()}" alt=""><div>
-      <p><b>Задание ${a.idx + 1} из ${a.total}</b></p><p>${esc(a.title)}.</p>
+      <p><b>${a.done ? `<img class="advic" src="${GFX}tut/done.png" alt="">` : `<img class="advic" src="${GFX}tut/${a.need > 1 ? 'ic_up' : 'ic_build'}.png" alt="">`} Задание ${a.idx + 1} из ${a.total}</b></p><p>${esc(a.title)}.</p>
       <p class="small">${a.done ? 'Отлично, правитель! Забирайте награду.' : `Сейчас: ${a.have} из ${a.need}. Здание — ${a.layer === 'lands' ? 'на Землях (дерево на панели справа)' : 'в замке'}. Ресурсы награды сразу пойдут в замок, а что не поместится на Складе — в Кладовую.`}</p></div></div>
     <div class="qcard ${a.done ? 'ready' : ''}">${qBar(a.have, a.need)}${qReward(a.reward)}
       ${a.done ? '<button class="qbtn" data-qclaim="adv">Забрать награду</button>' : `<button class="pbar" data-advgo="${a.layer === 'lands' ? 'lands' : 'castle'}">Перейти ${a.layer === 'lands' ? 'на Земли' : 'в замок'}</button>`}</div>`;
