@@ -285,8 +285,9 @@ const RACE_DESC = {
   orcs: 'Воинственная раса, особенно за крепкой стеной замка. Преимущество расы: Большой запас жизни у боевых юнитов.',
 };
 function renderRaces() {
-  $('#races').innerHTML = `<div class="rgrid">${S.cat.raceOrder.map((r, i) => `<button type="button" class="rface ${i === S.race ? 'on' : ''}" data-race="${i}" aria-label="${esc(S.cat.races[r])}">
-      <img src="gfx3d/race/${r}.jpg" alt=""><img class="sel" src="gfx3d/race/${r}_on.jpg" alt=""></button>`).join('')}</div>`;
+  // портреты рас (gfx/auth/race_*.webp): выбранная — золотая рамка и свечение
+  $('#races').innerHTML = `<div class="rgrid2">${S.cat.raceOrder.map((r, i) => `<button type="button" class="rcard ${i === S.race ? 'on' : ''}" data-race="${i}" aria-label="${esc(S.cat.races[r])}">
+      <span class="rpic"><img src="gfx/auth/race_${r}.webp" alt=""></span><b>${esc(S.cat.races[r])}</b></button>`).join('')}</div>`;
 }
 function raceInfo(r) {
   const d = document.createElement('div'); d.className = 'rinfo';
@@ -294,6 +295,8 @@ function raceInfo(r) {
   d.addEventListener('click', (e) => { if (e.target === d || e.target.closest('.rinfo-ok')) d.remove(); });
   document.body.appendChild(d);
 }
+// ошибка входа — поля подсвечиваются красной табличкой (form.bad), пока текст ошибки не стёрт
+new MutationObserver(() => $('#authForm').classList.toggle('bad', !!$('#authErr').textContent.trim())).observe($('#authErr'), { childList: true, characterData: true, subtree: true });
 function setMode(mode) {
   S.mode = mode;
   $$('#authTabs button').forEach((b) => b.classList.toggle('on', b.dataset.mode === mode));
