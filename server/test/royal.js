@@ -435,5 +435,30 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   }
   console.log('✓ Земли 15×15 как в оригинале; перенос с 7×7 и 5×5 без потери добычи');
 }
+{ // герой-генерал: умения (3 ветки), снаряжение (надеть, усилить, разобрать), бонусы в бою
+  const luck0 = process.env.LUCK; process.env.LUCK = '0';
+  const A = g.register({ login: 'heroA', password: '12345', race: 3 }).user, Dd = g.register({ login: 'heroD', password: '12345', race: 3 }).user;
+  const ca = g.castleOf(A), cd = g.castleOf(Dd); g.mil(ca); g.mil(cd); g.maxOut(ca);
+  ca.general = g.newGeneral(ca, 30);
+  assert.strictEqual(g.heroView(ca).talPts, 10, '1 + каждые 3 уровня');
+  assert.ok(g.heroOp(ca, A, { op: 'talent', id: 'a4' }).error, 'Ярость закрыта, пока в ветку не вложено 10');
+  for (let k = 0; k < 5; k++) assert.ok(g.heroOp(ca, A, { op: 'talent', id: 'a1' }).ok);
+  assert.ok(g.heroOp(ca, A, { op: 'talent', id: 'a1' }).error, 'не больше 5 рангов');
+  for (let k = 0; k < 5; k++) assert.ok(g.heroOp(ca, A, { op: 'talent', id: 'a2' }).ok);
+  assert.ok(g.heroOp(ca, A, { op: 'talent', id: 'a4' }).error, 'очки кончились');
+  const it = g.rollGear(0, 3); it.slot = 'weapon'; g.giveGear(ca, it);
+  assert.ok(g.heroOp(ca, A, { op: 'equip', item: it.id }).ok && ca.general.eq.weapon === it && !ca.gear.length);
+  Object.assign(ca.res, { wood: 1e6, stone: 1e6, iron: 1e6, food: 1e6 });
+  assert.ok(g.heroOp(ca, A, { op: 'enhance', item: it.id }).ok && it.plus === 1);
+  const hb = g.heroBonus(ca.general); assert.ok(Math.abs(hb.atk - (0.10 + 0.15 * 1.15)) < 1e-9 && Math.abs(hb.mag - 0.15) < 1e-9, JSON.stringify(hb));
+  const fight = (gen) => { cd.units = { 247: 100 }; cd.squads = []; ca.forge = {}; cd.forge = {}; return g.clash(ca, { units: { 247: 100 }, mission: 'attack', general: gen }, cd, null, Date.now()); };
+  const plain = fight(false), hero = fight(true);
+  assert.ok(hero.calc.att.total > plain.calc.att.total * 1.15 && hero.calc.aLossPct <= plain.calc.aLossPct && hero.calc.dLossPct > plain.calc.dLossPct, 'генерал с умениями и мечом бьёт сильнее');
+  ca.general.dead = true; g.heroStrip(ca, ca.general); assert.ok(ca.gear.includes(it) && !ca.general.eq.weapon, 'павший генерал оставляет снаряжение в Оружейной');
+  ca.res.wood = 0; const w0 = 0; assert.ok(g.heroOp(ca, A, { op: 'sell', item: it.id }).ok && ca.res.wood > w0 && !ca.gear.length);
+  ca.general.dead = false; assert.ok(g.heroOp(ca, A, { op: 'talreset' }).ok && !Object.keys(ca.general.tal).length && ca.general.talResets === 0);
+  console.log('✓ Герой-генерал: ветки умений, снаряжение (надеть, усилить, разобрать), бонусы в бою');
+  if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
+}
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);

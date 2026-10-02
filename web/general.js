@@ -45,6 +45,10 @@ function generalWin() {
     ${line('maxupgrade', 'Карьера', fmtFull(g.pts.career))}
     ${line('greenball', 'Свободные очки опыта', fmtFull(g.free))}
     ${revive}
+    <div class="ptiles g2">
+      ${tile('data-herotal', `${GFX}hero/icon_talents.png" data-fb="${GS('maxupgrade')}`, 'Умения', MY().hero && MY().hero.talFree ? MY().hero.talFree : undefined)}
+      ${tile('data-herogear', `${GFX}hero/icon_gear.png" data-fb="${GS('swordred')}`, 'Снаряжение', MY().hero && MY().hero.gear.length ? MY().hero.gear.length : undefined)}
+    </div>
     <div class="ptiles g4">
       ${tile('data-genreset', `${G3}Gears/a1.png`, 'Сбросить очки', g.resets)}
       ${tile('data-gendist', GS('upgrade'), 'Распределить')}

@@ -1460,3 +1460,39 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .wview { position: absolute; inset: 0; overflow: hidden; pointer-events: none; background: #6f9a2c; }
 .wview-in { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
 .wview-in canvas { position: absolute; display: block; }
+/* герой-генерал: умения и снаряжение (hero.js) */
+.ptiles.g2 { grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 0; }
+.ptiles.g2 .ptile { position: relative; aspect-ratio: 2.2; flex-direction: row; gap: 10px; }
+.ptiles.g2 .ptile img { width: 44px; height: 44px; image-rendering: auto; }
+.ptiles.g2 .ptile span { font-size: 15px; }
+.ptiles.g2 .gbadge { top: 8px; right: 8px; }
+.tcols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 8px 0 12px; }
+.tcol { display: flex; flex-direction: column; gap: 6px; }
+.thead { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 6px 2px; border-radius: 8px; background: #3a2412cc; color: #ffe7a8; }
+.thead img { width: 44px; height: 44px; object-fit: contain; }
+.thead b { font: 700 13px system-ui; } .thead small { font-size: 10px; color: #e8d3a8; }
+.ttal { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 3px 7px; border: 2px solid #6b4520; border-radius: 8px; background: linear-gradient(#f3e3bd, #dcc193); color: #3a230e; text-align: center; }
+.ttal img { width: 42px; height: 42px; object-fit: contain; filter: grayscale(.7) brightness(.85); }
+.ttal.some img, .ttal.full img { filter: none; }
+.ttal b { font: 700 12px/1.1 system-ui; } .ttal small { font-size: 10px; line-height: 1.15; color: #5a3d1c; }
+.ttal em { position: absolute; top: 4px; right: 5px; font: 700 11px system-ui; font-style: normal; color: #7a4a00; }
+.ttal.full { border-color: #e0a82e; box-shadow: 0 0 8px #ffcc4488; } .ttal.full em { color: #1d7a1d; }
+.ttal.lock { opacity: .6; }
+.gdoll { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1fr); gap: 8px; align-items: center; margin: 8px 0; }
+.gcol { display: flex; flex-direction: column; gap: 8px; }
+.gslot { position: relative; display: flex; flex-direction: column; align-items: center; padding: 6px 2px 4px; border-radius: 10px; border: 3px solid var(--rc, #6b4520); background: radial-gradient(#4a2e16, #24140a); box-shadow: inset 0 0 10px #000a, 0 0 6px var(--rc, transparent); }
+.gslot img { width: 52px; height: 52px; object-fit: contain; } .gslot img.empty { opacity: .35; filter: grayscale(1); }
+.gslot span { font: 700 10px system-ui; color: #f3dfb0; }
+.gmid { display: flex; flex-direction: column; align-items: center; text-align: center; color: #3a230e; }
+.gport { width: 100%; max-width: 150px; aspect-ratio: 3 / 4; object-fit: contain; filter: drop-shadow(0 3px 4px #0008); }
+.gmid b { font: 700 15px system-ui; } .gmid small { font-size: 12px; }
+.gbon { display: flex; flex-wrap: wrap; gap: 4px 10px; justify-content: center; font: 600 12px system-ui; color: #1d5a1d; margin: 4px 0 8px; }
+.gbon span { white-space: nowrap; }
+.gbag { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin: 8px 0; }
+.gbag .parch-note { grid-column: 1 / -1; }
+.gitem { position: relative; aspect-ratio: 1; min-width: 0; padding: 3px; border-radius: 8px; border: 3px solid var(--rc); background: radial-gradient(#4a2e16, #24140a); box-shadow: 0 0 5px var(--rc); }
+.gitem img { width: 100%; height: 100%; object-fit: contain; }
+.gitem em { position: absolute; right: 2px; bottom: 0; font: 700 11px system-ui; font-style: normal; color: #fff; text-shadow: 0 0 2px #000, 0 0 2px #000; }
+.gcard { display: flex; gap: 12px; align-items: center; padding: 10px; margin: 6px 0 10px; border-radius: 10px; border: 3px solid var(--rc); background: #f3e3bdcc; color: #3a230e; }
+.gcard img.big { width: 86px; height: 86px; object-fit: contain; border-radius: 8px; background: radial-gradient(#4a2e16, #24140a); padding: 4px; }
+.gcard b { font: 700 16px system-ui; display: block; } .gcard small { color: var(--rc); font-weight: 700; background: #3a2412; padding: 1px 7px; border-radius: 6px; } .gcard p { margin: 4px 0 0; font-size: 13px; }

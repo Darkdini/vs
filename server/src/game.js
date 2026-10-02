@@ -538,5 +538,6 @@ require('./security').install(Game);
 require('./forum').install(Game);
 require('./news').install(Game);
 require('./quests').install(Game);
+require('./hero').install(Game);
 
 module.exports = { fixPlaza, migrateLands, LANDS_N, WORLD, Game, Store, STORE, BASE_RATE, PEOPLE_FACTOR, storeBonus, RES_SPEED, buildTime, VIEW, GRID, landOptions, SPEED, MAX_QUEUE, LANDS_BASE, LANDS_DECOR, LANDS_EDGE };

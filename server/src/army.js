@@ -549,7 +549,7 @@ function install(Game, helpers) {
   P.addGeneralExp = function addGeneralExp(castle, exp) {
     const g = castle.general; if (!g || g.dead || !(exp > 0)) return null;
     this.normGeneral(g, castle);
-    const mult = (1 + GEN.career * g.pts.career) * (this.isPremium(this.userById(castle.owner)) ? 2 : 1);
+    const mult = (1 + GEN.career * g.pts.career) * (this.isPremium(this.userById(castle.owner)) ? 2 : 1) * (1 + this.heroBonus(g).exp);
     const span = this.generalNeed(g.level) - (g.level > 1 ? this.generalNeed(g.level - 1) : 0);
     const day = new Date().toISOString().slice(0, 10);
     if (!g.day || g.day.d !== day) g.day = { d: day, exp: 0 };
@@ -614,7 +614,7 @@ function install(Game, helpers) {
       g.free += spent;
     } else if (op === 'kill') {
       if (g.away) return { error: 'Генерал в походе.' };
-      castle.general = null;
+      this.heroStrip(castle, g); castle.general = null;
     } else return { error: 'Неизвестное действие.' };
     this.store.save();
     return { ok: true };
@@ -667,6 +667,7 @@ function install(Game, helpers) {
   P.deleteDeadGeneral = function deleteDeadGeneral(castle, idx = 0) {
     const list = this.deadList(castle), g = list[Number(idx) || 0];
     if (!g) return { error: 'Генерал не найден.' };
+    this.heroStrip(castle, g);
     if (g === castle.general) castle.general = null; else castle.deadGenerals = castle.deadGenerals.filter((x) => x !== g);
     this.store.save(); return { ok: true, msg: 'Генерал удалён.' };
   };
@@ -696,7 +697,7 @@ function install(Game, helpers) {
     if (general) speeds.push(UNIT[GENERAL_ID].speed);
     if (!speeds.length) speeds.push(5); // у юнитов со скоростью 0 (как в оригинале) — временно 5 полей/час, пока не поправим ходьбу
     const b = this.bonus(castle);
-    const v = Math.min(...speeds) * b.speed * (merchants ? b.tradeSpeed : 1);
+    const v = Math.min(...speeds) * b.speed * (merchants ? b.tradeSpeed : 1) * (general && castle.general ? 1 + this.heroBonus(castle.general).speed : 1);
     return Math.max(5, Math.round(Math.hypot(x - castle.x, y - castle.y) / v * 3600 / SPEED));
   };
   // отправка: from = 'castle' (вся Замковая армия) или id отряда (весь отряд), как в оригинале; либо units — выборочно.
@@ -929,7 +930,11 @@ function install(Game, helpers) {
     // нападающие
     const A = Object.entries(a.units).map(([id, n]) => stack(a.units, id, n, false, c)).filter(Boolean);
     let genA = 0, cmd = 0; if (a.general && c.general && !c.general.dead) { const gs = this.genStats(c.general); genA = gs.atk; cmd = gs.catk; }
-    const kA = bA.atk * (1 + cmd) * morale * (1 + luck / 100), kmA = bA.magic * bA.atk * morale * (1 + luck / 100);
+    // умения и снаряжение генерала (hero.js): у нападающего — если генерал в этой армии, у защитника — если генерал дома
+    const hA = a.general && c.general && !c.general.dead ? this.heroBonus(c.general) : null;
+    const hD = target && target.general && !target.general.dead && !target.general.away ? this.heroBonus(target.general) : null;
+    const hAtk = hA ? 1 + hA.atk + (a.mission === 'attack' ? hA.fury : 0) : 1;
+    const kA = bA.atk * (1 + cmd) * hAtk * morale * (1 + luck / 100), kmA = bA.magic * bA.atk * (hA ? 1 + hA.mag : 1) * morale * (1 + luck / 100);
     // защитники: Замковая армия и отряды (свои), подкрепления (со своей Кузницей), генерал; у NPC — охрана лагеря
     let D = [], bD = null, wallL = 0, wall0 = 0, genD = 0;
     const siege = []; let siegeN = 0;
@@ -937,18 +942,19 @@ function install(Game, helpers) {
       bD = this.bonus(target); wall0 = wallL = bD.wall;
       // тараны: урон по стене (со скринов) до боя
       let ram = Object.entries(a.units).reduce((q, [id, n]) => q + ((UNIT[id] && UNIT[id].wallDmg) || 0) * n, 0);
+      if (hA) ram *= 1 + hA.ram;
       if (ram && a.mission === 'attack') { while (wallL > 0 && ram >= wallHp(wallL)) { ram -= wallHp(wallL); wallL--; } }
       if (wallL < wall0) { this.setBuildingLevel(target, B.FENCE, wallL); siege.push(`Забор: ${wall0} → ${wallL} ур. (тараны)`); siegeN += wall0 - wallL; }
       for (const m of [target.units, ...target.squads.map((q) => q.units)]) for (const [id, n] of Object.entries(m)) { const s = stack(m, id, n, true, target); if (s) D.push(s); }
       for (const g of this.guestsOf(target)) for (const [id, n] of Object.entries(g.a.units)) { const s = stack(g.a.units, id, n, false, g.c); if (s) D.push(s); }
       if (target.general && !target.general.dead && !target.general.away) genD = this.genStats(target.general).atk + (target.general.pts.def || 0);
     } else for (const g of npcGarrison(npc)) D.push({ m: null, id: g.key, n: g.n, own: false, npc: g, hp: g.hp, atk: g.atk, mag: g.mag, def: g.def, mdef: g.mdef, row: ROW[g.type] || 1 });
-    const wallK = bD ? 1 + bD.wallPer * wallL : 1;
-    const kD = bD ? bD.atk : 1, kmD = bD ? bD.magic * bD.atk : 1, dK = bD ? bD.def * wallK : 1, mdK = bD ? bD.def * bD.magic : 1;
-    const aDK = bA.def, aMdK = bA.def * bA.magic;
+    const wallK = bD ? 1 + bD.wallPer * (hD ? 1 + hD.wall : 1) * wallL : 1, hDd = hD ? 1 + hD.def : 1;
+    const kD = bD ? bD.atk : 1, kmD = bD ? bD.magic * bD.atk : 1, dK = bD ? bD.def * wallK * hDd : 1, mdK = bD ? bD.def * bD.magic * hDd : 1;
+    const aDK = bA.def * (hA ? 1 + hA.def : 1), aMdK = bA.def * bA.magic * (hA ? 1 + hA.def : 1);
     // урон сторон
     const sum = (L, f) => L.reduce((q, s) => q + f(s), 0);
-    const RK = a.mission === 'raid' ? 0.5 : 1; // набег — короткая стычка: урон вдвое меньше
+    const RK = a.mission === 'raid' ? 0.5 * (hA ? 1 + hA.raid : 1) : 1; // набег — короткая стычка: урон вдвое меньше
     const PA = (sum(A, (s) => s.n * s.atk) + genA) * kA * DMG * RK, MA = sum(A, (s) => s.n * s.mag) * kmA * DMG * RK;
     const PD = (sum(D, (s) => s.n * s.atk) + genD) * kD * DMG * RK, MD = sum(D, (s) => s.n * s.mag) * kmD * DMG * RK;
     const nA = sum(A, (s) => (s.atk ? s.n : 0)) || 1, nD = sum(D, (s) => (s.atk ? s.n : 0)) || 1;
@@ -982,7 +988,8 @@ function install(Game, helpers) {
     if (win && a.mission === 'attack' && target) for (const s of D) { const r = roll((s.n - dLostN.get(s)) * ROUT); dLostN.set(s, dLostN.get(s) + r); routed += r; }
     // применяем потери; раненые защитники в своём замке частично выздоравливают
     const aLost = {}, dLost = {}, dAll = {};
-    for (const s of A) { const l = aLostN.get(s); if (l) { s.m[s.id] -= l; aLost[s.id] = (aLost[s.id] || 0) + l; } }
+    let saved = 0; // умение «Полевой лекарь»: часть павших в походе выживает
+    for (const s of A) { let l = aLostN.get(s); if (l && hA && hA.heal && !UNIT[s.id].oneUse) { const h = Math.floor(l * hA.heal); l -= h; saved += h; } if (l) { s.m[s.id] -= l; aLost[s.id] = (aLost[s.id] || 0) + l; } }
     let healed = 0;
     for (const s of D) {
       let l = dLostN.get(s); if (!l) { if (s.m) dAll[s.id] = (dAll[s.id] || 0) + s.n; continue; }
@@ -999,7 +1006,7 @@ function install(Game, helpers) {
     const calc = { rule: a.mission === 'attack' ? 'attack' : 'raid', model: 2, luck, morale: Math.round(morale * 100),
       att: { phys: Math.round(PA / DMG / RK), mag: Math.round(MA / DMG / RK), gen: Math.round(genA), bonusPct: Math.round((kA / (1 + luck / 100) / morale - 1) * 100), total: Math.round((PA + MA) / DMG / RK), hpLostPct: Math.round(aShare * 100) },
       def: { npc: !target, phys: Math.round(PD / DMG / RK), mag: Math.round(MD / DMG / RK), bonusPct: bD ? Math.round((bD.def - 1) * 100) : 0, wall: wallL, wall0, wallPct: Math.round((wallK - 1) * 100), total: Math.round((PD + MD) / DMG / RK), hpLostPct: Math.round(dShare * 100) },
-      aLossPct: Math.round(aLoss * 100), dLossPct: Math.round(dLoss * 100), routed, healed, ramsUsed };
+      aLossPct: Math.round(aLoss * 100), dLossPct: Math.round(dLoss * 100), routed, healed, ramsUsed, saved };
     const garrison = target ? null : D.map((s) => ({ name: s.npc.name, n: s.n, lost: dLostN.get(s) }));
     return { garrison, win, luck, calc, aLost, dLost, dAll, aLoss: aShare >= 1 ? 1 : aLoss, dLoss: dShare >= 1 ? 1 : dLoss, siege, siegeN };
   };
@@ -1039,17 +1046,26 @@ function install(Game, helpers) {
     const aLoss = R.aLoss, dLoss = R.dLoss, aSum = calc.att.total, Dsum = calc.def.total;
     const aliveAfter = Object.values(a.units).some((n) => n > 0);
     if (win) { this.addStat(c.owner, 'wins', 1); if (!target) this.addStat(c.owner, 'npcWins', 1); if (lair) this.lairWon(c.owner, lair.k); } // задания
+    // трофейное снаряжение: только если генерал был в этой армии — в логове всегда, в лагере с шансом
+    let gearLine = null;
+    if (win && !target && a.general && c.general && !c.general.dead) {
+      const hb = this.heroBonus(c.general);
+      if (lair) gearLine = this.giveGear(c, this.rollGear(0, lair.k < 2 ? 1 : lair.k < 5 ? 2 : 3));
+      else if (Math.random() < 0.06 + hb.find) gearLine = this.giveGear(c, this.rollGear(hb.find * 3));
+    }
     // генералы
     const genA = [], genD = [];
     if (a.general && c.general) {
-      if (!aliveAfter && aLoss >= 1) { c.general.dead = true; delete c.general.away; a.general = false; genA.push('Генерал пал в бою — опыт не получен.'); }
+      const hb = this.heroBonus(c.general);
+      if (!aliveAfter && aLoss >= 1 && Math.random() < hb.survive) genA.push('Армия разбита, но генерал чудом уцелел и вернулся домой (умения и снаряжение).');
+      else if (!aliveAfter && aLoss >= 1) { c.general.dead = true; delete c.general.away; a.general = false; this.heroStrip(c, c.general); genA.push('Генерал пал в бою — опыт не получен. Его снаряжение вернулось в Оружейную.'); }
       else {
         const e = this.battleExp({ killedPop: popOf(dLost), win, mission: a.mission, npc: target ? null : npc, dLoss, mine: c, enemy: target });
         const l = genLine('Генерал', this.addGeneralExp(c, e.exp), e); if (l) genA.push(l);
       }
     }
     if (target && target.general && !target.general.dead && !target.general.away) {
-      if (dLoss >= 1 && !Object.keys(dAll).length) { target.general.dead = true; genD.push('Ваш генерал пал, защищая замок.'); }
+      if (dLoss >= 1 && !Object.keys(dAll).length && Math.random() >= this.heroBonus(target.general).survive) { target.general.dead = true; this.heroStrip(target, target.general); genD.push('Ваш генерал пал, защищая замок.'); }
       else {
         const e = this.battleExp({ killedPop: popOf(aLost), win: !win, mission: 'attack', mine: target, enemy: c });
         const l = genLine('Ваш генерал', this.addGeneralExp(target, e.exp), e); if (l) genD.push(l);
@@ -1059,6 +1075,7 @@ function install(Game, helpers) {
     let loot = null;
     if (aliveAfter && win) {
       let carry = Object.entries(a.units).reduce((s, [id, n]) => s + UNIT[id].carry * n, 0);
+      if (a.general && c.general && !c.general.dead) carry = Math.floor(carry * (1 + this.heroBonus(c.general).loot)); // умение «Жадность»
       calc.carry = carry;
       loot = { wood: 0, stone: 0, iron: 0, food: 0 };
       let avail;
@@ -1149,6 +1166,8 @@ function install(Game, helpers) {
     if (captured) lines.push(`Замок захвачен! Теперь это ваш замок «${captured.name}».`);
     if (genDied) lines.push('Генерал пал в бою — воскресите его в Военном штабе.');
     lines.push(...genA.filter((x) => !genDied || !/пал в бою/.test(x)));
+    if (calc.saved) lines.push(`Полевой лекарь спас ${calc.saved} воинов.`);
+    if (gearLine) { lines.push(gearLine); data.gear = gearLine; }
     const title = captured ? `Захват: ${captured.name} ${where} — замок ваш!` : `${MISSIONS[a.mission]}: ${tname} — ${win ? 'победа' : 'поражение'}`;
     this.report(c.owner, title, lines, 'battle', { ...data, side: 'att' });
     if (target) {
@@ -1615,7 +1634,7 @@ function install(Game, helpers) {
       squads: castle.squads, merchants: this.merchants(castle),
       guests: this.guestsOf(castle).map((g) => ({ id: g.a.id, from: this.ownerOf(g.c).login, castle: g.c.name, units: g.a.units })),
       incoming: this.incoming(castle), sciences: castle.sciences, research: castle.research, religion: castle.religion,
-      artifacts: castle.artifacts, expeds: castle.expeds, expedInfo: this.expedInfo(castle), upkeep: Math.round(this.upkeep(castle) * SPEED),
+      hero: this.heroView(castle), artifacts: castle.artifacts, expeds: castle.expeds, expedInfo: this.expedInfo(castle), upkeep: Math.round(this.upkeep(castle) * SPEED),
       bonus: { atk: b.atk, def: b.def, magic: b.magic, prod: b.prod, speed: b.speed, train: b.train, build: b.build, wall: b.wall, wallPer: b.wallPer, hidden: b.hidden, marketRate: b.marketRate, artSlots: b.artSlots, artStore: b.artStore, tradeCarry: b.tradeCarry },
       alliance: al ? { id: al.id, name: al.name, tag: al.tag, leader: al.leader, leaderLogin: (this.userById(al.leader) || {}).login, lead: al.leader === user.id, slots: this.allianceSlots(al),
         members: al.members.map((id) => { const m = this.userById(id); return m ? m.login : '?'; }),
@@ -1677,6 +1696,7 @@ const catalogJson = () => ({
   units: UNITS, generalId: GENERAL_ID, sciences: SCIENCES, religions: RELIGIONS, artifacts: ART_TYPES, rarity: RARITY,
   npc: NPC, missions: MISSIONS, raceDir: RACE_DIR, spyOpen: SPY_OPEN, scienceCost: Array.from({ length: 21 }, (_, l) => (l ? scienceCost(l) : null)),
   scienceTime: Array.from({ length: 21 }, (_, l) => (l ? scienceTime(l) : 0)),
+  hero: require('./hero').heroCatalog(),
 });
 
 module.exports = { EXPED, ART_HOURS, NEWBIE_RATING, install, UNITS, UNIT, B, GENERAL_ID, GEN, SCIENCES, RELIGIONS, NPC, MISSIONS, unitsForRace, unitImg, catalogJson, ART_TYPES };

@@ -151,8 +151,10 @@ function install(Game) {
     if (kind === 'chest') {
       if (!st.chest.ready) return { error: 'Сундук откроется, когда все три задания дня выполнены.' };
       const art = Math.random() < 0.25; q.daily.chest = true;
-      give(this, u, c, { ...R(400 + 200 * th(this, c)), ...(art ? { art: 0 } : {}) }, 'Сундук дня'); this.store.save();
-      return { ok: true, msg: art ? 'Сундук дня: ресурсы и артефакт!' : 'Сундук дня: ресурсы!' };
+      give(this, u, c, { ...R(400 + 200 * th(this, c)), ...(art ? { art: 0 } : {}) }, 'Сундук дня');
+      const gear = Math.random() < 0.15 && this.heroGear(c).length < 24 ? this.giveGear(c, this.rollGear(0, Math.random() < 0.8 ? 0 : 1)) : null; // изредка — снаряжение генерала
+      this.store.save();
+      return { ok: true, msg: `Сундук дня: ресурсы${art ? ', артефакт' : ''}${gear ? ' и снаряжение генерала' : ''}!` };
     }
     if (kind === 'camp') {
       if (!q.campWon) return { error: 'Сначала разорите логово.' };
