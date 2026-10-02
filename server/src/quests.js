@@ -31,6 +31,13 @@ const TUT = [
   { id: 'treasury', title: 'Хранитель сокровищ', text: 'Артефакты хранятся в Сокровищнице. Постройте её до 3 уровня.', icon: b(44), need: (g, u, c) => [g.buildingLevel(c, 44), 3], reward: R(1200) },
   { id: 'arttower', title: 'Сила реликвий', text: 'Постройте Башню артефактов и пробудите в ней артефакт — он будет действовать несколько часов, затем рассыплется.', icon: b(18), need: (g, u, c) => [(c.artifacts || []).some((a) => a.active) ? 1 : 0, 1], reward: R(1500, { art: 1, exp: 150 }) },
   { id: 'darklands', title: 'Тёмные земли зовут', text: 'Разорите первое логово похода «Тёмные земли» (вкладка «Поход»).', icon: 'ground/dikari.png', need: (g, u) => [Math.min(1, (g.qinit(u).camp || 0)), 1], reward: R(2000, { u: { inf: 10, cav: 5 }, exp: 200 }) },
+  // продолжение обучения (добавлено позже — в конце, чтобы не сбить прогресс тех, кто уже проходит цепочку)
+  { id: 'stash', title: 'Королевская кладовая', text: 'Награды заданий ждут в Кладовой (сундук справа вверху). Заберите из неё что-нибудь в замок.', icon: 'stash/btn.png', need: (g, u, c, base) => [g.qstat(u, 'stashTake', base), 1], reward: R(1000, { u: { cav: 5 } }) },
+  { id: 'genpts', title: 'Опыт полководца', text: 'Откройте Военный штаб → Генерал и распределите очки опыта: атака, защита, командование.', icon: b(2), need: (g, u, c) => [c.general && !c.general.dead && Object.values(c.general.pts || {}).some((v) => v > 0) ? 1 : 0, 1], reward: R(1200, { exp: 150 }) },
+  { id: 'talent', title: 'Путь героя', text: 'Изучите у генерала первое умение (Генерал → Умения): Завоеватель, Страж или Мародёр.', icon: 'hero/icon_point.png', need: (g, u, c) => [c.general && !c.general.dead && Object.values(c.general.tal || {}).some((v) => v > 0) ? 1 : 0, 1], reward: R(1300, { u: { mag: 5 } }) },
+  { id: 'gear', title: 'Доспехи полководца', text: 'Наденьте на генерала любую вещь (Генерал → Снаряжение). Снаряжение добывается в логовах похода и в лагерях.', icon: 'hero/gear_helm_1.png', need: (g, u, c) => [c.general && !c.general.dead && Object.values(c.general.eq || {}).some(Boolean) ? 1 : 0, 1], reward: R(1500, { exp: 250 }) },
+  { id: 'temple', title: 'Вера предков', text: 'Постройте Храм и примите религию: Свет, Природа или Война.', icon: 'build/temple.png', need: (g, u, c) => [c.religion ? 1 : 0, 1], reward: R(1800, { u: { inf: 10 } }) },
+  { id: 'kills', title: 'Гроза врагов', text: 'Уничтожьте в боях 300 вражеских воинов (лагеря, логова и чужие замки — всё считается).', icon: 'gfx3d/rep/swords.png', need: (g, u, c, base) => [g.qstat(u, 'kills', base), 300], reward: R(2500, { u: { inf: 10, cav: 10, mag: 5 }, exp: 400 }) },
 ];
 
 // ---------- ежедневные ----------
@@ -45,7 +52,35 @@ const DAILY = [
   { id: 'd_exped', title: 'Раскопки', text: () => 'Отправьте экспедицию в руины.', icon: b(17), stat: 'expeds', n: () => 1, ok: (g, c) => g.buildingLevel(c, 17) > 0 },
   { id: 'd_up', title: 'Мастерство', text: () => 'Начните улучшение в Кузнице или Школе магии.', icon: b(39), stat: 'upgrades', n: () => 1, ok: (g, c) => g.buildingLevel(c, 11) > 0 || g.buildingLevel(c, 39) > 0 },
   { id: 'd_win', title: 'Слава оружия', text: (n) => `Одержите ${n} побед в боях.`, icon: 'gfx3d/rep/swords.png', stat: 'wins', n: () => 3 },
+  { id: 'd_kills', title: 'Жатва битвы', text: (n) => `Уничтожьте в боях ${n} вражеских воинов.`, icon: 'gfx3d/rep/swords.png', stat: 'kills', n: (g, c) => 30 + 10 * Math.min(10, th(g, c)) },
+  { id: 'd_online', title: 'Дозор', text: (n) => `Проведите в игре ${n} минут.`, icon: 'quest/scroll.png', stat: 'presence', n: () => 20 },
+  { id: 'd_boss', title: 'Удар по чудовищу', text: () => 'Атакуйте мирового босса.', icon: 'boss/m_dragon.png', stat: 'bossDmg', n: () => 1, ok: (g) => !!g.bossNow() },
 ];
+
+// ---------- еженедельные ----------
+const WEEKLY = [
+  { id: 'w_train', title: 'Набор в войско', text: (n) => `Обучите за неделю ${n} воинов.`, icon: b(3), stat: 'trained', n: (g, c) => 150 + 50 * Math.min(10, th(g, c)) },
+  { id: 'w_npc', title: 'Очистка дорог', text: (n) => `Победите в ${n} боях с лагерями.`, icon: 'ground/dikari.png', stat: 'npcWins', n: () => 15 },
+  { id: 'w_loot', title: 'Казна полна', text: (n) => `Унесите из походов ${n} ресурсов.`, icon: 'res/wood.png', stat: 'loot', n: (g, c) => 10000 * th(g, c) },
+  { id: 'w_built', title: 'Великая стройка', text: (n) => `Завершите ${n} построек или улучшений.`, icon: b(10), stat: 'built', n: () => 15 },
+  { id: 'w_kills', title: 'Гроза королевств', text: (n) => `Уничтожьте в боях ${n} вражеских воинов.`, icon: 'gfx3d/rep/swords.png', stat: 'kills', n: (g, c) => 300 + 60 * Math.min(10, th(g, c)) },
+  { id: 'w_wins', title: 'Полководец недели', text: (n) => `Одержите ${n} побед в боях.`, icon: 'gfx3d/rep/swords.png', stat: 'wins', n: () => 20 },
+  { id: 'w_exped', title: 'Охотник за древностями', text: (n) => `Отправьте ${n} экспедиций.`, icon: b(17), stat: 'expeds', n: () => 5, ok: (g, c) => g.buildingLevel(c, 17) > 0 },
+  { id: 'w_up', title: 'Мастерская', text: (n) => `Начните ${n} улучшений в Кузнице или Школе магии.`, icon: b(11), stat: 'upgrades', n: () => 5, ok: (g, c) => g.buildingLevel(c, 11) > 0 || g.buildingLevel(c, 39) > 0 },
+  { id: 'w_online', title: 'Верный правитель', text: (n) => `Проведите в игре ${n} минут за неделю.`, icon: 'quest/scroll.png', stat: 'presence', n: () => 180 },
+];
+
+// ---------- календарь входа: 28 дней ----------
+// t — уровень Ратуши (награды растут вместе с замком); gear — редкость вещи генерала (0 обычная, 1 редкая, 2 эпическая)
+const CAL = Array.from({ length: 28 }, (_, i) => (t) => {
+  const d = i + 1, wk = Math.ceil(d / 7);
+  if (d === 28) return { big: 3, rw: R(8000 + 2000 * t, { art: 2, u: { inf: 20, cav: 20, mag: 15 }, exp: 600 * t, gear: 2 }) };
+  if (d % 7 === 0) return { big: wk === 2 ? 2 : 1, rw: wk === 2 ? R(3000 + 800 * t, { u: { inf: 10, cav: 10, mag: 5 }, exp: 300 * t, gear: 1 }) : R(3000 + 800 * t, { art: wk === 3 ? 1 : 0, u: { inf: 10, cav: 8, mag: 5 }, exp: 200 * t }) };
+  const kind = d % 3, k = 1 + (wk - 1) * 0.25;
+  if (kind === 1) return { rw: R(Math.round((600 + 250 * t) * k)) };
+  if (kind === 2) return { rw: { exp: Math.round(60 * t * k), u: { [['inf', 'cav', 'mag'][Math.floor(d / 3) % 3]]: Math.round((3 + t / 2) * k) } } };
+  return { rw: R(Math.round((400 + 150 * t) * k), { exp: Math.round(40 * t * k) }) };
+});
 
 // ---------- поход «Тёмные земли»: логова с боссами ----------
 // охрана: стеки воинов (как охрана лагерей), последний — босс; логово стоит рядом со столицей, у каждого игрока своё
@@ -91,6 +126,29 @@ function install(Game) {
   };
   const dailyReward = (g, c) => R(300 + 150 * th(g, c), { exp: 20 * th(g, c) });
 
+  // еженедельные: 3 задания на неделю (с понедельника, по Москве) + сундук недели, награды крупнее
+  P.qweekly = function qweekly(u, c) {
+    const q = this.qinit(u), week = Math.floor((Date.now() + 3 * 3600000 + 3 * DAY) / (7 * DAY)); // неделя с понедельника
+    if (!q.weekly || q.weekly.week !== week) {
+      const pool = WEEKLY.filter((d) => !d.ok || d.ok(this, c));
+      let seed = (u.id * 2246822519 + week * 3266489917) >>> 0; const rnd = () => ((seed = (seed * 1103515245 + 12345) >>> 0) / 4294967296);
+      const pick = []; while (pick.length < 3 && pool.length) pick.push(pool.splice(Math.floor(rnd() * pool.length), 1)[0]);
+      q.weekly = { week, base: snap(this, u), list: pick.map((d) => ({ id: d.id, need: d.n(this, c), claimed: false })), chest: false };
+    }
+    return q.weekly;
+  };
+  // род воинов в награде — по заданию (что показано в окне, то и выдаётся)
+  const weeklyReward = (g, c, id) => { const t = th(g, c), k = WEEKLY.findIndex((w) => w.id === id); return R(1500 + 600 * t, { u: { [['inf', 'cav', 'mag'][Math.max(0, k) % 3]]: 5 + t }, exp: 120 * t }); };
+
+  // календарь входа: 28 дней, одна награда в сутки; пропуск дня не сбрасывает прогресс. Каждый 7-й день — редкая награда.
+  const dayKey = () => Math.floor((Date.now() + 3 * 3600000) / DAY);
+  P.calInfo = function calInfo(u, c) {
+    const q = this.qinit(u); if (!q.cal) q.cal = { n: 0, last: 0, cycle: 1 };
+    const t = th(this, c);
+    return { n: q.cal.n, cycle: q.cal.cycle, ready: q.cal.last !== dayKey(), days: CAL.map((d, i) => ({ i, ...d(t), taken: i < q.cal.n })) };
+  };
+
+
   // логово похода: пустая клетка у столицы, своя для каждой главы
   P.lairOf = function lairOf(u) {
     const q = this.qinit(u), k = q.camp; if (k >= CAMP.length) return null;
@@ -132,8 +190,13 @@ function install(Game) {
     const lair = this.lairOf(u), k = q.camp;
     const camp = k >= CAMP.length ? { finished: true, total: CAMP.length } : { k, total: CAMP.length, title: CAMP[k].title, text: CAMP[k].text, img: CAMP[k].img, boss: CAMP[k].boss, x: lair && lair.x, y: lair && lair.y, won: !!q.campWon,
       guard: CAMP[k].g.map((s) => ({ name: s.name, n: s.n, hp: s.hp, atk: s.atk, mag: s.mag, def: s.def, mdef: s.mdef, boss: s.n === 1 })), reward: CAMP[k].reward };
-    const ready = (tut.done ? 1 : 0) + daily.filter((x) => x.done && !x.claimed).length + (daily.every((x) => x.claimed) && !d.chest ? 1 : 0) + (camp.won ? 1 : 0);
-    return { tut, daily, chest: { ready: daily.every((x) => x.claimed) && !d.chest, taken: d.chest }, camp, ready };
+    const w = this.qweekly(u, c);
+    const weekly = w.list.map((x) => { const def = WEEKLY.find((y) => y.id === x.id); if (!def) return null; const have = this.qstat(u, def.stat, w.base); return { id: x.id, title: def.title, text: def.text(x.need), icon: def.icon, have: Math.min(have, x.need), need: x.need, done: have >= x.need, claimed: x.claimed, reward: weeklyReward(this, c, x.id) }; }).filter(Boolean);
+    const wchest = { ready: weekly.length > 0 && weekly.every((x) => x.claimed) && !w.chest, taken: w.chest, ends: (w.week + 1) * 7 * DAY - 3 * DAY - 3 * 3600000 };
+    const cal = this.calInfo(u, c);
+    const ready = (tut.done ? 1 : 0) + daily.filter((x) => x.done && !x.claimed).length + (daily.every((x) => x.claimed) && !d.chest ? 1 : 0) + (camp.won ? 1 : 0)
+      + weekly.filter((x) => x.done && !x.claimed).length + (wchest.ready ? 1 : 0) + (cal.ready ? 1 : 0);
+    return { tut, daily, chest: { ready: daily.every((x) => x.claimed) && !d.chest, taken: d.chest }, camp, weekly, wchest, cal, ready };
   };
 
   P.questClaim = function questClaim(u, c, kind, id) {
@@ -159,6 +222,29 @@ function install(Game) {
       this.store.save();
       return { ok: true, msg: `Сундук дня открыт!${gotMsg(got)}${gear ? ' И снаряжение генерала!' : ''}` };
     }
+    if (kind === 'weekly') {
+      const x = q.weekly.list.find((y) => y.id === id), v = st.weekly.find((y) => y.id === id);
+      if (!x || !v || !v.done || x.claimed) return { error: 'Награду пока нельзя забрать.' };
+      const got = give(this, u, c, weeklyReward(this, c, id)); x.claimed = true; this.store.save();
+      return { ok: true, msg: `Задание недели «${v.title}» выполнено!${gotMsg(got)}` };
+    }
+    if (kind === 'wchest') {
+      if (!st.wchest.ready) return { error: 'Сундук недели откроется, когда все три задания недели выполнены.' };
+      q.weekly.chest = true; const t = th(this, c);
+      const got = give(this, u, c, R(3000 + 1000 * t, { u: { inf: 5 + t, cav: 5 + t, mag: 3 + t }, exp: 250 * t, art: Math.random() < 0.5 ? 1 : 0 }));
+      const gear = this.heroGear(c).length < 24 ? this.giveGear(c, this.rollGear(0, Math.random() < 0.3 ? 2 : 1)) : null;
+      this.store.save();
+      return { ok: true, msg: `Сундук недели открыт!${gotMsg(got)}${gear ? ' И снаряжение генерала!' : ''}` };
+    }
+    if (kind === 'cal') {
+      const cal = st.cal; if (!cal.ready) return { error: 'Награда за сегодня уже получена — приходите завтра!' };
+      const d = cal.days[cal.n], rw = { ...d.rw }, gear = rw.gear; delete rw.gear;
+      const got = give(this, u, c, rw);
+      const g2 = gear !== undefined && this.heroGear(c).length < 24 ? this.giveGear(c, this.rollGear(0, gear)) : null;
+      q.cal.last = dayKey(); q.cal.n++; if (q.cal.n >= CAL.length) { q.cal.n = 0; q.cal.cycle++; }
+      this.store.save();
+      return { ok: true, msg: `Награда за вход — день ${d.i + 1}!${gotMsg(got)}${g2 ? ' И снаряжение генерала!' : ''}` };
+    }
     if (kind === 'camp') {
       if (!q.campWon) return { error: 'Сначала разорите логово.' };
       const k = q.camp, got = give(this, u, c, CAMP[k].reward);
@@ -169,4 +255,4 @@ function install(Game) {
   };
 }
 
-module.exports = { install, TUT, DAILY, CAMP, CAMP_GARRISON };
+module.exports = { install, TUT, DAILY, WEEKLY, CAL, CAMP, CAMP_GARRISON };

@@ -33,7 +33,7 @@ function welcomeShow(m) {
   d.addEventListener('click', (e) => {
     const r = e.target.closest('[data-wgo]');
     if (r) { d.remove(); const go = r.dataset.wgo; if (go === 'boss') { S.world = null; setTab('world'); send({ t: 'world', cx: m.boss.x, cy: m.boss.y }); return; } if (go === 'reports') openReports(); else if (go === 'mail') openDialogs(); else if (go === 'gifts') send({ t: 'profile', id: S.st.user.id }); else openNews(); return; }
-    if (e.target.closest('.wlc-close') || e.target === d) d.remove();
+    if (e.target.closest('.wlc-close') || e.target === d) { d.remove(); if (S.st && S.st.quests && S.st.quests.cal && !S.calShown) { S.calShown = true; openQuests('cal'); } } // награда за вход ждёт — сразу календарь
   });
   document.body.appendChild(d);
 }

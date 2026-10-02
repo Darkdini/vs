@@ -1688,3 +1688,15 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 /* Кладовая: тёмная подложка и золотое свечение — не сливается с лесом */
 #stbtn { top: 34px; width: 62px; height: 62px; background: radial-gradient(circle, #2a1406 58%, #2a140600 72%); box-shadow: 0 0 0 2px #ffd76a, 0 0 10px 2px #ffc94a99, 0 3px 6px #000c; }
 #stbtn img { filter: drop-shadow(0 0 2px #000) drop-shadow(0 2px 3px #000a); }
+/* календарь входа (quests.js calBody): 7 колонок × 4 недели */
+.calg { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin: 6px 0 10px; }
+.calc { position: relative; aspect-ratio: 1; border: 2px solid #b8873a; border-radius: 9px; background: linear-gradient(#f6e3b4, #e3c587); display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: 0 1px 2px #0005; }
+.calc img { width: 78%; height: 78%; object-fit: contain; }
+.calc i { position: absolute; left: 3px; top: 1px; font: 700 11px var(--serif); font-style: normal; color: #6a3a10; text-shadow: 0 1px 0 #fff8; z-index: 1; }
+.calc.big { border-color: #ffcf4a; background: radial-gradient(circle, #fff3c4, #e8b84a); box-shadow: 0 0 6px #ffc94acc; }
+.calc.b3 { background: radial-gradient(circle, #ffe6a8, #c9822a); border-color: #fff0a0; }
+.calc.taken { filter: grayscale(.7) brightness(.85); }
+.calc.taken b { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #1f8f1f; font: 700 26px system-ui; text-shadow: 0 0 3px #fff, 0 0 6px #fff; }
+.calc.now { border-color: #2fae2f; box-shadow: 0 0 0 2px #7ef07e, 0 0 10px #4fd14f; animation: qglow 1.4s ease-in-out infinite; }
+.calt { display: block; margin-bottom: 4px; font: 700 17px var(--serif); color: #4a2410; text-align: center; }
+.qtabs button span { font-size: 12px; }

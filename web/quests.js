@@ -1,8 +1,9 @@
 'use strict';
-// Окно «Задания»: обучение (цепочка), ежедневные (3 в день + сундук), поход «Тёмные земли» (логова с боссами).
+// Окно «Задания»: награда за вход (календарь 28 дней), обучение (цепочка), ежедневные (3 в день + сундук), недельные (3 + сундук недели),
+// поход «Тёмные земли» (логова с боссами).
 // Данные — с сервера (server/src/quests.js): t:'quests' → S.quests; награда — t:'qclaim'; итог — t:'qdone' (окно «Задание выполнено!»).
 
-const QT = [['tut', 'Обучение', 'quest/scroll.png'], ['daily', 'Ежедневные', 'quest/chest.png'], ['camp', 'Поход', 'quest/lair_dragon.png']];
+const QT = [['cal', 'Вход', 'stash/btn.png'], ['tut', 'Обучение', 'quest/scroll.png'], ['daily', 'День', 'quest/chest.png'], ['week', 'Неделя', 'quest/chest_open.png'], ['camp', 'Поход', 'quest/lair_dragon.png']];
 function openQuests(tab) { if (tab) S.qtab = tab; S.quests = null; send({ t: 'quests' }); openSheet(questsWin); }
 const qImg = (p, cls = '') => `<img class="${cls}" src="${p.startsWith('gfx3d/') ? p : GFX + p}" alt="">`;
 function qReward(r) {
@@ -33,6 +34,13 @@ function questsWin() {
     body = `<div class="qstep">Новые задания — каждый день</div>${q.daily.map((d) => qCard(d, 'daily')).join('')}
       <div class="qchest ${ch.ready ? 'ready' : ''} ${ch.taken ? 'claimed' : ''}">${qImg(ch.ready || ch.taken ? 'quest/chest_open.png' : 'quest/chest.png')}<div class="grow"><b>Сундук дня</b><p>${ch.taken ? 'Открыт. Новый — завтра.' : 'Откроется, когда все три задания дня выполнены: ресурсы, уникальные воины, опыт генерала и шанс на артефакт.'}</p></div>
       ${ch.ready ? '<button class="qbtn" data-qclaim="chest">Открыть</button>' : ''}</div>`;
+  } else if (tab === 'week') {
+    const ch = q.wchest;
+    body = `<div class="qstep">Задания недели — до понедельника, осталось <span class="cd" data-e="${ch.ends}"></span></div>${q.weekly.map((d) => qCard(d, 'weekly')).join('')}
+      <div class="qchest ${ch.ready ? 'ready' : ''} ${ch.taken ? 'claimed' : ''}">${qImg(ch.ready || ch.taken ? 'quest/chest_open.png' : 'quest/chest.png')}<div class="grow"><b>Сундук недели</b><p>${ch.taken ? 'Открыт. Новый — в понедельник.' : 'Откроется, когда все три задания недели выполнены: много ресурсов, уникальные воины, опыт генерала, редкое снаряжение и шанс на артефакт.'}</p></div>
+      ${ch.ready ? '<button class="qbtn" data-qclaim="wchest">Открыть</button>' : ''}</div>`;
+  } else if (tab === 'cal') {
+    body = calBody(q.cal);
   } else {
     const c = q.camp;
     body = c.finished ? `<div class="qcard"><div class="qhead"><div class="qic">${qImg('quest/ruins.png')}</div><div class="grow"><b>Тёмные земли очищены!</b><p>Дракон повержен, о вашем королевстве слагают легенды.</p></div></div></div>`
@@ -49,7 +57,25 @@ function questsWin() {
   }
   return `${ribbon('Задания')}${tabs}${body}`;
 }
-const qTabReady = (q, k) => (k === 'tut' ? q.tut.done : k === 'daily' ? q.daily.some((d) => d.done && !d.claimed) || q.chest.ready : q.camp.won);
+const qTabReady = (q, k) => (k === 'tut' ? q.tut.done : k === 'daily' ? q.daily.some((d) => d.done && !d.claimed) || q.chest.ready
+  : k === 'week' ? q.weekly.some((d) => d.done && !d.claimed) || q.wchest.ready : k === 'cal' ? q.cal.ready : q.camp.won);
+// календарь входа: 28 клеток (4 недели), каждый 7-й день — крупная награда; пропуск дня прогресс не сбрасывает
+function calIcon(rw) {
+  if (rw.art !== undefined) return qImg(ART_ICON.atk);
+  if (rw.gear !== undefined) return qImg(`hero/gear_armor_${rw.gear}.png`);
+  const slot = Object.keys(rw.u || {})[0], u = slot && M().units.find((x) => x.quest && x.race === S.st.user.race && x.slot === slot);
+  if (u && !rw.wood) return `<img src="${unitSrc(u)}" alt="">`;
+  if (rw.exp && !rw.wood) return qImg('stash/exp.png');
+  return qImg('quest/chest.png');
+}
+function calBody(cal) {
+  const today = cal.days[cal.n];
+  return `<div class="qstep">Награда за вход · круг ${cal.cycle} · день ${cal.n + (cal.ready ? 1 : 0)} из 28</div>
+    <p class="small muted center">Заходите каждый день и забирайте награду — всё падает в Кладовую. Пропуск дня не сбрасывает прогресс. Каждый 7-й день — особая награда.</p>
+    <div class="calg">${cal.days.map((d) => `<div class="calc ${d.taken ? 'taken' : ''} ${d.i === cal.n && cal.ready ? 'now' : ''} ${d.big ? `big b${d.big}` : ''}"><i>${d.i + 1}</i>${calIcon(d.rw)}${d.taken ? '<b>✔</b>' : ''}</div>`).join('')}</div>
+    ${cal.ready ? `<div class="qcard ready"><b class="calt">Сегодня — день ${today.i + 1}${today.big ? ' · особая награда!' : ''}</b>${qReward(today.rw)}${today.rw.gear !== undefined ? `<div class="qrew"><span><img class="ri" src="${GFX}hero/gear_armor_${today.rw.gear}.png" alt=""><b>${['обычное', 'редкое', 'эпическое'][today.rw.gear]} снаряжение генерала</b></span></div>` : ''}<button class="qbtn" data-qclaim="cal">Забрать награду</button></div>`
+      : `<div class="qcard claimed"><div class="qdone-l">✔ Награда за сегодня получена. Завтра — день ${today.i + 1}.</div>${qReward(today.rw)}</div>`}`;
+}
 // значок заданий на экране: свиток с числом готовых наград
 function questBtn() {
   let b = $('#qbtn');

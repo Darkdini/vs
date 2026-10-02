@@ -431,6 +431,21 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   g.arrive(c, c.armies[0], Date.now());
   const gold = u.gold; assert.ok(g.questsState(u, c).camp.won && g.questClaim(u, c, 'camp').ok && u.gold === gold && g.questsState(u, c).camp.k === 1, 'логово разорено, глава 2');
   assert.ok(g.sendArmy(c, { units: { 246: 1 }, x: L.x, y: L.y, mission: 'attack' }).error, 'старое логово исчезло');
+  { // календарь входа: раз в сутки, прогресс копится, 7-й день — особый; недельные задания и сундук недели
+    const Q = require('../src/quests'); const c0 = g.castleOf(u);
+    let cs = g.questsState(u, c0).cal; assert.ok(cs.ready && cs.n === 0 && cs.days.length === 28 && cs.days[6].big && cs.days[27].big === 3, 'календарь на старте');
+    const e0 = u.stash.exp || 0; assert.ok(g.questClaim(u, c0, 'cal').ok, 'день 1');
+    assert.ok(g.questClaim(u, c0, 'cal').error && !g.questsState(u, c0).cal.ready, 'второй раз за сутки — нельзя');
+    for (let i = 1; i < 7; i++) { u.quests.cal.last = 0; assert.ok(g.questClaim(u, c0, 'cal').ok, 'день ' + (i + 1)); }
+    assert.ok(u.quests.cal.n === 7 && (u.stash.exp || 0) > e0, '7 дней получено, опыт в Кладовой');
+    u.quests.cal.n = 27; u.quests.cal.last = 0; const arts = (c0.artifacts || []).length;
+    assert.ok(g.questClaim(u, c0, 'cal').ok && u.quests.cal.n === 0 && u.quests.cal.cycle === 2 && c0.artifacts.length === arts + 1, 'день 28: артефакт, новый круг');
+    const wk = g.questsState(u, c0).weekly; assert.ok(wk.length === 3 && wk.every((x) => Q.WEEKLY.some((w) => w.id === x.id)), 'три задания недели');
+    assert.ok(g.questClaim(u, c0, 'weekly', wk[0].id).error && g.questClaim(u, c0, 'wchest').error, 'невыполненное недельное — нельзя');
+    const st = g.stats(u); for (const x of wk) { const def = Q.WEEKLY.find((w) => w.id === x.id); st[def.stat] = (st[def.stat] || 0) + x.need; }
+    for (const x of wk) assert.ok(g.questClaim(u, c0, 'weekly', x.id).ok, 'недельное ' + x.id);
+    assert.ok(g.questClaim(u, c0, 'wchest').ok && g.questClaim(u, c0, 'wchest').error, 'сундук недели — один раз');
+  }
   void w0; console.log('✓ Задания и Кладовая: общая на игрока, извлечение в текущий замок до лимита Склада, уникальные воины, опыт генерала');
   if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
 }

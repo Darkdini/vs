@@ -44,6 +44,11 @@ function install(Game) {
     return [...res, ...units, ...exp];
   };
   P.stashTake = function stashTake(u, c, kind, key, n) {
+    const r = this.stashTake1(u, c, kind, key, n);
+    if (r && r.ok && this.addStat) this.addStat(u.id, 'stashTake', 1); // для задания обучения «Королевская кладовая»
+    return r;
+  };
+  P.stashTake1 = function stashTake1(u, c, kind, key, n) {
     if (!c || c.owner !== u.id) return { error: 'Это не ваш замок.' };
     this.tick(c); this.mil(c);
     const s = this.stashOf(u); n = Math.floor(Number(n));
