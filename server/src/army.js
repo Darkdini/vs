@@ -1501,9 +1501,9 @@ function install(Game, helpers) {
       this.store.save(); return { ok: true, msg: `Заявка отправлена в [${al.tag}].` };
     }
     // управление своим альянсом (глава)
-    if (['invite', 'approve', 'reject', 'kick', 'award'].includes(op)) {
+    if (['invite', 'uninvite', 'approve', 'reject', 'kick', 'award'].includes(op)) {
       if (!cur) return { error: 'Вы не в альянсе.' };
-      const right = { invite: 'invite', approve: 'invite', reject: 'invite', kick: 'kick', award: 'rights' }[op];
+      const right = { invite: 'invite', uninvite: 'invite', approve: 'invite', reject: 'invite', kick: 'kick', award: 'rights' }[op];
       if (!this.allyCan(cur, user.id, right)) return { error: 'Нет прав на это действие.' };
       const t = login !== undefined ? this.db.users[String(login).trim()] : this.userById(id);
       if (!t) return { error: 'Игрок не найден.' };
@@ -1514,6 +1514,7 @@ function install(Game, helpers) {
         this.event(t.id, `Приглашение в альянс [${cur.tag}] — Дипломатический центр → Приглашения.`);
         this.store.save(); return { ok: true, msg: `Приглашение отправлено: ${t.login}.` };
       }
+      if (op === 'uninvite') { t.invites = (t.invites || []).filter((x) => x !== cur.id); this.store.save(); return { ok: true, msg: `Приглашение для ${t.login} отозвано.` }; }
       if (op === 'reject') { cur.requests = (cur.requests || []).filter((x) => x !== t.id); this.store.save(); return { ok: true }; }
       if (op === 'approve') {
         cur.requests = (cur.requests || []).filter((x) => x !== t.id);
@@ -1670,7 +1671,10 @@ function install(Game, helpers) {
         info: al.members.map((id) => { const m = this.userById(id); return m ? { id, login: m.login, rating: this.userRating(m), rep: m.reputation ?? 10 } : null; }).filter(Boolean),
         score: this.allianceScore(al),
         requests: this.allyCan(al, user.id, 'invite') ? (al.requests || []).map((id) => { const m = this.userById(id); return m ? { id, login: m.login, rating: this.userRating(m) } : null; }).filter(Boolean) : [] } : null,
-      invites: (user.invites || []).map((id) => this.db.alliances && this.db.alliances[id]).filter(Boolean).map((a) => ({ id: a.id, name: a.name, tag: a.tag })),
+      invites: (user.invites || []).map((id) => this.db.alliances && this.db.alliances[id]).filter(Boolean).map((a) => ({ id: a.id, name: a.name, tag: a.tag,
+        members: a.members.length, slots: this.allianceSlots(a), leader: (this.userById(a.leader) || {}).login || '?', score: this.allianceScore(a) })),
+      // отправленные приглашения своего альянса (для окна «Приглашения» у того, кто может приглашать)
+      invited: al && this.allyCan(al, user.id, 'invite') ? Object.values(this.db.users).filter((u) => (u.invites || []).includes(al.id)).map((u) => ({ id: u.id, login: u.login, rating: this.userRating(u) })) : [],
       forge: castle.forge, upJobs: castle.upJobs, forgeUnits: this.forgeUnits(castle).map((u) => u.id), magicUnits: this.magicUnits(castle).map((u) => u.id),
       upNext: Object.fromEntries([...new Set([...this.forgeUnits(castle), ...this.magicUnits(castle)])].map((u) => [u.id, Object.fromEntries(['a', 'd', 'm', 'md'].map((k) => [k, this.forgeCost(u, k, this.forgeLvl(castle, u.id, k) + 2)]))])),
       admin: !!user.admin, royal: this.royalView(user, castle), watch: this.hasWatch(user), watchLevel: this.watchLevel(user),

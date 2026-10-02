@@ -644,6 +644,9 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(!g.profileOf(lead, free).allyInvite && !g.profileOf(lead, lead).allyInvite, 'у игрока в альянсе и у себя — нет');
   assert.ok(g.alliance(lead, g.castleOf(lead), { op: 'invite', id: free.id }).ok, 'приглашение');
   pr = g.profileOf(free, lead); assert.ok(pr.allyInvite.sent, 'отмечено «отправлено»');
+  const ms = g.milState(g.castleOf(lead), lead); assert.ok(ms.invited.some((x) => x.id === free.id), 'глава видит отправленные');
+  const mf = g.milState(g.castleOf(free), free); assert.ok(mf.invites[0].tag === 'TPF' && mf.invites[0].leader === 'allyLeadP' && mf.invites[0].members === 1, 'карточка приглашения');
+  assert.ok(g.alliance(lead, g.castleOf(lead), { op: 'uninvite', id: free.id }).ok && !(free.invites || []).length, 'отозвать приглашение');
   console.log('✓ Профиль: «Пригласить в альянс» для игрока без альянса');
 }
 try { fs.unlinkSync(DB); } catch {}

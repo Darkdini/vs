@@ -1792,3 +1792,8 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .allyinv { display: block; width: 100%; margin: 6px 0 8px; padding: 10px; border: 2px solid #c8f5a0; border-radius: 12px; background: linear-gradient(#5fd35f, #1f8f1f); color: #fff;
   font: 700 18px var(--serif); text-shadow: 0 1px 2px #0008; box-shadow: 0 0 10px #4fd14f99; animation: qglow 1.6s ease-in-out infinite; }
 .allyinv.sent { background: #e6f5dc; color: #1f6b1f; border-color: #8fd18f; box-shadow: none; animation: none; text-shadow: none; text-align: center; font-size: 15px; }
+.invcard { margin: 8px 4px; padding: 10px 12px; border: 2px solid #c9a15a; border-radius: 12px; background: #fff6dd; text-align: center; box-shadow: 0 2px 4px #0003; }
+.invh { color: #7a5a3a; font: 14px var(--serif); } .invname { color: #3a1c0c; font: 600 min(22px, 5.4vw) var(--serif); margin: 2px 0; } .invname b { color: #8a1a0a; }
+.invinfo { color: #4a2410; font-size: 14px; margin-bottom: 8px; }
+.invyes { background: linear-gradient(#5fd35f, #1f8f1f) !important; color: #fff !important; border-color: #c8f5a0 !important; }
+.invcard .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

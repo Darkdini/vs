@@ -11,11 +11,18 @@ function diplomacyButtons() {
 }
 
 function invitesWin() {
-  const list = MY().invites || [];
-  return `${ribbon('Приглашения')}
-    ${list.length ? `<div class="center"><button class="pbtn" data-al="declineall">Отклонить все</button></div>` : '<p class="parch-note">Приглашений нет.</p>'}
-    ${list.map((a) => `<div class="invite"><div>Приглашение в альянс:</div><div class="itag">${esc(a.tag)}!</div><small>${esc(a.name)}</small>
-      <div class="two"><button class="pbtn" data-al="accept" data-id="${a.id}">Принять</button><button class="pbtn" data-al="decline" data-id="${a.id}">Отклонить</button></div></div>`).join('')}`;
+  const list = MY().invites || [], al = MY().alliance, sent = MY().invited || [];
+  const card = (a) => `<div class="invcard"><div class="invh">Приглашение в альянс</div>
+      <div class="invname"><b>[${esc(a.tag)}]</b> ${esc(a.name)}</div>
+      <div class="invinfo">Глава: <b>${esc(a.leader || '?')}</b> · участников: <b>${a.members || '?'}${a.slots ? ` / ${a.slots}` : ''}</b>${a.score !== undefined ? ` · рейтинг: <b>${fmtFull(a.score)}</b>` : ''}</div>
+      <div class="two"><button class="pbtn invyes" data-al="accept" data-id="${a.id}">Вступить</button><button class="pbtn invno" data-al="decline" data-id="${a.id}">Отклонить</button></div></div>`;
+  let h = ribbon('Приглашения');
+  if (al) h += `<p class="parch-note">Вы уже в альянсе <b>[${esc(al.tag)}]</b>. Новые приглашения приходят только игрокам без альянса.</p>`;
+  if (list.length) h += `${list.map(card).join('')}${list.length > 1 ? '<div class="center"><button class="pbtn" data-al="declineall" data-confirm="Отклонить все приглашения?">Отклонить все</button></div>' : ''}`;
+  else if (!al) h += '<p class="parch-note">Приглашений нет. Их присылают главы альянсов — или найдите альянс сами: «Альянсы» → «Вступить».</p>';
+  if (al && (al.lead || sent.length)) h += `${ribbon(`Отправленные из [${esc(al.tag)}]`)}${sent.length ? sent.map((u) => `<div class="mrow"><span><b>${esc(u.login)}</b> <small>★${fmtFull(u.rating)}</small></span><button class="btn small" data-al="uninvite" data-id="${u.id}">Отозвать</button></div>`).join('')
+    : '<p class="parch-note">Пока никого не приглашали. Откройте профиль игрока без альянса — там зелёная кнопка «Пригласить в альянс».</p>'}`;
+  return h;
 }
 
 S.alFound = null;
