@@ -98,7 +98,7 @@ function install(Game) {
       const it = findBag(m.item); if (!it) return { error: 'Вещь не найдена.' };
       const p = sellPrice(it), cap = this.capacity(castle);
       castle.gear = bag.filter((x) => x !== it);
-      for (const r of RES4) castle.res[r] = Math.min(cap[r], castle.res[r] + p[r]);
+      for (const r of RES4) castle.res[r] = Math.max(castle.res[r], Math.min(cap[r], castle.res[r] + p[r]));
       this.store.save(); return { ok: true, msg: `«${gearName(it)}» разобрано на ресурсы.` };
     }
     if (!g || g.dead) return { error: 'Нужен живой генерал.' };

@@ -60,7 +60,9 @@ function install(Game) {
       // ресурсы сверх вместимости Склада (законные пути ресурсы обрезают)
       for (const c of cs) {
         const cap = this.capacity(c);
-        for (const r of ['wood', 'stone', 'iron', 'food']) if ((c.res[r] || 0) > cap[r] * 1.05 + 100 && !(u.admTouch && u.admTouch > now - 3600000)) {
+        // излишек от советника тает по мере траты: запоминаем меньшее, ниже Склада — забываем
+        if (c.overOk) for (const r of Object.keys(c.overOk)) { if ((c.res[r] || 0) <= cap[r]) delete c.overOk[r]; else c.overOk[r] = Math.min(c.overOk[r], Math.ceil(c.res[r])); }
+        for (const r of ['wood', 'stone', 'iron', 'food']) if ((c.res[r] || 0) > Math.max(cap[r] * 1.05 + 100, ((c.overOk || {})[r] || 0) + 1) && !(u.admTouch && u.admTouch > now - 3600000)) { // overOk — излишек от советника
           if (c.overWarn && now - c.overWarn < 86400000) continue;
           c.overWarn = now; this.alert(u, 'res', `«${c.name}»: ресурсов больше Склада`, `${r === 'wood' ? 'дерево' : r === 'stone' ? 'камень' : r === 'iron' ? 'железо' : 'еда'} ${Math.round(c.res[r]).toLocaleString('ru-RU')} при вместимости ${cap[r].toLocaleString('ru-RU')}`);
         }

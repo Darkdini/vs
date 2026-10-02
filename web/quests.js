@@ -100,7 +100,7 @@ $('#sheetBody').addEventListener('click', (e) => {
 });
 
 // ---------- советник-строитель: полоска «Задание: … [Выполнить]» над чатом (как в оригинале) ----------
-// Сервер: quests.js advState / qclaim kind 'adv'. Ресурсы награды — сразу в замок, лишнее — в Кладовую.
+// Сервер: quests.js advState / qclaim kind 'adv'. Ресурсы награды — сразу в замок целиком (сверх Склада не срезаются).
 function advPic() { return `${GFX}tut/adv_${S.st.user.race}.png`; } // портрет советника своей расы (gfx/tut)
 function advBar() {
   const a = S.st && S.st.quests && S.st.quests.adv;
@@ -129,7 +129,7 @@ function advWin() {
   if (!a || a.finished) return `${ribbon('Советник')}<div class="advdone"><img src="${GFX}tut/laurel.png" alt=""><p>Все задания советника выполнены! Дальше помогут Задания (свиток слева).</p></div>`;
   return `${ribbon('Советник')}<div class="advisor"><img src="${advPic()}" alt=""><div>
       <p><b>${a.done ? `<img class="advic" src="${GFX}tut/done.png" alt="">` : `<img class="advic" src="${GFX}tut/${a.need > 1 ? 'ic_up' : 'ic_build'}.png" alt="">`} Задание ${a.idx + 1} из ${a.total}</b></p><p>${esc(a.title)}.</p>
-      <p class="small">${a.done ? 'Отлично, правитель! Забирайте награду.' : `Сейчас: ${a.have} из ${a.need}. Здание — ${a.layer === 'lands' ? 'на Землях (дерево на панели справа)' : 'в замке'}. Ресурсы награды сразу пойдут в замок, а что не поместится на Складе — в Кладовую.`}</p></div></div>
+      <p class="small">${a.done ? 'Отлично, правитель! Забирайте награду.' : `Сейчас: ${a.have} из ${a.need}. Здание — ${a.layer === 'lands' ? 'на Землях (дерево на панели справа)' : 'в замке'}. Ресурсы награды пойдут сразу в замок — целиком, даже сверх Склада.`}</p></div></div>
     <div class="qcard ${a.done ? 'ready' : ''}">${qBar(a.have, a.need)}${qReward(a.reward)}
       ${a.done ? '<button class="qbtn" data-qclaim="adv">Забрать награду</button>' : '<button class="pbar" data-advgo>Выполнить — к зданию</button>'}</div>`;
 }

@@ -206,11 +206,13 @@ function install(Game) {
     const have = this.buildingLevel(c, t.bid), def = C.BY_ID[t.bid];
     return { idx: q.adv, total: ADV.length, id: t.id, title: t.title, bid: t.bid, layer: def ? def.layer : 'castle', have: Math.min(have, t.lvl), need: t.lvl, done: have >= t.lvl, reward: t.reward };
   };
-  // ресурсы — сразу в замок (до вместимости Склада), остаток и воины — в Кладовую
+  // награда советника: ресурсы — сразу в замок целиком, даже сверх Склада (сверх него не растут добычей, но и не пропадают);
+  // воины и опыт — в Кладовую. Разрешённый излишек запоминается, чтобы «Подозрительное» не тревожилось.
   const giveNow = (g, u, c, rw) => {
-    g.tick(c); const cap = g.capacity(c), rest = {}; let inCastle = 0;
-    for (const r of RES4) if (rw[r]) { const k = Math.max(0, Math.min(rw[r], Math.floor(cap[r] - c.res[r]))); c.res[r] += k; inCastle += k; if (rw[r] - k > 0) rest[r] = rw[r] - k; }
-    const toStash = { ...rest, ...(rw.u ? { u: rw.u } : {}), ...(rw.exp ? { exp: rw.exp } : {}) };
+    g.tick(c); const cap = g.capacity(c); let inCastle = 0;
+    c.overOk = c.overOk || {};
+    for (const r of RES4) if (rw[r]) { c.res[r] += rw[r]; inCastle += rw[r]; if (c.res[r] > cap[r]) c.overOk[r] = Math.max(c.overOk[r] || 0, Math.ceil(c.res[r])); }
+    const toStash = { ...(rw.u ? { u: rw.u } : {}), ...(rw.exp ? { exp: rw.exp } : {}) };
     const got = Object.keys(toStash).length ? g.stashAdd(u, toStash) : [];
     return { inCastle, stash: got };
   };

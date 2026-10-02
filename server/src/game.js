@@ -420,7 +420,8 @@ class Game {
     const dtH = Math.max(0, t - castle.resAt) / 3600000;
     const rate = this.rates(castle);
     const cap = this.capacity(castle);
-    for (const r of C.RES) castle.res[r] = Math.max(0, Math.min(cap[r], castle.res[r] + rate[r] * dtH));
+    // сверх Склада (награда советника) ресурсы не растут, но и не срезаются — тратятся как обычно
+    for (const r of C.RES) { const v = castle.res[r], n = v + rate[r] * dtH; castle.res[r] = Math.max(0, v > cap[r] ? Math.min(v, n) : Math.min(cap[r], n)); }
     castle.resAt = t;
   }
 

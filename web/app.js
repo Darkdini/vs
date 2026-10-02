@@ -125,7 +125,7 @@ function buildingLevel(id) {
 }
 function resNow(r) {
   const c = S.st.castle, dt = (now() - S.st.now) / 3600000;
-  return Math.min(c.cap[r], c.res[r] + c.rate[r] * dt);
+  const v = c.res[r], n = v + c.rate[r] * dt; return v > c.cap[r] ? Math.min(v, n) : Math.min(c.cap[r], n); // сверх Склада (награда советника) — не растёт, не срезается
 }
 // лимит строек: 3, с премиумом (и у админа) — 5, как на сервере
 const maxQueue = () => (S.st.user.admin || (S.st.user.premium || 0) > Date.now() ? 5 : S.cat.maxQueue);

@@ -147,7 +147,7 @@ function install(Game) {
           const t = member(m.to); if (!t) return { error: 'Игрок не в альянсе.' };
           for (const r of RES4) if (al.storage[r] < res[r]) return { error: 'В кладовой столько нет.' };
           const c = this.castleOf(t); this.tick(c); const cap = this.capacity(c);
-          for (const r of RES4) { al.storage[r] -= res[r]; c.res[r] = Math.min(cap[r], c.res[r] + res[r]); }
+          for (const r of RES4) { al.storage[r] -= res[r]; c.res[r] = Math.max(c.res[r], Math.min(cap[r], c.res[r] + res[r])); }
           this.allyLog(al, `${user.login} выдал из кладовой ${t.login}: ${line}`, 'store');
           return done(`Выдано из кладовой: ${t.login}.`);
         }

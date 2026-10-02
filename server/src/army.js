@@ -840,7 +840,7 @@ function install(Game, helpers) {
       if (a.general && c.general && c.general.away === a.id) delete c.general.away;
     }
     const cap = this.capacity(c);
-    if (a.loot) for (const r of RES4) c.res[r] = Math.min(cap[r], c.res[r] + (a.loot[r] || 0));
+    if (a.loot) for (const r of RES4) c.res[r] = Math.max(c.res[r], Math.min(cap[r], c.res[r] + (a.loot[r] || 0)));
     c.armies = c.armies.filter((x) => x !== a);
     const lootTxt = a.loot ? ` Добыча: ${RES4.map((r) => a.loot[r] || 0).join('/')}` : '';
     this.event(c.owner, `Армия вернулась (${MISSIONS[a.mission]}).${lootTxt}`);
@@ -1036,7 +1036,7 @@ function install(Game, helpers) {
     const target = this.castleAt(a.x, a.y);
     const where = `${a.x}:${a.y}`;
     if (a.mission === 'trade') {
-      if (target) { this.tick(target); const cap = this.capacity(target); for (const r of RES4) target.res[r] = Math.min(cap[r], target.res[r] + a.cargo[r]); }
+      if (target) { this.tick(target); const cap = this.capacity(target); for (const r of RES4) target.res[r] = Math.max(target.res[r], Math.min(cap[r], target.res[r] + a.cargo[r])); }
       const to = target && this.ownerOf(target);
       this.report(c.owner, `Торговцы доставили ресурсы в ${target ? target.name : where}`, [`Груз: дерево ${a.cargo.wood}, камень ${a.cargo.stone}, железо ${a.cargo.iron}, еда ${a.cargo.food}`], 'trade');
       if (to && to.id !== c.owner) this.report(to.id, `Получены ресурсы от ${att.login}`, [`Дерево ${a.cargo.wood}, камень ${a.cargo.stone}, железо ${a.cargo.iron}, еда ${a.cargo.food}`], 'trade');
@@ -1344,7 +1344,7 @@ function install(Game, helpers) {
       }
     } else if (back) {
       const g = Math.round((50 + Math.random() * 150) * (1 + Object.keys(EXPED).indexOf(x.kind))); const cap = this.capacity(castle);
-      for (const r of RES4) castle.res[r] = Math.min(cap[r], castle.res[r] + g);
+      for (const r of RES4) castle.res[r] = Math.max(castle.res[r], Math.min(cap[r], castle.res[r] + g));
       lines.push(`Артефактов не нашли, зато принесли черепки и старые монеты — по ${g} каждого ресурса.`);
     } else lines.push('Никто не вернулся…');
     this.report(castle.owner, `Экспедиция вернулась: ${e.name}`, lines, 'expedition');
@@ -1429,7 +1429,7 @@ function install(Game, helpers) {
     if (!(amount > 0) || castle.res[from] < amount) return { error: 'Недостаточно ресурсов.' };
     const got = Math.floor(amount * rate);
     castle.res[from] -= amount;
-    castle.res[to] = Math.min(this.capacity(castle)[to], castle.res[to] + got);
+    castle.res[to] = Math.max(castle.res[to], Math.min(this.capacity(castle)[to], castle.res[to] + got));
     this.store.save();
     return { got };
   };
