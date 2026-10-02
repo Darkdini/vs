@@ -27,7 +27,9 @@ function dialogWin() {
   if (!w) return `${ribbon('Диалог')}<p class="parch-note">Загрузка…</p>`;
   const me = S.st.user.login;
   let day = '', body = '';
-  const picHtml = (m) => (m.pic ? `<button class="dpic" data-dlgview="pic/${m.pic}.png"><img src="pic/${m.pic}.png" alt="Фото"></button><small class="dpict">⏳ исчезнет через ${Math.min(10, Math.max(1, Math.ceil((m.picExp - now()) / 60000 - 0.05)))} мин</small>`
+  for (const m of d.msgs) if (m.pic && m.picExp <= now()) { delete m.pic; m.picGone = true; } // время вышло — фото исчезает сразу
+  if (d.msgs.some((m) => m.pic) && !S.dlg.picTimer) S.dlg.picTimer = setTimeout(() => { S.dlg.picTimer = null; if (S.sheets[S.sheets.length - 1] === dialogWin) refreshSheet(); }, 20000); // отсчёт «исчезнет через…»
+  const picHtml = (m) => (m.pic ? `<button class="dpic" data-dlgview="pic/${m.pic}.png" data-exp="${m.picExp}"><img src="pic/${m.pic}.png" alt="Фото"></button><small class="dpict">⏳ исчезнет через ${Math.min(10, Math.max(1, Math.ceil((m.picExp - now()) / 60000 - 0.05)))} мин</small>`
     : '<span class="dpicgone">📷 Фото удалено (фото хранятся 10 минут)</span>');
   for (const m of d.msgs) {
     const dd = new Date(m.at).toLocaleDateString('ru-RU');
@@ -128,5 +130,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   }
   const v = e.target.closest('[data-dlgview]'); if (!v) return;
   const d = document.createElement('div'); d.className = 'picview'; d.innerHTML = `<img src="${esc(v.dataset.dlgview)}" alt=""><button type="button">✕</button>`;
+  const exp = Number(v.dataset.exp) || 0; // открытое во весь экран фото закрывается само, когда истекут 10 минут
+  if (exp) setTimeout(() => { if (d.isConnected) { d.remove(); toast('Фото удалено — оно хранится 10 минут.'); if (S.sheets[S.sheets.length - 1] === dialogWin) refreshSheet(); } }, Math.max(0, exp - now()));
   d.addEventListener('click', () => d.remove()); document.body.appendChild(d);
 });

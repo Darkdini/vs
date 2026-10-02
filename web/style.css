@@ -1804,3 +1804,4 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .picview { position: fixed; inset: 0; z-index: 90; background: #000e; display: flex; align-items: center; justify-content: center; }
 .picview img { max-width: 100%; max-height: 100%; object-fit: contain; } .picview button { position: absolute; top: 12px; right: 12px; width: 44px; height: 44px; border-radius: 22px; border: 2px solid #c9a15a; background: #3a1c0c; color: #fff; font-size: 22px; }
 .dpic { align-self: flex-start; width: fit-content; } .dpic img { width: auto; }
+.dpicgone { color: #7a5a3a !important; font-size: 15px; }
