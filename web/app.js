@@ -249,6 +249,7 @@ function onMsg(m) {
       if (m.refresh && S.sheets.length) { S.sheets[S.sheets.length - 1] = () => profileSheet(m.profile); showSheet(false); } else openSheet(() => profileSheet(m.profile)); break;
     case 'mail': S.mail = m; refreshSheet(); break;
     case 'dialogs': case 'dialog': dialogsMsg(m); break;
+    case 'picok': picMsg(m); break;
     case 'news': newsMsg(m); break;
     case 'welcome': welcomeShow(m); break;
     case 'boss': S.boss = m.data; refreshSheet(); break;
@@ -265,6 +266,7 @@ function onMsg(m) {
       break;
     case 'loginlock': showLock(Date.now() + m.sec * 1000); break;
     case 'error':
+      if (S.picQ || (S.dlg && S.dlg.picBusy)) { S.picQ = null; S.dlg.picBusy = null; } // отправка фото сорвалась — снять «Отправка…»
       if (S.auto || !S.st) { // ошибка входа — показать форму
         S.auto = false; if (S.creds) $('#authForm').login.value = S.creds.show || S.creds.login;
         if (/Сессия устарела|заблокирован/i.test(m.msg)) { S.creds = null; store.set('tw.creds', null); } // сохранённый вход стирается, только если он больше не действует

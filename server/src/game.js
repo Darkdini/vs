@@ -582,6 +582,7 @@ require('./stash').install(Game);
 require('./metrics').install(Game);
 require('./anomaly').install(Game);
 require('./secwatch').install(Game);
+require('./pics').install(Game);
 require('./quests').install(Game);
 require('./hero').install(Game);
 require('./boss').install(Game);

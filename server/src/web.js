@@ -174,7 +174,7 @@ class WebSession {
     if (!fn) { this.game.secEvent(this.ip, 'bad', `неизвестная команда «${String(msg.t).slice(0, 30)}»`); return this.error(`Неизвестная команда ${msg.t}`); }
     if (!['register', 'login', 'hello', 'captcha', 'ping'].includes(msg.t) && !this.user) return this.error('Сначала войдите.');
     this.failed = false;
-    fn.call(this, msg);
+    const ret = fn.call(this, msg); if (ret && ret.catch) ret.catch((e) => { this.log(`handler error: ${e.stack}`); this.error('Ошибка сервера.'); });
     // лояльность населения (Резиденция) растёт за действия, а не за онлайн
     if (!this.failed && this.user && ROYAL_ACTIONS.has(msg.t)) this.game.royalGain(this.user);
     // Зал Славы «Присутствие»: минуты в игре (пауза больше 5 минут не считается)
@@ -444,7 +444,7 @@ const API = {
     if (changed) { this.game.store.save(); this.pushState(); }
     const lim = Math.min(all.length, Math.max(30, Math.floor(Number(m.more)) || 30));
     this.send({ t: 'dialog', with: { id: o.id, login: o.login, race: o.race, avatar: o.avatar || 0 }, more: all.length > lim,
-      list: all.slice(-lim).map((x) => ({ id: x.id, mine: x.from === me, subject: x.subject, text: x.text, at: x.at, color: x.color || '' })), keep: !!m.keep });
+      list: all.slice(-lim).map((x) => ({ id: x.id, mine: x.from === me, subject: x.subject, text: x.text, at: x.at, color: x.color || '', ...(x.pic && this.game.picGet(x.pic) ? { pic: x.pic, picExp: x.picExp } : x.pic || x.picGone ? { picGone: true } : {}) })), keep: !!m.keep });
   },
   read(m) {
     const x = (this.game.db.messages || []).find((y) => y.id === Number(m.id) && (y.to === this.user.id || y.from === this.user.id));
@@ -452,6 +452,17 @@ const API = {
     if (x.to === this.user.id && !x.read) { x.read = true; this.game.store.save(); }
     const from = this.game.userById(x.from), to = this.game.userById(x.to);
     this.send({ t: 'letter', letter: { id: x.id, from: from && from.login, to: to && to.login, subject: x.subject, text: x.text, at: x.at } });
+  },
+  // фото в личных сообщениях (pics.js): begin → part… → сообщение с фото на 10 минут
+  async pic(m) {
+    if (m.op === 'begin') { const r = this.game.picBegin(this.user, m.to, m.w, m.h, m.n); if (r.error) return this.error(r.error); this.picUp = r.up; return this.send({ t: 'picok', i: 0 }); }
+    if (m.op !== 'part' || !this.picUp) return this.error('Фото: начните отправку заново.');
+    const up = this.picUp, r = await this.game.picPart(this.user, up, m.i, m.data);
+    if (r.error) { this.picUp = null; return this.error(r.error); }
+    if (r.more) return this.send({ t: 'picok', i: up.parts.length });
+    this.picUp = null; this.send({ t: 'picok', done: true });
+    API.dialog.call(this, { id: r.to.id, keep: 1 });
+    for (const s of WebSession.all || []) if (s.user && s.user.id === r.to.id) { if (s.dialogWith === this.user.id) API.dialog.call(s, { id: this.user.id, keep: 1 }); else if (s.notifyMail) s.notifyMail(this.user.login); }
   },
   sendmail(m) {
     if (!String(m.text || '').trim()) return this.error('Пустое сообщение.');
@@ -592,6 +603,13 @@ function startWeb(game, sessions, { port, host, log }) {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) { game.secEvent(ip, 'upload', `${req.method} ${String(req.url).slice(0, 60)}`); req.resume(); res.writeHead(405, { 'Content-Type': 'text/plain' }); return res.end('method not allowed'); }
     if (game.secProbe(req.url)) game.secEvent(ip, 'probe', String(req.url).slice(0, 80));
     let url; try { url = decodeURIComponent(req.url.split('?')[0]); } catch { url = '/'; }
+    const pm = /^\/pic\/([0-9a-f]{32})\.png$/.exec(url); // фото из сообщений (pics.js): только по случайному адресу, 10 минут
+    if (pm) {
+      const p = game.picGet(pm[1]);
+      if (!p) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('expired'); }
+      res.writeHead(200, { 'Content-Type': 'image/png', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'", 'Cache-Control': 'private, max-age=600', 'Referrer-Policy': 'no-referrer' });
+      return res.end(p.png);
+    }
     const ava = /^\/avatar\/(\d{1,9})\.png$/.exec(url); // аватары: только цифры → data/avatars/<id>.png (PNG собран сервером)
     if (ava) {
       let body; try { body = fs.readFileSync(game.avatarFile(ava[1])); } catch { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('no avatar'); }

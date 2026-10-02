@@ -27,17 +27,20 @@ function dialogWin() {
   if (!w) return `${ribbon('Диалог')}<p class="parch-note">Загрузка…</p>`;
   const me = S.st.user.login;
   let day = '', body = '';
+  const picHtml = (m) => (m.pic ? `<button class="dpic" data-dlgview="pic/${m.pic}.png"><img src="pic/${m.pic}.png" alt="Фото"></button><small class="dpict">⏳ исчезнет через ${Math.min(10, Math.max(1, Math.ceil((m.picExp - now()) / 60000 - 0.05)))} мин</small>`
+    : '<span class="dpicgone">📷 Фото удалено (фото хранятся 10 минут)</span>');
   for (const m of d.msgs) {
     const dd = new Date(m.at).toLocaleDateString('ru-RU');
     if (dd !== day) { day = dd; body += `<div class="ribbon ddate">${dd}</div>`; }
     body += `<div class="dmsg ${m.mine ? 'mine' : ''}"><div class="dwho"><img src="gfx3d/prof/king.png" alt=""><b>${esc(m.mine ? me : w.login)}</b></div>
-      <div class="dline"><small>${new Date(m.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</small><span${/^#[0-9a-f]{6}$/i.test(m.color || '') ? ` style="color:${m.color}"` : ''}>${m.subject && !/^Re:/.test(m.subject) && m.subject !== 'Сообщение' ? `<b>${esc(m.subject)}</b><br>` : ''}${smiles(esc(m.text))}</span></div></div>`;
+      <div class="dline"><small>${new Date(m.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</small>${m.pic || m.picGone ? `<span class="dpicw">${picHtml(m)}</span>` : `<span${/^#[0-9a-f]{6}$/i.test(m.color || '') ? ` style="color:${m.color}"` : ''}>${m.subject && !/^Re:/.test(m.subject) && m.subject !== 'Сообщение' ? `<b>${esc(m.subject)}</b><br>` : ''}${smiles(esc(m.text))}</span>`}</div></div>`;
   }
   return `${ribbon('Диалог')}
     ${d.hasMore ? '<button class="pbar" data-dlgmore>Показать раньше</button>' : ''}
     <div class="dbody">${body || '<p class="parch-note">Сообщений ещё нет — напишите первым.</p>'}</div>
     <form class="dform" data-form="dlgsend"><input name="text" maxlength="4000" autocomplete="off" placeholder="Сообщение для ${esc(w.login)}" value="${esc(d.draft || '')}">
-      <button type="button" class="dsm" data-dlgsmile><img src="gfx3d/smiles/smile.png" alt="Смайлы"></button></form>
+      <button type="button" class="dsm dpicb" data-dlgpic title="Прикрепить фото">📷</button><button type="button" class="dsm" data-dlgsmile><img src="gfx3d/smiles/smile.png" alt="Смайлы"></button></form>
+    ${S.dlg.picBusy ? `<div class="dpicst">📷 ${esc(S.dlg.picBusy)}</div>` : ''}
     ${d.smile ? `<div class="smilebox">${SMILES.map((k) => `<button data-dlgsm="${k}"><img src="${smileSrc(k)}" alt=""></button>`).join('')}</div>` : ''}
     <button class="pbar dsend" data-dlgsend><img src="gfx3d/chat/tosend_button.png" alt=""> Отправить</button>
     <div class="two2"><button class="pbar" data-cprof="${w.id}"><img src="gfx3d/prof/king.png" alt=""> Профиль</button><button class="pbar" data-dlglist><img src="gfx3d/mail/msgs.png" alt=""> Все диалоги</button></div>`;
@@ -78,3 +81,52 @@ $('#sheetBody').addEventListener('submit', (e) => {
   if (e.target.dataset.form !== 'dlgsend') return;
   e.preventDefault(); e.stopImmediatePropagation(); dlgSend();
 }, true);
+
+// ---------- фото в сообщениях (server/src/pics.js): живут 10 минут ----------
+// Браузер уменьшает картинку (до 960 точек по стороне) и отправляет только сжатые цвета точек — сам файл на сервер не уходит.
+const PIC_SIDE = 960, PIC_PART = 150 * 1024, PIC_MAXZ = 14 * PIC_PART;
+async function picPack(file, side) {
+  const bmp = await createImageBitmap(file);
+  const k = Math.min(1, side / Math.max(bmp.width, bmp.height)), w = Math.max(8, Math.round(bmp.width * k)), h = Math.max(8, Math.round(bmp.height * k));
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h; const x = cv.getContext('2d');
+  x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); x.imageSmoothingQuality = 'high'; x.drawImage(bmp, 0, 0, w, h);
+  const px = x.getImageData(0, 0, w, h).data, rgb = new Uint8Array(w * h * 3);
+  for (let s = 0, d = 0; s < px.length; s += 4, d += 3) { rgb[d] = px[s]; rgb[d + 1] = px[s + 1]; rgb[d + 2] = px[s + 2]; }
+  const z = new Uint8Array(await new Response(new Blob([rgb]).stream().pipeThrough(new CompressionStream('deflate'))).arrayBuffer());
+  return { w, h, z };
+}
+const b64 = (u8) => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
+async function picSend(file) {
+  if (!S.dlg.with) return;
+  if (typeof CompressionStream === 'undefined' || typeof createImageBitmap === 'undefined') return toast('Ваш браузер не умеет отправлять фото — обновите его.', 'err');
+  S.dlg.picBusy = 'Готовлю фото…'; refreshSheet();
+  try {
+    let p = null;
+    for (const side of [PIC_SIDE, 720, 540, 400]) { p = await picPack(file, side); if (p.z.length <= PIC_MAXZ) break; }
+    if (p.z.length > PIC_MAXZ) throw new Error('big');
+    const parts = []; for (let i = 0; i < p.z.length; i += PIC_PART) parts.push(b64(p.z.subarray(i, i + PIC_PART)));
+    S.picQ = { parts, i: 0 }; S.dlg.picBusy = 'Отправка… 0%'; refreshSheet();
+    send({ t: 'pic', op: 'begin', to: S.dlg.with.login, w: p.w, h: p.h, n: parts.length });
+  } catch (e) { S.dlg.picBusy = null; refreshSheet(); toast('Не удалось прочитать картинку — выберите другую.', 'err'); }
+}
+// сервер подтверждает каждую часть — шлём следующую
+function picMsg(m) {
+  if (m.t !== 'picok') return false;
+  const q = S.picQ;
+  if (m.done || !q) { S.picQ = null; S.dlg.picBusy = null; refreshSheet(); return true; }
+  if (m.i < q.parts.length) { send({ t: 'pic', op: 'part', i: m.i, data: q.parts[m.i] }); S.dlg.picBusy = `Отправка… ${Math.round(m.i / q.parts.length * 100)}%`; refreshSheet(); }
+  return true;
+}
+let picInput = null;
+$('#sheetBody').addEventListener('click', (e) => {
+  if (e.target.closest('[data-dlgpic]')) {
+    if (S.dlg.picBusy) return;
+    if (!picInput) { picInput = document.createElement('input'); picInput.type = 'file'; picInput.accept = 'image/*'; picInput.style.display = 'none'; document.body.appendChild(picInput);
+      picInput.addEventListener('change', () => { const f = picInput.files && picInput.files[0]; picInput.value = ''; if (f) picSend(f); }); }
+    if (!S.dlg.picHint) { S.dlg.picHint = true; toast('Фото видно собеседнику 10 минут, потом оно удалится.'); }
+    return picInput.click();
+  }
+  const v = e.target.closest('[data-dlgview]'); if (!v) return;
+  const d = document.createElement('div'); d.className = 'picview'; d.innerHTML = `<img src="${esc(v.dataset.dlgview)}" alt=""><button type="button">✕</button>`;
+  d.addEventListener('click', () => d.remove()); document.body.appendChild(d);
+});

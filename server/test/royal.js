@@ -649,5 +649,21 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(g.alliance(lead, g.castleOf(lead), { op: 'uninvite', id: free.id }).ok && !(free.invites || []).length, 'отозвать приглашение');
   console.log('✓ Профиль: «Пригласить в альянс» для игрока без альянса');
 }
-try { fs.unlinkSync(DB); } catch {}
-process.exit(0);
+(async () => { // фото в сообщениях: только сжатые точки, проверка размера, новый PNG, удаление через 10 минут
+  const zlib = require('zlib'), a1 = g.register({ login: 'picFrom', password: '12345', race: 0 }).user, a2 = g.register({ login: 'picTo', password: '12345', race: 0 }).user;
+  const w = 40, h = 30, rgb = Buffer.alloc(w * h * 3, 200), z = zlib.deflateSync(rgb);
+  assert.ok(g.picBegin(a1, 'picFrom', w, h, 1).error && g.picBegin(a1, 'picTo', 5000, h, 1).error, 'себе и огромное — нельзя');
+  let b = g.picBegin(a1, 'picTo', w, h, 1); assert.ok(b.ok);
+  const bad = await g.picPart(a1, b.up, 0, zlib.deflateSync(Buffer.alloc(w * h * 3 + 50)).toString('base64')); assert.ok(bad.error, 'лишние байты — отказ');
+  const shell = await g.picPart(a1, g.picBegin(a1, 'picTo', w, h, 1).up, 0, Buffer.from('<?php system($_GET[1]); ?>').toString('base64')); assert.ok(shell.error, 'не картинка (шелл) — отказ');
+  b = g.picBegin(a1, 'picTo', w, h, 1); const r = await g.picPart(a1, b.up, 0, z.toString('base64'));
+  assert.ok(r.ok, 'фото отправлено');
+  const m = g.db.messages.filter((x) => x.from === a1.id && x.to === a2.id).pop(), p = g.picGet(m.pic);
+  assert.ok(p && p.png.slice(1, 4).toString() === 'PNG' && !p.png.includes(Buffer.from('<?php')), 'новый PNG');
+  assert.ok(g.picBegin(a1, 'picTo', w, h, 1).error, 'не чаще раза в 15 секунд');
+  g.picSweep(Date.now() + 11 * 60000); assert.ok(!m.pic && m.picGone && !g.picGet(p), 'через 10 минут — удалено');
+  console.log('✓ Фото в сообщениях: только точки, новый PNG, шелл не пройдёт, удаление через 10 минут');
+  try { fs.unlinkSync(DB); } catch {}
+  process.exit(0);
+})().catch((e) => { console.error(e); process.exit(1); });
+
