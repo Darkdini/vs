@@ -39,6 +39,8 @@ function install(Game) {
     // сброс пароля админа при запуске: ADMIN_PASS=новый ADMIN_RESET=1 sh ~/game/start.sh
     if (pass && process.env.ADMIN_RESET === '1' && !this.passOk(u, pass)) { const cr = require('crypto'), salt = cr.randomBytes(8).toString('hex'); u.pass = `${salt}:${cr.scryptSync(String(pass).toLowerCase(), salt, 32).toString('hex')}`; u.tokens = []; require('./game').passLogPush(u, 'server'); this.adminReset = true; }
     u.admin = true;
+    // администратор — только этот аккаунт: права, выданные раньше другим игрокам, снимаются при запуске
+    for (const x of Object.values(this.db.users)) if (x !== u && x.admin) { x.admin = false; x.tokens = []; }
     if (FULL) {
       if (!u.adminGold) { u.gold = Math.max(u.gold || 0, 1000000); u.adminGold = true; } // миллион золота админу — один раз
       if (!u.royal) { u.royal = 1000000; u.royalAt = Date.now(); u.captures = u.captures || ADMIN_CASTLES - 1; }
@@ -235,7 +237,6 @@ function install(Game) {
       case 'mod': if (target.admin) return { error: 'Админ и так может всё.' }; target.mod = arg.on === undefined ? !target.mod : !!Number(arg.on); msg = `${target.login} — ${target.mod ? 'модератор форума' : 'больше не модератор'}.`; if (target.mod) this.event(target.id, 'Вас назначили модератором форума.'); break;
       case 'race': { const r = this.adminSetRace(target, String(arg.race || '')); if (r.error) return r; msg = `${target.login}: раса — ${C.RACE_NAMES[target.race]}.`; break; }
       case 'reset': { this.adminResetPlayer(target); msg = `${target.login}: замок сброшен, как после регистрации.`; if (target !== user) this.event(target.id, 'Администрация вернула ваш замок в начальное состояние.'); break; }
-      case 'makeadmin': target.admin = true; msg = `${target.login} — администратор.`; break;
       case 'delete': {
         if (target.admin) return { error: 'Админа удалить нельзя.' };
         this.removeAvatar(target);

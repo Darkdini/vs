@@ -523,6 +523,8 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(!c3.hits.length, 'чужой — нет');
   const info = g.adminOp(adm, 'player', { login: 'lostacc' }).data;
   assert.ok(info.passLog.length === 3 && info.passLog[0].current && !('h' in info.passLog[0]) && info.passLog[1].ip === '1.2.3.4', 'история без отпечатков, с IP');
+  assert.ok(g.adminOp(adm, 'makeadmin', { login: 'lostacc' }).error && !u.admin, 'сделать админом нельзя — админ только один');
+  u.admin = true; g.ensureAdmin(); assert.ok(!u.admin && g.adminUser().admin, 'лишние права админа снимаются при запуске');
   console.log('✓ Восстановление аккаунта: журнал смены пароля, проверка старого пароля, пароли не хранятся открытым текстом');
 }
 try { fs.unlinkSync(DB); } catch {}
