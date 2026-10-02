@@ -350,9 +350,22 @@ function renderTop() { // конверты сообщений и отчётов 
   for (const [id, n] of [['#mvReinf', mv.reinf], ['#mvAtt', mv.att], ['#mvInc', mv.inc], ['#mvHome', mv.home]]) { const b = $(id); b.classList.toggle('hidden', !n); b.querySelector('b').textContent = n || ''; }
   tick();
 }
+// ресурсы на верхней панели: коротко (12,3к), склад полон — оранжевым
+const shortN = (v) => (v >= 1e6 ? `${(v / 1e6).toFixed(v >= 1e7 ? 0 : 1).replace('.', ',')}м` : v >= 1e4 ? `${(v / 1e3).toFixed(v >= 1e5 ? 0 : 1).replace('.', ',')}к` : String(Math.floor(v)));
+function topRes() {
+  const c = S.st.castle;
+  $$('[data-tr]').forEach((el) => {
+    const r = el.dataset.tr, v = resNow(r), full = v >= c.cap[r] - 0.5;
+    if (!el.firstChild) el.innerHTML = `<img src="gfx3d/res/${r}.png" alt=""><b></b>`;
+    const b = el.lastChild, txt = shortN(v); if (b.textContent !== txt) b.textContent = txt;
+    el.classList.toggle('full', full);
+  });
+}
+$('#resL').addEventListener('click', () => openSheet(resSheet)); $('#resR').addEventListener('click', () => openSheet(resSheet));
 function tick() {
   if (!S.st) return;
   const c = S.st.castle, t = now();
+  topRes();
   $$('[data-e]').forEach((el) => {
     const e = Number(el.dataset.e);
     if (el.dataset.s) el.style.width = `${Math.min(100, Math.max(0, ((t - Number(el.dataset.s)) / (e - Number(el.dataset.s))) * 100))}%`;

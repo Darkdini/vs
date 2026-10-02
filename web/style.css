@@ -1553,3 +1553,16 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .prow { display: flex; flex-wrap: wrap; gap: 6px 8px; justify-content: center; padding: 8px 4px; cursor: pointer; }
 .prow img.pmed { width: 40px; height: 40px; object-fit: contain; } .prow img.pgi { width: 44px; height: 44px; object-fit: contain; filter: drop-shadow(0 1px 2px #0006); }
 .prow > b { align-self: center; color: #6a3a10; } [data-plist] .ribbon, [data-mymedals] .ribbon { cursor: pointer; }
+/* ресурсы на верхней панели: по бокам деревянной полосы, в одном ряду с кнопками (кнопки ужимаются, если места мало) */
+#top { padding-left: 30px !important; padding-right: 30px !important; }
+#top > .topres { display: flex; flex-direction: column; gap: 2px; padding: 0; border: 0; background: none; margin-top: auto; margin-bottom: 9px; flex: none; }
+#top > .topres.l { margin-right: auto; align-items: flex-start; } #top > .topres.r { margin-left: auto; align-items: flex-end; }
+#top > .env { flex: 0 1 66px; min-width: 38px; }
+.topres span { display: flex; align-items: center; gap: 2px; height: 21px; padding: 0 5px 0 1px; border-radius: 10px; background: #0007; box-shadow: inset 0 0 0 1px #c9a15a66; }
+.topres.r span { flex-direction: row-reverse; padding: 0 1px 0 5px; }
+.topres img { width: 18px; height: 18px; object-fit: contain; }
+.topres b { min-width: 32px; font: 700 12px/1 system-ui, sans-serif; color: #ffe9b0; text-shadow: 0 1px 1px #000; }
+.topres.r b { text-align: right; }
+.topres span.full b { color: #ffa040; }
+.topres:active { transform: scale(.96); }
+@media (max-width: 370px) { .topres b { min-width: 28px; font-size: 11px; } .topres img { width: 16px; height: 16px; } }
