@@ -579,5 +579,25 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(st.gold.spent.some((x) => x.k === 'Премиум' && x.sum >= 40) && st.gold.in >= 100, 'золото по видам');
   console.log('✓ Статистика админа: онлайн по часам, возвраты новичков, золото по видам');
 }
+{ // «Подозрительное»: необъяснимый рост армии, золото мимо журнала, лояльность, ресурсы сверх Склада; действия админа не тревожат
+  const adm = g.adminUser(), u = g.register({ login: 'cheatsus', password: '12345', race: 0 }).user, c = g.castleOf(u); g.mil(c);
+  const n0 = (g.db.alerts || []).length, mine = () => (g.db.alerts || []).filter((x) => x.uid === u.id);
+  g.anomalyScan(); assert.strictEqual(mine().length, 0, 'первый замер — без тревог');
+  g.train(c, 200, 0); c.res = { ...c.res }; g.anomalyScan(); assert.strictEqual(mine().length, 0, 'ничего не менялось — тихо');
+  c.squads.push({ id: 999001, name: 'тест', units: { 200: 3 } }); c.units[200] = (c.units[200] || 0) + 3; g.anomalyScan(); const k0 = mine().length;
+  c.squads.pop(); c.units[200] += 3; g.anomalyScan(); assert.strictEqual(mine().length, k0, 'перекладка между армиями замка — не тревога');
+  c.units[200] = (c.units[200] || 0) + 500; g.anomalyScan(); assert.ok(mine().some((x) => x.kind === 'army'), 'армия +500 из ниоткуда');
+  u.gold += 77; g.anomalyScan(); assert.ok(mine().some((x) => x.kind === 'gold' && /без записи/.test(x.why)), 'золото мимо журнала');
+  g.goldChange(u, 5, 'Странное начисление'); g.anomalyScan(); assert.ok(mine().some((x) => /Странное/.test(x.why)), 'золото не от администрации');
+  u.royal = (u.royal || 0) + 5000; g.anomalyScan(); assert.ok(mine().some((x) => x.kind === 'royal'), 'лояльность скачком');
+  c.res.wood = g.capacity(c).wood * 3; g.anomalyScan(); assert.ok(mine().some((x) => x.kind === 'res'), 'ресурсы сверх Склада');
+  c.res.wood = 0; const k = mine().length;
+  g.adminOp(adm, 'gold', { login: 'cheatsus', n: 100 }); g.adminOp(adm, 'units', { login: 'cheatsus' }); g.anomalyScan();
+  assert.strictEqual(mine().length, k, 'выдача от админа — без тревоги');
+  g.stashAdd(u, { u: { inf: 40 } }); g.anomalyScan(); g.stashTake(u, c, 'unit', 300, 40); g.anomalyScan(); assert.strictEqual(mine().length, k, 'воины из Кладовой — законно');
+  assert.ok(g.alertsNew() > 0 && g.adminOp(adm, 'alerts', {}).data.length >= k && g.alertsNew() === 0, 'открыл список — новые прочитаны');
+  assert.ok(g.adminOp(adm, 'player', { login: 'cheatsus' }).data.goldLog.length >= 2, 'история золота в карточке');
+  void n0; console.log('✓ Подозрительное: армия, золото мимо журнала и не от админа, лояльность, ресурсы; админ и Кладовая не тревожат');
+}
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);

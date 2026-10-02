@@ -1721,3 +1721,10 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .shbar em { font-style: normal; font-size: 12px; color: #7a5a3a; }
 .srow { display: flex; justify-content: space-between; gap: 6px; padding: 2px 0; font-size: 13px; color: #3a1c0c; border-bottom: 1px dotted #b8873a55; }
 .stwo { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
+/* Админ-панель → Подозрительное */
+.alist { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 10px; }
+.alrt { display: flex; gap: 8px; padding: 7px 9px; border: 1px solid #b8873a; border-radius: 8px; background: #fff6dd; color: #3a1c0c; }
+.alrt.new { border-color: #c62828; background: #ffe6e0; box-shadow: 0 0 0 1px #c6282855; }
+.alrt i { font-style: normal; font-size: 22px; line-height: 1; } .alrt div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.alrt b { font-size: 14px; } .alrt small { font-size: 12px; color: #6a4a2a; } .alrt span { font-size: 12px; color: #7a5a3a; }
+.lnk { border: 0; padding: 0; background: none; color: #1d4fa0; text-decoration: underline; font: inherit; cursor: pointer; }

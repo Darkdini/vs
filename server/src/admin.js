@@ -115,6 +115,8 @@ function install(Game) {
     const castles = arg.all ? this.castlesOf(target) : [this.castleOf(target)];
     const num = (v, d) => (Number.isFinite(Number(v)) && v !== '' ? Number(v) : d);
     const now = Date.now();
+    // админ что-то меняет у игрока — «Подозрительное» (anomaly.js) начнёт замер заново, без ложной тревоги
+    if (!['player', 'players', 'stats', 'alerts', 'mods', 'multis', 'bugs', 'passcheck', 'armyinfo'].includes(op)) target.admTouch = now;
     let data = null, msg = 'Готово.';
     switch (op) {
       // --- ресурсы, золото ---
@@ -188,7 +190,11 @@ function install(Game) {
       case 'sciences': for (const c of castles) { this.mil(c); c.sciences = { eco: 20, eng: 20, fhi: 20, war: 20 }; } msg = 'Все науки 20 ур.'; break;
       case 'loyalty': for (const c of castles) { this.mil(c); c.loyalty = Math.max(0, Math.min(100, num(arg.value, 100))); c.loyAt = now; } msg = `Лояльность ${num(arg.value, 100)}.`; break;
       // --- игроки ---
-      case 'stats': data = this.adminStats(Number(arg.online) || 0); break; // статистика (metrics.js); онлайн сейчас — от web.js
+      case 'stats': data = this.adminStats(Number(arg.online) || 0); break;
+      case 'alerts': { // «Подозрительное»: последние тревоги; открыв список, админ их «видел»
+        const l = (this.db.alerts || []).slice(-150).reverse(); data = l.map((x) => ({ ...x })); for (const x of this.db.alerts || []) x.seen = true; break;
+      }
+      case 'alertsclear': this.db.alerts = []; msg = 'Список подозрительного очищен.'; break; // статистика (metrics.js); онлайн сейчас — от web.js
       case 'mods': // модераторы форума (общие) и модераторы разделов форума
         data = { mods: Object.values(this.db.users).filter((u) => u.mod && !u.admin).map((u) => ({ login: u.login, online: !!u.online })),
           sections: this.forumDb().sections.filter((s) => s.mods.length).map((s) => ({ name: s.name, mods: s.mods.map((id) => (this.userById(id) || {}).login).filter(Boolean) })) };
@@ -215,7 +221,7 @@ function install(Game) {
         this.cache = {};
         msg = `Создано ботов: ${made} за ${((Date.now() - t0) / 1000).toFixed(1)} с. Игроков всего: ${Object.keys(this.db.users).length}.`; break;
       }
-      case 'player': data = { ...this.playerInfo(target), passLog: (target.passLog || []).map((x, i, l) => ({ at: x.at, by: x.by, ip: x.ip || '', current: i === l.length - 1 })).reverse(), dev: this.devReport(target), nickLog: (target.nickLog || []).slice(-10).reverse(), ips: (target.ips || []).slice().reverse(), devs: (target.devs || []).map((d) => d.dev.slice(0, 8) + (this.db.devBans && this.db.devBans[d.dev] ? ' [бан]' : '')), regIp: target.regIp || '', castlesList: this.castlesOf(target).map((c) => ({ id: c.id, name: c.name, x: c.x, y: c.y, rating: this.rating(c), loyalty: Math.round(c.loyalty ?? 100) })) }; break;
+      case 'player': data = { ...this.playerInfo(target), goldLog: (target.goldLog || []).slice(-30).reverse(), alerts: (this.db.alerts || []).filter((x) => x.uid === target.id).slice(-10).reverse(), passLog: (target.passLog || []).map((x, i, l) => ({ at: x.at, by: x.by, ip: x.ip || '', current: i === l.length - 1 })).reverse(), dev: this.devReport(target), nickLog: (target.nickLog || []).slice(-10).reverse(), ips: (target.ips || []).slice().reverse(), devs: (target.devs || []).map((d) => d.dev.slice(0, 8) + (this.db.devBans && this.db.devBans[d.dev] ? ' [бан]' : '')), regIp: target.regIp || '', castlesList: this.castlesOf(target).map((c) => ({ id: c.id, name: c.name, x: c.x, y: c.y, rating: this.rating(c), loyalty: Math.round(c.loyalty ?? 100) })) }; break;
       case 'royal': this.royalTick(target); target.royal = Math.max(0, target.royal + num(arg.n, 10000)); msg = `Лояльность населения: ${Math.floor(target.royal)}.`; break;
       case 'rep': target.reputation = Math.max(0, (target.reputation ?? START_REP) + num(arg.n, 10)); msg = `Репутация: ${target.reputation}.`; break;
       case 'ban': if (target.admin) return { error: 'Админа заблокировать нельзя.' }; target.banned = true; target.online = false; msg = `${target.login} заблокирован.`; break;

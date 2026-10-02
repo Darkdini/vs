@@ -8,7 +8,7 @@ const aNum = (name, value, ph) => `<input class="anum" type="number" inputmode="
 
 // Разделы: Игрок (поиск, карточка, пароли, наказания) · Выдать (монеты, ресурсы, замки, армия) · Модерация (модераторы, мульты, жалобы) · Мир (новости, рассылки, события).
 // У каждого действия — короткое описание; одно действие — в одном месте.
-const ADM_TABS = [['player', '👤 Игрок'], ['give', '🎁 Выдать'], ['mod', '🛡 Модерация'], ['world', '🌍 Мир'], ['stats', '📊 Статистика']];
+const ADM_TABS = [['player', '👤 Игрок'], ['give', '🎁 Выдать'], ['mod', '🛡 Модерация'], ['world', '🌍 Мир'], ['stats', '📊 Статистика'], ['alerts', '🚨 Подозрительное']];
 // строка действия: название и пояснение слева, поле и кнопка справа
 const aAct = (title, desc, controls, wide = false) => `<div class="aact ${wide ? 'wide' : ''}"><div class="aact-t"><b>${title}</b><small>${desc}</small></div><div class="aact-c">${controls}</div></div>`;
 const aBtn2 = (op, text, extra = '', cls = '') => `<button class="btn small ${cls}" data-adm="${op}" ${extra}>${text}</button>`;
@@ -17,7 +17,7 @@ function adminHtml() {
   const a = S.adm, tab = ADM_TABS.some(([k]) => k === a.tab) ? a.tab : 'player';
   const who = a.login ? `игрок <b>${esc(a.login)}</b> <button class="btn small" data-adm-self>× сбросить</button>` : '<b>вы (Советник)</b>';
   const head = `${ribbon('Админ-панель')}
-    <div class="atabs">${ADM_TABS.map(([k, t]) => `<button class="${k === tab ? 'on' : ''}" data-atab="${k}">${t}${k === 'mod' && S.st.user.multiNew ? ` <b class="abadge">${S.st.user.multiNew}</b>` : ''}</button>`).join('')}</div>`;
+    <div class="atabs">${ADM_TABS.map(([k, t]) => `<button class="${k === tab ? 'on' : ''}" data-atab="${k}">${t}${k === 'mod' && S.st.user.multiNew ? ` <b class="abadge">${S.st.user.multiNew}</b>` : ''}${k === 'alerts' && S.st.user.alertsNew ? ` <b class="abadge">${S.st.user.alertsNew}</b>` : ''}</button>`).join('')}</div>`;
   const target = `<div class="atarget">Кому: ${who}<label class="check"><input type="checkbox" data-an="all" ${a.all ? 'checked' : ''}> во все замки игрока</label></div>`;
   const T = {
     player: () => `${aSec('Найти игрока', `<p class="small">Введите ник (можно часть) или нажмите «Топ-100». Нажмите на игрока — откроется его карточка.</p>
@@ -63,6 +63,7 @@ function adminHtml() {
         ${aAct('Отчёты', 'Удалить все боевые отчёты на сервере.', aBtn2('reports', 'Очистить', 'data-confirm="Удалить все отчёты всех игроков?"', 'danger'))}
         ${aAct('Боты', 'Заселить карту замками-ботами (для проверки нагрузки).', `${aNum('bots', 100, 'сколько')}${aBtn2('bots', 'Заселить', 'data-arg="bots:n" data-confirm="Заселить карту ботами?"')}`)}`)}`,
     stats: () => admStatsHtml(a.stats),
+    alerts: () => admAlertsHtml(a.alerts),
   };
   return head + T[tab]();
 }
@@ -124,6 +125,9 @@ function playerCard(p) {
     <form class="chatform" data-aform="pass"><input name="password" placeholder="Новый пароль (от 5 символов)" autocomplete="off" required><button class="btn primary small">Сменить пароль</button></form>
     <div class="mhead">История смены пароля</div>
     ${(p.passLog || []).length ? `<div class="aplog">${p.passLog.map((x) => `<div><b>${fmtDate(x.at)}</b> · ${PASS_BY(x.by)}${x.ip ? ` · IP ${esc(x.ip)}` : ''}${x.current ? ' · <span class="ok">действует</span>' : ''}</div>`).join('')}</div>` : '<p class="small">Журнал пуст: аккаунт создан до журнала, смен пароля ещё не было.</p>'}</div>
+  <div class="acard"><div class="cwname">💰 История золота</div>
+    ${(p.goldLog || []).length ? `<div class="aplog">${p.goldLog.map((x) => `<div><b>${fmtDate(x.at)}</b> · <span class="${x.delta > 0 ? 'ok' : 'bad'}">${x.delta > 0 ? '+' : ''}${fmtFull(x.delta)}</span> · ${esc(x.reason || '')} · осталось ${fmtFull(x.left)}</div>`).join('')}</div>` : '<p class="small">Золото не менялось.</p>'}
+    ${(p.alerts || []).length ? `<div class="mhead">🚨 Подозрительное у игрока</div><div class="aplog">${p.alerts.map((x) => `<div><b>${fmtDate(x.at)}</b> · ${ALERT_IC[x.kind] || '⚠'} ${esc(x.text)}<br><small>${esc(x.why)}</small></div>`).join('')}</div>` : ''}</div>
   <div class="acard"><div class="cwname">⚖ Наказания и права</div>
     ${aAct(p.banned ? 'Разблокировать' : 'Заблокировать', p.banned ? 'Снова пустить игрока в игру.' : 'Игрок не сможет войти, текущий вход прервётся.', p.banned ? aBtn2('unban', 'Разблокировать') : aBtn2('ban', 'Заблокировать', 'data-confirm="Заблокировать игрока?"', 'danger'))}
     ${aAct('Модератор форума', p.mod ? 'Сейчас модератор — можно снять права.' : 'Удаление сообщений и бан в чате и на форуме.', aBtn2('mod', p.mod ? 'Снять' : 'Назначить', `data-confirm="${p.mod ? 'Снять права модератора?' : 'Назначить модератором форума?'}"`))}
@@ -156,7 +160,7 @@ $('#sheetBody').addEventListener('change', (e) => {
 $('#sheetBody').addEventListener('click', (e) => {
   const gf = e.target.closest('[data-gafill]'); if (gf) { $$('.gaunit input').forEach((i) => { i.value = gf.dataset.gafill; }); return; }
   const md = e.target.closest('[data-amod]'); if (md) { if (!confirm(`Снять ${md.dataset.amod} с модераторов?`)) return; send({ t: 'admin', op: 'mod', login: md.dataset.amod, on: 0 }); return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
-  const tb = e.target.closest('[data-atab]'); if (tb) { S.adm.tab = tb.dataset.atab; if (S.adm.tab === 'mod') { send({ t: 'admin', op: 'mods' }); send({ t: 'admin', op: 'multis' }); } if (S.adm.tab === 'stats') send({ t: 'admin', op: 'stats' }); return refreshSheet(); }
+  const tb = e.target.closest('[data-atab]'); if (tb) { S.adm.tab = tb.dataset.atab; if (S.adm.tab === 'mod') { send({ t: 'admin', op: 'mods' }); send({ t: 'admin', op: 'multis' }); } if (S.adm.tab === 'stats') send({ t: 'admin', op: 'stats' }); if (S.adm.tab === 'alerts') send({ t: 'admin', op: 'alerts' }); return refreshSheet(); }
   const mb = e.target.closest('[data-mban],[data-mall],[data-mdev]');
   if (mb) { // решения по мультам — только вручную и с подтверждением
     const d = mb.dataset, on = d.on === '1';
@@ -176,6 +180,7 @@ $('#sheetBody').addEventListener('click', (e) => {
     keys.split(',').forEach((k, i) => { const el = $(`[data-an="${i === 0 ? field : k}"]`); if (el) extra[k] = el.value; });
   }
   if (op === 'players' || op === 'bugs' || op === 'multis') return send({ t: 'admin', op });
+  if (op === 'alertsclear') { send({ t: 'admin', op }); S.adm.alerts = []; return refreshSheet(); }
   if (op === 'bugsclear') { S.adm.bugs = null; return send({ t: 'admin', op }); }
   if (op === 'delete') { admSend(op); S.adm.login = ''; S.adm.player = null; S.adm.players = null; return; }
   admSend(op, extra);
@@ -213,6 +218,7 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
     if (m.op === 'multis') S.adm.multis = m.data;
     if (m.op === 'mods') S.adm.mods = m.data;
     if (m.op === 'stats') S.adm.stats = m.data;
+    if (m.op === 'alerts') S.adm.alerts = m.data;
     if (m.op === 'armyinfo') S.adm.ga = m.data;
     if (m.op === 'passcheck') S.adm.passcheck = m.data;
     return refreshSheet();
@@ -259,3 +265,15 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (b.dataset.astats !== undefined) { S.adm.statSel = null; return send({ t: 'admin', op: 'stats' }); }
   const [id, i] = b.dataset.ssel.split(':'); S.adm.statSel = S.adm.statSel && S.adm.statSel.id === id && S.adm.statSel.i === Number(i) ? null : { id, i: Number(i) }; refreshSheet();
 });
+
+// ---------- 🚨 Подозрительное (server/src/anomaly.js): резкие скачки армии, золота, лояльности, ресурсов ----------
+const ALERT_IC = { army: '⚔', gold: '💰', royal: '👑', res: '📦' };
+function admAlertsHtml(l) {
+  const intro = '<p class="small">Раз в 10 минут сервер сравнивает каждого игрока с прошлым замером. Сюда попадает то, что нельзя объяснить игрой: армия выросла больше, чем обучено и взято из Кладовой; золото пришло не от администрации или изменилось мимо журнала; лояльность населения растёт быстрее правил; ресурсов больше, чем вмещает Склад. Ваши действия в админке тревогу не вызывают.</p>';
+  if (!l) return aSec('🚨 Подозрительное', `${intro}<p class="small">Загрузка…</p>`);
+  return aSec('🚨 Подозрительное', `${intro}
+    ${l.length ? `<div class="alist">${l.map((x) => `<div class="alrt ${x.seen ? '' : 'new'}"><i>${ALERT_IC[x.kind] || '⚠'}</i><div><b>${esc(x.text)}</b><small>${esc(x.why)}</small>
+      <span>${fmtDate(x.at)} · <button class="lnk" data-apick="${esc(x.login)}">${esc(x.login)}</button></span></div></div>`).join('')}</div>
+      ${aAct('Очистить список', 'Удалить все записи (новые появятся при следующих проверках).', aBtn2('alertsclear', 'Очистить', 'data-confirm="Очистить список подозрительного?"', 'danger'))}`
+    : '<p class="parch-note">Ничего подозрительного. Проверка идёт каждые 10 минут.</p>'}`);
+}

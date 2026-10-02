@@ -27,6 +27,9 @@ setInterval(() => {
 // раз в минуту: сколько игроков онлайн — для статистики в Админ-панели (metrics.js)
 setInterval(() => { try { game.metricTick(new Set([...sessions].filter((s) => s.user && !s.user.bot).map((s) => s.user.id)).size); } catch (e) { console.error(e); } }, 60000);
 
+// раз в 10 минут: «Подозрительное» — резкие скачки армии, золота, лояльности, ресурсов (anomaly.js)
+setInterval(() => { try { game.anomalyScan(); } catch (e) { console.error(e); } }, 600000);
+
 // администратор: в игре — admin (вход под ADMIN_LOGIN, если задан), пароль ADMIN_PASS; 1 замок с нуля (ADMIN_FULL=1 — полная прокачка)
 if (game.ensureAdmin()) {
   if (game.adminWasReset) console.log('Админ начат с нуля: один новый замок без развития.');

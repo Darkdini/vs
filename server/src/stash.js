@@ -65,6 +65,7 @@ function install(Game) {
       if (!un || have <= 0) return { error: 'Этого нет в Кладовой.' };
       const k = Math.min(n, have); s.units[id] -= k; if (!s.units[id]) delete s.units[id];
       c.units[id] = (c.units[id] || 0) + k;
+      if (this.addStat) this.addStat(u.id, 'stashUnits', k); // для «Подозрительного»: воины из Кладовой — законный прирост армии
       return { ok: true, msg: `${un.name} ×${k} — в замке «${c.name}».` };
     }
     if (kind === 'exp') {
