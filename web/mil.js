@@ -89,6 +89,7 @@ function milEffect(def, L) {
 function buildingFunctions(def, lvl) {
   if (!lvl || !S.cat.mil) return '';
   let h = '';
+  if (def.id === 0) return `<button class="rbar" data-wallwin>Стена${S.st.castle.wall ? ` · ${S.st.castle.wall} ур.` : ''}</button>`; // Ратуша: стена замка (wall.js)
   if (def.id === 46) return residenceHtml(); // Резиденция: лояльность населения (residence.js)
   if (def.id === 11) return '<button class="rbar" data-forge>Юниты</button>' + upJobsHtml(11); // Кузница (forge.js)
   if (def.id === 39) return '<button class="rbar" data-magic>Юниты</button>' + upJobsHtml(39); // Школа магии (forge.js)

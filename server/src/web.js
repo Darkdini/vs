@@ -127,7 +127,7 @@ class WebSession {
       castle: {
         id: c.id, name: c.name, x: c.x, y: c.y, grid: { 0: Array.from(c.grid[0]), 1: Array.from(c.grid[1]) }, levels: { 0: Array.from(c.levels[0]), 1: Array.from(c.levels[1]) },
         res: c.res, rate: this.game.rates(c), cap: this.game.capacity(c),
-        queue: c.queue.map((q) => ({ view: q.view, cell: q.cell, building: q.building, level: q.level, start: q.start, end: q.end })),
+        queue: c.queue.map((q) => ({ view: q.view, cell: q.cell, building: q.building, level: q.level, start: q.start, end: q.end, wall: !!q.wall })), wall: c.wall || 0,
         rating: this.game.rating(c), townhall: this.game.buildingLevel(c, 0),
         mil: this.game.milState(c, u),
         loyalty: Math.round(c.loyalty ?? 100), capital: this.game.isCapital(c),
@@ -189,7 +189,7 @@ function pickCastle(s, m) {
   const c = s.game.db.castles[id]; if (!c || c.owner !== s.user.id) { s.error('Это не ваш замок.'); return null; }
   return c;
 }
-const ROYAL_ACTIONS = new Set(['forge', 'ritual', 'calm', 'build', 'train', 'send', 'research', 'exchange', 'squad', 'artifact', 'religion']);
+const ROYAL_ACTIONS = new Set(['forge', 'ritual', 'calm', 'build', 'wall', 'train', 'send', 'research', 'exchange', 'squad', 'artifact', 'religion']);
 
 const API = {
   hello() { this.send({ t: 'catalog', catalog: catalogJson() }); },
@@ -246,6 +246,7 @@ const API = {
     if (res.error) return this.error(res.error);
     this.pushState();
   },
+  wall() { const r = this.game.startWall(this.castle); if (r.error) return this.error(r.error); this.toast(`Стена: строится ${r.item.level} уровень.`); this.pushState(); },
   avatar(m) {
     const r = m.op === 'del' ? this.game.removeAvatar(this.user) : this.game.setAvatar(this.user, m.px);
     if (r.error) return this.error(r.error);

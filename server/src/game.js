@@ -169,6 +169,15 @@ function migrateLands(castle) {
 
 // площадь в центре земель: если там стояла постройка (до появления площади) — переезжает на свободную клетку своего вида,
 // а если свободной нет — её уровни добавляются к самой слабой постройке того же вида
+// Стена (Забор, id 22) не занимает клетку: её уровень — castle.wall, развивается из Ратуши.
+// Старые замки: Забор с клетки переносится в castle.wall (клетка освобождается), стройка Забора на клетке — в стройку стены.
+const WALL_ID = 22;
+function fixWall(castle) {
+  if (castle.wall === undefined) castle.wall = 0;
+  const g = castle.grid[0], l = castle.levels[0];
+  for (let i = 0; i < g.length; i++) if (g[i] === WALL_ID) { castle.wall = Math.max(castle.wall, l[i]); g[i] = -1; l[i] = 0; }
+  for (const q of castle.queue || []) if (q.building === WALL_ID && !q.wall) { q.wall = true; q.cell = -1; q.level = Math.max(q.level, castle.wall + 1); }
+}
 function fixPlaza(castle) {
   const N = LANDS_N, g = castle.grid[1], l = castle.levels[1];
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
@@ -186,7 +195,7 @@ class Game {
     this.store = store; this.db = store.data;
     this.byXY = new Map(); // индекс замков по координатам: карта мира и поиск цели без перебора всех
     this.byId = new Map(); // игроки по id
-    for (const c of Object.values(this.db.castles)) { packCastle(c); if (c.grid[1].length !== LANDS_N * LANDS_N) migrateLands(c); fixPlaza(c); this.byXY.set(c.x * WORLD + c.y, c); }
+    for (const c of Object.values(this.db.castles)) { packCastle(c); if (c.grid[1].length !== LANDS_N * LANDS_N) migrateLands(c); fixPlaza(c); fixWall(c); this.byXY.set(c.x * WORLD + c.y, c); }
     for (const u of Object.values(this.db.users)) this.byId.set(u.id, u);
     // ключ игрока = ник с учётом регистра; старые записи (ключ строчными, ник «Zevs») переносятся на ключ «Zevs»
     for (const [k, u] of Object.entries(this.db.users)) if (k !== u.login) { if (Object.prototype.hasOwnProperty.call(this.db.users, u.login)) u.login = k; else { delete this.db.users[k]; this.db.users[u.login] = u; } }
@@ -346,10 +355,11 @@ class Game {
   rating(castle) {
     const sum = (a) => a.reduce((x, y) => x + y, 0);
     const R = C.RATING;
-    return Math.min(R.max, Math.min(R.castleMax, Math.round(sum(castle.levels[0]) * R.castle)) + Math.min(R.landsMax, Math.round(sum(castle.levels[1]) * R.lands)));
+    return Math.min(R.max, Math.min(R.castleMax, Math.round((sum(castle.levels[0]) + (castle.wall || 0)) * R.castle)) + Math.min(R.landsMax, Math.round(sum(castle.levels[1]) * R.lands)));
   }
 
   buildingLevel(castle, buildingId) {
+    if (buildingId === WALL_ID) return castle.wall || 0;
     let best = 0;
     for (const v of [0, 1]) castle.grid[v].forEach((b, i) => { if (b === buildingId) best = Math.max(best, castle.levels[v][i]); });
     return best;
@@ -381,14 +391,14 @@ class Game {
   // довести ресурсы и очередь до момента now (ленивый расчёт)
   tick(castle, now = Date.now()) {
     if (castle.grid[1].length !== LANDS_N * LANDS_N) migrateLands(castle);
-    fixPlaza(castle);
+    fixPlaza(castle); fixWall(castle);
     const done = [];
     castle.queue.sort((a, b) => a.end - b.end);
     while (castle.queue.length && castle.queue[0].end <= now) {
       const item = castle.queue.shift();
       this.accrue(castle, item.end);
-      castle.grid[item.view][item.cell] = item.building;
-      castle.levels[item.view][item.cell] = item.level;
+      if (item.wall) castle.wall = Math.max(castle.wall || 0, item.level); // стена — без клетки
+      else { castle.grid[item.view][item.cell] = item.building; castle.levels[item.view][item.cell] = item.level; }
       done.push(item);
       if (this.addStat) this.addStat(castle.owner, 'built', 1); // задания: улучшено зданий
     }
@@ -413,6 +423,7 @@ class Game {
     if (!size || cell < 0 || cell >= size * size) return { error: 'Неверная клетка.' };
     const def = C.BY_ID[buildingId];
     if (!def) return { error: 'Неизвестное здание.' };
+    if (buildingId === WALL_ID) return { error: 'Стена развивается в Ратуше.' };
     if (castle.queue.some((q) => q.view === view && q.cell === cell)) return { error: 'Здесь уже идёт строительство.', state: 1 };
     const maxQ = this.isPremium(this.userById(castle.owner)) ? 5 : MAX_QUEUE; // премиум — 5 строек
     if (castle.queue.length >= maxQ) return { error: `Одновременно можно строить не больше ${maxQ} зданий.${maxQ < 5 ? ' С премиумом — 5.' : ''}` };
@@ -449,6 +460,26 @@ class Game {
     castle.queue.push(item);
     if (current === -1) castle.grid[view][cell] = -1; // клетка помечается клиентом как -2 (стройка)
     this.store.save();
+    return { item };
+  }
+
+  // Стена: следующий уровень из окна Ратуши (без клетки; в очереди строек — как обычная стройка)
+  startWall(castle) {
+    this.tick(castle);
+    const def = C.BY_ID[WALL_ID];
+    if (castle.queue.some((q) => q.wall)) return { error: 'Стена уже строится.' };
+    const maxQ = this.isPremium(this.userById(castle.owner)) ? 5 : MAX_QUEUE;
+    if (castle.queue.length >= maxQ) return { error: `Одновременно можно строить не больше ${maxQ} зданий.${maxQ < 5 ? ' С премиумом — 5.' : ''}` };
+    const level = (castle.wall || 0) + 1;
+    if (level > (def.max || 20)) return { error: 'Стена построена до предела.' };
+    for (const [reqId, reqLvl] of Object.entries(def.req || {})) if (this.buildingLevel(castle, Number(reqId)) < reqLvl) return { error: `Нужно: ${C.BY_ID[reqId].name} ${reqLvl} ур.` };
+    const cost = C.levelCost(def, level), cap = this.capacity(castle), busy = castle.queue.reduce((s, q) => s + q.cost.people, 0);
+    for (const r of C.RES) if (castle.res[r] < cost[r]) return { error: 'Недостаточно ресурсов.' };
+    if (busy + cost.people > cap.people) return { error: 'Не хватает свободных людей.' };
+    for (const r of C.RES) if (r !== 'people') castle.res[r] -= cost[r];
+    const time = Math.max(3, Math.round(buildTime(def, level, this.buildingLevel(castle, 0)) * this.bonus(castle).build)), now = Date.now();
+    const item = { view: VIEW.CASTLE, cell: -1, wall: true, building: WALL_ID, level, start: now, end: now + time * 1000, cost };
+    castle.queue.push(item); this.store.save();
     return { item };
   }
 

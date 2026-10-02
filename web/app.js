@@ -118,7 +118,8 @@ function effect(def, level) {
   return m || { text: '—', short: '' };
 }
 function buildingLevel(id) {
-  const c = S.st.castle; let best = 0;
+  const c = S.st.castle; if (id === 22) return c.wall || 0; // стена — без клетки
+  let best = 0;
   for (const v of [0, 1]) c.grid[v].forEach((b, i) => { if (b === id) best = Math.max(best, c.levels[v][i]); });
   return best;
 }
@@ -658,7 +659,7 @@ function emptySheet(view, cell) {
     title = ['Лес', 'Валуны', 'Горы'][L.decor[y][x]] || { 0: 'Луг', 7: 'Пашня', 8: 'Каменистая земля', 9: 'Вода' }[L.base[y][x]] || 'Земля';
     sub = `Земли: строительство · клетка ${x + 1}:${y + 1}`;
   } else {
-    opts = S.cat.buildings.filter((b) => b.layer === 'castle').map((b) => b.id);
+    opts = S.cat.buildings.filter((b) => b.layer === 'castle' && b.id !== 22).map((b) => b.id); // стена — из Ратуши (wall.js)
     title = 'Замок: строительство'; sub = 'Свободное место — выберите здание';
   }
   const items = opts.map((id) => S.by[id]).map((def) => ({ def, blk: blockers(def, 1, view, cell) }))

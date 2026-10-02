@@ -1212,6 +1212,7 @@ function install(Game, helpers) {
   };
 
   P.setBuildingLevel = function setBuildingLevel(castle, id, level) {
+    if (id === B.FENCE) { castle.wall = level; return; } // стена — без клетки (game.js fixWall)
     castle.grid[0].forEach((b, i) => { if (b === id) { castle.levels[0][i] = level; if (!level) castle.grid[0][i] = -1; } });
   };
 
@@ -1550,7 +1551,8 @@ function install(Game, helpers) {
   P.maxOut = function maxOut(castle) {
     this.mil(castle);
     const race = this.raceOf(castle);
-    const castleBuildings = C.BUILDINGS.filter((b) => b.layer === 'castle' && b.id !== 0 && b.id !== 1);
+    const castleBuildings = C.BUILDINGS.filter((b) => b.layer === 'castle' && b.id !== 0 && b.id !== 1 && b.id !== B.FENCE);
+    castle.wall = (C.BY_ID[B.FENCE] || {}).max || 20; // стена — без клетки
     const cells = [...Array(49).keys()].filter((i) => i !== 24 && !C.CASTLE_PATH.includes(i)); // тропинка — пустая
     castle.grid[0] = new Int8Array(49).fill(-1); castle.levels[0] = new Int8Array(49);
     castle.grid[0][24] = 0; castle.levels[0][24] = C.BY_ID[0].max;

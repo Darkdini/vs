@@ -224,18 +224,18 @@ function client() {
     // ---- склад как в оригинале, «Разрушить» ----
     adm.send({ t: 'sync' });
     let ds = (await adm.expect('state')).castle;
-    assert.equal(ds.cap.wood, 70200); // 14 складов (6 клеток — тропинка)
+    assert.equal(ds.cap.wood, 75200); // 15 складов (6 клеток — тропинка; стена — без клетки, её место тоже склад)
     const storeCell = ds.grid[0].indexOf(1);
     adm.send({ t: 'demolish', view: 0, cell: storeCell });
     await adm.expect('toast', (m) => /Здание разрушено: Склад/.test(m.msg));
     ds = (await adm.expect('state', (m) => m.castle.grid[0][storeCell] === -1)).castle;
-    assert.equal(ds.cap.wood, 65200);
+    assert.equal(ds.cap.wood, 70200);
     adm.send({ t: 'build', view: 0, cell: storeCell, building: 25 }); // второй Храм нельзя — повторяться может только Склад
     await adm.expect('error', (m) => /Такое здание уже есть/.test(m.msg));
     adm.send({ t: 'demolish', view: 0, cell: ds.grid[0].indexOf(0) });
     await adm.expect('error', (m) => /Ратушу разрушить нельзя/.test(m.msg));
     adm.send({ t: 'admin', op: 'max' });
-    await adm.expect('state', (m) => m.castle.cap.wood === 70200);
+    await adm.expect('state', (m) => m.castle.cap.wood === 75200);
     adm.send({ t: 'demolish', view: 0, cell: 3 });
     await adm.expect('error', (m) => /Здесь нет здания/.test(m.msg));
     adm.send({ t: 'build', view: 0, cell: 3, building: 1 });

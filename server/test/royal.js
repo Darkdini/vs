@@ -379,7 +379,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const luck0 = process.env.LUCK; process.env.LUCK = '0';
   const A = g.register({ login: 'btlAA', password: '12345', race: 3 }).user, Dd = g.register({ login: 'btlDD', password: '12345', race: 3 }).user;
   const ca = g.castleOf(A), cd = g.castleOf(Dd); g.mil(ca); g.mil(cd);
-  const fence = (L) => { let i = cd.grid[0].indexOf(22); if (i < 0) i = cd.grid[0].indexOf(-1); cd.grid[0][i] = L ? 22 : -1; cd.levels[0][i] = L; };
+  const fence = (L) => { cd.wall = L; }; // стена — уровень замка, без клетки
   const fight = (au, du, opt = {}) => { cd.units = { ...du }; cd.squads = []; ca.forge = opt.fa || {}; cd.forge = {}; fence(opt.wall || 0); return g.clash(ca, { units: { ...au }, mission: opt.m || 'attack' }, cd, null, Date.now()); };
   const even = fight({ 247: 100 }, { 247: 100 });
   assert.ok(!even.win && even.calc.aLossPct > 30 && even.calc.aLossPct < 60, 'равный бой: ничья в пользу защиты, потери около половины');
@@ -499,6 +499,16 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const m = g.chatPost(u, 'привет').msg; assert.strictEqual(m.color, require('../src/premium').MSG_COLORS[2], 'цвет премиума в чате');
   u.premium = 0; assert.strictEqual(g.chatPost(u, 'ещё').msg.color, '', 'без премиума — обычный');
   console.log('✓ Премиум: цвет сообщений в общем чате');
+}
+{ // стена без клетки: старый Забор с клетки переносится, развивается из Ратуши, на сетке не строится
+  const u = g.register({ login: 'wallmove', password: '12345', race: 0 }).user, c = g.castleOf(u);
+  const i = c.grid[0].indexOf(-1); c.grid[0][i] = 22; c.levels[0][i] = 2; g.tick(c);
+  assert.ok(c.wall === 2 && c.grid[0][i] === -1 && g.buildingLevel(c, 22) === 2, 'Забор с клетки → уровень стены');
+  assert.ok(/Ратуше/.test(g.startBuild(c, 0, i, 22).error || ''), 'на клетке стену не построить');
+  Object.assign(c.res, { wood: 1e6, stone: 1e6, iron: 1e6, food: 1e6, people: 1e5 });
+  const r = g.startWall(c); assert.ok(r.item && r.item.level === 3 && g.startWall(c).error, JSON.stringify(r) + ' стройка 3 уровня, вторая параллельно — нельзя');
+  g.tick(c, r.item.end + 1); assert.strictEqual(c.wall, 3, 'стена достроена');
+  console.log('✓ Стена: без клетки, переезд старого Забора, развитие из Ратуши');
 }
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);
