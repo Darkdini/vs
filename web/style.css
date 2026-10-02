@@ -1806,3 +1806,4 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .dpic { align-self: flex-start; width: fit-content; } .dpic img { width: auto; }
 .dpicgone { color: #7a5a3a !important; font-size: 15px; }
 .epaul { width: 64px; height: 32px; object-fit: contain; vertical-align: middle; }
+.invpop { align-items: center; } .invpop .rinfo-box { padding: 6px; width: min(92vw, 420px); } .invpop .invcard { margin: 0; } .invpop .btn { margin-top: 8px; }

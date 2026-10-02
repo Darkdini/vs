@@ -227,7 +227,7 @@ function onMsg(m) {
       if (typeof gameLoading === 'function') gameLoading(); // заставка, пока грузится графика замка (loading.js)
       $('#auth').classList.add('hidden'); $('#game').classList.remove('hidden');
       break;
-    case 'state': onState(m); if (S.st && S.st.user && S.st.user.admin) loadAdmin(); if (typeof questBtn === 'function') questBtn(); if (typeof bossBtn === 'function') bossBtn(); if (typeof stashBtn === 'function') stashBtn(); if (typeof advBar === 'function') advBar(); break;
+    case 'state': onState(m); if (S.st && S.st.user && S.st.user.admin) loadAdmin(); if (typeof questBtn === 'function') questBtn(); if (typeof bossBtn === 'function') bossBtn(); if (typeof stashBtn === 'function') stashBtn(); if (typeof advBar === 'function') advBar(); if (typeof inviteNotice === 'function' && !$('.wlc')) inviteNotice(); break;
     case 'stash': S.stash = m.list; S.stashCastle = m.castle; refreshSheet(); break;
     case 'quests': S.quests = m.q; refreshSheet(); break;
     case 'qdone': questDone(m); break;

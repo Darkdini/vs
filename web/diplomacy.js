@@ -84,3 +84,22 @@ $('#sheetBody').addEventListener('submit', (e) => {
   if (k === 'create') { send({ t: 'alliance', op: 'create', name: f.name.value, tag: f.tag.value }); closeSheet(); }
   if (k === 'invite') { send({ t: 'alliance', op: 'invite', login: f.login.value }); f.login.value = ''; }
 });
+
+// новое приглашение в альянс — окно сразу, даже без Дипломатического центра (каждое приглашение показывается один раз)
+function inviteNotice() {
+  const list = (S.st && !MY().alliance && MY().invites) || []; if (!list.length || $('.invpop')) return;
+  const seen = store.get('tw.invSeen') || [], a = list.find((x) => !seen.includes(x.id)); if (!a) return;
+  store.set('tw.invSeen', [...seen, a.id].slice(-50));
+  const d = document.createElement('div'); d.className = 'rinfo invpop';
+  d.innerHTML = `<div class="rinfo-box okbox"><div class="invcard"><div class="invh">Вас пригласили в альянс!</div>
+    <div class="invname"><b>[${esc(a.tag)}]</b> ${esc(a.name)}</div>
+    <div class="invinfo">Глава: <b>${esc(a.leader || '?')}</b> · участников: <b>${a.members || '?'}${a.slots ? ` / ${a.slots}` : ''}</b></div>
+    <div class="two"><button class="pbtn invyes" data-al="accept" data-id="${a.id}">Вступить</button><button class="pbtn invno" data-al="decline" data-id="${a.id}">Отклонить</button></div>
+    <button class="btn small" data-invlater>Позже (Меню → Альянс → Приглашения)</button></div></div>`;
+  d.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-al],[data-invlater]'); if (!b && e.target !== d) return;
+    if (b && b.dataset.al) send({ t: 'alliance', op: b.dataset.al, id: Number(b.dataset.id) });
+    d.remove();
+  });
+  document.body.appendChild(d);
+}

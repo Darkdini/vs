@@ -1488,9 +1488,8 @@ function install(Game, helpers) {
     if (op === 'declineall') { user.invites = []; this.store.save(); return { ok: true }; }
     if (op === 'accept') {
       if (!(user.invites || []).includes(id) || !A[id]) { user.invites = (user.invites || []).filter((x) => x !== id); return { error: 'Приглашение устарело.' }; }
-      if (!emb) return { error: 'Нужен Дипломатический центр.' };
       if (cur) return { error: 'Сначала выйдите из текущего альянса.' };
-      return this.joinAlliance(user, A[id]);
+      return this.joinAlliance(user, A[id]); // по приглашению — без Дипломатического центра
     }
     if (op === 'request') { // заявка на вступление («Альянсы» → «Вступить»)
       if (!emb) return { error: 'Нужен Дипломатический центр.' };
@@ -1511,7 +1510,7 @@ function install(Game, helpers) {
         if (t.alliance) return { error: 'Игрок уже в альянсе.' };
         t.invites = t.invites || [];
         if (!t.invites.includes(cur.id)) t.invites.push(cur.id);
-        this.event(t.id, `Приглашение в альянс [${cur.tag}] — Дипломатический центр → Приглашения.`);
+        this.event(t.id, `Вас пригласили в альянс [${cur.tag}]! Меню → Альянс → Приглашения.`);
         this.store.save(); return { ok: true, msg: `Приглашение отправлено: ${t.login}.` };
       }
       if (op === 'uninvite') { t.invites = (t.invites || []).filter((x) => x !== cur.id); this.store.save(); return { ok: true, msg: `Приглашение для ${t.login} отозвано.` }; }
