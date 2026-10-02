@@ -1509,7 +1509,7 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .gname img.tpt { width: 30px; height: 30px; vertical-align: middle; }
 /* значок «на вас идёт армия» (watch.js threatBtn) */
 #tbtn { position: absolute; left: 50%; transform: translateX(-50%); top: 138px; z-index: 7; display: flex; align-items: center; gap: 8px; max-width: 92%; padding: 6px 14px 6px 8px; border: 2px solid #ffcf4a; border-radius: 22px; background: linear-gradient(#b3141c, #6e0a0e); color: #fff; font: 600 14px/1.1 system-ui, sans-serif; box-shadow: 0 0 0 2px #0006, 0 0 14px #ff2a2a99; animation: tpulse 1.6s ease-in-out infinite; }
-#tbtn i { font-style: normal; font-size: 22px; }
+#tbtn img { width: 34px; height: 34px; margin: -6px 0 -6px -4px; filter: drop-shadow(0 1px 2px #0008); }
 #tbtn .tt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #tbtn .tc { font: 700 16px/1 ui-monospace, monospace; color: #ffe27a; }
 #tbtn b { min-width: 20px; height: 20px; border-radius: 10px; background: #fff; color: #b3141c; font: 700 12px/20px system-ui; text-align: center; }
@@ -1518,3 +1518,6 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 @keyframes tpulse { 0%, 100% { box-shadow: 0 0 0 2px #0006, 0 0 8px #ff2a2a66; } 50% { box-shadow: 0 0 0 2px #0006, 0 0 22px #ff3030; } }
 .tinfo { margin-top: 3px; font-size: 12px; } .tunits { display: flex; flex-wrap: wrap; gap: 4px 8px; margin-top: 3px; }
 .tu { display: inline-flex; align-items: center; gap: 2px; } .tu img { width: 22px; height: 22px; object-fit: contain; }
+.mrow .wic { width: 40px; height: 40px; flex: none; margin-right: 8px; align-self: center; }
+.whint { display: flex; gap: 8px; align-items: center; } .whint img { width: 34px; height: 34px; flex: none; }
+.mrow .wic + span { flex: 1; }

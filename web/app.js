@@ -759,6 +759,8 @@ const HD = { 'build/castle.png': ['build/hd/castle.png', 8], 'build/spycentr.png
   ...Object.fromEntries([0, 1, 2, 3, 4].map((i) => [`fence/fence${i}.png`, [`fence/hd/fence${i}.png`, 8]])),
   // ров (кольцо из одного нарисованного куска, с течением) и трава в замке — HD
   ...Object.fromEntries(['TL', 'R', 'BR', 'L', 'cL', 'cT', 'cR', 'cB', 'bL', 'bTL'].flatMap((n) => Array.from({ length: 16 }, (_, f) => [`ground/moat_${n}_${f}.png`, [`ground/hd/moat_${n}_${f}.png`, 6]]))),
+  // Караульная башня — новая графика, растёт с уровнем: 1–4, 5–9, 10+ (ширина основания ≈ 50 точек, как у старых зданий)
+  'build/watch1.png': ['watch/tower1.png', 354 / 50], 'build/watch2.png': ['watch/tower2.png', 319 / 46], 'build/watch3.png': ['watch/tower3.png', 323 / 46],
   'ground/grassC.png': ['ground/hd/grassC.png', 8], 'ground/grass1C.png': ['ground/hd/grass1C.png', 8] };
 
 // в замке трава своя (HD): снаружи стены — светлая (grass1C), внутри — с цветами (grassC); на Землях и в Мире — прежняя
@@ -965,7 +967,8 @@ function bar(sx, sy, frac) {
 // здание на клетке (с учётом стройки): спрайт, уровень, полоса прогресса
 function drawCellBuilding(view, cell, b, lvl, p, k = 1, sel = false) {
   const q = queueAt(view, cell);
-  const path = q && q.level === 1 ? 'build/build.png' : b >= 0 && BUILD_IMG[displayId(S.by[b], lvl)] ? `build/${BUILD_IMG[displayId(S.by[b], lvl)]}.png` : null;
+  let path = q && q.level === 1 ? 'build/build.png' : b >= 0 && BUILD_IMG[displayId(S.by[b], lvl)] ? `build/${BUILD_IMG[displayId(S.by[b], lvl)]}.png` : null;
+  if (path === 'build/guard_tower.png') path = `build/watch${lvl >= 10 ? 3 : lvl >= 5 ? 2 : 1}.png`; // Караульная башня растёт с уровнем
   if (path) {
     if (sel) { ictx.save(); ictx.filter = 'brightness(1.25) drop-shadow(0 0 3px #ffd84a) drop-shadow(0 0 2px #ffd84a)'; }
     if (k === 1) sprite(path, p.sx, p.sy);

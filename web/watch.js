@@ -6,8 +6,8 @@ function movesWin() {
   const st = (a) => (a.state === 'wait' ? `выйдет через <span class="cd" data-e="${a.depart}"></span>` : a.state === 'go' ? `прибудет через <span class="cd" data-e="${a.arrive}"></span>` : a.state === 'back' ? `вернётся через <span class="cd" data-e="${a.back}"></span>` : `стоит в «${esc(a.stayName || '')}»`);
   return `${ribbon('Передвижения армий')}
     ${ribbon('Армии королевства')}${m.mine.length ? m.mine.map((a) => `<div class="mrow"><span><b>${esc(a.castle)}</b> → ${a.x}:${a.y} · ${M().missions[a.mission]}<br><small>${fmtFull(a.n)} воинов · ${st(a)}</small></span></div>`).join('') : '<p class="parch-note">Все армии дома.</p>'}
-    ${ribbon('Надвигающиеся атаки')}${m.incoming.length ? m.incoming.map((a) => `<div class="mrow ${['attack', 'raid'].includes(a.mission) ? 'danger' : ''}"><span><b>${M().missions[a.mission]}</b> на «${esc(a.to)}» от ${esc(a.from)}<br><small>из «${esc(a.castle)}» · прибудет через <span class="cd" data-e="${a.arrive}"></span></small>${threatInfo(a)}</span></div>`).join('') : '<p class="parch-note">Никто не идёт на Ваши замки.</p>'}
-    <p class="small muted">${watchHint()} Разведку, направленную в Ваши замки, башня не показывает.</p>`;
+    ${ribbon('Надвигающиеся атаки')}${m.incoming.length ? m.incoming.map((a) => `<div class="mrow ${['attack', 'raid'].includes(a.mission) ? 'danger' : ''}">${['attack', 'raid'].includes(a.mission) ? `<img class="wic" src="${GFX}watch/ic_${a.mission}.png" alt="">` : ''}<span><b>${M().missions[a.mission]}</b> на «${esc(a.to)}» от ${esc(a.from)}<br><small>из «${esc(a.castle)}» · прибудет через <span class="cd" data-e="${a.arrive}"></span></small>${threatInfo(a)}</span></div>`).join('') : '<p class="parch-note">Никто не идёт на Ваши замки.</p>'}
+    <p class="small muted whint"><img src="${GFX}watch/ic_watch.png" alt="">${watchHint()} Разведку, направленную в Ваши замки, башня не показывает.</p>`;
 }
 // что башня узнала о вражеской армии (зависит от уровня башни — server/src/army.js watchLevel)
 function threatInfo(a) {
@@ -26,7 +26,7 @@ function threatBtn() {
   if (!list.length) { if (b) b.remove(); return; }
   if (!b) {
     b = document.createElement('button'); b.id = 'tbtn'; b.type = 'button'; b.dataset.moves = '';
-    b.innerHTML = '<i>⚔</i><span class="tt">На вас идёт армия</span><span class="tc"></span><b></b>'; $('#game').appendChild(b);
+    b.innerHTML = `<img src="${GFX}watch/ic_alarm.png" alt=""><span class="tt">На вас идёт армия</span><span class="tc"></span><b></b>`; $('#game').appendChild(b);
   }
   const a = list[0];
   b.querySelector('.tc').textContent = fmtT((a.arrive - now()) / 1000);
