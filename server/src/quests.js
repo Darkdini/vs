@@ -40,6 +40,25 @@ const TUT = [
   { id: 'kills', title: 'Гроза врагов', text: 'Уничтожьте в боях 300 вражеских воинов (лагеря, логова и чужие замки — всё считается).', icon: 'gfx3d/rep/swords.png', need: (g, u, c, base) => [g.qstat(u, 'kills', base), 300], reward: R(2500, { u: { inf: 10, cav: 10, mag: 5 }, exp: 400 }) },
 ];
 
+// ---------- советник-строитель: первые шаги с щедрыми наградами ----------
+// Полоска «Задание: … [Выполнить]» над чатом (как в оригинале). Простые строительные задания; ресурсы — сразу в замок
+// (что не влезло в Склад — в Кладовую, не пропадает). Цель — новичок не упирается в нехватку ресурсов в первые дни.
+const A_ = (id, title, bid, lvl, res, extra = {}) => ({ id, title, bid, lvl, reward: R(res, extra) });
+const ADV = [
+  A_('a_th2', 'Улучшите Ратушу до 2 уровня', 0, 2, 500), A_('a_st2', 'Улучшите Склад до 2 уровня', 1, 2, 500),
+  A_('a_wd2', 'Улучшите Дровосека до 2 уровня', 7, 2, 500), A_('a_sn2', 'Улучшите Каменьщика до 2 уровня', 8, 2, 500),
+  A_('a_ir2', 'Улучшите Рудник до 2 уровня', 9, 2, 500), A_('a_fd2', 'Улучшите Огород до 2 уровня', 5, 2, 500),
+  A_('a_ht2', 'Улучшите Хибару до 2 уровня', 6, 2, 600), A_('a_th3', 'Улучшите Ратушу до 3 уровня', 0, 3, 800),
+  A_('a_st3', 'Улучшите Склад до 3 уровня', 1, 3, 800), A_('a_wd3', 'Улучшите Дровосека до 3 уровня', 7, 3, 800),
+  A_('a_sn3', 'Улучшите Каменьщика до 3 уровня', 8, 3, 800), A_('a_ir3', 'Улучшите Рудник до 3 уровня', 9, 3, 800),
+  A_('a_fd3', 'Улучшите Огород до 3 уровня', 5, 3, 800), A_('a_br1', 'Постройте Казарму', 3, 1, 1000, { u: { inf: 10 } }),
+  A_('a_th4', 'Улучшите Ратушу до 4 уровня', 0, 4, 1200), A_('a_st4', 'Улучшите Склад до 4 уровня', 1, 4, 1200),
+  A_('a_ht4', 'Улучшите Хибару до 4 уровня', 6, 4, 1200), A_('a_wd4', 'Улучшите Дровосека до 4 уровня', 7, 4, 1500),
+  A_('a_sn4', 'Улучшите Каменьщика до 4 уровня', 8, 4, 1500), A_('a_ir4', 'Улучшите Рудник до 4 уровня', 9, 4, 1500),
+  A_('a_th5', 'Улучшите Ратушу до 5 уровня', 0, 5, 2000), A_('a_st5', 'Улучшите Склад до 5 уровня', 1, 5, 2000),
+  A_('a_th6', 'Улучшите Ратушу до 6 уровня', 0, 6, 3000, { u: { inf: 10, cav: 10, mag: 5 } }),
+];
+
 // ---------- ежедневные ----------
 // n(c) — сколько нужно (растёт с Ратушей), когда — доступно ли (например, экспедиция только с Экспедицией)
 const th = (g, c) => Math.max(1, g.buildingLevel(c, 0));
@@ -179,6 +198,23 @@ function install(Game) {
   };
   const gotMsg = (got) => (got.length ? ` В Кладовую: ${got.filter((x) => x !== 'артефакт').join(', ')}.${got.includes('артефакт') ? ' Артефакт — в Сокровищнице!' : ''}` : '');
 
+  // советник-строитель: текущий шаг (у опытных игроков — Ратуша 6+ на старте — цепочка сразу пройдена)
+  P.advState = function advState(u, c) {
+    const q = this.qinit(u);
+    if (q.adv === undefined) q.adv = this.buildingLevel(c, 0) >= 6 ? ADV.length : 0;
+    const t = ADV[q.adv]; if (!t) return { finished: true, total: ADV.length };
+    const have = this.buildingLevel(c, t.bid), def = C.BY_ID[t.bid];
+    return { idx: q.adv, total: ADV.length, id: t.id, title: t.title, bid: t.bid, layer: def ? def.layer : 'castle', have: Math.min(have, t.lvl), need: t.lvl, done: have >= t.lvl, reward: t.reward };
+  };
+  // ресурсы — сразу в замок (до вместимости Склада), остаток и воины — в Кладовую
+  const giveNow = (g, u, c, rw) => {
+    g.tick(c); const cap = g.capacity(c), rest = {}; let inCastle = 0;
+    for (const r of RES4) if (rw[r]) { const k = Math.max(0, Math.min(rw[r], Math.floor(cap[r] - c.res[r]))); c.res[r] += k; inCastle += k; if (rw[r] - k > 0) rest[r] = rw[r] - k; }
+    const toStash = { ...rest, ...(rw.u ? { u: rw.u } : {}), ...(rw.exp ? { exp: rw.exp } : {}) };
+    const got = Object.keys(toStash).length ? g.stashAdd(u, toStash) : [];
+    return { inCastle, stash: got };
+  };
+
   // состояние для окна «Задания»
   P.questsState = function questsState(u, c) {
     const q = this.qinit(u);
@@ -222,6 +258,11 @@ function install(Game) {
       this.store.save();
       return { ok: true, msg: `Сундук дня открыт!${gotMsg(got)}${gear ? ' И снаряжение генерала!' : ''}` };
     }
+    if (kind === 'adv') {
+      const a = this.advState(u, c); if (a.finished || !a.done) return { error: 'Задание советника ещё не выполнено.' };
+      const r = giveNow(this, u, c, ADV[q.adv].reward); q.adv++; this.store.save();
+      return { ok: true, msg: `Советник: «${a.title}» — выполнено!${r.inCastle ? ' Ресурсы — в замке.' : ''}${r.stash.length ? ` В Кладовую: ${r.stash.join(', ')}.` : ''}` };
+    }
     if (kind === 'weekly') {
       const x = q.weekly.list.find((y) => y.id === id), v = st.weekly.find((y) => y.id === id);
       if (!x || !v || !v.done || x.claimed) return { error: 'Награду пока нельзя забрать.' };
@@ -255,4 +296,4 @@ function install(Game) {
   };
 }
 
-module.exports = { install, TUT, DAILY, WEEKLY, CAL, CAMP, CAMP_GARRISON };
+module.exports = { install, TUT, ADV, DAILY, WEEKLY, CAL, CAMP, CAMP_GARRISON };

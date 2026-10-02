@@ -123,7 +123,7 @@ class WebSession {
   error(msg) { this.failed = true; this.send({ t: 'error', msg }); }
   toast(msg) { this.send({ t: 'toast', msg }); }
 
-  questsLite() { try { const q = this.game.questsState(this.user, this.castle); return { ready: q.ready, cal: q.cal.ready, tut: q.tut.finished ? null : { title: q.tut.title, have: q.tut.have, need: q.tut.need, done: q.tut.done } }; } catch (e) { return null; } }
+  questsLite() { try { const q = this.game.questsState(this.user, this.castle); return { ready: q.ready, cal: q.cal.ready, adv: this.game.advState(this.user, this.castle), tut: q.tut.finished ? null : { title: q.tut.title, have: q.tut.have, need: q.tut.need, done: q.tut.done } }; } catch (e) { return null; } }
   pushState() {
     const c = this.castle; this.game.tick(c);
     const u = this.user;

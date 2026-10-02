@@ -227,7 +227,7 @@ function onMsg(m) {
       if (typeof gameLoading === 'function') gameLoading(); // заставка, пока грузится графика замка (loading.js)
       $('#auth').classList.add('hidden'); $('#game').classList.remove('hidden');
       break;
-    case 'state': onState(m); if (S.st && S.st.user && S.st.user.admin) loadAdmin(); if (typeof questBtn === 'function') questBtn(); if (typeof bossBtn === 'function') bossBtn(); if (typeof stashBtn === 'function') stashBtn(); break;
+    case 'state': onState(m); if (S.st && S.st.user && S.st.user.admin) loadAdmin(); if (typeof questBtn === 'function') questBtn(); if (typeof bossBtn === 'function') bossBtn(); if (typeof stashBtn === 'function') stashBtn(); if (typeof advBar === 'function') advBar(); break;
     case 'stash': S.stash = m.list; S.stashCastle = m.castle; refreshSheet(); break;
     case 'quests': S.quests = m.q; refreshSheet(); break;
     case 'qdone': questDone(m.msg); break;
@@ -418,7 +418,7 @@ function setTab(tab) {
   S.tab = tab;
   $$('#locs [data-loc]').forEach((b) => b.classList.toggle('on', b.dataset.loc === tab));
   if (tab === 'world') { S.wJump = true; S.world = null; send({ t: 'world', cx: S.st.castle.x, cy: S.st.castle.y }); } // выход в мир — всегда к текущему замку
-  renderView(); if (typeof stashBtn === 'function' && S.st) stashBtn();
+  renderView(); if (typeof stashBtn === 'function' && S.st) stashBtn(); if (typeof advBar === 'function' && S.st) advBar();
 }
 
 function renderView() {

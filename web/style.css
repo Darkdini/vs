@@ -1728,3 +1728,11 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .alrt i { font-style: normal; font-size: 22px; line-height: 1; } .alrt div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .alrt b { font-size: 14px; } .alrt small { font-size: 12px; color: #6a4a2a; } .alrt span { font-size: 12px; color: #7a5a3a; }
 .lnk { border: 0; padding: 0; background: none; color: #1d4fa0; text-decoration: underline; font: inherit; cursor: pointer; }
+/* советник-строитель: полоска задания над чатом (quests.js advBar) */
+#advbar { position: absolute; left: 6px; right: 6px; bottom: 6px; z-index: 6; display: flex; align-items: stretch; height: 40px; padding: 0; border: 2px solid #c8963e; border-radius: 10px; overflow: hidden;
+  background: linear-gradient(#e0705c, #b23a2a); box-shadow: 0 3px 6px #000a; font: 600 15px var(--serif); color: #fff3d0; text-shadow: 0 1px 2px #000a; }
+#advbar .ab-t { display: flex; align-items: center; padding: 0 10px; background: linear-gradient(#a8261c, #6e120a); border-right: 2px solid #c8963e; }
+#advbar .ab-x { flex: 1; min-width: 0; display: block; line-height: 36px; text-align: center; gap: 4px; padding: 0 6px; color: #ffe9a8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#advbar .ab-x small { color: #fff; opacity: .85; }
+#advbar .ab-b { display: flex; align-items: center; padding: 0 12px; background: linear-gradient(#5fd35f, #1f8f1f); border-left: 2px solid #c8963e; }
+#advbar.done { animation: qglow 1.4s ease-in-out infinite; } #advbar.done .ab-b { background: linear-gradient(#ffd76a, #d18a12); color: #4a2410; text-shadow: none; }

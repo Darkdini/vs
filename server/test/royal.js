@@ -613,5 +613,19 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   g.adminOp(adm, 'ipunban', { target: '5.6.7.8' }); assert.ok(!g.ipBanned('5.6.7.8'), 'разблокирован');
   console.log('✓ Безопасность: поиск дыр, подбор пароля админа, блокировка IP (себя — нельзя)');
 }
+{ // советник-строитель: шаги, ресурсы сразу в замок, лишнее — в Кладовую; опытным цепочка не выдаётся
+  const u = g.register({ login: 'advnew1', password: '12345', race: 0 }).user, c = g.castleOf(u);
+  let a = g.advState(u, c); assert.ok(a.idx === 0 && !a.done && a.bid === 0 && a.need === 2, 'первый шаг — Ратуша 2');
+  assert.ok(g.questClaim(u, c, 'adv').error, 'не выполнено — не забрать');
+  c.levels[0][c.grid[0].indexOf(0)] = 2; a = g.advState(u, c); assert.ok(a.done, 'Ратуша 2 — выполнено');
+  c.res.wood = 0; const cap = g.capacity(c).wood, sw = (u.stash && u.stash.res.wood) || 0;
+  assert.ok(g.questClaim(u, c, 'adv').ok, 'награда');
+  const inC = Math.floor(c.res.wood), toS = ((u.stash && u.stash.res.wood) || 0) - sw;
+  assert.ok(inC > 0 && inC <= cap + 1 && inC + toS >= 499 && inC + toS <= 501, `в замок ${inC}, в Кладовую ${toS} (Склад ${cap})`);
+  assert.strictEqual(g.advState(u, c).idx, 1, 'следующий шаг');
+  const v = g.register({ login: 'advold1', password: '12345', race: 0 }).user, cv = g.castleOf(v); cv.levels[0][cv.grid[0].indexOf(0)] = 7;
+  assert.ok(g.advState(v, cv).finished, 'опытному (Ратуша 7) — цепочка пройдена');
+  console.log('✓ Советник-строитель: шаги, ресурсы в замок, лишнее в Кладовую');
+}
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);
