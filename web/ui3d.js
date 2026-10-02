@@ -157,20 +157,20 @@ function chatWin() {
   const my = S.st.user.login.toLowerCase();
   const n = S.chatUsers ? S.chatUsers.length : '…';
   return `${ribbon('Главный чат')}
-    <div class="chattop"><button class="lbar" data-chatexit><img src="gfx3d/mail/events.png" alt=""> Выход</button><button class="lbar" data-chatusers><img src="gfx3d/forum/king.png" alt=""> Игроки (${n})</button></div>
+    <div class="chattop"><button class="lbar" data-chatexit><img src="${GFX}chat/exit.png" alt=""> Выход</button><button class="lbar" data-chatusers><img src="${GFX}chat/players.png" alt=""> Игроки (${n})</button></div>
     <div id="chatList" class="chatlist ${S.smileOpen ? 'short' : ''}">${S.chat.slice(-30).reverse().map((m) => { const hit = m.fromId !== me() && m.text.toLowerCase().includes(my);
-      return `<div class="cm ${hit ? 'hit' : ''} ${m.fromId === me() ? 'mine' : ''}" data-chatpop="${m.fromId}" data-nick="${esc(m.from)}" data-mid="${m.id}"><small>${new Date(m.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</small> <b>[${esc(m.from)}]</b>${m.role ? ` <img class="admbadge s" src="${GFX}${m.role === 'admin' ? 'admin' : 'mod'}_badge_s.png" alt="">` : ''}${m.rep >= 10 ? ` ${repIcons(m.rep)}` : ''} ${chatText(m)}</div>`; }).join('') || '<p class="parch-note">Сообщений пока нет — напишите первым.</p>'}</div>
+      return `<div class="cm ${hit ? 'hit' : ''} ${m.fromId === me() ? 'mine' : ''}" data-chatpop="${m.fromId}" data-nick="${esc(m.from)}" data-mid="${m.id}"><small>${new Date(m.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</small> <b>[${esc(m.from)}]</b>${m.role ? ` <img class="admbadge s" src="${GFX}${m.role === 'admin' ? 'admin_badge_s.png' : 'chat/moder.png'}" alt="">` : ''}${m.rep >= 10 ? ` ${repIcons(m.rep)}` : ''} ${chatText(m)}</div>`; }).join('') || '<p class="parch-note">Сообщений пока нет — напишите первым.</p>'}</div>
     ${S.smileOpen ? `<div class="smilebox">${SMILES.map((k) => `<button data-smile="${k}"><img src="${smileSrc(k)}" alt=""></button>`).join('')}</div>` : ''}
     ${S.chatPop ? `<div class="cpop-bg" data-cpopclose><div class="cpop"><button class="cpop-x" data-cpopclose aria-label="Закрыть">✕</button><div class="cpop-nick">${esc(S.chatPop.nick)}</div>
-      <div class="cpop-grid"><button class="ptile" data-cpop="reply"><img src="${AI('mail')}" alt=""><span>Обратиться</span></button>
-      <button class="ptile" data-cpop="profile"><img src="${GFX}units/human/general.png" alt=""><span>Профиль</span></button>
-      <button class="ptile" data-cpop="report"><img src="${GFX}smallicon/soft_help.png" alt=""><span>Жалоба</span></button>
-      <button class="ptile" data-cpop="private"><img src="${GFX}smallicon/unmes.png" alt=""><span>Лично</span></button></div>
+      <div class="cpop-grid"><button class="ptile" data-cpop="reply"><img src="${GFX}chat/reply.png" alt=""><span>Обратиться</span></button>
+      <button class="ptile" data-cpop="profile"><img src="${GFX}chat/profile.png" alt=""><span>Профиль</span></button>
+      <button class="ptile" data-cpop="report"><img src="${GFX}chat/report.png" alt=""><span>Жалоба</span></button>
+      <button class="ptile" data-cpop="private"><img src="${GFX}chat/private.png" alt=""><span>Лично</span></button></div>
       ${S.st.user.admin || S.st.user.mod ? `<div class="cpop-mod">Модерация:</div><div class="cpop-grid">
-        <button class="ptile" data-cpop="del"><img src="${GFX}smallicon/destroy.png" alt=""><span>Удалить</span></button>
-        <button class="ptile" data-cpop="ban"><img src="${GFX}smallicon/grayball.png" alt=""><span>Бан в чате</span></button></div>
+        <button class="ptile" data-cpop="del"><img src="${GFX}chat/delete.png" alt=""><span>Удалить</span></button>
+        <button class="ptile" data-cpop="ban"><img src="${GFX}chat/ban.png" alt=""><span>Бан в чате</span></button></div>
         ${S.chatPop.ban ? `<div class="cpop-ban">${[[1, '1 час'], [2, '2 часа'], [8, '8 часов'], [-1, 'Навсегда'], [0, 'Снять бан']].map(([h, t]) => `<button class="pbtn" data-cban="${h}">${t}</button>`).join('')}</div>` : ''}` : ''}</div></div>` : ''}
-    <form class="chatbar" data-form="chat"><button type="button" class="smilebtn" data-smiletoggle aria-label="Смайлы"></button><input name="text" maxlength="300" autocomplete="off" value="${esc(S.chatDraft || '')}"><button class="sendbtn" aria-label="Отправить"></button></form>`;
+    <form class="chatbar" data-form="chat"><button type="button" class="smilebtn" data-smiletoggle aria-label="Смайлы"><img src="${GFX}chat/smiles.png" alt=""></button><input name="text" maxlength="300" autocomplete="off" value="${esc(S.chatDraft || '')}"><button class="sendbtn" aria-label="Отправить"><img src="${GFX}chat/send.png" alt=""></button></form>`;
 }
 // обновить только ленту сообщений (поле ввода не трогаем — можно печатать, пока приходят сообщения)
 function chatListUpdate() {
