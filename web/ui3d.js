@@ -230,7 +230,7 @@ function profileWin(p) {
   const awards = aw.length ? aw.map((m) => `<div class="award"><img src="${GFX}smallicon/status/${m.kind}.png" alt=""><div><b>${esc(ALLY_MEDAL[m.kind] || 'Медаль')} от альянса [${esc(m.tag)}]</b><small>${m.text ? `«${esc(m.text)}» · ` : ''}вручил ${esc(m.by)} · получено ${fmtDay(m.at)}</small></div></div>`).join('') : '<div class="parch-note">Пока нет — медали за заслуги вручает глава альянса.</div>';
   // значки убийцы мирового босса (boss.js)
   const bb = p.bossBadges || [], SLAY = { dragon: 'Драконоборец', troll: 'Сокрушитель троллей', lich: 'Изгоняющий тьму' };
-  const slayer = bb.length ? `${ribbon(`Победы над боссами - ${bb.length}`)}${bb.map((m) => `<div class="award"><img src="${GFX}boss/m_${m.kind}.png" data-fb="${GFX}${BOSS_FB[m.kind] || BOSS_FB.dragon}" alt=""><div><b>${SLAY[m.kind] || 'Убийца чудовищ'}</b><small>последний удар по «${esc(m.name)}» · ${fmtDay(m.at)}</small></div></div>`).join('')}` : '';
+  const slayer = bb.length ? `${ribbon(`Победы над боссами - ${bb.length}`)}${bb.map((m) => `<div class="award"><img src="${GFX}boss/o_${m.kind}.png" alt=""><div><b>${SLAY[m.kind] || 'Убийца чудовищ'}</b><small>последний удар по «${esc(m.name)}» · ${fmtDay(m.at)}</small></div></div>`).join('')}` : '';
   return `${ribbon('Профиль')}
     <div class="pauth"><img class="pcrown" src="gfx3d/prof/crown.png" alt=""><div>Авторитет Вашего города:<br><img class="pking" src="gfx3d/prof/king.png" alt=""> Здесь может быть Ваше имя!</div></div>
     <button class="pbar" data-soon="Авторитет города">Стать Авторитетом!</button>

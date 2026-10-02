@@ -1,5 +1,5 @@
 'use strict';
-// Мировой босс: раз в неделю (суббота, 18:00 МСК) на карте появляется чудовище на 48 часов. Его бьёт весь сервер —
+// Мировой босс: появляется, когда его вызывает администратор (админ-панель → «Мировой босс»), на 48 часов. Его бьёт весь сервер —
 // армиями (Нападение или Набег, набег — половина урона). Здоровье общее и не восстанавливается.
 // Бой — тот же общий удар (army.js clash): босс — «гарнизон» из частей по SEG здоровья, его сила удара постоянна.
 // Итог (босс повержен или время вышло): награды по месту в таблице урона — ресурсы, снаряжение генерала, артефакт.
@@ -63,8 +63,8 @@ function install(Game) {
 
   P.bossCheck = function bossCheck(now = Date.now()) {
     const s = state(this), b = this.bossNow();
-    if (b && (b.hp <= 0 || now >= b.end)) this.bossFinish(now);
-    else if (!b && now >= s.next) this.bossSpawn(now);
+    void s;
+    if (b && (b.hp <= 0 || now >= b.end)) this.bossFinish(now); // сам не появляется — только по команде админа
   };
 
   // итог: места по урону, награды в столицу, отчёт каждому участнику
@@ -128,7 +128,7 @@ function install(Game) {
   P.bossView = function bossView(user) {
     const s = state(this), b = this.bossNow();
     const top = (d) => Object.entries(d).map(([id, v]) => ({ login: (this.userById(Number(id)) || {}).login || '?', d: v })).sort((p, q) => q.d - p.d).slice(0, 10);
-    return { next: s.next, last: s.last, boss: b ? { kind: b.kind, name: b.name, desc: (BOSSES.find((x) => x.kind === b.kind) || {}).desc, x: b.x, y: b.y, hp: b.hp, maxHp: b.maxHp, end: b.end, top: top(b.dmg), mine: b.dmg[user.id] || 0, players: Object.keys(b.dmg).length } : null };
+    return { last: s.last, boss: b ? { kind: b.kind, name: b.name, desc: (BOSSES.find((x) => x.kind === b.kind) || {}).desc, x: b.x, y: b.y, hp: b.hp, maxHp: b.maxHp, end: b.end, top: top(b.dmg), mine: b.dmg[user.id] || 0, players: Object.keys(b.dmg).length } : null };
   };
 }
 

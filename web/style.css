@@ -1523,7 +1523,7 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .mrow .wic + span { flex: 1; }
 /* мировой босс (boss.js) */
 #bbtn { position: absolute; left: 6px; bottom: 156px; z-index: 6; width: 62px; height: 70px; border: 0; padding: 0; background: radial-gradient(circle at 50% 45%, rgba(255,80,30,.45), rgba(0,0,0,0) 70%); animation: qglow 1.6s ease-in-out infinite; }
-#bbtn img { width: 62px; height: 58px; object-fit: contain; filter: drop-shadow(0 2px 3px #000a); }
+#bbtn img { width: 60px; height: 60px; object-fit: contain; filter: drop-shadow(0 2px 3px #000a); }
 #bbtn i { position: absolute; left: 6px; right: 6px; bottom: 2px; height: 6px; background: #3a0a0a; border: 1px solid #000; border-radius: 3px; overflow: hidden; }
 #bbtn i b { display: block; height: 100%; background: #e53935; }
 .bs-head { display: flex; gap: 12px; align-items: center; margin: 6px 0; }
@@ -1535,5 +1535,10 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .bs-top div { display: flex; gap: 10px; padding: 4px 8px; border-bottom: 1px solid #0002; }
 .bs-top b { width: 24px; color: #8a5a20; } .bs-top span { flex: 1; } .bs-top em { font-style: normal; font-weight: 700; }
 .bs-none { text-align: center; } .bs-none img { width: 140px; opacity: .6; filter: grayscale(.6); }
-.wlc-row.wlc-boss { background: linear-gradient(#ffd9c0, #f0a070); border-color: #b3401c; animation: bglow 1.6s ease-in-out infinite; }
 @keyframes bglow { 0%, 100% { box-shadow: 0 0 4px #ff6a2a66; } 50% { box-shadow: 0 0 14px #ff4a1a; } }
+.wlc-boss { display: flex; align-items: center; gap: 8px; margin: 8px 0 2px; padding: 4px 6px; border: 2px solid #b3401c; border-radius: 12px; background: linear-gradient(#ffd9c0, #f0a070); animation: bglow 1.6s ease-in-out infinite; }
+.wlc-boss img { width: 46px; height: 46px; flex: none; } .wlc-boss span { flex: 1; text-align: left; font: 700 min(15px, 3.8vw)/1.15 var(--serif); color: #5a1408; }
+.wlc-boss button { flex: none; padding: 6px 12px; border: 2px solid #7a1a0a; border-radius: 14px; background: linear-gradient(#e8503a, #a0180c); color: #fff; font: 700 min(15px, 3.8vw) var(--serif); text-shadow: 0 1px 2px #0008; }
+.bs-go button { display: flex; align-items: center; justify-content: center; gap: 6px; } .bs-go img { width: 30px; height: 30px; }
+.bs-rw { display: flex; gap: 8px; align-items: flex-start; } .bs-rw img { width: 54px; height: 54px; flex: none; }
+.bs-none img { width: 110px; opacity: 1; filter: none; }
