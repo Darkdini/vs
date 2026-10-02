@@ -17,7 +17,9 @@ function install(Game) {
     const attacks = mine.filter((r) => r.at > since && r.data && r.data.type === 'battle' && r.data.side === 'def').length;
     const mail = (this.db.messages || []).filter((x) => x.to === u.id && !x.read).length;
     const gifts = (u.gifts || []).filter((x) => x.at > since).length;
-    return { players, reports: mine.length, attacks, mail, gifts, news: this.newsUnread(u) };
+    const b = this.bossNow(), bs = this.db.boss; // мировой босс: где он сейчас или когда появится
+    const boss = b ? { on: true, kind: b.kind, name: b.name, x: b.x, y: b.y, end: b.end, pct: Math.round(b.hp / b.maxHp * 100) } : bs && bs.next ? { on: false, next: bs.next } : null;
+    return { players, reports: mine.length, attacks, mail, gifts, news: this.newsUnread(u), boss };
   };
   P.newsUnread = function newsUnread(u) {
     const seen = new Set(u.newsRead || []);
