@@ -461,6 +461,11 @@ const API = {
   },
   squad(m) { const r = this.game.squadOp(this.castle, m); if (m.op === 'regroup' && r && r.ok) this.toast('Армия переформирована!'); this.result(r); },
   boss() { this.send({ t: 'boss', data: this.game.bossView(this.user) }); },
+  // Кладовая замка (stash.js): список наград и «Извлечь»
+  stash(m) {
+    if (m && m.op === 'take') { const r = this.game.stashTake(this.castle, String(m.kind || ''), m.key, m.n); if (r.error) return this.error(r.error); this.toast(r.msg); this.game.store.save(); this.pushState(); }
+    this.send({ t: 'stash', list: this.game.stashView(this.castle) });
+  },
   hero(m) { const r = this.game.heroOp(this.castle, this.user, { op: m.op, id: m.id, item: m.item, slot: m.slot }); if (r && r.msg) this.toast(r.msg); this.result(r); },
   general(m) { const r = this.game.generalOp(this.castle, this.user, { op: m.op, name: m.name, pts: m.pts, idx: m.idx, gold: m.gold, unit: m.unit }); if (r && r.msg) this.toast(r.msg); this.result(r); },
   exchange(m) { const r = this.game.exchange(this.castle, m.from, m.to, m.amount); if (!r.error) this.toast(`Обмен: получено ${r.got}`); this.result(r); },

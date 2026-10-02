@@ -76,13 +76,13 @@ function install(Game) {
       const u = this.userById(r.id), cap = u && this.castlesOf(u)[0]; if (!cap) return;
       const place = i + 1, share = r.d / total, k = killed ? 1 : 0.5;
       const res = Math.round((2000 + 80000 * share + (place === 1 ? 20000 : place <= 3 ? 10000 : place <= 10 ? 4000 : 0)) * k);
-      const capy = this.capacity(cap); for (const x of RES4) cap.res[x] = Math.min(capy[x], cap.res[x] + res);
-      const lines = [`${b.name} ${killed ? 'повержен!' : 'ушёл непобеждённым — награды вдвое меньше.'}`, `Ваше место: ${place} из ${rows.length}. Урон: ${r.d.toLocaleString('ru-RU')} (${(share * 100).toFixed(1)}%).`, `Ресурсы: по ${res.toLocaleString('ru-RU')} каждого.`];
+      this.stashAdd(cap, Object.fromEntries(RES4.map((x) => [x, res]))); // награды — в Кладовую столицы (Склад не переполнится)
+      const lines = [`${b.name} ${killed ? 'повержен!' : 'ушёл непобеждённым — награды вдвое меньше.'}`, `Ваше место: ${place} из ${rows.length}. Урон: ${r.d.toLocaleString('ru-RU')} (${(share * 100).toFixed(1)}%).`, `Ресурсы в Кладовой столицы: по ${res.toLocaleString('ru-RU')} каждого.`];
       let rar = place === 1 ? 3 : place <= 3 ? 2 : place <= 10 ? 1 : share >= 0.005 && Math.random() < 0.5 ? 0 : -1;
       if (!killed) rar = place <= 10 ? rar - 1 : -1;
       if (rar >= 0) lines.push(this.giveGear(cap, this.rollGear(0, rar)));
       if (killed && b.killer === r.id) { // убийца босса: значок в профиле, немного репутации и ресурсов, эпическая вещь
-        for (const x of RES4) cap.res[x] = Math.min(capy[x], cap.res[x] + KILL_RES);
+        this.stashAdd(cap, Object.fromEntries(RES4.map((x) => [x, KILL_RES])));
         u.reputation = (u.reputation ?? 10) + KILL_REP;
         (u.bossBadges = u.bossBadges || []).push({ kind: b.kind, name: b.name, at: now, kill: true });
         lines.push(`Последний удар — ваш! Значок «${SLAYER[b.kind] || 'Убийца чудовищ'}» в профиле, +${KILL_REP} репутации, ещё по ${KILL_RES.toLocaleString('ru-RU')} ресурсов. ${this.giveGear(cap, this.rollGear(0, 2))}`);

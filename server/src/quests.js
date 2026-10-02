@@ -7,8 +7,9 @@ const C = require('./catalog');
 const RES4 = ['wood', 'stone', 'iron', 'food'];
 const DAY = 86400000;
 const b = (id) => `build/${({ 0: 'castle', 1: 'storage', 2: 'mbases', 3: 'baraks', 4: 'market', 5: 'farm_small', 11: 'smith', 15: 'university', 17: 'expedition', 18: 'art_tower', 39: 'magscool', 44: 'reasury', 6: 'house_small' })[id] || 'build'}.png`;
-// награды заданий — только ресурсы и артефакты: золото и премиум покупаются (донат), заданиями не раздаются
-const R = (n, gold = 0, extra = {}) => { const { premium, ...rest } = extra; void gold; void premium; return { wood: n, stone: n, iron: n, food: n, ...rest }; };
+// награды заданий — ресурсы, уникальные воины расы (u: { inf, cav, mag }), опыт генерала (exp) и артефакты.
+// Всё, кроме артефактов, падает в Кладовую замка (stash.js). Золото и премиум — только донат, заданиями не раздаются.
+const R = (n, extra = {}) => ({ wood: n, stone: n, iron: n, food: n, ...extra });
 
 // ---------- обучение ----------
 // need(g, u, c, base) → [есть, нужно]; base — счётчики игрока на момент начала задания
@@ -17,19 +18,19 @@ const TUT = [
   { id: 'farm', title: 'Хлеб насущный', text: 'Без еды армия не выйдет в поход. Улучшите любой Огород на Землях до 3 уровня.', icon: b(5), need: (g, u, c) => [g.buildingLevel(c, 5), 3], reward: R(300) },
   { id: 'hut', title: 'Новые подданные', text: 'Хибары дают людей для стройки и войска. Улучшите Хибару до 3 уровня.', icon: b(6), need: (g, u, c) => [g.buildingLevel(c, 6), 3], reward: R(350) },
   { id: 'barracks', title: 'Казарма', text: 'Воинов обучают в Казарме. Постройте её.', icon: b(3), need: (g, u, c) => [g.buildingLevel(c, 3), 1], reward: R(400) },
-  { id: 'train', title: 'Первые воины', text: 'Обучите 10 воинов любого рода войск.', icon: 'gfx3d/train/fill.png', unitIcon: true, need: (g, u, c, base) => [g.qstat(u, 'trained', base), 10], reward: R(400, 2) },
-  { id: 'raid', title: 'Боевое крещение', text: 'На карте мира рядом с замком стоят лагеря разбойников. Одержите победу над любым лагерем (Набег или Нападение).', icon: 'ground/dikari.png', need: (g, u, c, base) => [g.qstat(u, 'npcWins', base), 1], reward: R(500, 3) },
+  { id: 'train', title: 'Первые воины', text: 'Обучите 10 воинов любого рода войск.', icon: 'gfx3d/train/fill.png', unitIcon: true, need: (g, u, c, base) => [g.qstat(u, 'trained', base), 10], reward: R(400, { u: { inf: 5 } }) },
+  { id: 'raid', title: 'Боевое крещение', text: 'На карте мира рядом с замком стоят лагеря разбойников. Одержите победу над любым лагерем (Набег или Нападение).', icon: 'ground/dikari.png', need: (g, u, c, base) => [g.qstat(u, 'npcWins', base), 1], reward: R(500, { u: { inf: 5 }, exp: 30 }) },
   { id: 'smith', title: 'Голос наковальни', text: 'Кузнец усиливает атаку и защиту воинов. Постройте Кузнеца.', icon: b(11), need: (g, u, c) => [g.buildingLevel(c, 11), 1], reward: R(500) },
-  { id: 'forge', title: 'Острее клинки', text: 'Начните улучшение атаки или защиты любого воина в Кузнице.', icon: b(11), need: (g, u, c, base) => [g.qstat(u, 'upgrades', base), 1], reward: R(600, 2) },
+  { id: 'forge', title: 'Острее клинки', text: 'Начните улучшение атаки или защиты любого воина в Кузнице.', icon: b(11), need: (g, u, c, base) => [g.qstat(u, 'upgrades', base), 1], reward: R(600, { u: { cav: 3 } }) },
   { id: 'fence', title: 'Каменный пояс', text: 'Стена усиливает защитников и сдерживает врага. Откройте Ратушу → «Стена» и развейте её до 3 уровня.', icon: 'fence/fence1.png', need: (g, u, c) => [g.buildingLevel(c, 22), 3], reward: R(700) },
-  { id: 'market', title: 'Торговый путь', text: 'Постройте Рынок и отправьте торговцев с ресурсами в любой замок (можно другу).', icon: b(4), need: (g, u, c, base) => [g.qstat(u, 'trades', base), 1], reward: R(700, 2) },
-  { id: 'univ', title: 'Свет знаний', text: 'Постройте Университет и начните изучать любую науку.', icon: b(15), need: (g, u, c, base) => [g.qstat(u, 'research', base), 1], reward: R(800, 2) },
-  { id: 'general', title: 'Полководец', text: 'Генерал ведёт армию и усиливает её. Натренируйте генерала в Военном штабе.', icon: b(2), need: (g, u, c) => [c.general && !c.general.dead ? 1 : 0, 1], reward: R(900, 3) },
-  { id: 'expcorp', title: 'Экспедиционный корпус', text: 'Постройте Экспедицию, обучите в ней археологов и отправьте их на поиски.', icon: b(17), need: (g, u, c, base) => [g.qstat(u, 'expeds', base), 1], reward: R(1000, 3) },
-  { id: 'relic', title: 'Древняя реликвия', text: 'Найдите в экспедиции артефакт. Чем больше археологов, дальше экспедиция и выше Лагерь археологов — тем выше шанс.', icon: 'smallicon/artefacts/artefakt_dragon.png', need: (g, u, c, base) => [g.qstat(u, 'arts', base), 1], reward: R(1200, 5) },
+  { id: 'market', title: 'Торговый путь', text: 'Постройте Рынок и отправьте торговцев с ресурсами в любой замок (можно другу).', icon: b(4), need: (g, u, c, base) => [g.qstat(u, 'trades', base), 1], reward: R(700, { exp: 50 }) },
+  { id: 'univ', title: 'Свет знаний', text: 'Постройте Университет и начните изучать любую науку.', icon: b(15), need: (g, u, c, base) => [g.qstat(u, 'research', base), 1], reward: R(800, { u: { mag: 3 } }) },
+  { id: 'general', title: 'Полководец', text: 'Генерал ведёт армию и усиливает её. Натренируйте генерала в Военном штабе.', icon: b(2), need: (g, u, c) => [c.general && !c.general.dead ? 1 : 0, 1], reward: R(900, { exp: 100 }) },
+  { id: 'expcorp', title: 'Экспедиционный корпус', text: 'Постройте Экспедицию, обучите в ней археологов и отправьте их на поиски.', icon: b(17), need: (g, u, c, base) => [g.qstat(u, 'expeds', base), 1], reward: R(1000, { u: { cav: 5 } }) },
+  { id: 'relic', title: 'Древняя реликвия', text: 'Найдите в экспедиции артефакт. Чем больше археологов, дальше экспедиция и выше Лагерь археологов — тем выше шанс.', icon: 'smallicon/artefacts/artefakt_dragon.png', need: (g, u, c, base) => [g.qstat(u, 'arts', base), 1], reward: R(1200, { u: { mag: 5 }, exp: 100 }) },
   { id: 'treasury', title: 'Хранитель сокровищ', text: 'Артефакты хранятся в Сокровищнице. Постройте её до 3 уровня.', icon: b(44), need: (g, u, c) => [g.buildingLevel(c, 44), 3], reward: R(1200) },
-  { id: 'arttower', title: 'Сила реликвий', text: 'Постройте Башню артефактов и пробудите в ней артефакт — он будет действовать несколько часов, затем рассыплется.', icon: b(18), need: (g, u, c) => [(c.artifacts || []).some((a) => a.active) ? 1 : 0, 1], reward: R(1500, 5, { art: 1 }) },
-  { id: 'darklands', title: 'Тёмные земли зовут', text: 'Разорите первое логово похода «Тёмные земли» (вкладка «Поход»).', icon: 'ground/dikari.png', need: (g, u) => [Math.min(1, (g.qinit(u).camp || 0)), 1], reward: R(2000, 10) },
+  { id: 'arttower', title: 'Сила реликвий', text: 'Постройте Башню артефактов и пробудите в ней артефакт — он будет действовать несколько часов, затем рассыплется.', icon: b(18), need: (g, u, c) => [(c.artifacts || []).some((a) => a.active) ? 1 : 0, 1], reward: R(1500, { art: 1, exp: 150 }) },
+  { id: 'darklands', title: 'Тёмные земли зовут', text: 'Разорите первое логово похода «Тёмные земли» (вкладка «Поход»).', icon: 'ground/dikari.png', need: (g, u) => [Math.min(1, (g.qinit(u).camp || 0)), 1], reward: R(2000, { u: { inf: 10, cav: 5 }, exp: 200 }) },
 ];
 
 // ---------- ежедневные ----------
@@ -51,19 +52,19 @@ const DAILY = [
 const S_ = (name, type, hp, atk, mag, def, mdef, n) => ({ key: name, name, type, hp, atk, mag, def, mdef, n });
 const CAMP = [
   { title: 'Волчье логово', text: 'Стая волков режет скот у стен. Её ведёт Вожак — матёрый зверь с шрамом через морду.', img: 'quest/lair_wolf.png', boss: 'quest/boss_wolf.png',
-    g: [S_('Волк', 'cavalry', 30, 10, 0, 6, 2, 12), S_('Вожак стаи', 'cavalry', 400, 30, 0, 20, 5, 1)], reward: R(1500, 5) },
+    g: [S_('Волк', 'cavalry', 30, 10, 0, 6, 2, 12), S_('Вожак стаи', 'cavalry', 400, 30, 0, 20, 5, 1)], reward: R(1500, { u: { inf: 10 }, exp: 150 }) },
   { title: 'Разбойничий брод', text: 'Атаман Кривой Нож собрал шайку и берёт мзду с каждого каравана.', img: 'quest/lair_bandit.png', boss: 'quest/boss_bandit.png',
-    g: [S_('Разбойник', 'infantry', 45, 14, 0, 12, 3, 30), S_('Лучник', 'infantry', 30, 12, 0, 6, 3, 15), S_('Атаман Кривой Нож', 'infantry', 900, 45, 0, 35, 10, 1)], reward: R(2500, 5) },
+    g: [S_('Разбойник', 'infantry', 45, 14, 0, 12, 3, 30), S_('Лучник', 'infantry', 30, 12, 0, 6, 3, 15), S_('Атаман Кривой Нож', 'infantry', 900, 45, 0, 35, 10, 1)], reward: R(2500, { u: { inf: 15, cav: 5 }, exp: 250 }) },
   { title: 'Курган мертвецов', text: 'В кургане проснулись мертвецы. Против их колдуна железо почти бессильно — нужна магия.', img: 'quest/lair_barrow.png', boss: 'units/unical/shadow.png',
-    g: [S_('Мертвец', 'infantry', 60, 16, 0, 30, 2, 50), S_('Призрак', 'magic', 40, 0, 18, 40, 10, 20), S_('Колдун кургана', 'magic', 1200, 0, 60, 60, 25, 1)], reward: R(4000, 8, { art: 0 }) },
+    g: [S_('Мертвец', 'infantry', 60, 16, 0, 30, 2, 50), S_('Призрак', 'magic', 40, 0, 18, 40, 10, 20), S_('Колдун кургана', 'magic', 1200, 0, 60, 60, 25, 1)], reward: R(4000, { art: 0, u: { mag: 10 }, exp: 400 }) },
   { title: 'Тролличья топь', text: 'Болотные тролли перекрыли дорогу. Шкура толстая, удар — как таран.', img: 'quest/lair_swamp.png', boss: 'quest/boss_troll.png',
-    g: [S_('Тролль', 'infantry', 220, 40, 0, 45, 15, 25), S_('Болотный шаман', 'magic', 35, 0, 14, 5, 20, 20), S_('Король троллей', 'infantry', 4000, 120, 0, 80, 30, 1)], reward: R(6000, 10) },
+    g: [S_('Тролль', 'infantry', 220, 40, 0, 45, 15, 25), S_('Болотный шаман', 'magic', 35, 0, 14, 5, 20, 20), S_('Король троллей', 'infantry', 4000, 120, 0, 80, 30, 1)], reward: R(6000, { u: { inf: 20, cav: 10 }, exp: 600 }) },
   { title: 'Крепость отступников', text: 'Орки-отступники засели в старой крепости за частоколом. Без таранов к ним не подступиться.', img: 'quest/lair_orc.png', boss: 'units/orc/hd/tyrant.png',
-    g: [S_('Орк-отступник', 'infantry', 100, 30, 0, 35, 8, 120), S_('Наездник на варге', 'cavalry', 90, 40, 0, 25, 8, 60), S_('Вождь Гром-Гар', 'infantry', 8000, 220, 0, 120, 40, 1)], reward: R(9000, 15, { art: 1 }) },
+    g: [S_('Орк-отступник', 'infantry', 100, 30, 0, 35, 8, 120), S_('Наездник на варге', 'cavalry', 90, 40, 0, 25, 8, 60), S_('Вождь Гром-Гар', 'infantry', 8000, 220, 0, 120, 40, 1)], reward: R(9000, { art: 1, u: { cav: 20, mag: 10 }, exp: 900 }) },
   { title: 'Башня некроманта', text: 'Некромант Мор-Аэль поднимает армию тьмы. Его чары сжигают пехоту целыми рядами.', img: 'quest/lair_necro.png', boss: 'units/orc/hd/warlock.png',
-    g: [S_('Скелет', 'infantry', 70, 25, 0, 40, 5, 200), S_('Тёмный маг', 'magic', 50, 0, 35, 10, 45, 80), S_('Некромант Мор-Аэль', 'magic', 10000, 0, 300, 150, 120, 1)], reward: R(14000, 20) },
+    g: [S_('Скелет', 'infantry', 70, 25, 0, 40, 5, 200), S_('Тёмный маг', 'magic', 50, 0, 35, 10, 45, 80), S_('Некромант Мор-Аэль', 'magic', 10000, 0, 300, 150, 120, 1)], reward: R(14000, { u: { inf: 30, mag: 20 }, exp: 1400 }) },
   { title: 'Логово дракона', text: 'Древний дракон Игнитар проснулся под горой. Его пламя видно из столицы. Это последнее испытание Тёмных земель.', img: 'quest/lair_dragon.png', boss: 'quest/boss_dragon.png',
-    g: [S_('Драконид', 'cavalry', 160, 60, 10, 60, 30, 150), S_('Кобольд-жрец', 'magic', 60, 0, 40, 20, 50, 100), S_('Дракон Игнитар', 'cavalry', 30000, 600, 200, 250, 150, 1)], reward: R(25000, 50, { art: 2, premium: 3 }) },
+    g: [S_('Драконид', 'cavalry', 160, 60, 10, 60, 30, 150), S_('Кобольд-жрец', 'magic', 60, 0, 40, 20, 50, 100), S_('Дракон Игнитар', 'cavalry', 30000, 600, 200, 250, 150, 1)], reward: R(25000, { art: 2, u: { inf: 50, cav: 30, mag: 30 }, exp: 3000 }) },
 ];
 const CAMP_GARRISON = (k) => CAMP[k] && { name: `Логово: ${CAMP[k].title}`, garrison: CAMP[k].g.map((x) => ({ ...x })), def: { inf: 0, cav: 0, mag: 0 },
   loot: { wood: 400 * (k + 1), stone: 400 * (k + 1), iron: 300 * (k + 1), food: 500 * (k + 1) }, lair: k };
@@ -88,7 +89,7 @@ function install(Game) {
     }
     return q.daily;
   };
-  const dailyReward = (g, c) => R(300 + 150 * th(g, c));
+  const dailyReward = (g, c) => R(300 + 150 * th(g, c), { exp: 20 * th(g, c) });
 
   // логово похода: пустая клетка у столицы, своя для каждой главы
   P.lairOf = function lairOf(u) {
@@ -112,12 +113,13 @@ function install(Game) {
   P.lairAt = function lairAt(userId, x, y) { const u = this.userById(userId); if (!u) return null; const l = this.lairOf(u); return l && l.x === x && l.y === y && !this.qinit(u).campWon ? l : null; };
   P.lairWon = function lairWon(userId, k) { const u = this.userById(userId); if (!u) return; const q = this.qinit(u); if (q.camp === k) { q.campWon = true; this.event(u.id, `Логово «${CAMP[k].title}» разорено! Заберите награду в Заданиях.`); } };
 
-  const give = (g, u, c, rw, why) => {
-    const cap = g.capacity(c), got = [];
-    for (const r of RES4) if (rw[r]) { c.res[r] = Math.min(cap[r], c.res[r] + rw[r]); }
+  // ресурсы, воины и опыт — в Кладовую замка (забрать можно сколько нужно, лишнее не пропадает); артефакт — в Сокровищницу
+  const give = (g, u, c, rw) => {
+    const got = g.stashAdd(c, rw);
     if (rw.art !== undefined) { g.mil(c); const types = Object.keys(require('./army').ART_TYPES); const type = types[Math.floor(Math.random() * types.length)]; c.artifacts.push({ id: g.db.nextId++, type, rarity: rw.art, active: false, found: Date.now() }); got.push('артефакт'); }
     return got;
   };
+  const gotMsg = (got) => (got.length ? ` В Кладовую: ${got.filter((x) => x !== 'артефакт').join(', ')}.${got.includes('артефакт') ? ' Артефакт — в Сокровищнице!' : ''}` : '');
 
   // состояние для окна «Задания»
   P.questsState = function questsState(u, c) {
@@ -138,29 +140,30 @@ function install(Game) {
     const q = this.qinit(u), st = this.questsState(u, c);
     if (kind === 'tut') {
       if (!st.tut.done) return { error: 'Задание ещё не выполнено.' };
-      const got = give(this, u, c, TUT[q.tut].reward, `Задание «${TUT[q.tut].title}»`);
+      const got = give(this, u, c, TUT[q.tut].reward);
       q.tut++; q.base = snap(this, u); q.baseFor = q.tut; this.store.save();
-      return { ok: true, msg: `Задание «${st.tut.title}» выполнено!${got.length ? ' Получен артефакт!' : ''}` };
+      return { ok: true, msg: `Задание «${st.tut.title}» выполнено!${gotMsg(got)}` };
     }
     if (kind === 'daily') {
       const x = q.daily.list.find((y) => y.id === id), v = st.daily.find((y) => y.id === id);
       if (!x || !v || !v.done || x.claimed) return { error: 'Награду пока нельзя забрать.' };
-      give(this, u, c, v.reward, `Ежедневное задание «${v.title}»`); x.claimed = true; this.store.save();
-      return { ok: true, msg: `Задание «${v.title}» выполнено!` };
+      const got = give(this, u, c, v.reward); x.claimed = true; this.store.save();
+      return { ok: true, msg: `Задание «${v.title}» выполнено!${gotMsg(got)}` };
     }
     if (kind === 'chest') {
       if (!st.chest.ready) return { error: 'Сундук откроется, когда все три задания дня выполнены.' };
-      const art = Math.random() < 0.25; q.daily.chest = true;
-      give(this, u, c, { ...R(400 + 200 * th(this, c)), ...(art ? { art: 0 } : {}) }, 'Сундук дня');
+      const art = Math.random() < 0.25, t = th(this, c); q.daily.chest = true;
+      const slot = ['inf', 'cav', 'mag'][Math.floor(Math.random() * 3)];
+      const got = give(this, u, c, R(400 + 200 * t, { u: { [slot]: 3 + Math.floor(t / 2) }, exp: 40 * t, ...(art ? { art: 0 } : {}) }));
       const gear = Math.random() < 0.15 && this.heroGear(c).length < 24 ? this.giveGear(c, this.rollGear(0, Math.random() < 0.8 ? 0 : 1)) : null; // изредка — снаряжение генерала
       this.store.save();
-      return { ok: true, msg: `Сундук дня: ресурсы${art ? ', артефакт' : ''}${gear ? ' и снаряжение генерала' : ''}!` };
+      return { ok: true, msg: `Сундук дня открыт!${gotMsg(got)}${gear ? ' И снаряжение генерала!' : ''}` };
     }
     if (kind === 'camp') {
       if (!q.campWon) return { error: 'Сначала разорите логово.' };
-      const k = q.camp, got = give(this, u, c, CAMP[k].reward, `Поход «Тёмные земли»: ${CAMP[k].title}`);
+      const k = q.camp, got = give(this, u, c, CAMP[k].reward);
       q.camp++; q.campWon = false; q.lair = null; this.store.save();
-      return { ok: true, msg: `«${CAMP[k].title}» — награда получена!${got.length ? ' Артефакт в Сокровищнице!' : ''}` };
+      return { ok: true, msg: `«${CAMP[k].title}» — награда получена!${gotMsg(got)}` };
     }
     return { error: 'Неизвестное задание.' };
   };

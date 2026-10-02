@@ -54,7 +54,7 @@ function install(Game) {
     for (const c of this.castlesOf(u)) this.removeCastle(c);
     const c = this.createCastle(u);
     u.castleId = c.id; u.castleIds = [c.id];
-    u.gold = 30; u.adminGold = false; u.royal = 0; u.royalAt = Date.now(); u.captures = 0;
+    u.gold = 0; u.adminGold = false; u.royal = 0; u.royalAt = Date.now(); u.captures = 0;
     u.freshStart = true; this.adminWasReset = true;
     return c;
   };
@@ -73,12 +73,12 @@ function install(Game) {
     u.race = race;
     return { ok: true };
   };
-  // игрок (или админ) — как сразу после регистрации: один новый стартовый замок, золото 30, репутация 10; ник, пароль, раса, премиум и союз остаются
+  // игрок (или админ) — как сразу после регистрации: один новый стартовый замок, золото 0, репутация 10; ник, пароль, раса, премиум и союз остаются
   P.adminResetPlayer = function adminResetPlayer(u) {
     for (const c of this.castlesOf(u)) this.removeCastle(c);
     const c = this.createCastle(u);
     u.castleId = c.id; u.castleIds = [c.id];
-    u.gold = 30; u.reputation = START_REP; u.royal = 0; u.royalAt = Date.now(); u.captures = 0;
+    u.gold = 0; u.reputation = START_REP; u.royal = 0; u.royalAt = Date.now(); u.captures = 0;
     if (u.admin) { u.adminGold = true; u.freshStart = true; }
     return c;
   };

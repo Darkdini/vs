@@ -241,7 +241,7 @@ class Game {
     const id = this.db.nextId++;
     const raceId = C.RACES[Number(race)] || 'humans';
     this.db.accts[acct] = login;
-    this.db.users[login] = { id, login: nick, acct, pass: hashPassword(password), email: String(email || '').slice(0, 60), race: raceId, created: Date.now(), castleId: null, reputation: 10, gold: 30 }; // стартовая репутация 10, золото 30 (на подарки) // стартовая репутация 10
+    this.db.users[login] = { id, login: nick, acct, pass: hashPassword(password), email: String(email || '').slice(0, 60), race: raceId, created: Date.now(), castleId: null, reputation: 10, gold: 0 }; // стартовая репутация 10; золото — только донат
     this.byId.set(id, this.db.users[login]);
     const castle = this.createCastle(this.db.users[login]);
     this.db.users[login].castleId = castle.id;
@@ -577,6 +577,7 @@ require('./premium').install(Game);
 require('./security').install(Game);
 require('./forum').install(Game);
 require('./news').install(Game);
+require('./stash').install(Game);
 require('./quests').install(Game);
 require('./hero').install(Game);
 require('./boss').install(Game);

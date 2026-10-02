@@ -176,6 +176,23 @@ const UNIT = Object.fromEntries(UNITS.map((u) => [u.id, u]));
 const MERCHANT_ID = 221, MERCHANTS = 20;
 Object.assign(UNIT[MERCHANT_ID], { speed: 20, notrain: true, carry: 45 });
 const GENERAL_ID = 236;
+// уникальные воины — только награда заданий и походов (в Кладовой), не тренируются. На 20% сильнее своего прообраза расы
+// (здоровье, атака, магия, защита), скорость, груз, население и содержание — как у прообраза. Картинка — gfx/units/uniq/<key>.png,
+// пока её нет — картинка прообраза. slot: inf / cav / mag — так задания выдают их любой расе.
+const UNIQUE = [
+  [300, 'Гвардеец короны', 'humans', 200, 'inf', 'h_guard'], [301, 'Королевский кирасир', 'humans', 261, 'cav', 'h_cuir'], [302, 'Придворный чародей', 'humans', 203, 'mag', 'h_mage'],
+  [303, 'Страж рощи', 'elves', 208, 'inf', 'e_guard'], [304, 'Лунный кентавр', 'elves', 211, 'cav', 'e_cent'], [305, 'Хранительница рощи', 'elves', 210, 'mag', 'e_mage'],
+  [306, 'Громовой топорщик', 'dwarves', 214, 'inf', 'd_axe'], [307, 'Чемпион гор', 'dwarves', 218, 'cav', 'd_champ'], [308, 'Рунный мастер', 'dwarves', 216, 'mag', 'd_rune'],
+  [309, 'Кровавый мародёр', 'orcs', 245, 'inf', 'o_mar'], [310, 'Вожак урук-хаев', 'orcs', 246, 'cav', 'o_uruk'], [311, 'Тёмный осквернитель', 'orcs', 253, 'mag', 'o_defl'],
+];
+const UNIQ_K = 1.2;
+for (const [id, name, race, base, slot, key] of UNIQUE) {
+  const b = UNIT[base], k = (v) => Math.round(v * UNIQ_K);
+  const img = fs.existsSync(path.join(__dirname, '..', '..', 'web', 'gfx', 'units', 'uniq', `${key}.png`)) ? `uniq/${key}` : b.img;
+  const u = { ...b, id, name, race, img, base, slot, quest: true, notrain: true, hp: k(b.hp), attack: k(b.attack), magic: k(b.magic), def: { inf: k(b.def.inf), cav: k(b.def.cav), mag: k(b.def.mag) } };
+  UNITS.push(u); UNIT[id] = u;
+}
+const uniqueFor = (race, slot) => UNITS.find((u) => u.quest && u.race === race && u.slot === slot);
 // у общих юнитов цена бывает разной по расам (скрины оригинала): Путешественник у орков — 5000/5000/5000/7500
 UNIT[224].raceOvr = { orcs: { cost: { wood: 5000, stone: 5000, iron: 5000, food: 7500 } }, elves: { cost: { wood: 7500, stone: 5000, iron: 5000, food: 5000 } } };
 UNIT[233].raceOvr = { elves: { cost: { wood: 13316, stone: 10412, iron: 12012, food: 24031 } }, humans: { cost: { wood: 10412, stone: 12012, iron: 13316, food: 24031 } } }; // Бунтарь у эльфов и людей
@@ -187,7 +204,7 @@ const unitsForRace = (race) => UNITS.filter((u) => u.race === race || u.race ===
 const GEN = { battleCap: 0.15, dayLevels: 1, perLevel: 2, maxLevel: 500, revive: 0.5, cmd: 0.003, heal: 0.02, career: 0.005, resetGold: 100 };
 const GEN_STATS = ['atk', 'def', 'catk', 'cdef', 'heal', 'career'];
 // звание генерала в скобках — сильнейший боевой юнит расы (у орков «Бугай» и т. п.)
-const genKind = (race) => { const l = UNITS.filter((u) => u.race === race && ['infantry', 'cavalry'].includes(u.type)).sort((a, b) => b.attack - a.attack); return l[0] ? l[0].name : 'Генерал'; };
+const genKind = (race) => { const l = UNITS.filter((u) => u.race === race && !u.quest && ['infantry', 'cavalry'].includes(u.type)).sort((a, b) => b.attack - a.attack); return l[0] ? l[0].name : 'Генерал'; };
 const unitImg = (u, race) => `units/${u.race === 'all' && !u.img.includes('/') ? `${RACE_DIR[race]}/${u.img}` : u.img}.png`;
 
 // ---------- науки (Университет; иконки smallicon/*science.png) ----------
@@ -421,7 +438,7 @@ function install(Game, helpers) {
     this.tick(castle);
     const unit = raceUnit(UNIT[unitId], this.raceOf(castle)); count = Math.floor(Number(count));
     if (!unit) return { error: 'Неизвестный юнит.' };
-    if (unit.notrain) return { error: 'Торговцы не тренируются — их 20 на Рынке.' };
+    if (unit.notrain) return { error: unit.quest ? 'Уникальные воины не тренируются — их дают задания (Кладовая).' : 'Торговцы не тренируются — их 20 на Рынке.' };
     if (!(count > 0)) return { error: 'Укажите количество.' };
     if (ORDER_MAX[unit.id] && count > ORDER_MAX[unit.id]) return { error: `${unit.name}: не больше ${ORDER_MAX[unit.id]} за один заказ.` };
     const lock = this.unitLock(castle, unit); if (lock) return { error: lock };
@@ -487,7 +504,7 @@ function install(Game, helpers) {
   // ----- Кузница: улучшение атаки/защиты каждого юнита (+1 к базовому параметру за уровень, до уровня Кузнеца) -----
   P.forgeLvl = function forgeLvl(castle, id, kind) { const f = castle.forge && castle.forge[id]; return f ? f[kind] || 0 : 0; };
   P.forgeUnits = function forgeUnits(castle) {
-    return unitsForRace(this.raceOf(castle)).filter((u) => (u.race !== 'all' || ['catapult', 'ram'].includes(u.role)) && u.id !== GENERAL_ID);
+    return unitsForRace(this.raceOf(castle)).filter((u) => (u.race !== 'all' || ['catapult', 'ram'].includes(u.role)) && u.id !== GENERAL_ID && !u.quest);
   };
   // Кузница и Школа магии — как в оригинале. Уровень параметра показывается с 1 (без улучшений — 1), каждое улучшение +1 к базе.
   // Стоимость улучшения до уровня T (показываемого) = цена юнита × c·g^T, люди — население юнита × тот же множитель × 0,97,
@@ -496,7 +513,7 @@ function install(Game, helpers) {
     const f = UP[kind].c * UP[kind].g ** T;
     return { cost: Object.fromEntries(RES4.map((r) => [r, Math.round(u.cost[r] * f)])), people: Math.round(u.pop * f * 0.97), sec: Math.max(5, Math.round((T + 2) * 1800 / SPEED)) };
   };
-  P.magicUnits = function magicUnits(castle) { return unitsForRace(this.raceOf(castle)).filter((u) => u.magic > 0 && u.id !== GENERAL_ID); };
+  P.magicUnits = function magicUnits(castle) { return unitsForRace(this.raceOf(castle)).filter((u) => u.magic > 0 && u.id !== GENERAL_ID && !u.quest); };
   P.upgradeOp = function upgradeOp(castle, { unit, kind }) {
     this.tick(castle); this.mil(castle);
     const up = UP[kind]; if (!up) return { error: 'Неверный параметр.' };
@@ -636,7 +653,7 @@ function install(Game, helpers) {
   P.genTrainUnits = function genTrainUnits(castle) {
     const race = this.raceOf(castle);
     // генералом не может стать разведчик, бунтарь, таран (и прочие особые/осадные), юниты Портала
-    return UNITS.filter((u) => u.race === race && u.building !== B.PORTAL && !['scout', 'eye', 'rebel', 'ram', 'catapult', 'merchant', 'settler', 'sage', 'archaeologist'].includes(u.role) && (castle.units[u.id] || 0) > 0);
+    return UNITS.filter((u) => u.race === race && !u.quest && u.building !== B.PORTAL && !['scout', 'eye', 'rebel', 'ram', 'catapult', 'merchant', 'settler', 'sage', 'archaeologist'].includes(u.role) && (castle.units[u.id] || 0) > 0);
   };
   P.genTrainCost = (u) => ({ cost: Object.fromEntries(RES4.map((r) => [r, u.cost[r] * 20])), people: u.pop * 20, sec: u.time * 10 });
   P.reviveGeneral = function reviveGeneral(castle, user, idx = 0, gold = false) {
@@ -1657,6 +1674,7 @@ function install(Game, helpers) {
       forge: castle.forge, upJobs: castle.upJobs, forgeUnits: this.forgeUnits(castle).map((u) => u.id), magicUnits: this.magicUnits(castle).map((u) => u.id),
       upNext: Object.fromEntries([...new Set([...this.forgeUnits(castle), ...this.magicUnits(castle)])].map((u) => [u.id, Object.fromEntries(['a', 'd', 'm', 'md'].map((k) => [k, this.forgeCost(u, k, this.forgeLvl(castle, u.id, k) + 2)]))])),
       admin: !!user.admin, royal: this.royalView(user, castle), watch: this.hasWatch(user), watchLevel: this.watchLevel(user),
+      stash: this.stashCount(castle), // значок «Кладовая»: сколько видов наград ждёт
       worldBoss: (() => { const b = this.bossNow(); return b ? { kind: b.kind, name: b.name, x: b.x, y: b.y, end: b.end, hp: b.hp, maxHp: b.maxHp } : null; })(), // кнопка мирового босса
       threats: this.castlesOf(user).flatMap((c) => this.incoming(c)).filter((a) => a.mission === 'attack' || a.mission === 'raid').sort((p, q) => p.arrive - q.arrive), // значок «на вас идёт армия»
       unreadReports: (this.db.reports || []).filter((r) => r.owner === user.id && !r.read).length,
@@ -1713,4 +1731,4 @@ const catalogJson = () => ({
   hero: require('./hero').heroCatalog(),
 });
 
-module.exports = { EXPED, ART_HOURS, NEWBIE_RATING, install, UNITS, UNIT, B, GENERAL_ID, GEN, SCIENCES, RELIGIONS, NPC, MISSIONS, unitsForRace, unitImg, catalogJson, ART_TYPES };
+module.exports = { uniqueFor, EXPED, ART_HOURS, NEWBIE_RATING, install, UNITS, UNIT, B, GENERAL_ID, GEN, SCIENCES, RELIGIONS, NPC, MISSIONS, unitsForRace, unitImg, catalogJson, ART_TYPES };

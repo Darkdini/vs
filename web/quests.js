@@ -8,8 +8,9 @@ const qImg = (p, cls = '') => `<img class="${cls}" src="${p.startsWith('gfx3d/')
 function qReward(r) {
   if (!r) return '';
   return `<div class="qrew"><span class="qrew-h">Награда:</span>${RES4.filter((k) => r[k]).map((k) => `<span>${RES_IC[k]}<b>${fmtFull(r[k])}</b></span>`).join('')}
-    ${r.gold ? `<span>${gimg('coins_s.png', 'ri')}<b>${r.gold}</b></span>` : ''}${r.art !== undefined ? `<span>${gimg(ART_ICON.atk, 'ri')}<b>${['артефакт', 'редкий артефакт', 'легендарный артефакт'][r.art]}</b></span>` : ''}
-    ${r.premium ? `<span>${qImg('gfx3d/menu3/premium.png', 'ri')}<b>премиум ${r.premium} дн.</b></span>` : ''}</div>`;
+${r.art !== undefined ? `<span>${gimg(ART_ICON.atk, 'ri')}<b>${['артефакт', 'редкий артефакт', 'легендарный артефакт'][r.art]}</b></span>` : ''}
+    ${Object.entries(r.u || {}).map(([slot, n]) => { const u = M().units.find((x) => x.quest && x.race === S.st.user.race && x.slot === slot); return u ? `<span class="quni"><img class="ri" src="${unitSrc(u)}" alt=""><b>${esc(u.name)} ×${n}</b></span>` : ''; }).join('')}
+    ${r.exp ? `<span><img class="ri" src="${GFX}stash/exp.png" data-fb="${GFX}smallicon/magattack.png" alt=""><b>опыт генерала ${fmtFull(r.exp)}</b></span>` : ''}</div>`;
 }
 const qBar = (have, need) => `<div class="qbar"><i style="width:${need ? Math.min(100, have / need * 100) : 0}%"></i><span>${fmtFull(have)} / ${fmtFull(need)}</span></div>`;
 function qCard(q, kind) {
@@ -30,7 +31,7 @@ function questsWin() {
   } else if (tab === 'daily') {
     const ch = q.chest;
     body = `<div class="qstep">Новые задания — каждый день</div>${q.daily.map((d) => qCard(d, 'daily')).join('')}
-      <div class="qchest ${ch.ready ? 'ready' : ''} ${ch.taken ? 'claimed' : ''}">${qImg(ch.ready || ch.taken ? 'quest/chest_open.png' : 'quest/chest.png')}<div class="grow"><b>Сундук дня</b><p>${ch.taken ? 'Открыт. Новый — завтра.' : 'Откроется, когда все три задания дня выполнены: ресурсы и шанс на артефакт.'}</p></div>
+      <div class="qchest ${ch.ready ? 'ready' : ''} ${ch.taken ? 'claimed' : ''}">${qImg(ch.ready || ch.taken ? 'quest/chest_open.png' : 'quest/chest.png')}<div class="grow"><b>Сундук дня</b><p>${ch.taken ? 'Открыт. Новый — завтра.' : 'Откроется, когда все три задания дня выполнены: ресурсы, уникальные воины, опыт генерала и шанс на артефакт.'}</p></div>
       ${ch.ready ? '<button class="qbtn" data-qclaim="chest">Открыть</button>' : ''}</div>`;
   } else {
     const c = q.camp;
