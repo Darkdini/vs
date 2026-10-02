@@ -1510,6 +1510,7 @@ function install(Game, helpers) {
         if (t.alliance) return { error: 'Игрок уже в альянсе.' };
         t.invites = t.invites || [];
         if (!t.invites.includes(cur.id)) t.invites.push(cur.id);
+        (t.inviteBy = t.inviteBy || {})[cur.id] = user.login; // кто пригласил — в карточке приглашения
         // отчёт-приглашение: игрок вступает прямо из отчёта (новый отчёт — с конвертом в верхней панели)
         this.report(t.id, `Приглашение в альянс [${cur.tag}]`, [`${user.login} приглашает вас в альянс «${cur.name}» [${cur.tag}].`], 'invite',
           { type: 'invite', ally: { id: cur.id, name: cur.name, tag: cur.tag }, from: { id: user.id, login: user.login } });
@@ -1674,7 +1675,7 @@ function install(Game, helpers) {
         score: this.allianceScore(al),
         requests: this.allyCan(al, user.id, 'invite') ? (al.requests || []).map((id) => { const m = this.userById(id); return m ? { id, login: m.login, rating: this.userRating(m) } : null; }).filter(Boolean) : [] } : null,
       invites: (user.invites || []).map((id) => this.db.alliances && this.db.alliances[id]).filter(Boolean).map((a) => ({ id: a.id, name: a.name, tag: a.tag,
-        members: a.members.length, slots: this.allianceSlots(a), leader: (this.userById(a.leader) || {}).login || '?', score: this.allianceScore(a) })),
+        members: a.members.length, slots: this.allianceSlots(a), leader: (this.userById(a.leader) || {}).login || '?', score: this.allianceScore(a), by: (user.inviteBy || {})[a.id] || '' })),
       // отправленные приглашения своего альянса (для окна «Приглашения» у того, кто может приглашать)
       invited: al && this.allyCan(al, user.id, 'invite') ? Object.values(this.db.users).filter((u) => (u.invites || []).includes(al.id)).map((u) => ({ id: u.id, login: u.login, rating: this.userRating(u) })) : [],
       forge: castle.forge, upJobs: castle.upJobs, forgeUnits: this.forgeUnits(castle).map((u) => u.id), magicUnits: this.magicUnits(castle).map((u) => u.id),

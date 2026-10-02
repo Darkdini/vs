@@ -14,6 +14,7 @@ function invitesWin() {
   const list = MY().invites || [], al = MY().alliance, sent = MY().invited || [];
   const card = (a) => `<div class="invcard"><div class="invh">Приглашение в альянс</div>
       <div class="invname"><b>[${esc(a.tag)}]</b> ${esc(a.name)}</div>
+      ${a.by ? `<div class="invinfo">Пригласил: <b>${esc(a.by)}</b></div>` : ''}
       <div class="invinfo">Глава: <b>${esc(a.leader || '?')}</b> · участников: <b>${a.members || '?'}${a.slots ? ` / ${a.slots}` : ''}</b>${a.score !== undefined ? ` · рейтинг: <b>${fmtFull(a.score)}</b>` : ''}</div>
       <div class="two"><button class="pbtn invyes" data-al="accept" data-id="${a.id}">Вступить</button><button class="pbtn invno" data-al="decline" data-id="${a.id}">Отклонить</button></div></div>`;
   let h = ribbon('Приглашения');
