@@ -113,7 +113,7 @@ function install(Game) {
     return { devices, ips: (user.ips || []).slice().reverse(), regIp: user.regIp || '', sameIp: byIp.slice(0, 50) };
   };
   P.devBanned = function devBanned(dev) { dev = cleanDev(dev); return !!(dev && this.db.devBans && this.db.devBans[dev]); };
-  // токены сессий: в базе хранится только SHA-256 токена, живёт 30 дней, у игрока не больше 5 устройств
+  // токены сессий: в базе хранится только SHA-256 токена, живёт 30 дней (каждый вход продлевает до 90), у игрока не больше 5 устройств
   const sha = (t) => crypto.createHash('sha256').update(String(t)).digest('hex');
   P.issueToken = function issueToken(user) {
     const t = crypto.randomBytes(24).toString('hex'), now = Date.now();
@@ -126,7 +126,10 @@ function install(Game) {
     const u = Object.prototype.hasOwnProperty.call(this.db.users, k) ? this.db.users[k] : k.toLowerCase() === 'admin' ? this.adminUser() : null;
     if (!u || !/^[a-f0-9]{48}$/.test(String(token || ''))) return null;
     const h = Buffer.from(sha(token)), now = Date.now();
-    return (u.tokens || []).some((x) => x.exp > now && crypto.timingSafeEqual(Buffer.from(x.h), h)) ? u : null;
+    const t = (u.tokens || []).find((x) => x.exp > now && crypto.timingSafeEqual(Buffer.from(x.h), h)); if (!t) return null;
+    // «Запомнить меня» не протухает, пока игрок заходит: каждый вход продлевает сохранённый вход на 90 дней
+    if (t.exp - now < 89 * 86400000) { t.exp = now + 90 * 86400000; this.store.save(); }
+    return u;
   };
   P.dropToken = function dropToken(user, token) { if (user && token) { user.tokens = (user.tokens || []).filter((x) => x.h !== sha(token)); this.store.save(); } };
   P.regAllowed = function regAllowed(ip) {

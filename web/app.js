@@ -254,7 +254,9 @@ function onMsg(m) {
     case 'loginlock': showLock(Date.now() + m.sec * 1000); break;
     case 'error':
       if (S.auto || !S.st) { // ошибка входа — показать форму
-        S.auto = false; if (S.creds) $('#authForm').login.value = S.creds.show || S.creds.login; S.creds = null; store.set('tw.creds', null); savedLoginUi();
+        S.auto = false; if (S.creds) $('#authForm').login.value = S.creds.show || S.creds.login;
+        if (/Сессия устарела|заблокирован/i.test(m.msg)) { S.creds = null; store.set('tw.creds', null); } // сохранённый вход стирается, только если он больше не действует
+        savedLoginUi();
         $('#auth').classList.remove('hidden'); $('#game').classList.add('hidden');
         $('#authErr').textContent = m.msg;
       } else toast(m.msg, 'err');
@@ -335,7 +337,7 @@ $('#authForm').addEventListener('submit', (e) => {
   S.remember = f.remember.checked;
   S.pendingCreds = { login, password };
   // сохранённый вход: пароль не нужен, если логин тот же — вход по токену
-  if (S.mode !== 'reg' && !password && S.creds && S.creds.token && login === (S.creds.show || S.creds.login)) { S.pendingCreds = { login, password: '' }; S.auto = true; return send({ t: 'login', ...S.creds, dev: DEV }); }
+  if (S.mode !== 'reg' && (!password || password === SAVED_PASS) && S.creds && S.creds.token && login === (S.creds.show || S.creds.login)) { S.pendingCreds = { login, password: '' }; S.auto = true; return send({ t: 'login', ...S.creds, dev: DEV }); }
   if (S.mode !== 'reg' && !password) { $('#authErr').textContent = 'Введите пароль.'; return; }
   if (S.mode === 'reg' && login.length < 5) { $('#authErr').textContent = 'Логин слишком короткий (минимум 5 символов).'; return; }
   if (S.mode === 'reg') { send({ t: 'register', login, password, nick: f.nick.value.trim(), race: String(S.race), captcha: f.captcha.value, dev: DEV }); f.captcha.value = ''; }
@@ -1333,14 +1335,18 @@ if (S.creds && S.creds.password) { S.creds = null; store.set('tw.creds', null); 
 S.remember = true;
 store.set('tw.lock', null); // блокировку решает только сервер: после его перезапуска старая табличка не нужна
 // сохранённый вход: логин подставлен, пароль можно не вводить — достаточно нажать «Войти»
+// сохранённый пароль показан точками (это не сам пароль — в браузере хранится только токен входа); игрок просто жмёт «Войти»
+const SAVED_PASS = '\u2063saved\u2063';
 function savedLoginUi() {
   const f = $('#authForm'), saved = !!(S.creds && S.creds.token);
   if (saved && !f.login.value) f.login.value = S.creds.show || S.creds.login;
-  f.password.required = !saved;
-  f.password.placeholder = saved ? 'пароль сохранён' : '';
+  if (saved && !f.password.value) f.password.value = SAVED_PASS;
+  if (!saved && f.password.value === SAVED_PASS) f.password.value = '';
+  f.password.required = !saved; f.password.placeholder = '';
 }
 savedLoginUi();
-$('#authForm').login.addEventListener('input', (e) => { const saved = S.creds && S.creds.token && e.target.value.trim() === (S.creds.show || S.creds.login); $('#authForm').password.required = !saved; $('#authForm').password.placeholder = saved ? 'пароль сохранён' : ''; });
+$('#authForm').password.addEventListener('focus', (e) => { if (e.target.value === SAVED_PASS) e.target.select(); }); // начнёт печатать — сохранённый заменится
+$('#authForm').login.addEventListener('input', (e) => { const saved = S.creds && S.creds.token && e.target.value.trim() === (S.creds.show || S.creds.login); const pw = $('#authForm').password; pw.required = !saved; if (!saved && pw.value === SAVED_PASS) pw.value = ''; });
 connect();
 // «Скачать на Android» — если APK лежит на сервере и игра открыта не в самом приложении
 if (!/WarKingsApp/.test(navigator.userAgent)) fetch('war-kings.apk', { method: 'HEAD' }).then((r) => { if (r.ok) $('#apkLink').classList.remove('hidden'); }).catch(() => {});

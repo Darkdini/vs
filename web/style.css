@@ -1636,10 +1636,12 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .atabs button { font-size: 14px; }
 .aact.wide { flex-wrap: wrap; } .aact.wide .aact-c { max-width: none; width: 100%; } .aact.wide .chatform { width: 100%; display: flex; gap: 6px; } .aact.wide .chatform input { flex: 1; width: auto; }
 .atabs { display: grid !important; grid-template-columns: repeat(4, 1fr); gap: 4px; } .atabs button { padding: 8px 2px; font-size: 13px; white-space: nowrap; }
-/* кнопка «Скачать на Android» на экране входа */
-#auth .apklink { display: flex; align-items: center; gap: 12px; margin: 14px auto 0; max-width: 100%; padding: 10px 16px; border: 2px solid #c9a15a; border-radius: 14px; text-decoration: none;
-  background: linear-gradient(#1f5a24, #12361a); box-shadow: inset 0 1px 0 #fff3, 0 4px 12px #000a; color: #eaffd8; text-align: left; }
+/* кнопка «Скачать для Android» на экране входа: зелёная лакированная с золотой рамкой и бликом */
+#auth .apklink { position: relative; display: flex; align-items: center; justify-content: center; gap: 12px; margin: 16px auto 0; width: 100%; height: 58px; border: 2px solid #ffcf6a; border-radius: 16px; text-decoration: none; overflow: hidden;
+  background: linear-gradient(#3fae3a, #1d7a1d 55%, #145a16); box-shadow: inset 0 1px 0 #fff8, inset 0 -3px 6px #0005, 0 4px 12px #000a, 0 0 14px #5fd35f55; color: #fff; }
+#auth .apklink::after { content: ''; position: absolute; top: 0; left: -60%; width: 40%; height: 100%; background: linear-gradient(100deg, #fff0, #fff6, #fff0); transform: skewX(-20deg); animation: apkShine 3.2s ease-in-out infinite; }
+@keyframes apkShine { 0%, 60% { left: -60%; } 100% { left: 130%; } }
 #auth .apklink.hidden { display: none; }
-#auth .apklink img { width: 38px; height: 38px; flex: none; filter: drop-shadow(0 1px 2px #000); }
-#auth .apklink b { display: block; font: 700 18px var(--serif); text-shadow: 0 1px 2px #000; } #auth .apklink small { display: block; font-size: 12px; color: #c8e8b0; }
-#auth .apklink:active { transform: scale(.97); }
+#auth .apklink img { width: 32px; height: 32px; flex: none; filter: brightness(0) invert(1) drop-shadow(0 1px 2px #000a); }
+#auth .apklink b { font: 700 21px var(--serif); text-shadow: 0 2px 2px #0008; letter-spacing: .3px; }
+#auth .apklink:active { transform: translateY(2px) scale(.98); filter: brightness(.92); }
