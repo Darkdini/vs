@@ -191,7 +191,16 @@ function install(Game) {
   P.lairWon = function lairWon(userId, k) { const u = this.userById(userId); if (!u) return; const q = this.qinit(u); if (q.camp === k) { q.campWon = true; this.event(u.id, `Логово «${CAMP[k].title}» разорено! Заберите награду в Заданиях.`); } };
 
   // ресурсы, воины и опыт — в Кладовую игрока (забрать можно в любой свой замок, лишнее не пропадает); артефакт — в Сокровищницу
+  let RC = null; // квитанция текущей награды: { castle: {res}, stash: {res}, units: [{id, n}], exp, art, gear }
+  const note = (u, rw, toStash) => {
+    if (!RC) return; const A = require('./army');
+    for (const r of RES4) if (toStash[r] > 0) RC.stash[r] = (RC.stash[r] || 0) + toStash[r];
+    for (const [slot, n] of Object.entries(rw.u || {})) { const x = A.uniqueFor(u.race, slot); if (x && n > 0) RC.units.push({ id: x.id, n }); }
+    if (rw.exp > 0) RC.exp += rw.exp;
+    if (rw.art !== undefined) RC.art = rw.art;
+  };
   const give = (g, u, c, rw) => {
+    note(u, rw, rw);
     const got = g.stashAdd(u, rw);
     if (rw.art !== undefined) { g.mil(c); const types = Object.keys(require('./army').ART_TYPES); const type = types[Math.floor(Math.random() * types.length)]; c.artifacts.push({ id: g.db.nextId++, type, rarity: rw.art, active: false, found: Date.now() }); got.push('артефакт'); }
     return got;
@@ -221,6 +230,8 @@ function install(Game) {
     g.tick(c); const cap = g.capacity(c), rest = {}; let inCastle = 0, toS = 0;
     for (const r of RES4) if (rw[r]) { const k = Math.max(0, Math.min(rw[r], Math.floor(cap[r] - c.res[r]))); c.res[r] += k; inCastle += k; if (rw[r] - k > 0) { rest[r] = rw[r] - k; toS += rest[r]; } }
     const toStash = { ...rest, ...(rw.u ? { u: rw.u } : {}), ...(rw.exp ? { exp: rw.exp } : {}) };
+    if (RC) for (const r of RES4) if (rw[r]) { const k = rw[r] - (rest[r] || 0); if (k > 0) RC.castle[r] = (RC.castle[r] || 0) + k; }
+    note(u, rw, rest);
     const got = Object.keys(toStash).length ? g.stashAdd(u, toStash) : [];
     return { inCastle, toS, stash: got.filter((x) => x !== 'ресурсы') };
   };
@@ -246,6 +257,14 @@ function install(Game) {
   };
 
   P.questClaim = function questClaim(u, c, kind, id) {
+    const st = this.questsState(u, c), q = this.qinit(u);
+    const name = kind === 'tut' ? st.tut.title : kind === 'daily' ? (st.daily.find((x) => x.id === id) || {}).title : kind === 'weekly' ? (st.weekly.find((x) => x.id === id) || {}).title
+      : kind === 'adv' ? this.advState(u, c).title : kind === 'chest' ? 'Сундук дня' : kind === 'wchest' ? 'Сундук недели' : kind === 'cal' ? `Награда за вход — день ${st.cal.n + 1}` : kind === 'camp' && CAMP[q.camp] ? CAMP[q.camp].title : '';
+    const head = { tut: 'Задание выполнено!', daily: 'Задание дня выполнено!', weekly: 'Задание недели выполнено!', adv: 'Советник доволен!', chest: 'Сундук открыт!', wchest: 'Сундук открыт!', cal: 'Награда за вход!', camp: 'Логово разорено!' }[kind] || 'Награда!';
+    RC = { castle: {}, stash: {}, units: [], exp: 0, art: null, gear: null };
+    try { const r = this.questClaim0(u, c, kind, id); if (r.ok) Object.assign(r, { head, name, rc: RC }); return r; } finally { RC = null; }
+  };
+  P.questClaim0 = function questClaim0(u, c, kind, id) {
     const q = this.qinit(u), st = this.questsState(u, c);
     if (kind === 'tut') {
       if (!st.tut.done) return { error: 'Задание ещё не выполнено.' };
@@ -264,7 +283,7 @@ function install(Game) {
       const art = Math.random() < 0.25, t = th(this, c); q.daily.chest = true;
       const slot = ['inf', 'cav', 'mag'][Math.floor(Math.random() * 3)];
       const got = give(this, u, c, R(400 + 200 * t, { u: { [slot]: 3 + Math.floor(t / 2) }, exp: 40 * t, ...(art ? { art: 0 } : {}) }));
-      const gear = Math.random() < 0.15 && this.heroGear(c).length < 24 ? this.giveGear(c, this.rollGear(0, Math.random() < 0.8 ? 0 : 1)) : null; // изредка — снаряжение генерала
+      const gr = Math.random() < 0.8 ? 0 : 1, gear = Math.random() < 0.15 && this.heroGear(c).length < 24 ? this.giveGear(c, this.rollGear(0, gr)) : null; if (gear && RC) RC.gear = gr; // изредка — снаряжение генерала
       this.store.save();
       return { ok: true, msg: `Сундук дня открыт!${gotMsg(got)}${gear ? ' И снаряжение генерала!' : ''}` };
     }
@@ -285,7 +304,7 @@ function install(Game) {
       if (!st.wchest.ready) return { error: 'Сундук недели откроется, когда все три задания недели выполнены.' };
       q.weekly.chest = true; const t = th(this, c);
       const got = give(this, u, c, R(3000 + 1000 * t, { u: { inf: 5 + t, cav: 5 + t, mag: 3 + t }, exp: 250 * t, art: Math.random() < 0.5 ? 1 : 0 }));
-      const gear = this.heroGear(c).length < 24 ? this.giveGear(c, this.rollGear(0, Math.random() < 0.3 ? 2 : 1)) : null;
+      const gr = Math.random() < 0.3 ? 2 : 1, gear = this.heroGear(c).length < 24 ? this.giveGear(c, this.rollGear(0, gr)) : null; if (gear && RC) RC.gear = gr;
       this.store.save();
       return { ok: true, msg: `Сундук недели открыт!${gotMsg(got)}${gear ? ' И снаряжение генерала!' : ''}` };
     }
@@ -293,7 +312,7 @@ function install(Game) {
       const cal = st.cal; if (!cal.ready) return { error: 'Награда за сегодня уже получена — приходите завтра!' };
       const d = cal.days[cal.n], rw = { ...d.rw }, gear = rw.gear; delete rw.gear;
       const got = give(this, u, c, rw);
-      const g2 = gear !== undefined && this.heroGear(c).length < 24 ? this.giveGear(c, this.rollGear(0, gear)) : null;
+      const g2 = gear !== undefined && this.heroGear(c).length < 24 ? this.giveGear(c, this.rollGear(0, gear)) : null; if (g2 && RC) RC.gear = gear;
       q.cal.last = dayKey(); q.cal.n++; if (q.cal.n >= CAL.length) { q.cal.n = 0; q.cal.cycle++; }
       this.store.save();
       return { ok: true, msg: `Награда за вход — день ${d.i + 1}!${gotMsg(got)}${g2 ? ' И снаряжение генерала!' : ''}` };

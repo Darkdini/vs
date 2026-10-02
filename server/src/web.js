@@ -335,7 +335,7 @@ const API = {
   qclaim(m) {
     const r = this.game.questClaim(this.user, this.castle, String(m.kind || ''), String(m.id || ''));
     if (r.error) return this.error(r.error);
-    this.send({ t: 'qdone', msg: r.msg }); this.pushState(); API.quests.call(this);
+    this.send({ t: 'qdone', msg: r.msg, head: r.head, name: r.name, rc: r.rc }); this.pushState(); API.quests.call(this);
   },
   nickcase(m) { const r = this.game.changeNick(this.user, m.nick); if (r.error) return this.error(r.error); this.send({ t: 'renamed', login: this.user.login }); this.toast(`Ваш новый ник: ${this.user.login} (−${r.price} золота). Входите под ним.`); this.pushState(); API.profile.call(this, { id: this.user.id, acct: 1, refresh: 1 }); },
   msgcolor(m) { const r = this.game.setMsgColor(this.user, m.i); if (r.msg) this.toast(r.msg); this.result(r); this.pushState(); },

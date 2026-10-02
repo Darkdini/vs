@@ -230,7 +230,7 @@ function onMsg(m) {
     case 'state': onState(m); if (S.st && S.st.user && S.st.user.admin) loadAdmin(); if (typeof questBtn === 'function') questBtn(); if (typeof bossBtn === 'function') bossBtn(); if (typeof stashBtn === 'function') stashBtn(); if (typeof advBar === 'function') advBar(); break;
     case 'stash': S.stash = m.list; S.stashCastle = m.castle; refreshSheet(); break;
     case 'quests': S.quests = m.q; refreshSheet(); break;
-    case 'qdone': questDone(m.msg); break;
+    case 'qdone': questDone(m); break;
     case 'world': {
       const old = S.world; S.wPending = 0;
       // плавная прокрутка: новый участок мира подгружается без перерисовки экрана — камера сдвигается на разницу центров

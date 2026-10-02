@@ -83,11 +83,30 @@ function questBtn() {
   const r = (S.st && S.st.quests && S.st.quests.ready) || 0;
   b.classList.toggle('glow', r > 0); b.querySelector('b').textContent = r ? String(r) : '';
 }
-// окно «Задание выполнено!»
-function questDone(msg) {
-  const d = document.createElement('div'); d.className = 'rinfo qwin';
-  d.innerHTML = `<div class="rinfo-box okbox qwin-box"><div class="qrays"></div><img src="${GFX}quest/chest_open.png" alt=""><h3>Задание выполнено!</h3><p>${esc(msg)}</p><button type="button" class="okbtn">Ок</button></div>`;
-  d.addEventListener('click', (e) => { if (e.target.closest('.okbtn')) d.remove(); });
+// окно «Задание выполнено!»: заголовок, название, награда значками — что пришло в замок, что ждёт в Кладовой
+function questDone(m) {
+  if (typeof m === 'string') m = { msg: m };
+  const rc = m.rc, d = document.createElement('div'); d.className = 'rinfo qwin';
+  const chips = (o) => RES4.filter((r) => o[r] > 0).map((r) => `<span class="qw-chip"><img src="gfx3d/res/${r}.png" alt=""><b>${fmtFull(Math.round(o[r]))}</b></span>`).join('');
+  const any = (o) => RES4.some((r) => o[r] > 0);
+  let body = '';
+  if (rc) {
+    if (any(rc.castle)) body += `<div class="qw-sec"><div class="qw-h">🏰 В замок</div><div class="qw-row">${chips(rc.castle)}</div></div>`;
+    const item = (img, t, v) => `<span class="qw-item"><img src="${img}" alt=""><b>${t}</b><em>${v}</em></span>`;
+    const inStash = [...rc.units.map((x) => { const u = unitById(x.id); return u ? item(unitSrc(u), esc(u.name), `×${fmtFull(x.n)}`) : ''; }), rc.exp ? item(`${GFX}stash/exp.png`, 'Опыт генерала', `+${fmtFull(rc.exp)}`) : ''].filter(Boolean);
+    if (any(rc.stash) || inStash.length) {
+      const hint = any(rc.castle) && any(rc.stash) ? 'Не поместилось на Складе — заберите, когда освободится место (сундук справа вверху).' : 'Забирайте сколько нужно в любой свой замок — сундук справа вверху.';
+      body += `<div class="qw-sec stash"><div class="qw-h"><img src="${GFX}stash/btn.png" alt=""> В Кладовую</div>${any(rc.stash) ? `<div class="qw-row">${chips(rc.stash)}</div>` : ''}${inStash.length ? `<div class="qw-items">${inStash.join('')}</div>` : ''}<small>${hint}</small></div>`;
+    }
+    const more = [rc.art !== null && rc.art !== undefined ? item(`${GFX}${ART_ICON.atk}`, ['Артефакт', 'Редкий артефакт', 'Легендарный артефакт'][rc.art] || 'Артефакт', 'в Сокровищнице') : '',
+      rc.gear !== null && rc.gear !== undefined ? item(`${GFX}hero/gear_armor_${rc.gear}.png`, 'Снаряжение генерала', 'в Оружейной') : ''].filter(Boolean);
+    if (more.length) body += `<div class="qw-sec"><div class="qw-h">✨ Трофеи</div><div class="qw-items">${more.join('')}</div></div>`;
+  }
+  if (!body) body = `<p class="qw-msg">${esc(m.msg || '')}</p>`;
+  d.innerHTML = `<div class="rinfo-box qwin-box qw2"><div class="qrays"></div><img class="qw-chest" src="${GFX}quest/chest_open.png" alt="">
+    <div class="qw-ribbon">${esc(m.head || 'Задание выполнено!')}</div>${m.name ? `<div class="qw-name">«${esc(m.name)}»</div>` : ''}
+    <div class="qw-body">${body}</div><button type="button" class="okbtn qw-ok">Забрать</button></div>`;
+  d.addEventListener('click', (e) => { if (e.target.closest('.okbtn') || e.target === d) d.remove(); });
   document.body.appendChild(d);
   if (typeof SND !== 'undefined' && SND.play) try { SND.play('quest'); } catch (e) { /* звука может не быть */ }
 }
