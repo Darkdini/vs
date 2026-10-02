@@ -1784,3 +1784,7 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .qw-sec.stash { background: none; border-color: transparent; }
 .qw-ok { width: 74%; height: 56px; margin-top: 10px; border: 0; border-radius: 0; background: url(gfx/reward/button.png) center / 100% 100% no-repeat; font: 700 21px var(--serif); padding: 0 0 2px; }
 .qw-ok:active { transform: scale(.95); filter: brightness(.9); }
+/* сундук не заходит на рамку и ленту; подсказка — не на золотом крае таблички */
+.qw2 .qw-chest { width: 112px; height: 112px; margin: 4px auto 2px; display: block; }
+.qw2 .qw-ribbon { margin-top: 2px; }
+.qw-sec { padding: 0 4px 4px; } .qw-sec small { margin-bottom: 2px; }
