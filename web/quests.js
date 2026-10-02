@@ -103,7 +103,7 @@ function questDone(m) {
     if (more.length) body += `<div class="qw-sec"><div class="qw-h">✨ Трофеи</div><div class="qw-items">${more.join('')}</div></div>`;
   }
   if (!body) body = `<p class="qw-msg">${esc(m.msg || '')}</p>`;
-  d.innerHTML = `<div class="rinfo-box qwin-box qw2"><div class="qrays"></div><img class="qw-chest" src="${GFX}quest/chest_open.png" alt="">
+  d.innerHTML = `<div class="rinfo-box qwin-box qw2"><div class="qrays"></div><img class="qw-chest" src="${GFX}reward/chest.png" alt="">
     <div class="qw-ribbon">${esc(m.head || 'Задание выполнено!')}</div>${m.name ? `<div class="qw-name">«${esc(m.name)}»</div>` : ''}
     <div class="qw-body">${body}</div><button type="button" class="okbtn qw-ok">Забрать</button></div>`;
   d.addEventListener('click', (e) => { if (e.target.closest('.okbtn') || e.target === d) d.remove(); });

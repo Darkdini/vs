@@ -1773,3 +1773,14 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .qw-msg { color: #4a2410; font: 400 18px var(--serif); text-align: center; }
 .qw-ok { position: relative; margin-top: 12px; width: 70%; font-size: 20px; background: linear-gradient(#5fd35f, #1f8f1f); color: #fff; border: 2px solid #c8f5a0; border-radius: 12px; padding: 8px; text-shadow: 0 1px 2px #0008; }
 .qw-sec.stash .qw-items { margin-top: 6px; }
+/* окно награды — нарисованная рамка, лента, таблички, кнопка (gfx/reward) */
+.qw2 { width: min(94vw, 430px); padding: 0; border: 34px solid transparent; border-radius: 0; background: none; box-shadow: none;
+  border-image: url(gfx/reward/frame.png) 64 fill / 34px stretch; filter: drop-shadow(0 10px 24px #000c); }
+.qw2 .qrays { opacity: .55; }
+.qw2 .qw-chest { width: 132px; height: 132px; margin-top: -16px; }
+.qw-ribbon { margin: -6px -48px 4px; height: 66px; padding: 12px 70px 0; background: url(gfx/reward/ribbon.png) center / 100% 100% no-repeat; border: 0; box-shadow: none; clip-path: none;
+  font-size: min(22px, 5.4vw); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qw-sec { border: 18px solid transparent; border-radius: 0; padding: 0 2px; background: none; border-image: url(gfx/reward/plaque.png) 44 fill / 18px stretch; }
+.qw-sec.stash { background: none; border-color: transparent; }
+.qw-ok { width: 74%; height: 56px; margin-top: 10px; border: 0; border-radius: 0; background: url(gfx/reward/button.png) center / 100% 100% no-repeat; font: 700 21px var(--serif); padding: 0 0 2px; }
+.qw-ok:active { transform: scale(.95); filter: brightness(.9); }
