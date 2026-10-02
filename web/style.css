@@ -1744,3 +1744,8 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .advisor img[src*="tut/adv_"] { width: 96px; height: auto; flex: none; image-rendering: auto; align-self: flex-start; }
 .advisor img.advic { width: 26px; height: 26px; vertical-align: middle; image-rendering: auto; }
 .advdone { text-align: center; padding: 10px; } .advdone img { width: 110px; } .advdone p { font: 600 17px var(--serif); color: #4a2410; }
+/* советник ведёт: пульсирующая кнопка нужного здания и рука над ней */
+.advpulse { position: relative; animation: advpulse 1s ease-in-out infinite; box-shadow: 0 0 0 3px #ffd84a, 0 0 14px 4px #ffc94acc !important; }
+@keyframes advpulse { 0%, 100% { box-shadow: 0 0 0 3px #ffd84a, 0 0 10px 2px #ffc94a99; } 50% { box-shadow: 0 0 0 4px #fff2a8, 0 0 18px 6px #ffc94a; } }
+.advhand2 { position: absolute; right: 10%; top: -34px; width: 34px; pointer-events: none; filter: drop-shadow(0 2px 3px #000a); animation: advtap 1s ease-in-out infinite; z-index: 3; }
+#advbar .ab-t { cursor: help; }

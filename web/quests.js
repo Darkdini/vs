@@ -108,7 +108,14 @@ function advBar() {
   const show = !!a && !a.finished && ['castle', 'lands', undefined].includes(S.tab);
   $('#game').classList.toggle('adv', show); // свиток заданий и кнопка босса поднимаются над полоской
   if (!show) { if (b) b.remove(); const h = $('#advhand'); if (h) h.remove(); return; }
-  if (!b) { b = document.createElement('button'); b.id = 'advbar'; b.type = 'button'; b.addEventListener('click', () => openSheet(advWin)); $('#stage').appendChild(b); }
+  if (!b) {
+    b = document.createElement('button'); b.id = 'advbar'; b.type = 'button';
+    b.addEventListener('click', (e) => { const x = S.st.quests && S.st.quests.adv; if (!x || x.finished) return;
+      if (e.target.closest('.ab-t')) return openSheet(advWin); // значок слева — окно советника с объяснением
+      if (x.done) return send({ t: 'qclaim', kind: 'adv' }); // готово — сразу награда
+      advGo(); }); // иначе — сразу к нужному зданию
+    $('#stage').appendChild(b);
+  }
   b.classList.toggle('done', !!a.done);
   // рука-указатель: на первых шагах и когда награда готова — «нажми сюда»
   let h = $('#advhand'); const hand = a.done || a.idx < 3;
@@ -124,9 +131,57 @@ function advWin() {
       <p><b>${a.done ? `<img class="advic" src="${GFX}tut/done.png" alt="">` : `<img class="advic" src="${GFX}tut/${a.need > 1 ? 'ic_up' : 'ic_build'}.png" alt="">`} Задание ${a.idx + 1} из ${a.total}</b></p><p>${esc(a.title)}.</p>
       <p class="small">${a.done ? 'Отлично, правитель! Забирайте награду.' : `Сейчас: ${a.have} из ${a.need}. Здание — ${a.layer === 'lands' ? 'на Землях (дерево на панели справа)' : 'в замке'}. Ресурсы награды сразу пойдут в замок, а что не поместится на Складе — в Кладовую.`}</p></div></div>
     <div class="qcard ${a.done ? 'ready' : ''}">${qBar(a.have, a.need)}${qReward(a.reward)}
-      ${a.done ? '<button class="qbtn" data-qclaim="adv">Забрать награду</button>' : `<button class="pbar" data-advgo="${a.layer === 'lands' ? 'lands' : 'castle'}">Перейти ${a.layer === 'lands' ? 'на Земли' : 'в замок'}</button>`}</div>`;
+      ${a.done ? '<button class="qbtn" data-qclaim="adv">Забрать награду</button>' : '<button class="pbar" data-advgo>Выполнить — к зданию</button>'}</div>`;
 }
-$('#sheetBody').addEventListener('click', (e) => {
-  const g = e.target.closest('[data-advgo]'); if (!g) return;
-  closeAllSheets(); setTab(g.dataset.advgo);
-});
+$('#sheetBody').addEventListener('click', (e) => { if (e.target.closest('[data-advgo]')) advGo(); });
+
+// ---------- советник ведёт за руку: нужная клетка, переход к ней, подсветка кнопки ----------
+// клетка для задания: здание этого вида ниже нужного уровня (самое развитое), иначе — свободное место, где его можно построить
+function advTarget() {
+  const a = S.st && S.st.quests && S.st.quests.adv; if (!a || a.finished || a.done) return null;
+  const v = a.layer === 'lands' ? VIEW.LANDS : VIEW.CASTLE, c = S.st.castle, N = v ? LN() : 7, g = c.grid[v], lv = c.levels[v];
+  let best = -1;
+  for (let i = 0; i < g.length; i++) { const q = queueAt(v, i); if ((g[i] === a.bid || (q && q.building === a.bid)) && (best < 0 || lv[i] > lv[best])) best = i; }
+  if (best < 0) { // не построено — ближайшее к центру свободное место, где можно поставить это здание
+    let bd = 1e9; const mid = (N - 1) / 2;
+    for (let i = 0; i < g.length; i++) {
+      if (g[i] >= 0 || queueAt(v, i)) continue;
+      const x = i % N, y = Math.floor(i / N);
+      if (v === VIEW.CASTLE && ((S.cat.castlePath || []).includes(i) || (x === 3 && y === 3))) continue;
+      if (v === VIEW.LANDS && !(S.cat.landOptions[y][x] || []).includes(a.bid)) continue;
+      const d = (x - mid) ** 2 + (y - mid) ** 2; if (d < bd) { bd = d; best = i; }
+    }
+  }
+  return best < 0 ? null : { view: v, tab: v ? 'lands' : 'castle', cell: best, x: best % N, y: Math.floor(best / N), bid: a.bid };
+}
+function advGo() {
+  const t = advTarget(); if (!t) return openSheet(advWin);
+  closeAllSheets(); if (S.tab !== t.tab) setTab(t.tab);
+  if (t.view === VIEW.CASTLE) { // камера — на нужную клетку
+    const c = cam(), p = cellAt(t.x, t.y), r = Iso.cv.getBoundingClientRect();
+    if (r.width) { c.x = r.width / 2 - (p.sx + TW / 2) * c.z; c.y = r.height * 0.45 - (p.sy + TH / 2) * c.z; Iso.cams[S.tab] = clampCam(c); }
+  }
+  Iso.sel = { tab: t.tab, x: t.x, y: t.y }; S.advHL = t; isoDraw();
+  openCell(t.view, t.cell); setTimeout(advHighlight, 30);
+}
+// в открытом окне — пульсирующая кнопка «Развить/Построить» нужного здания и рука над ней
+function advHighlight() {
+  const t = S.advHL; if (!t) return;
+  const btn = $(`#sheetBody [data-build="${t.view},${t.cell},${t.bid}"]`) || $(`#sheetBody [data-pick="${t.view},${t.cell},${t.bid}"]`);
+  if (!btn || btn.classList.contains('advpulse')) return;
+  btn.classList.add('advpulse'); btn.scrollIntoView({ block: 'center' });
+  const h = document.createElement('img'); h.className = 'advhand2'; h.src = `${GFX}tut/hand.png`; h.alt = ''; btn.appendChild(h);
+}
+new MutationObserver(() => { if (S.advHL) advHighlight(); }).observe($('#sheetBody'), { childList: true, subtree: true });
+document.addEventListener('click', (e) => { if (e.target.closest('[data-build],[data-pick]')) setTimeout(() => { S.advHL = null; }, 0); }, true);
+// на карте замка/земель: золотое кольцо и прыгающая стрелка над нужной клеткой (рисуется из isoDrawNow)
+function advMarker(view, at, big = view === VIEW.LANDS ? 2 : 1) { // на Землях вид издалека — метка крупнее
+  const t = advTarget(); if (!t || t.view !== view) return;
+  const p = at(t.x, t.y), cx = p.sx + TW / 2, cy = p.sy + TH / 2, k = Date.now() / 260;
+  const ring = pic('tut/ring.png'), arr = pic('tut/arrow_down.png'), x = ictx;
+  x.save(); const sm = x.imageSmoothingEnabled; x.imageSmoothingEnabled = true;
+  if (ring) { const w = TW * (1.05 + 0.08 * Math.sin(k)) * (big > 1 ? 1.3 : 1); x.globalAlpha = 0.85; x.drawImage(ring, cx - w / 2, cy - w / 4, w, w / 2); x.globalAlpha = 1; }
+  if (arr) { const w = TW * 0.42 * big, h = w * arr.height / arr.width, top = cy - TH * 1.2 - h - Math.abs(Math.sin(k)) * 10 * big; x.drawImage(arr, cx - w / 2, top, w, h); }
+  x.imageSmoothingEnabled = sm; x.restore();
+  if (!S.advAnim) S.advAnim = setTimeout(() => { S.advAnim = null; isoDraw(); }, 60);
+}

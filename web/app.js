@@ -1296,10 +1296,12 @@ function isoDrawNow() {
       for (let xx = 6; xx >= 0; xx--) { const cell = y * 7 + xx; drawCellBuilding(0, cell, st.grid[0][cell], st.levels[0][cell], cellAt(xx, y), BK, isSel(xx, y)); }
     }
     if (fence) fenceFront();
+    if (typeof advMarker === 'function') advMarker(VIEW.CASTLE, cellAt); // советник показывает нужную клетку
   } else if (S.tab === 'lands') {
     const onPic = hasPic();
     if (onPic) landsPicBegin(); // фон-картинка; земли — на центральном лугу картинки (life.js)
     landsScene(c, dpr); // клетки с тропинками между ними, жизнь (life.js)
+    if (typeof advMarker === 'function') advMarker(VIEW.LANDS, (xx, y) => { const P = plotXY(xx, y); return { sx: P.cx - TW / 2, sy: P.cy - TH / 2 }; });
     if (onPic) landsPicEnd();
   } else if (S.world) {
     const w = S.world, R0 = w.radius;
