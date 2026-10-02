@@ -152,7 +152,7 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
 }
 // Зал Славы: бонус репутации за 1/2/3 место (Грабежи: 80/40/20)
 {
-  const us = ['hb1', 'hb2', 'hb3'].map((l) => g.register({ login: l, password: '12345', race: 0 }).user);
+  const us = ['hball1', 'hball2', 'hball3'].map((l) => g.register({ login: `${l}_acc`, nick: l, password: '12345', race: 0 }).user);
   us.forEach((u, i) => g.addStat(u.id, 'loot', (3 - i) * 100000));
   g.seasonClose();
   const got = us.map((u) => (u.awards || []).find((a) => a.hall === 'loot'));
@@ -162,7 +162,7 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
 }
 // отчёты: цвет в списке, пересылка другому игроку, удаление своих
 {
-  const [a, b] = ['rp1', 'rp2'].map((l) => g.register({ login: l, password: '12345', race: 0 }).user);
+  const [a, b] = ['rp1', 'rp2'].map((l) => g.register({ login: `${l}_acc`, nick: l, password: '12345', race: 0 }).user);
   g.report(a.id, 'Нападение: победа', ['x'], 'battle', { type: 'battle', side: 'att', win: true });
   g.report(a.id, 'Разведка — провал', ['x'], 'scout', { type: 'scout', ok: false });
   const [r1, r2] = g.reportsOf(a.id).reverse();
@@ -177,7 +177,7 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
 }
 // общий форум: темы создают только модераторы, отвечают все; закрытие, запрет, модератор раздела
 {
-  const [pl, md, ad] = ['fp1', 'fp2', 'fp3'].map((l) => g.register({ login: l, password: '12345', race: 0 }).user);
+  const [pl, md, ad] = ['fp1', 'fp2', 'fp3'].map((l) => g.register({ login: `${l}_acc`, nick: l, password: '12345', race: 0 }).user);
   ad.admin = true;
   assert.ok(g.forumOp(pl, { op: 'topic', section: 1, title: 'Моя тема', text: 'x' }).error, 'игрок не создаёт тему');
   assert.ok(g.forumOp(md, { op: 'secmod', section: 1, login: 'fp2' }).error, 'модераторов назначает только админ');
@@ -229,7 +229,7 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
 }
 // звание VIP в профиле — только пока действует премиум; у админа — вместе с «Администратор»
 {
-  const v = g.register({ login: 'vipx', password: '12345', race: 0 }).user; v.gold = 1000;
+  const v = g.register({ login: 'vipxx', password: '12345', race: 0 }).user; v.gold = 1000;
   assert.deepStrictEqual(g.profileOf(v, v).titles, []);
   g.buyPremium(v, 30); assert.deepStrictEqual(g.profileOf(v, v).titles, ['VIP']);
   v.premium = Date.now() - 1; assert.deepStrictEqual(g.profileOf(v, v).titles, [], 'премиум кончился — VIP пропал');
@@ -238,7 +238,7 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
 }
 // подарок приходит получателю и сообщением от дарителя
 {
-  const [a, b] = ['gfa', 'gfb'].map((l) => g.register({ login: l, password: '12345', race: 0 }).user); a.gold = 100; a.premium = Date.now() + 86400000; // Шлем Легиона — уникальный (премиум) подарок
+  const [a, b] = ['gfa', 'gfb'].map((l) => g.register({ login: `${l}_acc`, nick: l, password: '12345', race: 0 }).user); a.gold = 100; a.premium = Date.now() + 86400000; // Шлем Легиона — уникальный (премиум) подарок
   assert.ok(g.sendGift(a, b.id, 'helmet', 'Держи!').ok);
   const m = (g.db.messages || []).filter((x) => x.from === a.id && x.to === b.id).pop();
   assert.ok(m && /Шлем Легиона/.test(m.text) && /Держи!/.test(m.text) && !m.read, 'сообщение о подарке');
@@ -302,7 +302,8 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(/ник уже занят/.test(g.register({ login: 'other', password: '12345', nick: 'Zevs', race: 0 }).error));
   assert.ok(/логин/.test(g.register({ login: 'ZEVS@MAIL.RU', password: '12345', nick: 'Zeus', race: 0 }).error), 'логин занят');
   assert.ok(/минимум 5/.test(g.register({ login: 'short', password: '1234', nick: 'Shorty', race: 0 }).error), 'пароль короче 5 — нельзя');
-  assert.ok(g.register({ login: 'adm2', password: '12345', nick: 'ADMIN', race: 0 }).error, 'ник admin в любом регистре — нельзя');
+  assert.ok(g.register({ login: 'admin2', password: '12345', nick: 'ADMIN', race: 0 }).error, 'ник admin в любом регистре — нельзя');
+  assert.ok(/минимум 5/.test(g.register({ login: 'abcd', password: '12345', race: 0 }).error) && g.register({ login: 'abcde', password: '12345', race: 0 }).user, 'логин не короче 5 символов');
   z.gold = 50; assert.ok(/100 золота/.test(g.changeNick(z, 'ZeVs').error), 'без золота ник не меняется');
   z.gold = 250; assert.ok(g.changeNick(z, 'ZeVs').ok); assert.strictEqual(z.login, 'ZeVs'); assert.strictEqual(z.gold, 150); assert.ok(g.login('zevs@mail.ru', '12345') === z, 'логин тот же');
   assert.ok(g.changeNick(z, 'zevs').error, 'занятый ник'); assert.ok(g.changeNick(z, 'Громовержец').error, 'длиннее 10');
@@ -376,7 +377,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
 }
 { // бой в один удар: стена, Кузница, тараны, лечение раненых, бегство, урон по зданиям
   const luck0 = process.env.LUCK; process.env.LUCK = '0';
-  const A = g.register({ login: 'btlA', password: '12345', race: 3 }).user, Dd = g.register({ login: 'btlD', password: '12345', race: 3 }).user;
+  const A = g.register({ login: 'btlAA', password: '12345', race: 3 }).user, Dd = g.register({ login: 'btlDD', password: '12345', race: 3 }).user;
   const ca = g.castleOf(A), cd = g.castleOf(Dd); g.mil(ca); g.mil(cd);
   const fence = (L) => { let i = cd.grid[0].indexOf(22); if (i < 0) i = cd.grid[0].indexOf(-1); cd.grid[0][i] = L ? 22 : -1; cd.levels[0][i] = L; };
   const fight = (au, du, opt = {}) => { cd.units = { ...du }; cd.squads = []; ca.forge = opt.fa || {}; cd.forge = {}; fence(opt.wall || 0); return g.clash(ca, { units: { ...au }, mission: opt.m || 'attack' }, cd, null, Date.now()); };

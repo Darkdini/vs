@@ -329,6 +329,7 @@ $('#authForm').addEventListener('submit', (e) => {
   $('#authErr').textContent = '';
   S.remember = f.remember.checked;
   S.pendingCreds = { login, password };
+  if (S.mode === 'reg' && login.length < 5) { $('#authErr').textContent = 'Логин слишком короткий (минимум 5 символов).'; return; }
   if (S.mode === 'reg') { send({ t: 'register', login, password, nick: f.nick.value.trim(), race: String(S.race), captcha: f.captcha.value, dev: DEV }); f.captcha.value = ''; }
   else send({ t: 'login', login, password, dev: DEV });
 });

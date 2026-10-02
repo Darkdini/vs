@@ -213,7 +213,8 @@ class Game {
     nick = String(nick == null || nick === '' ? String(login || '').trim() : nick).trim();
     login = nick;
     password = String(password || '').toLowerCase(); // клиент приводит пароль к нижнему регистру при входе
-    if (!/^[a-zа-яё0-9_.@-]{3,40}$/i.test(acct)) return { error: 'Email / Логин: 3–40 символов (буквы, цифры, _ . @ -).' };
+    if (!/^[a-zа-яё0-9_.@-]{1,40}$/i.test(acct)) return { error: 'Email / Логин: до 40 символов (буквы, цифры, _ . @ -).' };
+    if (acct.length < 5 && !system) return { error: 'Логин слишком короткий (минимум 5 символов).' }; // старые короткие логины входят как раньше
     if (!/^[a-zа-яё0-9_]{3,10}$/i.test(nick)) return { error: 'Ник: 3–10 символов (буквы, цифры, _).' };
     if (password.length < 5 && !system) return { error: 'Пароль слишком короткий (минимум 5 символов).' };
     if (this.db.accts[acct]) return { error: 'Такой логин (email) уже зарегистрирован.' };

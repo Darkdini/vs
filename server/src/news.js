@@ -10,13 +10,14 @@ function install(Game) {
   const P = Game.prototype;
   P.newsDb = function newsDb() { return (this.db.news = this.db.news || []); };
   // сколько новостей игрок ещё не читал (не считаются опубликованные до его регистрации)
-  // доклад советника при входе: игроков в игре, нападения и отчёты за время отсутствия, непрочитанные письма и новости
+  // доклад советника при входе: игроков в игре, нападения и отчёты за время отсутствия, новые подарки, непрочитанные письма и новости
   P.welcomeInfo = function welcomeInfo(u, since) {
     const players = Object.values(this.db.users).filter((x) => !x.bot && !x.banned).length;
     const mine = (this.db.reports || []).filter((r) => r.owner === u.id && !r.read);
     const attacks = mine.filter((r) => r.at > since && r.data && r.data.type === 'battle' && r.data.side === 'def').length;
     const mail = (this.db.messages || []).filter((x) => x.to === u.id && !x.read).length;
-    return { players, reports: mine.length, attacks, mail, news: this.newsUnread(u) };
+    const gifts = (u.gifts || []).filter((x) => x.at > since).length;
+    return { players, reports: mine.length, attacks, mail, gifts, news: this.newsUnread(u) };
   };
   P.newsUnread = function newsUnread(u) {
     const seen = new Set(u.newsRead || []);
