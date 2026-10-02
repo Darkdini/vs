@@ -47,7 +47,7 @@ const MENUS = {
     ['Постройки', 'build/farm_big.png', () => openSheet(() => ribbon('Постройки на землях') + summaryHtml(VIEW.LANDS))],
   ] },
   alliance: { label: 'Альянс', icon: 'menu2/alliance.png', note: () => (MY().alliance ? '' : 'Вы не состоите в альянсе.'), items: () => [
-    ...(!MY().alliance && (MY().invites || []).length ? [[`Приглашения (${MY().invites.length})`, 'gfx3d/rep/envnew.svg', () => openSheet(invitesWin)]] : []),
+    ...(!MY().alliance && (MY().invites || []).length ? [[`Приглашения (${MY().invites.length})`, 'gfx3d/rep/envnew.svg', () => openInvites()]] : []),
     [MY().alliance ? 'Мой альянс' : 'Вступить', MY().alliance ? 'gfx3d/rating/ally.png' : M3('fort'), () => { if (MY().alliance) return openAlly(); const i = S.st.castle.grid[0].indexOf(13); if (i < 0) return toast('Нужен Дипломатический центр — постройте его в замке.', 'err'); openCell(VIEW.CASTLE, i); }],
     ['Рейтинг', 'gfx3d/rating/castle.png', () => openRating('alliances')],
     ['Справка', M3('help'), () => openSheet(helpWin)],
