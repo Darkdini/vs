@@ -493,5 +493,12 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(g.reportsOf(P2.id).some((r) => /2-е место/.test(r.title)), 'отчёт с местом');
   console.log('✓ Мировой босс: суббота 18:00, удары армиями, места и награды');
 }
+{ // премиум: цвет сообщений и в общем чате
+  const u = g.register({ login: 'colorchat', password: '12345', race: 0 }).user; u.premium = Date.now() + 86400000;
+  assert.ok(g.setMsgColor ? g.setMsgColor(u, 2).ok : (u.msgColor = 2));
+  const m = g.chatPost(u, 'привет').msg; assert.strictEqual(m.color, require('../src/premium').MSG_COLORS[2], 'цвет премиума в чате');
+  u.premium = 0; assert.strictEqual(g.chatPost(u, 'ещё').msg.color, '', 'без премиума — обычный');
+  console.log('✓ Премиум: цвет сообщений в общем чате');
+}
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);

@@ -139,7 +139,7 @@ $('#btnGear').addEventListener('click', () => openSheet(settingsWin));
 S.chat = [];
 function chatLine() {
   const m = S.chat[S.chat.length - 1];
-  $('#chatmsg').innerHTML = m ? `<b>${esc(m.from)}</b> ${repIcons(m.rep)} ${smiles(esc(m.text))}` : '<span class="muted">Чат пуст — напишите первым</span>';
+  $('#chatmsg').innerHTML = m ? `<b>${esc(m.from)}</b> ${repIcons(m.rep)} ${chatText(m)}` : '<span class="muted">Чат пуст — напишите первым</span>';
 }
 // «Главный чат» как в оригинале: Выход / Игроки (N), сообщения «ЧЧ:ММ [ник] текст», смайлы, поле ввода внизу.
 // Нажатие на ник — обращение «ник, » в поле ввода; сообщения, где упомянут я, подсвечены.
@@ -148,6 +148,8 @@ const SMILES = ['angel','beer','devil','worry','heart','tongue','kiss','cool','l
 const OLD_SMILES = ['smile', 'sad', 'wok', 'angry', 'heart', 'kiss', 'notund', 'Uvula'];
 const SMILE_SET = new Set(SMILES);
 const smileSrc = (k) => (SMILE_SET.has(k) ? `gfx3d/smiles/${k}.png` : `${GFX}smallicon/smiles/${k}.png`);
+// текст сообщения чата; премиум-цвет — только допустимые значения #rrggbb
+const chatText = (m) => (/^#[0-9a-f]{6}$/i.test(m.color || '') ? `<span class="ccol" style="color:${m.color}">${smiles(esc(m.text))}</span>` : smiles(esc(m.text)));
 const smiles = (html) => html.replace(/:([A-Za-z]{2,12}):/g, (m, k) => (SMILE_SET.has(k) || OLD_SMILES.includes(k) ? `<img class="csm" src="${smileSrc(k)}" alt="">` : m));
 S.chatUsers = null; S.smileOpen = false;
 function openChat() { send({ t: 'chatlog' }); send({ t: 'chatusers' }); S.smileOpen = false; openSheet(chatWin); setTimeout(() => { const l = $('#chatList'); if (l) l.scrollTop = l.scrollHeight; }, 50); }
@@ -157,7 +159,7 @@ function chatWin() {
   return `${ribbon('Главный чат')}
     <div class="chattop"><button class="lbar" data-chatexit><img src="gfx3d/mail/events.png" alt=""> Выход</button><button class="lbar" data-chatusers><img src="gfx3d/forum/king.png" alt=""> Игроки (${n})</button></div>
     <div id="chatList" class="chatlist ${S.smileOpen ? 'short' : ''}">${S.chat.slice(-30).reverse().map((m) => { const hit = m.fromId !== me() && m.text.toLowerCase().includes(my);
-      return `<div class="cm ${hit ? 'hit' : ''} ${m.fromId === me() ? 'mine' : ''}" data-chatpop="${m.fromId}" data-nick="${esc(m.from)}" data-mid="${m.id}"><small>${new Date(m.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</small> <b>[${esc(m.from)}]</b>${m.role ? ` <img class="admbadge s" src="${GFX}${m.role === 'admin' ? 'admin' : 'mod'}_badge_s.png" alt="">` : ''}${m.rep >= 10 ? ` ${repIcons(m.rep)}` : ''} ${smiles(esc(m.text))}</div>`; }).join('') || '<p class="parch-note">Сообщений пока нет — напишите первым.</p>'}</div>
+      return `<div class="cm ${hit ? 'hit' : ''} ${m.fromId === me() ? 'mine' : ''}" data-chatpop="${m.fromId}" data-nick="${esc(m.from)}" data-mid="${m.id}"><small>${new Date(m.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</small> <b>[${esc(m.from)}]</b>${m.role ? ` <img class="admbadge s" src="${GFX}${m.role === 'admin' ? 'admin' : 'mod'}_badge_s.png" alt="">` : ''}${m.rep >= 10 ? ` ${repIcons(m.rep)}` : ''} ${chatText(m)}</div>`; }).join('') || '<p class="parch-note">Сообщений пока нет — напишите первым.</p>'}</div>
     ${S.smileOpen ? `<div class="smilebox">${SMILES.map((k) => `<button data-smile="${k}"><img src="${smileSrc(k)}" alt=""></button>`).join('')}</div>` : ''}
     ${S.chatPop ? `<div class="cpop-bg" data-cpopclose><div class="cpop"><button class="cpop-x" data-cpopclose aria-label="Закрыть">✕</button><div class="cpop-nick">${esc(S.chatPop.nick)}</div>
       <div class="cpop-grid"><button class="ptile" data-cpop="reply"><img src="${AI('mail')}" alt=""><span>Обратиться</span></button>

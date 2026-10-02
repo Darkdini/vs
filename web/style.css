@@ -1561,3 +1561,5 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 #resBar b { font: 700 12px/1 system-ui, sans-serif; color: #ffe9b0; text-shadow: 0 1px 1px #000; }
 #resBar span.full b { color: #ffa040; }
 #resBar:active { filter: brightness(1.15); }
+.ccol { font-weight: 600; }
+#chatmsg .ccol { filter: brightness(1.9) saturate(1.2); }

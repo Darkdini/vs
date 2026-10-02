@@ -293,7 +293,7 @@ function install(Game) {
     text = String(text || '').trim().slice(0, 300);
     if (!text) return { error: 'Пустое сообщение.' };
     this.db.chat = this.db.chat || [];
-    const m = { id: this.db.nextId++, from: user.login, fromId: user.id, text, at: Date.now(), rep: user.reputation ?? START_REP, role: user.admin ? 'admin' : user.mod ? 'mod' : '' };
+    const m = { id: this.db.nextId++, from: user.login, fromId: user.id, text, at: Date.now(), rep: user.reputation ?? START_REP, role: user.admin ? 'admin' : user.mod ? 'mod' : '', color: this.msgColor ? this.msgColor(user) : '' }; // цвет текста — премиум
     this.db.chat.push(m);
     if (this.db.chat.length > CHAT_KEEP) this.db.chat.splice(0, this.db.chat.length - CHAT_KEEP); // в чате хранятся последние 30
     this.store.save();
