@@ -8,7 +8,7 @@ const RES4 = ['wood', 'stone', 'iron', 'food'];
 const DAY = 86400000;
 const b = (id) => `build/${({ 0: 'castle', 1: 'storage', 2: 'mbases', 3: 'baraks', 4: 'market', 5: 'farm_small', 11: 'smith', 15: 'university', 17: 'expedition', 18: 'art_tower', 39: 'magscool', 44: 'reasury', 6: 'house_small' })[id] || 'build'}.png`;
 // награды заданий — ресурсы, уникальные воины расы (u: { inf, cav, mag }), опыт генерала (exp) и артефакты.
-// Всё, кроме артефактов, падает в Кладовую замка (stash.js). Золото и премиум — только донат, заданиями не раздаются.
+// Всё, кроме артефактов, падает в Кладовую игрока (stash.js) — общую на все замки. Золото и премиум — только донат, заданиями не раздаются.
 const R = (n, extra = {}) => ({ wood: n, stone: n, iron: n, food: n, ...extra });
 
 // ---------- обучение ----------
@@ -113,9 +113,9 @@ function install(Game) {
   P.lairAt = function lairAt(userId, x, y) { const u = this.userById(userId); if (!u) return null; const l = this.lairOf(u); return l && l.x === x && l.y === y && !this.qinit(u).campWon ? l : null; };
   P.lairWon = function lairWon(userId, k) { const u = this.userById(userId); if (!u) return; const q = this.qinit(u); if (q.camp === k) { q.campWon = true; this.event(u.id, `Логово «${CAMP[k].title}» разорено! Заберите награду в Заданиях.`); } };
 
-  // ресурсы, воины и опыт — в Кладовую замка (забрать можно сколько нужно, лишнее не пропадает); артефакт — в Сокровищницу
+  // ресурсы, воины и опыт — в Кладовую игрока (забрать можно в любой свой замок, лишнее не пропадает); артефакт — в Сокровищницу
   const give = (g, u, c, rw) => {
-    const got = g.stashAdd(c, rw);
+    const got = g.stashAdd(u, rw);
     if (rw.art !== undefined) { g.mil(c); const types = Object.keys(require('./army').ART_TYPES); const type = types[Math.floor(Math.random() * types.length)]; c.artifacts.push({ id: g.db.nextId++, type, rarity: rw.art, active: false, found: Date.now() }); got.push('артефакт'); }
     return got;
   };

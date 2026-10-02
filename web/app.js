@@ -228,7 +228,7 @@ function onMsg(m) {
       $('#auth').classList.add('hidden'); $('#game').classList.remove('hidden');
       break;
     case 'state': onState(m); if (S.st && S.st.user && S.st.user.admin) loadAdmin(); if (typeof questBtn === 'function') questBtn(); if (typeof bossBtn === 'function') bossBtn(); if (typeof stashBtn === 'function') stashBtn(); break;
-    case 'stash': S.stash = m.list; refreshSheet(); break;
+    case 'stash': S.stash = m.list; S.stashCastle = m.castle; refreshSheet(); break;
     case 'quests': S.quests = m.q; refreshSheet(); break;
     case 'qdone': questDone(m.msg); break;
     case 'world': {

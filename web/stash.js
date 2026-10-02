@@ -1,5 +1,5 @@
 'use strict';
-// Кладовая замка (как «Сокровища» оригинала): награды заданий, похода и мирового босса — ресурсы, уникальные воины, опыт генерала.
+// Кладовая игрока, одна на все замки (как «Сокровища» оригинала): награды заданий, похода и мирового босса — ресурсы, уникальные воины, опыт генерала.
 // Нажатие на строку — ползунок и «Извлечь». Сервер: server/src/stash.js (t:'stash', op:'take').
 // Картинки — gfx/stash/*.png; пока их нет, показываются запасные (data-fb, см. hero.js).
 
@@ -16,9 +16,9 @@ function stashWin() {
   if (!L) return `${ribbon('Кладовая')}<p class="parch-note">Загрузка…</p>`;
   if (!L.length) return `${ribbon('Кладовая')}<p class="parch-note">Кладовая пуста. Сюда падают награды заданий, похода «Тёмные земли» и мирового босса: ресурсы, уникальные воины и опыт генерала.</p>`;
   const id = (x) => `${x.kind}:${x.key}`;
-  return `${ribbon('Кладовая')}<p class="small muted center">Награды ждут здесь и не пропадают. Забирайте столько, сколько нужно: ресурсы — пока есть место на Складе.</p>
+  return `${ribbon('Кладовая')}<p class="small muted center">Кладовая одна на все Ваши замки: награды ждут здесь и не пропадают. Извлечённое попадёт в замок, где Вы сейчас${S.stashCastle ? ` — <b>«${esc(S.stashCastle)}»</b>` : ''}; ресурсы — пока есть место на Складе.</p>
     <div class="stl">${L.map((x) => { const open = S.stashOpen === id(x);
-      const why = x.kind === 'res' && !x.max ? 'В замке хранится максимальное количество ресурса этого типа.' : x.kind === 'exp' && !x.max ? 'Нужен живой генерал в этом замке.' : '';
+      const why = x.kind === 'res' && !x.max ? 'В замке хранится максимальное количество ресурса этого типа.' : x.kind === 'exp' && !x.max ? 'Нужен живой генерал в этом замке — перейдите в замок с генералом.' : '';
       return `<div class="str ${open ? 'open' : ''} ${x.quest ? 'uniq' : ''}" data-stid="${id(x)}"><div class="stic">${stashIcon(x)}</div>
         <div class="stm"><b>${esc(x.name)}${x.quest ? ' <i>★</i>' : ''}</b><span class="stn">${fmtFull(x.n)}</span></div>
         ${open ? (why ? `<div class="stwhy">${why}</div>` : `<div class="sttake"><input type="range" min="1" max="${x.max}" value="${x.max}" data-strange><span class="stv">${fmtFull(x.max)}</span>

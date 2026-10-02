@@ -461,10 +461,10 @@ const API = {
   },
   squad(m) { const r = this.game.squadOp(this.castle, m); if (m.op === 'regroup' && r && r.ok) this.toast('Армия переформирована!'); this.result(r); },
   boss() { this.send({ t: 'boss', data: this.game.bossView(this.user) }); },
-  // Кладовая замка (stash.js): список наград и «Извлечь»
+  // Кладовая игрока (stash.js): список наград и «Извлечь» в текущий замок
   stash(m) {
-    if (m && m.op === 'take') { const r = this.game.stashTake(this.castle, String(m.kind || ''), m.key, m.n); if (r.error) return this.error(r.error); this.toast(r.msg); this.game.store.save(); this.pushState(); }
-    this.send({ t: 'stash', list: this.game.stashView(this.castle) });
+    if (m && m.op === 'take') { const r = this.game.stashTake(this.user, this.castle, String(m.kind || ''), m.key, m.n); if (r.error) return this.error(r.error); this.toast(r.msg); this.game.store.save(); this.pushState(); }
+    this.send({ t: 'stash', list: this.game.stashView(this.user, this.castle), castle: this.castle.name });
   },
   hero(m) { const r = this.game.heroOp(this.castle, this.user, { op: m.op, id: m.id, item: m.item, slot: m.slot }); if (r && r.msg) this.toast(r.msg); this.result(r); },
   general(m) { const r = this.game.generalOp(this.castle, this.user, { op: m.op, name: m.name, pts: m.pts, idx: m.idx, gold: m.gold, unit: m.unit }); if (r && r.msg) this.toast(r.msg); this.result(r); },

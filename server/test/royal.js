@@ -399,27 +399,30 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   let st = g.questsState(u, c);
   assert.ok(st.tut.idx === 0 && !st.tut.done && st.daily.length === 3 && st.camp.k === 0 && st.camp.x !== undefined, 'задания на старте');
   c.levels[0][c.grid[0].indexOf(1)] = 3; const w0 = c.res.wood; c.res.wood = 0;
-  assert.ok(g.questClaim(u, c, 'tut').ok && c.res.wood === 0 && c.stash.res.wood === 300 && g.questsState(u, c).tut.idx === 1, 'награда за обучение — в Кладовую');
+  assert.ok(g.questClaim(u, c, 'tut').ok && c.res.wood === 0 && u.stash.res.wood === 300 && g.questsState(u, c).tut.idx === 1, 'награда за обучение — в Кладовую');
   assert.strictEqual(u.gold, 0, 'при регистрации золота нет');
   // Кладовая: ресурсы — не больше места на Складе, остаток ждёт
   const capW = g.capacity(c).wood; c.res.wood = capW - 100;
-  assert.ok(g.stashTake(c, 'res', 'wood', 300).ok && c.res.wood <= capW && c.res.wood > capW - 1 && c.stash.res.wood >= 200 && c.stash.res.wood <= 201, 'извлечь — сколько влезает');
-  assert.ok(/максимальное/.test(g.stashTake(c, 'res', 'wood', 50).error || ''), 'склад полон — остаётся в Кладовой');
+  assert.ok(g.stashTake(u, c, 'res', 'wood', 300).ok && c.res.wood <= capW && c.res.wood > capW - 1 && u.stash.res.wood >= 200 && u.stash.res.wood <= 201, 'извлечь — сколько влезает');
+  assert.ok(/максимальное/.test(g.stashTake(u, c, 'res', 'wood', 50).error || ''), 'склад полон — остаётся в Кладовой');
   c.res.wood = 0;
-  const left = c.stash.res.wood; assert.ok(g.stashTake(c, 'res', 'wood', 1e9).ok && c.res.wood >= left && !c.stash.res.wood, 'забрали остаток');
+  const left = u.stash.res.wood; assert.ok(g.stashTake(u, c, 'res', 'wood', 1e9).ok && c.res.wood >= left && !u.stash.res.wood, 'забрали остаток');
   // уникальные воины и опыт генерала
-  const got = g.stashAdd(c, { u: { inf: 5, cav: 2 }, exp: 120 }), U = require('../src/army').UNIT;
-  assert.ok(c.stash.units[309] === 5 && c.stash.units[310] === 2 && got.length === 3, 'уникальные воины орков: ' + got);
+  const got = g.stashAdd(u, { u: { inf: 5, cav: 2 }, exp: 120 }), U = require('../src/army').UNIT;
+  assert.ok(u.stash.units[309] === 5 && u.stash.units[310] === 2 && got.length === 3, 'уникальные воины орков: ' + got);
   assert.ok(U[309].attack > U[245].attack && U[309].hp > U[245].hp && U[309].speed === U[245].speed, 'уникальный сильнее прообраза');
   assert.ok(g.train(c, 309, 1).error, 'уникальных не тренируют');
-  g.mil(c); const n0 = c.units[309] || 0; assert.ok(g.stashTake(c, 'unit', 309, 3).ok && c.units[309] === n0 + 3 && c.stash.units[309] === 2, 'воины в замок');
-  assert.ok(g.stashTake(c, 'exp', 'exp', 50).error, 'опыт — только живому генералу');
-  c.general = g.newGeneral(c, 1); assert.ok(g.stashTake(c, 'exp', 'exp', 120).ok && c.general.level === 2 && !c.stash.exp, 'опыт генералу: уровень вырос');
-  assert.ok(g.stashTake(c, 'unit', '__proto__', 1).error && g.stashTake(c, 'res', 'gold', 1).error, 'чужие ключи отвергаются');
-  { // награда падает в Кладовую того замка, где игрок сейчас (второй замок — во второй)
-    const c2 = g.createCastle(u); u.castleIds = [...(u.castleIds || [c.id]), c2.id]; assert.ok(g.switchCastle(u, c2.id).ok);
-    const cur = g.castleOf(u); g.stashAdd(cur, { wood: 77 });
-    assert.ok(cur === c2 && c2.stash.res.wood === 77 && !(c.stash.res.wood > 0), 'награда — во второй замок');
+  g.mil(c); const n0 = c.units[309] || 0; assert.ok(g.stashTake(u, c, 'unit', 309, 3).ok && c.units[309] === n0 + 3 && u.stash.units[309] === 2, 'воины в замок');
+  assert.ok(g.stashTake(u, c, 'exp', 'exp', 50).error, 'опыт — только живому генералу');
+  c.general = g.newGeneral(c, 1); assert.ok(g.stashTake(u, c, 'exp', 'exp', 120).ok && c.general.level === 2 && !u.stash.exp, 'опыт генералу: уровень вырос');
+  assert.ok(g.stashTake(u, c, 'unit', '__proto__', 1).error && g.stashTake(u, c, 'res', 'gold', 1).error, 'чужие ключи отвергаются');
+  { // Кладовая одна на игрока: награда, полученная в первом замке, извлекается во втором
+    const c2 = g.createCastle(u); u.castleIds = [...(u.castleIds || [c.id]), c2.id];
+    delete u.stash.res.food; g.stashAdd(u, { food: 300 }); assert.ok(g.switchCastle(u, c2.id).ok);
+    c2.res.food = 0; const f0 = c2.res.food, c1f = c.res.food; const tk = g.stashTake(u, g.castleOf(u), 'res', 'food', 300); assert.ok(tk.ok && c2.res.food >= f0 + 300 && c.res.food === c1f && !u.stash.res.food, 'еда — во второй замок');
+    const other = g.register({ login: 'stashother', password: '12345', race: 0 }).user; g.stashAdd(u, { food: 10 });
+    assert.ok(g.stashTake(u, g.castleOf(other), 'res', 'food', 10).error, 'в чужой замок — нельзя');
+    const ir0 = u.stash.res.iron || 0, ex0 = u.stash.exp || 0; c.stash = { res: { iron: 5 }, units: {}, exp: 7 }; assert.ok(g.stashOf(u).res.iron === ir0 + 5 && g.stashOf(u).exp === ex0 + 7 && !c.stash, 'старая кладовая замка переносится в общую');
     g.switchCastle(u, c.id);
   }
   assert.ok(g.questClaim(u, c, 'tut').error, 'невыполненное не забрать');
@@ -428,7 +431,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   g.arrive(c, c.armies[0], Date.now());
   const gold = u.gold; assert.ok(g.questsState(u, c).camp.won && g.questClaim(u, c, 'camp').ok && u.gold === gold && g.questsState(u, c).camp.k === 1, 'логово разорено, глава 2');
   assert.ok(g.sendArmy(c, { units: { 246: 1 }, x: L.x, y: L.y, mission: 'attack' }).error, 'старое логово исчезло');
-  void w0; console.log('✓ Задания и Кладовая: награды в Кладовую, извлечение до лимита Склада, уникальные воины, опыт генерала');
+  void w0; console.log('✓ Задания и Кладовая: общая на игрока, извлечение в текущий замок до лимита Склада, уникальные воины, опыт генерала');
   if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
 }
 { // экспедиции из здания и временные артефакты
