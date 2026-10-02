@@ -1678,3 +1678,4 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .sttake .pbar { flex-basis: 100%; margin: 2px 0 0; background: linear-gradient(#5fd35f, #1f8f1f); border-color: #c8f5a0; color: #fff; }
 .stwhy { flex-basis: 100%; margin-left: 66px; padding: 6px 10px; border-radius: 8px; background: #3a0d12; color: #fff; font: 400 15px/1.3 var(--serif); }
 .quni b { color: #a0661a; }
+.stic img.u { width: 100%; height: 130%; object-fit: cover; object-position: 50% 8%; align-self: flex-start; }

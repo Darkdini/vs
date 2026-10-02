@@ -11,7 +11,7 @@ const unitById = (id) => { if (!UNIT_BY) UNIT_BY = Object.fromEntries(M().units.
 // у орков нет своих спрайтов в клиенте: берутся похожие, ?orc красит их в зелёный (style.css)
 const DW_HD = ['traveler', 'buntar', 'arheolog', 'wisdom']; // у всех рас — новые картинки (оригинал); у людей нет нового Путешественника — прежний
 const HD_DIR = { dwarves: 'dwarv/hd', orcs: 'orc/hd', elves: 'elf/hd', humans: 'human/hd' };
-const unitSrc = (u, race = S.st.user.race) => `${GFX}units/${u.img === 'unical/taran' ? 'dwarv/hd/taran' : u.race === 'all' && !u.img.includes('/') ? (HD_DIR[race] && DW_HD.includes(u.img) && !(race === 'humans' && u.img === 'traveler') ? `${HD_DIR[race]}/${u.img}` : `${M().raceDir[race]}/${u.img}`) : u.img}.png${(u.race === 'orcs' && !u.img.startsWith('orc/')) || (u.race === 'all' && race === 'orcs' && !u.img.includes('/') && !DW_HD.includes(u.img)) ? '?orc' : ''}`;
+const unitSrc = (u, race = S.st.user.race) => `${GFX}units/${u.img === 'unical/taran' ? 'dwarv/hd/taran' : u.race === 'all' && !u.img.includes('/') ? (HD_DIR[race] && DW_HD.includes(u.img) && !(race === 'humans' && u.img === 'traveler') ? `${HD_DIR[race]}/${u.img}` : `${M().raceDir[race]}/${u.img}`) : u.img}.png${(u.race === 'orcs' && !u.img.startsWith('orc/') && !u.img.startsWith('uniq/')) || (u.race === 'all' && race === 'orcs' && !u.img.includes('/') && !DW_HD.includes(u.img)) ? '?orc' : ''}`;
 const uimg = (u, cls = 'ui') => `<img class="${cls}" src="${unitSrc(u)}" alt="">`;
 const raceUnit = (u, race = S.st.user.race) => (u && u.raceOvr && u.raceOvr[race] ? { ...u, ...u.raceOvr[race] } : u); // цена общих юнитов по расе
 const myUnitList = () => M().units.filter((u) => (u.race === S.st.user.race || u.race === 'all') && !u.notrain).map((u) => raceUnit(u));

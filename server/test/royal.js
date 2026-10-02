@@ -416,6 +416,12 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(g.stashTake(c, 'exp', 'exp', 50).error, 'опыт — только живому генералу');
   c.general = g.newGeneral(c, 1); assert.ok(g.stashTake(c, 'exp', 'exp', 120).ok && c.general.level === 2 && !c.stash.exp, 'опыт генералу: уровень вырос');
   assert.ok(g.stashTake(c, 'unit', '__proto__', 1).error && g.stashTake(c, 'res', 'gold', 1).error, 'чужие ключи отвергаются');
+  { // награда падает в Кладовую того замка, где игрок сейчас (второй замок — во второй)
+    const c2 = g.createCastle(u); u.castleIds = [...(u.castleIds || [c.id]), c2.id]; assert.ok(g.switchCastle(u, c2.id).ok);
+    const cur = g.castleOf(u); g.stashAdd(cur, { wood: 77 });
+    assert.ok(cur === c2 && c2.stash.res.wood === 77 && !(c.stash.res.wood > 0), 'награда — во второй замок');
+    g.switchCastle(u, c.id);
+  }
   assert.ok(g.questClaim(u, c, 'tut').error, 'невыполненное не забрать');
   g.maxOut(c); g.mil(c); c.units = { 246: 60 }; const L = g.lairOf(u);
   assert.ok(!g.sendArmy(c, { units: { 246: 60 }, x: L.x, y: L.y, mission: 'attack' }).error, 'поход в логово');

@@ -9,7 +9,7 @@ function openStash() { S.stash = null; S.stashOpen = null; send({ t: 'stash' });
 function stashIcon(x) {
   if (x.kind === 'res') return `<img src="${STASH_IC[x.key]}" alt="">`;
   if (x.kind === 'exp') return `<img src="${GFX}stash/exp.png" data-fb="${GFX}smallicon/magattack.png" alt="">`;
-  const u = unitById(x.key); return u ? `<img src="${unitSrc(u)}" alt="">` : '';
+  const u = unitById(x.key); return u ? `<img class="u" src="${unitSrc(u)}" alt="">` : '';
 }
 function stashWin() {
   const L = S.stash;
