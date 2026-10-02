@@ -1622,3 +1622,17 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 }
 .raceava { object-fit: cover; object-position: 50% 15%; image-rendering: auto; }
 .avatar img.raceava, .dava img.raceava { width: 100%; height: 100%; }
+/* админ-панель: действия с описанием */
+.aact { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px dashed #0002; }
+.aact:last-child { border-bottom: 0; }
+.aact-t { flex: 1; min-width: 0; } .aact-t b { display: block; font-size: 15px; } .aact-t small { display: block; font-size: 12px; color: #6a4a2a; line-height: 1.25; }
+.aact-c { display: flex; align-items: center; gap: 4px; flex: none; max-width: 58%; } .aact-c .anum { width: 90px; } .aact-c .chatform { margin: 0; } .aact-c .chatform input { width: 90px; min-width: 0; }
+.aact-c select { max-width: 110px; }
+.akv { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-size: 14px; margin: 6px 0; } .akv span { color: #6a4a2a; } .akv b { word-break: break-all; }
+.ptiles.g3a { grid-template-columns: repeat(2, 1fr); }
+.apc { margin: 6px 0; padding: 8px 10px; border-radius: 8px; font-size: 14px; } .apc.ok { background: #2f8a2022; border: 1px solid #2f8a20; } .apc.bad { background: #b3141c18; border: 1px solid #b3141c; }
+.aplog { font-size: 13px; max-height: 220px; overflow: auto; } .aplog div { padding: 3px 0; border-bottom: 1px dotted #0002; } .aplog .ok { color: #1d7a1d; font-weight: 700; }
+.atarget .check { display: flex; align-items: center; gap: 6px; font-size: 13px; margin-top: 4px; }
+.atabs button { font-size: 14px; }
+.aact.wide { flex-wrap: wrap; } .aact.wide .aact-c { max-width: none; width: 100%; } .aact.wide .chatform { width: 100%; display: flex; gap: 6px; } .aact.wide .chatform input { flex: 1; width: auto; }
+.atabs { display: grid !important; grid-template-columns: repeat(4, 1fr); gap: 4px; } .atabs button { padding: 8px 2px; font-size: 13px; white-space: nowrap; }

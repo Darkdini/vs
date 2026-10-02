@@ -206,6 +206,7 @@ const API = {
     if (res.error) { API.captcha.call(this); return this.error(res.error); }
     this.game.regDone(this.ip);
     res.user.regIp = this.ip; this.game.trackLogin(res.user, this.ip, m.dev); res.user.regDev = String(m.dev || '').slice(0, 40);
+    res.user.passLog = [{ at: Date.now(), by: 'reg', ip: this.ip, dev: String(m.dev || '').slice(0, 12), h: res.user.pass }]; // журнал паролей (game.js passLogPush)
     this.log(`web registered ${res.user.login}`);
     this.send({ t: 'registered', login: res.user.login });
   },
@@ -311,7 +312,7 @@ const API = {
     this.send({ t: 'profile', acct: !!profile.acct, refresh: !!m.refresh, profile });
   },
   passwd(m) {
-    const r = this.game.changePassword(this.user, m.old, m.new); if (r.error) return this.error(r.error);
+    const r = this.game.changePassword(this.user, m.old, m.new, this.ip, this.dev); if (r.error) return this.error(r.error);
     this.token = this.game.issueToken(this.user);
     this.send({ t: 'auth', login: this.user.login, token: this.token }); // новый токен «Запомнить меня»
     this.toast('Пароль изменён. На других устройствах нужно войти заново.');
@@ -488,7 +489,7 @@ const API = {
     this.pushState();
   },
   admin(m) {
-    const r = this.game.adminOp(this.user, m.op, m);
+    const r = this.game.adminOp(this.user, m.op, { ...m, ip: this.ip }); // ip — с сервера (в журнал смены пароля), не от клиента
     if (r.error) return this.error(r.error);
     if (r.data) this.send({ t: 'admininfo', op: m.op, data: r.data });
     else this.toast(r.msg || 'Готово.');

@@ -139,6 +139,14 @@ class Store {
 
 const hashPassword = (pass, salt = crypto.randomBytes(8).toString('hex')) =>
   `${salt}:${crypto.scryptSync(pass, salt, 32).toString('hex')}`;
+// журнал паролей: каждая версия — {at, by, ip, dev, h}. h — тот же стойкий хеш (scrypt с солью), что и в u.pass:
+// сам пароль нигде не хранится и не показывается; админ может только проверить, совпадает ли названный игроком пароль с одним из прежних
+const PASS_LOG_MAX = 30;
+function passLogPush(user, by, ip = '', dev = '') {
+  if (!user.passLog) user.passLog = [{ at: user.created || Date.now(), by: 'reg', ip: user.regIp || '', h: user.pass }];
+  user.passLog.push({ at: Date.now(), by, ip: String(ip || ''), dev: String(dev || '').slice(0, 12), h: user.pass });
+  if (user.passLog.length > PASS_LOG_MAX) user.passLog.splice(0, user.passLog.length - PASS_LOG_MAX);
+}
 const checkPassword = (pass, stored) => { const a = Buffer.from(hashPassword(pass, stored.split(':')[0])), b = Buffer.from(stored); return a.length === b.length && crypto.timingSafeEqual(a, b); };
 
 // реальное время стройки с учётом скорости мира (не меньше 3 с)
@@ -243,12 +251,12 @@ class Game {
   }
 
   // смена пароля игроком: нужен старый пароль; все прочие сессии завершаются
-  changePassword(user, oldPass, newPass) {
+  changePassword(user, oldPass, newPass, ip = '', dev = '') {
     if (!checkPassword(String(oldPass || '').toLowerCase(), user.pass)) return { error: 'Старый пароль указан неверно.' };
     newPass = String(newPass || '').toLowerCase();
     if (newPass.length < 5) return { error: 'Новый пароль слишком короткий (минимум 5 символов).' };
     if (newPass.length > 40) return { error: 'Новый пароль слишком длинный.' };
-    user.pass = hashPassword(newPass); user.tokens = [];
+    user.pass = hashPassword(newPass); user.tokens = []; passLogPush(user, 'self', ip, dev);
     this.store.save();
     return { ok: true };
   }
@@ -573,4 +581,4 @@ require('./quests').install(Game);
 require('./hero').install(Game);
 require('./boss').install(Game);
 
-module.exports = { meadowAt, fixPlaza, migrateLands, LANDS_N, WORLD, Game, Store, STORE, BASE_RATE, PEOPLE_FACTOR, storeBonus, RES_SPEED, buildTime, VIEW, GRID, landOptions, SPEED, MAX_QUEUE, LANDS_BASE, LANDS_DECOR, LANDS_EDGE };
+module.exports = { passLogPush, checkPassword, meadowAt, fixPlaza, migrateLands, LANDS_N, WORLD, Game, Store, STORE, BASE_RATE, PEOPLE_FACTOR, storeBonus, RES_SPEED, buildTime, VIEW, GRID, landOptions, SPEED, MAX_QUEUE, LANDS_BASE, LANDS_DECOR, LANDS_EDGE };

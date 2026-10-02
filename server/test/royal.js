@@ -510,5 +510,20 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   g.tick(c, r.item.end + 1); assert.strictEqual(c.wall, 3, 'стена достроена');
   console.log('✓ Стена: без клетки, переезд старого Забора, развитие из Ратуши');
 }
+{ // восстановление аккаунта: журнал смены пароля и проверка старого пароля админом (пароли не хранятся в открытом виде)
+  const adm = Object.values(g.db.users).find((x) => x.admin) || (() => { const x = g.register({ login: 'admpass1', password: '12345', race: 0 }).user; x.admin = true; return x; })();
+  const u = g.register({ login: 'lostacc', password: 'старый1', race: 0 }).user; u.passLog = [{ at: Date.now() - 5000, by: 'reg', h: u.pass }];
+  assert.ok(g.changePassword(u, 'старый1', 'новый22', '1.2.3.4').ok);
+  assert.ok(g.adminOp(adm, 'pass', { login: 'lostacc', password: 'админ333' }).msg);
+  assert.strictEqual(u.passLog.length, 3, 'три версии пароля');
+  assert.ok(!JSON.stringify(u).includes('старый1') && !JSON.stringify(u).includes('админ333'), 'пароли не хранятся открытым текстом');
+  const c1 = g.adminOp(adm, 'passcheck', { login: 'lostacc', password: 'старый1' }).data, c2 = g.adminOp(adm, 'passcheck', { login: 'lostacc', password: 'админ333' }).data, c3 = g.adminOp(adm, 'passcheck', { login: 'lostacc', password: 'чужой' }).data;
+  assert.ok(c1.hits.length === 1 && !c1.hits[0].current && c1.hits[0].to > 0, 'прежний пароль узнаётся');
+  assert.ok(c2.hits.length === 1 && c2.hits[0].current, 'текущий пароль узнаётся');
+  assert.ok(!c3.hits.length, 'чужой — нет');
+  const info = g.adminOp(adm, 'player', { login: 'lostacc' }).data;
+  assert.ok(info.passLog.length === 3 && info.passLog[0].current && !('h' in info.passLog[0]) && info.passLog[1].ip === '1.2.3.4', 'история без отпечатков, с IP');
+  console.log('✓ Восстановление аккаунта: журнал смены пароля, проверка старого пароля, пароли не хранятся открытым текстом');
+}
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);

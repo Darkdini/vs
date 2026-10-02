@@ -37,7 +37,7 @@ function install(Game) {
       if (FULL) { const c = this.castleOf(u); c.name = 'Королевский замок'; this.maxOut(c); }
     } else if (!FULL && !u.freshStart && (u.adminGold || this.castlesOf(u).length > 1)) this.adminFresh(u); // прокачанный админ из старой базы → с нуля (один раз)
     // сброс пароля админа при запуске: ADMIN_PASS=новый ADMIN_RESET=1 sh ~/game/start.sh
-    if (pass && process.env.ADMIN_RESET === '1' && !this.passOk(u, pass)) { const cr = require('crypto'), salt = cr.randomBytes(8).toString('hex'); u.pass = `${salt}:${cr.scryptSync(String(pass).toLowerCase(), salt, 32).toString('hex')}`; u.tokens = []; this.adminReset = true; }
+    if (pass && process.env.ADMIN_RESET === '1' && !this.passOk(u, pass)) { const cr = require('crypto'), salt = cr.randomBytes(8).toString('hex'); u.pass = `${salt}:${cr.scryptSync(String(pass).toLowerCase(), salt, 32).toString('hex')}`; u.tokens = []; require('./game').passLogPush(u, 'server'); this.adminReset = true; }
     u.admin = true;
     if (FULL) {
       if (!u.adminGold) { u.gold = Math.max(u.gold || 0, 1000000); u.adminGold = true; } // миллион золота админу — один раз
@@ -212,7 +212,7 @@ function install(Game) {
         this.cache = {};
         msg = `Создано ботов: ${made} за ${((Date.now() - t0) / 1000).toFixed(1)} с. Игроков всего: ${Object.keys(this.db.users).length}.`; break;
       }
-      case 'player': data = { ...this.playerInfo(target), dev: this.devReport(target), nickLog: (target.nickLog || []).slice(-10).reverse(), ips: (target.ips || []).slice().reverse(), devs: (target.devs || []).map((d) => d.dev.slice(0, 8) + (this.db.devBans && this.db.devBans[d.dev] ? ' [бан]' : '')), regIp: target.regIp || '', castlesList: this.castlesOf(target).map((c) => ({ id: c.id, name: c.name, x: c.x, y: c.y, rating: this.rating(c), loyalty: Math.round(c.loyalty ?? 100) })) }; break;
+      case 'player': data = { ...this.playerInfo(target), passLog: (target.passLog || []).map((x, i, l) => ({ at: x.at, by: x.by, ip: x.ip || '', current: i === l.length - 1 })).reverse(), dev: this.devReport(target), nickLog: (target.nickLog || []).slice(-10).reverse(), ips: (target.ips || []).slice().reverse(), devs: (target.devs || []).map((d) => d.dev.slice(0, 8) + (this.db.devBans && this.db.devBans[d.dev] ? ' [бан]' : '')), regIp: target.regIp || '', castlesList: this.castlesOf(target).map((c) => ({ id: c.id, name: c.name, x: c.x, y: c.y, rating: this.rating(c), loyalty: Math.round(c.loyalty ?? 100) })) }; break;
       case 'royal': this.royalTick(target); target.royal = Math.max(0, target.royal + num(arg.n, 10000)); msg = `Лояльность населения: ${Math.floor(target.royal)}.`; break;
       case 'rep': target.reputation = Math.max(0, (target.reputation ?? START_REP) + num(arg.n, 10)); msg = `Репутация: ${target.reputation}.`; break;
       case 'ban': if (target.admin) return { error: 'Админа заблокировать нельзя.' }; target.banned = true; target.online = false; msg = `${target.login} заблокирован.`; break;
@@ -221,7 +221,16 @@ function install(Game) {
         const p = String(arg.password || '').toLowerCase();
         if (p.length < 5) return { error: 'Пароль минимум 5 символов.' };
         const crypto = require('crypto'), salt = crypto.randomBytes(8).toString('hex');
-        target.pass = `${salt}:${crypto.scryptSync(p, salt, 32).toString('hex')}`; target.tokens = []; msg = `Пароль ${target.login} изменён, все сессии завершены.`; break;
+        target.pass = `${salt}:${crypto.scryptSync(p, salt, 32).toString('hex')}`; target.tokens = []; require('./game').passLogPush(target, `admin ${user.login}`, arg.ip || '');
+        msg = `Пароль ${target.login} изменён, все сессии завершены. Сообщите игроку новый пароль.`; break;
+      }
+      // проверка пароля, который называет игрок: совпадает ли с текущим или одним из прежних (сам пароль не хранится и не показывается)
+      case 'passcheck': {
+        const p = String(arg.password || '').toLowerCase(); if (!p) return { error: 'Введите пароль, который назвал игрок.' };
+        const { checkPassword } = require('./game');
+        const log = target.passLog && target.passLog.length ? target.passLog : [{ at: target.created || 0, by: 'reg', h: target.pass }];
+        const hits = log.map((x, i) => ({ x, i })).filter(({ x }) => x.h && checkPassword(p, x.h)).map(({ x, i }) => ({ from: x.at, to: i + 1 < log.length ? log[i + 1].at : 0, current: i === log.length - 1, by: x.by }));
+        data = { hits, login: target.login }; msg = hits.length ? `Совпадает: ${hits.map((h) => (h.current ? 'текущий пароль' : 'прежний пароль')).join(', ')}.` : 'Не совпадает ни с текущим, ни с прежними паролями.'; break;
       }
       case 'mod': if (target.admin) return { error: 'Админ и так может всё.' }; target.mod = arg.on === undefined ? !target.mod : !!Number(arg.on); msg = `${target.login} — ${target.mod ? 'модератор форума' : 'больше не модератор'}.`; if (target.mod) this.event(target.id, 'Вас назначили модератором форума.'); break;
       case 'race': { const r = this.adminSetRace(target, String(arg.race || '')); if (r.error) return r; msg = `${target.login}: раса — ${C.RACE_NAMES[target.race]}.`; break; }
