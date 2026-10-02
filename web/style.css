@@ -1736,3 +1736,5 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 #advbar .ab-x small { color: #fff; opacity: .85; }
 #advbar .ab-b { display: flex; align-items: center; padding: 0 12px; background: linear-gradient(#5fd35f, #1f8f1f); border-left: 2px solid #c8963e; }
 #advbar.done { animation: qglow 1.4s ease-in-out infinite; } #advbar.done .ab-b { background: linear-gradient(#ffd76a, #d18a12); color: #4a2410; text-shadow: none; }
+#game.adv #qbtn { bottom: 140px; }
+#game.adv #bbtn { bottom: 204px; }

@@ -105,7 +105,9 @@ function advPic() { const r = S.st.user.race; return `${GFX}units/${S.cat.mil.ra
 function advBar() {
   const a = S.st && S.st.quests && S.st.quests.adv;
   let b = $('#advbar');
-  if (!a || a.finished || !['castle', 'lands', undefined].includes(S.tab)) { if (b) b.remove(); return; }
+  const show = !!a && !a.finished && ['castle', 'lands', undefined].includes(S.tab);
+  $('#game').classList.toggle('adv', show); // свиток заданий и кнопка босса поднимаются над полоской
+  if (!show) { if (b) b.remove(); return; }
   if (!b) { b = document.createElement('button'); b.id = 'advbar'; b.type = 'button'; b.addEventListener('click', () => openSheet(advWin)); $('#stage').appendChild(b); }
   b.classList.toggle('done', !!a.done);
   const nm = S.by && S.by[a.bid] ? S.by[a.bid].name : a.title, short = a.need > 1 ? `${nm} → ${a.need} ур.` : `Построить: ${nm}`;
