@@ -619,16 +619,13 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(g.questClaim(u, c, 'adv').error, 'не выполнено — не забрать');
   c.levels[0][c.grid[0].indexOf(0)] = 2; a = g.advState(u, c); assert.ok(a.done, 'Ратуша 2 — выполнено');
   const cap = g.capacity(c).wood, sw = (u.stash && u.stash.res.wood) || 0; c.res.wood = cap - 100;
-  assert.ok(g.questClaim(u, c, 'adv').ok, 'награда');
-  assert.ok(Math.round(c.res.wood) === cap + 400 && ((u.stash && u.stash.res.wood) || 0) === sw, `всё в замок, даже сверх Склада: ${c.res.wood} при Складе ${cap}`);
-  g.accrue(c, Date.now() + 3600000); assert.ok(Math.round(c.res.wood) === cap + 400, 'излишек не срезается добычей и не растёт');
-  g.anomalyScan(); g.anomalyScan(); assert.ok(!(g.db.alerts || []).some((x) => x.uid === u.id && x.kind === 'res'), 'излишек от советника — не подозрительно');
-  c.res.wood = cap + 5000; g.anomalyScan(); assert.ok((g.db.alerts || []).some((x) => x.uid === u.id && x.kind === 'res'), 'а больше разрешённого — тревога');
+  const rr = g.questClaim(u, c, 'adv'); assert.ok(rr.ok && /В замок:/.test(rr.msg) && /в Кладовой/.test(rr.msg), rr.msg);
+  assert.ok(Math.abs(c.res.wood - cap) <= 1 && Math.abs(((u.stash && u.stash.res.wood) || 0) - sw - 400) <= 1, 'в замок до Склада, остаток — в Кладовую');
   c.res.wood = 0;
   assert.strictEqual(g.advState(u, c).idx, 1, 'следующий шаг');
   const v = g.register({ login: 'advold1', password: '12345', race: 0 }).user, cv = g.castleOf(v); cv.levels[0][cv.grid[0].indexOf(0)] = 7;
   assert.ok(g.advState(v, cv).finished, 'опытному (Ратуша 7) — цепочка пройдена');
-  console.log('✓ Советник-строитель: шаги, ресурсы целиком в замок (сверх Склада не срезаются)');
+  console.log('✓ Советник-строитель: шаги, ресурсы в замок до Склада, остаток в Кладовую');
 }
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);

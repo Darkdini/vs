@@ -206,15 +206,13 @@ function install(Game) {
     const have = this.buildingLevel(c, t.bid), def = C.BY_ID[t.bid];
     return { idx: q.adv, total: ADV.length, id: t.id, title: t.title, bid: t.bid, layer: def ? def.layer : 'castle', have: Math.min(have, t.lvl), need: t.lvl, done: have >= t.lvl, reward: t.reward };
   };
-  // награда советника: ресурсы — сразу в замок целиком, даже сверх Склада (сверх него не растут добычей, но и не пропадают);
-  // воины и опыт — в Кладовую. Разрешённый излишек запоминается, чтобы «Подозрительное» не тревожилось.
+  // награда советника: ресурсы — сразу в замок, до вместимости Склада; остаток, воины и опыт — в Кладовую (не пропадают)
   const giveNow = (g, u, c, rw) => {
-    g.tick(c); const cap = g.capacity(c); let inCastle = 0;
-    c.overOk = c.overOk || {};
-    for (const r of RES4) if (rw[r]) { c.res[r] += rw[r]; inCastle += rw[r]; if (c.res[r] > cap[r]) c.overOk[r] = Math.max(c.overOk[r] || 0, Math.ceil(c.res[r])); }
-    const toStash = { ...(rw.u ? { u: rw.u } : {}), ...(rw.exp ? { exp: rw.exp } : {}) };
+    g.tick(c); const cap = g.capacity(c), rest = {}; let inCastle = 0, toS = 0;
+    for (const r of RES4) if (rw[r]) { const k = Math.max(0, Math.min(rw[r], Math.floor(cap[r] - c.res[r]))); c.res[r] += k; inCastle += k; if (rw[r] - k > 0) { rest[r] = rw[r] - k; toS += rest[r]; } }
+    const toStash = { ...rest, ...(rw.u ? { u: rw.u } : {}), ...(rw.exp ? { exp: rw.exp } : {}) };
     const got = Object.keys(toStash).length ? g.stashAdd(u, toStash) : [];
-    return { inCastle, stash: got };
+    return { inCastle, toS, stash: got.filter((x) => x !== 'ресурсы') };
   };
 
   // состояние для окна «Задания»
@@ -263,7 +261,7 @@ function install(Game) {
     if (kind === 'adv') {
       const a = this.advState(u, c); if (a.finished || !a.done) return { error: 'Задание советника ещё не выполнено.' };
       const r = giveNow(this, u, c, ADV[q.adv].reward); q.adv++; this.store.save();
-      return { ok: true, msg: `Советник: «${a.title}» — выполнено!${r.inCastle ? ' Ресурсы — в замке.' : ''}${r.stash.length ? ` В Кладовую: ${r.stash.join(', ')}.` : ''}` };
+      return { ok: true, msg: `Советник: «${a.title}» — выполнено!${r.inCastle ? ` В замок: ${r.inCastle.toLocaleString('ru-RU')} ресурсов.` : ''}${r.toS ? ` Не поместилось на Складе — ${r.toS.toLocaleString('ru-RU')} в Кладовой (сундук справа вверху).` : ''}${r.stash.length ? ` В Кладовую: ${r.stash.join(', ')}.` : ''}` };
     }
     if (kind === 'weekly') {
       const x = q.weekly.list.find((y) => y.id === id), v = st.weekly.find((y) => y.id === id);
