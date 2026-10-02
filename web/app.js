@@ -152,7 +152,8 @@ function connect() {
   ws.onopen = () => {
     $('#offline').classList.remove('show');
     send({ t: 'hello' });
-    if (S.creds) { S.auto = true; send({ t: 'login', ...S.creds, dev: DEV }); }
+    // сам входит только после обрыва связи, когда игрок уже в игре; при открытии игры — экран входа, игрок жмёт «Войти» сам
+    if (S.creds && S.entered) { S.auto = true; send({ t: 'login', ...S.creds, dev: DEV }); }
   };
   ws.onmessage = (e) => { try { onMsg(JSON.parse(e.data)); } catch (err) { console.error(err); } };
   ws.onclose = () => { if (S.ws !== ws) return; $('#offline').classList.add('show'); clearTimeout(S.reTimer); S.reTimer = setTimeout(connect, 2000); };
@@ -211,7 +212,7 @@ function onMsg(m) {
       // show — то, что игрок вводил в поле «Логин» (у админа это секретный логин, а в игре он «admin»)
       S.creds = { login: m.login, token: m.token, show: (S.pendingCreds && S.pendingCreds.login) || (S.creds && S.creds.show) || m.login }; S.pendingCreds = null;
       store.set('tw.creds', S.remember ? S.creds : null);
-      S.auto = false;
+      S.auto = false; S.entered = true; savedLoginUi();
       (DEVINFO ? Promise.resolve(DEVINFO) : deviceInfo()).then((d) => send({ t: 'devinfo', dev: DEV, ...d })).catch(() => {});
       $('#auth').classList.add('hidden'); $('#game').classList.remove('hidden');
       break;
@@ -253,7 +254,7 @@ function onMsg(m) {
     case 'loginlock': showLock(Date.now() + m.sec * 1000); break;
     case 'error':
       if (S.auto || !S.st) { // ошибка входа — показать форму
-        S.auto = false; if (S.creds) $('#authForm').login.value = S.creds.show || S.creds.login; S.creds = null; store.set('tw.creds', null);
+        S.auto = false; if (S.creds) $('#authForm').login.value = S.creds.show || S.creds.login; S.creds = null; store.set('tw.creds', null); savedLoginUi();
         $('#auth').classList.remove('hidden'); $('#game').classList.add('hidden');
         $('#authErr').textContent = m.msg;
       } else toast(m.msg, 'err');
@@ -333,6 +334,9 @@ $('#authForm').addEventListener('submit', (e) => {
   $('#authErr').textContent = '';
   S.remember = f.remember.checked;
   S.pendingCreds = { login, password };
+  // сохранённый вход: пароль не нужен, если логин тот же — вход по токену
+  if (S.mode !== 'reg' && !password && S.creds && S.creds.token && login === (S.creds.show || S.creds.login)) { S.pendingCreds = { login, password: '' }; S.auto = true; return send({ t: 'login', ...S.creds, dev: DEV }); }
+  if (S.mode !== 'reg' && !password) { $('#authErr').textContent = 'Введите пароль.'; return; }
   if (S.mode === 'reg' && login.length < 5) { $('#authErr').textContent = 'Логин слишком короткий (минимум 5 символов).'; return; }
   if (S.mode === 'reg') { send({ t: 'register', login, password, nick: f.nick.value.trim(), race: String(S.race), captcha: f.captcha.value, dev: DEV }); f.captcha.value = ''; }
   else send({ t: 'login', login, password, dev: DEV });
@@ -1328,7 +1332,15 @@ S.creds = store.get('tw.creds');
 if (S.creds && S.creds.password) { S.creds = null; store.set('tw.creds', null); } // старый формат с паролем — стираем
 S.remember = true;
 store.set('tw.lock', null); // блокировку решает только сервер: после его перезапуска старая табличка не нужна
-if (S.creds) $('#authForm').login.value = S.creds.show || S.creds.login;
+// сохранённый вход: логин подставлен, пароль можно не вводить — достаточно нажать «Войти»
+function savedLoginUi() {
+  const f = $('#authForm'), saved = !!(S.creds && S.creds.token);
+  if (saved && !f.login.value) f.login.value = S.creds.show || S.creds.login;
+  f.password.required = !saved;
+  f.password.placeholder = saved ? 'пароль сохранён' : '';
+}
+savedLoginUi();
+$('#authForm').login.addEventListener('input', (e) => { const saved = S.creds && S.creds.token && e.target.value.trim() === (S.creds.show || S.creds.login); $('#authForm').password.required = !saved; $('#authForm').password.placeholder = saved ? 'пароль сохранён' : ''; });
 connect();
 // «Скачать на Android» — если APK лежит на сервере и игра открыта не в самом приложении
 if (!/WarKingsApp/.test(navigator.userAgent)) fetch('war-kings.apk', { method: 'HEAD' }).then((r) => { if (r.ok) $('#apkLink').classList.remove('hidden'); }).catch(() => {});
