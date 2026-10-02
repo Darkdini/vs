@@ -1679,5 +1679,12 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .stwhy { flex-basis: 100%; margin-left: 66px; padding: 6px 10px; border-radius: 8px; background: #3a0d12; color: #fff; font: 400 15px/1.3 var(--serif); }
 .quni b { color: #a0661a; }
 .stic img.u { width: 100%; height: 130%; object-fit: cover; object-position: 50% 8%; align-self: flex-start; }
-#locs.open ~ #stbtn { opacity: 0; pointer-events: none; }
 #stbtn[hidden] { display: none; }
+/* панель локаций компактнее — над ней помещается кнопка Кладовой */
+#locs .lbtns { gap: 7px; padding: 10px 7px 10px 9px; }
+#locs .lbtns button { width: 62px; height: 62px; border-radius: 13px; }
+#locsTab { left: -46px; width: 48px; height: 90px; }
+#locs:not(.open) #locsTab { left: -46px; }
+/* Кладовая: тёмная подложка и золотое свечение — не сливается с лесом */
+#stbtn { top: 34px; width: 62px; height: 62px; background: radial-gradient(circle, #2a1406 58%, #2a140600 72%); box-shadow: 0 0 0 2px #ffd76a, 0 0 10px 2px #ffc94a99, 0 3px 6px #000c; }
+#stbtn img { filter: drop-shadow(0 0 2px #000) drop-shadow(0 2px 3px #000a); }
