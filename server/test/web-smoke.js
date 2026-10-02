@@ -11,7 +11,9 @@ const { spawn } = require('child_process');
 if (typeof WebSocket === 'undefined') { console.log('web-smoke: пропущен (нет встроенного WebSocket, нужен Node 22+)'); process.exit(0); }
 
 const WEB_PORT = 26000 + Math.floor(Math.random() * 1000);
-const DB = path.join(os.tmpdir(), `tw-web-smoke-${process.pid}.json`);
+// своя свежая база на каждый прогон: номер процесса в контейнере повторяется, поэтому ещё и случайная добавка, и старый файл стирается
+const DB = path.join(os.tmpdir(), `tw-web-smoke-${process.pid}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}.json`);
+fs.rmSync(DB, { force: true });
 
 function startServer() {
   const child = spawn(process.execPath, [path.join(__dirname, '..', 'src', 'index.js')], {
@@ -443,7 +445,8 @@ function client() {
     process.exitCode = 1;
   } finally {
     a.close(); b.close();
+    // база удаляется после выхода сервера (при остановке он сохраняет её ещё раз)
+    server.once('exit', () => { for (const f of [DB, `${DB}.tmp`, `${DB}.bak`]) fs.rmSync(f, { force: true }); });
     server.kill();
-    fs.rmSync(DB, { force: true });
   }
 })();
