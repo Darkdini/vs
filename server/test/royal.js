@@ -567,5 +567,17 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   u.admin = true; g.ensureAdmin(); assert.ok(!u.admin && g.adminUser().admin, 'лишние права админа снимаются при запуске');
   console.log('✓ Восстановление аккаунта: журнал смены пароля, проверка старого пароля, пароли не хранятся открытым текстом');
 }
+{ // статистика для админа: возвраты новичков на следующий день, онлайн по часам, золото по видам
+  const M = require('../src/metrics'), now = Date.now(), DAYMS = 86400000, adm = g.adminUser();
+  const a1 = g.register({ login: 'statnew1', password: '12345', race: 0 }).user, a2 = g.register({ login: 'statnew2', password: '12345', race: 0 }).user;
+  a1.created = a2.created = now - 3 * DAYMS; a1.act = [M.dayKey(now - 3 * DAYMS), M.dayKey(now - 2 * DAYMS)]; a2.act = [M.dayKey(now - 3 * DAYMS)];
+  g.metricTick(5, now); g.metricTick(3, now);
+  g.goldChange(a1, 100, 'Пополнение казны администрацией'); g.goldChange(a1, -40, 'Премиум Завоеватель на 14 дн.');
+  const st = g.adminOp(adm, 'stats', { online: 2 }).data, d = st.days.find((x) => x.d === M.dayKey(now - 3 * DAYMS));
+  assert.ok(d.reg >= 2 && d.d1 >= 1 && d.d1 < d.reg, 'вернулся на следующий день — один из двух: ' + JSON.stringify(d));
+  assert.ok(st.hours.length === 48 && st.hours[47].v === 5 && st.now.online === 2, 'онлайн за час — максимум');
+  assert.ok(st.gold.spent.some((x) => x.k === 'Премиум' && x.sum >= 40) && st.gold.in >= 100, 'золото по видам');
+  console.log('✓ Статистика админа: онлайн по часам, возвраты новичков, золото по видам');
+}
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);

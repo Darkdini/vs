@@ -24,6 +24,9 @@ setInterval(() => {
   for (const ev of game.drainEvents()) for (const s of sessions) if (s.user && s.user.id === ev.userId && s.notify) s.notify(ev.msg);
 }, 1000);
 
+// раз в минуту: сколько игроков онлайн — для статистики в Админ-панели (metrics.js)
+setInterval(() => { try { game.metricTick(new Set([...sessions].filter((s) => s.user && !s.user.bot).map((s) => s.user.id)).size); } catch (e) { console.error(e); } }, 60000);
+
 // администратор: в игре — admin (вход под ADMIN_LOGIN, если задан), пароль ADMIN_PASS; 1 замок с нуля (ADMIN_FULL=1 — полная прокачка)
 if (game.ensureAdmin()) {
   if (game.adminWasReset) console.log('Админ начат с нуля: один новый замок без развития.');

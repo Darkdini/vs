@@ -1702,3 +1702,22 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .qtabs button span { font-size: 12px; }
 /* сохранённый вход: точки-подсказка в пустом поле пароля выглядят как введённый пароль */
 #authForm input[name=password].saved::placeholder { color: inherit; opacity: 1; letter-spacing: 2px; }
+/* Админ-панель → Статистика (admin.js admStatsHtml) */
+.stiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 6px; margin: 4px 0 8px; }
+.stile { padding: 6px 4px; border: 1px solid #b8873a; border-radius: 8px; background: #fff6dd; text-align: center; }
+.stile b { display: block; font: 700 20px var(--serif); color: #3a1c0c; } .stile span { font-size: 12px; color: #7a5a3a; }
+.sbars { display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: 2px; align-items: end; height: 120px; padding: 4px 0 0; border-bottom: 1px solid #b8873a;
+  background: repeating-linear-gradient(to top, transparent 0 29px, #b8873a33 29px 30px); }
+.sbars button { height: 100%; padding: 0; border: 0; background: none; display: flex; align-items: flex-end; cursor: pointer; }
+.sbars i { display: block; width: 100%; border-radius: 3px 3px 0 0; background: #8e2a33; }
+.sbars button.on i { background: #d99a1e; } .sbars button:hover i { filter: brightness(1.25); }
+.saxis { display: grid; grid-template-columns: repeat(var(--n), 1fr); font-size: 10px; line-height: 14px; color: #7a5a3a; white-space: nowrap; height: 14px; }
+.saxis span { overflow: visible; min-width: 0; }
+.ssub { margin: 10px 0 4px; font: 700 15px var(--serif); color: #4a2410; }
+.sread { margin: 4px 0 2px; font-size: 13px; color: #3a1c0c; }
+.stab { width: 100%; border-collapse: collapse; font-size: 13px; } .stab th, .stab td { padding: 4px 3px; border-bottom: 1px solid #b8873a55; text-align: center; color: #3a1c0c; } .stab th { font-size: 11px; color: #7a5a3a; }
+.shbar { display: grid; grid-template-columns: 34% 1fr auto; align-items: center; gap: 6px; margin: 3px 0; font-size: 13px; color: #3a1c0c; }
+.shbar i { height: 10px; background: #e9d6a8; border-radius: 4px; overflow: hidden; } .shbar i b { display: block; height: 100%; background: #8e2a33; border-radius: 4px; }
+.shbar em { font-style: normal; font-size: 12px; color: #7a5a3a; }
+.srow { display: flex; justify-content: space-between; gap: 6px; padding: 2px 0; font-size: 13px; color: #3a1c0c; border-bottom: 1px dotted #b8873a55; }
+.stwo { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }

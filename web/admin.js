@@ -8,7 +8,7 @@ const aNum = (name, value, ph) => `<input class="anum" type="number" inputmode="
 
 // Разделы: Игрок (поиск, карточка, пароли, наказания) · Выдать (монеты, ресурсы, замки, армия) · Модерация (модераторы, мульты, жалобы) · Мир (новости, рассылки, события).
 // У каждого действия — короткое описание; одно действие — в одном месте.
-const ADM_TABS = [['player', '👤 Игрок'], ['give', '🎁 Выдать'], ['mod', '🛡 Модерация'], ['world', '🌍 Мир']];
+const ADM_TABS = [['player', '👤 Игрок'], ['give', '🎁 Выдать'], ['mod', '🛡 Модерация'], ['world', '🌍 Мир'], ['stats', '📊 Статистика']];
 // строка действия: название и пояснение слева, поле и кнопка справа
 const aAct = (title, desc, controls, wide = false) => `<div class="aact ${wide ? 'wide' : ''}"><div class="aact-t"><b>${title}</b><small>${desc}</small></div><div class="aact-c">${controls}</div></div>`;
 const aBtn2 = (op, text, extra = '', cls = '') => `<button class="btn small ${cls}" data-adm="${op}" ${extra}>${text}</button>`;
@@ -62,6 +62,7 @@ function adminHtml() {
         ${aAct('Лагеря на карте', 'Вернуть ресурсы и охрану всем разграбленным лагерям.', aBtn2('npc', 'Восстановить'))}
         ${aAct('Отчёты', 'Удалить все боевые отчёты на сервере.', aBtn2('reports', 'Очистить', 'data-confirm="Удалить все отчёты всех игроков?"', 'danger'))}
         ${aAct('Боты', 'Заселить карту замками-ботами (для проверки нагрузки).', `${aNum('bots', 100, 'сколько')}${aBtn2('bots', 'Заселить', 'data-arg="bots:n" data-confirm="Заселить карту ботами?"')}`)}`)}`,
+    stats: () => admStatsHtml(a.stats),
   };
   return head + T[tab]();
 }
@@ -155,7 +156,7 @@ $('#sheetBody').addEventListener('change', (e) => {
 $('#sheetBody').addEventListener('click', (e) => {
   const gf = e.target.closest('[data-gafill]'); if (gf) { $$('.gaunit input').forEach((i) => { i.value = gf.dataset.gafill; }); return; }
   const md = e.target.closest('[data-amod]'); if (md) { if (!confirm(`Снять ${md.dataset.amod} с модераторов?`)) return; send({ t: 'admin', op: 'mod', login: md.dataset.amod, on: 0 }); return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
-  const tb = e.target.closest('[data-atab]'); if (tb) { S.adm.tab = tb.dataset.atab; if (S.adm.tab === 'mod') { send({ t: 'admin', op: 'mods' }); send({ t: 'admin', op: 'multis' }); } return refreshSheet(); }
+  const tb = e.target.closest('[data-atab]'); if (tb) { S.adm.tab = tb.dataset.atab; if (S.adm.tab === 'mod') { send({ t: 'admin', op: 'mods' }); send({ t: 'admin', op: 'multis' }); } if (S.adm.tab === 'stats') send({ t: 'admin', op: 'stats' }); return refreshSheet(); }
   const mb = e.target.closest('[data-mban],[data-mall],[data-mdev]');
   if (mb) { // решения по мультам — только вручную и с подтверждением
     const d = mb.dataset, on = d.on === '1';
@@ -211,9 +212,50 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
     if (m.op === 'bugs') S.adm.bugs = m.data;
     if (m.op === 'multis') S.adm.multis = m.data;
     if (m.op === 'mods') S.adm.mods = m.data;
+    if (m.op === 'stats') S.adm.stats = m.data;
     if (m.op === 'armyinfo') S.adm.ga = m.data;
     if (m.op === 'passcheck') S.adm.passcheck = m.data;
     return refreshSheet();
   }
   prevMil2(m);
 };
+
+// ---------- 📊 Статистика (server/src/metrics.js): онлайн по часам, регистрации и возвраты новичков, золото ----------
+// столбики — один ряд значений; нажатие на столбик показывает точное значение под графиком
+function admBars(id, rows, label, fmt = fmtFull) {
+  const max = Math.max(1, ...rows.map((r) => r.v)), sel = S.adm.statSel && S.adm.statSel.id === id ? S.adm.statSel.i : -1, peak = rows.reduce((b, r, i) => (r.v > rows[b].v ? i : b), 0);
+  return `<div class="sbars" style="--n:${rows.length}">${rows.map((r, i) => `<button class="${i === sel ? 'on' : ''}" data-ssel="${id}:${i}" title="${esc(r.t)}: ${fmt(r.v)}"><i style="height:${Math.max(r.v ? 4 : 0, r.v / max * 100)}%"></i></button>`).join('')}</div>
+    <div class="saxis" style="--n:${rows.length}">${rows.map((r, i) => `<span>${r.tick || ''}</span>`).join('')}</div>
+    <p class="sread">${sel >= 0 ? `<b>${esc(rows[sel].t)}</b>: ${fmt(rows[sel].v)} ${label}` : `Максимум: <b>${fmt(rows[peak].v)}</b> ${label} (${esc(rows[peak].t)}). Нажмите на столбик — точное значение.`}</p>`;
+}
+function admStatsHtml(st) {
+  if (!st) return `${aSec('📊 Статистика', '<p class="small">Загрузка…</p>')}`;
+  const tile = (v, t) => `<div class="stile"><b>${fmtFull(v)}</b><span>${t}</span></div>`;
+  const dm = (d) => `${d.slice(8, 10)}.${d.slice(5, 7)}`;
+  const pct = (a, b) => (b ? ` (${Math.round(a / b * 100)}%)` : '');
+  const back = (x, reg) => (x === null ? '<span class="muted">—</span>' : reg ? `${x} из ${reg}${pct(x, reg)}` : '<span class="muted">0</span>');
+  const hours = st.hours.map((h, i) => ({ v: h.v, t: `${dm(h.k)} ${h.h}:00`, tick: i % 6 === 0 ? `${h.h}ч` : '' }));
+  const reg = st.days.map((d, i) => ({ v: d.reg, t: dm(d.d), tick: i % 2 === 0 ? dm(d.d) : '' }));
+  const act = st.days.map((d, i) => ({ v: d.active, t: dm(d.d), tick: i % 2 === 0 ? dm(d.d) : '' }));
+  const g = st.gold, gmax = Math.max(1, ...g.spent.map((x) => x.sum));
+  return `${aSec('📊 Сейчас', `<div class="stiles">${tile(st.now.online, 'онлайн')}${tile(st.now.users, 'игроков всего')}${tile(st.now.active7, 'заходили за 7 дней')}${tile(st.now.regToday, 'регистраций сегодня')}${tile(st.now.goldHeld, 'золота у игроков')}</div>
+      <button class="btn small" data-astats>↻ Обновить</button>`)}
+    ${aSec('🕐 Онлайн за 48 часов', `<p class="small">Сколько игроков было в игре одновременно (максимум за час, время московское).</p>${admBars('h', hours, 'онлайн')}`)}
+    ${aSec('🆕 Регистрации за 14 дней', admBars('r', reg, 'регистраций'))}
+    ${aSec('👥 Активные игроки за 14 дней', `<p class="small">Сколько разных игроков заходили в игру в этот день.</p>${admBars('a', act, 'игроков')}`)}
+    ${aSec('↩ Возвращаются ли новички', `<p class="small">Из зарегистрированных в этот день — сколько зашли на следующий день и через неделю. «—» — тот день ещё не наступил. Считается с обновления, в котором появилась статистика.</p>
+      <table class="stab"><tr><th>День</th><th>Рег.</th><th>Через день</th><th>Через неделю</th><th>Пик онлайн</th></tr>
+      ${st.days.slice().reverse().map((d) => `<tr><td>${dm(d.d)}</td><td>${d.reg}</td><td>${back(d.d1, d.reg)}</td><td>${back(d.d7, d.reg)}</td><td>${d.peak}</td></tr>`).join('')}</table>`)}
+    ${aSec('💰 Золото за 30 дней', `<div class="stiles">${tile(g.in, 'поступило')}${tile(g.out, 'потрачено')}</div>
+      <div class="ssub">На что тратят</div>
+      ${g.spent.length ? g.spent.map((x) => `<div class="shbar"><span>${esc(x.k)}</span><i><b style="width:${x.sum / gmax * 100}%"></b></i><em>${fmtFull(x.sum)} · ${x.n} раз</em></div>`).join('') : '<p class="small">Трат пока не было.</p>'}
+      <div class="ssub">Откуда пришло</div>
+      ${g.got.length ? g.got.map((x) => `<div class="srow"><span>${esc(x.k)}</span><b>${fmtFull(x.sum)}</b></div>`).join('') : '<p class="small">Поступлений не было.</p>'}
+      <div class="stwo"><div><div class="ssub">Больше всех потратили</div>${g.spenders.map((x) => `<div class="srow"><span>${esc(x.login)}</span><b>${fmtFull(x.sum)}</b></div>`).join('') || '<p class="small">—</p>'}</div>
+      <div><div class="ssub">Больше всех получили</div>${g.buyers.map((x) => `<div class="srow"><span>${esc(x.login)}</span><b>${fmtFull(x.sum)}</b></div>`).join('') || '<p class="small">—</p>'}</div></div>`)}`;
+}
+$('#sheetBody').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-ssel],[data-astats]'); if (!b) return;
+  if (b.dataset.astats !== undefined) { S.adm.statSel = null; return send({ t: 'admin', op: 'stats' }); }
+  const [id, i] = b.dataset.ssel.split(':'); S.adm.statSel = S.adm.statSel && S.adm.statSel.id === id && S.adm.statSel.i === Number(i) ? null : { id, i: Number(i) }; refreshSheet();
+});

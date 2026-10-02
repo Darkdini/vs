@@ -178,6 +178,7 @@ class WebSession {
     // лояльность населения (Резиденция) растёт за действия, а не за онлайн
     if (!this.failed && this.user && ROYAL_ACTIONS.has(msg.t)) this.game.royalGain(this.user);
     // Зал Славы «Присутствие»: минуты в игре (пауза больше 5 минут не считается)
+    if (this.user) this.game.markActive(this.user); // день активности — для статистики «вернулся ли новичок»
     if (this.user) { const t = Date.now(), last = this.actAt || t; this.actAt = t; this.presMs = (this.presMs || 0) + Math.min(t - last, 300000);
       if (this.presMs >= 60000) { const m = Math.floor(this.presMs / 60000); this.presMs -= m * 60000; this.game.addStat(this.user.id, 'presence', m); } }
   }
@@ -238,7 +239,7 @@ const API = {
     if (!u.admin && this.game.devBanned(m.dev)) return this.error('Это устройство заблокировано администрацией.');
     if (u.banned) return this.error('Аккаунт заблокирован администрацией.');
     const prevSeen = u.lastSeen || 0;
-    this.user = u; u.online = true; u.lastSeen = Date.now();
+    this.user = u; u.online = true; u.lastSeen = Date.now(); this.game.markActive(u);
     this.log(`web login ${u.login}`);
     this.token = m.token ? String(m.token) : this.game.issueToken(u);
     this.send({ t: 'auth', login: u.login, token: this.token });
@@ -503,7 +504,7 @@ const API = {
     this.pushState();
   },
   admin(m) {
-    const r = this.game.adminOp(this.user, m.op, { ...m, ip: this.ip }); // ip — с сервера (в журнал смены пароля), не от клиента
+    const r = this.game.adminOp(this.user, m.op, { ...m, ip: this.ip, online: onlineCount() }); // ip и онлайн — с сервера, не от клиента
     if (r.error) return this.error(r.error);
     if (r.data) this.send({ t: 'admininfo', op: m.op, data: r.data });
     else this.toast(r.msg || 'Готово.');

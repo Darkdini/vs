@@ -188,6 +188,7 @@ function install(Game) {
       case 'sciences': for (const c of castles) { this.mil(c); c.sciences = { eco: 20, eng: 20, fhi: 20, war: 20 }; } msg = 'Все науки 20 ур.'; break;
       case 'loyalty': for (const c of castles) { this.mil(c); c.loyalty = Math.max(0, Math.min(100, num(arg.value, 100))); c.loyAt = now; } msg = `Лояльность ${num(arg.value, 100)}.`; break;
       // --- игроки ---
+      case 'stats': data = this.adminStats(Number(arg.online) || 0); break; // статистика (metrics.js); онлайн сейчас — от web.js
       case 'mods': // модераторы форума (общие) и модераторы разделов форума
         data = { mods: Object.values(this.db.users).filter((u) => u.mod && !u.admin).map((u) => ({ login: u.login, online: !!u.online })),
           sections: this.forumDb().sections.filter((s) => s.mods.length).map((s) => ({ name: s.name, mods: s.mods.map((id) => (this.userById(id) || {}).login).filter(Boolean) })) };

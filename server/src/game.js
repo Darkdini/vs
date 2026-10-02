@@ -578,6 +578,7 @@ require('./security').install(Game);
 require('./forum').install(Game);
 require('./news').install(Game);
 require('./stash').install(Game);
+require('./metrics').install(Game);
 require('./quests').install(Game);
 require('./hero').install(Game);
 require('./boss').install(Game);
