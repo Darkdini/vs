@@ -365,7 +365,7 @@ input.num { width: 76px; padding: 7px; text-align: center; }
 #frame, #nav, #statusbar, #resbar, #queue { display: none !important; }
 
 /* сообщения поверх карты */
-#status { position: absolute; left: 50%; top: 10px; transform: translate(-50%, -8px); opacity: 0; transition: .2s; z-index: 6; pointer-events: none;
+#status { position: absolute; left: 50%; top: 36px; transform: translate(-50%, -8px); opacity: 0; transition: .2s; z-index: 6; pointer-events: none;
   background: #000c; border: 1px solid #c8963e; border-radius: 16px; padding: 6px 14px; font: 600 14px var(--serif); color: #b8ff7a; max-width: 90%; text-align: center; }
 #status.show { opacity: 1; transform: translate(-50%, 0); }
 #status.err { color: #ff8a70; }
@@ -836,7 +836,7 @@ textarea.ainput { resize: vertical; }
 img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !important; object-fit: contain; }
 .ri[src$="coins_s.png"] { height: 1.4em; width: auto; }
 .mapview { position: relative; }
-.wsearch { position: absolute; top: 6px; left: 6px; right: 90px; z-index: 5; display: flex; align-items: center; gap: 4px; padding: 4px 6px; background: #3a1c0cdd; border: 2px solid #c8963e; border-radius: 8px; color: #f0d080; font: 700 16px var(--serif); }
+.wsearch { position: absolute; top: 32px; left: 6px; right: 90px; z-index: 5; display: flex; align-items: center; gap: 4px; padding: 4px 6px; background: #3a1c0cdd; border: 2px solid #c8963e; border-radius: 8px; color: #f0d080; font: 700 16px var(--serif); }
 .wsearch input { width: 0; flex: 1; min-width: 0; height: 30px; border: 2px solid #d8a850; border-radius: 5px; background: #6e7e5a; color: #fff4c0; font: 16px var(--serif); padding: 0 4px; }
 .wsearch .pbtn.small { font-size: 14px; padding: 2px 6px; white-space: nowrap; }
 /* боковая панель — компактнее */
@@ -1508,7 +1508,7 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .wlc-close { display: block; margin: 10px auto 2px; padding: 6px 26px; border: 2px solid #8a5a20; border-radius: 18px; background: linear-gradient(#d9b46a, #a77a35); color: #fff; font: 400 min(19px, 4.6vw) var(--serif); text-shadow: 0 1px 2px #0009; box-shadow: 0 2px 5px #0006; }
 .gname img.tpt { width: 30px; height: 30px; vertical-align: middle; }
 /* значок «на вас идёт армия» (watch.js threatBtn) */
-#tbtn { position: absolute; left: 50%; transform: translateX(-50%); top: 138px; z-index: 7; display: flex; align-items: center; gap: 8px; max-width: 92%; padding: 6px 14px 6px 8px; border: 2px solid #ffcf4a; border-radius: 22px; background: linear-gradient(#b3141c, #6e0a0e); color: #fff; font: 600 14px/1.1 system-ui, sans-serif; box-shadow: 0 0 0 2px #0006, 0 0 14px #ff2a2a99; animation: tpulse 1.6s ease-in-out infinite; }
+#tbtn { position: absolute; left: 50%; transform: translateX(-50%); top: 158px; z-index: 7; display: flex; align-items: center; gap: 8px; max-width: 92%; padding: 6px 14px 6px 8px; border: 2px solid #ffcf4a; border-radius: 22px; background: linear-gradient(#b3141c, #6e0a0e); color: #fff; font: 600 14px/1.1 system-ui, sans-serif; box-shadow: 0 0 0 2px #0006, 0 0 14px #ff2a2a99; animation: tpulse 1.6s ease-in-out infinite; }
 #tbtn img { width: 34px; height: 34px; margin: -6px 0 -6px -4px; filter: drop-shadow(0 1px 2px #0008); }
 #tbtn .tt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #tbtn .tc { font: 700 16px/1 ui-monospace, monospace; color: #ffe27a; }
@@ -1553,16 +1553,11 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .prow { display: flex; flex-wrap: wrap; gap: 6px 8px; justify-content: center; padding: 8px 4px; cursor: pointer; }
 .prow img.pmed { width: 40px; height: 40px; object-fit: contain; } .prow img.pgi { width: 44px; height: 44px; object-fit: contain; filter: drop-shadow(0 1px 2px #0006); }
 .prow > b { align-self: center; color: #6a3a10; } [data-plist] .ribbon, [data-mymedals] .ribbon { cursor: pointer; }
-/* ресурсы на верхней панели: по бокам деревянной полосы, в одном ряду с кнопками (кнопки ужимаются, если места мало) */
-#top { padding-left: 30px !important; padding-right: 30px !important; }
-#top > .topres { display: flex; flex-direction: column; gap: 2px; padding: 0; border: 0; background: none; margin-top: auto; margin-bottom: 9px; flex: none; }
-#top > .topres.l { margin-right: auto; align-items: flex-start; } #top > .topres.r { margin-left: auto; align-items: flex-end; }
-#top > .env { flex: 0 1 66px; min-width: 38px; }
-.topres span { display: flex; align-items: center; gap: 2px; height: 21px; padding: 0 5px 0 1px; border-radius: 10px; background: #0007; box-shadow: inset 0 0 0 1px #c9a15a66; }
-.topres.r span { flex-direction: row-reverse; padding: 0 1px 0 5px; }
-.topres img { width: 18px; height: 18px; object-fit: contain; }
-.topres b { min-width: 32px; font: 700 12px/1 system-ui, sans-serif; color: #ffe9b0; text-shadow: 0 1px 1px #000; }
-.topres.r b { text-align: right; }
-.topres span.full b { color: #ffa040; }
-.topres:active { transform: scale(.96); }
-@media (max-width: 370px) { .topres b { min-width: 28px; font-size: 11px; } .topres img { width: 16px; height: 16px; } }
+/* ресурсы: аккуратная строка под конвертами (под верхней панелью, по центру) */
+#top > #resBar { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); z-index: 6; display: flex; gap: 8px; margin-top: 2px; padding: 3px 10px 4px;
+  border: 1px solid #c9a15a; border-top: 0; border-radius: 0 0 12px 12px; background: linear-gradient(#2a1608, #1b0c04ee); box-shadow: 0 3px 6px #0008; white-space: nowrap; }
+#resBar span { display: flex; align-items: center; gap: 3px; }
+#resBar img { width: 17px; height: 17px; object-fit: contain; }
+#resBar b { font: 700 12px/1 system-ui, sans-serif; color: #ffe9b0; text-shadow: 0 1px 1px #000; }
+#resBar span.full b { color: #ffa040; }
+#resBar:active { filter: brightness(1.15); }

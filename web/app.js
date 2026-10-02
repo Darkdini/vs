@@ -361,7 +361,7 @@ function topRes() {
     el.classList.toggle('full', full);
   });
 }
-$('#resL').addEventListener('click', () => openSheet(resSheet)); $('#resR').addEventListener('click', () => openSheet(resSheet));
+$('#resBar').addEventListener('click', () => openSheet(resSheet));
 function tick() {
   if (!S.st) return;
   const c = S.st.castle, t = now();
