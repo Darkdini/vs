@@ -1546,3 +1546,7 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .bmedal.p2 img { filter: grayscale(1) brightness(1.25) contrast(1.05); } .bmedal.p3 img { filter: sepia(.9) saturate(1.6) hue-rotate(-18deg) brightness(.85); }
 .bmedal em { position: absolute; right: -4px; bottom: 2px; width: 20px; height: 20px; border-radius: 50%; font: 700 12px/20px system-ui; font-style: normal; text-align: center; color: #fff; box-shadow: 0 0 0 2px #fff8, 0 1px 3px #0008; }
 .bmedal.p1 em { background: #d4a017; } .bmedal.p2 em { background: #9aa4ad; } .bmedal.p3 em { background: #b8722c; }
+.bbadges { display: flex; flex-wrap: wrap; gap: 6px 10px; justify-content: center; padding: 8px 4px; cursor: pointer; }
+.bbadges .bmedal img { width: 40px; height: 50px; } .bbadges > b { align-self: center; color: #6a3a10; }
+[data-bbl] .ribbon { cursor: pointer; }
+.bmedal img[src*="/medal_"] { filter: none !important; }

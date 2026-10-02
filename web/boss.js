@@ -51,3 +51,16 @@ $('#sheetBody').addEventListener('click', (e) => {
   const t = e.target.closest('[data-bgo]'); if (!t || !S.boss || !S.boss.boss) return;
   openArmySheet({ mission: t.dataset.bgo, x: S.boss.boss.x, y: S.boss.boss.y });
 });
+
+// значок босса: медаль за место (золото/серебро/бронза) или орден за последний удар
+// картинки boss/medal_<вид>_<место>.png; пока их нет — орден, окрашенный фильтром
+const bossMedal = (m) => (m.place
+  ? `<span class="bmedal p${m.place}"><img src="${GFX}boss/medal_${m.kind}_${m.place}.png" data-fb="${GFX}boss/o_${m.kind}.png" alt=""><em>${m.place}</em></span>`
+  : `<span class="bmedal"><img src="${GFX}boss/o_${m.kind}.png" alt=""></span>`);
+function bossBadgesWin() {
+  const d = S.bossBadgesOf || { list: [] }, MEDAL = ['Золотая медаль', 'Серебряная медаль', 'Бронзовая медаль'];
+  return `${ribbon('Победы над боссами')}<p class="center"><b>${esc(d.login || '')}</b></p>${d.list.map((m) => `<div class="award">${bossMedal(m)}<div>${m.place
+    ? `<b>${MEDAL[m.place - 1]}</b><small>${m.place}-е место по урону · «${esc(m.name)}»${m.killed === false ? ' (ушёл)' : ''} · ${fmtDay(m.at)}</small>`
+    : `<b>${d.slay[m.kind] || 'Убийца чудовищ'}</b><small>последний удар по «${esc(m.name)}» · ${fmtDay(m.at)}</small>`}</div></div>`).join('')}`;
+}
+$('#sheetBody').addEventListener('click', (e) => { if (e.target.closest('[data-bbl]')) openSheet(bossBadgesWin); });

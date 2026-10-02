@@ -230,10 +230,9 @@ function profileWin(p) {
   const awards = aw.length ? aw.map((m) => `<div class="award"><img src="${GFX}smallicon/status/${m.kind}.png" alt=""><div><b>${esc(ALLY_MEDAL[m.kind] || 'Медаль')} от альянса [${esc(m.tag)}]</b><small>${m.text ? `«${esc(m.text)}» · ` : ''}вручил ${esc(m.by)} · получено ${fmtDay(m.at)}</small></div></div>`).join('') : '<div class="parch-note">Пока нет — медали за заслуги вручает глава альянса.</div>';
   // значки убийцы мирового босса (boss.js)
   const bb = p.bossBadges || [], SLAY = { dragon: 'Драконоборец', troll: 'Сокрушитель троллей', lich: 'Изгоняющий тьму' };
-  const MEDAL = ['Золотая медаль', 'Серебряная медаль', 'Бронзовая медаль'];
-  const slayer = bb.length ? `${ribbon(`Победы над боссами - ${bb.length}`)}${bb.map((m) => (m.place
-    ? `<div class="award"><span class="bmedal p${m.place}"><img src="${GFX}boss/o_${m.kind}.png" alt=""><em>${m.place}</em></span><div><b>${MEDAL[m.place - 1]}</b><small>${m.place}-е место по урону · «${esc(m.name)}»${m.killed === false ? ' (ушёл)' : ''} · ${fmtDay(m.at)}</small></div></div>`
-    : `<div class="award"><span class="bmedal"><img src="${GFX}boss/o_${m.kind}.png" alt=""></span><div><b>${SLAY[m.kind] || 'Убийца чудовищ'}</b><small>последний удар по «${esc(m.name)}» · ${fmtDay(m.at)}</small></div></div>`)).join('')}` : '';
+  // в профиле — только ряд значков; нажатие на заголовок или значки — полный список (bossBadgesWin)
+  S.bossBadgesOf = { login: p.login, list: bb, slay: SLAY };
+  const slayer = bb.length ? `<div data-bbl>${ribbon(`Победы над боссами - ${bb.length} ›`)}<div class="bbadges">${bb.slice(0, 12).map((m) => bossMedal(m)).join('')}${bb.length > 12 ? `<b>+${bb.length - 12}</b>` : ''}</div></div>` : '';
   return `${ribbon('Профиль')}
     <div class="pauth"><img class="pcrown" src="gfx3d/prof/crown.png" alt=""><div>Авторитет Вашего города:<br><img class="pking" src="gfx3d/prof/king.png" alt=""> Здесь может быть Ваше имя!</div></div>
     <button class="pbar" data-soon="Авторитет города">Стать Авторитетом!</button>
