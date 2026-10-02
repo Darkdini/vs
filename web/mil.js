@@ -385,7 +385,8 @@ function reportHtml(r) {
       <div class="invname"><b>[${esc(a.tag || '')}]</b> ${esc(a.name || '')}</div>
       <div class="invinfo">Пригласил: ${plink(d.from && d.from.id, (d.from && d.from.login) || '')}${live ? ` · глава: <b>${esc(live.leader)}</b> · участников: <b>${live.members}${live.slots ? ` / ${live.slots}` : ''}</b>` : ''}</div>
       ${inAl && inAl.id === a.id ? '<p class="parch-note">Вы уже в этом альянсе.</p>' : inAl ? `<p class="parch-note">Вы уже в альянсе [${esc(inAl.tag)}]. Чтобы вступить, сначала выйдите из него.</p>`
-        : live ? '<button class="rlinkbig" data-repinvgo>Дипломатический центр → Приглашения — вступить в альянс</button>'
+        : live ? `<div class="two"><button class="pbtn invyes" data-repinv="accept" data-id="${a.id}">Принять</button><button class="pbtn invno" data-repinv="decline" data-id="${a.id}">Отклонить</button></div>
+          <p class="small muted center">Вступление по приглашению — сразу, Дипломатический центр не нужен.</p><button class="rlinkbig" data-repinvgo>Все приглашения (Дипломатический центр)</button>`
         : '<p class="parch-note">Приглашение уже недействительно (отклонено или отозвано).</p>'}</div>${foot}`;
   }
   if (d.type === 'scout') {
@@ -517,3 +518,8 @@ $('#sheetBody').addEventListener('submit', (e) => {
 $('#sheetBody').addEventListener('click', (e) => { const b = e.target.closest('[data-brace]'); if (b) { S.bookRace = b.dataset.brace; refreshSheet(); } });
 
 $('#sheetBody').addEventListener('click', (e) => { if (e.target.closest('[data-repinvgo]')) openInvites(); });
+$('#sheetBody').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-repinv]'); if (!b) return;
+  send({ t: 'alliance', op: b.dataset.repinv, id: Number(b.dataset.id) });
+  b.closest('.two').innerHTML = `<p class="parch-note">${b.dataset.repinv === 'accept' ? 'Вступаете в альянс…' : 'Приглашение отклонено.'}</p>`;
+});
