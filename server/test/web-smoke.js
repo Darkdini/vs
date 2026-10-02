@@ -56,7 +56,10 @@ function client() {
 
     await a.open();
     a.send({ t: 'hello' });
-    const cat = (await a.expect('catalog')).catalog;
+    const catH = (await a.expect('catalog')).h;
+    const catR = await fetch(`http://127.0.0.1:${WEB_PORT}/catalog.json?h=${catH}`);
+    assert.match(catR.headers.get('cache-control'), /immutable/);
+    const cat = await catR.json();
     assert.equal(cat.buildings.length, 47);
     console.log('✓ каталог: зданий', cat.buildings.length);
 
@@ -111,7 +114,7 @@ function client() {
 
     // ---- админ, армия, бой, функции зданий ----
     const adm = client(); await adm.open();
-    adm.send({ t: 'hello' }); const mil = (await adm.expect('catalog')).catalog.mil;
+    adm.send({ t: 'hello' }); const mil = (await (await fetch(`http://127.0.0.1:${WEB_PORT}/catalog.json?h=${(await adm.expect('catalog')).h}`)).json()).mil;
     assert.ok(mil.units.length >= 30 && mil.units.some((u) => u.name === 'Генерал'));
     adm.send({ t: 'login', login: 'admin', password: 'admin' });
     const admAuth = await adm.expect('auth');

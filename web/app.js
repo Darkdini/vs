@@ -155,7 +155,9 @@ function connect() {
     // сам входит только после обрыва связи, когда игрок уже в игре; при открытии игры — экран входа, игрок жмёт «Войти» сам
     if (S.creds && S.entered) { S.auto = true; send({ t: 'login', ...S.creds, dev: DEV }); }
   };
-  ws.onmessage = (e) => { try { onMsg(JSON.parse(e.data)); } catch (err) { console.error(err); } };
+  // пока грузится справочник (catalog.json), сообщения встают в очередь по порядку
+  const handle = (m) => { try { onMsg(m); } catch (err) { console.error(err); } };
+  ws.onmessage = (e) => { let m; try { m = JSON.parse(e.data); } catch { return; } if (S.catWait) S.catWait = S.catWait.then(() => handle(m)); else handle(m); };
   ws.onclose = () => { if (S.ws !== ws) return; $('#offline').classList.add('show'); clearTimeout(S.reTimer); S.reTimer = setTimeout(connect, 2000); };
 }
 // Возврат в игру (свернули приложение/вкладку, телефон спал): соединение могло тихо оборваться.
@@ -193,12 +195,19 @@ function loadAdmin() {
   s.onerror = () => { S.admLoaded = false; };
   document.body.appendChild(s);
 }
+function setCatalog(c) {
+  S.cat = c; S.by = Object.fromEntries(S.cat.buildings.map((b) => [b.id, b]));
+  renderRaces(); $('#ver').textContent = S.cat.version ? `версия ${S.cat.version}` : '';
+}
 function onMsg(m) {
   switch (m.t) {
     case 'pong': clearTimeout(S.pingTimer); break;
-    case 'catalog':
-      S.cat = m.catalog; S.by = Object.fromEntries(S.cat.buildings.map((b) => [b.id, b]));
-      renderRaces(); $('#ver').textContent = S.cat.version ? `версия ${S.cat.version}` : ''; break;
+    case 'catalog': // справочник: по отпечатку h — из кэша браузера (или сети), пока он не пришёл, остальные сообщения ждут
+      if (m.catalog) { setCatalog(m.catalog); break; }
+      if (S.cat && S.catH === m.h) break;
+      S.catWait = fetch(`catalog.json?h=${m.h}`).then((r) => r.json()).then((c) => { S.catH = m.h; setCatalog(c); })
+        .catch(() => toast('Не удалось загрузить игру — проверьте связь')).finally(() => { S.catWait = null; });
+      break;
     case 'captcha': $('#capImg').src = m.img; break;
     case 'registered':
       toast('Аккаунт создан!');
@@ -213,7 +222,9 @@ function onMsg(m) {
       S.creds = { login: m.login, token: m.token, show: (S.pendingCreds && S.pendingCreds.login) || (S.creds && S.creds.show) || m.login }; S.pendingCreds = null;
       store.set('tw.creds', S.remember ? S.creds : null);
       S.auto = false; S.entered = true; savedLoginUi();
+      setTimeout(() => { if (typeof musicOn === 'function') musicOn(); }, 0);
       (DEVINFO ? Promise.resolve(DEVINFO) : deviceInfo()).then((d) => send({ t: 'devinfo', dev: DEV, ...d })).catch(() => {});
+      if (typeof gameLoading === 'function') gameLoading(); // заставка, пока грузится графика замка (loading.js)
       $('#auth').classList.add('hidden'); $('#game').classList.remove('hidden');
       break;
     case 'state': onState(m); if (S.st && S.st.user && S.st.user.admin) loadAdmin(); if (typeof questBtn === 'function') questBtn(); if (typeof bossBtn === 'function') bossBtn(); break;
@@ -1348,6 +1359,8 @@ savedLoginUi();
 $('#authForm').password.addEventListener('focus', (e) => { if (e.target.value === SAVED_PASS) e.target.select(); }); // начнёт печатать — сохранённый заменится
 $('#authForm').login.addEventListener('input', (e) => { const saved = S.creds && S.creds.token && e.target.value.trim() === (S.creds.show || S.creds.login); const pw = $('#authForm').password; pw.required = !saved; if (!saved && pw.value === SAVED_PASS) pw.value = ''; });
 connect();
+// помощник кэша (sw.js): картинки — из памяти телефона, после обновления — только изменившиеся (нужен https или localhost)
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) navigator.serviceWorker.register('sw.js').catch(() => {});
 // «Скачать на Android» — если APK лежит на сервере и игра открыта не в самом приложении
 if (!/WarKingsApp/.test(navigator.userAgent)) fetch('war-kings.apk', { method: 'HEAD' }).then((r) => { if (r.ok) $('#apkLink').classList.remove('hidden'); }).catch(() => {});
 

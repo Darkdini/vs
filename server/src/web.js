@@ -192,7 +192,9 @@ function pickCastle(s, m) {
 const ROYAL_ACTIONS = new Set(['forge', 'ritual', 'calm', 'build', 'wall', 'train', 'send', 'research', 'exchange', 'squad', 'artifact', 'religion']);
 
 const API = {
-  hello() { this.send({ t: 'catalog', catalog: catalogJson() }); },
+  // справочник игры (~120 КБ) не шлём по сокету каждый раз: только отпечаток, а сам файл браузер берёт по HTTP
+  // (/catalog.json?h=… — сжатый и с вечным кэшем: при повторном входе он уже в памяти телефона)
+  hello() { this.send({ t: 'catalog', h: catalogFile().hash }); },
   // капча для регистрации: новая при каждом запросе и после каждой попытки
   captcha() { const c = SEC.captcha(); this.captchaAns = { a: c.answer, exp: Date.now() + 300000 }; this.send({ t: 'captcha', img: c.img }); },
   register(m) {
@@ -532,10 +534,39 @@ function staticFile(file) {
   const key = `${st.size}-${st.mtimeMs}`, hit = STATIC.get(file);
   if (hit && hit.key === key) return hit;
   const ext = path.extname(file), body = fs.readFileSync(file);
-  const f = { key, body, type: MIME[ext] || 'application/octet-stream', etag: `"${st.size.toString(36)}-${Math.floor(st.mtimeMs).toString(36)}"`, img: ['.png', '.webp', '.jpg', '.ogg', '.mp3'].includes(ext),
+  // облегчённая копия в WebP (её делает tools/pack.sh рядом: x.png.webp) — отдаётся браузерам, которые понимают WebP
+  let webp = null; if (ext === '.png' || ext === '.jpg') { try { const w = fs.readFileSync(`${file}.webp`); if (w.length < body.length) webp = w; } catch { /* нет копии */ } }
+  const f = { key, body, webp, hash: require('crypto').createHash('md5').update(body).digest('hex').slice(0, 10), type: MIME[ext] || 'application/octet-stream', etag: `"${st.size.toString(36)}-${Math.floor(st.mtimeMs).toString(36)}"`, img: ['.png', '.webp', '.jpg', '.ogg', '.mp3'].includes(ext),
     gz: ['.html', '.js', '.css', '.svg', '.json', '.webmanifest'].includes(ext) && body.length > 1024 ? zlib.gzipSync(body) : null };
   STATIC.set(file, f);
   return f;
+}
+
+// список файлов игры с отпечатком содержимого (для sw.js): изменился файл — у игроков сразу новая версия, остальное берётся из кэша телефона
+// справочник игры одним сжатым файлом; пересобирается, если что-то в нём поменялось (отпечаток — по содержимому)
+let CATALOG = null;
+function catalogFile() {
+  const body = Buffer.from(JSON.stringify(catalogJson())), hash = require('crypto').createHash('md5').update(body).digest('hex').slice(0, 12);
+  if (!CATALOG || CATALOG.hash !== hash) CATALOG = { hash, body, gz: zlib.gzipSync(body) };
+  return CATALOG;
+}
+// отдать готовый текст (JSON/JS) — сжатым, если браузер умеет
+function sendText(req, res, f, type, cache) {
+  const head = { 'Content-Type': type, 'Cache-Control': cache, Vary: 'Accept-Encoding', ...SEC_HEADERS };
+  if (f.gz && /\bgzip\b/.test(req.headers['accept-encoding'] || '')) { res.writeHead(200, { ...head, 'Content-Encoding': 'gzip' }); return res.end(f.gz); }
+  res.writeHead(200, head); return res.end(f.body);
+}
+let MANIFEST = null;
+function assetManifest() {
+  if (MANIFEST) return MANIFEST;
+  const out = {}, walk = (dir, rel) => { for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, e.name), r = rel ? `${rel}/${e.name}` : e.name;
+    if (e.isDirectory()) walk(p, r); else if (/\.(png|jpe?g|webp|svg|ogg|mp3|css|js|json|webmanifest)$/.test(e.name) && !/\.(png|jpe?g)\.webp$/.test(e.name) && e.name !== 'sw.js' && e.name !== 'admin.js') { const f = staticFile(p); if (f) out[r] = f.hash; }
+  } };
+  try { walk(WEB_ROOT, ''); } catch { /* нет папки */ }
+  const body = Buffer.from(JSON.stringify(out));
+  MANIFEST = { body, gz: zlib.gzipSync(body) };
+  return MANIFEST;
 }
 
 function startWeb(game, sessions, { port, host, log }) {
@@ -553,15 +584,25 @@ function startWeb(game, sessions, { port, host, log }) {
       if (!au || !au.admin) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('not found'); }
       const f = staticFile(path.join(WEB_ROOT, 'admin.js'));
       if (!f) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('not found'); }
-      res.writeHead(200, { 'Content-Type': f.type, 'Cache-Control': 'no-store', ...SEC_HEADERS }); return res.end(f.body);
+      return sendText(req, res, f, f.type, 'no-store');
+    }
+    if (url === '/assets.json') return sendText(req, res, assetManifest(), 'application/json', 'no-store');
+    if (url === '/catalog.json') {
+      const cf = catalogFile(), h = new URLSearchParams(req.url.split('?')[1] || '').get('h');
+      return sendText(req, res, cf, 'application/json; charset=utf-8', h === cf.hash ? 'public, max-age=31536000, immutable' : 'no-cache');
     }
     const file = path.normalize(path.join(WEB_ROOT, url === '/' ? 'index.html' : url));
     const f = (file === WEB_ROOT || file.startsWith(WEB_ROOT + path.sep)) && staticFile(file);
     if (!f) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('not found'); }
-    // картинки браузер держит в кэше сутки; код и стили — всегда сверяет по ETag (ответ 304 без тела)
-    const head = { 'Content-Type': f.type, ETag: f.etag, 'Cache-Control': f.img ? 'public, max-age=86400' : 'no-cache', ...SEC_HEADERS };
+    // кэш: адрес с отпечатком (?h=, его подставляет sw.js) — навсегда; без отпечатка — браузер сверяет по ETag (304 без тела),
+    // поэтому после обновления игры старые картинки не показываются
+    const q = new URLSearchParams(req.url.split('?')[1] || ''), pinned = q.get('h') && q.get('h') === f.hash;
+    const useWebp = f.webp && /image\/webp/.test(req.headers.accept || '');
+    const etag = useWebp ? f.etag.replace(/"$/, '-w"') : f.etag;
+    const head = { 'Content-Type': useWebp ? 'image/webp' : f.type, ETag: etag, 'Cache-Control': pinned ? 'public, max-age=31536000, immutable' : 'no-cache', ...(f.webp ? { Vary: 'Accept' } : {}), ...SEC_HEADERS };
     if (file.endsWith('.apk')) head['Content-Disposition'] = 'attachment; filename="war-kings.apk"'; // приложение для Android — скачивается файлом
-    if (req.headers['if-none-match'] === f.etag) { res.writeHead(304, head); return res.end(); }
+    if (req.headers['if-none-match'] === etag) { res.writeHead(304, head); return res.end(); }
+    if (useWebp) { res.writeHead(200, head); return res.end(f.webp); }
     if (f.gz && /\bgzip\b/.test(req.headers['accept-encoding'] || '')) { res.writeHead(200, { ...head, 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' }); return res.end(f.gz); }
     res.writeHead(200, head); res.end(f.body);
   });

@@ -14,6 +14,8 @@ cp "$ROOT/deploy/admin.sh" "$G/" 2>/dev/null || true
 # Android-приложение: раздаётся сервером по ссылке «Скачать на Android» на экране входа
 [ -f "$ROOT/dist/war-kings.apk" ] && cp "$ROOT/dist/war-kings.apk" "$G/web/war-kings.apk"
 TZ=Europe/Moscow date '+%Y-%m-%d %H:%M' > "$G/VERSION"
+# облегчённые WebP-копии картинок (сервер отдаёт их браузерам с поддержкой WebP; без Python/Pillow — пропуск)
+python3 "$ROOT/tools/webp.py" "$G/web" 2>/dev/null || echo "webp: пропущено (нужен python3 с Pillow)"
 # клиент для хостинга: все скрипты страницы склеены в один g.js и минифицированы (без комментариев и пробелов),
 # стили и admin.js тоже сжаты; исходники клиента в пакет не попадают
 ESB="npx --yes esbuild@0.28.2"

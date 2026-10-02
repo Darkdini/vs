@@ -5,7 +5,7 @@
 const SND = Object.assign({ music: true, sounds: true, notify: true, anim: true }, store.get('tw.snd2') || {});
 let bgm = null, actx = null, unlocked = false;
 function musicOn() {
-  if (!SND.music || document.hidden) return;
+  if (!SND.music || document.hidden || $('#game').classList.contains('hidden')) return; // музыка — в игре (на экране входа не качается)
   if (!bgm) { bgm = new Audio('sound/birds_theme.ogg'); bgm.loop = true; bgm.volume = 0.35; bgm.preload = 'auto'; }
   if (!bgm.paused) return;
   const p = bgm.play(); if (p && p.catch) p.catch(() => {}); // браузер запретил без касания — включится с первым касанием
