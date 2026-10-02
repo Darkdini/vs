@@ -1510,7 +1510,10 @@ function install(Game, helpers) {
         if (t.alliance) return { error: 'Игрок уже в альянсе.' };
         t.invites = t.invites || [];
         if (!t.invites.includes(cur.id)) t.invites.push(cur.id);
-        this.event(t.id, `Вас пригласили в альянс [${cur.tag}]! Меню → Альянс → Приглашения.`);
+        // отчёт-приглашение: игрок вступает прямо из отчёта (новый отчёт — с конвертом в верхней панели)
+        this.report(t.id, `Приглашение в альянс [${cur.tag}]`, [`${user.login} приглашает вас в альянс «${cur.name}» [${cur.tag}].`], 'invite',
+          { type: 'invite', ally: { id: cur.id, name: cur.name, tag: cur.tag }, from: { id: user.id, login: user.login } });
+        const rr = this.db.reports[this.db.reports.length - 1]; rr.from = user.login;
         this.store.save(); return { ok: true, msg: `Приглашение отправлено: ${t.login}.` };
       }
       if (op === 'uninvite') { t.invites = (t.invites || []).filter((x) => x !== cur.id); this.store.save(); return { ok: true, msg: `Приглашение для ${t.login} отозвано.` }; }
@@ -1700,6 +1703,7 @@ function install(Game, helpers) {
     const d = r.data;
     if (d && d.type === 'battle') return (d.side === 'att' ? d.win : !d.win) ? 'win' : 'lose';
     if (d && d.type === 'scout') return d.ok ? 'win' : 'lose';
+    if (d && d.type === 'invite') return 'win'; // приглашение в альянс — зелёное
     if (r.kind === 'scout' || /напал|захвачен/.test(r.title)) return 'lose';
     return 'info';
   };

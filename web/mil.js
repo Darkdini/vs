@@ -379,6 +379,15 @@ function reportHtml(r) {
   const foot = `<hr class="rhr"><div class="rtiles"><button class="rtile" data-repfwd="${r.id}"><img src="${REPG}fwd.png" alt="Переслать"></button>
     ${r.owner === S.st.user.id ? `<button class="rtile" data-repdel="${r.id}"><img src="${REPG}del.png" alt="Удалить"></button>` : ''}</div>`;
   const sideBlock = (s, rating, x, y, lossLine) => `<div class="rp">Игрок: ${plink(s.id, s.login)}<br>Замок: ${esc(s.castle || '')}<br>(Рейтинг: ${rating ?? '-'}, X: ${x}, Y: ${y})${lossLine ? `<br>${lossLine}` : ''}</div>`;
+  if (d.type === 'invite') { // приглашение в альянс: вступить прямо из отчёта
+    const a = d.ally || {}, live = (MY().invites || []).find((x) => x.id === a.id), inAl = MY().alliance;
+    return `${head}<div class="invcard"><div class="invh">Вас пригласили в альянс</div>
+      <div class="invname"><b>[${esc(a.tag || '')}]</b> ${esc(a.name || '')}</div>
+      <div class="invinfo">Пригласил: ${plink(d.from && d.from.id, (d.from && d.from.login) || '')}${live ? ` · глава: <b>${esc(live.leader)}</b> · участников: <b>${live.members}${live.slots ? ` / ${live.slots}` : ''}</b>` : ''}</div>
+      ${inAl && inAl.id === a.id ? '<p class="parch-note">Вы уже в этом альянсе.</p>' : inAl ? `<p class="parch-note">Вы уже в альянсе [${esc(inAl.tag)}]. Чтобы вступить, сначала выйдите из него.</p>`
+        : live ? `<div class="two"><button class="pbtn invyes" data-repinv="accept" data-id="${a.id}">Вступить</button><button class="pbtn invno" data-repinv="decline" data-id="${a.id}">Отклонить</button></div>`
+        : '<p class="parch-note">Приглашение уже недействительно (отклонено или отозвано).</p>'}</div>${foot}`;
+  }
   if (d.type === 'scout') {
     const res = d.ok ? '<span class="rgood">Разведка прошла успешно.</span>' : '<span class="rbad">Разведка провалилась.</span>';
     return `${head}<div class="rp">Тип похода: Разведка<br>${ic('star')} Результат атаки: ${res}</div><hr class="rhr">
@@ -506,3 +515,9 @@ $('#sheetBody').addEventListener('submit', (e) => {
   if (['aljoin', 'alcreate'].includes(k)) S.alliances = null;
 });
 $('#sheetBody').addEventListener('click', (e) => { const b = e.target.closest('[data-brace]'); if (b) { S.bookRace = b.dataset.brace; refreshSheet(); } });
+
+$('#sheetBody').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-repinv]'); if (!b) return;
+  send({ t: 'alliance', op: b.dataset.repinv, id: Number(b.dataset.id) });
+  b.closest('.two').innerHTML = `<p class="parch-note">${b.dataset.repinv === 'accept' ? 'Вступаете в альянс…' : 'Приглашение отклонено.'}</p>`;
+});

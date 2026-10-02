@@ -650,6 +650,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   { const nw = g.register({ login: 'newbieInv', password: '12345', race: 0 }).user, nc = g.castleOf(nw);
     assert.strictEqual(g.buildingLevel(nc, 13), 0, 'у новичка нет Дипломатического центра');
     g.alliance(lead, g.castleOf(lead), { op: 'invite', id: nw.id });
+    const rp = (g.db.reports || []).filter((r) => r.owner === nw.id && r.kind === 'invite').pop(); assert.ok(rp && !rp.read && rp.data.ally.id === aid && rp.from === 'allyLeadP', 'отчёт-приглашение');
     assert.ok(g.alliance(nw, nc, { op: 'accept', id: aid }).ok && nw.alliance === aid, 'по приглашению вступил без Дипцентра');
     g.db.alliances[aid].members = g.db.alliances[aid].members.filter((x) => x !== nw.id); nw.alliance = null; }
   const al = g.db.alliances[aid]; al.members.push(free.id); free.alliance = aid; free.invites = [];
