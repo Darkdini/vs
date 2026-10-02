@@ -252,7 +252,7 @@ function profileWin(p) {
     ${(p.titles || []).length ? `<div class="ptitle">Звание: ${p.titles.map((t) => `${t === 'Администратор' ? `<img class="admbadge" src="${GFX}admin_badge.png" alt="">` : t === 'Модератор форума' ? `<img class="admbadge" src="${GFX}mod_badge.png" alt="">` : `<img class="admbadge crownp" src="${GFX}premium_crown.png" alt="">`} ${esc(t)}`).join(', ')}</div>` : ''}
     <div class="pline">Альянс: ${p.alliance ? `<a class="plink" data-allyinfo="${p.alliance.id}">${esc(p.alliance.name)} [${esc(p.alliance.tag)}]</a>` : '<b class="noally">нет</b>'}</div>
     ${p.allyInvite ? (p.allyInvite.sent ? `<div class="allyinv sent">✔ Приглашение в [${esc(p.allyInvite.tag)}] отправлено</div>` : `<button class="allyinv" data-allyinv="${p.id}">➕ Пригласить в альянс [${esc(p.allyInvite.tag)}]</button>`) : ''}
-    ${p.alliance ? `<div class="pline">Звание в альянсе: ${esc(p.alliance.role)}</div>` : ''}
+    ${p.alliance ? `<div class="pline">Звание в альянсе: ${esc(p.alliance.role)}${p.alliance.ep > 0 ? ` <img class="epaul" src="${GFX}ep/ep${Math.min(8, p.alliance.ep)}.png" alt="">` : ''}</div>` : ''}
     <div class="ptiles pbig">
       ${tile('treasury', 'gfx3d/prof/treasury.png', 'Пополнить Казну', !p.self)}
       ${tile('rep', 'gfx3d/prof/rep.png', 'Поднять Репутацию')}

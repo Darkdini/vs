@@ -30,9 +30,11 @@ function install(Game) {
     return this.ratingAlliances().findIndex((a) => a.id === al.id) + 1;
   };
   P.allyTitle = function allyTitle(al, uid) {
-    if (al.leader === uid) return { title: 'Создатель альянса', ep: 4 };
+    // погоны 0–8 (gfx/ep): 8 — корона, только у главы; старые звания (бронза/серебро/золото) → 2, 4, 6
+    if (al.leader === uid) return { title: 'Создатель альянса', ep: 8 };
     const r = (al.ranks || {})[uid];
-    return r ? { title: r.title || 'Участник', ep: r.ep || 0 } : { title: 'Участник', ep: 0 };
+    const ep = !r ? 0 : r.v === 2 ? r.ep || 0 : [0, 2, 4, 6, 6][r.ep || 0] || 0;
+    return r ? { title: r.title || 'Участник', ep } : { title: 'Участник', ep: 0 };
   };
 
   // категория записи военного лога по отчёту
@@ -101,7 +103,7 @@ function install(Game) {
         const t = member(m.login); if (!t) return { error: 'Игрок не в альянсе.' };
         if (t.id === al.leader) return { error: 'Права создателя изменить нельзя.' };
         const rights = (Array.isArray(m.rights) ? m.rights : []).filter((r) => RIGHTS[r]);
-        (al.ranks = al.ranks || {})[t.id] = { title: clean(m.title, 24) || 'Участник', ep: Math.max(0, Math.min(3, Number(m.ep) || 0)), rights };
+        (al.ranks = al.ranks || {})[t.id] = { title: clean(m.title, 24) || 'Участник', ep: Math.max(0, Math.min(7, Math.floor(Number(m.ep)) || 0)), v: 2, rights };
         this.allyLog(al, `${user.login} назначил ${t.login}: «${al.ranks[t.id].title}»`);
         return done(`Права назначены: ${t.login}.`);
       }

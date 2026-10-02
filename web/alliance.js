@@ -7,8 +7,9 @@ S.ally = null; S.allyTopic = null; S.allyShowDel = false; S.allyRankFor = null;
 const AI = (n) => `${G3}menu/${n}.svg`;
 const AL = 'gfx3d/ally/'; // родные иконки альянса (вырезаны из оригинала)
 const aTile = (attr, icon, text, off) => `<button class="ptile ${off ? 'off' : ''}" ${attr}><img src="${icon}" alt=""><span>${text}</span></button>`;
-const EP = ['', 'f_bronze', 'f_silver', 'f_gold', 'f_gold'];
-const epImg = (ep) => (ep ? `<img class="epaul" src="${GFX}smallicon/status/${EP[ep]}.png" alt="">` : '—');
+// погоны по старшинству (gfx/ep/ep1…ep8): шевроны → звёзды → звезда в венке → корона (только создатель)
+const EP_NAMES = ['нет', '1 — один шеврон', '2 — два шеврона', '3 — три шеврона', '4 — одна звезда', '5 — две звезды', '6 — три звезды', '7 — звезда в лавровом венке'];
+const epImg = (ep) => (ep > 0 ? `<img class="epaul" src="${GFX}ep/ep${Math.min(8, ep)}.png" alt="">` : '—');
 // корона по репутации (как на форуме оригинала): фиолетовая с 150, синяя 600, зелёная 1100, бирюзовая 2350, оранжевая 4350, красная 7350
 const CROWNS = [[7350, 'red'], [4350, 'orange'], [2350, 'teal'], [1100, 'green'], [600, 'blue'], [150, 'purple']];
 function repCrown(rep) { const c = CROWNS.find(([t]) => rep >= t); return c ? `<img class="crown2" src="${GFX}rep/crown_${c[1]}.png" alt="">` : ''; }
@@ -74,7 +75,7 @@ function allyManageWin() {
   return `${ribbon('Управ. альянсом')}<div class="ptiles">
     ${aTile('data-aw="gold"', `${GFX}coins_s.png`, 'Казна Альянса')}
     ${aTile('data-aw="store"', AI('basket'), 'Кладовая')}
-    ${aTile('data-aw="titles"', `${GFX}smallicon/status/f_gold.png`, 'Звания и погоны')}
+    ${aTile('data-aw="titles"', `${GFX}ep/ep6.png`, 'Звания и погоны')}
     ${aTile('data-aw="mail"', `${GFX}smallicon/unmes.png`, 'Рассылки', !can('mail'))}
     ${aTile('data-aw="req"', AI('mail'), `Заявки и приглашения${a.requests.length ? ` (${a.requests.length})` : ''}`, !can('invite'))}
     ${aTile('data-aw="kick"', `${GFX}smallicon/destroy.png`, 'Исключить', !can('kick'))}
@@ -94,7 +95,7 @@ function allyRightsWin() {
   return `${ribbon('Назначение прав')}
     <div class="clabel">Игрок:</div><div class="combo"><select data-arank>${list.map((x) => `<option ${x.login === m.login ? 'selected' : ''}>${esc(x.login)}</option>`).join('')}</select></div>
     <div class="clabel">Должность игрока:</div><input class="ainput" data-atitle value="${esc(m.title)}" maxlength="24">
-    <div class="clabel">Погоны:</div><div class="combo"><select data-aep>${['нет', 'бронзовые', 'серебряные', 'золотые'].map((t, i) => `<option value="${i}" ${m.ep === i ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+    <div class="clabel">Погоны: <span data-aeppv>${epImg(m.ep)}</span></div><div class="combo"><select data-aep>${EP_NAMES.map((t, i) => `<option value="${i}" ${m.ep === i ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
     ${Object.entries(a.rightsList).map(([k, t]) => `<label class="cchk big"><input type="checkbox" data-aright="${k}" ${m.rights.includes(k) ? 'checked' : ''}><i></i> ${esc(t)}</label>`).join('')}
     <div class="center"><button class="pbtn" data-arankgo>Назначить</button></div>`;
 }
@@ -235,7 +236,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.anewsdel) { if (confirm('Удалить новость?')) asend({ t: 'ally', op: 'news', del: d.anewsdel }); return; }
   if (d.alog) { S.allyLogKind = d.alog; return refreshSheet(); }
 });
-$('#sheetBody').addEventListener('change', (e) => { if (e.target.dataset.arank !== undefined) { S.allyRankFor = e.target.value; refreshSheet(); } });
+$('#sheetBody').addEventListener('change', (e) => { if (e.target.dataset.arank !== undefined) { S.allyRankFor = e.target.value; refreshSheet(); } if (e.target.dataset.aep !== undefined) { const pv = $('[data-aeppv]'); if (pv) pv.innerHTML = epImg(Number(e.target.value)); } });
 $('#sheetBody').addEventListener('submit', (e) => {
   const f = e.target, k = f.dataset.aform; if (!k) return;
   e.preventDefault(); document.activeElement && document.activeElement.blur();

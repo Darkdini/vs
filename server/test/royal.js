@@ -647,6 +647,11 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const ms = g.milState(g.castleOf(lead), lead); assert.ok(ms.invited.some((x) => x.id === free.id), 'глава видит отправленные');
   const mf = g.milState(g.castleOf(free), free); assert.ok(mf.invites[0].tag === 'TPF' && mf.invites[0].leader === 'allyLeadP' && mf.invites[0].members === 1, 'карточка приглашения');
   assert.ok(g.alliance(lead, g.castleOf(lead), { op: 'uninvite', id: free.id }).ok && !(free.invites || []).length, 'отозвать приглашение');
+  const al = g.db.alliances[aid]; al.members.push(free.id); free.alliance = aid; free.invites = [];
+  assert.strictEqual(g.allyTitle(al, lead.id).ep, 8, 'создатель — корона (8)');
+  al.ranks = { [free.id]: { title: 'Старый', ep: 2 } }; assert.strictEqual(g.allyTitle(al, free.id).ep, 4, 'старые серебряные → 4');
+  al.ranks[free.id] = { title: 'Новый', ep: 7, v: 2 }; assert.strictEqual(g.allyTitle(al, free.id).ep, 7, 'новые погоны как есть');
+  assert.strictEqual(g.profileOf(free, lead).alliance.ep, 7, 'погоны в профиле');
   console.log('✓ Профиль: «Пригласить в альянс» для игрока без альянса');
 }
 (async () => { // фото в сообщениях: только сжатые точки, проверка размера, новый PNG, удаление через 10 минут
