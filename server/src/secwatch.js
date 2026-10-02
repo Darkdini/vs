@@ -6,7 +6,7 @@
 
 const MAX_IPS = 500, MAX_SAMPLES = 6;
 // «прощупывание» сайта: так ищут уязвимости и пытаются залить скрипт (шелл)
-const PROBE = /\.(php\d?|phtml|asp|aspx|jsp|cgi|pl|env|git|svn|sql|bak|old|swp|ini|conf|log|sh|tar|gz|rar|7z)(\/|$|\?)|wp-|wordpress|phpmyadmin|pma|admin\.php|xmlrpc|\/\.|\.\.|\/etc\/|passwd|shell|cmd=|exec|eval\(|<script|base64|boaform|hnap|actuator|vendor\/|cgi-bin|owa\/|autodiscover|\.well-known\/(?!acme)|solr|jenkins|manager\/html|config\.|server-status|console/i;
+const PROBE = /\.(php\d?|phtml|asp|aspx|jsp|cgi|pl|env|git|svn|sql|bak|old|swp|ini|conf|log|sh|tar|gz|rar|7z)(\/|$|\?)|wp-|wordpress|phpmyadmin|pma|admin\.php|xmlrpc|\/\.(?!well-known\/(?:acme|assetlinks|apple-app-site-association|security\.txt|change-password))|\.\.|\/etc\/|passwd|shell|cmd=|exec\(|eval\(|<script|base64|boaform|hnap|actuator|vendor\/|cgi-bin|owa\/|autodiscover|\.well-known\/(?!acme|assetlinks|apple-app-site-association|security\.txt|change-password)|solr|jenkins|manager\/html|config\.|server-status|console/i;
 const KIND = { login: 'неверный пароль', admin: 'подбор пароля админа', lock: 'вход заблокирован', probe: 'поиск дыр на сайте', upload: 'попытка отправить файл/данные',
   flood: 'флуд запросами', conns: 'слишком много соединений', bad: 'подделанный запрос', origin: 'чужой сайт' };
 

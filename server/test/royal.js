@@ -602,7 +602,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
 { // «Безопасность»: подозрительные адреса и блокировка IP
   const adm = g.adminUser();
   for (const u of ['/wp-login.php', '/.env', '/../../etc/passwd', '/cgi-bin/x.cgi', '/vendor/phpunit/x']) assert.ok(g.secProbe(u), 'поиск дыр: ' + u);
-  for (const u of ['/', '/g.js?v=1', '/gfx/units/uniq/h_guard.png', '/catalog.json?h=abc', '/style.css']) assert.ok(!g.secProbe(u), 'обычный запрос: ' + u);
+  for (const u of ['/', '/g.js?v=1', '/gfx/units/uniq/h_guard.png', '/catalog.json?h=abc', '/style.css', '/gfx3d/halls/execute.png?h=1', '/.well-known/assetlinks.json', '/.well-known/apple-app-site-association', '/.well-known/acme-challenge/x', '/.well-known/security.txt']) assert.ok(!g.secProbe(u), 'обычный запрос: ' + u);
   g.secEvent('5.6.7.8', 'admin', 'вход в аккаунт администратора'); g.secEvent('5.6.7.8', 'probe', '/.env'); g.secEvent('9.9.9.9', 'login', 'vasya');
   assert.ok(g.secNew() >= 1, 'новый опасный адрес');
   const v = g.adminOp(adm, 'sec', { ip: '1.1.1.1' }).data, x = v.list.find((y) => y.ip === '5.6.7.8');
