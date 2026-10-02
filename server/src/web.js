@@ -287,6 +287,8 @@ const API = {
     const objects = this.game.worldObjects(cx - R, cy - R, 2 * R + 1, 2 * R + 1);
     const lair = this.game.lairOf(this.user); // логово похода «Тёмные земли» видно только хозяину
     if (lair && !this.game.qinit(this.user).campWon && Math.abs(lair.x - cx) <= R && Math.abs(lair.y - cy) <= R) objects.push({ kind: 'object', x: lair.x, y: lair.y, img: 32, name: lair.npc.name, lair: true, qimg: (require('./quests').CAMP[lair.k] || {}).img });
+    const boss = this.game.bossNow(); // мировой босс виден всем
+    if (boss && Math.abs(boss.x - cx) <= R && Math.abs(boss.y - cy) <= R) objects.push({ kind: 'object', x: boss.x, y: boss.y, img: 33, name: boss.name, boss: { kind: boss.kind, hp: boss.hp, maxHp: boss.maxHp, end: boss.end } });
     this.send({ t: 'world', cx, cy, radius: R, objects, home: { x: c.x, y: c.y } });
   },
   gift(m) {
@@ -454,6 +456,7 @@ const API = {
     this.result(r);
   },
   squad(m) { const r = this.game.squadOp(this.castle, m); if (m.op === 'regroup' && r && r.ok) this.toast('Армия переформирована!'); this.result(r); },
+  boss() { this.send({ t: 'boss', data: this.game.bossView(this.user) }); },
   hero(m) { const r = this.game.heroOp(this.castle, this.user, { op: m.op, id: m.id, item: m.item, slot: m.slot }); if (r && r.msg) this.toast(r.msg); this.result(r); },
   general(m) { const r = this.game.generalOp(this.castle, this.user, { op: m.op, name: m.name, pts: m.pts, idx: m.idx, gold: m.gold, unit: m.unit }); if (r && r.msg) this.toast(r.msg); this.result(r); },
   exchange(m) { const r = this.game.exchange(this.castle, m.from, m.to, m.amount); if (!r.error) this.toast(`Обмен: получено ${r.got}`); this.result(r); },

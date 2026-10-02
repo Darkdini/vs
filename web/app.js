@@ -214,7 +214,7 @@ function onMsg(m) {
       (DEVINFO ? Promise.resolve(DEVINFO) : deviceInfo()).then((d) => send({ t: 'devinfo', dev: DEV, ...d })).catch(() => {});
       $('#auth').classList.add('hidden'); $('#game').classList.remove('hidden');
       break;
-    case 'state': onState(m); if (S.st && S.st.user && S.st.user.admin) loadAdmin(); if (typeof questBtn === 'function') questBtn(); break;
+    case 'state': onState(m); if (S.st && S.st.user && S.st.user.admin) loadAdmin(); if (typeof questBtn === 'function') questBtn(); if (typeof bossBtn === 'function') bossBtn(); break;
     case 'quests': S.quests = m.q; refreshSheet(); break;
     case 'qdone': questDone(m.msg); break;
     case 'world': {
@@ -237,6 +237,7 @@ function onMsg(m) {
     case 'dialogs': case 'dialog': dialogsMsg(m); break;
     case 'news': newsMsg(m); break;
     case 'welcome': welcomeShow(m); break;
+    case 'boss': S.boss = m.data; refreshSheet(); break;
     case 'forum': forumMsg(m); break;
     case 'letter': openSheet(() => letterSheet(m.letter)); break;
     case 'toast':
@@ -720,6 +721,7 @@ function openWorldCell(x, y) {
   const o = S.world.objects.find((v) => v.x === x && v.y === y);
   if (!o) return toast(`Пустая земля ${x}:${y}. Основание новых замков — позже.`);
   if (o.kind === 'castle') return openSheet(() => castleWin(o, x, y)); // окно «Замок» как в клиенте (ui3d.js)
+  if (o.boss) return openBoss(); // мировой босс (boss.js)
   openSheet(() => `<div class="sh-head"><div class="big">${gimg(WORLD_NAME_IMG(o))}</div><div><h3>${esc(o.name)}</h3><div class="muted small">${x}:${y}</div></div></div>
     ${worldActions(o, x, y)}`);
 }
@@ -1152,6 +1154,7 @@ function myCastleRing(p, active, half) { // half: −1 — задняя (вер�
 }
 // один объект карты мира (замок по рейтингу, лагерь, логово похода); sel — золотая подводка по контуру
 function worldObj(o, p, sel, k, noDome) {
+  if (o.boss) return bossOnMap(o, p, sel);
   if (sel) { ictx.save(); ictx.filter = 'drop-shadow(0 0 3px #fff3a0) drop-shadow(0 0 3px #ffe030) drop-shadow(0 0 4px #ffc400) drop-shadow(0 0 7px #ff9d00) brightness(1.18)'; }
   const path = o.kind === 'castle' ? `world/castle${castleStage(o.rating)}.png?v=1` : !o.qimg && WORLD_OBJ_IMG[o.img] ? WORLD_OBJ_IMG[o.img] : null, cimg = path && pic(path);
   if (cimg) { const dw = TW * (o.kind === 'castle' ? [0.78, 0.84, 0.92, 1.0][castleStage(o.rating)] : 0.8), sc = scaledPic(path, dw, k || undefined) || cimg, dh = dw * cimg.height / cimg.width;

@@ -771,7 +771,8 @@ function install(Game, helpers) {
     const me = this.ownerOf(castle);
     if (target && ['attack', 'raid', 'scout'].includes(mission) && !me.admin && this.rating(target) < NEWBIE_RATING) return { error: `Игрок под защитой новичка (рейтинг ниже ${NEWBIE_RATING}).` };
     const lair = !target && !obj && ['attack', 'raid'].includes(mission) ? this.lairAt(castle.owner, x, y) : null; // логово похода «Тёмные земли»
-    if (!target && !lair && (!obj || (!NPC[obj.img] && mission !== 'scout'))) return { error: 'Здесь некого атаковать.' };
+    const boss = !target && !obj && !lair && ['attack', 'raid'].includes(mission) ? this.bossAt(x, y) : null; // мировой босс (boss.js)
+    if (!target && !lair && !boss && (!obj || (!NPC[obj.img] && mission !== 'scout'))) return { error: 'Здесь некого атаковать.' };
     const src = squad ? squad.units : castle.units;
     for (const [id, n] of Object.entries(clean)) { src[id] -= n; if (!src[id]) delete src[id]; }
     if (squad) { // то, что не пошло в поход, остаётся в Замковой армии
@@ -1036,6 +1037,7 @@ function install(Game, helpers) {
     if (a.mission === 'scout') return this.scout(c, a, t, target);
 
     // бой: атака или набег
+    if (!target) { const boss = this.bossAt(a.x, a.y); if (boss) return this.bossFight(c, a, t, boss); } // мировой босс (boss.js)
     const lair = target ? null : this.lairAt(c.owner, a.x, a.y);
     const obj = target ? null : lair ? { img: 32 } : this.worldObjects(a.x, a.y, 1, 1)[0];
     const npc = lair ? lair.npc : obj && NPC[obj.img];
@@ -1652,6 +1654,7 @@ function install(Game, helpers) {
       forge: castle.forge, upJobs: castle.upJobs, forgeUnits: this.forgeUnits(castle).map((u) => u.id), magicUnits: this.magicUnits(castle).map((u) => u.id),
       upNext: Object.fromEntries([...new Set([...this.forgeUnits(castle), ...this.magicUnits(castle)])].map((u) => [u.id, Object.fromEntries(['a', 'd', 'm', 'md'].map((k) => [k, this.forgeCost(u, k, this.forgeLvl(castle, u.id, k) + 2)]))])),
       admin: !!user.admin, royal: this.royalView(user, castle), watch: this.hasWatch(user), watchLevel: this.watchLevel(user),
+      worldBoss: (() => { const b = this.bossNow(); return b ? { kind: b.kind, name: b.name, x: b.x, y: b.y, end: b.end, hp: b.hp, maxHp: b.maxHp } : null; })(), // кнопка мирового босса
       threats: this.castlesOf(user).flatMap((c) => this.incoming(c)).filter((a) => a.mission === 'attack' || a.mission === 'raid').sort((p, q) => p.arrive - q.arrive), // значок «на вас идёт армия»
       unreadReports: (this.db.reports || []).filter((r) => r.owner === user.id && !r.read).length,
     };

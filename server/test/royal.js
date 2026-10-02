@@ -475,5 +475,21 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(g.milState(cd, Dd).threats.length === 1 && g.milState(cd, Dd).watchLevel === 10, 'значок видит нападение');
   console.log('✓ Караульная башня: 1 ур. — кто и когда, 3 — примерно, 6 — точно, 10 — состав и генерал');
 }
+{ // мировой босс: появление, удары армиями, итог с наградами по месту
+  const { nextSaturday } = require('../src/boss');
+  const sat = new Date(nextSaturday(Date.UTC(2026, 9, 1, 12))); assert.ok(sat.getUTCDay() === 6 && sat.getUTCHours() === 15, 'суббота 18:00 МСК');
+  const P1 = g.register({ login: 'bossA1', password: '12345', race: 3 }).user, P2 = g.register({ login: 'bossA2', password: '12345', race: 0 }).user;
+  const b = g.bossSpawn(Date.now(), 1); assert.ok(g.bossAt(b.x, b.y) && b.hp === b.maxHp);
+  const c1 = g.castleOf(P1), c2 = g.castleOf(P2); g.mil(c1); g.mil(c2); g.maxOut(c1); g.maxOut(c2);
+  c1.units = { 247: 3000 }; c2.units = { 247: 500 };
+  assert.ok(g.sendArmy(c1, { units: { 247: 3000 }, x: b.x, y: b.y, mission: 'attack' }).army, 'на босса можно напасть');
+  assert.ok(g.sendArmy(c2, { units: { 247: 500 }, x: b.x, y: b.y, mission: 'raid' }).army, 'и набегом');
+  for (const c of [c1, c2]) { const a = c.armies[c.armies.length - 1]; g.arrive(c, a, Date.now()); }
+  assert.ok(b.dmg[P1.id] > b.dmg[P2.id] && b.dmg[P2.id] > 0 && b.hp < b.maxHp, 'урон записан');
+  const gear0 = (c1.gear || []).length; b.hp = 0; b.killer = P1.id; g.bossFinish(Date.now());
+  assert.ok(!g.bossNow() && g.db.boss.last.killed && (c1.gear || []).length >= gear0 + 2, 'победа: снаряжение лучшему и за последний удар');
+  assert.ok(g.reportsOf(P2.id).some((r) => /2-е место/.test(r.title)), 'отчёт с местом');
+  console.log('✓ Мировой босс: суббота 18:00, удары армиями, места и награды');
+}
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);
