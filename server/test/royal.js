@@ -673,6 +673,12 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(p && p.png.slice(1, 4).toString() === 'PNG' && !p.png.includes(Buffer.from('<?php')), 'новый PNG');
   assert.ok(g.picBegin(a1, 'picTo', w, h, 1).error, 'не чаще раза в 15 секунд');
   g.picSweep(Date.now() + 11 * 60000); assert.ok(!m.pic && m.picGone && !g.picGet(p), 'через 10 минут — удалено');
+  { // «Мне нравится!» у аватарки: один голос, не за себя, список, сброс при новой аватарке
+    a2.avatar = Date.now();
+    assert.ok(g.avaLike(a1, a2.id).ok && g.avaLike(a1, a2.id).error && g.avaLike(a2, a2.id).error, 'один голос, не за себя');
+    const L = g.avaLikes(a2, a2.id); assert.ok(L.list.length === 1 && L.list[0].login === 'picFrom' && g.avaLikes(a1, a2.id).mine, 'список голосов');
+    g.removeAvatar(a2); assert.ok(!g.avaLikes(a1, a2.id).list.length && g.avaLike(a1, a2.id).error, 'нет аватарки — голоса сброшены');
+  }
   console.log('✓ Фото в сообщениях: только точки, новый PNG, шелл не пройдёт, удаление через 10 минут');
   try { fs.unlinkSync(DB); } catch {}
   process.exit(0);

@@ -1808,3 +1808,12 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .epaul { width: 64px; height: 32px; object-fit: contain; vertical-align: middle; }
 .invpop { align-items: center; } .invpop .rinfo-box { padding: 6px; width: min(92vw, 420px); } .invpop .invcard { margin: 0; } .invpop .btn { margin-top: 8px; }
 .rlinkbig { display: block; width: 100%; margin-top: 6px; padding: 8px; border: 0; background: none; color: #1d4fa0; text-decoration: underline; font: 600 17px var(--serif); cursor: pointer; }
+.avaclick { cursor: pointer; }
+.avabig { width: min(60vw, 260px); height: auto; aspect-ratio: 1; object-fit: cover; border: 3px solid #8a5a2b; border-radius: 6px; margin: 8px auto 4px; display: block; image-rendering: auto; }
+.avaq { font: 400 min(20px, 5vw) var(--serif); color: #3a1c0c; margin: 6px 0; }
+.avalikebtn { padding: 4px 14px; border: 2px solid #c9a15a; border-radius: 6px; background: linear-gradient(#8a3a2a, #5a1a10); color: #fff3c4; font: 600 min(20px, 5vw) var(--serif); text-shadow: 0 1px 2px #000; }
+.avalikedone { color: #1f6b1f; font: 600 17px var(--serif); }
+.avalink { border: 0; background: none; padding: 0; color: #8a1a0a; text-decoration: underline; font: inherit; cursor: pointer; }
+.avalist { display: flex; flex-direction: column; gap: 4px; }
+.avarow { display: flex; gap: 8px; align-items: center; padding: 4px; border: 0; border-bottom: 2px solid #c9a15a; background: #8a5a3a; color: #fff3dc; text-align: left; font: 16px var(--serif); }
+.avasm img, .avasm { width: 64px; height: 64px; object-fit: cover; flex: none; display: block; }

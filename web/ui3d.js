@@ -246,7 +246,7 @@ function profileWin(p) {
     <div class="pauth"><img class="pcrown" src="gfx3d/prof/crown.png" alt=""><div>Авторитет Вашего города:<br><img class="pking" src="gfx3d/prof/king.png" alt=""> Здесь может быть Ваше имя!</div></div>
     <button class="pbar" data-soon="Авторитет города">Стать Авторитетом!</button>
     ${ribbon('Информация')}
-    <div class="pinfo"><div class="avatar">${avatarImg(p)}</div><div>
+    <div class="pinfo"><div class="avatar ${p.avatar ? 'avaclick' : ''}" ${p.avatar ? `data-avaview="${p.id}"` : ''}>${avatarImg(p)}</div><div>
       Никнейм: <b>${esc(p.login)}</b><br>Ранг: ${p.rank}<br>Рейтинг: ${fmtFull(p.rating)}<br>Раса: ${raceIcon(p.race)} ${esc(p.raceName)}</div></div>
     <button class="pline plink2" data-reptable>Репутация (${fmtFull(p.reputation)}): ${repIcons(p.reputation)}</button>
     ${best.length ? `<div class="pline">Зал Славы: ${medals}</div>` : ''}
@@ -637,4 +637,31 @@ $('#sheetBody').addEventListener('click', (e) => {
   const b = e.target.closest('[data-allyinv]'); if (!b) return;
   b.disabled = true; send({ t: 'alliance', op: 'invite', id: Number(b.dataset.allyinv) });
   setTimeout(() => send({ t: 'profile', id: Number(b.dataset.allyinv) }), 300);
+});
+
+// окно «Аватара» (как в оригинале): большая аватарка, «Мне нравится!», список игроков, которым она понравилась
+S.ava = null;
+function openAva(id) { S.ava = { id, list: null, show: false }; send({ t: 'avalikes', id }); openSheet(avaWin); }
+function avaWin() {
+  const a = S.ava, p = S.lastProfile && S.lastProfile.id === a.id ? S.lastProfile : null, L = a.data;
+  const img = p ? avatarImg(p, 'avabig') : L ? `<img class="avabig" src="avatar/${a.id}.png" alt="">` : '';
+  const self = S.st.user.id === a.id;
+  if (a.show && L) return `${ribbon('Аватарка')}<div class="center">${img}</div><p class="center avaq">Список игроков, которым понравилась аватарка:</p>
+    ${L.list.length ? `<div class="avalist">${L.list.map((u) => `<button class="avarow" data-cprof="${u.id}"><span class="avasm">${u.avatar ? `<img src="avatar/${u.id}.png?v=${u.avatar}" alt="">` : raceAva(u.race)}</span>
+      <span><b>${esc(u.login)}</b><br>Рейтинг: ${fmtFull(u.rating)} ${repIcons(u.rep)} (${fmtFull(u.rep)})</span></button>`).join('')}</div>` : '<p class="parch-note">Пока никто не голосовал.</p>'}`;
+  return `${ribbon('Аватара')}<div class="center">${img}</div>
+    ${self ? '<p class="center avaq">Это Ваша аватарка.</p>' : `<p class="center avaq">Вам понравилась эта аватарка?<br>Сообщите об этом!</p>
+      <div class="center">${L && L.mine ? '<span class="avalikedone">✔ Вы уже проголосовали</span>' : '<button class="avalikebtn" data-avalike>Мне нравится!</button>'}</div>`}
+    <p class="center avaq"><button class="avalink" data-avalist>Игроки</button>, которым понравилась эта аватарка${L ? ` (${L.list.length})` : ''}.</p>`;
+}
+function avaMsg(m) {
+  if (!S.ava || S.ava.id !== m.id) return;
+  S.ava.data = m; refreshSheet();
+  if (m.done) { const d = document.createElement('div'); d.className = 'rinfo'; d.innerHTML = `<div class="rinfo-box okbox"><p>${esc(m.done)}</p><button type="button" class="okbtn">Ок</button></div>`;
+    d.addEventListener('click', (e) => { if (e.target.closest('.okbtn') || e.target === d) d.remove(); }); document.body.appendChild(d); }
+}
+$('#sheetBody').addEventListener('click', (e) => {
+  const v = e.target.closest('[data-avaview]'); if (v) return openAva(Number(v.dataset.avaview));
+  if (e.target.closest('[data-avalike]')) return send({ t: 'avalike', id: S.ava.id });
+  if (e.target.closest('[data-avalist]')) { S.ava.show = true; return openSheet(avaWin); }
 });

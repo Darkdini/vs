@@ -250,6 +250,7 @@ function onMsg(m) {
     case 'mail': S.mail = m; refreshSheet(); break;
     case 'dialogs': case 'dialog': dialogsMsg(m); break;
     case 'picok': picMsg(m); break;
+    case 'avalikes': avaMsg(m); break;
     case 'news': newsMsg(m); break;
     case 'welcome': welcomeShow(m); break;
     case 'boss': S.boss = m.data; refreshSheet(); break;

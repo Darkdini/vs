@@ -29,6 +29,20 @@ function encodePng(rgba, w, h) {
 }
 
 function install(Game) {
+  // «Мне нравится!» у аватарки (как в оригинале): один голос от игрока за каждую аватарку, список проголосовавших
+  Game.prototype.avaLike = function avaLike(user, id) {
+    const u = this.userById(Number(id)); if (!u || !u.avatar) return { error: 'У игрока нет аватарки.' };
+    if (u.id === user.id) return { error: 'За свою аватарку голосовать нельзя.' };
+    u.avaLikes = u.avaLikes || [];
+    if (u.avaLikes.includes(user.id)) return { error: 'Вы уже голосовали за эту аватарку.' };
+    u.avaLikes.push(user.id); this.store.save(); return { ok: true, msg: 'Голос отправлен.' };
+  };
+  Game.prototype.avaLikes = function avaLikes(user, id) {
+    const u = this.userById(Number(id)); if (!u) return { error: 'Игрок не найден.' };
+    return { id: u.id, login: u.login, mine: (u.avaLikes || []).includes(user.id), list: (u.avaLikes || []).slice().reverse().map((x) => this.userById(x)).filter(Boolean)
+      .map((v) => ({ id: v.id, login: v.login, race: v.race, avatar: v.avatar || 0, rating: this.userRating(v), rep: v.reputation ?? 10 })) };
+  };
+
   const P = Game.prototype;
   // папка avatars рядом с файлом базы (data/avatars), вне папки web
   P.avatarDir = function avatarDir() { return path.join(path.dirname(path.resolve(this.store.file)), 'avatars'); };
@@ -44,13 +58,13 @@ function install(Game) {
     const file = this.avatarFile(user.id), tmp = `${file}.tmp`;
     fs.writeFileSync(tmp, encodePng(rgba, AVA, AVA));
     fs.renameSync(tmp, file);
-    user.avatar = now; user.avatarAt = now;
+    user.avatar = now; user.avatarAt = now; user.avaLikes = []; // новая аватарка — голоса «Мне нравится» заново
     this.store.save();
     return { ok: true };
   };
   P.removeAvatar = function removeAvatar(user) {
     try { fs.unlinkSync(this.avatarFile(user.id)); } catch { /* уже нет */ }
-    delete user.avatar;
+    delete user.avatar; user.avaLikes = [];
     this.store.save();
     return { ok: true };
   };
