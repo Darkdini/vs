@@ -5,7 +5,7 @@
 S.dlg = { list: null, page: 0, filter: 'all', with: null, msgs: null };
 function openDialogs() { S.dlg.list = null; S.dlg.menu = false; send({ t: 'dialogs', page: S.dlg.page, filter: S.dlg.filter }); openSheet(dialogsWin); }
 function openDialog(who) { S.dlg.msgs = null; S.dlg.with = null; S.dlg.more = 30; send({ t: 'dialog', ...(typeof who === 'number' ? { id: who } : { with: who }) }); openSheet(dialogWin); }
-const dlgAva = (u) => `<span class="dava">${u.avatar ? `<img src="avatar/${u.id}.png?v=${u.avatar}" alt="">` : '<img src="gfx3d/prof/king.png" alt="">'}</span>`;
+const dlgAva = (u) => `<span class="dava">${u.avatar ? `<img src="avatar/${u.id}.png?v=${u.avatar}" alt="">` : raceAva(u.race)}</span>`; // нет своей — портрет расы (ui3d.js)
 const dlgCut = (t, n = 22) => { const s = String(t || '').replace(/\s+/g, ' ').trim(); if (s.length <= n) return s; let c = s.slice(0, n); const m = /:([A-Za-z]*)$/.exec(c); if (m && !(SMILE_SET.has(m[1]) && s[n] === ':')) c = c.slice(0, m.index); return `${c.trimEnd()}…`; };
 
 function dialogsWin() {

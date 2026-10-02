@@ -215,7 +215,9 @@ $('#sheetBody').addEventListener('input', (e) => { if (e.target.closest('.chatba
 
 // ---------- профиль (как «Профиль» в клиенте: пергамент, красные ленты) ----------
 // аватар игрока (PNG 96×96, собранный сервером) или картинка расы
-const avatarImg = (p, cls = '') => (p.avatar ? `<img class="${cls}" src="avatar/${p.id}.png?v=${p.avatar}" alt="">` : raceIcon(p.race));
+// своей аватарки нет — портрет расы (gfx/auth/race_*.webp, те же, что при регистрации)
+const raceAva = (race, cls = '') => `<img class="${cls} raceava" src="${GFX}auth/race_${['humans', 'elves', 'dwarves', 'orcs'].includes(race) ? race : 'humans'}.webp" alt="">`;
+const avatarImg = (p, cls = '') => (p.avatar ? `<img class="${cls}" src="avatar/${p.id}.png?v=${p.avatar}" alt="">` : raceAva(p.race, cls));
 function profileWin(p) {
   const tile = (key, icon, text, off) => `<button class="ptile ${off ? 'off' : ''}" data-ptile="${key}" data-pid="${p.id}"><img src="${icon.startsWith('gfx3d/') ? icon : GFX + icon}" alt=""><span>${text}</span></button>`;
   // Зал Славы как в оригинале: в «Информации» — ряд значков (по лучшему месту в каждой категории),

@@ -1620,3 +1620,5 @@ img[src*="/hd/"] { image-rendering: auto !important; }
   #auth { background-attachment: scroll; }
   #auth .auth-box { max-width: 440px; }
 }
+.raceava { object-fit: cover; object-position: 50% 15%; image-rendering: auto; }
+.avatar img.raceava, .dava img.raceava { width: 100%; height: 100%; }

@@ -12,5 +12,6 @@
 Вернуть прежнюю версию:          sh ~/game/rollback.sh
 Резервные копии базы:            sh ~/game/restore.sh   (автоматически: при запуске и каждый час, ~/game-data/backups)
 За Cloudflare Tunnel / nginx добавьте TRUST_PROXY=1 в ~/game-data/game.env (иначе все игроки будут с одного адреса 127.0.0.1)
+Если весь трафик идёт только через Cloudflare (проксирование включено, прямого доступа к серверу нет) — можно TRUST_PROXY=cf: тогда IP берётся из CF-Connecting-IP. Без этого условия заголовок подделывается — оставляйте TRUST_PROXY=1.
 Cloudflare Tunnel в Termux:  pkg install cloudflared
   проверка без домена:  cloudflared tunnel --url http://127.0.0.1:8080   (выдаст адрес *.trycloudflare.com)

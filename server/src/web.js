@@ -510,7 +510,19 @@ const API = {
 const SEC_HEADERS = {
   'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
   'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY', 'Referrer-Policy': 'no-referrer',
+  'Strict-Transport-Security': 'max-age=15552000', 'Cross-Origin-Opener-Policy': 'same-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
 };
+// IP игрока за прокси. TRUST_PROXY=1 (Caddy, nginx, Cloudflare Tunnel) — последний адрес X-Forwarded-For: его дописывает наш прокси,
+// всё левее мог прислать сам игрок. CF-Connecting-IP — только при TRUST_PROXY=cf (весь трафик идёт через Cloudflare),
+// иначе этот заголовок подделывается и обходит блокировку входа, баны и поиск мультов.
+function clientIp(req, socket) {
+  const direct = String(socket.remoteAddress || '').replace(/^::ffff:/, ''), tp = process.env.TRUST_PROXY;
+  if (tp === 'cf') return String(req.headers['cf-connecting-ip'] || '').trim() || direct;
+  if (tp === '1') { const xs = String(req.headers['x-forwarded-for'] || '').split(',').map((v) => v.trim()).filter(Boolean); return (xs[xs.length - 1] || direct).replace(/^::ffff:/, ''); }
+  return direct;
+}
+const WS_PER_IP = Number(process.env.WS_PER_IP) || 40; // соединений с одного адреса (семья, общежитие, NAT — с запасом)
 // статика из памяти: файл читается и сжимается один раз, пока не изменится на диске
 const STATIC = new Map();
 function staticFile(file) {
@@ -553,16 +565,23 @@ function startWeb(game, sessions, { port, host, log }) {
     res.writeHead(200, head); res.end(f.body);
   });
 
+  // медленные/зависшие запросы не держат сервер
+  server.headersTimeout = 15000; server.requestTimeout = 20000;
   server.on('upgrade', (req, socket) => {
-    if (req.url !== '/ws' || req.headers.upgrade.toLowerCase() !== 'websocket') return socket.destroy();
+    if (req.url !== '/ws' || String(req.headers.upgrade || '').toLowerCase() !== 'websocket') return socket.destroy();
+    // чужой сайт не может открыть соединение от имени игрока (Origin должен совпадать с адресом игры)
+    const origin = req.headers.origin;
+    if (origin) { let oh = ''; try { oh = new URL(origin).host; } catch { /* мусор */ } if (oh !== req.headers.host) return socket.destroy(); }
+    const ip = clientIp(req, socket);
+    let same = 0; for (const s of sessions) if (s.ip === ip) same++;
+    if (same >= WS_PER_IP) { log(`слишком много соединений с ${ip}`); return socket.destroy(); }
     wsAccept(req, socket);
     const tag = `web ${socket.remoteAddress}:${socket.remotePort}`;
     const slog = (m) => log(`${tag} ${m}`);
     const session = new WebSession(game, socket, slog);
-    // IP игрока: заголовкам прокси верим только при TRUST_PROXY=1 (Cloudflare Tunnel / nginx), иначе их можно подделать и обойти блокировку входа
-    const direct = String(socket.remoteAddress || '').replace(/^::ffff:/, '');
-    session.ip = process.env.TRUST_PROXY === '1' ? (String(req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || '').split(',')[0].trim() || direct) : direct;
+    session.ip = ip;
     sessions.add(session);
+    setTimeout(() => { if (!session.user && !socket.destroyed) socket.destroy(); }, 10 * 60000).unref(); // без входа — не дольше 10 минут
     const reader = new WsReader();
     socket.on('data', (chunk) => {
       let frames;

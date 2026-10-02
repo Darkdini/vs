@@ -2,7 +2,7 @@
 // «Война Королей» — сервер браузерной игры. Отдаёт клиент (web/) и говорит с ним по WebSocket (web.js).
 // Запуск: npm start (из папки server) → http://localhost:8080
 // Переменные окружения: WEB_PORT/PORT (8080), HOST (0.0.0.0), SPEED (скорость мира, 1 — как в оригинале), DB (файл базы),
-// ADMIN_LOGIN (секретный логин админа), ADMIN_PASS (пароль админа), TRUST_PROXY=1 (за Cloudflare Tunnel / nginx)
+// ADMIN_LOGIN (секретный логин админа), ADMIN_PASS (пароль админа), TRUST_PROXY=1 (за Caddy / nginx / Cloudflare Tunnel; TRUST_PROXY=cf — только если весь трафик идёт через Cloudflare)
 
 const path = require('path');
 const { Game, Store } = require('./game');
