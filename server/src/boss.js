@@ -7,6 +7,8 @@
 
 const RES4 = ['wood', 'stone', 'iron', 'food'];
 const DAY = 86400000, LIFE = 2 * DAY, SEG = 1000;
+const KILL_REP = 3, KILL_RES = 15000; // за последний удар
+const SLAYER = { dragon: 'Драконоборец', troll: 'Сокрушитель троллей', lich: 'Изгоняющий тьму' };
 const BOSSES = [
   { kind: 'dragon', name: 'Древний дракон Игнис', desc: 'Пробудился в огненных горах и жжёт всё на своём пути.', bite: 0.4, def: 32, mdef: 18 },
   { kind: 'troll', name: 'Тролль-вожак Грох', desc: 'Каменная шкура держит удары, но магия его жжёт.', bite: 0.3, def: 45, mdef: 10 },
@@ -79,7 +81,12 @@ function install(Game) {
       let rar = place === 1 ? 3 : place <= 3 ? 2 : place <= 10 ? 1 : share >= 0.005 && Math.random() < 0.5 ? 0 : -1;
       if (!killed) rar = place <= 10 ? rar - 1 : -1;
       if (rar >= 0) lines.push(this.giveGear(cap, this.rollGear(0, rar)));
-      if (killed && b.killer === r.id) lines.push(`Последний удар — ваш! ${this.giveGear(cap, this.rollGear(0, 2))}`);
+      if (killed && b.killer === r.id) { // убийца босса: значок в профиле, немного репутации и ресурсов, эпическая вещь
+        for (const x of RES4) cap.res[x] = Math.min(capy[x], cap.res[x] + KILL_RES);
+        u.reputation = (u.reputation ?? 10) + KILL_REP;
+        (u.bossBadges = u.bossBadges || []).push({ kind: b.kind, name: b.name, at: now });
+        lines.push(`Последний удар — ваш! Значок «${SLAYER[b.kind] || 'Убийца чудовищ'}» в профиле, +${KILL_REP} репутации, ещё по ${KILL_RES.toLocaleString('ru-RU')} ресурсов. ${this.giveGear(cap, this.rollGear(0, 2))}`);
+      }
       if (killed && place <= 3) { this.mil(cap); const types = Object.keys(require('./army').ART_TYPES); cap.artifacts.push({ id: this.db.nextId++, type: types[Math.floor(Math.random() * types.length)], rarity: place === 1 ? 2 : 1, active: false, found: now }); lines.push('Артефакт за место в тройке лучших — в Сокровищнице.'); }
       this.addStat(r.id, 'bossDmg', r.d);
       this.report(r.id, `Мировой босс: ${place}-е место`, lines, 'battle');
@@ -125,4 +132,4 @@ function install(Game) {
   };
 }
 
-module.exports = { install, BOSSES, nextSaturday };
+module.exports = { install, BOSSES, SLAYER, nextSaturday };

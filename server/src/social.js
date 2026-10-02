@@ -205,7 +205,7 @@ function install(Game) {
       titles: [...((u.premium || 0) > Date.now() ? ['VIP'] : []), ...(u.admin ? ['Администратор'] : u.mod ? ['Модератор форума'] : [])], premium: this.isPremium(u) && !u.admin ? u.premium : 0,
       chatBan: viewer.admin || viewer.mod || u.id === viewer.id ? u.chatBan || 0 : undefined,
       alliance: al ? { id: al.id, name: al.name, tag: al.tag, role: this.allyTitle ? this.allyTitle(al, u.id).title : (al.leader === u.id ? 'Глава' : 'Участник') } : null,
-      medals: this.medalsOf(u.id), hallRep: u.hallRep || 0, awards: (u.allyAwards || []).slice().reverse(),
+      medals: this.medalsOf(u.id), hallRep: u.hallRep || 0, awards: (u.allyAwards || []).slice().reverse(), bossBadges: (u.bossBadges || []).slice().reverse(),
       castles: this.castlesOf(u).map((k, i) => ({ id: k.id, name: k.name, x: k.x, y: k.y, capital: i === 0, rating: this.rating(k) })),
       self: u.id === viewer.id,
       friend: (viewer.friends || []).includes(u.id),

@@ -780,6 +780,7 @@ function install(Game, helpers) {
       castle.squads = castle.squads.filter((q) => q !== squad);
     }
     let sec = this.travelSec(castle, clean, general, x, y, mission === 'trade');
+    if (boss) sec = Math.max(20, Math.min(Math.round(sec / 4), Math.round(900 / SPEED))); // к мировому боссу — быстрый марш: вчетверо быстрее и не дольше 15 минут (и обратно так же)
     if (portal) sec = Math.max(5, Math.round(sec / 4));
     const now = Date.now(), start = at && Number(at) > now + 3000 ? Number(at) : now;
     const army = { id: this.db.nextId++, units: clean, general: !!general, mission, x, y, depart: start, arrive: start + sec * 1000, sec, state: start > now ? 'wait' : 'go', loot: null, cargo,
