@@ -418,7 +418,7 @@ function setTab(tab) {
   S.tab = tab;
   $$('#locs [data-loc]').forEach((b) => b.classList.toggle('on', b.dataset.loc === tab));
   if (tab === 'world') { S.wJump = true; S.world = null; send({ t: 'world', cx: S.st.castle.x, cy: S.st.castle.y }); } // выход в мир — всегда к текущему замку
-  renderView();
+  renderView(); if (typeof stashBtn === 'function' && S.st) stashBtn();
 }
 
 function renderView() {

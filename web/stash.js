@@ -24,12 +24,13 @@ function stashWin() {
         ${open ? (why ? `<div class="stwhy">${why}</div>` : `<div class="sttake"><input type="range" min="1" max="${x.max}" value="${x.max}" data-strange><span class="stv">${fmtFull(x.max)}</span>
           <button class="pbar" data-sttake="${id(x)}">Извлечь</button></div>`) : '<span class="starr">›</span>'}</div>`; }).join('')}</div>`;
 }
-// значок на экране замка (справа сверху): сундук с числом ждущих наград
+// значок на экране замка (справа сверху; прячется, пока выдвинута панель локаций): сундук с числом ждущих наград
 function stashBtn() {
   let b = $('#stbtn');
-  if (!b) { b = document.createElement('button'); b.id = 'stbtn'; b.type = 'button'; b.innerHTML = `<img src="${GFX}stash/btn.png" data-fb="${GFX}quest/chest.png" alt="Кладовая"><b></b>`; b.addEventListener('click', openStash); $('#game').appendChild(b); }
+  if (!b) { b = document.createElement('button'); b.id = 'stbtn'; b.type = 'button'; b.innerHTML = `<img src="${GFX}stash/btn.png" data-fb="${GFX}quest/chest.png" alt="Кладовая"><b></b>`; b.addEventListener('click', openStash); $('#stage').appendChild(b); }
   const n = (S.st && S.st.castle.mil && S.st.castle.mil.stash) || 0;
   b.classList.toggle('glow', n > 0); b.querySelector('b').textContent = n ? String(n) : '';
+  b.hidden = !!S.tab && S.tab !== 'castle'; // только на экране замка (на карте мира и землях — свои панели)
 }
 $('#sheetBody').addEventListener('input', (e) => { const r = e.target.closest('[data-strange]'); if (r) r.parentNode.querySelector('.stv').textContent = fmtFull(Number(r.value)); });
 $('#sheetBody').addEventListener('click', (e) => {
