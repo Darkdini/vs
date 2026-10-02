@@ -1348,15 +1348,21 @@ function install(Game, helpers) {
   // Караульная башня (хоть в одном замке королевства): видны армии, идущие на замки короля, кроме разведки;
   // без башни видны только торговцы и подкрепления союзников
   P.hasWatch = function hasWatch(user) { return !!user && this.castlesOf(user).some((c) => this.buildingLevel(c, B.WATCHTOWER) > 0); };
+  // уровень башни (лучшая в королевстве) решает, что видно о вражеской армии:
+  // 1+ — кто, куда и когда; 3+ — примерная численность; 6+ — точная численность; 10+ — состав войск и генерал
+  P.watchLevel = function watchLevel(user) { return user ? Math.max(0, ...this.castlesOf(user).map((c) => this.buildingLevel(c, B.WATCHTOWER))) : 0; };
+  const roughly = (n) => { if (n < 10) return n; const p = 10 ** (Math.floor(Math.log10(n)) - 1); return Math.round(n / p) * p; };
   P.incoming = function incoming(castle) {
-    const out = [], watch = this.hasWatch(this.ownerOf(castle));
+    const out = [], wl = this.watchLevel(this.ownerOf(castle)), watch = wl > 0;
     for (const c of Object.values(this.db.castles)) {
       if (c === castle || !c.armies) continue;
       for (const a of c.armies) {
         if (a.state !== 'go' || a.x !== castle.x || a.y !== castle.y || a.mission === 'scout') continue;
         const friendly = a.mission === 'trade' || a.mission === 'reinforce';
         if (!friendly && !watch) continue;
-        out.push({ from: this.ownerOf(c).login, castle: c.name, to: castle.name, mission: a.mission, arrive: a.arrive, units: friendly ? a.units : null });
+        const n = Object.values(a.units).reduce((q, k) => q + k, 0);
+        out.push({ id: a.id, from: this.ownerOf(c).login, castle: c.name, to: castle.name, tx: castle.x, ty: castle.y, mission: a.mission, arrive: a.arrive, units: friendly || wl >= 10 ? a.units : null,
+          size: friendly || wl >= 6 ? n : wl >= 3 ? roughly(n) : null, exact: friendly || wl >= 6, general: friendly || wl >= 10 ? !!a.general : null });
       }
     }
     return out.sort((p, q) => p.arrive - q.arrive);
@@ -1388,7 +1394,8 @@ function install(Game, helpers) {
     const t = this.castleAt(a.x, a.y), owner = t && this.ownerOf(t);
     if (!t || t.owner === c.owner || !this.hasWatch(owner)) return;
     const min = Math.max(1, Math.round((a.arrive - Date.now()) / 60000));
-    this.event(owner.id, `Караульная башня: ${MISSIONS[a.mission]} на «${t.name}» от ${this.ownerOf(c).login}, прибытие через ${min} мин.`);
+    const x = this.incoming(t).find((q) => q.id === a.id), size = x && x.size != null ? `, войск ${x.exact ? '' : '≈ '}${x.size.toLocaleString('ru-RU')}` : '';
+    this.event(owner.id, `⚔ Караульная башня: ${MISSIONS[a.mission]} на «${t.name}» от ${this.ownerOf(c).login}${size}, прибытие через ${min} мин.`);
   };
 
   // ----- рынок -----
@@ -1644,7 +1651,8 @@ function install(Game, helpers) {
       invites: (user.invites || []).map((id) => this.db.alliances && this.db.alliances[id]).filter(Boolean).map((a) => ({ id: a.id, name: a.name, tag: a.tag })),
       forge: castle.forge, upJobs: castle.upJobs, forgeUnits: this.forgeUnits(castle).map((u) => u.id), magicUnits: this.magicUnits(castle).map((u) => u.id),
       upNext: Object.fromEntries([...new Set([...this.forgeUnits(castle), ...this.magicUnits(castle)])].map((u) => [u.id, Object.fromEntries(['a', 'd', 'm', 'md'].map((k) => [k, this.forgeCost(u, k, this.forgeLvl(castle, u.id, k) + 2)]))])),
-      admin: !!user.admin, royal: this.royalView(user, castle), watch: this.hasWatch(user),
+      admin: !!user.admin, royal: this.royalView(user, castle), watch: this.hasWatch(user), watchLevel: this.watchLevel(user),
+      threats: this.castlesOf(user).flatMap((c) => this.incoming(c)).filter((a) => a.mission === 'attack' || a.mission === 'raid').sort((p, q) => p.arrive - q.arrive), // значок «на вас идёт армия»
       unreadReports: (this.db.reports || []).filter((r) => r.owner === user.id && !r.read).length,
     };
   };

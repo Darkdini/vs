@@ -461,5 +461,19 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   console.log('✓ Герой-генерал: ветки умений, снаряжение (надеть, усилить, разобрать), бонусы в бою');
   if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
 }
+{ // Караульная башня: уровень раскрывает сведения о вражеской армии, значок «на вас идёт армия» (threats)
+  const A = g.register({ login: 'watchA', password: '12345', race: 3 }).user, Dd = g.register({ login: 'watchD', password: '12345', race: 3 }).user;
+  const ca = g.castleOf(A), cd = g.castleOf(Dd); g.mil(ca); g.mil(cd); g.maxOut(ca); g.maxOut(cd); ca.units = { 247: 1234 };
+  const r = g.sendArmy(ca, { units: { 247: 1234 }, x: cd.x, y: cd.y, mission: 'attack' }); assert.ok(r.army, JSON.stringify(r));
+  let cell = cd.grid[0].indexOf(21); if (cell < 0) cell = cd.grid[0].indexOf(-1);
+  const tw = (L) => { cd.grid[0][cell] = L ? 21 : -1; cd.levels[0][cell] = L; return g.incoming(cd).find((x) => x.mission === 'attack'); };
+  assert.ok(!tw(0), 'без башни нападение не видно');
+  let x = tw(1); assert.ok(x && x.size === null && x.units === null, 'башня 1 ур.: кто и когда');
+  x = tw(3); assert.ok(x.size === 1200 && !x.exact, `башня 3 ур.: примерно (${x.size})`);
+  x = tw(6); assert.ok(x.size === 1234 && x.exact && x.units === null, 'башня 6 ур.: точно');
+  x = tw(10); assert.ok(x.units[247] === 1234 && x.general === false, 'башня 10 ур.: состав и генерал');
+  assert.ok(g.milState(cd, Dd).threats.length === 1 && g.milState(cd, Dd).watchLevel === 10, 'значок видит нападение');
+  console.log('✓ Караульная башня: 1 ур. — кто и когда, 3 — примерно, 6 — точно, 10 — состав и генерал');
+}
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);

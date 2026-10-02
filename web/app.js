@@ -84,10 +84,9 @@ function statusTick() { // сообщения — плавающей строк�
   const el = $('#status'), t = Date.now();
   if (statusQ.length && statusQ[0].until && statusQ[0].until < t) statusQ.shift();
   const m = statusQ[0];
-  const inc = S.st && S.st.castle.mil && S.st.castle.mil.incoming.find((a) => a.mission !== 'trade' && a.arrive > now());
   if (m) { if (!m.until) m.until = t + 2600; el.textContent = m.msg; el.className = `show ${m.cls || 'msg'}`; }
-  else if (inc) { el.className = 'show err'; el.textContent = `⚔ ${S.cat.mil.missions[inc.mission]} от ${inc.from} через ${fmtT((inc.arrive - now()) / 1000)}`; }
   else el.className = '';
+  if (typeof threatBtn === 'function') threatBtn(); // ⚔ на вас идёт армия (watch.js)
   const d = new Date(now());
   $('#clock').textContent = [d.getHours(), d.getMinutes(), d.getSeconds()].map((v) => String(v).padStart(2, '0')).join(':');
 }
