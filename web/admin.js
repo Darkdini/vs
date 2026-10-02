@@ -8,7 +8,7 @@ const aNum = (name, value, ph) => `<input class="anum" type="number" inputmode="
 
 // Разделы: Игрок (поиск, карточка, пароли, наказания) · Выдать (монеты, ресурсы, замки, армия) · Модерация (модераторы, мульты, жалобы) · Мир (новости, рассылки, события).
 // У каждого действия — короткое описание; одно действие — в одном месте.
-const ADM_TABS = [['player', '👤 Игрок'], ['give', '🎁 Выдать'], ['mod', '🛡 Модерация'], ['world', '🌍 Мир'], ['stats', '📊 Статистика'], ['alerts', '🚨 Подозрительное']];
+const ADM_TABS = [['player', '👤 Игрок'], ['give', '🎁 Выдать'], ['mod', '🛡 Модерация'], ['world', '🌍 Мир'], ['stats', '📊 Статистика'], ['alerts', '🚨 Подозрительное'], ['sec', '🔒 Безопасность']];
 // строка действия: название и пояснение слева, поле и кнопка справа
 const aAct = (title, desc, controls, wide = false) => `<div class="aact ${wide ? 'wide' : ''}"><div class="aact-t"><b>${title}</b><small>${desc}</small></div><div class="aact-c">${controls}</div></div>`;
 const aBtn2 = (op, text, extra = '', cls = '') => `<button class="btn small ${cls}" data-adm="${op}" ${extra}>${text}</button>`;
@@ -17,7 +17,7 @@ function adminHtml() {
   const a = S.adm, tab = ADM_TABS.some(([k]) => k === a.tab) ? a.tab : 'player';
   const who = a.login ? `игрок <b>${esc(a.login)}</b> <button class="btn small" data-adm-self>× сбросить</button>` : '<b>вы (Советник)</b>';
   const head = `${ribbon('Админ-панель')}
-    <div class="atabs">${ADM_TABS.map(([k, t]) => `<button class="${k === tab ? 'on' : ''}" data-atab="${k}">${t}${k === 'mod' && S.st.user.multiNew ? ` <b class="abadge">${S.st.user.multiNew}</b>` : ''}${k === 'alerts' && S.st.user.alertsNew ? ` <b class="abadge">${S.st.user.alertsNew}</b>` : ''}</button>`).join('')}</div>`;
+    <div class="atabs">${ADM_TABS.map(([k, t]) => `<button class="${k === tab ? 'on' : ''}" data-atab="${k}">${t}${k === 'mod' && S.st.user.multiNew ? ` <b class="abadge">${S.st.user.multiNew}</b>` : ''}${k === 'alerts' && S.st.user.alertsNew ? ` <b class="abadge">${S.st.user.alertsNew}</b>` : ''}${k === 'sec' && S.st.user.secNew ? ` <b class="abadge">${S.st.user.secNew}</b>` : ''}</button>`).join('')}</div>`;
   const target = `<div class="atarget">Кому: ${who}<label class="check"><input type="checkbox" data-an="all" ${a.all ? 'checked' : ''}> во все замки игрока</label></div>`;
   const T = {
     player: () => `${aSec('Найти игрока', `<p class="small">Введите ник (можно часть) или нажмите «Топ-100». Нажмите на игрока — откроется его карточка.</p>
@@ -64,6 +64,7 @@ function adminHtml() {
         ${aAct('Боты', 'Заселить карту замками-ботами (для проверки нагрузки).', `${aNum('bots', 100, 'сколько')}${aBtn2('bots', 'Заселить', 'data-arg="bots:n" data-confirm="Заселить карту ботами?"')}`)}`)}`,
     stats: () => admStatsHtml(a.stats),
     alerts: () => admAlertsHtml(a.alerts),
+    sec: () => admSecHtml(a.sec),
   };
   return head + T[tab]();
 }
@@ -160,7 +161,7 @@ $('#sheetBody').addEventListener('change', (e) => {
 $('#sheetBody').addEventListener('click', (e) => {
   const gf = e.target.closest('[data-gafill]'); if (gf) { $$('.gaunit input').forEach((i) => { i.value = gf.dataset.gafill; }); return; }
   const md = e.target.closest('[data-amod]'); if (md) { if (!confirm(`Снять ${md.dataset.amod} с модераторов?`)) return; send({ t: 'admin', op: 'mod', login: md.dataset.amod, on: 0 }); return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
-  const tb = e.target.closest('[data-atab]'); if (tb) { S.adm.tab = tb.dataset.atab; if (S.adm.tab === 'mod') { send({ t: 'admin', op: 'mods' }); send({ t: 'admin', op: 'multis' }); } if (S.adm.tab === 'stats') send({ t: 'admin', op: 'stats' }); if (S.adm.tab === 'alerts') send({ t: 'admin', op: 'alerts' }); return refreshSheet(); }
+  const tb = e.target.closest('[data-atab]'); if (tb) { S.adm.tab = tb.dataset.atab; if (S.adm.tab === 'mod') { send({ t: 'admin', op: 'mods' }); send({ t: 'admin', op: 'multis' }); } if (S.adm.tab === 'stats') send({ t: 'admin', op: 'stats' }); if (S.adm.tab === 'alerts') send({ t: 'admin', op: 'alerts' }); if (S.adm.tab === 'sec') send({ t: 'admin', op: 'sec' }); return refreshSheet(); }
   const mb = e.target.closest('[data-mban],[data-mall],[data-mdev]');
   if (mb) { // решения по мультам — только вручную и с подтверждением
     const d = mb.dataset, on = d.on === '1';
@@ -181,6 +182,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   }
   if (op === 'players' || op === 'bugs' || op === 'multis') return send({ t: 'admin', op });
   if (op === 'alertsclear') { send({ t: 'admin', op }); S.adm.alerts = []; return refreshSheet(); }
+  if (op === 'secclear') { send({ t: 'admin', op }); return setTimeout(() => send({ t: 'admin', op: 'sec' }), 200); }
   if (op === 'bugsclear') { S.adm.bugs = null; return send({ t: 'admin', op }); }
   if (op === 'delete') { admSend(op); S.adm.login = ''; S.adm.player = null; S.adm.players = null; return; }
   admSend(op, extra);
@@ -219,6 +221,7 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
     if (m.op === 'mods') S.adm.mods = m.data;
     if (m.op === 'stats') S.adm.stats = m.data;
     if (m.op === 'alerts') S.adm.alerts = m.data;
+    if (m.op === 'sec') S.adm.sec = m.data;
     if (m.op === 'armyinfo') S.adm.ga = m.data;
     if (m.op === 'passcheck') S.adm.passcheck = m.data;
     return refreshSheet();
@@ -277,3 +280,33 @@ function admAlertsHtml(l) {
       ${aAct('Очистить список', 'Удалить все записи (новые появятся при следующих проверках).', aBtn2('alertsclear', 'Очистить', 'data-confirm="Очистить список подозрительного?"', 'danger'))}`
     : '<p class="parch-note">Ничего подозрительного. Проверка идёт каждые 10 минут.</p>'}`);
 }
+
+// ---------- 🔒 Безопасность (server/src/secwatch.js): подозрительные IP — подбор паролей, поиск дыр, флуд ----------
+function admSecHtml(d) {
+  const intro = '<p class="small">Адреса, с которых было подозрительное: подбор паролей (особенно к Вашему аккаунту), поиск уязвимостей на сайте (.php, .env, wp-admin, обход папок), попытки отправить файл, флуд, подделанные запросы. Красные — свежие с прошлого просмотра. Вход на сам сервер (SSH) сюда не попадает — его смотрят командой <code>lastb</code>.</p>';
+  if (!d) return aSec('🔒 Безопасность', `${intro}<p class="small">Загрузка…</p>`);
+  const danger = (x) => x.kinds.some((k) => ['admin', 'probe', 'upload'].includes(k.k));
+  const row = (x) => `<div class="alrt ${x.fresh && danger(x) ? 'new' : ''}"><i>${danger(x) ? '⛔' : '⚠'}</i><div>
+      <b>${esc(x.ip)}${x.ip === d.me ? ' <span class="ok">(это Вы)</span>' : ''}${x.banned ? ' <span class="bad">[заблокирован]</span>' : ''}</b>
+      <small>${x.kinds.map((k) => `${esc(k.t)} ×${k.v}`).join(' · ')}</small>
+      <small class="muted">${x.samples.map(esc).join('<br>')}</small>
+      <span>первый раз ${fmtDate(x.first)} · последний ${fmtDate(x.last)}</span>
+      ${x.ip === d.me ? '' : x.banned ? `<button class="btn small" data-ipunban="${esc(x.ip)}">Разблокировать</button>` : `<button class="btn small danger" data-ipban="${esc(x.ip)}" data-why="${esc(x.kinds.map((k) => k.t).join(', '))}">Заблокировать IP</button>`}</div></div>`;
+  return `${aSec('🔒 Безопасность', `${intro}<p class="small">Ваш адрес сейчас: <b>${esc(d.me || '?')}</b> — его заблокировать нельзя. Осторожно: у мобильного интернета один адрес бывает у многих людей — блокировка закроет игру им всем.</p>
+      ${d.list.length ? `<div class="alist">${d.list.map(row).join('')}</div>` : '<p class="parch-note">Пока ничего подозрительного.</p>'}
+      <button class="btn small" data-asec>↻ Обновить</button> ${aBtn2('secclear', 'Очистить журнал', 'data-confirm="Очистить журнал адресов? Блокировки останутся."', 'danger')}`)}
+    ${aSec('⛔ Заблокированные адреса', `${d.bans.length ? d.bans.map((b) => `<div class="srow"><span><b>${esc(b.ip)}</b> · ${fmtDate(b.at)}${b.why ? ` · ${esc(b.why)}` : ''}</span><button class="btn small" data-ipunban="${esc(b.ip)}">Снять</button></div>`).join('') : '<p class="small">Нет.</p>'}
+      <form class="chatform" data-aform="ipban"><input name="ip" placeholder="IP вручную, например 1.2.3.4" autocomplete="off" required><button class="btn small danger">Заблокировать</button></form>`)}`;
+}
+$('#sheetBody').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-ipban],[data-ipunban],[data-asec]'); if (!b) return;
+  if (b.dataset.asec !== undefined) return send({ t: 'admin', op: 'sec' });
+  if (b.dataset.ipban) { if (!confirm(`Заблокировать ${b.dataset.ipban}? Сайт и игра для этого адреса закроются.`)) return; send({ t: 'admin', op: 'ipban', target: b.dataset.ipban, why: b.dataset.why }); }
+  if (b.dataset.ipunban) send({ t: 'admin', op: 'ipunban', target: b.dataset.ipunban });
+  setTimeout(() => send({ t: 'admin', op: 'sec' }), 200);
+});
+$('#sheetBody').addEventListener('submit', (e) => {
+  const f = e.target.closest('[data-aform="ipban"]'); if (!f) return; e.preventDefault(); e.stopImmediatePropagation();
+  if (!confirm(`Заблокировать ${f.ip.value.trim()}?`)) return;
+  send({ t: 'admin', op: 'ipban', target: f.ip.value.trim(), why: 'вручную' }); f.ip.value = ''; setTimeout(() => send({ t: 'admin', op: 'sec' }), 200);
+}, true);

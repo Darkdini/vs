@@ -599,5 +599,19 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(g.adminOp(adm, 'player', { login: 'cheatsus' }).data.goldLog.length >= 2, 'история золота в карточке');
   void n0; console.log('✓ Подозрительное: армия, золото мимо журнала и не от админа, лояльность, ресурсы; админ и Кладовая не тревожат');
 }
+{ // «Безопасность»: подозрительные адреса и блокировка IP
+  const adm = g.adminUser();
+  for (const u of ['/wp-login.php', '/.env', '/../../etc/passwd', '/cgi-bin/x.cgi', '/vendor/phpunit/x']) assert.ok(g.secProbe(u), 'поиск дыр: ' + u);
+  for (const u of ['/', '/g.js?v=1', '/gfx/units/uniq/h_guard.png', '/catalog.json?h=abc', '/style.css']) assert.ok(!g.secProbe(u), 'обычный запрос: ' + u);
+  g.secEvent('5.6.7.8', 'admin', 'вход в аккаунт администратора'); g.secEvent('5.6.7.8', 'probe', '/.env'); g.secEvent('9.9.9.9', 'login', 'vasya');
+  assert.ok(g.secNew() >= 1, 'новый опасный адрес');
+  const v = g.adminOp(adm, 'sec', { ip: '1.1.1.1' }).data, x = v.list.find((y) => y.ip === '5.6.7.8');
+  assert.ok(x && x.kinds.some((k) => k.k === 'admin') && x.samples.length === 2 && g.secNew() === 0, 'список адресов, просмотрено');
+  assert.ok(g.adminOp(adm, 'ipban', { target: '1.1.1.1', ip: '1.1.1.1' }).error, 'себя не блокируем');
+  assert.ok(g.adminOp(adm, 'ipban', { target: '5.6.7.8', why: 'тест', ip: '1.1.1.1' }).msg && g.ipBanned('5.6.7.8') && !g.ipBanned('9.9.9.9'), 'IP заблокирован');
+  assert.ok(g.adminOp(adm, 'ipban', { target: 'drop table', ip: '1.1.1.1' }).error, 'мусор вместо IP — отказ');
+  g.adminOp(adm, 'ipunban', { target: '5.6.7.8' }); assert.ok(!g.ipBanned('5.6.7.8'), 'разблокирован');
+  console.log('✓ Безопасность: поиск дыр, подбор пароля админа, блокировка IP (себя — нельзя)');
+}
 try { fs.unlinkSync(DB); } catch {}
 process.exit(0);

@@ -131,7 +131,7 @@ class WebSession {
       t: 'state',
       now: Date.now(),
       quests: this.questsLite(),
-      user: { id: u.id, login: u.login, race: u.race, raceName: C.RACE_NAMES[u.race], premium: u.premium || 0, gold: u.gold || 0, goldLog: (u.goldLog || []).slice(-50).reverse(), admin: !!u.admin, mod: !!u.mod, alertsNew: u.admin ? this.game.alertsNew() : 0, multiNew: u.admin ? (this.game.db.multiLog || []).filter((x) => x.at > (u.multiSeen || 0)).length : 0 },
+      user: { id: u.id, login: u.login, race: u.race, raceName: C.RACE_NAMES[u.race], premium: u.premium || 0, gold: u.gold || 0, goldLog: (u.goldLog || []).slice(-50).reverse(), admin: !!u.admin, mod: !!u.mod, alertsNew: u.admin ? this.game.alertsNew() : 0, secNew: u.admin ? this.game.secNew() : 0, multiNew: u.admin ? (this.game.db.multiLog || []).filter((x) => x.at > (u.multiSeen || 0)).length : 0 },
       castle: {
         id: c.id, name: c.name, x: c.x, y: c.y, grid: { 0: Array.from(c.grid[0]), 1: Array.from(c.grid[1]) }, levels: { 0: Array.from(c.levels[0]), 1: Array.from(c.levels[1]) },
         res: c.res, rate: this.game.rates(c), cap: this.game.capacity(c),
@@ -162,16 +162,16 @@ class WebSession {
 
   handle(msg) {
     // защита от подмены запросов: только объект с командой-строкой; ключи и значения вида __proto__/constructor/toString отвергаются
-    if (!msg || typeof msg !== 'object' || Array.isArray(msg) || typeof msg.t !== 'string') return this.error('Неверный запрос.');
-    if (hasEvil(msg, 0)) return this.error('Неверный запрос.');
+    if (!msg || typeof msg !== 'object' || Array.isArray(msg) || typeof msg.t !== 'string') { this.game.secEvent(this.ip, 'bad', 'не команда'); return this.error('Неверный запрос.'); }
+    if (hasEvil(msg, 0)) { this.game.secEvent(this.ip, 'bad', `__proto__/constructor в «${String(msg.t).slice(0, 20)}»`); return this.error('Неверный запрос.'); }
     // от флуда: не больше 25 запросов в секунду с соединения, при 200+ за 10 секунд соединение рвётся
     if (!RATE_OFF) {
       const now = Date.now(); this.rl = (this.rl || []).filter((t) => t > now - 10000); this.rl.push(now);
-      if (this.rl.length > 200) { this.log(`flood ${this.ip} ${this.user ? this.user.login : ''}`); return this.socket.destroy(); }
+      if (this.rl.length > 200) { this.log(`flood ${this.ip} ${this.user ? this.user.login : ''}`); this.game.secEvent(this.ip, 'flood', this.user ? this.user.login : ''); return this.socket.destroy(); }
       if (this.rl.filter((t) => t > now - 1000).length > 25) return this.error('Слишком часто — подождите секунду.');
     }
     const fn = Object.prototype.hasOwnProperty.call(API, msg.t) ? API[msg.t] : null;
-    if (!fn) return this.error(`Неизвестная команда ${msg.t}`);
+    if (!fn) { this.game.secEvent(this.ip, 'bad', `неизвестная команда «${String(msg.t).slice(0, 30)}»`); return this.error(`Неизвестная команда ${msg.t}`); }
     if (!['register', 'login', 'hello', 'captcha', 'ping'].includes(msg.t) && !this.user) return this.error('Сначала войдите.');
     this.failed = false;
     fn.call(this, msg);
@@ -223,13 +223,15 @@ const API = {
   },
   login(m) {
     const lockMsg = (sec) => this.send({ t: 'loginlock', sec, msg: `Слишком много неудачных попыток входа. Попробуйте через ${Math.ceil(sec / 60)} мин.` });
-    const wait = m.token ? 0 : this.game.loginBlocked(this.ip, m.login); if (wait) { this.log(`вход ${String(m.login || '').slice(0, 20)}: заблокирован ещё ${wait} с (адрес ${this.ip})`); return lockMsg(wait); }
+    const wait = m.token ? 0 : this.game.loginBlocked(this.ip, m.login); if (wait) { this.log(`вход ${String(m.login || '').slice(0, 20)}: заблокирован ещё ${wait} с (адрес ${this.ip})`); this.game.secEvent(this.ip, 'lock', String(m.login || '').slice(0, 30)); return lockMsg(wait); }
     // вход по паролю или по токену «Запомнить меня» (пароль в браузере не хранится)
     const u = m.token ? this.game.tokenLogin(m.login, m.token) : this.game.login(m.login, m.password);
     if (!u && m.token) return this.error('Сессия устарела — войдите заново.');
     if (!u) {
       const known = !!this.game.db.accts[String(m.login || '').trim().toLowerCase()];
       this.log(`вход ${JSON.stringify(String(m.login || '').slice(0, 20))}: ${known ? `неверный пароль (${String(m.password || '').length} симв.)` : 'нет такого игрока'}`);
+      const lg = String(m.login || '').trim().toLowerCase(), ak = this.game.db.accts[lg], isAdm = lg === 'admin' || lg === String(process.env.ADMIN_LOGIN || '').trim().toLowerCase() || !!(ak && this.game.db.users[ak] && this.game.db.users[ak].admin);
+      this.game.secEvent(this.ip, isAdm ? 'admin' : 'login', isAdm ? 'вход в аккаунт администратора' : String(m.login || '').slice(0, 30)); // «Безопасность» (secwatch.js)
       const w = this.game.loginFailed(this.ip, m.login); if (w) return lockMsg(w);
       const left = this.game.loginTriesLeft(this.ip);
       return this.error(`Неверный логин или пароль . Осталось попыток: ${left}.`);
@@ -584,6 +586,11 @@ function assetManifest() {
 
 function startWeb(game, sessions, { port, host, log }) {
   const server = http.createServer((req, res) => {
+    const ip = clientIp(req, req.socket);
+    if (game.ipBanned(ip)) { res.writeHead(403, { 'Content-Type': 'text/plain' }); return res.end('forbidden'); }
+    // у сайта игры нет форм для отправки: POST/PUT и т. п. — попытка залить файл или подобрать уязвимость
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) { game.secEvent(ip, 'upload', `${req.method} ${String(req.url).slice(0, 60)}`); req.resume(); res.writeHead(405, { 'Content-Type': 'text/plain' }); return res.end('method not allowed'); }
+    if (game.secProbe(req.url)) game.secEvent(ip, 'probe', String(req.url).slice(0, 80));
     let url; try { url = decodeURIComponent(req.url.split('?')[0]); } catch { url = '/'; }
     const ava = /^\/avatar\/(\d{1,9})\.png$/.exec(url); // аватары: только цифры → data/avatars/<id>.png (PNG собран сервером)
     if (ava) {
@@ -594,7 +601,7 @@ function startWeb(game, sessions, { port, host, log }) {
     // админ-панель (admin.js) получает только админ с действующей сессией: остальным её код не виден даже в F12
     if (url === '/admin.js') {
       const q = new URLSearchParams(req.url.split('?')[1] || ''), au = game.tokenLogin(q.get('l'), q.get('t'));
-      if (!au || !au.admin) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('not found'); }
+      if (!au || !au.admin) { game.secEvent(ip, 'admin', 'запрос кода админ-панели без входа'); res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('not found'); }
       const f = staticFile(path.join(WEB_ROOT, 'admin.js'));
       if (!f) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('not found'); }
       return sendText(req, res, f, f.type, 'no-store');
@@ -625,11 +632,12 @@ function startWeb(game, sessions, { port, host, log }) {
   server.on('upgrade', (req, socket) => {
     if (req.url !== '/ws' || String(req.headers.upgrade || '').toLowerCase() !== 'websocket') return socket.destroy();
     // чужой сайт не может открыть соединение от имени игрока (Origin должен совпадать с адресом игры)
-    const origin = req.headers.origin;
-    if (origin) { let oh = ''; try { oh = new URL(origin).host; } catch { /* мусор */ } if (oh !== req.headers.host) return socket.destroy(); }
+    const origin = req.headers.origin, wip = clientIp(req, socket);
+    if (game.ipBanned(wip)) return socket.destroy();
+    if (origin) { let oh = ''; try { oh = new URL(origin).host; } catch { /* мусор */ } if (oh !== req.headers.host) { game.secEvent(wip, 'origin', String(origin).slice(0, 60)); return socket.destroy(); } }
     const ip = clientIp(req, socket);
     let same = 0; for (const s of sessions) if (s.ip === ip) same++;
-    if (same >= WS_PER_IP) { log(`слишком много соединений с ${ip}`); return socket.destroy(); }
+    if (same >= WS_PER_IP) { log(`слишком много соединений с ${ip}`); game.secEvent(ip, 'conns', `${same}+ соединений`); return socket.destroy(); }
     wsAccept(req, socket);
     const tag = `web ${socket.remoteAddress}:${socket.remotePort}`;
     const slog = (m) => log(`${tag} ${m}`);

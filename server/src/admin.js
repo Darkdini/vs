@@ -116,7 +116,7 @@ function install(Game) {
     const num = (v, d) => (Number.isFinite(Number(v)) && v !== '' ? Number(v) : d);
     const now = Date.now();
     // админ что-то меняет у игрока — «Подозрительное» (anomaly.js) начнёт замер заново, без ложной тревоги
-    if (!['player', 'players', 'stats', 'alerts', 'mods', 'multis', 'bugs', 'passcheck', 'armyinfo'].includes(op)) target.admTouch = now;
+    if (!['player', 'players', 'stats', 'alerts', 'mods', 'multis', 'bugs', 'passcheck', 'armyinfo', 'sec', 'ipban', 'ipunban', 'secclear', 'alertsclear'].includes(op)) target.admTouch = now;
     let data = null, msg = 'Готово.';
     switch (op) {
       // --- ресурсы, золото ---
@@ -194,7 +194,11 @@ function install(Game) {
       case 'alerts': { // «Подозрительное»: последние тревоги; открыв список, админ их «видел»
         const l = (this.db.alerts || []).slice(-150).reverse(); data = l.map((x) => ({ ...x })); for (const x of this.db.alerts || []) x.seen = true; break;
       }
-      case 'alertsclear': this.db.alerts = []; msg = 'Список подозрительного очищен.'; break; // статистика (metrics.js); онлайн сейчас — от web.js
+      case 'alertsclear': this.db.alerts = []; msg = 'Список подозрительного очищен.'; break;
+      case 'sec': data = this.secView(arg.ip); break; // «Безопасность» (secwatch.js); arg.ip — адрес самого админа (от web.js)
+      case 'ipban': { const r = this.ipBan(arg.target, arg.why, arg.ip); if (r.error) return r; msg = r.msg; break; }
+      case 'ipunban': msg = this.ipUnban(arg.target).msg; break;
+      case 'secclear': this.db.sec = {}; msg = 'Журнал адресов очищен (блокировки остались).'; break; // статистика (metrics.js); онлайн сейчас — от web.js
       case 'mods': // модераторы форума (общие) и модераторы разделов форума
         data = { mods: Object.values(this.db.users).filter((u) => u.mod && !u.admin).map((u) => ({ login: u.login, online: !!u.online })),
           sections: this.forumDb().sections.filter((s) => s.mods.length).map((s) => ({ name: s.name, mods: s.mods.map((id) => (this.userById(id) || {}).login).filter(Boolean) })) };
