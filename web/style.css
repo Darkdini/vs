@@ -1542,3 +1542,7 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .bs-go button { display: flex; align-items: center; justify-content: center; gap: 6px; } .bs-go img { width: 30px; height: 30px; }
 .bs-rw { display: flex; gap: 8px; align-items: flex-start; } .bs-rw img { width: 54px; height: 54px; flex: none; }
 .bs-none img { width: 110px; opacity: 1; filter: none; }
+.bmedal { position: relative; flex: none; display: inline-block; } .bmedal img { width: 48px; height: 60px; object-fit: contain; }
+.bmedal.p2 img { filter: grayscale(1) brightness(1.25) contrast(1.05); } .bmedal.p3 img { filter: sepia(.9) saturate(1.6) hue-rotate(-18deg) brightness(.85); }
+.bmedal em { position: absolute; right: -4px; bottom: 2px; width: 20px; height: 20px; border-radius: 50%; font: 700 12px/20px system-ui; font-style: normal; text-align: center; color: #fff; box-shadow: 0 0 0 2px #fff8, 0 1px 3px #0008; }
+.bmedal.p1 em { background: #d4a017; } .bmedal.p2 em { background: #9aa4ad; } .bmedal.p3 em { background: #b8722c; }

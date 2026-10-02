@@ -84,8 +84,12 @@ function install(Game) {
       if (killed && b.killer === r.id) { // убийца босса: значок в профиле, немного репутации и ресурсов, эпическая вещь
         for (const x of RES4) cap.res[x] = Math.min(capy[x], cap.res[x] + KILL_RES);
         u.reputation = (u.reputation ?? 10) + KILL_REP;
-        (u.bossBadges = u.bossBadges || []).push({ kind: b.kind, name: b.name, at: now });
+        (u.bossBadges = u.bossBadges || []).push({ kind: b.kind, name: b.name, at: now, kill: true });
         lines.push(`Последний удар — ваш! Значок «${SLAYER[b.kind] || 'Убийца чудовищ'}» в профиле, +${KILL_REP} репутации, ещё по ${KILL_RES.toLocaleString('ru-RU')} ресурсов. ${this.giveGear(cap, this.rollGear(0, 2))}`);
+      }
+      if (place <= 3) { // медаль топ-3 по урону: золото, серебро, бронза (и если босс ушёл непобеждённым)
+        (u.bossBadges = u.bossBadges || []).push({ kind: b.kind, name: b.name, at: now, place, killed });
+        lines.push(`Медаль «${['Золото', 'Серебро', 'Бронза'][place - 1]}: ${b.name}» — в Вашем профиле.`);
       }
       if (killed && place <= 3) { this.mil(cap); const types = Object.keys(require('./army').ART_TYPES); cap.artifacts.push({ id: this.db.nextId++, type: types[Math.floor(Math.random() * types.length)], rarity: place === 1 ? 2 : 1, active: false, found: now }); lines.push('Артефакт за место в тройке лучших — в Сокровищнице.'); }
       this.addStat(r.id, 'bossDmg', r.d);

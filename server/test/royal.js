@@ -487,7 +487,8 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   for (const c of [c1, c2]) { const a = c.armies[c.armies.length - 1]; g.arrive(c, a, Date.now()); }
   assert.ok(b.dmg[P1.id] > b.dmg[P2.id] && b.dmg[P2.id] > 0 && b.hp < b.maxHp, 'урон записан');
   const gear0 = (c1.gear || []).length, rep0 = P1.reputation ?? 10; b.hp = 0; b.killer = P1.id; g.bossFinish(Date.now());
-  assert.ok(P1.bossBadges.length === 1 && P1.reputation === rep0 + 3 && g.profileOf(P1, P1).bossBadges.length === 1, 'убийце — значок и репутация');
+  assert.ok(P1.bossBadges.some((x) => x.kill) && P1.bossBadges.some((x) => x.place === 1) && P1.reputation === rep0 + 3, 'убийце — значок и репутация, лучшему — золото');
+  assert.ok(P2.bossBadges.some((x) => x.place === 2) && g.profileOf(P2, P2).bossBadges.length === 1, 'второму — серебро');
   assert.ok(!g.bossNow() && g.db.boss.last.killed && (c1.gear || []).length >= gear0 + 2, 'победа: снаряжение лучшему и за последний удар');
   assert.ok(g.reportsOf(P2.id).some((r) => /2-е место/.test(r.title)), 'отчёт с местом');
   console.log('✓ Мировой босс: суббота 18:00, удары армиями, места и награды');
