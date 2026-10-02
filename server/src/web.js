@@ -226,12 +226,15 @@ const API = {
     this.game.trackLogin(u, this.ip, m.dev); this.dev = m.dev;
     if (!u.admin && this.game.devBanned(m.dev)) return this.error('Это устройство заблокировано администрацией.');
     if (u.banned) return this.error('Аккаунт заблокирован администрацией.');
+    const prevSeen = u.lastSeen || 0, wasOnline = [...(WebSession.all || [])].some((x) => x !== this && x.user === u);
     this.user = u; u.online = true; u.lastSeen = Date.now();
     this.log(`web login ${u.login}`);
     this.token = m.token ? String(m.token) : this.game.issueToken(u);
     this.send({ t: 'auth', login: u.login, token: this.token });
     if (u.admin && !m.token && String(m.password || '').toLowerCase() === 'admin') this.toast('⚠ У админа стандартный пароль «admin» — смените его: Админ-панель → Цель → Сменить пароль.');
     this.pushState();
+    // советник встречает при входе: сколько игроков, что случилось за время отсутствия (не при переподключении после обрыва связи)
+    if (!wasOnline && (!m.token || Date.now() - prevSeen > 10 * 60000)) this.send({ t: 'welcome', ...this.game.welcomeInfo(u, prevSeen) });
   },
   logout() { this.game.dropToken(this.user, this.token); this.user.online = false; this.user = null; this.send({ t: 'loggedout' }); },
   sync() { this.pushState(); },

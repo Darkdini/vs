@@ -25,7 +25,7 @@ function heroTalWin() {
         return `<button class="ttal ${lock ? 'lock' : ''} ${full ? 'full' : ''} ${n ? 'some' : ''}" data-tal="${t.id}">${himg(`tal_${t.id}`, HERO_FB[br])}<b>${t.name}</b><em>${n}/${t.max}</em><small>${lock ? `🔒 нужно ${t.need} очков в ветке` : t.desc}</small></button>`; }).join('')}</div>`;
   };
   return `${ribbon('Умения генерала')}
-    <div class="gname small2">Свободные очки умений: <b>${h.talFree}</b> из ${h.talPts}</div>
+    <div class="gname small2"><img class="tpt" src="${GFX}hero/icon_point.png" alt=""> Свободные очки умений: <b>${h.talFree}</b> из ${h.talPts}</div>
     <p class="small muted center">Очко умений — на 1 уровне и за каждые 3 уровня генерала. Умения действуют, когда генерал ведёт армию (оборонные — и дома).</p>
     <div class="tcols">${Object.keys(T).map(col).join('')}</div>
     <button class="pbar" data-talreset>${h.talResets > 0 ? 'Сбросить умения (бесплатно)' : `Сбросить умения за ${HC().talResetGold} ${gimg('coins_s.png', 'ri')}`}</button>`;

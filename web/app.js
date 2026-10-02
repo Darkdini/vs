@@ -237,6 +237,7 @@ function onMsg(m) {
     case 'mail': S.mail = m; refreshSheet(); break;
     case 'dialogs': case 'dialog': dialogsMsg(m); break;
     case 'news': newsMsg(m); break;
+    case 'welcome': welcomeShow(m); break;
     case 'forum': forumMsg(m); break;
     case 'letter': openSheet(() => letterSheet(m.letter)); break;
     case 'toast':
