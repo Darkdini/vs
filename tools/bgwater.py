@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Кадры течения воды для фона замка (web/gfx/ground/bg/water_N.webp).
 # Маска воды — синие (и белая пена у водопада) пиксели castle.jpg. Направление течения — вниз по реке:
-# для каждого куска воды «исток» — его самая верхняя точка, течение — по росту расстояния от истока внутри воды.
+# если вода уходит за нижний край — течёт к этому выходу; иначе — от своей самой верхней точки вниз.
 # Каждый кадр сдвигает рисунок воды вдоль течения (два слоя со сдвигом на полпериода, плавное зацикливание).
 # Запуск: python3 tools/bgwater.py web/gfx/ground/bg/castle.jpg web/gfx/ground/bg  → печатает x y для CASTLE_BG.water
 import sys
@@ -25,9 +25,15 @@ m = np.isin(lab, keep)
 H, W = m.shape
 # расстояние от истока внутри воды (BFS, 8 соседей)
 dist = np.full((H, W), -1.0)
+sign = np.ones((H, W))
 for k in keep:
-    ys, xs = np.nonzero(lab == k)
-    i = np.argmin(ys); q = deque([(ys[i], xs[i])]); dist[ys[i], xs[i]] = 0
+    comp = lab == k
+    ys, xs = np.nonzero(comp)
+    bot = ys == H - 1  # вода уходит за нижний край — течёт к этому выходу (оба рукава реки)
+    if bot.any(): seeds = list(zip(ys[bot], xs[bot])); sign[comp] = -1
+    else: i = np.argmin(ys); seeds = [(ys[i], xs[i])]  # иначе — от самой верхней точки вниз
+    q = deque(seeds)
+    for y, x in seeds: dist[y, x] = 0
     while q:
         y, x = q.popleft(); d = dist[y, x]
         for dy, dx, w in ((1, 0, 1), (-1, 0, 1), (0, 1, 1), (0, -1, 1), (1, 1, 1.41), (1, -1, 1.41), (-1, 1, 1.41), (-1, -1, 1.41)):
@@ -39,7 +45,7 @@ ds = nd.gaussian_filter(dd, 6)
 gy, gx = np.gradient(ds)
 wm = nd.gaussian_filter(m.astype(float), 6) + 1e-6
 gx = nd.gaussian_filter(gx * m, 8) / wm; gy = nd.gaussian_filter(gy * m, 8) / wm
-nrm = np.hypot(gx, gy) + 1e-6; fx, fy = gx / nrm, gy / nrm
+nrm = np.hypot(gx, gy) + 1e-6; fx, fy = gx / nrm * sign, gy / nrm * sign
 Y, X = np.mgrid[0:H, 0:W].astype(np.float32)
 alpha = nd.gaussian_filter(nd.binary_erosion(m, iterations=2).astype(float), 1.5)  # мягкий край — берега не плывут
 ys, xs = np.nonzero(alpha > 0.02); y0, y1, x0, x1 = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1

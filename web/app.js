@@ -1088,10 +1088,11 @@ function fenceFront() {
 }
 // фон вокруг королевства: одна цельная картинка (местность с лесом, рекой, скалами) под замком; камера не выходит за картинку.
 // Оживление (кадры воды, мельница, колесо) — если у картинки заданы water / mill / wheel.
-const CASTLE_BG = { src: 'ground/bg/castle.jpg?v=5', // ?v — новая версия картинки сразу, без старого кэша телефона
-  // цельная картинка 9:16 (тропинки от ворот, поляны, мельница, рудник, водопад); двор картинки подогнан под сетку замка
-  moat: false, iw: 1439, ih: 2092, pad: 0,
-  x: 157.93, y: -494.55, w: 719.50, h: 1046.00 }; // центр сетки замка (527, 16) — центр двора картинки
+const CASTLE_BG = { src: 'ground/bg/castle.jpg?v=8', // ?v — новая версия картинки сразу, без старого кэша телефона
+  // картинка без стен (стена — наш Забор): пустой луг подогнан под кольцо Забора; река, мельница, рудник, водопад
+  moat: false, iw: 1704, ih: 845, pad: 0,
+  x: 527 - 865.13, y: 16 - 480.78, w: 1704, h: 845, // центр сетки замка (527, 16) — центр луга картинки
+  water: { n: 12, x: 302, y: 126 } }; // кадры течения воды: tools/bgwater.py
 function castleBackdrop() {
   const G = CASTLE_BG, im = pic(G.src); if (!im) return null;
   const x = ictx, sm = x.imageSmoothingEnabled; x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
@@ -1103,6 +1104,7 @@ function castleBackdrop() {
   const wf = pic(`ground/bg/water_${flowOn() ? Math.floor(Date.now() / FLOW_MS) % G.water.n : 0}.webp`);
   if (!castleBackdrop.pre) { castleBackdrop.pre = true; for (let k = 0; k < G.water.n; k++) pic(`ground/bg/water_${k}.webp`); }
   if (wf) x.drawImage(wf, G.water.x, G.water.y);
+  if (!G.wheel) { x.restore(); x.imageSmoothingEnabled = sm; return im; } // мельница и колесо — только если заданы
   { // водяное колесо: содержимое эллипса поворачивается вокруг оси
     const W = G.wheel, a = (t * W.speed) % W.step;
     x.save(); x.translate(W.hub[0], W.hub[1]); x.transform(W.u[0], W.u[1], W.v[0], W.v[1], 0, 0);
@@ -1313,7 +1315,7 @@ function isoDrawNow() {
     else groundField(17, (xx, y) => (xx >= CASTLE_OFF && xx < CASTLE_OFF + 7 && y >= CASTLE_OFF && y < CASTLE_OFF + 7 && !onPath(xx - CASTLE_OFF, y - CASTLE_OFF) ? 'ground/grassC.png' : `ground/${GROUND[CASTLE_BASE[y][xx]]}.png`));
     for (let y = 0; y < 7; y++) for (let xx = 0; xx < 7; xx++) if (!onPath(xx, y)) { const p = cellAt(xx, y); pathTile(p.sx + TW * (1 - KC) / 2, p.sy + TH * (1 - KC) / 2, KC); }
     if (!bg || CASTLE_BG.moat) moat();
-    const fence = !bg && buildingLevel(22) > 0; // Забор построен — вокруг замка стена (на фон-картинке стены уже нарисованы)
+    const fence = buildingLevel(22) > 0; // Забор построен — вокруг замка наша стена (на фон-картинке стен нет)
     if (fence) fenceBack();
     for (let y = 0; y < 7; y++) for (let xx = 6; xx >= 0; xx--) {
       const p = cellAt(xx, y); if (!onPath(xx, y) && !bg) plotImage('ground/stone.png', p, PLOT); // с фоном участок — тот же луг в рамке тропинки
