@@ -1984,3 +1984,4 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .mkprice { display: flex; align-items: center; gap: 6px; }
 .mkprice .anum { width: 110px; }
 .mkbusy { margin-top: 6px; font: 16px var(--serif); color: #8a1010; }
+.mklock { color: #8a1010 !important; }

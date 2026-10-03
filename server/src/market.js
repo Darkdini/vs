@@ -37,7 +37,10 @@ function install(Game) {
   P.marketState = function marketState(u, now = Date.now()) {
     const l = this.marketSweep(now), cs = this.castlesOf(u);
     return {
-      lots: l.filter((x) => x.seller !== u.id).map((x) => ({ id: x.id, price: x.price, at: x.at, seller: { id: x.seller, login: this.userById(x.seller).login }, castle: info(this, this.db.castles[x.castle]) })),
+      // подробности (армия, ресурсы, здания, стена, артефакты) — только тем, кому хватает золота на покупку; остальным — имя, место и рейтинг (они и так видны на карте)
+      lots: l.filter((x) => x.seller !== u.id).map((x) => { const c = this.db.castles[x.castle], full = (u.gold || 0) >= x.price;
+        return { id: x.id, price: x.price, at: x.at, seller: { id: x.seller, login: this.userById(x.seller).login }, hidden: !full,
+          castle: full ? info(this, c) : { id: c.id, name: c.name, x: c.x, y: c.y, rating: this.rating(c) } }; }),
       mine: l.filter((x) => x.seller === u.id).map((x) => ({ id: x.id, price: x.price, at: x.at, exp: x.at + LIFE, castle: info(this, this.db.castles[x.castle]) })),
       // свои замки для продажи: все, кроме столицы и уже выставленных
       sell: cs.slice(1).filter((c) => !l.some((x) => x.castle === c.id)).map((c) => ({ ...info(this, c), busy: busy(this, c) })),

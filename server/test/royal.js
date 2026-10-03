@@ -759,6 +759,8 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const st = g.marketState(B2); assert.ok(st.lots.some((x) => x.castle.id === second.id && x.price === 300), 'лот виден покупателю');
   const lot = st.lots.find((x) => x.castle.id === second.id);
   B2.gold = 100; assert.ok(g.marketBuy(B2, lot.id).error, 'не хватает золота');
+  const poor = g.marketState(B2).lots.find((x) => x.id === lot.id); assert.ok(poor.hidden && poor.castle.army === undefined && poor.castle.res === undefined, 'без золота — армию и ресурсы не видно');
+  B2.gold = 300; const rich = g.marketState(B2).lots.find((x) => x.id === lot.id); assert.ok(!rich.hidden && rich.castle.army === 40, 'хватает золота — видно всё');
   B2.gold = 1000; const sg = S1.gold || 0;
   const r = g.marketBuy(B2, lot.id); assert.ok(r.ok, r.error);
   assert.ok(second.owner === B2.id && g.castlesOf(B2).includes(second) && !g.castlesOf(S1).includes(second), 'замок перешёл');
