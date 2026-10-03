@@ -125,6 +125,10 @@ $('#menu').addEventListener('click', (e) => {
 // ---------- верх, панель локаций, низ ----------
 $('#btnMail').addEventListener('click', () => ACTS.mail());
 $('#btnRep').addEventListener('click', () => openReports());
+// уровни зданий в замке и на землях: включить / выключить (запоминается на устройстве)
+$('#btnLvl').classList.toggle('on', S.showLvl);
+$('#btnLvl').addEventListener('click', () => { S.showLvl = !S.showLvl; try { localStorage.setItem('showLvl', S.showLvl ? '1' : '0'); } catch {} $('#btnLvl').classList.toggle('on', S.showLvl);
+  toast(S.showLvl ? 'Уровни зданий показаны' : 'Уровни зданий скрыты'); if (typeof isoDraw === 'function') isoDraw(); });
 $('#btnNews').addEventListener('click', () => { const id = S.st.newsFirst; $('#btnNews').classList.add('hidden'); if (id) openNewsItem(id, true); else openNews(); }); // непрочитанная новость открывается сразу
 $('#locsTab').addEventListener('click', () => $('#locs').classList.toggle('open'));
 $('#locs').addEventListener('click', (e) => {

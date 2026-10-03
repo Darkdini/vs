@@ -1876,3 +1876,8 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .zrole small { font-size: 15px; color: #6a4a2a; }
 .zrole input:checked + span { background: linear-gradient(#a8603a, #6a2c12); color: #fff8e8; border-color: #f0c040; box-shadow: 0 0 0 2px #f0c04088; }
 .zrole input:checked + span small { color: #ffe8b0; }
+/* кнопка «Уровни зданий» (стрелка вверх) — рядом с конвертами; кнопки ужимаются, чтобы с новостью админа не налезать друг на друга */
+#top > #btnLvl { background-image: url(gfx3d/top/btn_lvl.png); filter: grayscale(.55) brightness(.85) drop-shadow(0 2px 2px #0008); }
+#top > #btnLvl.on { filter: drop-shadow(0 0 5px #ffd84a) drop-shadow(0 2px 2px #0008); }
+#top > .env:not(.mv) { flex: 0 1 66px; min-width: 40px; background-size: contain; }
+#top > .env.mv { flex-shrink: 1; min-width: 34px; }

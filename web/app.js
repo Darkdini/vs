@@ -1010,16 +1010,34 @@ function drawCellBuilding(view, cell, b, lvl, p, k = 1, sel = false) {
   const q = queueAt(view, cell);
   let path = q && q.level === 1 ? 'build/build.png' : b >= 0 && BUILD_IMG[displayId(S.by[b], lvl)] ? `build/${BUILD_IMG[displayId(S.by[b], lvl)]}.png` : null;
   if (path === 'build/guard_tower.png') path = `build/watch${lvl >= 10 ? 3 : lvl >= 5 ? 2 : 1}.png`; // Караульная башня растёт с уровнем
+  let top = null; // верх картинки — над ним значок уровня
   if (path) {
     if (sel) { ictx.save(); ictx.filter = 'brightness(1.25) drop-shadow(0 0 3px #ffd84a) drop-shadow(0 0 2px #ffd84a)'; }
-    if (k === 1) sprite(path, p.sx, p.sy);
+    if (k === 1) { sprite(path, p.sx, p.sy); const im = pic(path); if (im) top = p.sy - (im.height - TH); }
     else if (k === 'fit') { // земли: постройка на всю клетку, основание (ромб шириной в картинку) — по центру клетки
       const im = pic(path); if (im) { const kk = Math.max(1.25, Math.min(1.9, TW * 0.95 / im.width)), w = im.width * kk, h = im.height * kk;
-        drawPic(im, p.sx + TW / 2 - w / 2, p.sy + TH / 2 + w / 4 - h, w, h); } }
-    else { const im = pic(path); if (im) { const w = im.width * k, h = im.height * k; drawPic(im, p.sx + TW / 2 - w / 2, p.sy + TH / 2 + TH * PLOT / 2 - h + 2, w, h); } }
+        top = p.sy + TH / 2 + w / 4 - h; drawPic(im, p.sx + TW / 2 - w / 2, top, w, h); } }
+    else { const im = pic(path); if (im) { const w = im.width * k, h = im.height * k; top = p.sy + TH / 2 + TH * PLOT / 2 - h + 2; drawPic(im, p.sx + TW / 2 - w / 2, top, w, h); } }
     if (sel) ictx.restore();
   }
   if (q) bar(p.sx, p.sy, (now() - q.start) / (q.end - q.start));
+  if (S.showLvl && b >= 0 && lvl > 0 && top !== null) LVLQ.push([p.sx + TW / 2, Math.max(top + 8, p.sy - TH * 1.4), lvl]);
+}
+// уровни зданий (кнопка со стрелкой вверху): значки рисуются поверх всех зданий
+const LVLQ = [];
+S.showLvl = (() => { try { return localStorage.getItem('showLvl') === '1'; } catch { return false; } })();
+function lvlFlush() {
+  const m = ictx.getTransform(), k = (window.devicePixelRatio || 1) / (Math.hypot(m.a, m.b) || 1); // одинаковый размер на экране при любом масштабе
+  for (const [x, y, n] of LVLQ) {
+    ictx.save(); ictx.translate(x, y); ictx.scale(k, k); ictx.translate(-x, -y);
+    const r = n >= 10 ? 9.5 : 8.5;
+    ictx.beginPath(); ictx.arc(x, y, r + 1.6, 0, Math.PI * 2); ictx.fillStyle = '#e8c060'; ictx.fill();
+    ictx.beginPath(); ictx.arc(x, y, r, 0, Math.PI * 2); const gr = ictx.createRadialGradient(x - 2, y - 2, 1, x, y, r); gr.addColorStop(0, '#5fbf3a'); gr.addColorStop(1, '#1d6a12'); ictx.fillStyle = gr; ictx.fill();
+    ictx.font = `bold ${n >= 10 ? 10 : 11}px system-ui, sans-serif`; ictx.textAlign = 'center'; ictx.textBaseline = 'middle';
+    ictx.lineWidth = 2; ictx.strokeStyle = '#0008'; ictx.strokeText(String(n), x, y + 0.5); ictx.fillStyle = '#fff'; ictx.fillText(String(n), x, y + 0.5);
+    ictx.restore();
+  }
+  LVLQ.length = 0;
 }
 
 const D = (x, y) => tileScreen(x, y).sx, E = (x, y) => tileScreen(x, y).sy;
@@ -1300,6 +1318,7 @@ function isoDrawNow() {
       for (let xx = 6; xx >= 0; xx--) { const cell = y * 7 + xx; drawCellBuilding(0, cell, st.grid[0][cell], st.levels[0][cell], cellAt(xx, y), BK, isSel(xx, y)); }
     }
     if (fence) fenceFront();
+    lvlFlush();
     if (typeof advMarker === 'function') advMarker(VIEW.CASTLE, cellAt); // советник показывает нужную клетку
   } else if (S.tab === 'lands') {
     const onPic = hasPic();
