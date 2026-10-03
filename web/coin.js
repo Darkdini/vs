@@ -22,8 +22,8 @@ function coinWin() {
         <div class="cbamt">${COIN_IC(b.res)} ${fmtFull(b.amount)} <small>${COIN_RES[b.res][1]}</small></div><small>Ждёт ещё <span class="cd" data-e="${b.exp}"></span></small></div>
         <button class="zbar cbno" data-coincan="${b.id}">Отменить</button></div>`).join('')}` : ''}`;
   } else if (S.coinTab === 'new') {
-    const max = Math.min(c.have[f.res] || 0, c.max[f.res] || 0);
-    body = `<p class="coinhint">Ставка списывается из замка «${esc(c.castle)}» сразу. Выигрыш (обе ставки) — в Кладовую. Вызов ждёт сутки, потом ставка вернётся.</p>
+    const max = Math.min(c.have[f.res] || 0, c.max[f.res] || 0, c.maxBet || 1000);
+    body = `<p class="coinhint">Ставка списывается из замка «${esc(c.castle)}» сразу. Ставка — от ${c.min} до ${fmtFull(c.maxBet || 1000)}. Выигрыш (обе ставки) — в Кладовую. Вызов ждёт сутки, потом ставка вернётся в замок.</p>
       <div class="coinres">${Object.keys(COIN_RES).map((r) => `<button class="${f.res === r ? 'on' : ''}" data-coinres="${r}">${COIN_IC(r)}<small>${fmtFull(c.have[r] || 0)}</small></button>`).join('')}</div>
       <div class="arow"><span>Ставка:</span><input class="anum" type="number" inputmode="numeric" min="${c.min}" max="${max}" value="${f.amount}" data-coinamt><button class="btn small" data-coinmax="${max}">Макс</button></div>
       <div class="coinsides">${['eagle', 'tails'].map((s) => `<button class="${f.side === s ? 'on' : ''}" data-coinside="${s}">${coinFace(s)}<span>${COIN_SIDE[s]}</span></button>`).join('')}</div>
@@ -60,7 +60,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.coinmax !== undefined) { f.amount = Number(d.coinmax) || 0; return refreshSheet(); }
   if (d.coinbet !== undefined) { document.activeElement && document.activeElement.blur(); return send({ t: 'coinbet', res: f.res, amount: f.amount, side: f.side, to: f.to.trim() }); }
   if (d.coinacc) { const b = S.coin.open.find((x) => x.id === Number(d.coinacc)); if (b && !confirm(`Поставить ${fmtFull(b.amount)} ${COIN_RES[b.res][1]} против ${b.from.login}? Вы — ${COIN_SIDE[b.side === 'eagle' ? 'tails' : 'eagle']}.`)) return; t.disabled = true; return send({ t: 'coinaccept', id: Number(d.coinacc) }); }
-  if (d.coincan) { if (confirm('Отменить вызов? Ставка вернётся в Кладовую.')) send({ t: 'coincancel', id: Number(d.coincan) }); }
+  if (d.coincan) { if (confirm('Отменить вызов? Ставка вернётся в замок.')) send({ t: 'coincancel', id: Number(d.coincan) }); }
 });
 $('#sheetBody').addEventListener('input', (e) => {
   const d = e.target.dataset;

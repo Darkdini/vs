@@ -734,14 +734,15 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const pid = g.coinState(A1, ca, T).open.find((b) => b.from.login === 'coinC').id;
   assert.ok(g.coinAccept(B1, cb, pid, T).error, 'чужой личный вызов не принять');
   // отмена — ставка в Кладовую
-  const ironBefore = g.stashOf(C1).res.iron || 0; assert.ok(g.coinCancel(C1, pid).ok && g.stashOf(C1).res.iron === ironBefore + 200, 'отмена — в Кладовую');
+  const ironBefore = cc.res.iron; assert.ok(g.coinCancel(C1, pid).ok && cc.res.iron - ironBefore >= 200 && cc.res.iron - ironBefore < 210, 'отмена — ставка обратно в замок');
+  assert.ok(g.coinBet(A1, ca, 'wood', 1001, 'eagle', '', T).error, 'ставка не больше 1000');
   // лимит с одним соперником — 3 игры в сутки
-  for (const c of [ca, cb]) for (const r of ['wood', 'stone', 'iron', 'food']) c.res[r] = 2000;
+  for (const c of [ca, cb]) for (const r of ['wood', 'stone', 'iron', 'food']) c.res[r] = 400;
   for (let i = 0; i < 2; i++) { const b = g.coinBet(A1, ca, 'stone', 100, 'eagle', '', T); assert.ok(b.ok); const bid = g.coinState(B1, cb, T).open.find((x) => x.from.login === 'coinA').id; assert.ok(g.coinAccept(B1, cb, bid, T, 0.7).ok); }
   g.coinBet(A1, ca, 'stone', 100, 'eagle', '', T); const bid4 = g.coinState(B1, cb, T).open.find((x) => x.from.login === 'coinA').id;
   assert.ok(g.coinAccept(B1, cb, bid4, T).error, '4-я игра с тем же соперником за сутки — нельзя');
   // через сутки вызов истекает — ставка в Кладовую
-  const stoneBefore = g.stashOf(A1).res.stone || 0; g.coinSweep(T + 86400001); assert.ok(g.stashOf(A1).res.stone === stoneBefore + 100 && !g.db.coinBets.some((b) => b.id === bid4), 'истёк — ставка вернулась');
+  const stoneBefore = ca.res.stone; g.coinSweep(T + 86400001); assert.ok(ca.res.stone - stoneBefore >= 100 && ca.res.stone - stoneBefore < 110 && !g.db.coinBets.some((b) => b.id === bid4), 'истёк — ставка вернулась в замок');
   console.log('✓ Орёл-решка: ставки, победитель забирает банк, личные вызовы, отмена, лимит с одним соперником, возврат через сутки');
 }
 (async () => { // фото в сообщениях: только сжатые точки, проверка размера, новый PNG, удаление через 10 минут

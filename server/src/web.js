@@ -355,9 +355,8 @@ const API = {
   coincancel(m) { const r = this.game.coinCancel(this.user, m.id); if (r.error) return this.error(r.error); this.toast(r.msg); this.pushState(); API.coin.call(this); },
   coinaccept(m) {
     const r = this.game.coinAccept(this.user, this.castle, m.id); if (r.error) { this.error(r.error); return API.coin.call(this); }
-    const { other, chat, ...res } = r;
+    const { other, ...res } = r;
     this.send({ t: 'coinres', res }); this.pushState(); API.coin.call(this); pushTo(other);
-    if (chat) for (const s of WebSession.all || []) if (s.user && s.sendChat) s.sendChat(chat);
     for (const s of WebSession.all || []) if (s.user && s.user.id !== this.user.id && s.coinOpen) API.coin.call(s);
   },
   coinwin(m) { this.coinOpen = !!m.open; },
