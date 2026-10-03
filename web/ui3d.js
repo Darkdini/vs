@@ -125,7 +125,7 @@ $('#menu').addEventListener('click', (e) => {
 // ---------- верх, панель локаций, низ ----------
 $('#btnMail').addEventListener('click', () => ACTS.mail());
 $('#btnRep').addEventListener('click', () => openReports());
-// уровни зданий в замке и на землях: галочка в «Настройках» (запоминается на устройстве)
+// уровни зданий в замке: галочка в «Настройках» (запоминается на устройстве)
 $('#sheetBody').addEventListener('change', (e) => {
   if (e.target.dataset.showlvl === undefined) return;
   S.showLvl = e.target.checked; try { localStorage.setItem('showLvl', S.showLvl ? '1' : '0'); } catch {}
@@ -466,7 +466,7 @@ const helpWin = () => `${ribbon('Справка')}<div class="mitems light">
   <button class="mitem" data-act="army"><img src="${GFX}units/human/knight.png" alt=""><span>Войска</span></button>
   <button class="mitem" data-act="rules"><img src="${GFX}smallicon/Ekoscience.png" alt=""><span>Формулы</span></button></div>`;
 const settingsWin = () => `${ribbon('Настройки')}<div class="pstats">Игрок: <b>${esc(S.st.user.login)}</b> · ${esc(S.st.user.raceName)}<br>Скорость мира ×${S.cat.speed}</div>
-  <label class="cchk setchk"><input type="checkbox" data-showlvl ${S.showLvl ? 'checked' : ''}><i></i><img src="gfx3d/top/btn_lvl.png" alt=""> Показывать уровни зданий в замке и на землях</label>
+  <label class="cchk setchk"><input type="checkbox" data-showlvl ${S.showLvl ? 'checked' : ''}><i></i><img src="gfx3d/top/btn_lvl.png" alt=""> Показывать уровни зданий в замке</label>
   <div class="mitems light"><button class="mitem" data-act="bug"><img src="${GFX}smallicon/soft_help.png" alt=""><span>Сообщить об ошибке</span></button>
   <button class="mitem" data-act="logout"><img src="${GFX}smallicon/softclose.png" alt=""><span>Выйти из игры</span></button></div>`;
 
