@@ -1994,3 +1994,7 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .pvrow .avasm { width: 44px; height: 44px; flex: none; display: grid; place-items: center; overflow: hidden; }
 .pvrow .avasm img { width: 44px; height: 44px; object-fit: cover; }
 .acrow { display: flex; gap: 6px; margin: 2px 0 10px; justify-content: flex-end; }
+/* админка: вкладки не вылезают за экран на узких телефонах — 4 в ряд, подпись переносится */
+.atabs { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+.atabs button { min-width: 0; white-space: normal !important; overflow-wrap: normal; line-height: 1.15; font-size: min(13px, 3.3vw) !important; padding: 6px 1px !important; }
+#sheetBody { overflow-x: hidden; }
