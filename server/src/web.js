@@ -345,6 +345,15 @@ const API = {
   nickcase(m) { const r = this.game.changeNick(this.user, m.nick); if (r.error) return this.error(r.error); this.send({ t: 'renamed', login: this.user.login }); this.toast(`Ваш новый ник: ${this.user.login} (−${r.price} золота). Входите под ним.`); this.pushState(); API.profile.call(this, { id: this.user.id, acct: 1, refresh: 1 }); },
   msgcolor(m) { const r = this.game.setMsgColor(this.user, m.i); if (r.msg) this.toast(r.msg); this.result(r); this.pushState(); },
   castleinfo(m) { const r = this.game.castleInfo(this.user, m.name, m.desc); if (r.error) return this.error(r.error); this.toast('Замок переименован.'); API.profile.call(this, { id: this.user.id, acct: 1, refresh: 1 }); },
+  // ---- Биржа Замков (server/src/market.js) ----
+  market() { this.send({ t: 'market', state: this.game.marketState(this.user) }); },
+  marketsell(m) { const r = this.game.marketSell(this.user, m.id, m.price); if (r.error) return this.error(r.error); this.toast(r.msg); API.market.call(this); },
+  marketcancel(m) { const r = this.game.marketCancel(this.user, m.id); if (r.error) return this.error(r.error); this.toast(r.msg); API.market.call(this); },
+  marketbuy(m) {
+    const r = this.game.marketBuy(this.user, m.id); if (r.error) { this.error(r.error); return API.market.call(this); }
+    this.send({ t: 'marketdone', msg: r.msg, castle: r.castle }); this.pushState(); API.market.call(this);
+    pushTo(r.seller); // продавцу — замок ушёл, золото пришло
+  },
   // ---- «Орёл-решка» (server/src/coin.js) ----
   coin() { this.coinOpen = true; this.send({ t: 'coin', state: this.game.coinState(this.user, this.castle) }); },
   coinbet(m) {

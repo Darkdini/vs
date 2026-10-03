@@ -30,7 +30,7 @@ setInterval(() => { try { game.metricTick(new Set([...sessions].filter((s) => s.
 // раз в 30 секунд: фото в сообщениях старше 10 минут удаляются (pics.js)
 setInterval(() => { try { game.picSweep(); } catch (e) { console.error(e); } }, 30000);
 // «Орёл-решка»: вызовы, которые никто не принял за сутки, — ставка обратно в Кладовую
-setInterval(() => { try { game.coinSweep(); } catch (e) { console.error(e); } }, 300000);
+setInterval(() => { try { game.coinSweep(); game.marketSweep(); } catch (e) { console.error(e); } }, 300000); // и лоты Биржи Замков старше 7 дней
 
 // раз в 10 минут: «Подозрительное» — резкие скачки армии, золота, лояльности, ресурсов (anomaly.js)
 setInterval(() => { try { game.anomalyScan(); } catch (e) { console.error(e); } }, 600000);

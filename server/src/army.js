@@ -1707,6 +1707,7 @@ function install(Game, helpers) {
     if (d && d.type === 'battle') return (d.side === 'att' ? d.win : !d.win) ? 'win' : 'lose';
     if (d && d.type === 'scout') return d.ok ? 'win' : 'lose';
     if (d && d.type === 'invite') return 'win'; // приглашение в альянс — зелёное
+    if (r.kind === 'market') return 'win'; // Биржа Замков: замок продан
     if (r.kind === 'scout' || /напал|захвачен/.test(r.title)) return 'lose';
     return 'info';
   };

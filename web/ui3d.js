@@ -30,7 +30,7 @@ const MENUS = {
     ['Друзья', M3('friends'), () => openPlayers('friends')],
     ['Поиск', M3('search'), () => openPlayers('search')],
     ['Земляки', 'ground/castle_small.png', () => openPlayers('nearby')],
-    ['Биржа', 'ground/castle_old.png', () => openSoon('Биржа Замков')],
+    ['Биржа', 'ground/castle_old.png', () => openMarket()],
     ['Блокнот', M3('files'), () => { S.notes = null; send({ t: 'notes' }); openSheet(notesWin); }],
     ['Настройки', M3('settings'), () => openSheet(settingsWin)],
   ] },
