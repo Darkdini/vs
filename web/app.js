@@ -251,6 +251,7 @@ function onMsg(m) {
     case 'dialogs': case 'dialog': dialogsMsg(m); break;
     case 'picok': picMsg(m); break;
     case 'avalikes': avaMsg(m); break;
+    case 'chests': case 'chestres': chestsMsg(m); break;
     case 'zags': case 'zprops': case 'zpairs': case 'zpair': case 'zdone': zagsMsg(m); break;
     case 'news': newsMsg(m); break;
     case 'welcome': welcomeShow(m); break;

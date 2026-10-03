@@ -64,12 +64,7 @@ const MENUS = {
     ['Горн', M3('horn'), () => openReports()],
   ] },
   games: { label: 'Игры', icon: 'menu2/games.png', items: () => [
-    ['Сундучки', M3('chests'), () => openSoon('Сундучки')],
-    ['Слот-покер', M3('slots'), () => openSoon('Слот-покер')],
-    ['Игра 21', M3('bj21'), () => openSoon('Игра 21')],
-    ['Лотерея', M3('lottery'), () => openSoon('Лотерея')],
-    ['Фортуна', M3('dice'), () => openSoon('Фортуна')],
-    ['Орел-решка', M3('coin'), () => openSoon('Орел-решка')],
+    ['Сундучки', M3('chests'), () => openChests()],
   ] },
   info: { label: 'Инфо', icon: 'menu2/info.png', items: () => [
     ['Новости', M3('news'), () => openNews()],

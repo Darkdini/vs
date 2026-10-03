@@ -1881,3 +1881,38 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 #top > .env.mv { flex-shrink: 1; min-width: 34px; }
 .setchk { margin: 6px 0 10px; font: 20px var(--serif); }
 .setchk img { height: 34px; }
+/* «Сундучки» (chests.js) */
+.chtop { text-align: center; font: 20px var(--serif); margin: 4px 0 8px; }
+.chtable { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 6px 0; }
+.chbox { position: relative; display: flex; flex-direction: column; align-items: center; border: 0; background: none; padding: 4px; }
+.chbox img { width: 100%; max-width: 120px; aspect-ratio: 1; object-fit: contain; filter: drop-shadow(0 4px 4px #0007); }
+.chbox.shut { animation: chBob 2.4s ease-in-out infinite; }
+.chbox.shut:nth-child(2) { animation-delay: .4s; } .chbox.shut:nth-child(3) { animation-delay: .8s; }
+.chbox.shut:disabled { filter: grayscale(.6) brightness(.8); animation: none; }
+.chbox.opening { animation: chShake .45s ease-in-out; }
+@keyframes chBob { 50% { transform: translateY(-5px); } }
+@keyframes chShake { 20% { transform: rotate(-8deg) scale(1.05); } 40% { transform: rotate(8deg) scale(1.1); } 60% { transform: rotate(-6deg) scale(1.1); } 80% { transform: rotate(4deg) scale(1.05); } }
+.chbox.mine img { filter: drop-shadow(0 0 10px #ffd84a) drop-shadow(0 0 4px #fff3b0); animation: chPop .5s ease-out; }
+.chbox.other { opacity: .55; filter: grayscale(.5); }
+.chbox.rare .chprize { color: #8a1010; font-weight: 700; }
+@keyframes chPop { 0% { transform: scale(.6); } 70% { transform: scale(1.12); } 100% { transform: scale(1); } }
+.chprize { font: 15px/1.2 var(--serif); text-align: center; margin-top: 2px; color: #2a1408; }
+.chprize.big { font-size: 22px; font-weight: 700; color: #8a1010; }
+.chbox.mine .chprize { font-weight: 700; font-size: 16px; }
+.chq, .chwon { font: 20px/1.35 var(--serif); margin: 4px 0 8px; }
+.chgold { display: flex; align-items: center; gap: 10px; width: 100%; margin: 8px 0; padding: 8px 12px; border: 2px solid #f0c040; border-radius: 10px;
+  background: linear-gradient(#fff2b8, #e8b040); font: 700 19px var(--serif); color: #5a2a00; text-align: left; animation: chGlow 1.6s ease-in-out infinite; }
+.chgold img { width: 76px; filter: drop-shadow(0 0 8px #fff3a0); }
+.chgold small { font-weight: 400; font-size: 15px; }
+.chgold.won { flex-direction: column; text-align: center; animation: none; background: radial-gradient(#fff8d0, #f0c860); }
+.chgold.won img { width: 150px; animation: chPop .5s ease-out; }
+@keyframes chGlow { 50% { box-shadow: 0 0 16px #ffd84a; } }
+.chstreak { margin: 10px 0 6px; text-align: center; font: 16px/1.35 var(--serif); }
+.chdots { display: flex; justify-content: center; gap: 6px; margin-bottom: 4px; }
+.chdots i { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; border: 2px solid #a86a3a; background: #e8d0a8; font: 700 14px system-ui, sans-serif; font-style: normal; color: #8a6a4a; }
+.chdots i.on { background: radial-gradient(#7ad04a, #2a7a12); color: #fff; border-color: #f0c040; }
+.chdots i.last { background: radial-gradient(#fff2b8, #e0a830); color: #7a4a00; border-color: #c8963e; }
+.chdots i.last.on { box-shadow: 0 0 8px #ffd84a; }
+.chstreak small { font-size: 17px; }
+.chnote { font: 16px/1.35 var(--serif); color: #5a3a1a; text-align: center; margin: 6px 0; }
+.chwon small { font-size: 17px; }

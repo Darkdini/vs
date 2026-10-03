@@ -698,6 +698,23 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     console.log(`✓ Лагерь разбойников: набег ${full} с → ${r.sec} с (втрое быстрее)`);
   } else console.log('… лагеря рядом нет — проверка скорости пропущена');
 }
+{ // «Сундучки»: 3 попытки в день (премиум — 5), призы в Кладовую, серия 7 дней — Золотой сундук, пропуск — серия сгорает
+  const P = g.register({ login: 'chestPl', password: '12345', race: 0 }).user, D = 86400000, t0 = Date.parse('2026-05-10T09:00:00Z');
+  const before = JSON.stringify(g.stashOf(P)), gold0 = P.gold || 0;
+  for (let i = 0; i < 3; i++) { const r = g.chestOpen(P, i, false, t0); assert.ok(r.ok && r.prizes.length === 3 && r.prize === r.prizes[i].text, 'приз — из выбранного сундука'); }
+  assert.ok(g.chestOpen(P, 0, false, t0).error, 'четвёртая попытка — нельзя');
+  assert.ok(JSON.stringify(g.stashOf(P)) !== before || g.castlesOf(P)[0].artifacts.length, 'приз в Кладовой');
+  assert.strictEqual(P.gold || 0, gold0, 'золото не выпадает');
+  assert.ok(g.chestOpen(P, 0, true, t0).error, 'Золотой сундук — только за серию');
+  for (let d = 1; d < 7; d++) assert.ok(g.chestOpen(P, 1, false, t0 + d * D).ok);
+  let s = g.chestsState(P, t0 + 6 * D); assert.ok(s.streak === 7 && s.gold, `серия 7 дней: ${s.streak}`);
+  const gr = g.chestOpen(P, 0, true, t0 + 6 * D); assert.ok(gr.ok && gr.golden && gr.chat, 'Золотой сундук + объявление в чате');
+  assert.ok(!g.chestsState(P, t0 + 6 * D).gold, 'Золотой — один раз за серию');
+  g.chestOpen(P, 0, false, t0 + 7 * D); assert.strictEqual(g.chestsState(P, t0 + 7 * D).streak, 1, 'после Золотого серия заново');
+  s = g.chestsState(P, t0 + 9 * D); assert.strictEqual(s.streak, 0, 'пропуск дня — серия сгорает');
+  assert.ok((P.mstats.gamble || 0) > 0 || (P.stats.gamble || 0) >= 10, 'очки Зала «Азарт»');
+  console.log('✓ Сундучки: попытки, призы в Кладовую без золота, серия 7 дней и Золотой сундук');
+}
 (async () => { // фото в сообщениях: только сжатые точки, проверка размера, новый PNG, удаление через 10 минут
   const zlib = require('zlib'), a1 = g.register({ login: 'picFrom', password: '12345', race: 0 }).user, a2 = g.register({ login: 'picTo', password: '12345', race: 0 }).user;
   const w = 40, h = 30, rgb = Buffer.alloc(w * h * 3, 200), z = zlib.deflateSync(rgb);

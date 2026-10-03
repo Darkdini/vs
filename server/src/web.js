@@ -345,6 +345,13 @@ const API = {
   nickcase(m) { const r = this.game.changeNick(this.user, m.nick); if (r.error) return this.error(r.error); this.send({ t: 'renamed', login: this.user.login }); this.toast(`Ваш новый ник: ${this.user.login} (−${r.price} золота). Входите под ним.`); this.pushState(); API.profile.call(this, { id: this.user.id, acct: 1, refresh: 1 }); },
   msgcolor(m) { const r = this.game.setMsgColor(this.user, m.i); if (r.msg) this.toast(r.msg); this.result(r); this.pushState(); },
   castleinfo(m) { const r = this.game.castleInfo(this.user, m.name, m.desc); if (r.error) return this.error(r.error); this.toast('Замок переименован.'); API.profile.call(this, { id: this.user.id, acct: 1, refresh: 1 }); },
+  // ---- «Сундучки» (server/src/chests.js) ----
+  chests() { this.send({ t: 'chests', state: this.game.chestsState(this.user) }); },
+  chestopen(m) {
+    const r = this.game.chestOpen(this.user, m.pick, !!m.golden); if (r.error) { this.error(r.error); return API.chests.call(this); }
+    this.send({ t: 'chestres', res: r }); this.pushState();
+    if (r.chat) for (const s of WebSession.all || []) if (s.user && s.sendChat) s.sendChat(r.chat);
+  },
   // ---- ЗАГС (server/src/zags.js) ----
   zags() { this.send({ t: 'zags', home: this.game.zagsHome(this.user) }); },
   zprops() { this.send({ t: 'zprops', data: this.game.proposals(this.user) }); },
