@@ -23,13 +23,13 @@ function coinWin() {
         <button class="zbar cbno" data-coincan="${b.id}">Отменить</button></div>`).join('')}` : ''}`;
   } else if (S.coinTab === 'new') {
     const max = Math.min(c.have[f.res] || 0, c.max[f.res] || 0, c.maxBet || 1000);
-    body = `<p class="coinhint">Ставка списывается из замка «${esc(c.castle)}» сразу. Ставка — от ${c.min} до ${fmtFull(c.maxBet || 1000)}. Выигрыш (обе ставки) — в Кладовую. Вызов ждёт сутки, потом ставка вернётся в замок.</p>
+    body = `<p class="coinhint">Ставка списывается из замка «${esc(c.castle)}» сразу. Ставка — от ${c.min} до ${fmtFull(c.maxBet || 1000)}. Выигрыш (обе ставки) — в Кладовую. Вызов ждёт сутки, потом ставка вернётся в Кладовую. Играть можно 3 раза в день.</p>
       <div class="coinres">${Object.keys(COIN_RES).map((r) => `<button class="${f.res === r ? 'on' : ''}" data-coinres="${r}">${COIN_IC(r)}<small>${fmtFull(c.have[r] || 0)}</small></button>`).join('')}</div>
       <div class="arow"><span>Ставка:</span><input class="anum" type="number" inputmode="numeric" min="${c.min}" max="${max}" value="${f.amount}" data-coinamt><button class="btn small" data-coinmax="${max}">Макс</button></div>
       <div class="coinsides">${['eagle', 'tails'].map((s) => `<button class="${f.side === s ? 'on' : ''}" data-coinside="${s}">${coinFace(s)}<span>${COIN_SIDE[s]}</span></button>`).join('')}</div>
       <div class="arow"><span>Кому:</span><input class="anum wide" placeholder="Ник — или пусто, вызов для всех" autocapitalize="none" value="${esc(f.to)}" data-cointo></div>
       <button class="pbar" data-coinbet>Бросить вызов</button>
-      <p class="coinhint small">Сегодня осталось: вызовов <b>${c.left.bets}</b>, игр <b>${c.left.games}</b>. С одним соперником — не больше 3 игр в сутки.</p>`;
+      <p class="coinhint small">Сегодня осталось: вызовов <b>${c.left.bets}</b> из 3, игр <b>${c.left.games}</b> из 3.</p>`;
   } else {
     body = c.history.length ? c.history.map((h) => `<div class="coinlog ${h.won ? 'won' : 'lost'}">${coinFace(h.coin, 'mini')}<div>${h.won ? 'Победа' : 'Поражение'} — <a class="plink" data-cprof="${h.vsId}">${esc(h.vs)}</a><br>
       <small>${h.won ? '+' : '−'}${fmtFull(h.won ? h.amount * 2 : h.amount)} ${COIN_RES[h.res][1]} · ${fmtDate(h.at)}</small></div></div>`).join('') : '<p class="parch-note">Вы ещё не играли.</p>';
@@ -60,7 +60,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.coinmax !== undefined) { f.amount = Number(d.coinmax) || 0; return refreshSheet(); }
   if (d.coinbet !== undefined) { document.activeElement && document.activeElement.blur(); return send({ t: 'coinbet', res: f.res, amount: f.amount, side: f.side, to: f.to.trim() }); }
   if (d.coinacc) { const b = S.coin.open.find((x) => x.id === Number(d.coinacc)); if (b && !confirm(`Поставить ${fmtFull(b.amount)} ${COIN_RES[b.res][1]} против ${b.from.login}? Вы — ${COIN_SIDE[b.side === 'eagle' ? 'tails' : 'eagle']}.`)) return; t.disabled = true; return send({ t: 'coinaccept', id: Number(d.coinacc) }); }
-  if (d.coincan) { if (confirm('Отменить вызов? Ставка вернётся в замок.')) send({ t: 'coincancel', id: Number(d.coincan) }); }
+  if (d.coincan) { if (confirm('Отменить вызов? Ставка вернётся в Кладовую.')) send({ t: 'coincancel', id: Number(d.coincan) }); }
 });
 $('#sheetBody').addEventListener('input', (e) => {
   const d = e.target.dataset;

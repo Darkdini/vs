@@ -3,28 +3,23 @@
 // Игрок бросает вызов: ставит ресурс из замка, где сейчас находится (ставка сразу списывается), и выбирает сторону монеты.
 // Вызов виден всем (или только названному игроку). Принявший ставит столько же того же ресурса и получает другую сторону;
 // монета подбрасывается, победитель забирает оба банка в Кладовую. Вызов живёт сутки, потом ставка возвращается.
-// Ограничения: ставка 100…1 000 (и не больше Склада), не больше 10 вызовов и 20 игр в сутки, с одним соперником — 3 игры в сутки
-// (чтобы не перекачивать ресурсы между своими аккаунтами). Выигрыши — в Зал Славы «Большой куш». В Кладовую уходит только выигрыш; отменённая или истёкшая ставка — обратно в замок.
+// Ограничения: ставка 100…1 000 (и не больше Склада), не больше 3 вызовов и 3 игр в сутки
+// (чтобы не перекачивать ресурсы между своими аккаунтами). Выигрыши — в Зал Славы «Большой куш». Выигрыш, отменённая и истёкшая ставка — в Кладовую.
 
 const MSK = 3 * 3600000, DAY = 86400000;
 const dayKey = (t) => new Date(t + MSK).toISOString().slice(0, 10);
 const RES4 = ['wood', 'stone', 'iron', 'food'];
 const RES_NAME = { wood: 'дерева', stone: 'камня', iron: 'железа', food: 'еды' };
 const SIDE = { eagle: 'Орёл', tails: 'Решка' };
-const MIN_BET = 100, MAX_BET = 1000, MAX_OPEN = 3, DAY_BETS = 10, DAY_GAMES = 20, PAIR_DAY = 3, LIFE = DAY;
+const MIN_BET = 100, MAX_BET = 1000, MAX_OPEN = 3, DAY_BETS = 3, DAY_GAMES = 3, PAIR_DAY = 3, LIFE = DAY;
 
 function install(Game) {
   const P = Game.prototype;
   const bets = (g) => { if (!g.db.coinBets) g.db.coinBets = []; return g.db.coinBets; };
   const day = (u, now) => { const d = dayKey(now); if (!u.coin || u.coin.day !== d) u.coin = { day: d, bets: 0, games: 0, pairs: {} }; return u.coin; };
   const fmt = (n) => Number(n).toLocaleString('ru-RU');
-  // возврат ставки — в замок, откуда она сделана (до вместимости Склада; что не влезло — в Кладовую, чтобы не пропало)
-  const back = (g, u, b) => {
-    const c = g.db.castles[b.castle] && g.db.castles[b.castle].owner === u.id ? g.db.castles[b.castle] : g.castlesOf(u)[0];
-    g.tick(c); const room = Math.max(0, Math.floor(g.capacity(c)[b.res] - (c.res[b.res] || 0))), k = Math.min(room, b.amount);
-    c.res[b.res] = (c.res[b.res] || 0) + k; if (b.amount - k > 0) g.stashAdd(u, { [b.res]: b.amount - k });
-    return `${fmt(b.amount)} ${RES_NAME[b.res]} вернулись в «${c.name}»${b.amount - k > 0 ? ` (${fmt(b.amount - k)} не влезло на Склад — в Кладовой)` : ''}`;
-  };
+  // возврат ставки — в Кладовую (как и выигрыш)
+  const back = (g, u, b) => { g.stashAdd(u, { [b.res]: b.amount }); return `${fmt(b.amount)} ${RES_NAME[b.res]} — в Кладовой`; };
   const refund = (g, b, why) => { const u = g.userById(b.from); if (!u) return; g.event(u.id, `Орёл-решка: ${why} — ${back(g, u, b)}.`); };
   P.coinSweep = function coinSweep(now = Date.now()) {
     const l = bets(this), keep = [];
@@ -85,7 +80,8 @@ function install(Game) {
     if (b.from === u.id) return { error: 'Это Ваш вызов.' };
     if (b.to && b.to !== u.id) return { error: 'Этот вызов брошен другому игроку.' };
     const f = this.userById(b.from), du = day(u, now), df = day(f, now);
-    if (du.games >= DAY_GAMES) return { error: `Не больше ${DAY_GAMES} игр в сутки.` };
+    if (du.games >= DAY_GAMES) return { error: `Не больше ${DAY_GAMES} игр в сутки — приходите завтра.` };
+    if (df.games >= DAY_GAMES) return { error: `${f.login} уже сыграл(а) ${DAY_GAMES} раза сегодня — вызов ждёт до завтра.` };
     if ((du.pairs[f.id] || 0) >= PAIR_DAY) return { error: `С игроком ${f.login} — не больше ${PAIR_DAY} игр в сутки.` };
     this.tick(castle);
     if ((castle.res[b.res] || 0) < b.amount) return { error: `Нужно ${fmt(b.amount)} ${RES_NAME[b.res]} в замке «${castle.name}» (есть ${fmt(Math.floor(castle.res[b.res] || 0))}).` };
