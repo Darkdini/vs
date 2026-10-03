@@ -83,6 +83,7 @@ function catalogJson() {
   return {
     version: VERSION,
     speed: G.SPEED,
+    campFast: require('./army').CAMP_FAST,
     maxQueue: G.MAX_QUEUE,
     rules: {
       time: C.TIME, rating: C.RATING, store: G.STORE, baseRate: G.BASE_RATE, peopleFactor: G.PEOPLE_FACTOR, minBuildSec: 3,

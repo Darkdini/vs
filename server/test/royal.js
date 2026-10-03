@@ -688,6 +688,16 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(g.divorce(Q).ok && !K.marriage && !Q.marriage && !g.profileOf(K, X).marriage, 'развод');
   console.log('✓ ЗАГС: предложение, свадьба, рейтинг пары за золото, подарки, комментарии, развод');
 }
+{ // лагеря разбойников: набег втрое быстрее (туда и обратно), на игроков — как было
+  const R = g.register({ login: 'campRunner', password: '12345', race: 0 }).user, rc = g.castleOf(R); g.mil(rc);
+  const camp = g.worldObjects(rc.x - 12, rc.y - 12, 25, 25).find((o) => o.kind === 'object' && [30, 31, 32].includes(o.img));
+  if (camp) {
+    rc.grid[0][3] = 2; rc.levels[0][3] = 1; rc.units = { 201: 50 }; const full = g.travelSec(rc, { 201: 50 }, false, camp.x, camp.y);
+    const r = g.sendArmy(rc, { units: { 201: 50 }, x: camp.x, y: camp.y, mission: 'raid' });
+    assert.ok(r.army && Math.abs(r.sec - Math.max(5, Math.round(full / 3))) <= 1, `лагерь ×3: ${full} → ${r.sec}`);
+    console.log(`✓ Лагерь разбойников: набег ${full} с → ${r.sec} с (втрое быстрее)`);
+  } else console.log('… лагеря рядом нет — проверка скорости пропущена');
+}
 (async () => { // фото в сообщениях: только сжатые точки, проверка размера, новый PNG, удаление через 10 минут
   const zlib = require('zlib'), a1 = g.register({ login: 'picFrom', password: '12345', race: 0 }).user, a2 = g.register({ login: 'picTo', password: '12345', race: 0 }).user;
   const w = 40, h = 30, rgb = Buffer.alloc(w * h * 3, 200), z = zlib.deflateSync(rgb);

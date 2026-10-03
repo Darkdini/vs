@@ -176,6 +176,7 @@ const UNIT = Object.fromEntries(UNITS.map((u) => [u.id, u]));
 const MERCHANT_ID = 221, MERCHANTS = 20;
 Object.assign(UNIT[MERCHANT_ID], { speed: 20, notrain: true, carry: 45 });
 const GENERAL_ID = 236;
+const CAMP_FAST = 3; // набеги и нападения на лагеря разбойников (и логово «Тёмных земель») — втрое быстрее, туда и обратно
 // уникальные воины — только награда заданий и походов (в Кладовой), не тренируются. На 20% сильнее своего прообраза расы
 // (здоровье, атака, магия, защита), скорость, груз, население и содержание — как у прообраза. Картинка — gfx/units/uniq/<key>.png,
 // пока её нет — картинка прообраза. slot: inf / cav / mag — так задания выдают их любой расе.
@@ -797,6 +798,7 @@ function install(Game, helpers) {
       castle.squads = castle.squads.filter((q) => q !== squad);
     }
     let sec = this.travelSec(castle, clean, general, x, y, mission === 'trade');
+    if ((lair || (obj && [30, 31, 32].includes(obj.img))) && ['attack', 'raid'].includes(mission)) sec = Math.max(5, Math.round(sec / CAMP_FAST));
     if (boss) sec = Math.max(20, Math.min(Math.round(sec / 4), Math.round(900 / SPEED))); // к мировому боссу — быстрый марш: вчетверо быстрее и не дольше 15 минут (и обратно так же)
     if (portal) sec = Math.max(5, Math.round(sec / 4));
     const now = Date.now(), start = at && Number(at) > now + 3000 ? Number(at) : now;
@@ -1739,4 +1741,4 @@ const catalogJson = () => ({
   hero: require('./hero').heroCatalog(),
 });
 
-module.exports = { uniqueFor, EXPED, ART_HOURS, NEWBIE_RATING, install, UNITS, UNIT, B, GENERAL_ID, GEN, SCIENCES, RELIGIONS, NPC, MISSIONS, unitsForRace, unitImg, catalogJson, ART_TYPES };
+module.exports = { CAMP_FAST, uniqueFor, EXPED, ART_HOURS, NEWBIE_RATING, install, UNITS, UNIT, B, GENERAL_ID, GEN, SCIENCES, RELIGIONS, NPC, MISSIONS, unitsForRace, unitImg, catalogJson, ART_TYPES };

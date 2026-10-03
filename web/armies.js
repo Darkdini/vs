@@ -123,8 +123,19 @@ function campaignSec() {
   if (!speeds.length) return null;
   const b = MY().bonus, st = S.st.castle;
   let sec = Math.max(5, Math.round(Math.hypot(Number(c.x) - st.x, Number(c.y) - st.y) / (Math.min(...speeds) * b.speed) * 3600 / S.cat.speed));
+  const o = ((S.world && S.world.objects) || []).find((w) => w.x === Number(c.x) && w.y === Number(c.y)); // лагерь разбойников — втрое быстрее
+  if (o && (o.lair || [30, 31, 32].includes(o.img)) && ['attack', 'raid'].includes(c.mission)) sec = Math.max(5, Math.round(sec / (S.cat.campFast || 3)));
   if (c.portal) sec = Math.max(5, Math.round(sec / 4));
   return sec;
+}
+// кто тормозит армию: армия идёт со скоростью самого медленного юнита (поля в час), как в оригинале
+function slowestHint(a, c, go) {
+  const list = Object.keys(go).map((id) => unitById(id)).filter((u) => u && u.speed > 0);
+  if (genGoes(a, c)) list.push(unitById(M().generalId));
+  if (list.length < 2) return '';
+  const slow = list.reduce((m, u) => (u.speed < m.speed ? u : m)), fast = list.reduce((m, u) => (u.speed > m.speed ? u : m));
+  if (slow.speed === fast.speed) return '';
+  return `<div class="cinfo small">Армия идёт со скоростью самого медленного: <b>${esc(slow.name)}</b> (${slow.speed} пол./ч). Без медленных юнитов быстрее — ${esc(fast.name)}: ${fast.speed} пол./ч.</div>`;
 }
 function campaignWin() {
   const c = S.cmp, armies = allArmies();
@@ -143,6 +154,7 @@ function campaignWin() {
     ${chk('sched', c.sched, `${GFX}res/time.png`, 'Расписание отправки')}
     ${c.sched ? `<input type="datetime-local" data-cmp="at" value="${esc(c.at)}">` : ''}
     <div class="cinfo">В поход идут: <b>${fmtFull(n)}</b> ${genGoes(a, c) ? '+ генерал' : ''} · в пути: <b id="cmpTime">${sec ? fmtT(sec) : '—'}</b></div>
+    ${slowestHint(a, c, go)}
     ${n < armyTotal(a.units) ? '<div class="cinfo small">Неподходящие для этого похода юниты останутся в замке.</div>' : ''}
     <button class="pbar" data-cmpgo>Отправить</button>`;
 }
