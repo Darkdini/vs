@@ -1,7 +1,7 @@
 'use strict';
 // «Биржа Замков» (Кабинет → Биржа): игрок выставляет на продажу свой замок (не столицу) за золото — цена от 300.
 // Покупатель платит золото, продавец его получает, замок переходит к покупателю со зданиями, ресурсами, стеной и
-// артефактами и армией, что стоит в замке (Замковая армия и отряды Штаба). Генерал продавца переходит в другой его замок, чужие подкрепления — домой.
+// артефактами и армией, что стоит в замке (Замковая армия и отряды Штаба). Генерал один на все замки: замок с генералом продать нельзя — сначала его переводят подкреплением в другой свой замок.
 // Продавать можно, когда из замка никто не в походе и не идёт обучение. Лот живёт 7 дней, его можно снять.
 
 const MIN_PRICE = 300, MAX_PRICE = 1000000, MAX_LOTS = 3, LIFE = 7 * 86400000;
@@ -17,14 +17,15 @@ function install(Game) {
     const changed = keep.length !== l.length; this.db.castleMarket = keep; if (changed) this.store.save();
     return keep;
   };
-  // свой замок без живого генерала — туда перейдёт генерал из проданного замка
-  const genHome = (g, c) => g.castlesOf(g.userById(c.owner)).find((k) => k !== c && !(k.general && !k.general.dead));
   // почему замок нельзя продать прямо сейчас (null — можно)
   const busy = (g, c) => {
     if ((c.armies || []).length) return 'из замка армии в походе — дождитесь возвращения';
     if ((c.training || []).length) return 'в замке идёт обучение войск';
     if ((c.expeds || []).length) return 'из замка ушла экспедиция';
-    if (c.general && !c.general.dead && !genHome(g, c)) return 'в замке генерал, а в остальных Ваших замках генералы уже есть — генералу некуда перейти';
+    // генерал один на все замки: продавать можно только замок без генерала — сначала переведите его подкреплением в другой свой замок
+    if (c.general && !c.general.dead) return 'в замке Ваш генерал — сначала переведите его в другой свой замок (Поход → Подкрепление с генералом)';
+    if (c.general && c.general.dead) return 'в замке павший генерал — сначала воскресите его в Штабе и переведите в другой свой замок';
+    if (g.castlesOf(g.userById(c.owner)).some((k) => (k.armies || []).some((a) => a.general && a.x === c.x && a.y === c.y))) return 'генерал идёт в этот замок подкреплением — дождитесь, пока он прибудет, и переведите его в другой замок';
     return null;
   };
   const info = (g, c) => {
@@ -78,8 +79,8 @@ function install(Game) {
     if (sc[0] === c) return { error: 'Столицу продать нельзя — лот снят.' };
     this.tick(c); this.mil(c);
     const why = busy(this, c); if (why) return { error: `Сейчас купить нельзя: у продавца ${why}.` };
-    // армия замка (Замковая армия и отряды в Штабе) уходит вместе с замком; генерал — в замок продавца без генерала; чужие подкрепления — домой
-    const gh = c.general && !c.general.dead ? genHome(this, c) : null; if (gh) { gh.general = c.general; delete gh.general.squad; }
+    // армия замка (Замковая армия и отряды в Штабе) уходит вместе с замком; генерала в замке нет (busy), павшие прежние генералы — в столицу продавца; чужие подкрепления — домой
+    if ((c.deadGenerals || []).length) { const cap = sc[0]; cap.deadGenerals = [...(cap.deadGenerals || []), ...c.deadGenerals]; c.deadGenerals = []; }
     for (const gst of this.guestsOf(c)) this.goBack(gst.c, gst.a, now);
     c.general = null;
     // замок — покупателю
@@ -91,7 +92,7 @@ function install(Game) {
     this.goldChange(u, -x.price, `Биржа замков: покупка «${c.name}» у ${seller.login}`);
     this.goldChange(seller, x.price, `Биржа замков: продажа «${c.name}» игроку ${u.login}`);
     this.addStat(u.id, 'capRating', this.rating(c)); // Развитие не учитывает рейтинг купленных замков
-    this.report(seller.id, `Биржа Замков: замок «${c.name}» продан игроку ${u.login} за ${fmt(x.price)} золота`, [`Золото +${fmt(x.price)} — в Казне.`, 'Армия ушла вместе с замком, генерал перешёл в Ваш замок без генерала.'], 'market');
+    this.report(seller.id, `Биржа Замков: замок «${c.name}» продан игроку ${u.login} за ${fmt(x.price)} золота`, [`Золото +${fmt(x.price)} — в Казне.`, 'Армия ушла вместе с замком.'], 'market');
     this.cache = {}; this.store.save();
     return { ok: true, msg: `Замок «${c.name}» теперь Ваш! Списано ${fmt(x.price)} золота.`, castle: { id: c.id, x: c.x, y: c.y }, seller };
   };

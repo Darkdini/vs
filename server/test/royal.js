@@ -752,6 +752,8 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const second = g.createCastle(S1, { x: cap.x + 9, y: cap.y + 9 }); g.mil(second); S1.castleIds = [cap.id, second.id];
   second.units = { 200: 40 }; g.mil(cap); const capInf = cap.units[200] || 0;
   assert.ok(g.marketSell(S1, cap.id, 500).error, 'столицу — нельзя');
+  second.general = { name: 'Тест', level: 5, exp: 0, free: 0 }; assert.ok(/генерал/.test(g.marketSell(S1, second.id, 300).error || ''), 'с генералом в замке — нельзя');
+  second.general = null;
   assert.ok(g.marketSell(S1, second.id, 299).error, 'цена ниже 300 — нельзя');
   assert.ok(g.marketSell(B2, second.id, 500).error, 'чужой замок — нельзя');
   assert.ok(g.marketSell(S1, second.id, 300).ok, 'выставлен за 300');

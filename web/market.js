@@ -22,7 +22,7 @@ function marketWin() {
       ${m.lots.length ? m.lots.map((x) => `<div class="mklot">${marketCastle(x.castle, x.hidden)}<div class="mkfoot"><span>Продаёт <a class="plink" data-cprof="${x.seller.id}">${esc(x.seller.login)}</a></span>
         <button class="zbar mkbuy" data-mkbuy="${x.id}" ${m.gold < x.price ? 'disabled' : ''}>Купить за ${MK_COIN()} ${fmtFull(x.price)}</button></div></div>`).join('') : '<p class="parch-note">Сейчас на Бирже нет замков.</p>'}`;
   } else if (S.marketTab === 'sell') {
-    body = `<p class="coinhint">Выставьте свой замок за золото — цена от ${m.min}. Столицу продать нельзя. Замок продаётся вместе с армией, что в нём стоит; генерал перейдёт в другой Ваш замок. Золото придёт в Казну. Лот держится 7 дней.</p>
+    body = `<p class="coinhint">Выставьте свой замок за золото — цена от ${m.min}. Столицу продать нельзя. Замок продаётся вместе с армией, что в нём стоит. Генерал не продаётся: если он в этом замке, сначала переведите его в другой свой замок (Поход → Подкрепление с генералом). Золото придёт в Казну. Лот держится 7 дней.</p>
       ${m.sell.length ? m.sell.map((c) => `<div class="mklot">${marketCastle(c)}${c.busy ? `<div class="mkbusy">Сейчас нельзя: ${esc(c.busy)}.</div>`
         : `<div class="mkfoot"><span class="mkprice">${MK_COIN()} <input class="anum" type="number" inputmode="numeric" min="${m.min}" value="${S.marketPrice[c.id] || m.min}" data-mkprice="${c.id}"></span>
           <button class="zbar" data-mksell="${c.id}">Выставить</button></div>`}</div>`).join('')
