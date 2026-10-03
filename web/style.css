@@ -1837,7 +1837,7 @@ img[src*="/hd/"] { image-rendering: auto !important; }
   font: 22px var(--serif); padding: 6px 8px; text-shadow: 0 1px 1px #0008; box-shadow: inset 0 1px 0 #ffffff33; }
 .zbar:active { filter: brightness(.9); }
 .zbar.zup { background: linear-gradient(#7a3a20, #4a1c0c); border: 2px solid #c8963e; }
-.zbar.zdiv { margin-top: 18px; background: linear-gradient(#5a5048, #3a302a); font-size: 18px; }
+.zbar.zdiv { margin-top: 2px; background: linear-gradient(#5a5048, #3a302a); font-size: 18px; }
 .zrow2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 -4px; }
 .zrow2 .zbar { width: 100%; margin: 4px 0; }
 .zlast { font: 20px/1.45 var(--serif); padding: 8px 0 4px; }

@@ -68,13 +68,13 @@ function zpairWin() {
     <div class="pline">🕰 Брак заключен: ${fmtDate(p.at)}</div>
     <div class="pline">${ZSTAR} Рейтинг пары: ${ZSTAR} ${p.place} место, ${ZTHUMB} ${fmtFull(p.votes)} ${plural(p.votes, 'голос', 'голоса', 'голосов')}.</div>
     <button class="zbar" data-zvote="${p.id}">${ZTHUMB} Проголосовать</button>
+    ${p.mine ? `<button class="zbar zdiv" data-zdivorce>${ZI('broken')} Развестись</button>` : ''}
     ${ribbon(`Подарки пары - ${gifts.length}`)}
     ${gifts.length ? `<div class="prow zgifts">${gifts.slice(0, 12).map((g) => `<img class="pgi" src="${GFX}${(S.cat.gifts[g.gift] || {}).img}" alt="" title="от ${esc(g.from)}">`).join('')}${gifts.length > 12 ? `<b>+${gifts.length - 12}</b>` : ''}</div>` : ''}
     <div class="zrow2"><button class="zbar" data-zcongr="${p.id}">Подарить</button><button class="zbar" data-zgiftlist>Посмотреть</button></div>
     ${ribbon('Комментарии')}
     <form class="stack" data-form="zcomment"><textarea name="text" rows="2" maxlength="300"></textarea><button class="pbar">Добавить</button></form>
-    ${(p.comments || []).map((c) => `<div class="zcom"><a class="plink" data-cprof="${c.fromId}">${esc(c.from)}</a>:${c.del ? `<button class="zdel" data-zcdel="${c.id}" title="Удалить">✕</button>` : ''}<div>${esc(c.text)}</div></div>`).join('')}
-    ${p.mine ? `<button class="zbar zdiv" data-zdivorce>${ZI('broken')} Расторгнуть брак</button>` : ''}`;
+    ${(p.comments || []).map((c) => `<div class="zcom"><a class="plink" data-cprof="${c.fromId}">${esc(c.from)}</a>:${c.del ? `<button class="zdel" data-zcdel="${c.id}" title="Удалить">✕</button>` : ''}<div>${esc(c.text)}</div></div>`).join('')}`;
 }
 function zgiftListWin() {
   const p = S.zpair, gifts = (p && p.gifts) || [];
@@ -99,7 +99,7 @@ const zhelpWin = () => `${ribbon('Заявления')}<div class="pstats zhelp"
   Вашей половинке придёт уведомление, и она сможет принять или отклонить Ваше предложение.<br><br>
   Посмотреть Ваши предложения и предложения, сделанные Вам, можно в разделе «Предложение».<br><br>
   Предложения действуют 2 недели. Когда брак заключён, Ваши другие предложения снимаются.<br><br>
-  Рейтинг пары поднимается за золото: 1 ${gimg('coins_s.png', 'ri')} = 1 голос. Кнопки «Проголосовать» — на странице пары и «Поднять рейтинг паре!» — в профиле.</div>`;
+  Рейтинг пары поднимается за золото: 1 ${gimg('coins_s.png', 'ri')} = 1 голос. Нажмите на пару (в профиле, рейтинге или «Последних браках») и затем «Проголосовать». Развестись можно там же — кнопка «Развестись» на странице Вашей пары.</div>`;
 
 function zagsMsg(m) {
   if (m.t === 'zags') S.zags = m.home;
@@ -135,7 +135,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.zgift) { const g = S.cat.gifts[d.zgift]; if (!confirm(`Подарить паре «${g.name}» за ${g.gold} золота?`)) return; closeSheet(); if (S.sheets[S.sheets.length - 1] !== zpairWin) openPair(S.zgiftTo); return send({ t: 'zgift', id: S.zgiftTo, gift: d.zgift }); }
   if (d.zgiftlist !== undefined) return openSheet(zgiftListWin);
   if (d.zcdel) { if (confirm('Удалить комментарий?')) send({ t: 'zcomment', id: S.zpair.id, del: Number(d.zcdel) }); return; }
-  if (d.zdivorce !== undefined) { if (confirm('Расторгнуть брак? Голоса и подарки пары пропадут.')) send({ t: 'zdivorce' }); }
+  if (d.zdivorce !== undefined) { if (confirm('Развестись? Голоса и подарки пары пропадут.')) send({ t: 'zdivorce' }); }
 });
 $('#sheetBody').addEventListener('input', (e) => {
   if (e.target.dataset.zcoins === undefined) return;
