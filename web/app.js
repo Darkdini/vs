@@ -1030,11 +1030,11 @@ function lvlFlush() {
   const m = ictx.getTransform(), k = (window.devicePixelRatio || 1) / (Math.hypot(m.a, m.b) || 1); // одинаковый размер на экране при любом масштабе
   for (const [x, y, n] of LVLQ) {
     ictx.save(); ictx.translate(x, y); ictx.scale(k, k); ictx.translate(-x, -y);
-    const r = n >= 10 ? 5.8 : 5;
-    ictx.beginPath(); ictx.arc(x, y, r + 1, 0, Math.PI * 2); ictx.fillStyle = '#e8c060'; ictx.fill();
+    const r = n >= 10 ? 4.8 : 4.2;
+    ictx.beginPath(); ictx.arc(x, y, r + 0.8, 0, Math.PI * 2); ictx.fillStyle = '#e8c060'; ictx.fill();
     ictx.beginPath(); ictx.arc(x, y, r, 0, Math.PI * 2); const gr = ictx.createRadialGradient(x - 2, y - 2, 1, x, y, r); gr.addColorStop(0, '#5fbf3a'); gr.addColorStop(1, '#1d6a12'); ictx.fillStyle = gr; ictx.fill();
-    ictx.font = `bold ${n >= 10 ? 6.5 : 7}px system-ui, sans-serif`; ictx.textAlign = 'center'; ictx.textBaseline = 'middle';
-    ictx.lineWidth = 1.5; ictx.strokeStyle = "#0008"; ictx.strokeText(String(n), x, y + 0.5); ictx.fillStyle = '#fff'; ictx.fillText(String(n), x, y + 0.5);
+    ictx.font = `bold ${n >= 10 ? 5.3 : 6}px system-ui, sans-serif`; ictx.textAlign = 'center'; ictx.textBaseline = 'middle';
+    ictx.lineWidth = 1.2; ictx.strokeStyle = "#0008"; ictx.strokeText(String(n), x, y + 0.5); ictx.fillStyle = '#fff'; ictx.fillText(String(n), x, y + 0.5);
     ictx.restore();
   }
   LVLQ.length = 0;
