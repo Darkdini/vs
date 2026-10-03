@@ -660,6 +660,34 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.strictEqual(g.profileOf(free, lead).alliance.ep, 7, 'погоны в профиле');
   console.log('✓ Профиль: «Пригласить в альянс» для игрока без альянса');
 }
+{ // ЗАГС: предложение за 10 золота, свадьба, голоса за золото, подарки, комментарии, развод
+  const K = g.register({ login: 'zKing1', password: '12345', race: 0 }).user, Q = g.register({ login: 'zQueen1', password: '12345', race: 0 }).user, X = g.register({ login: 'zThird', password: '12345', race: 0 }).user;
+  K.gold = 15; X.gold = 100;
+  assert.ok(g.propose(K, 'zKing1', 'люблю', 'king').error && g.propose(K, 'zQueen1', '', 'king').error && g.propose(K, 'zQueen1', 'люблю', 'x').error, 'себе / без текста / без роли — нельзя');
+  assert.ok(g.propose(K, 'zQueen1', 'Будь моей королевой', 'king').ok && K.gold === 5, 'предложение −10 золота');
+  assert.ok(g.propose(K, 'zQueen1', 'ещё', 'king').error, 'повторно — нельзя');
+  assert.ok(g.propose(K, 'zThird', 'и тебе', 'king').error, 'не хватает золота');
+  assert.strictEqual(g.zagsNew(Q), 1); assert.strictEqual(g.proposals(Q).in.length, 1); assert.strictEqual(g.proposals(K).out.length, 1);
+  assert.ok(g.propose(X, 'zQueen1', 'выбери меня', 'king').ok, 'второе предложение той же');
+  const pid = g.proposals(Q).in.find((p) => p.user.id === K.id).id;
+  assert.ok(g.proposalAnswer(X, pid, 'yes').error, 'чужое предложение не принять');
+  const r = g.proposalAnswer(Q, pid, 'yes'); assert.ok(r.ok && K.marriage && K.marriage === Q.marriage, 'свадьба');
+  const m = g.marriageOf(K); assert.ok(m.king === K.id && m.queen === Q.id, 'роли: он Король, она Королева');
+  assert.ok(g.propose(X, 'zKing1', 'x', 'queen').error, 'женатому — нельзя');
+  const xp = g.proposals(Q).in[0]; assert.ok(xp && g.proposalAnswer(Q, xp.id, 'yes').error, 'уже в браке — второй брак нельзя');
+  assert.ok(g.proposalAnswer(Q, xp.id, 'no').ok && !g.proposals(X).out.length, 'отклонить');
+  const pr = g.profileOf(K, X); assert.ok(pr.marriage.role === 'king' && pr.marriage.spouse.login === 'zQueen1' && pr.marriage.place >= 1, 'строка в профиле');
+  assert.ok(g.profileOf(Q, X).marriage.role === 'queen', 'Замужем за Королем');
+  const gold = X.gold; assert.ok(g.pairVote(X, m.id, 7).ok && m.votes === 7 && X.gold === gold - 7, 'голоса за золото: 1 = 1');
+  assert.ok(g.pairVote(X, m.id, 100000).error, 'без золота — нельзя');
+  assert.ok(g.pairGift(X, m.id, 'gift_box').ok && m.gifts.length === 1, 'подарок паре');
+  assert.ok(g.pairComment(X, m.id, 'Поздравляю!').ok && g.pairComment(X, m.id, 'ещё').error, 'комментарий, не чаще 15 с');
+  const pg = g.pairPage(X, m.id); assert.ok(pg.votes === 7 && pg.comments.length === 1 && pg.comments[0].del && !pg.mine, 'страница пары');
+  assert.ok(g.pairPage(Q, m.id).mine && g.pairCommentDel(Q, m.id, pg.comments[0].id).ok, 'супруги удаляют комментарии');
+  assert.ok(g.pairsList().some((x) => x.id === m.id) && g.zagsHome(X).last[0].id === m.id, 'рейтинг и последние браки');
+  assert.ok(g.divorce(Q).ok && !K.marriage && !Q.marriage && !g.profileOf(K, X).marriage, 'развод');
+  console.log('✓ ЗАГС: предложение, свадьба, рейтинг пары за золото, подарки, комментарии, развод');
+}
 (async () => { // фото в сообщениях: только сжатые точки, проверка размера, новый PNG, удаление через 10 минут
   const zlib = require('zlib'), a1 = g.register({ login: 'picFrom', password: '12345', race: 0 }).user, a2 = g.register({ login: 'picTo', password: '12345', race: 0 }).user;
   const w = 40, h = 30, rgb = Buffer.alloc(w * h * 3, 200), z = zlib.deflateSync(rgb);

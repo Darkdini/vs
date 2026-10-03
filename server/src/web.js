@@ -105,6 +105,8 @@ function catalogJson() {
 }
 
 // кто сейчас в игре (открытые соединения с входом; один игрок с двух устройств — один раз)
+// обновить состояние (оповещения) у игрока, если он сейчас в игре
+function pushTo(u) { if (u) for (const s of WebSession.all || []) if (s.user && s.user.id === u.id) s.pushState(); }
 function onlineUsers() {
   const seen = new Map();
   for (const s of WebSession.all || []) if (s.user && !s.user.bot) seen.set(s.user.id, { id: s.user.id, login: s.user.login, rep: s.user.reputation ?? 10 });
@@ -131,7 +133,7 @@ class WebSession {
       t: 'state',
       now: Date.now(),
       quests: this.questsLite(),
-      user: { id: u.id, login: u.login, race: u.race, raceName: C.RACE_NAMES[u.race], premium: u.premium || 0, gold: u.gold || 0, goldLog: (u.goldLog || []).slice(-50).reverse(), admin: !!u.admin, mod: !!u.mod, alertsNew: u.admin ? this.game.alertsNew() : 0, secNew: u.admin ? this.game.secNew() : 0, multiNew: u.admin ? (this.game.db.multiLog || []).filter((x) => x.at > (u.multiSeen || 0)).length : 0 },
+      user: { id: u.id, login: u.login, race: u.race, raceName: C.RACE_NAMES[u.race], premium: u.premium || 0, gold: u.gold || 0, goldLog: (u.goldLog || []).slice(-50).reverse(), admin: !!u.admin, mod: !!u.mod, alertsNew: u.admin ? this.game.alertsNew() : 0, secNew: u.admin ? this.game.secNew() : 0, zagsNew: this.game.zagsNew(u), multiNew: u.admin ? (this.game.db.multiLog || []).filter((x) => x.at > (u.multiSeen || 0)).length : 0 },
       castle: {
         id: c.id, name: c.name, x: c.x, y: c.y, grid: { 0: Array.from(c.grid[0]), 1: Array.from(c.grid[1]) }, levels: { 0: Array.from(c.levels[0]), 1: Array.from(c.levels[1]) },
         res: c.res, rate: this.game.rates(c), cap: this.game.capacity(c),
@@ -342,6 +344,21 @@ const API = {
   nickcase(m) { const r = this.game.changeNick(this.user, m.nick); if (r.error) return this.error(r.error); this.send({ t: 'renamed', login: this.user.login }); this.toast(`Ваш новый ник: ${this.user.login} (−${r.price} золота). Входите под ним.`); this.pushState(); API.profile.call(this, { id: this.user.id, acct: 1, refresh: 1 }); },
   msgcolor(m) { const r = this.game.setMsgColor(this.user, m.i); if (r.msg) this.toast(r.msg); this.result(r); this.pushState(); },
   castleinfo(m) { const r = this.game.castleInfo(this.user, m.name, m.desc); if (r.error) return this.error(r.error); this.toast('Замок переименован.'); API.profile.call(this, { id: this.user.id, acct: 1, refresh: 1 }); },
+  // ---- ЗАГС (server/src/zags.js) ----
+  zags() { this.send({ t: 'zags', home: this.game.zagsHome(this.user) }); },
+  zprops() { this.send({ t: 'zprops', data: this.game.proposals(this.user) }); },
+  zpairs() { this.send({ t: 'zpairs', list: this.game.pairsList() }); },
+  zpair(m) { const r = this.game.pairPage(this.user, m.id); if (r.error) return this.error(r.error); this.send({ t: 'zpair', pair: r }); },
+  zpropose(m) { const r = this.game.propose(this.user, m.to, m.text, m.role); if (r.error) return this.error(r.error); this.send({ t: 'zdone', msg: r.msg, go: 'props' }); this.pushState(); pushTo(this.game.db.users[String(m.to || '').trim()]); },
+  zanswer(m) {
+    const p = (this.game.db.proposals || []).find((x) => x.id === Number(m.id)), other = p && this.game.userById(p.from === this.user.id ? p.to : p.from);
+    const r = this.game.proposalAnswer(this.user, m.id, String(m.op || '')); if (r.error) { this.error(r.error); return API.zprops.call(this); }
+    this.send({ t: 'zdone', msg: r.msg, pair: r.pair, go: r.pair ? 'pair' : 'props' }); this.pushState(); pushTo(other);
+  },
+  zdivorce() { const m = this.game.marriageOf(this.user), other = m && this.game.userById(m.king === this.user.id ? m.queen : m.king); const r = this.game.divorce(this.user); if (r.error) return this.error(r.error); this.send({ t: 'zdone', msg: r.msg, go: 'home' }); pushTo(other); },
+  zvote(m) { const r = this.game.pairVote(this.user, m.id, m.coins); if (r.error) return this.error(r.error); this.toast(r.msg); this.pushState(); API.zpair.call(this, m); },
+  zgift(m) { const r = this.game.pairGift(this.user, m.id, m.gift); if (r.error) return this.error(r.error); this.toast(r.msg); this.pushState(); API.zpair.call(this, m); },
+  zcomment(m) { const r = m.del ? this.game.pairCommentDel(this.user, m.id, m.del) : this.game.pairComment(this.user, m.id, m.text); if (r.error) return this.error(r.error); API.zpair.call(this, m); },
   // ---- кабинет (server/src/social.js) ----
   rep(m) {
     const r = this.game.giveReputation(this.user, m.id, m.coins); if (r.error) return this.error(r.error);

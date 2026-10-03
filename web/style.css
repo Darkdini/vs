@@ -1827,3 +1827,39 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .avarow b { font-weight: 400; color: #2a1408; } .avarow > span:last-child { padding: 4px 4px; }
 .avasm, .avasm img { width: 96px; height: 96px; } .avasm { align-self: center; }
 .avarow .repi img { width: 34px; height: 34px; vertical-align: middle; }
+/* ЗАГС (zags.js) */
+.ztiles { grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 4px; }
+.ztiles .ptile { position: relative; padding: 6px; }
+.ztiles .ptile img { width: 52px; height: 44px; image-rendering: auto; }
+.ztiles .ptile span { font-size: 11px; }
+.zbadge { position: absolute; top: 2px; right: 4px; min-width: 20px; padding: 1px 5px; border-radius: 10px; background: #c01818; color: #fff; font: 700 12px system-ui, sans-serif; box-shadow: 0 0 0 2px #f0d090; }
+.zbar { display: block; width: calc(100% + 8px); margin: 4px -4px 6px; border: 1px solid #6a3414; border-radius: 3px; background: linear-gradient(#a8603a, #8a4a28); color: #fff8e8;
+  font: 22px var(--serif); padding: 6px 8px; text-shadow: 0 1px 1px #0008; box-shadow: inset 0 1px 0 #ffffff33; }
+.zbar:active { filter: brightness(.9); }
+.zbar.zup { background: linear-gradient(#7a3a20, #4a1c0c); border: 2px solid #c8963e; }
+.zbar.zdiv { margin-top: 18px; background: linear-gradient(#5a5048, #3a302a); font-size: 18px; }
+.zrow2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 -4px; }
+.zrow2 .zbar { width: 100%; margin: 4px 0; }
+.zlast { font: 20px/1.45 var(--serif); padding: 8px 0 4px; }
+.zthumb { display: inline-block; }
+.zring { width: 34px; vertical-align: -5px; }
+.zhead { font: 21px/1.3 var(--serif); margin: 4px 0 8px; }
+.zlab { font: 20px/1.3 var(--serif); margin: 6px 0 2px; }
+.zform input, .zform textarea, .zform select { font: 18px var(--serif); }
+.zcost { font: 19px/1.4 var(--serif); margin: 6px 0; }
+.zprop { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid #b08a5a66; font: 19px/1.4 var(--serif); }
+.zpava { width: 72px; height: 72px; flex: none; background: #2a1408; border: 2px solid #b08a5a; display: grid; place-items: center; cursor: pointer; }
+.zpava img { width: 64px; height: 64px; object-fit: cover; }
+.ztext { font-style: italic; margin: 4px 0; overflow-wrap: anywhere; }
+.zbtns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
+.zbtns .zbar { width: 100%; margin: 0; font-size: 19px; }
+.zcouple { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: center; font: 21px/1.3 var(--serif); padding: 6px 0; }
+.zcouple .zava { width: min(130px, 34vw); aspect-ratio: 1; margin: 0 auto 6px; background: #2a1408; border: 2px solid #b08a5a; display: grid; place-items: center; cursor: pointer; overflow: hidden; }
+.zcouple .zava img { width: 100%; height: 100%; object-fit: cover; }
+.zcouple a { overflow-wrap: anywhere; }
+.zgifts { justify-content: center; }
+.zcom { position: relative; margin: 6px -4px; padding: 6px 30px 6px 8px; background: #e8a868; font: 20px/1.35 var(--serif); overflow-wrap: anywhere; }
+.zdel { position: absolute; top: 4px; right: 4px; border: 0; background: none; color: #8a1010; font-size: 18px; }
+.ztab div { grid-template-columns: 20% 1fr 24%; }
+.ztab a { white-space: normal; text-align: center; }
+.zhelp { font: 19px/1.45 var(--serif); }
