@@ -1083,22 +1083,20 @@ function fenceFront() {
   raw('fence/fence3.png', D(CG + 6, CH + 6) + 54, E(CG + 6, CH + 6) + 20 - imH('fence/fence3.png'));
   raw('fence/fence1.png', D(CG - 1, CH + 3) + 25, E(CG - 1, CH + 3) - 25);
 }
-// фон вокруг королевства: одна картинка (местность с лесом, рекой, скалами) под замком; стены картинки совпадают с нашими.
-// Сверху и снизу картинка продолжена лесом с её краёв (полосы с отражением); камера не выходит за картинку.
-// Оживление: течёт река, ручей и водопад (12 кадров воды), крутятся лопасти мельницы и водяное колесо.
-const CASTLE_BG = { src: 'ground/bg/castle.jpg?v=4', // ?v — новая версия картинки сразу, без старого кэша телефона
-  moat: false, iw: 1606, ih: 2455, pad: 760, // pad — сколько добавлено сверху
-  x: 527 - 817.5 * 0.449, y: 16 - (517 + 760) * 0.461, w: 1606 * 0.449, h: 2455 * 0.461, // углы стены на картинке → углы сетки замка
-  water: { n: 12, x: 2, y: 2 },
-  mill: { hub: [132, 190], u: [28.5, -58.5], v: [45, 17.5], speed: 0.9 }, // ветряк: плоскость лопастей (u, v — оси), рад/с
-  wheel: { hub: [1549, 317], u: [-7, -43], v: [29, 9], speed: 0.7, step: Math.PI / 6 } }; // колесо: крутится на шаг между спицами по кругу
+// фон вокруг королевства: одна цельная картинка (местность с лесом, рекой, скалами) под замком; камера не выходит за картинку.
+// Оживление (кадры воды, мельница, колесо) — если у картинки заданы water / mill / wheel.
+const CASTLE_BG = { src: 'ground/bg/castle.jpg?v=5', // ?v — новая версия картинки сразу, без старого кэша телефона
+  // цельная картинка 9:16 (тропинки от ворот, поляны, мельница, рудник, водопад); двор картинки подогнан под сетку замка
+  moat: false, iw: 1439, ih: 2092, pad: 0,
+  x: 157.93, y: -494.55, w: 719.50, h: 1046.00 }; // центр сетки замка (527, 16) — центр двора картинки
 function castleBackdrop() {
   const G = CASTLE_BG, im = pic(G.src); if (!im) return null;
   const x = ictx, sm = x.imageSmoothingEnabled; x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
   x.drawImage(im, G.x, G.y, G.w, G.h);
-  if (flowOn() && !flowTimer) flowTimer = setTimeout(flowTick, ANIM_MS);
+  if (G.water && flowOn() && !flowTimer) flowTimer = setTimeout(flowTick, ANIM_MS);
   const t = flowOn() ? Date.now() / 1000 : 0;
   x.save(); x.translate(G.x, G.y); x.scale(G.w / G.iw, G.h / G.ih); x.translate(0, G.pad); // дальше — в точках исходной картинки
+  if (!G.water) { x.restore(); x.imageSmoothingEnabled = sm; return im; } // у новой картинки — без наложенной анимации воды и мельниц
   const wf = pic(`ground/bg/water_${flowOn() ? Math.floor(Date.now() / FLOW_MS) % G.water.n : 0}.webp`);
   if (!castleBackdrop.pre) { castleBackdrop.pre = true; for (let k = 0; k < G.water.n; k++) pic(`ground/bg/water_${k}.webp`); }
   if (wf) x.drawImage(wf, G.water.x, G.water.y);
@@ -1312,7 +1310,7 @@ function isoDrawNow() {
     else groundField(17, (xx, y) => (xx >= CASTLE_OFF && xx < CASTLE_OFF + 7 && y >= CASTLE_OFF && y < CASTLE_OFF + 7 && !onPath(xx - CASTLE_OFF, y - CASTLE_OFF) ? 'ground/grassC.png' : `ground/${GROUND[CASTLE_BASE[y][xx]]}.png`));
     for (let y = 0; y < 7; y++) for (let xx = 0; xx < 7; xx++) if (!onPath(xx, y)) { const p = cellAt(xx, y); pathTile(p.sx + TW * (1 - KC) / 2, p.sy + TH * (1 - KC) / 2, KC); }
     if (!bg || CASTLE_BG.moat) moat();
-    const fence = buildingLevel(22) > 0; // Забор построен — вокруг замка стена
+    const fence = !bg && buildingLevel(22) > 0; // Забор построен — вокруг замка стена (на фон-картинке стены уже нарисованы)
     if (fence) fenceBack();
     for (let y = 0; y < 7; y++) for (let xx = 6; xx >= 0; xx--) {
       const p = cellAt(xx, y); if (!onPath(xx, y) && !bg) plotImage('ground/stone.png', p, PLOT); // с фоном участок — тот же луг в рамке тропинки
