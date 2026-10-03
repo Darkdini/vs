@@ -53,6 +53,7 @@ function install(Game) {
       to = this.db.users[String(toLogin).trim()];
       if (!to || to.bot) return { error: 'Игрок не найден.' };
       if (to.id === u.id) return { error: 'С собой не сыграть.' };
+      const deny = this.canReach(u, to, 'coin'); if (deny) return { error: deny };
     }
     this.coinSweep(now);
     const d = day(u, now);
@@ -79,6 +80,7 @@ function install(Game) {
     if (!b) return { error: 'Вызов уже принят или отменён.' };
     if (b.from === u.id) return { error: 'Это Ваш вызов.' };
     if (b.to && b.to !== u.id) return { error: 'Этот вызов брошен другому игроку.' };
+    if (this.privacyOf(u).black.includes(b.from) || this.privacyOf(this.userById(b.from)).black.includes(u.id)) return { error: 'С этим игроком играть нельзя — он в чёрном списке.' };
     const f = this.userById(b.from), du = day(u, now), df = day(f, now);
     if (du.games >= DAY_GAMES) return { error: `Не больше ${DAY_GAMES} игр в сутки — приходите завтра.` };
     if (df.games >= DAY_GAMES) return { error: `${f.login} уже сыграл(а) ${DAY_GAMES} раза сегодня — вызов ждёт до завтра.` };

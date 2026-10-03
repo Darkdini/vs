@@ -1985,3 +1985,11 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .mkprice .anum { width: 110px; }
 .mkbusy { margin-top: 6px; font: 16px var(--serif); color: #8a1010; }
 .mklock { color: #8a1010 !important; }
+/* Приватность (privacy.js) */
+.pvwho { display: grid; gap: 2px; margin: 4px 0; }
+.pvwho .cchk { font: 19px var(--serif); }
+.pvrow { display: flex; align-items: center; gap: 8px; margin: 0 -4px 4px; }
+.pvrow .rrow { flex: 1; min-width: 0; }
+.pvrow .zbar { width: auto; margin: 0; padding: 8px 12px; font-size: 17px; flex: none; }
+.pvrow .avasm { width: 44px; height: 44px; flex: none; display: grid; place-items: center; overflow: hidden; }
+.pvrow .avasm img { width: 44px; height: 44px; object-fit: cover; }

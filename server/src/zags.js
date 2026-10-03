@@ -39,6 +39,7 @@ function install(Game) {
     const to = this.db.users[String(toLogin || '').trim()];
     if (!to || to.bot) return { error: 'Игрок не найден.' };
     if (to.id === user.id) return { error: 'Нельзя сделать предложение самому себе.' };
+    const deny = this.canReach && this.canReach(user, to, 'propose'); if (deny) return { error: deny };
     if (!ROLE[role]) return { error: 'Выберите, кем Вы будете в браке.' };
     text = String(text || '').trim().slice(0, 300);
     if (!text) return { error: 'Напишите признание в любви.' };

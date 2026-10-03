@@ -28,6 +28,7 @@ function install(Game) {
     const to = this.db.users[String(toLogin || '').trim()];
     if (!to) return { error: 'Получатель не найден.' };
     if (to.id === user.id) return { error: 'Себе фото не отправить.' };
+    const deny = this.canReach && this.canReach(user, to, 'msg'); if (deny) return { error: deny };
     w = Math.floor(Number(w)); h = Math.floor(Number(h)); n = Math.floor(Number(n));
     if (!(w >= 8 && h >= 8 && w <= MAX_SIDE && h <= MAX_SIDE) || !(n >= 1 && n <= MAX_PARTS)) return { error: 'Неверная картинка.' };
     const now = Date.now();

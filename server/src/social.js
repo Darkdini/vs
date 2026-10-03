@@ -178,6 +178,7 @@ function install(Game) {
   P.sendGift = function sendGift(user, toId, giftId, text) {
     const g = GIFTS[giftId]; if (!g) return { error: 'Нет такого подарка.' };
     const to = this.userById(Number(toId)); if (!to) return { error: 'Игрок не найден.' };
+    const deny = this.canReach && this.canReach(user, to, 'gift'); if (deny) return { error: deny };
     if (g.premium && !this.isPremium(user)) return { error: 'Это уникальный подарок — дарить его можно только с премиумом.' };
     const now = Date.now();
     user.giftLog = (user.giftLog || []).filter((t) => t > now - 86400000);

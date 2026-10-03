@@ -774,6 +774,22 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(g.marketSell(B2, third.id, 1000).ok || g.marketSell(B2, second.id, 1000).ok); assert.strictEqual(g.marketSweep(Date.now() + 8 * 86400000).filter((x) => x.seller === B2.id).length, 0, 'через 7 дней лот снят');
   console.log('✓ Биржа Замков: цена от 300, столицу нельзя, покупка за золото, армия — вместе с замком, снятие и срок 7 дней');
 }
+{ // Приватность: кто пишет в личку, чёрный список (личка, фото, подарки, ЗАГС, Орёл-решка), админ пишет всегда
+  const A = g.register({ login: 'pvAaa', password: '12345', race: 0 }).user, B = g.register({ login: 'pvBbb', password: '12345', race: 1 }).user, F = g.register({ login: 'pvFff', password: '12345', race: 2 }).user;
+  assert.strictEqual(g.canReach(B, A), null, 'по умолчанию — все');
+  assert.ok(g.privacySet(A, 'friends').ok); A.friends = [F.id];
+  assert.ok(g.canReach(B, A) && !g.canReach(F, A), 'только друзья');
+  assert.strictEqual(g.canReach(g.adminUser(), A), null, 'админ — всегда');
+  assert.ok(g.picBegin(B, 'pvAaa', 40, 30, 1).error, 'фото не от друга — нельзя');
+  g.privacySet(A, 'all');
+  assert.ok(g.blackAdd(A, 'pvBbb').ok && g.blackAdd(A, 'pvBbb').error && g.blackAdd(A, 'pvAaa').error, 'чёрный список: добавить, не дважды, не себя');
+  assert.ok(g.canReach(B, A) && g.canReach(B, A, 'gift'), 'в ЧС — ни писем, ни подарков');
+  B.gold = 50; assert.ok(g.sendGift(B, A.id, 'gift_box').error && B.gold === 50, 'подарок из ЧС — нельзя');
+  assert.ok(g.propose(B, 'pvAaa', 'люблю', 'king').error && B.gold === 50, 'ЗАГС из ЧС — нельзя');
+  assert.strictEqual(g.canReach(F, A), null, 'остальные пишут');
+  assert.ok(g.blackDel(A, B.id).ok && g.canReach(B, A) === null, 'убрать из ЧС');
+  console.log('✓ Приватность: кто пишет в личку, чёрный список для писем, фото, подарков и ЗАГСа, админ пишет всегда');
+}
 (async () => { // фото в сообщениях: только сжатые точки, проверка размера, новый PNG, удаление через 10 минут
   const zlib = require('zlib'), a1 = g.register({ login: 'picFrom', password: '12345', race: 0 }).user, a2 = g.register({ login: 'picTo', password: '12345', race: 0 }).user;
   const w = 40, h = 30, rgb = Buffer.alloc(w * h * 3, 200), z = zlib.deflateSync(rgb);

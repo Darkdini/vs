@@ -57,7 +57,7 @@ const MENUS = {
     ['Новое', 'gfx3d/mail/new.png', () => { const who = prompt('Кому написать? Ник игрока:'); if (who && who.trim()) openDialog(who.trim()); }],
     ['Сообщения', 'gfx3d/mail/msgs.png', () => ACTS.mail()],
     ['Отчеты', 'gfx3d/mail/reports.png', () => openReports()],
-    ['Приват.', 'gfx3d/mail/privacy.png', () => openSoon('Приватность')],
+    ['Приват.', 'gfx3d/mail/privacy.png', () => openPrivacy()],
     ['Форум', 'gfx3d/mail/forum.png', () => openForum()],
     ['Чат', 'gfx3d/mail/chat.png', () => openChat()],
     ['Блоги', M3('blogs'), () => openSoon('Блог')],
@@ -142,7 +142,7 @@ $('#btnGear').addEventListener('click', () => openSheet(settingsWin));
 // ---------- чат ----------
 S.chat = [];
 function chatLine() {
-  const m = S.chat[S.chat.length - 1];
+  const vis = S.chat.filter((x) => !isBlack(x.fromId)), m = vis[vis.length - 1];
   $('#chatmsg').innerHTML = m ? `<b>${esc(m.from)}</b> ${repIcons(m.rep)} ${chatText(m)}` : '<span class="muted">Чат пуст — напишите первым</span>';
 }
 // «Главный чат» как в оригинале: Выход / Игроки (N), сообщения «ЧЧ:ММ [ник] текст», смайлы, поле ввода внизу.
@@ -162,7 +162,7 @@ function chatWin() {
   const n = S.chatUsers ? S.chatUsers.length : '…';
   return `${ribbon('Главный чат')}
     <div class="chattop"><button class="lbar" data-chatexit><img src="${GFX}chat/exit.png" alt=""> Выход</button><button class="lbar" data-chatusers><img src="${GFX}chat/players.png" alt=""> Игроки (${n})</button></div>
-    <div id="chatList" class="chatlist ${S.smileOpen ? 'short' : ''}">${S.chat.slice(-30).reverse().map((m) => { const hit = m.fromId !== me() && m.text.toLowerCase().includes(my);
+    <div id="chatList" class="chatlist ${S.smileOpen ? 'short' : ''}">${S.chat.filter((m) => !isBlack(m.fromId)).slice(-30).reverse().map((m) => { const hit = m.fromId !== me() && m.text.toLowerCase().includes(my);
       return `<div class="cm ${hit ? 'hit' : ''} ${m.fromId === me() ? 'mine' : ''}" data-chatpop="${m.fromId}" data-nick="${esc(m.from)}" data-mid="${m.id}"><small>${new Date(m.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</small> <b>[${esc(m.from)}]</b>${m.role ? ` <img class="admbadge s" src="${GFX}${m.role === 'admin' ? 'admin_badge_s.png' : 'chat/moder.png'}" alt="">` : ''}${m.rep >= 10 ? ` ${repIcons(m.rep)}` : ''} ${chatText(m)}</div>`; }).join('') || '<p class="parch-note">Сообщений пока нет — напишите первым.</p>'}</div>
     ${S.smileOpen ? `<div class="smilebox">${SMILES.map((k) => `<button data-smile="${k}"><img src="${smileSrc(k)}" alt=""></button>`).join('')}</div>` : ''}
     ${S.chatPop ? `<div class="cpop-bg" data-cpopclose><div class="cpop"><button class="cpop-x" data-cpopclose aria-label="Закрыть">✕</button><div class="cpop-nick">${esc(S.chatPop.nick)}</div>
@@ -288,6 +288,7 @@ function profileMoreWin(p) {
   return `${ribbon(p.login)}<div class="ptiles">
     ${tile('map', 'ground/castle_small.png', 'На карте')}
     ${tile('attack', 'smallicon/swordred.png', 'Атаковать', p.self)}
+    ${p.self ? '' : `<button class="ptile" data-blackop="${p.id}" data-nick="${esc(p.login)}"><img src="gfx3d/mail/privacy.png" alt=""><span>${isBlack(p.id) ? 'Убрать из чёрного списка' : 'В чёрный список'}</span></button>`}
     ${p.self ? '' : `<button class="ptile" data-coinvs="${esc(p.login)}"><img src="${GFX}coin/stack.png" alt=""><span>Орёл-решка</span></button>`}
   </div>`;
 }

@@ -254,6 +254,7 @@ function onMsg(m) {
     case 'chests': case 'chestres': chestsMsg(m); break;
     case 'coin': case 'coinres': coinMsg(m); break;
     case 'market': case 'marketdone': marketMsg(m); break;
+    case 'privacy': privacyMsg(m); break;
     case 'zags': case 'zprops': case 'zpairs': case 'zpair': case 'zdone': zagsMsg(m); break;
     case 'news': newsMsg(m); break;
     case 'welcome': welcomeShow(m); break;
