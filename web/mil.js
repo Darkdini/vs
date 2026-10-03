@@ -179,6 +179,12 @@ function marketHtml() {
     <button class="pbar" data-mkt="barter">Бартер</button>
     <button class="pbar" data-mkt="merch">Торговцы</button>`;
 }
+// время в пути торговцев до X:Y (как на сервере: расстояние / скорость)
+function mktSec(g) {
+  const m = MY().merchants, c = S.st.castle; if (g.x === '' || g.y === '' || !m.speed) return 0;
+  const d = Math.hypot(Number(g.x) - c.x, Number(g.y) - c.y); return d ? Math.max(5, Math.round(d / m.speed * 3600 / S.cat.speed)) : 0;
+}
+const mktTime = (g) => { const s = mktSec(g); return s ? `${fmtT(s)} <small>(обратно столько же)</small>` : '—'; };
 function mktGiveWin() {
   const m = MY().merchants, g = S.mkt || (S.mkt = { x: '', y: '', res: {} });
   const total = RES4.reduce((s, r) => s + (Number(g.res[r]) || 0), 0), need = m.carry ? Math.ceil(total / m.carry) : 0;
@@ -188,6 +194,7 @@ function mktGiveWin() {
     <div class="row2 cxy"><label>X<input type="number" inputmode="numeric" data-mkx="x" value="${esc(g.x)}"></label><label>Y<input type="number" inputmode="numeric" data-mkx="y" value="${esc(g.y)}"></label></div>
     <div class="row2">${RES4.map((r) => `<label>${RES_IC[r]}<input type="number" inputmode="numeric" min="0" data-mkr="${r}" value="${g.res[r] || ''}" placeholder="0"></label>`).join('')}</div>
     <div class="cinfo">Понадобится торговцев: <b id="mkNeed" class="${need > m.free ? 'bad' : ''}">${need}</b></div>
+    <div class="cinfo">Доставка: <b id="mkTime">${mktTime(g)}</b> · скорость ${m.speed} полей/час</div>
     <button class="pbar" data-mkt="send">Отправить</button>`;
 }
 function mktMerchWin() {
@@ -218,6 +225,7 @@ $('#sheetBody').addEventListener('input', (e) => {
   if (d.mkx) S.mkt[d.mkx] = e.target.value; else S.mkt.res[d.mkr] = Math.max(0, Math.floor(Number(e.target.value)) || 0);
   const m = MY().merchants, total = RES4.reduce((s, r) => s + (Number(S.mkt.res[r]) || 0), 0), need = m.carry ? Math.ceil(total / m.carry) : 0, el = $('#mkNeed');
   if (el) { el.textContent = need; el.classList.toggle('bad', need > m.free); }
+  const tm = $('#mkTime'); if (tm) tm.innerHTML = mktTime(S.mkt);
 });
 
 

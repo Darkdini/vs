@@ -538,7 +538,7 @@ const API = {
   kingdom() { if (!this.game.isPremium(this.user)) return this.error('Сводка королевства — с премиумом.'); this.send({ t: 'kingdom', list: this.game.kingdom(this.user) }); },
   send(m) {
     const r = this.game.sendArmy(this.castle, { units: m.units || {}, general: !!m.general, x: m.x, y: m.y, mission: m.mission, res: m.res, from: m.from, portal: !!m.portal, at: Number(m.at) || 0 });
-    if (!r.error && m.mission === 'trade') this.toast(`Торговцы (${r.need}) отправились к ${m.x}:${m.y}`);
+    if (!r.error && m.mission === 'trade') this.toast(`Торговцы (${r.need}) отправились к ${m.x}:${m.y} — доставка через ${Math.floor(r.sec / 3600)}:${String(Math.floor(r.sec / 60) % 60).padStart(2, '0')}:${String(r.sec % 60).padStart(2, '0')}`);
     else if (!r.error) this.toast(r.army.state === 'wait' ? `Поход запланирован: ${ARMY.MISSIONS[m.mission]} ${m.x}:${m.y}` : `Армия выступила: ${ARMY.MISSIONS[m.mission]} ${m.x}:${m.y}`);
     this.result(r);
   },

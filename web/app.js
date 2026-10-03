@@ -747,7 +747,7 @@ function worldInfo() {
   // как в клиенте: название клетки, ниже координаты и владелец
   const title = !o ? 'Свободная земля' : o.kind === 'castle' ? esc(o.name) : esc(o.name);
   box.innerHTML = `<b>${title}</b><br>X: ${x} Y: ${y}` + (o && o.kind === 'castle' ? ` · ${esc(o.owner)}${o.alliance ? ` [${esc(o.alliance)}]` : ''} · ★${fmtFull(o.rating)}` : '')
-    + '<small>нажмите ещё раз — действия</small>';
+    + (o ? '<small>нажмите — действия</small>' : '');
   box.classList.remove('hidden');
 }
 // поиск по координатам на карте мира
@@ -932,7 +932,7 @@ function isoZoom(k, mx, my) {
     const c = cam();
     if (g.mode === 'pan') {
       const p = rel(e), dx = p.x - g.x, dy = p.y - g.y;
-      if (Math.abs(dx) + Math.abs(dy) > 8) g.moved = true;
+      if (Math.hypot(dx, dy) > 14) g.moved = true; // дрожание пальца — ещё не сдвиг карты
       if (g.moved) { c.x = g.cx + dx; c.y = g.cy + dy; clampCam(c); isoDraw(); }
     } else if (g.mode === 'pinch' && P.size >= 2) {
       const [a, b] = [...P.values()], m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
@@ -946,6 +946,7 @@ function isoZoom(k, mx, my) {
     const p = rel(e); P.delete(e.pointerId);
     // нажатие обрабатываем по событию click: иначе этот же click попадёт в фон открытой шторки и закроет её
     Iso.tap = g && g.mode === 'pan' && !g.moved && P.size === 0 ? p : null;
+    if (Iso.tap) { const t = Iso.tap; setTimeout(() => { if (Iso.tap === t) { Iso.tap = null; isoTap(t.x, t.y); } }, 350); } // click не пришёл — нажатие всё равно срабатывает
     if (P.size === 0) g = null; else if (g && g.mode === 'pinch') g = { mode: 'none' };
   };
   cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
@@ -972,10 +973,12 @@ function isoTap(px, py) {
     const arrows = [[R0, -1, 0, -R0], [n, R0, R0, 0], [R0, n, 0, R0], [-1, R0, -R0, 0]];
     for (const [ax, ay, dx, dy] of arrows) if (t.x === ax && t.y === ay) { Iso.sel = null; return send({ t: 'world', cx: w.cx + dx, cy: w.cy + dy }); }
     if (t.x < 0 || t.x >= n || t.y < 0 || t.y >= n) return;
+    // объект на клетке; если там пусто — соседний объект (картинки замков и лагерей выше своей клетки, палец часто попадает в соседнюю)
+    const at = (tx, ty) => w.objects.find((v) => v.x === w.cx - R0 + tx && v.y === w.cy - R0 + ty);
+    if (!at(t.x, t.y)) for (const [dx, dy] of [[-1, 0], [0, 1], [-1, 1], [1, 0], [0, -1], [1, 1], [-1, -1], [1, -1]]) if (at(t.x + dx, t.y + dy)) { t.x += dx; t.y += dy; break; }
     const wx = w.cx - R0 + t.x, wy = w.cy - R0 + t.y;
-    // первое нажатие — курсор и инфо-окно, повторное по той же клетке — действия
-    if (Iso.sel && Iso.sel.tab === 'world' && Iso.sel.x === t.x && Iso.sel.y === t.y) return openWorldCell(wx, wy);
     Iso.sel = { tab: 'world', x: t.x, y: t.y }; isoDraw(); worldInfo();
+    if (at(t.x, t.y)) openWorldCell(wx, wy); // замок, лагерь, руины — сразу окно с действиями (набег, нападение, торговля)
   }
 }
 
