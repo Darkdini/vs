@@ -1088,11 +1088,10 @@ function fenceFront() {
 }
 // фон вокруг королевства: одна цельная картинка (местность с лесом, рекой, скалами) под замком; камера не выходит за картинку.
 // Оживление (кадры воды, мельница, колесо) — если у картинки заданы water / mill / wheel.
-const CASTLE_BG = { src: 'ground/bg/castle.jpg?v=16', // ?v — новая версия картинки сразу, без старого кэша телефона
-  // картинка без стен (стена — наш Забор): края луга совпадают со стеной; река, мельница, рудник, водопад
-  moat: false, iw: 1657, ih: 796, pad: 0,
-  x: 527 - 794.26, y: 16 - 432.99, w: 1578.22, h: 758.98, // центр сетки замка (527, 16)
-  water: { n: 12, x: 1, y: 12 } }; // кадры течения воды: tools/bgwater.py
+const CASTLE_BG = { src: 'ground/bg/castle.jpg?v=17', // ?v — новая версия картинки сразу, без старого кэша телефона
+  // цельная картинка 9:16 (тропинки от ворот, поляны, мельница, рудник, водопад); двор картинки подогнан под сетку замка
+  moat: false, iw: 1439, ih: 2092, pad: 0,
+  x: 157.93, y: -494.55, w: 719.50, h: 1046.00 }; // центр сетки замка (527, 16) — центр двора картинки
 function castleBackdrop() {
   const G = CASTLE_BG, im = pic(G.src); if (!im) return null;
   const x = ictx, sm = x.imageSmoothingEnabled; x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
@@ -1315,7 +1314,7 @@ function isoDrawNow() {
     else groundField(17, (xx, y) => (xx >= CASTLE_OFF && xx < CASTLE_OFF + 7 && y >= CASTLE_OFF && y < CASTLE_OFF + 7 && !onPath(xx - CASTLE_OFF, y - CASTLE_OFF) ? 'ground/grassC.png' : `ground/${GROUND[CASTLE_BASE[y][xx]]}.png`));
     for (let y = 0; y < 7; y++) for (let xx = 0; xx < 7; xx++) if (!onPath(xx, y)) { const p = cellAt(xx, y); pathTile(p.sx + TW * (1 - KC) / 2, p.sy + TH * (1 - KC) / 2, KC); }
     if (!bg || CASTLE_BG.moat) moat();
-    const fence = buildingLevel(22) > 0; // Забор построен — вокруг замка наша стена (на фон-картинке стен нет)
+    const fence = !bg && buildingLevel(22) > 0; // Забор построен — вокруг замка стена (на фон-картинке стены уже нарисованы)
     if (fence) fenceBack();
     for (let y = 0; y < 7; y++) for (let xx = 6; xx >= 0; xx--) {
       const p = cellAt(xx, y); if (!onPath(xx, y) && !bg) plotImage('ground/stone.png', p, PLOT); // с фоном участок — тот же луг в рамке тропинки
