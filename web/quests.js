@@ -203,8 +203,10 @@ function advHighlight() {
 }
 new MutationObserver(() => { if (S.advHL) advHighlight(); }).observe($('#sheetBody'), { childList: true, subtree: true });
 document.addEventListener('click', (e) => { if (e.target.closest('[data-build],[data-pick],[data-sttake]')) setTimeout(() => { S.advHL = null; }, 0); }, true);
-// на карте замка/земель: золотое кольцо и прыгающая стрелка над нужной клеткой (рисуется из isoDrawNow)
+// на карте замка/земель метка над нужной клеткой убрана (мешала строить соседние здания) — ведёт только «Выполнить»
+const ADV_MARKER = false;
 function advMarker(view, at, big = view === VIEW.LANDS ? 2 : 1) { // на Землях вид издалека — метка крупнее
+  if (!ADV_MARKER) return;
   const t = advTarget(); if (!t || t.view !== view) return;
   const p = at(t.x, t.y), cx = p.sx + TW / 2, cy = p.sy + TH / 2, k = Date.now() / 260;
   const ring = pic('tut/ring.png'), arr = pic('tut/arrow_down.png'), x = ictx;
