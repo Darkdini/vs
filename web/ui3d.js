@@ -65,7 +65,7 @@ const MENUS = {
   ] },
   games: { label: 'Игры', icon: 'menu2/games.png', items: () => [
     ['Сундучки', M3('chests'), () => openChests()],
-    ['Орел-решка', M3('coin'), () => openCoin()],
+    ['Орел-решка', 'coin/stack.png', () => openCoin()],
   ] },
   info: { label: 'Инфо', icon: 'menu2/info.png', items: () => [
     ['Новости', M3('news'), () => openNews()],
@@ -288,7 +288,7 @@ function profileMoreWin(p) {
   return `${ribbon(p.login)}<div class="ptiles">
     ${tile('map', 'ground/castle_small.png', 'На карте')}
     ${tile('attack', 'smallicon/swordred.png', 'Атаковать', p.self)}
-    ${p.self ? '' : `<button class="ptile" data-coinvs="${esc(p.login)}"><img src="gfx3d/menu3/coin.png" alt=""><span>Орёл-решка</span></button>`}
+    ${p.self ? '' : `<button class="ptile" data-coinvs="${esc(p.login)}"><img src="${GFX}coin/stack.png" alt=""><span>Орёл-решка</span></button>`}
   </div>`;
 }
 function profileInfoWin(p) {

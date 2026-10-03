@@ -7,7 +7,7 @@ const COIN_RES = { wood: ['Дерево', 'дерева'], stone: ['Камень
 const COIN_IC = (r) => `<img class="coinri" src="gfx3d/res/${r}.png" alt="">`;
 const COIN_SIDE = { eagle: 'Орёл', tails: 'Решка' };
 function openCoin(to) { S.coin = null; S.coinTab = to ? 'new' : 'open'; if (to) S.coinForm.to = to; send({ t: 'coin' }); openSheet(coinWin); }
-function coinFace(side, cls = '') { return `<span class="coinface ${side} ${cls}"><img src="gfx3d/menu3/coin.png" alt=""><b>${side === 'eagle' ? '🦅' : '⚜'}</b></span>`; }
+function coinFace(side, cls = '') { return `<span class="coinface ${side} ${cls}"><img src="${GFX}coin/${side === 'eagle' ? 'heads' : 'tails'}.png" alt=""></span>`; }
 function coinWin() {
   const c = S.coin, f = S.coinForm;
   const tabs = `<div class="coin-tabs">${[['open', 'Вызовы'], ['new', 'Бросить вызов'], ['log', 'История']].map(([k, t]) => `<button class="${S.coinTab === k ? 'on' : ''}" data-cointab="${k}">${t}${k === 'open' && c && c.open.length ? ` (${c.open.length})` : ''}</button>`).join('')}</div>`;
@@ -28,7 +28,7 @@ function coinWin() {
       <div class="arow"><span>Ставка:</span><input class="anum" type="number" inputmode="numeric" min="${c.min}" max="${max}" value="${f.amount}" data-coinamt><button class="btn small" data-coinmax="${max}">Макс</button></div>
       <div class="coinsides">${['eagle', 'tails'].map((s) => `<button class="${f.side === s ? 'on' : ''}" data-coinside="${s}">${coinFace(s)}<span>${COIN_SIDE[s]}</span></button>`).join('')}</div>
       <div class="arow"><span>Кому:</span><input class="anum wide" placeholder="Ник — или пусто, вызов для всех" autocapitalize="none" value="${esc(f.to)}" data-cointo></div>
-      <button class="pbar" data-coinbet>Бросить вызов</button>
+      <button class="pbar coingo" data-coinbet><img src="${GFX}coin/challenge.png" alt=""> Бросить вызов</button>
       <p class="coinhint small">Сегодня осталось: вызовов <b>${c.left.bets}</b> из 3, игр <b>${c.left.games}</b> из 3.</p>`;
   } else {
     body = c.history.length ? c.history.map((h) => `<div class="coinlog ${h.won ? 'won' : 'lost'}">${coinFace(h.coin, 'mini')}<div>${h.won ? 'Победа' : 'Поражение'} — <a class="plink" data-cprof="${h.vsId}">${esc(h.vs)}</a><br>
@@ -39,12 +39,12 @@ function coinWin() {
 // бросок: монета крутится и падает нужной стороной, затем — итог
 function coinFlipShow(r) {
   const d = document.createElement('div'); d.className = 'rinfo coinflip';
-  d.innerHTML = `<div class="rinfo-box okbox"><div class="coinspin ${r.coin}">${coinFace('eagle', 'front')}${coinFace('tails', 'back')}</div>
+  d.innerHTML = `<div class="rinfo-box okbox"><div class="coinstage"><img class="coinburst hidden" src="${GFX}coin/burst.png" alt=""><div class="coinspin ${r.coin}">${coinFace('eagle', 'front')}${coinFace('tails', 'back')}</div></div>${r.won ? `<img class="coinwin hidden" src="${GFX}coin/victory.png" alt="">` : ''}
     <p class="coinout hidden">${r.won ? '🎉 Победа!' : 'Не повезло…'}<br><small>Выпал <b>${COIN_SIDE[r.coin]}</b> (Вы — ${COIN_SIDE[r.side]}).<br>${r.won ? `Вы забираете ${fmtFull(r.pot)} ${COIN_RES[r.res][1]} — они в Кладовой.` : `Вы проиграли ${fmtFull(r.amount)} ${COIN_RES[r.res][1]} игроку ${esc(r.vs)}.`}</small></p>
     <button type="button" class="okbtn hidden">Ок</button></div>`;
   d.addEventListener('click', (e) => { if (e.target.closest('.okbtn')) d.remove(); });
   document.body.appendChild(d);
-  setTimeout(() => { d.querySelector('.coinout').classList.remove('hidden'); d.querySelector('.okbtn').classList.remove('hidden'); }, 1900);
+  setTimeout(() => { d.querySelector('.coinout').classList.remove('hidden'); d.querySelector('.okbtn').classList.remove('hidden'); if (r.won) { d.querySelector('.coinburst').classList.remove('hidden'); d.querySelector('.coinwin').classList.remove('hidden'); } }, 1900);
 }
 function coinMsg(m) {
   if (m.t === 'coin') S.coin = m.state;

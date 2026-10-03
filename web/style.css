@@ -1958,3 +1958,13 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .coinout { font: 700 24px/1.35 var(--serif); text-align: center; }
 .coinout small { font-weight: 400; font-size: 18px; }
 .coinout.hidden, .coinflip .okbtn.hidden { display: none; }
+/* «Орёл-решка» — своя графика */
+.coinspin .coinface b, .coinface b { display: none !important; }
+.coinface img, .coinface.tails img { filter: drop-shadow(0 2px 3px #0006); }
+.pbar.coingo img { height: 34px; vertical-align: middle; margin-right: 6px; }
+.coinstage { position: relative; height: 170px; display: grid; place-items: center; }
+.coinstage .coinspin { margin: 0; }
+.coinburst { position: absolute; width: 230px; left: 50%; top: 50%; transform: translate(-50%, -50%); animation: coinBurst 6s linear infinite; pointer-events: none; }
+@keyframes coinBurst { to { transform: translate(-50%, -50%) rotate(360deg); } }
+.coinburst.hidden, .coinwin.hidden { display: none; }
+.coinwin { display: block; width: 110px; margin: -6px auto 4px; animation: chPop .5s ease-out; }
