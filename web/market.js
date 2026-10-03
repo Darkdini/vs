@@ -8,7 +8,7 @@ const MK_COIN = () => gimg('coins_s.png', 'ri');
 function marketCastle(c) {
   return `<div class="mkc"><img class="mkimg" src="${GFX}ground/castle_small.png" alt=""><div class="mkinfo"><b>${esc(c.name)}</b>
     <button class="rlink mkxy" data-goworld="${c.x},${c.y}">X: ${c.x}, Y: ${c.y}</button>
-    <small>Рейтинг ${fmtFull(c.rating)} · Ратуша ${c.townhall} ур. · зданий ${c.buildings}${c.wall ? ` · стена ${c.wall} ур.` : ''}${c.arts ? ` · артефактов ${c.arts}` : ''}</small>
+    <small>Рейтинг ${fmtFull(c.rating)} · Ратуша ${c.townhall} ур. · зданий ${c.buildings}${c.army ? ` · армия ${fmtFull(c.army)}` : ''}${c.wall ? ` · стена ${c.wall} ур.` : ''}${c.arts ? ` · артефактов ${c.arts}` : ''}</small>
     <small class="mkres">${['wood', 'stone', 'iron', 'food'].map((r) => `<img src="gfx3d/res/${r}.png" alt=""> ${fmtN(c.res[r])}`).join(' ')}</small></div></div>`;
 }
 function marketWin() {
@@ -17,11 +17,11 @@ function marketWin() {
   if (!m) return `${ribbon('Биржа Замков')}${tabs}<p class="parch-note">Загрузка…</p>`;
   let body;
   if (S.marketTab === 'lots') {
-    body = `<p class="coinhint">Замки других правителей за золото. Покупка — сразу: замок со зданиями, ресурсами, стеной и артефактами становится Вашим. У вас ${MK_COIN()} <b>${fmtFull(m.gold)}</b></p>
+    body = `<p class="coinhint">Замки других правителей за золото. Покупка — сразу: замок со зданиями, ресурсами, стеной, артефактами и армией становится Вашим. У вас ${MK_COIN()} <b>${fmtFull(m.gold)}</b></p>
       ${m.lots.length ? m.lots.map((x) => `<div class="mklot">${marketCastle(x.castle)}<div class="mkfoot"><span>Продаёт <a class="plink" data-cprof="${x.seller.id}">${esc(x.seller.login)}</a></span>
         <button class="zbar mkbuy" data-mkbuy="${x.id}" ${m.gold < x.price ? 'disabled' : ''}>Купить за ${MK_COIN()} ${fmtFull(x.price)}</button></div></div>`).join('') : '<p class="parch-note">Сейчас на Бирже нет замков.</p>'}`;
   } else if (S.marketTab === 'sell') {
-    body = `<p class="coinhint">Выставьте свой замок за золото — цена от ${m.min}. Столицу продать нельзя. Когда замок купят, золото придёт в Казну, а войска из замка перейдут в Вашу столицу. Лот держится 7 дней.</p>
+    body = `<p class="coinhint">Выставьте свой замок за золото — цена от ${m.min}. Столицу продать нельзя. Замок продаётся вместе с армией, что в нём стоит; генерал перейдёт в другой Ваш замок. Золото придёт в Казну. Лот держится 7 дней.</p>
       ${m.sell.length ? m.sell.map((c) => `<div class="mklot">${marketCastle(c)}${c.busy ? `<div class="mkbusy">Сейчас нельзя: ${esc(c.busy)}.</div>`
         : `<div class="mkfoot"><span class="mkprice">${MK_COIN()} <input class="anum" type="number" inputmode="numeric" min="${m.min}" value="${S.marketPrice[c.id] || m.min}" data-mkprice="${c.id}"></span>
           <button class="zbar" data-mksell="${c.id}">Выставить</button></div>`}</div>`).join('')

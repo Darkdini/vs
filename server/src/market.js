@@ -1,7 +1,7 @@
 'use strict';
 // «Биржа Замков» (Кабинет → Биржа): игрок выставляет на продажу свой замок (не столицу) за золото — цена от 300.
 // Покупатель платит золото, продавец его получает, замок переходит к покупателю со зданиями, ресурсами, стеной и
-// артефактами. Войска и генерал продавца из этого замка уходят в его столицу, чужие подкрепления — домой.
+// артефактами и армией, что стоит в замке (Замковая армия и отряды Штаба). Генерал продавца переходит в другой его замок, чужие подкрепления — домой.
 // Продавать можно, когда из замка никто не в походе и не идёт обучение. Лот живёт 7 дней, его можно снять.
 
 const MIN_PRICE = 300, MAX_PRICE = 1000000, MAX_LOTS = 3, LIFE = 7 * 86400000;
@@ -31,7 +31,8 @@ function install(Game) {
     const lv = (id) => g.buildingLevel(c, id), B = require('./army').B;
     return { id: c.id, name: c.name, x: c.x, y: c.y, rating: g.rating(c), townhall: lv(B.TOWNHALL), wall: c.wall || 0,
       buildings: c.grid[0].filter((b) => b >= 0).length + c.grid[1].filter((b) => b >= 0).length,
-      res: Object.fromEntries(['wood', 'stone', 'iron', 'food'].map((r) => [r, Math.floor(c.res[r] || 0)])), arts: (c.artifacts || []).length };
+      res: Object.fromEntries(['wood', 'stone', 'iron', 'food'].map((r) => [r, Math.floor(c.res[r] || 0)])), arts: (c.artifacts || []).length,
+      army: Object.values(c.units || {}).reduce((a, n) => a + (n > 0 ? n : 0), 0) + (c.squads || []).reduce((a, q) => a + Object.values(q.units || {}).reduce((b, n) => b + (n > 0 ? n : 0), 0), 0) };
   };
   P.marketState = function marketState(u, now = Date.now()) {
     const l = this.marketSweep(now), cs = this.castlesOf(u);
@@ -74,13 +75,10 @@ function install(Game) {
     if (sc[0] === c) return { error: 'Столицу продать нельзя — лот снят.' };
     this.tick(c); this.mil(c);
     const why = busy(this, c); if (why) return { error: `Сейчас купить нельзя: у продавца ${why}.` };
-    // войска и генерал продавца — в его столицу, чужие подкрепления — домой
-    const cap = sc[0]; this.tick(cap); this.mil(cap);
-    for (const [k, n] of Object.entries(c.units || {})) if (n > 0) cap.units[k] = (cap.units[k] || 0) + n;
-    for (const q of c.squads || []) for (const [k, n] of Object.entries(q.units || {})) if (n > 0) cap.units[k] = (cap.units[k] || 0) + n;
+    // армия замка (Замковая армия и отряды в Штабе) уходит вместе с замком; генерал — в замок продавца без генерала; чужие подкрепления — домой
     const gh = c.general && !c.general.dead ? genHome(this, c) : null; if (gh) { gh.general = c.general; delete gh.general.squad; }
     for (const gst of this.guestsOf(c)) this.goBack(gst.c, gst.a, now);
-    c.units = {}; c.squads = []; c.general = null;
+    c.general = null;
     // замок — покупателю
     seller.castleIds = sc.filter((k) => k !== c).map((k) => k.id);
     if (seller.castleId === c.id) seller.castleId = seller.castleIds[0];
@@ -90,7 +88,7 @@ function install(Game) {
     this.goldChange(u, -x.price, `Биржа замков: покупка «${c.name}» у ${seller.login}`);
     this.goldChange(seller, x.price, `Биржа замков: продажа «${c.name}» игроку ${u.login}`);
     this.addStat(u.id, 'capRating', this.rating(c)); // Развитие не учитывает рейтинг купленных замков
-    this.report(seller.id, `Биржа Замков: замок «${c.name}» продан игроку ${u.login} за ${fmt(x.price)} золота`, [`Золото +${fmt(x.price)} — в Казне.`, 'Войска из проданного замка перешли в Вашу столицу, генерал — в замок без генерала.'], 'market');
+    this.report(seller.id, `Биржа Замков: замок «${c.name}» продан игроку ${u.login} за ${fmt(x.price)} золота`, [`Золото +${fmt(x.price)} — в Казне.`, 'Армия ушла вместе с замком, генерал перешёл в Ваш замок без генерала.'], 'market');
     this.cache = {}; this.store.save();
     return { ok: true, msg: `Замок «${c.name}» теперь Ваш! Списано ${fmt(x.price)} золота.`, castle: { id: c.id, x: c.x, y: c.y }, seller };
   };

@@ -763,14 +763,14 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const r = g.marketBuy(B2, lot.id); assert.ok(r.ok, r.error);
   assert.ok(second.owner === B2.id && g.castlesOf(B2).includes(second) && !g.castlesOf(S1).includes(second), 'замок перешёл');
   assert.ok(B2.gold === 700 && S1.gold === sg + 300, 'золото: −300 покупателю, +300 продавцу');
-  assert.ok(!Object.keys(second.units).length && cap.units[200] === capInf + 40, 'войска продавца — в его столицу');
+  assert.ok(second.units[200] === 40 && (cap.units[200] || 0) === capInf, 'армия ушла вместе с замком');
   assert.ok(!g.marketState(B2).lots.some((x) => x.id === lot.id), 'лот снят после покупки');
   // снять лот и истечение 7 дней
   const third = g.createCastle(B2, { x: cap.x + 14, y: cap.y + 3 }); g.mil(third); B2.castleIds = [...g.castlesOf(B2).map((k) => k.id), third.id];
   assert.ok(g.marketSell(B2, third.id, 1000).ok); const mine = g.marketState(B2).mine; assert.ok(mine.length === 2 || mine.length === 1);
   assert.ok(g.marketCancel(B2, mine[0].id).ok, 'снять лот');
   assert.ok(g.marketSell(B2, third.id, 1000).ok || g.marketSell(B2, second.id, 1000).ok); assert.strictEqual(g.marketSweep(Date.now() + 8 * 86400000).filter((x) => x.seller === B2.id).length, 0, 'через 7 дней лот снят');
-  console.log('✓ Биржа Замков: цена от 300, столицу нельзя, покупка за золото, войска продавца — в столицу, снятие и срок 7 дней');
+  console.log('✓ Биржа Замков: цена от 300, столицу нельзя, покупка за золото, армия — вместе с замком, снятие и срок 7 дней');
 }
 (async () => { // фото в сообщениях: только сжатые точки, проверка размера, новый PNG, удаление через 10 минут
   const zlib = require('zlib'), a1 = g.register({ login: 'picFrom', password: '12345', race: 0 }).user, a2 = g.register({ login: 'picTo', password: '12345', race: 0 }).user;
