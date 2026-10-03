@@ -31,7 +31,9 @@ function zproposeWin() {
   return `${ribbon('ЗАГС')}<form class="stack zform" data-form="zpropose">
     <p class="zlab">Введите имя игрока, с которым хотите заключить брак:</p><input name="to" autocapitalize="none" autocomplete="off" value="${esc(S.zproposeTo || '')}">
     <p class="zlab">Введите ваше признание в любви:</p><textarea name="text" rows="3" maxlength="300"></textarea>
-    <p class="zlab">Вы являетесь</p><select name="role"><option value="king">Королем</option><option value="queen">Королевой</option></select>
+    <p class="zlab">Вы являетесь:</p><div class="zroles">
+      <label class="zrole"><input type="radio" name="role" value="king"><span>${ZI('king')}<b>Королем</b><small>жених</small></span></label>
+      <label class="zrole"><input type="radio" name="role" value="queen"><span>${ZI('queen')}<b>Королевой</b><small>невеста</small></span></label></div>
     <p class="zcost">Стоимость отправки заявки составляет ${gimg('coins_s.png', 'ri')} ${(S.zprops && S.zprops.price) || 10}. Если ваше предложение отвергнут, золото возвращено не будет!</p>
     <button class="pbar">Отправить</button></form>`;
 }
@@ -144,6 +146,7 @@ $('#sheetBody').addEventListener('input', (e) => {
 $('#sheetBody').addEventListener('submit', (e) => {
   const f = e.target.closest('[data-form="zpropose"],[data-form="zcomment"]'); if (!f) return;
   e.preventDefault(); e.stopPropagation();
+  if (f.dataset.form === 'zpropose' && !f.role.value) return toast('Выберите, кем Вы будете в браке: Королем (жених) или Королевой (невеста).', 'err');
   if (f.dataset.form === 'zpropose') { S.zproposeTo = f.to.value.trim(); return send({ t: 'zpropose', to: f.to.value.trim(), text: f.text.value, role: f.role.value }); }
   const text = f.text.value.trim(); if (!text) return; f.text.value = ''; send({ t: 'zcomment', id: S.zpair.id, text });
 }, true);

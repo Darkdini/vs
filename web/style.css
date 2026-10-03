@@ -1869,3 +1869,10 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .zring { width: 40px; vertical-align: -8px; }
 .ptiles.pbig.ztiles .ptile img { top: 6%; width: 76%; height: 62%; max-height: none; }
 .ptiles.ztiles .ptile span { font-size: 10.5px; overflow-wrap: normal; hyphens: none; letter-spacing: -0.2px; }
+.zroles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 4px 0 8px; }
+.zrole input { position: absolute; opacity: 0; pointer-events: none; }
+.zrole span { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border: 2px solid #a86a3a; border-radius: 8px; background: #f0d8b0; font: 20px var(--serif); color: #2a1408; cursor: pointer; }
+.zrole span .zi { height: 64px; }
+.zrole small { font-size: 15px; color: #6a4a2a; }
+.zrole input:checked + span { background: linear-gradient(#a8603a, #6a2c12); color: #fff8e8; border-color: #f0c040; box-shadow: 0 0 0 2px #f0c04088; }
+.zrole input:checked + span small { color: #ffe8b0; }
