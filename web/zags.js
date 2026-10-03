@@ -4,7 +4,8 @@
 // «Проголосовать» (за золото, 1 монета = 1 голос), подарки паре, комментарии. Сервер: server/src/zags.js.
 
 S.zags = null; S.zprops = null; S.zpairs = null; S.zpair = null; S.zpropTab = 'in';
-const ZTHUMB = '<span class="zthumb">👍</span>';
+const ZI = (n, cls = '') => `<img class="zi ${cls}" src="${GFX}zags/${n}.png" alt="">`;
+const ZTHUMB = ZI('thumb'), ZSTAR = ZI('star');
 function openZags() { S.zags = null; send({ t: 'zags' }); openSheet(zagsWin); }
 function openPairs() { S.zpairs = null; S.zpage = 0; send({ t: 'zpairs' }); openSheet(zpairsWin); }
 function openPair(id) { S.zpair = { id: Number(id), loading: true }; send({ t: 'zpair', id: Number(id) }); openSheet(zpairWin); }
@@ -14,15 +15,15 @@ const zname = (u) => `<a class="plink" data-cprof="${u.id}">${esc(u.login)}</a>`
 function zagsWin() {
   const h = S.zags, tile = (k, icon, text, n) => `<button class="ptile" data-ztile="${k}"><img src="${icon}" alt=""><span>${text}</span>${n ? `<b class="zbadge">${n}</b>` : ''}</button>`;
   return `<div class="ptiles pbig ztiles">
-      ${tile('wed', 'gfx3d/menu3/zags.png', 'Свадьба')}
-      ${tile('props', `${GFX}gifts/p_heart.png`, 'Предложение', h && h.incoming)}
-      ${tile('pairs', 'gfx3d/rating/pairs.png', 'Рейтинг пар')}
-      ${tile('help', 'gfx3d/menu3/help.png', 'Справка')}
+      ${tile('wed', `${GFX}zags/arch.png`, 'Свадьба')}
+      ${tile('props', `${GFX}zags/ringbox.png`, 'Предложение', h && h.incoming)}
+      ${tile('pairs', `${GFX}zags/rating.png`, 'Рейтинг пар')}
+      ${tile('help', `${GFX}zags/help.png`, 'Справка')}
     </div>
-    ${h && h.my ? `<button class="pbar" data-zpair="${h.my.id}">💍 Наша пара: ${esc(h.my.spouse.login)} · ⭐ ${h.my.place} · 👍 ${fmtFull(h.my.votes)}</button>` : ''}
+    ${h && h.my ? `<button class="pbar" data-zpair="${h.my.id}">${ZI('rings')} Наша пара: ${esc(h.my.spouse.login)} · ${ZSTAR} ${h.my.place} · ${ZTHUMB} ${fmtFull(h.my.votes)}</button>` : ''}
     ${ribbon('Последние браки')}
-    ${!h ? '<p class="parch-note">Загрузка…</p>' : h.last.length ? h.last.map((m) => `<div class="zlast">👰 Королева ${zname(m.queen)} заключила брак с 🤴 Королем ${zname(m.king)}! Совет Вам, да любовь!</div>
-      <button class="zbar" data-zcongr="${m.id}">🎁 Поздравить пару!</button><button class="zbar" data-zpair="${m.id}">💞 Страница пары</button>`).join('')
+    ${!h ? '<p class="parch-note">Загрузка…</p>' : h.last.length ? h.last.map((m) => `<div class="zlast">${ZI('queen')} Королева ${zname(m.queen)} заключила брак с ${ZI('king')} Королем ${zname(m.king)}! Совет Вам, да любовь!</div>
+      <button class="zbar" data-zcongr="${m.id}">${ZI('cake')} Поздравить пару!</button><button class="zbar" data-zpair="${m.id}">${ZI('heartat')} Страница пары</button>`).join('')
       : '<p class="parch-note">Браков пока не было — станьте первой парой Третьего Мира!</p>'}`;
 }
 // «Свадьба» — заявление о браке
@@ -30,7 +31,7 @@ function zproposeWin() {
   return `${ribbon('ЗАГС')}<form class="stack zform" data-form="zpropose">
     <p class="zlab">Введите имя игрока, с которым хотите заключить брак:</p><input name="to" autocapitalize="none" autocomplete="off" value="${esc(S.zproposeTo || '')}">
     <p class="zlab">Введите ваше признание в любви:</p><textarea name="text" rows="3" maxlength="300"></textarea>
-    <p class="zlab">Вы являетесь</p><select name="role"><option value="king">🤴 Королем</option><option value="queen">👰 Королевой</option></select>
+    <p class="zlab">Вы являетесь</p><select name="role"><option value="king">Королем</option><option value="queen">Королевой</option></select>
     <p class="zcost">Стоимость отправки заявки составляет ${gimg('coins_s.png', 'ri')} ${(S.zprops && S.zprops.price) || 10}. Если ваше предложение отвергнут, золото возвращено не будет!</p>
     <button class="pbar">Отправить</button></form>`;
 }
@@ -40,9 +41,9 @@ function zpropsWin() {
   if (!list) return `${head}<p class="parch-note">Загрузка…</p>`;
   if (!list.length) return `${head}<p class="parch-note">${tab === 'in' ? 'Вам еще не прислали ни одной заявки на брак.' : 'Вы пока никому не делали предложение.'}</p>`;
   return head + list.map((p) => `<div class="zprop"><div class="zpava" data-cprof="${p.user.id}">${avatarImg(p.user)}</div><div>
-      ${tab === 'in' ? `${p.role === 'king' ? '🤴 Король' : '👰 Королева'} ${zname(p.user)} предлагает Вам руку и сердце!` : `Вы предложили брак игроку ${zname(p.user)} (Вы — ${p.role === 'king' ? 'Король' : 'Королева'}).`}
+      ${tab === 'in' ? `${p.role === 'king' ? `${ZI('king')} Король` : `${ZI('queen')} Королева`} ${zname(p.user)} предлагает Вам руку и сердце!` : `Вы предложили брак игроку ${zname(p.user)} (Вы — ${p.role === 'king' ? 'Король' : 'Королева'}).`}
       <div class="ztext">«${esc(p.text)}»</div><small class="muted">${fmtDate(p.at)} · действует до ${fmtDay(p.exp)}</small>
-      <div class="zbtns">${tab === 'in' ? `<button class="zbar" data-zans="yes:${p.id}">💍 Принять</button><button class="zbar" data-zans="no:${p.id}">Отклонить</button>`
+      <div class="zbtns">${tab === 'in' ? `<button class="zbar" data-zans="yes:${p.id}">${ZI('rings')} Принять</button><button class="zbar" data-zans="no:${p.id}">Отклонить</button>`
         : `<button class="zbar" data-zans="cancel:${p.id}">Отозвать</button>`}</div></div></div>`).join('');
 }
 function zpairsWin() {
@@ -53,7 +54,7 @@ function zpairsWin() {
   const nav = `<div class="hnav"><button data-zpg="0" ${pg ? '' : 'disabled'}>◀◀</button><button data-zpg="${pg - 1}" ${pg ? '' : 'disabled'}>◀</button>
     <span>${pg + 1}</span><button data-zpg="${pg + 1}" ${pg < pages - 1 ? '' : 'disabled'}>▶</button><button data-zpg="${pages - 1}" ${pg < pages - 1 ? '' : 'disabled'}>▶▶</button></div>`;
   const mine = (m) => m.king.id === me() || m.queen.id === me();
-  const rows = list.slice(pg * 10, pg * 10 + 10).map((m, j) => `<div class="${mine(m) ? 'me' : ''}"><span>⭐ ${pg * 10 + j + 1}</span>
+  const rows = list.slice(pg * 10, pg * 10 + 10).map((m, j) => `<div class="${mine(m) ? 'me' : ''}"><span>${ZSTAR} ${pg * 10 + j + 1}</span>
     <a data-zpair="${m.id}">${esc(m.king.login)} и ${esc(m.queen.login)}</a><span>${ZTHUMB} ${fmtFull(m.votes)}</span></div>`).join('');
   return `${head}${nav}<div class="htable rtab ztab">${rows || '<p class="parch-note">Семейных пар пока нет.</p>'}</div>${rows ? nav : ''}`;
 }
@@ -62,10 +63,10 @@ function zpairWin() {
   if (!p || p.loading) return `${ribbon('ЗАГС')}<p class="parch-note">Загрузка…</p>`;
   const gifts = p.gifts || [];
   return `${ribbon('ЗАГС')}
-    <div class="zcouple"><div><div class="zava" data-cprof="${p.king.id}">${avatarImg(p.king)}</div>🤴 Муж: ${zname(p.king)}</div>
-      <div><div class="zava" data-cprof="${p.queen.id}">${avatarImg(p.queen)}</div>👰 Жена: ${zname(p.queen)}</div></div>
+    <div class="zcouple"><div><div class="zava" data-cprof="${p.king.id}">${avatarImg(p.king)}</div>${ZI('king')} Муж: ${zname(p.king)}</div>
+      <div><div class="zava" data-cprof="${p.queen.id}">${avatarImg(p.queen)}</div>${ZI('queen')} Жена: ${zname(p.queen)}</div></div>
     <div class="pline">🕰 Брак заключен: ${fmtDate(p.at)}</div>
-    <div class="pline">⭐ Рейтинг пары: ⭐ ${p.place} место, ${ZTHUMB} ${fmtFull(p.votes)} ${plural(p.votes, 'голос', 'голоса', 'голосов')}.</div>
+    <div class="pline">${ZSTAR} Рейтинг пары: ${ZSTAR} ${p.place} место, ${ZTHUMB} ${fmtFull(p.votes)} ${plural(p.votes, 'голос', 'голоса', 'голосов')}.</div>
     <button class="zbar" data-zvote="${p.id}">${ZTHUMB} Проголосовать</button>
     ${ribbon(`Подарки пары - ${gifts.length}`)}
     ${gifts.length ? `<div class="prow zgifts">${gifts.slice(0, 12).map((g) => `<img class="pgi" src="${GFX}${(S.cat.gifts[g.gift] || {}).img}" alt="" title="от ${esc(g.from)}">`).join('')}${gifts.length > 12 ? `<b>+${gifts.length - 12}</b>` : ''}</div>` : ''}
@@ -73,7 +74,7 @@ function zpairWin() {
     ${ribbon('Комментарии')}
     <form class="stack" data-form="zcomment"><textarea name="text" rows="2" maxlength="300"></textarea><button class="pbar">Добавить</button></form>
     ${(p.comments || []).map((c) => `<div class="zcom"><a class="plink" data-cprof="${c.fromId}">${esc(c.from)}</a>:${c.del ? `<button class="zdel" data-zcdel="${c.id}" title="Удалить">✕</button>` : ''}<div>${esc(c.text)}</div></div>`).join('')}
-    ${p.mine ? '<button class="zbar zdiv" data-zdivorce>💔 Расторгнуть брак</button>' : ''}`;
+    ${p.mine ? `<button class="zbar zdiv" data-zdivorce>${ZI('broken')} Расторгнуть брак</button>` : ''}`;
 }
 function zgiftListWin() {
   const p = S.zpair, gifts = (p && p.gifts) || [];
@@ -93,7 +94,7 @@ function zvoteWin() {
     <div class="arow"><span>Монет:</span><input class="anum" type="number" inputmode="numeric" min="1" value="${c}" data-zcoins></div>
     <button class="pbar" data-zvotego>Поднять рейтинг паре на <span data-zvn>${c}</span></button>`;
 }
-const zhelpWin = () => `${ribbon('Заявления')}<div class="pstats zhelp">Чтобы подать заявление, зайдите в «💍 ЗАГС» и нажмите «Свадьба».<br><br>
+const zhelpWin = () => `${ribbon('Заявления')}<div class="pstats zhelp">Чтобы подать заявление, зайдите в «${ZI('rings')} ЗАГС» и нажмите «Свадьба».<br><br>
   В открывшемся окне введите имя избранницы (избранника), текст предложения, Вашу роль в браке (Король / Королева) и нажмите «Отправить». Заявка стоит ${gimg('coins_s.png', 'ri')} 10 — если предложение отвергнут, золото не возвращается.<br><br>
   Вашей половинке придёт уведомление, и она сможет принять или отклонить Ваше предложение.<br><br>
   Посмотреть Ваши предложения и предложения, сделанные Вам, можно в разделе «Предложение».<br><br>

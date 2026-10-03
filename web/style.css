@@ -1863,3 +1863,9 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .ztab div { grid-template-columns: 20% 1fr 24%; }
 .ztab a { white-space: normal; text-align: center; }
 .zhelp { font: 19px/1.45 var(--serif); }
+.zi { height: 1.25em; width: auto; vertical-align: -0.28em; }
+.zbar .zi { height: 1.4em; vertical-align: -0.35em; }
+.ztiles .ptile img { width: 58px; height: 52px; }
+.zring { width: 40px; vertical-align: -8px; }
+.ptiles.pbig.ztiles .ptile img { top: 6%; width: 76%; height: 62%; max-height: none; }
+.ptiles.ztiles .ptile span { font-size: 10.5px; overflow-wrap: normal; hyphens: none; letter-spacing: -0.2px; }

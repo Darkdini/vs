@@ -23,7 +23,7 @@ const MENUS = {
     ['Королевство', M3('loyalty'), () => openKingdom()],
     ['Ресурсы', M3('resources'), () => openSheet(resSheet)],
     ['Подарки', M3('gifts'), () => openSoon('Подарки')],
-    [S.st.user.zagsNew ? `ЗАГС (${S.st.user.zagsNew})` : 'ЗАГС', M3('zags'), () => openZags()],
+    [S.st.user.zagsNew ? `ЗАГС (${S.st.user.zagsNew})` : 'ЗАГС', 'zags/rings.png', () => openZags()],
     ['Репутация', M3('reputation'), () => openRating('reputation')],
     ['Авторитет', M3('authority'), () => openSoon('Авторитет города')],
     ['События', 'gfx3d/mail/events.png', () => openReports()],
@@ -252,9 +252,9 @@ function profileWin(p) {
     <button class="pline plink2" data-reptable>Репутация (${fmtFull(p.reputation)}): ${repIcons(p.reputation)}</button>
     ${best.length ? `<div class="pline">Зал Славы: ${medals}</div>` : ''}
     ${(p.titles || []).length ? `<div class="ptitle">Звание: ${p.titles.map((t) => `${t === 'Администратор' ? `<img class="admbadge" src="${GFX}admin_badge.png" alt="">` : t === 'Модератор форума' ? `<img class="admbadge" src="${GFX}mod_badge.png" alt="">` : `<img class="admbadge crownp" src="${GFX}premium_crown.png" alt="">`} ${esc(t)}`).join(', ')}</div>` : ''}
-    ${p.marriage ? `<div class="pline zmar"><img class="zring" src="gfx3d/menu3/zags.png" alt=""> ${p.marriage.role === 'king' ? 'Женат на Королеве' : 'Замужем за Королем'} <a class="plink" data-cprof="${p.marriage.spouse.id}">${esc(p.marriage.spouse.login)}</a></div>
-      <div class="pline">Рейтинг пары: <a class="plink" data-zpair="${p.marriage.id}">⭐ ${p.marriage.place}</a>, <span class="zthumb">👍</span> ${fmtFull(p.marriage.votes)}</div>
-      <button class="zbar zup" data-zprofvote="${p.marriage.id}"><span class="zthumb">👍</span> Поднять рейтинг паре!</button>` : ''}
+    ${p.marriage ? `<div class="pline zmar"><img class="zring" src="${GFX}zags/rings.png" alt=""> ${p.marriage.role === 'king' ? 'Женат на Королеве' : 'Замужем за Королем'} <a class="plink" data-cprof="${p.marriage.spouse.id}">${esc(p.marriage.spouse.login)}</a></div>
+      <div class="pline">Рейтинг пары: <a class="plink" data-zpair="${p.marriage.id}">${ZSTAR} ${p.marriage.place}</a>, ${ZTHUMB} ${fmtFull(p.marriage.votes)}</div>
+      <button class="zbar zup" data-zprofvote="${p.marriage.id}">${ZTHUMB} Поднять рейтинг паре!</button>` : ''}
     <div class="pline">Альянс: ${p.alliance ? `<a class="plink" data-allyinfo="${p.alliance.id}">${esc(p.alliance.name)} [${esc(p.alliance.tag)}]</a>` : '<b class="noally">нет</b>'}</div>
     ${p.allyInvite ? (p.allyInvite.sent ? `<div class="allyinv sent">✔ Приглашение в [${esc(p.allyInvite.tag)}] отправлено</div>` : `<button class="allyinv" data-allyinv="${p.id}">➕ Пригласить в альянс [${esc(p.allyInvite.tag)}]</button>`) : ''}
     ${p.alliance ? `<div class="pline">Звание в альянсе: ${esc(p.alliance.role)}${p.alliance.ep > 0 ? ` <img class="epaul" src="${GFX}ep/ep${Math.min(8, p.alliance.ep)}.png" alt="">` : ''}</div>` : ''}
