@@ -247,6 +247,28 @@ function install(Game) {
       }
       case 'mod': if (target.admin) return { error: 'Админ и так может всё.' }; target.mod = arg.on === undefined ? !target.mod : !!Number(arg.on); msg = `${target.login} — ${target.mod ? 'модератор форума' : 'больше не модератор'}.`; if (target.mod) this.event(target.id, 'Вас назначили модератором форума.'); break;
       case 'race': { const r = this.adminSetRace(target, String(arg.race || '')); if (r.error) return r; msg = `${target.login}: раса — ${C.RACE_NAMES[target.race]}.`; break; }
+      // --- один замок игрока (arg.cid): сброс к стартовому виду на том же месте или удаление ---
+      case 'castlereset': case 'castledel': {
+        const cs = this.castlesOf(target), i = cs.findIndex((k) => k.id === Number(arg.cid)), c = cs[i];
+        if (!c) return { error: 'Замок не найден.' };
+        if (op === 'castledel' && cs.length < 2) return { error: 'Это единственный замок игрока — используйте «Сброс на старт» или «Удалить игрока».' };
+        for (const g of this.guestsOf(c)) this.goBack(g.c, g.a, now); // чужие подкрепления — домой
+        this.removeCastle(c);
+        if (op === 'castledel') {
+          target.castleIds = cs.filter((k) => k !== c).map((k) => k.id);
+          if (target.castleId === c.id) target.castleId = target.castleIds[0];
+          msg = `Замок «${c.name}» (X:${c.x} Y:${c.y}) удалён.`;
+          if (target !== user) this.event(target.id, `Администрация удалила Ваш замок «${c.name}».`);
+        } else {
+          const n = this.createCastle(target, { x: c.x, y: c.y }); n.name = c.name; this.mil(n);
+          target.castleIds = cs.map((k) => (k === c ? n.id : k.id));
+          if (target.castleId === c.id) target.castleId = n.id;
+          msg = `Замок «${c.name}» сброшен к стартовому виду.`;
+          if (target !== user) this.event(target.id, `Администрация вернула Ваш замок «${c.name}» в начальное состояние.`);
+        }
+        this.cache = {};
+        break;
+      }
       case 'reset': { this.adminResetPlayer(target); msg = `${target.login}: замок сброшен, как после регистрации.`; if (target !== user) this.event(target.id, 'Администрация вернула ваш замок в начальное состояние.'); break; }
       case 'delete': {
         if (target.admin) return { error: 'Админа удалить нельзя.' };

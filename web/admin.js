@@ -136,7 +136,9 @@ function playerCard(p) {
     ${aAct('Репутация', 'Добавить или убавить (минус) очки репутации.', `${aNum('rep', 10, 'очков')}${aBtn2('rep', 'Изменить', 'data-arg="rep:n"')}`)}</div>
   <div class="acard"><div class="cwname">🏰 Замки игрока</div>
     <div class="rlist">${p.castlesList.map((c) => `<div class="rrow"><span class="rn"><b>${esc(c.name)}</b><small>X:${c.x} Y:${c.y} · лояльность ${c.loyalty}%</small></span><span class="rv">${fmtFull(c.rating)}</span>
-      <button class="btn small" data-goworld="${c.x},${c.y}">карта</button></div>`).join('')}</div>
+      <button class="btn small" data-goworld="${c.x},${c.y}">карта</button></div>
+      <div class="acrow"><button class="btn small danger" data-adm="castlereset" data-cid="${c.id}" data-confirm="Сбросить замок «${esc(c.name)}» к стартовому виду? Здания, войска и ресурсы пропадут, место и имя останутся.">Сбросить замок</button>
+      ${p.castlesList.length > 1 ? `<button class="btn small danger" data-adm="castledel" data-cid="${c.id}" data-confirm="Удалить замок «${esc(c.name)}» навсегда?">Удалить замок</button>` : ''}</div>`).join('')}</div>
     ${aAct('Переименовать', 'Новое имя активного замка игрока.', '<form class="chatform" data-aform="rename"><input name="name" placeholder="Имя замка" required><button class="btn small primary">Переименовать</button></form>', true)}
     ${aAct('Перенести', 'Переставить активный замок на свободную клетку карты.', '<form class="chatform" data-aform="move"><input name="x" type="number" placeholder="X" required><input name="y" type="number" placeholder="Y" required><button class="btn small primary">Перенести</button></form>', true)}
     ${aAct('Сменить расу', 'Юниты прежней расы пропадут.', `<select data-an="race">${S.cat.raceOrder.map((r) => `<option value="${r}">${esc(S.cat.races[r])}</option>`).join('')}</select>${aBtn2('race', 'Сменить', 'data-arg="race:race" data-confirm="Сменить расу? Юниты прежней расы пропадут."')}`)}
@@ -176,6 +178,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   const op = b.dataset.adm;
   if (b.dataset.confirm && !confirm(b.dataset.confirm)) return;
   const extra = {};
+  if (b.dataset.cid) extra.cid = Number(b.dataset.cid);
   if (b.dataset.arg) { // "op:key,key2" — значения берутся из полей data-an
     const [field, keys] = b.dataset.arg.split(':');
     keys.split(',').forEach((k, i) => { const el = $(`[data-an="${i === 0 ? field : k}"]`); if (el) extra[k] = el.value; });

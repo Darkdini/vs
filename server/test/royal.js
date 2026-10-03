@@ -790,6 +790,16 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(g.blackDel(A, B.id).ok && g.canReach(B, A) === null, 'убрать из ЧС');
   console.log('✓ Приватность: кто пишет в личку, чёрный список для писем, фото, подарков и ЗАГСа, админ пишет всегда');
 }
+{ // админ: сброс одного замка (то же место и имя) и удаление замка (не единственного)
+  const adm = g.adminUser(), P1 = g.register({ login: 'admCast', password: '12345', race: 0 }).user, cap = g.castlesOf(P1)[0];
+  const c2 = g.createCastle(P1, { x: cap.x + 11, y: cap.y + 4 }); g.mil(c2); c2.name = 'Форт'; P1.castleIds = [cap.id, c2.id];
+  c2.units = { 200: 50 }; c2.grid[0][0] = 3; c2.levels[0][0] = 9;
+  assert.ok(g.adminOp(adm, 'castlereset', { login: 'admCast', cid: c2.id }).ok !== false);
+  const n2 = g.castlesOf(P1)[1]; assert.ok(n2.x === c2.x && n2.y === c2.y && n2.name === 'Форт' && !Object.keys(n2.units).length && n2.grid[0][0] === -1, 'сброс: место и имя те же, всё остальное — как на старте');
+  assert.ok(g.adminOp(adm, 'castledel', { login: 'admCast', cid: n2.id }).msg && g.castlesOf(P1).length === 1 && !g.castleAt(n2.x, n2.y), 'удалён');
+  assert.ok(g.adminOp(adm, 'castledel', { login: 'admCast', cid: cap.id }).error, 'единственный — нельзя');
+  console.log('✓ Админка: сброс одного замка и удаление замка');
+}
 (async () => { // фото в сообщениях: только сжатые точки, проверка размера, новый PNG, удаление через 10 минут
   const zlib = require('zlib'), a1 = g.register({ login: 'picFrom', password: '12345', race: 0 }).user, a2 = g.register({ login: 'picTo', password: '12345', race: 0 }).user;
   const w = 40, h = 30, rgb = Buffer.alloc(w * h * 3, 200), z = zlib.deflateSync(rgb);
