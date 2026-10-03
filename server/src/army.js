@@ -171,10 +171,10 @@ function buildUnit([id, name, race, img, role, building, level, req = {}, stats]
 }
 const UNITS = UNIT_LIST.map((x) => buildUnit(x));
 const UNIT = Object.fromEntries(UNITS.map((u) => [u.id, u]));
-// Торговцы — как в оригинале: не тренируются и не воюют, их всегда 20 при построенном Рынке; скорость 20 полей/час,
+// Торговцы — как в оригинале: не тренируются и не воюют, их всегда 20 при построенном Рынке; скорость 60 полей/час (втрое быстрее оригинала),
 // груз — 45 ед. за уровень Рынка (20 ур. — 900 ед.)
 const MERCHANT_ID = 221, MERCHANTS = 20;
-Object.assign(UNIT[MERCHANT_ID], { speed: 20, notrain: true, carry: 45 });
+Object.assign(UNIT[MERCHANT_ID], { speed: 60, notrain: true, carry: 45 }); // торговцы втрое быстрее оригинала (было 20 полей/час)
 const GENERAL_ID = 236;
 const CAMP_FAST = 3; // набеги и нападения на лагеря разбойников (и логово «Тёмных земель») — втрое быстрее, туда и обратно
 // уникальные воины — только награда заданий и походов (в Кладовой), не тренируются. На 20% сильнее своего прообраза расы
@@ -350,7 +350,7 @@ function install(Game, helpers) {
     this.mil(castle);
     const lvl = this.buildingLevel(castle, B.MARKET), total = lvl ? MERCHANTS : 0;
     const away = (castle.armies || []).filter((a) => a.mission === 'trade').reduce((s, a) => s + (a.units[MERCHANT_ID] || 0), 0);
-    return { total, away, free: Math.max(0, total - away), reserved: 0, carry: UNIT[MERCHANT_ID].carry * lvl, speed: UNIT[MERCHANT_ID].speed, level: lvl }; // как в оригинале: 20 ур. — 900 ед., 20 полей/час
+    return { total, away, free: Math.max(0, total - away), reserved: 0, carry: UNIT[MERCHANT_ID].carry * lvl, speed: UNIT[MERCHANT_ID].speed, level: lvl }; // как в оригинале: 20 ур. — 900 ед.; скорость — 60 полей/час
   };
   // «Передать»: торговцы везут ресурсы в замок; сколько торговцев — по грузу
   P.sendTrade = function sendTrade(castle, { x, y, res }) {
