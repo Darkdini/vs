@@ -585,6 +585,7 @@ require('./secwatch').install(Game);
 require('./pics').install(Game);
 require('./zags').install(Game);
 require('./chests').install(Game);
+require('./coin').install(Game);
 require('./quests').install(Game);
 require('./hero').install(Game);
 require('./boss').install(Game);

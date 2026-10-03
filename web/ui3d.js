@@ -65,6 +65,7 @@ const MENUS = {
   ] },
   games: { label: 'Игры', icon: 'menu2/games.png', items: () => [
     ['Сундучки', M3('chests'), () => openChests()],
+    ['Орел-решка', M3('coin'), () => openCoin()],
   ] },
   info: { label: 'Инфо', icon: 'menu2/info.png', items: () => [
     ['Новости', M3('news'), () => openNews()],
@@ -287,6 +288,7 @@ function profileMoreWin(p) {
   return `${ribbon(p.login)}<div class="ptiles">
     ${tile('map', 'ground/castle_small.png', 'На карте')}
     ${tile('attack', 'smallicon/swordred.png', 'Атаковать', p.self)}
+    ${p.self ? '' : `<button class="ptile" data-coinvs="${esc(p.login)}"><img src="gfx3d/menu3/coin.png" alt=""><span>Орёл-решка</span></button>`}
   </div>`;
 }
 function profileInfoWin(p) {
@@ -643,6 +645,8 @@ $('#sheetBody').addEventListener('click', (e) => {
   b.disabled = true; send({ t: 'alliance', op: 'invite', id: Number(b.dataset.allyinv) });
   setTimeout(() => send({ t: 'profile', id: Number(b.dataset.allyinv) }), 300);
 });
+
+$('#sheetBody').addEventListener('click', (e) => { const b = e.target.closest('[data-coinvs]'); if (b) openCoin(b.dataset.coinvs); }); // «Орёл-решка» из профиля игрока
 
 // окно «Аватара» (как в оригинале): большая аватарка, «Мне нравится!», список игроков, которым она понравилась
 S.ava = null;

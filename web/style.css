@@ -1916,3 +1916,45 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .chstreak small { font-size: 17px; }
 .chnote { font: 16px/1.35 var(--serif); color: #5a3a1a; text-align: center; margin: 6px 0; }
 .chwon small { font-size: 17px; }
+/* «Орёл-решка» (coin.js) */
+.coin-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin: 0 -4px 8px; }
+.coin-tabs button { border: 1px solid #6a3414; border-radius: 4px; background: linear-gradient(#a8603a, #8a4a28); color: #fff8e8; font: 17px var(--serif); padding: 8px 2px; }
+.coin-tabs button.on { background: linear-gradient(#6a2c12, #4a1c0c); box-shadow: inset 0 0 0 2px #f0c040; }
+.coinhint { font: 17px/1.35 var(--serif); color: #4a2a10; margin: 4px 0 8px; text-align: center; }
+.coinhint.small { font-size: 15px; }
+.coinbet { display: flex; align-items: center; gap: 8px; padding: 8px; margin: 0 -4px 6px; background: #f0d0a0; border-radius: 6px; font: 18px/1.3 var(--serif); }
+.coinbet.personal { background: #f8e0a0; box-shadow: inset 0 0 0 2px #e0a020; }
+.coinbet.mine { background: #e8d8c0; }
+.cbinfo { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.cbinfo small { font-size: 14px; color: #5a3a1a; }
+.cbamt { font: 700 21px var(--serif); margin: 2px 0; }
+.coinri { height: 24px; vertical-align: -5px; }
+.coinbet .zbar { width: auto; margin: 0; padding: 8px 14px; font-size: 18px; flex: none; }
+.coinbet .cbno { background: linear-gradient(#5a5048, #3a302a); }
+.coinres { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 4px 0 8px; }
+.coinres button { display: flex; flex-direction: column; align-items: center; padding: 6px 2px; border: 2px solid #a86a3a; border-radius: 8px; background: #f0d8b0; }
+.coinres button img { height: 34px; }
+.coinres button small { font: 14px var(--serif); color: #4a2a10; }
+.coinres button.on, .coinsides button.on { background: linear-gradient(#a8603a, #6a2c12); border-color: #f0c040; box-shadow: 0 0 0 2px #f0c04088; }
+.coinres button.on small, .coinsides button.on span { color: #fff8e8; }
+.coinsides { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0; }
+.coinsides button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px; border: 2px solid #a86a3a; border-radius: 10px; background: #f0d8b0; font: 700 19px var(--serif); color: #2a1408; }
+.coinface { position: relative; display: inline-block; width: 64px; height: 64px; }
+.coinface img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 2px 3px #0007); }
+.coinface b { position: absolute; inset: 0; display: grid; place-items: center; font-size: 26px; filter: drop-shadow(0 0 2px #fff8); }
+.coinface.tails img { filter: sepia(.4) hue-rotate(-15deg) brightness(.92) drop-shadow(0 2px 3px #0007); }
+.coinface.mini { width: 40px; height: 40px; flex: none; } .coinface.mini b { font-size: 16px; }
+.anum.wide { flex: 1; width: auto; }
+.coinlog { display: flex; align-items: center; gap: 10px; padding: 6px 8px; margin: 0 -4px 4px; border-radius: 6px; font: 18px/1.3 var(--serif); }
+.coinlog.won { background: #d8ecb8; } .coinlog.lost { background: #f0c8b8; }
+.coinlog small { font-size: 14px; }
+.coinspin { position: relative; width: 140px; height: 140px; margin: 6px auto 10px; transform-style: preserve-3d; animation: coinSpinE 1.8s cubic-bezier(.2, .7, .3, 1) forwards; }
+.coinspin.tails { animation-name: coinSpinT; }
+.coinspin .coinface { position: absolute; inset: 0; width: 100%; height: 100%; backface-visibility: hidden; }
+.coinspin .coinface b { font-size: 56px; }
+.coinspin .back { transform: rotateY(180deg); }
+@keyframes coinSpinE { 0% { transform: translateY(0) rotateY(0); } 45% { transform: translateY(-60px) rotateY(1080deg); } 100% { transform: translateY(0) rotateY(2160deg); } }
+@keyframes coinSpinT { 0% { transform: translateY(0) rotateY(0); } 45% { transform: translateY(-60px) rotateY(1080deg); } 100% { transform: translateY(0) rotateY(2340deg); } }
+.coinout { font: 700 24px/1.35 var(--serif); text-align: center; }
+.coinout small { font-weight: 400; font-size: 18px; }
+.coinout.hidden, .coinflip .okbtn.hidden { display: none; }

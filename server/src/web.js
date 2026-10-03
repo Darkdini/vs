@@ -345,6 +345,22 @@ const API = {
   nickcase(m) { const r = this.game.changeNick(this.user, m.nick); if (r.error) return this.error(r.error); this.send({ t: 'renamed', login: this.user.login }); this.toast(`Ваш новый ник: ${this.user.login} (−${r.price} золота). Входите под ним.`); this.pushState(); API.profile.call(this, { id: this.user.id, acct: 1, refresh: 1 }); },
   msgcolor(m) { const r = this.game.setMsgColor(this.user, m.i); if (r.msg) this.toast(r.msg); this.result(r); this.pushState(); },
   castleinfo(m) { const r = this.game.castleInfo(this.user, m.name, m.desc); if (r.error) return this.error(r.error); this.toast('Замок переименован.'); API.profile.call(this, { id: this.user.id, acct: 1, refresh: 1 }); },
+  // ---- «Орёл-решка» (server/src/coin.js) ----
+  coin() { this.coinOpen = true; this.send({ t: 'coin', state: this.game.coinState(this.user, this.castle) }); },
+  coinbet(m) {
+    const r = this.game.coinBet(this.user, this.castle, m.res, m.amount, m.side, m.to); if (r.error) return this.error(r.error);
+    this.toast(r.msg); this.pushState(); API.coin.call(this); pushTo(r.to);
+    for (const s of WebSession.all || []) if (s.user && s.user.id !== this.user.id && s.coinOpen) API.coin.call(s); // у всех, кто смотрит список, — новый вызов
+  },
+  coincancel(m) { const r = this.game.coinCancel(this.user, m.id); if (r.error) return this.error(r.error); this.toast(r.msg); this.pushState(); API.coin.call(this); },
+  coinaccept(m) {
+    const r = this.game.coinAccept(this.user, this.castle, m.id); if (r.error) { this.error(r.error); return API.coin.call(this); }
+    const { other, chat, ...res } = r;
+    this.send({ t: 'coinres', res }); this.pushState(); API.coin.call(this); pushTo(other);
+    if (chat) for (const s of WebSession.all || []) if (s.user && s.sendChat) s.sendChat(chat);
+    for (const s of WebSession.all || []) if (s.user && s.user.id !== this.user.id && s.coinOpen) API.coin.call(s);
+  },
+  coinwin(m) { this.coinOpen = !!m.open; },
   // ---- «Сундучки» (server/src/chests.js) ----
   chests() { this.send({ t: 'chests', state: this.game.chestsState(this.user) }); },
   chestopen(m) {

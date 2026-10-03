@@ -252,6 +252,7 @@ function onMsg(m) {
     case 'picok': picMsg(m); break;
     case 'avalikes': avaMsg(m); break;
     case 'chests': case 'chestres': chestsMsg(m); break;
+    case 'coin': case 'coinres': coinMsg(m); break;
     case 'zags': case 'zprops': case 'zpairs': case 'zpair': case 'zdone': zagsMsg(m); break;
     case 'news': newsMsg(m); break;
     case 'welcome': welcomeShow(m); break;
@@ -571,8 +572,8 @@ function refreshSheet() {
   if (!S.sheets.length || document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName) && document.activeElement.type !== 'range') return;
   const sc = $('#sheetBody').scrollTop; showSheet(false); $('#sheetBody').scrollTop = sc;
 }
-function closeSheet() { if (!S.sheets.length) return; if (S.sheets.pop() === dialogWin) send({ t: 'dialogclose' }); showSheet(true); popOverlay(); unselect(); }
-function closeAllSheets() { if (!S.sheets.length) return; if (S.sheets.includes(dialogWin)) send({ t: 'dialogclose' }); S.sheets = []; showSheet(); popOverlay(); unselect(); }
+function closeSheet() { if (!S.sheets.length) return; const w = S.sheets.pop(); if (w === dialogWin) send({ t: 'dialogclose' }); if (typeof coinWin !== 'undefined' && w === coinWin) send({ t: 'coinwin', open: 0 }); showSheet(true); popOverlay(); unselect(); }
+function closeAllSheets() { if (!S.sheets.length) return; if (S.sheets.includes(dialogWin)) send({ t: 'dialogclose' }); if (typeof coinWin !== 'undefined' && S.sheets.includes(coinWin)) send({ t: 'coinwin', open: 0 }); S.sheets = []; showSheet(); popOverlay(); unselect(); }
 // окно закрыто — снять подсветку клетки в замке и на землях
 function unselect() { if (!S.sheets.length && Iso.sel && Iso.sel.tab !== 'world') { Iso.sel = null; isoDraw(); } }
 $('#backdrop').addEventListener('click', closeAllSheets);

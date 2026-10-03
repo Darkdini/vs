@@ -715,6 +715,35 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok((P.mstats.gamble || 0) > 0 || (P.stats.gamble || 0) >= 10, 'очки Зала «Азарт»');
   console.log('✓ Сундучки: попытки, призы в Кладовую без золота, серия 7 дней и Золотой сундук');
 }
+{ // «Орёл-решка»: ставка списывается, победитель забирает оба банка в Кладовую, лимиты, отмена, возврат через сутки
+  const A1 = g.register({ login: 'coinA', password: '12345', race: 0 }).user, B1 = g.register({ login: 'coinB', password: '12345', race: 1 }).user, C1 = g.register({ login: 'coinC', password: '12345', race: 2 }).user;
+  const ca = g.castleOf(A1), cb = g.castleOf(B1), cc = g.castleOf(C1); for (const c of [ca, cb, cc]) { g.tick(c); for (const r of ['wood', 'stone', 'iron', 'food']) c.res[r] = 400; }
+  const T = Date.now();
+  assert.ok(g.coinBet(A1, ca, 'wood', 50, 'eagle', '', T).error && g.coinBet(A1, ca, 'wood', 999999, 'eagle', '', T).error && g.coinBet(A1, ca, 'wood', 300, 'x', '', T).error, 'мин/макс ставка, сторона');
+  const r1 = g.coinBet(A1, ca, 'wood', 300, 'eagle', '', T); assert.ok(r1.ok && Math.round(ca.res.wood) === 100, 'ставка списана');
+  const st = g.coinState(B1, cb, T); assert.ok(st.open.length >= 1 && st.open[0].from.login === 'coinA', 'вызов виден другим');
+  const id = st.open.find((b) => b.from.login === 'coinA').id;
+  assert.ok(g.coinAccept(A1, ca, id, T).error, 'свой вызов не принять');
+  const sA = JSON.stringify(g.stashOf(A1).res), w = g.coinAccept(B1, cb, id, T, 0.1); // 0.1 → орёл — выигрывает A
+  assert.ok(w.ok && w.coin === 'eagle' && !w.won && Math.round(cb.res.wood) === 100, 'монета: орёл');
+  assert.strictEqual(g.stashOf(A1).res.wood, (JSON.parse(sA).wood || 0) + 600, 'победителю — оба банка в Кладовую');
+  assert.ok(A1.coinLog[0].won && !B1.coinLog[0].won && (A1.mstats.jackpot || 0) >= 300, 'история и «Большой куш»');
+  // личный вызов: видит только адресат
+  const p1 = g.coinBet(cc === cc && C1, cc, 'iron', 200, 'tails', 'coinA', T); assert.ok(p1.ok);
+  assert.ok(!g.coinState(B1, cb, T).open.some((b) => b.from.login === 'coinC') && g.coinState(A1, ca, T).open.some((b) => b.from.login === 'coinC'), 'личный вызов — только адресату');
+  const pid = g.coinState(A1, ca, T).open.find((b) => b.from.login === 'coinC').id;
+  assert.ok(g.coinAccept(B1, cb, pid, T).error, 'чужой личный вызов не принять');
+  // отмена — ставка в Кладовую
+  const ironBefore = g.stashOf(C1).res.iron || 0; assert.ok(g.coinCancel(C1, pid).ok && g.stashOf(C1).res.iron === ironBefore + 200, 'отмена — в Кладовую');
+  // лимит с одним соперником — 3 игры в сутки
+  for (const c of [ca, cb]) for (const r of ['wood', 'stone', 'iron', 'food']) c.res[r] = 2000;
+  for (let i = 0; i < 2; i++) { const b = g.coinBet(A1, ca, 'stone', 100, 'eagle', '', T); assert.ok(b.ok); const bid = g.coinState(B1, cb, T).open.find((x) => x.from.login === 'coinA').id; assert.ok(g.coinAccept(B1, cb, bid, T, 0.7).ok); }
+  g.coinBet(A1, ca, 'stone', 100, 'eagle', '', T); const bid4 = g.coinState(B1, cb, T).open.find((x) => x.from.login === 'coinA').id;
+  assert.ok(g.coinAccept(B1, cb, bid4, T).error, '4-я игра с тем же соперником за сутки — нельзя');
+  // через сутки вызов истекает — ставка в Кладовую
+  const stoneBefore = g.stashOf(A1).res.stone || 0; g.coinSweep(T + 86400001); assert.ok(g.stashOf(A1).res.stone === stoneBefore + 100 && !g.db.coinBets.some((b) => b.id === bid4), 'истёк — ставка вернулась');
+  console.log('✓ Орёл-решка: ставки, победитель забирает банк, личные вызовы, отмена, лимит с одним соперником, возврат через сутки');
+}
 (async () => { // фото в сообщениях: только сжатые точки, проверка размера, новый PNG, удаление через 10 минут
   const zlib = require('zlib'), a1 = g.register({ login: 'picFrom', password: '12345', race: 0 }).user, a2 = g.register({ login: 'picTo', password: '12345', race: 0 }).user;
   const w = 40, h = 30, rgb = Buffer.alloc(w * h * 3, 200), z = zlib.deflateSync(rgb);
