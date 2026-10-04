@@ -807,9 +807,9 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const A = g.register({ login: 'brAaa', password: '12345', race: 0 }).user, Bq = g.register({ login: 'brBbb', password: '12345', race: 1 }).user;
   assert.strictEqual(g.brRank(A), -1, 'без боёв — без ранга');
   const T0 = Date.now() - 40 * 86400000; A.br = undefined; g.brOf(A, T0);
-  g.brAdd(A.id, 400, Bq.id, T0); assert.strictEqual(A.br.pts, 200, 'очки — половина'); assert.strictEqual(g.brOf(A, T0).claimed, -1, 'ранг ещё не обновился');
-  g.brAdd(A.id, 400, null, T0); assert.strictEqual(A.br.pts, 300, 'лагерь — ещё вдвое меньше');
-  g.brOf(A); assert.strictEqual(g.brRank(A), BR.rankIdx(300), '1-го числа ранг обновился');
+  g.brAdd(A.id, 400, Bq.id, T0); assert.strictEqual(A.br.pts, 400, 'очки — полностью'); assert.strictEqual(g.brOf(A, T0).claimed, -1, 'ранг ещё не обновился');
+  g.brAdd(A.id, 400, null, T0); assert.strictEqual(A.br.pts, 600, 'лагерь — вдвое меньше');
+  g.brOf(A); assert.strictEqual(g.brRank(A), BR.rankIdx(600), '1-го числа ранг обновился');
   const un = Object.values(g.stashOf(A).units).reduce((a, n) => a + n, 0); const want = Array.from({ length: g.brRank(A) + 1 }, (_, i) => 300 * (i + 1)).reduce((a, n) => a + n, 0);
   assert.strictEqual(un, want, 'армия за все открытые ранги — в Кладовую');
   const b = g.brBonus(A); assert.ok(b.atk > 0 && b.prod > 0 && b.atk <= 0.2, 'бонус ранга');
