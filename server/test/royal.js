@@ -827,7 +827,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   U.avatarAt = 0; assert.ok(g.setAvatar(U, null, zl.deflateSync(Buffer.alloc(256 * 256 * 3 + 100)).toString('base64'), 256).error, 'лишние байты — отказ');
   console.log('✓ Аватар в хорошем качестве: сервер пересобирает PNG, шелл не пройдёт');
 }
-(async () => { // фото в сообщениях: только сжатые точки, проверка размера, новый PNG, удаление через 10 минут
+(async () => { // фото в сообщениях: только сжатые точки, проверка размера, новый PNG, удаление через 3 часа
   const zlib = require('zlib'), a1 = g.register({ login: 'picFrom', password: '12345', race: 0 }).user, a2 = g.register({ login: 'picTo', password: '12345', race: 0 }).user;
   const w = 40, h = 30, rgb = Buffer.alloc(w * h * 3, 200), z = zlib.deflateSync(rgb);
   assert.ok(g.picBegin(a1, 'picFrom', w, h, 1).error && g.picBegin(a1, 'picTo', 5000, h, 1).error, 'себе и огромное — нельзя');
@@ -839,14 +839,15 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const m = g.db.messages.filter((x) => x.from === a1.id && x.to === a2.id).pop(), p = g.picGet(m.pic);
   assert.ok(p && p.png.slice(1, 4).toString() === 'PNG' && !p.png.includes(Buffer.from('<?php')), 'новый PNG');
   assert.ok(g.picBegin(a1, 'picTo', w, h, 1).error, 'не чаще раза в 15 секунд');
-  g.picSweep(Date.now() + 11 * 60000); assert.ok(!m.pic && m.picGone && !g.picGet(p), 'через 10 минут — удалено');
+  g.picSweep(Date.now() + 2 * 3600000); assert.ok(m.pic && g.picGet(m.pic), 'через 2 часа — ещё видно'); const pid = m.pic;
+  g.picSweep(Date.now() + 3 * 3600000 + 60000); assert.ok(!m.pic && m.picGone && !g.picGet(pid), 'через 3 часа — удалено');
   { // «Мне нравится!» у аватарки: один голос, не за себя, список, сброс при новой аватарке
     a2.avatar = Date.now();
     assert.ok(g.avaLike(a1, a2.id).ok && g.avaLike(a1, a2.id).error && g.avaLike(a2, a2.id).error, 'один голос, не за себя');
     const L = g.avaLikes(a2, a2.id); assert.ok(L.list.length === 1 && L.list[0].login === 'picFrom' && g.avaLikes(a1, a2.id).mine, 'список голосов');
     g.removeAvatar(a2); assert.ok(!g.avaLikes(a1, a2.id).list.length && g.avaLike(a1, a2.id).error, 'нет аватарки — голоса сброшены');
   }
-  console.log('✓ Фото в сообщениях: только точки, новый PNG, шелл не пройдёт, удаление через 10 минут');
+  console.log('✓ Фото в сообщениях: только точки, новый PNG, шелл не пройдёт, удаление через 3 часа');
   { // альянс: союзники не нападают, не грабят и не разведывают друг друга — только подкрепление и ресурсы; армия в пути к новому союзнику — домой без боя
     const A = g.register({ login: 'alyAaa', password: '12345', race: 0 }).user, Bu = g.register({ login: 'alyBbb', password: '12345', race: 0 }).user, Cu = g.register({ login: 'alyCcc', password: '12345', race: 0 }).user;
     const ca = g.castleOf(A), cb = g.castleOf(Bu), cc = g.castleOf(Cu); for (const c of [ca, cb, cc]) { g.mil(c); g.maxOut(c); c.units = { 200: 100, 202: 20, 221: 20 }; }

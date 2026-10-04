@@ -527,7 +527,7 @@ const API = {
     const from = this.game.userById(x.from), to = this.game.userById(x.to);
     this.send({ t: 'letter', letter: { id: x.id, from: from && from.login, to: to && to.login, subject: x.subject, text: x.text, at: x.at } });
   },
-  // фото в личных сообщениях (pics.js): begin → part… → сообщение с фото на 10 минут
+  // фото в личных сообщениях (pics.js): begin → part… → сообщение с фото на 3 часа
   // скриншот к новости (news.js): begin → part… → id для формы публикации
   async newspic(m) {
     if (m.op === 'begin') { const r = this.game.newsPicBegin(this.user, m.w, m.h, m.n); if (r.error) return this.error(r.error); this.npUp = r.up; return this.send({ t: 'newspicok', i: 0 }); }
@@ -686,11 +686,11 @@ function startWeb(game, sessions, { port, host, log }) {
     // у сайта игры нет форм для отправки: POST/PUT и т. п. — попытка залить файл или подобрать уязвимость
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) { game.secEvent(ip, 'upload', `${req.method} ${String(req.url).slice(0, 60)}`); req.resume(); res.writeHead(405, { 'Content-Type': 'text/plain' }); return res.end('method not allowed'); }
     let url; try { url = decodeURIComponent(req.url.split('?')[0]); } catch { url = '/'; }
-    const pm = /^\/pic\/([0-9a-f]{32})\.png$/.exec(url); // фото из сообщений (pics.js): только по случайному адресу, 10 минут
+    const pm = /^\/pic\/([0-9a-f]{32})\.png$/.exec(url); // фото из сообщений (pics.js): только по случайному адресу, 3 часа
     if (pm) {
       const p = game.picGet(pm[1]);
       if (!p) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('expired'); }
-      res.writeHead(200, { 'Content-Type': 'image/png', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'", 'Cache-Control': 'private, max-age=600', 'Referrer-Policy': 'no-referrer' });
+      res.writeHead(200, { 'Content-Type': 'image/png', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'", 'Cache-Control': 'private, max-age=10800', 'Referrer-Policy': 'no-referrer' });
       return res.end(p.png);
     }
     const np = /^\/newspic\/([0-9a-f]{32})\.png$/.exec(url); // скриншоты новостей (news.js): PNG собран сервером, имя случайное

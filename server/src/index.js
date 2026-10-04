@@ -27,7 +27,7 @@ setInterval(() => {
 // раз в минуту: сколько игроков онлайн — для статистики в Админ-панели (metrics.js)
 setInterval(() => { try { game.metricTick(new Set([...sessions].filter((s) => s.user && !s.user.bot).map((s) => s.user.id)).size); } catch (e) { console.error(e); } }, 60000);
 
-// раз в 30 секунд: фото в сообщениях старше 10 минут удаляются (pics.js)
+// раз в 30 секунд: фото в сообщениях старше 3 часов удаляются (pics.js)
 setInterval(() => { try { game.picSweep(); } catch (e) { console.error(e); } }, 30000);
 setInterval(() => { try { game.newsPicSweep(); } catch (e) { console.error(e); } }, 3600000); // скриншоты новостей: 3 месяца
 try { game.newsPicSweep(); } catch (e) { console.error(e); }
