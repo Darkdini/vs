@@ -1181,6 +1181,10 @@ function worldBg(w, c, dpr) {
   const pat = g.createPattern(im, 'repeat'), md = (a, m) => ((a % m) + m) % m;
   pat.setTransform(new DOMMatrix().translate(md(o.sx - bx, im.width), md(o.sy - by, im.height)));
   g.setTransform(sc, 0, 0, sc, 0, 0); g.imageSmoothingEnabled = true; g.fillStyle = pat; g.fillRect(0, 0, bw, bh);
+  { // границы провинций — на фоне: он всегда покрывает экран с запасом, линии видны до края экрана, а не только на загруженном участке
+    const f = screenToTileF(bx + bw / 2, by + bh / 2), span = Math.ceil(bw / TW + bh / TH) + 2;
+    g.save(); g.translate(-bx, -by); provBorders(g, w, Math.round(f.x) - span, Math.round(f.x) + span, Math.round(f.y) - span, Math.round(f.y) + span); g.restore();
+  }
   Object.assign(cv.style, { left: `${bx}px`, top: `${by}px`, width: `${bw}px`, height: `${bh}px` });
   Object.assign(WV, { bx, by, bw, bh, bs: sc, bkey: key });
 }
@@ -1219,12 +1223,29 @@ function myCastleRing(p, active, half) { // half: −1 — задняя (вер�
   x.restore();
 }
 // один объект карты мира (замок по рейтингу, лагерь, логово похода); sel — золотая подводка по контуру
+// замок игрока с премиумом — золотой: та же картинка, перекрашенная в золото по яркости (копия на каждый размер, один раз)
+const GOLD = new WeakMap();
+function goldPic(src) {
+  let cv = GOLD.get(src); if (cv) return cv;
+  cv = document.createElement('canvas'); cv.width = src.width; cv.height = src.height;
+  const g = cv.getContext('2d'); g.drawImage(src, 0, 0);
+  try {
+    const d = g.getImageData(0, 0, cv.width, cv.height), a = d.data;
+    for (let i = 0; i < a.length; i += 4) {
+      if (!a[i + 3]) continue;
+      const l = 0.3 * a[i] + 0.59 * a[i + 1] + 0.11 * a[i + 2];
+      a[i] = Math.min(255, 0.2 * a[i] + 0.8 * (l * 1.05 + 72)); a[i + 1] = Math.min(255, 0.2 * a[i + 1] + 0.8 * (l * 0.88 + 42)); a[i + 2] = Math.min(255, 0.2 * a[i + 2] + 0.8 * (l * 0.3 + 4));
+    }
+    g.putImageData(d, 0, 0);
+  } catch { return src; }
+  GOLD.set(src, cv); return cv;
+}
 function worldObj(o, p, sel, k, noDome) {
   if (o.boss) return bossOnMap(o, p, sel);
   if (sel) { ictx.save(); ictx.filter = 'drop-shadow(0 0 3px #fff3a0) drop-shadow(0 0 3px #ffe030) drop-shadow(0 0 4px #ffc400) drop-shadow(0 0 7px #ff9d00) brightness(1.18)'; }
   const path = o.kind === 'castle' ? `world/castle${castleStage(o.rating)}.png?v=1` : !o.qimg && WORLD_OBJ_IMG[o.img] ? WORLD_OBJ_IMG[o.img] : null, cimg = path && pic(path);
   if (cimg) { const dw = TW * (o.kind === 'castle' ? [0.78, 0.84, 0.92, 1.0][castleStage(o.rating)] : 0.8), sc = scaledPic(path, dw, k || undefined) || cimg, dh = dw * cimg.height / cimg.width;
-    ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(sc, p.sx + TW / 2 - dw / 2, p.sy + TH * 0.85 - dh, dw, dh); ictx.restore(); }
+    ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(o.prem ? goldPic(sc) : sc, p.sx + TW / 2 - dw / 2, p.sy + TH * 0.85 - dh, dw, dh); ictx.restore(); }
   else if (o.qimg && pic(o.qimg)) { const im = pic(o.qimg), q = TW * 1.25 / im.width; ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(im, p.sx + TW / 2 - im.width * q / 2, p.sy + TH * 0.85 - im.height * q, im.width * q, im.height * q); ictx.restore(); } // логово похода
   else ground(WORLD_NAME_IMG(o), p.sx, p.sy);
   if (sel) ictx.restore();
@@ -1248,7 +1269,6 @@ function worldLayer(w, c, dpr) {
     const objs = new Map(w.objects.map((o) => [`${o.x}:${o.y}`, o]));
     if (Iso.sel && Iso.sel.tab === 'world') glow(tileScreen(Iso.sel.x, Iso.sel.y), 0.92);
     for (const o of w.objects) worldClearing(tileScreen(o.x - (w.cx - R0), o.y - (w.cy - R0))); // под замками и лагерями — поляна (без деревьев фона)
-    provBorders(w);
     for (let y = 0; y < n; y++) for (let xx = n - 1; xx >= 0; xx--) {
       const o = objs.get(`${w.cx - R0 + xx}:${w.cy - R0 + y}`); if (o) worldObj(o, tileScreen(xx, y), isSel(xx, y), s);
     }
@@ -1261,11 +1281,11 @@ function worldLayer(w, c, dpr) {
 // как плитки: между соседями — две отдельные линии, на перекрёстках — скруглённые углы, линии не соединяются
 const PROV = () => (S.cat && S.cat.rules && S.cat.rules.prov) || 20;
 const provNum = (x, y) => Math.floor(y / PROV()) * ((S.cat && S.cat.rules && S.cat.rules.provN) || 50) + Math.floor(x / PROV()) + 1;
-function provBorders(w) {
-  const P = PROV(), R0 = w.radius, n = 2 * R0 + 1, X0 = w.cx - R0, Y0 = w.cy - R0, g = ictx, E = 0.12, RAD = 18;
+function provBorders(g, w, ax, bx, ay, by) { // ax..bx, ay..by — клетки относительно загруженного участка
+  const P = PROV(), X0 = w.cx - w.radius, Y0 = w.cy - w.radius, E = 0.12, RAD = 18;
   const pt = (x, y) => { const p = tileScreen(x - X0, y - Y0); return [p.sx, p.sy + TH / 2]; }; // угол сетки (x, y) — левый угол клетки
   const boxes = [];
-  for (let py = Math.floor(Y0 / P); py * P <= Y0 + n; py++) for (let px = Math.floor(X0 / P); px * P <= X0 + n; px++) {
+  for (let py = Math.floor((Y0 + ay) / P); py * P <= Y0 + by; py++) for (let px = Math.floor((X0 + ax) / P); px * P <= X0 + bx; px++) {
     const x0 = px * P + E, y0 = py * P + E, x1 = (px + 1) * P - E, y1 = (py + 1) * P - E;
     boxes.push([pt(x0, y0), pt(x1, y0), pt(x1, y1), pt(x0, y1)]);
   }

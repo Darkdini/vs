@@ -586,7 +586,7 @@ class Game {
     for (const c of castles) {
       const owner = this.userById(c.owner);
       const al = this.allianceOf(owner);
-      out.push({ kind: 'castle', x: c.x, y: c.y, img: 10, castleId: c.id, name: c.name, ownerId: owner.id, owner: owner.login, race: owner.race, rating: this.rating(c), alliance: al ? al.tag : null, newbie: !owner.admin && this.rating(c) < require('./army').NEWBIE_RATING });
+      out.push({ kind: 'castle', x: c.x, y: c.y, img: 10, prem: this.isPremium(owner) || undefined, castleId: c.id, name: c.name, ownerId: owner.id, owner: owner.login, race: owner.race, rating: this.rating(c), alliance: al ? al.tag : null, newbie: !owner.admin && this.rating(c) < require('./army').NEWBIE_RATING });
     }
     for (let y = y0; y < y0 + h; y++) {
       for (let x = x0; x < x0 + w; x++) {
