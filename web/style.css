@@ -2080,3 +2080,6 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .smred { color: #a01a10; } .smon { color: #2a7a10; font-style: normal; }
 .smnote { margin: 0 0 8px; padding: 8px 10px; border: 1px solid #a01a10; border-radius: 6px; background: #ffe2d8; color: #8a1008; font: 16px var(--serif); }
 .smnote.ok { border-color: #3a8a1a; background: #e6f6d8; color: #1f5a0a; }
+/* сообщение старшего модератора в чате — вся табличка фиолетово-золотая, как его герб */
+#sheetBody .cm.smodmsg, .cm.smodmsg { background: linear-gradient(135deg, #5a1a8acc, #3a0e66dd); border: 2px solid #e8b84a; box-shadow: 0 0 8px #b06aff88, inset 0 0 10px #ffd86a33; color: #fff4d0; }
+#sheetBody .cm.smodmsg b, .cm.smodmsg b { color: #ffd86a; text-shadow: 0 1px 2px #000a; } #sheetBody .cm.smodmsg small, .cm.smodmsg small { color: #e8d0ff; }
