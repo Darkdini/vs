@@ -1154,6 +1154,9 @@ function moat() {
   }
   tile('cL', CG - 1, CH - 1); tile('cT', CG + CN, CH - 1); tile('cR', CG + CN, CH + CN); tile('cB', CG - 1, CH + CN);
 }
+// стена чуть шире сетки участков (FENCE_K), чтобы крайние здания не прижимались к ней; растягивается от центра замка
+const FENCE_K = 1.07;
+function fenceWide(draw) { const p = tileScreen(CC + 0.5, CC + 0.5), cx = p.sx, cy = p.sy + TH / 2; ictx.save(); ictx.translate(cx, cy); ictx.scale(FENCE_K, FENCE_K); ictx.translate(-cx, -cy); draw(); ictx.restore(); }
 function fenceBack() {
   for (const i of [0, 1, 2, 4, 5, 6]) raw('fence/fence2.png', D(CG + i, CH) - 5, E(CG + i, CH) - 26);
   for (let i = 0; i < CN; i++) raw('fence/fence0.png', D(CG + 6, CH + i) + 25, E(CG + 6, CH + i) - 25);
@@ -1472,7 +1475,7 @@ function isoDrawNow() {
     for (let y = 0; y < 7; y++) for (let xx = 0; xx < 7; xx++) if (!onPath(xx, y)) { const p = cellAt(xx, y); pathTile(p.sx + TW * (1 - KC) / 2, p.sy + TH * (1 - KC) / 2, KC, 0.34); } // в замке тропинки между участками шире
     if (!bg || CASTLE_BG.moat) moat();
     const fence = buildingLevel(22) > 0; // Забор построен — вокруг замка наша стена (на фон-картинке стен нет)
-    if (fence) fenceBack();
+    if (fence) fenceWide(fenceBack);
     for (let y = 0; y < 7; y++) for (let xx = 6; xx >= 0; xx--) {
       const p = cellAt(xx, y); if (!onPath(xx, y) && !bg) plotImage('ground/stone.png', p, PLOT); // с фоном участок — тот же луг в рамке тропинки
       if (isSel(xx, y)) glow(p, PLOT);
@@ -1482,7 +1485,7 @@ function isoDrawNow() {
     // выбранное здание — ещё раз поверх соседей (его не закрывают здания перед ним)
     if (Iso.sel && Iso.sel.tab === 'castle' && st.grid[0][Iso.sel.y * 7 + Iso.sel.x] >= 0) { const cell = Iso.sel.y * 7 + Iso.sel.x; const n0 = LANDBARS.length, l0 = LVLQ.length;
       drawCellBuilding(0, cell, st.grid[0][cell], st.levels[0][cell], cellAt(Iso.sel.x, Iso.sel.y), BK, true); LANDBARS.length = n0; LVLQ.length = l0; }
-    if (fence) fenceFront();
+    if (fence) fenceWide(fenceFront);
     landBarsFlush(); // полосы стройки — поверх зданий и ограды
     lvlFlush();
     if (typeof advMarker === 'function') advMarker(VIEW.CASTLE, cellAt); // советник показывает нужную клетку
