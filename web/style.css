@@ -2081,6 +2081,6 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .smnote { margin: 0 0 8px; padding: 8px 10px; border: 1px solid #a01a10; border-radius: 6px; background: #ffe2d8; color: #8a1008; font: 16px var(--serif); }
 .smnote.ok { border-color: #3a8a1a; background: #e6f6d8; color: #1f5a0a; }
 /* сообщение старшего модератора в чате — светится рамка таблички (фиолетовая с золотом, как его герб), фон обычный */
-#sheetBody .cm.smodmsg, .cm.smodmsg { border: 3px solid #9a3ae8; box-shadow: 0 0 0 2px #e8b84a, 0 0 10px 2px #b06affaa; animation: smodglow 2.4s ease-in-out infinite; }
-@keyframes smodglow { 50% { box-shadow: 0 0 0 2px #ffd86a, 0 0 16px 4px #c88aff; } }
+#sheetBody .cm.smodmsg, .cm.smodmsg { position: relative; border: 2px solid #e8b84a; outline: 2px solid #9a3ae8; outline-offset: -5px; margin-top: 6px; margin-bottom: 6px; box-shadow: 0 0 8px 1px #b06aff99; animation: smodglow 2.4s ease-in-out infinite; }
+@keyframes smodglow { 50% { box-shadow: 0 0 12px 3px #c88affcc; } }
 #sheetBody .cm.smodmsg b, .cm.smodmsg b { color: #6a1aa8; }
