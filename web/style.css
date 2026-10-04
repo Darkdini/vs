@@ -2002,10 +2002,14 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .brstars { display: inline-flex; gap: 1px; vertical-align: middle; }
 .brstars img { width: 20px; height: 20px; object-fit: contain; }
 .brstars.sm img { width: 13px; height: 13px; }
-.brline { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; }
-.brline > img { height: 34px; }
-.brline small { color: #6a4a2a; font-size: 15px; }
-.brline .brarr { margin-left: auto; font-size: 26px; color: #a86a3a; }
+.brline { position: relative; display: grid; width: calc(100% + 8px); margin: 6px -4px; padding: 6px 40px 6px 10px; border: 2px solid #c8a070; border-radius: 8px;
+  background: linear-gradient(#f6e2bf, #ecd0a0); text-align: left; font: 21px var(--serif); color: #2a1408; box-shadow: inset 0 1px 0 #fff8; }
+.brline .brl-t { display: block; }
+.brline .brl-r { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+.brline .brl-r > img { height: 40px; width: auto; }
+.brline .brstars img { width: 26px; height: 26px; }
+.brline small { color: #6a4a2a; font-size: 16px; margin-left: 4px; }
+.brline .brarr { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 40px; line-height: 1; color: #c08a3a; text-shadow: 0 1px 0 #fff8; }
 .brcard { display: flex; gap: 12px; align-items: center; padding: 8px 0; }
 .brbig { width: 96px; }
 .brtitle { font: 700 24px var(--serif); }

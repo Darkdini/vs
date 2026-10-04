@@ -251,7 +251,7 @@ function profileWin(p) {
     ${ribbon('Информация')}
     <div class="pinfo"><div class="avatar ${p.avatar ? 'avaclick' : ''}" ${p.avatar ? `data-avaview="${p.id}"` : ''}>${avatarImg(p)}</div><div>
       Никнейм: <b>${esc(p.login)}</b><br>Ранг: ${p.rank}<br>Рейтинг: ${fmtFull(p.rating)}<br>Раса: ${raceIcon(p.race)} ${esc(p.raceName)}</div></div>
-    ${p.brank ? `<button class="pline plink2 brline" data-brank="${p.id}"><span>Боевой ранг:</span> <img src="${BR_IMG(p.brank.icon)}" alt="">${brStars(p.brank.idx < 0 ? 0 : p.brank.stars)} <small>${esc(p.brank.title)}</small><b class="brarr">›</b></button>` : ''}
+    ${p.brank ? `<button class="brline" data-brank="${p.id}"><span class="brl-t">Боевой ранг:</span><span class="brl-r"><img src="${BR_IMG(p.brank.icon)}" alt="">${brStars(p.brank.idx < 0 ? 0 : p.brank.stars)}<small>${esc(p.brank.title)}</small></span><b class="brarr">›</b></button>` : ''}
     <button class="pline plink2" data-reptable>Репутация (${fmtFull(p.reputation)}): ${repIcons(p.reputation)}</button>
     ${best.length ? `<div class="pline">Зал Славы: ${medals}</div>` : ''}
     ${(p.titles || []).length ? `<div class="ptitle">Звание: ${p.titles.map((t) => `${t === 'Администратор' ? `<img class="admbadge" src="${GFX}admin_badge.png" alt="">` : t === 'Модератор форума' ? `<img class="admbadge" src="${GFX}mod_badge.png" alt="">` : `<img class="admbadge crownp" src="${GFX}premium_crown.png" alt="">`} ${esc(t)}`).join(', ')}</div>` : ''}
