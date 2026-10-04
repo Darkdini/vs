@@ -1170,7 +1170,7 @@ function worldView(on) {
 }
 // фон: бесшовная картинка-плитка, привязана к координатам мира; перерисовывается, только когда экран вышел за запас
 function worldBg(w, c, dpr) {
-  const im = pic('ground/world_bg.jpg?v=2'); if (!im) return;
+  const im = pic('ground/world_bg.jpg?v=3'); if (!im) return;
   const vw = Iso.cv.width / dpr / c.z, vh = Iso.cv.height / dpr / c.z, vx = -c.x / c.z, vy = -c.y / c.z, zooming = Date.now() - (Iso.zt || 0) < 300;
   const key = `${w.cx}:${w.cy}`, want = Math.min(2, Math.ceil(c.z * dpr * 4) / 4);
   const out = vx < WV.bx || vy < WV.by || vx + vw > WV.bx + WV.bw || vy + vh > WV.by + WV.bh;

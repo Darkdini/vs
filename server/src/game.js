@@ -14,7 +14,8 @@ const WORLD = Number(process.env.WORLD_SIZE || 1000);
 const SPAWN_DENSITY = 4.5; // клеток карты на один замок в зоне заселения (соседи близко — походы короткие)
 const SPAWN_GAP = 2;
 // где на нарисованном фоне карты мира луг, а не роща (world_open.json — маска картинки web/gfx/ground/world_bg.jpg):
-// клетка мира (X, Y) лежит в точке фона ((X+Y)·31+31, (Y−X)·16+16) по модулю размера картинки
+// клетка мира (X, Y) лежит в точке фона ((X+Y)·31+31, (Y−X)·16+16) по модулю размера картинки.
+// Сейчас фон — ровная трава без рощ, маски нет: луг везде
 const WOPEN = (() => { try { const j = require('./world_open.json'); return { ...j, b: Buffer.from(j.bits, 'base64') }; } catch { return null; } })();
 const meadowAt = (X, Y) => { if (!WOPEN) return true; const m = (a, n) => ((a % n) + n) % n;
   const px = m((X + Y) * 31 + 31, WOPEN.W), py = m((Y - X) * 16 + 16, WOPEN.H), i = Math.floor(py / WOPEN.S) * WOPEN.w + Math.floor(px / WOPEN.S);
