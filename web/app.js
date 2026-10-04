@@ -1098,8 +1098,8 @@ function drawCellBuilding(view, cell, b, lvl, p, k = 1, sel = false) {
     if (k === 1) { sprite(path, p.sx, p.sy); const im = pic(path); if (im) top = p.sy - (im.height - TH); }
     else if (k === 'fit') { // земли: постройка на всю клетку, основание (ромб шириной в картинку) — по центру клетки
       const im = pic(path); if (im) { const kk = TW * (path.includes('/lands/') ? 0.78 : 0.62) / im.width, w = im.width * kk, h = im.height * kk; // новые картинки — со своим круглым участком; старые — поменьше клетки
-        top = p.sy + TH / 2 + w / 4 - h; if (view === 1 && b >= 0 && lvl > 0 && !(q && q.level === 1)) landLvlRing(p, lvl); drawPic(im, p.sx + TW / 2 - w / 2, top, w, h);
-        if (view === 1 && b >= 0 && lvl > 0) LANDLV.push([p.sx + TW / 2, p.sy + TH / 2 + TH * 0.3, lvl]); } }
+        top = p.sy + TH / 2 + w / 4 - h; if (S.showLvl && view === 1 && b >= 0 && lvl > 0 && !(q && q.level === 1)) landLvlRing(p, lvl); drawPic(im, p.sx + TW / 2 - w / 2, top, w, h);
+        if (S.showLvl && view === 1 && b >= 0 && lvl > 0) LANDLV.push([p.sx + TW / 2, p.sy + TH / 2 + TH * 0.3, lvl]); } }
     else { const im = pic(path); if (im) { const w = im.width * k, h = im.height * k; top = p.sy + TH / 2 + TH * PLOT / 2 - h + 2; drawPic(im, p.sx + TW / 2 - w / 2, top, w, h); } }
     if (sel) ictx.restore();
   }
@@ -1108,7 +1108,7 @@ function drawCellBuilding(view, cell, b, lvl, p, k = 1, sel = false) {
 }
 // уровни зданий (кнопка со стрелкой вверху): значки рисуются поверх всех зданий
 const LVLQ = [];
-S.showLvl = (() => { try { return localStorage.getItem('showLvl') === '1'; } catch { return false; } })();
+S.showLvl = (() => { try { return localStorage.getItem('showLvl') !== '0'; } catch { return true; } })(); // по умолчанию — показаны (и в замке, и на землях)
 function lvlFlush() {
   const m = ictx.getTransform(), k = (window.devicePixelRatio || 1) / (Math.hypot(m.a, m.b) || 1); // одинаковый размер на экране при любом масштабе
   for (const [x, y, n] of LVLQ) {
