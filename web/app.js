@@ -236,7 +236,7 @@ function onMsg(m) {
       // плавная прокрутка: новый участок мира подгружается без перерисовки экрана — камера сдвигается на разницу центров
       if (old && S.tab === 'world' && Iso.cams.world && $('.mapwrap') && !S.wJump) {
         const dx = m.cx - old.cx, dy = m.cy - old.cy, c = Iso.cams.world, t = tileScreen(dx, dy);
-        c.x += t.sx * c.z; c.y += t.sy * c.z;
+        c.x += t.sx * c.z; c.y += t.sy * c.z; if (Iso.gestShift) Iso.gestShift(t.sx, t.sy, c.z); // и палец, что тащит карту, — без рывка
         if (Iso.sel && Iso.sel.tab === 'world') { Iso.sel.x -= dx; Iso.sel.y -= dy; }
         S.world = m; const f = $('[data-wsearch]'); if (f && document.activeElement !== f.x && document.activeElement !== f.y) { f.x.value = m.cx; f.y.value = m.cy; } isoDraw(); break;
       }
@@ -766,7 +766,7 @@ $('#view').addEventListener('submit', (e) => {
 $('#view').addEventListener('click', (e) => {
   if (e.target.closest('[data-whome]')) { S.wJump = true; S.wPanel = false; send({ t: 'world', cx: S.st.castle.x, cy: S.st.castle.y }); }
   if (e.target.closest('[data-wpanel]')) { S.wPanel = !S.wPanel; const p = $('.wpanel'); if (p) p.classList.toggle('open', S.wPanel); }
-  if (e.target.closest('[data-wzoom]')) { const c = cam(); isoZoom(0.1 / c.z); } // отдалить до секций
+  if (e.target.closest('[data-wzoom]')) { const c = cam(); isoZoom(0.13 / c.z); } // отдалить до секций
 });
 // переход к провинции по номеру: в её середину
 $('#view').addEventListener('submit', (e) => {
@@ -924,7 +924,7 @@ function clampCam(c) {
   return c;
 }
 // карту мира можно отдалить сильнее: тогда видны только провинции-секции с номерами (PROV_ZOOM)
-const PROV_ZOOM = 0.2, zMin = () => (S.tab === 'world' ? 0.05 : 0.3), provMode = (c) => S.tab === 'world' && c.z < PROV_ZOOM;
+const PROV_ZOOM = 0.2, zMin = () => (S.tab === 'world' ? 0.1 : 0.3), provMode = (c) => S.tab === 'world' && c.z < PROV_ZOOM;
 function isoZoom(k, mx, my) {
   const c = cam(), r = Iso.cv.getBoundingClientRect();
   if (mx === undefined) { mx = r.width / 2; my = r.height / 2; }
@@ -935,12 +935,22 @@ function isoZoom(k, mx, my) {
 
 // касания: один палец — двигать карту, два — масштаб, короткое нажатие — выбрать клетку
 (() => {
-  const P = new Map(); let g = null;
+  const P = new Map(); let g = null, fling = 0;
   const cv = Iso.cv, rel = (e) => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  // подгрузился новый участок мира — камера сдвинута; сдвигаем и начало жеста, иначе карту отбросит
+  Iso.gestShift = (sx, sy, z) => { if (!g) return; if (g.mode === 'pan') { g.cx += sx * z; g.cy += sy * z; } else if (g.mode === 'pinch') { g.wx -= sx; g.wy -= sy; } };
+  // инерция: отпустил палец — карта плавно докатывается и останавливается
+  const glide = (vx, vy) => {
+    cancelAnimationFrame(fling); let last = performance.now();
+    const step = (now) => { const dt = Math.min(50, now - last); last = now; const c = cam(); c.x += vx * dt; c.y += vy * dt; clampCam(c); isoDrawNow();
+      const k = Math.pow(0.996, dt); vx *= k; vy *= k; if (Math.hypot(vx, vy) > 0.02) fling = requestAnimationFrame(step); };
+    fling = requestAnimationFrame(step);
+  };
   cv.addEventListener('pointerdown', (e) => {
+    cancelAnimationFrame(fling);
     cv.setPointerCapture(e.pointerId); P.set(e.pointerId, rel(e));
     const c = cam();
-    if (P.size === 1) { const p = rel(e); g = { mode: 'pan', x: p.x, y: p.y, cx: c.x, cy: c.y, moved: false }; }
+    if (P.size === 1) { const p = rel(e); g = { mode: 'pan', x: p.x, y: p.y, cx: c.x, cy: c.y, moved: false, tr: [{ x: p.x, y: p.y, t: performance.now() }] }; }
     else if (P.size === 2) {
       const [a, b] = [...P.values()], m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
       g = { mode: 'pinch', d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, z0: c.z, wx: (m.x - c.x) / c.z, wy: (m.y - c.y) / c.z };
@@ -954,6 +964,7 @@ function isoZoom(k, mx, my) {
       const p = rel(e), dx = p.x - g.x, dy = p.y - g.y;
       if (Math.hypot(dx, dy) > 14) g.moved = true; // дрожание пальца — ещё не сдвиг карты
       if (g.moved) { c.x = g.cx + dx; c.y = g.cy + dy; clampCam(c); isoDraw(); }
+      g.tr.push({ x: p.x, y: p.y, t: performance.now() }); if (g.tr.length > 6) g.tr.shift(); // след пальца — для инерции
     } else if (g.mode === 'pinch' && P.size >= 2) {
       const [a, b] = [...P.values()], m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
       c.z = Math.max(zMin(), Math.min(3, g.z0 * Math.hypot(a.x - b.x, a.y - b.y) / g.d0)); Iso.zt = Date.now();
@@ -965,6 +976,10 @@ function isoZoom(k, mx, my) {
     if (!P.has(e.pointerId)) return;
     const p = rel(e); P.delete(e.pointerId);
     // нажатие обрабатываем по событию click: иначе этот же click попадёт в фон открытой шторки и закроет её
+    if (g && g.mode === 'pan' && g.moved && P.size === 0) { // скорость пальца за последние ~100 мс
+      const now = performance.now(), a = g.tr.find((q) => now - q.t < 120);
+      if (a && now - a.t > 8) { const vx = (p.x - a.x) / (now - a.t), vy = (p.y - a.y) / (now - a.t); if (Math.hypot(vx, vy) > 0.25) glide(vx, vy); }
+    }
     Iso.tap = g && g.mode === 'pan' && !g.moved && P.size === 0 ? p : null;
     if (Iso.tap) { const t = Iso.tap; setTimeout(() => { if (Iso.tap === t) { Iso.tap = null; isoTap(t.x, t.y); } }, 350); } // click не пришёл — нажатие всё равно срабатывает
     if (P.size === 0) g = null; else if (g && g.mode === 'pinch') g = { mode: 'none' };
@@ -1194,16 +1209,20 @@ function worldBg(w, c, dpr) {
   const vw = Iso.cv.width / dpr / c.z, vh = Iso.cv.height / dpr / c.z, vx = -c.x / c.z, vy = -c.y / c.z, zooming = Date.now() - (Iso.zt || 0) < 300;
   const pm = provMode(c), key = `${w.cx}:${w.cy}:${pm ? Math.round(Math.log2(c.z) * 3) : 'n'}`, want = Math.min(2, Math.ceil(c.z * dpr * 4) / 4);
   const out = vx < WV.bx || vy < WV.by || vx + vw > WV.bx + WV.bw || vy + vh > WV.by + WV.bh;
-  if (!out && WV.bkey === key && (WV.bs >= want || zooming)) { if (WV.bs < want) setTimeout(isoDraw, 320); return; }
-  const M = 0.4 * Math.max(vw, vh), bw = vw + 2 * M, bh = vh + 2 * M, sc = Math.min(want, Math.sqrt(5e6 / (bw * bh)));
+  // во время щипка — большой запас (дальше отдалять без перерисовки) и холст попроще; в покое — чётко
+  const M = (zooming ? 1.2 : 0.4) * Math.max(vw, vh), bw = vw + 2 * M, bh = vh + 2 * M, cap = zooming ? 1.2e6 : pm ? 2.5e6 : 5e6;
+  const sc = Math.min(want, Math.sqrt(cap / (bw * bh))); // sc — достижимое качество
+  // экран внутри готового фона: перерисовка не нужна; во время щипка — старый фон (масштабирует видеокарта), новый — после
+  if (!out && ((WV.bkey === key && WV.bs >= sc * 0.99) || zooming)) { if (WV.bkey !== key || WV.bs < sc * 0.99) setTimeout(isoDraw, 320); return; }
   const cv = WV.bg, W = Math.ceil(bw * sc), H = Math.ceil(bh * sc); if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
   const g = cv.getContext('2d'), o = tileScreen(-(w.cx - w.radius), -(w.cy - w.radius)), bx = vx - M, by = vy - M; // o — где точка мира (0, 0)
   const pat = g.createPattern(im, 'repeat'), md = (a, m) => ((a % m) + m) % m;
   pat.setTransform(new DOMMatrix().translate(md(o.sx - bx, im.width), md(o.sy - by, im.height)));
   g.setTransform(sc, 0, 0, sc, 0, 0); g.imageSmoothingEnabled = true; g.fillStyle = pat; g.fillRect(0, 0, bw, bh);
   { // границы провинций — на фоне: он всегда покрывает экран с запасом, линии видны до края экрана, а не только на загруженном участке
-    const f = screenToTileF(bx + bw / 2, by + bh / 2), span = Math.ceil(bw / TW + bh / TH) + 2;
-    g.save(); g.translate(-bx, -by); provBorders(g, w, Math.round(f.x) - span, Math.round(f.x) + span, Math.round(f.y) - span, Math.round(f.y) + span, pm ? c.z : 0); g.restore();
+    const cs = [[bx, by], [bx + bw, by], [bx, by + bh], [bx + bw, by + bh]].map(([qx, qy]) => screenToTileF(qx, qy)); // клетки по углам фона — точный диапазон
+    const ax = Math.floor(Math.min(...cs.map((q) => q.x))) - 1, ex = Math.ceil(Math.max(...cs.map((q) => q.x))) + 1, ay = Math.floor(Math.min(...cs.map((q) => q.y))) - 1, ey = Math.ceil(Math.max(...cs.map((q) => q.y))) + 1;
+    g.save(); g.translate(-bx, -by); provBorders(g, w, ax, ex, ay, ey, pm ? c.z : 0, [bx, by, bw, bh]); g.restore();
   }
   Object.assign(cv.style, { left: `${bx}px`, top: `${by}px`, width: `${bw}px`, height: `${bh}px` });
   Object.assign(WV, { bx, by, bw, bh, bs: sc, bkey: key });
@@ -1301,29 +1320,46 @@ function worldLayer(w, c, dpr) {
 // как плитки: между соседями — две отдельные линии, на перекрёстках — скруглённые углы, линии не соединяются
 const PROV = () => (S.cat && S.cat.rules && S.cat.rules.prov) || 20;
 const provNum = (x, y) => Math.floor(y / PROV()) * ((S.cat && S.cat.rules && S.cat.rules.provN) || 50) + Math.floor(x / PROV()) + 1;
-function provBorders(g, w, ax, bx, ay, by, pz) { // ax..bx, ay..by — клетки относительно загруженного участка; pz — масштаб в режиме секций
+const PROV_SPR = { k: '' };
+function provBorders(g, w, ax, bx, ay, by, pz, vr) { // ax..bx, ay..by — клетки относительно загруженного участка; pz — масштаб в режиме секций
   const P = PROV(), X0 = w.cx - w.radius, Y0 = w.cy - w.radius, E = pz ? 0.6 : 0.12, k = pz ? 1.1 / pz : 1, RAD = 18 * k;
   const pt = (x, y) => { const p = tileScreen(x - X0, y - Y0); return [p.sx, p.sy + TH / 2]; }; // угол сетки (x, y) — левый угол клетки
   const boxes = [], N = (S.cat && S.cat.rules && S.cat.rules.provN) || 50, home = S.st && S.st.castle ? provNum(S.st.castle.x, S.st.castle.y) : 0;
   for (let py = Math.max(0, Math.floor((Y0 + ay) / P)); py * P <= Y0 + by && py < N; py++) for (let px = Math.max(0, Math.floor((X0 + ax) / P)); px * P <= X0 + bx && px < N; px++) {
     const x0 = px * P + E, y0 = py * P + E, x1 = (px + 1) * P - E, y1 = (py + 1) * P - E, b = [pt(x0, y0), pt(x1, y0), pt(x1, y1), pt(x0, y1)];
+    if (vr && (Math.max(...b.map((q) => q[0])) < vr[0] || Math.min(...b.map((q) => q[0])) > vr[0] + vr[2] || Math.max(...b.map((q) => q[1])) < vr[1] || Math.min(...b.map((q) => q[1])) > vr[1] + vr[3])) continue; // за краем фона
     b.n = py * N + px + 1; b.c = pt((px + 0.5) * P, (py + 0.5) * P); boxes.push(b);
   }
   const path = () => { g.beginPath(); for (const b of boxes) { const m = [(b[0][0] + b[3][0]) / 2, (b[0][1] + b[3][1]) / 2]; g.moveTo(m[0], m[1]); for (let k = 0; k < 4; k++) g.arcTo(b[k][0], b[k][1], b[(k + 1) % 4][0], b[(k + 1) % 4][1], RAD); g.closePath(); } };
   g.save(); g.lineJoin = 'round';
-  if (pz) { // секции: плитки чуть светлее травы, своя — золотистая
-    path(); g.fillStyle = 'rgba(255, 255, 230, 0.08)'; g.fill();
-    const hb = boxes.find((b) => b.n === home); if (hb) { g.beginPath(); g.moveTo(...hb[0]); for (let q = 1; q < 4; q++) g.lineTo(...hb[q]); g.closePath(); g.fillStyle = 'rgba(255, 210, 80, 0.35)'; g.fill(); }
-  }
-  path(); g.lineWidth = 4 * k; g.strokeStyle = 'rgba(40, 80, 10, 0.22)'; g.stroke(); // мягкая тень рамки
-  path(); g.lineWidth = 2 * k; g.strokeStyle = 'rgba(240, 250, 225, 0.85)'; g.stroke(); // светлая рамка
-  if (pz) { // номер провинции на табличке
-    const fs = 12 / pz; g.font = `bold ${fs}px Georgia, serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  if (!pz) { // обычный вид: провинций на экране мало — рамки одним путём
+    path(); g.lineWidth = 4 * k; g.strokeStyle = 'rgba(40, 80, 10, 0.22)'; g.stroke(); // мягкая тень рамки
+    path(); g.lineWidth = 2 * k; g.strokeStyle = 'rgba(240, 250, 225, 0.85)'; g.stroke(); // светлая рамка
+  } else if (boxes.length) { // секции: провинций сотни, все одной формы и стоят решёткой — рамки одной заливкой-узором, таблички — готовой картинкой
+    const sc = g.getTransform().a || 1, b0 = boxes[0], O = pt(0, 0), u = [pt(P, 0)[0] - O[0], pt(P, 0)[1] - O[1]], v = [pt(0, P)[0] - O[0], pt(0, P)[1] - O[1]];
+    const TWp = u[0] + v[0], THp = v[1] - u[1]; // плитка узора: ширина и высота ромба провинции
+    const sprite = (wd, ht, draw) => { const cv = document.createElement('canvas'); cv.width = Math.max(1, Math.round(wd * sc)); cv.height = Math.max(1, Math.round(ht * sc)); const q = cv.getContext('2d'); q.setTransform(cv.width / wd, 0, 0, cv.height / ht, 0, 0); draw(q); return cv; };
+    const boxPath = (q, b) => { const m = [(b[0][0] + b[3][0]) / 2, (b[0][1] + b[3][1]) / 2]; q.moveTo(m[0], m[1]); for (let t = 0; t < 4; t++) q.arcTo(b[t][0], b[t][1], b[(t + 1) % 4][0], b[(t + 1) % 4][1], RAD); q.closePath(); };
+    const ck = `${sc.toFixed(4)}|${pz.toFixed(4)}`, C = PROV_SPR.k === ck ? PROV_SPR : Object.assign(PROV_SPR, { k: ck, T: null, PL: null, PH: null }); // заготовки — пока не сменился масштаб
+    if (!C.T) { // плитка узора: рамки провинций вокруг узла решётки (0, 0)
+      const rel = [[E, E], [P - E, E], [P - E, P - E], [E, P - E]].map(([x, y]) => { const q = pt(x, y); return [q[0] - O[0], q[1] - O[1]]; }); // рамка провинции (0, 0) от её угла
+      C.T = sprite(TWp, THp, (q) => { q.lineJoin = 'round';
+        for (let a = -2; a <= 2; a++) for (let b = -2; b <= 2; b++) { const ox = a * u[0] + b * v[0], oy = a * u[1] + b * v[1] + THp / 2; q.beginPath(); boxPath(q, rel.map((r) => [r[0] + ox, r[1] + oy]));
+          q.fillStyle = 'rgba(255, 255, 230, 0.08)'; q.fill(); q.lineWidth = 4 * k; q.strokeStyle = 'rgba(40, 80, 10, 0.22)'; q.stroke(); q.lineWidth = 2 * k; q.strokeStyle = 'rgba(240, 250, 225, 0.85)'; q.stroke(); } });
+    }
+    const pat = g.createPattern(C.T, 'repeat'); pat.setTransform(new DOMMatrix().translate(O[0], O[1] - THp / 2).scale(TWp / C.T.width, THp / C.T.height));
+    g.fillStyle = pat; g.fillRect(vr[0], vr[1], vr[2], vr[3]);
+    const hb = boxes.find((b) => b.n === home); if (hb) { g.beginPath(); boxPath(g, hb); g.fillStyle = 'rgba(255, 210, 80, 0.35)'; g.fill(); } // своя — золотистая
+    const fs = 12 / pz; g.font = `bold ${fs}px Georgia, serif`;
+    const plate = (txt, bg) => { const tw = g.measureText(txt).width + fs, th = fs * 1.5;
+      return { w: tw, h: th, cv: sprite(tw + 4 / pz, th + 4 / pz, (q) => { q.translate(2 / pz, 2 / pz); q.fillStyle = bg; q.strokeStyle = '#c8963e'; q.lineWidth = 1.5 / pz; q.beginPath(); q.roundRect ? q.roundRect(0, 0, tw, th, th / 3) : q.rect(0, 0, tw, th); q.fill(); q.stroke(); }) }; };
+    const PL = C.PL || (C.PL = plate('№0000', 'rgba(58, 28, 12, 0.78)')), PH = C.PH || (C.PH = plate('⌂ №0000', 'rgba(120, 70, 10, 0.88)'));
+    g.imageSmoothingEnabled = true; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#f0d080';
     for (const b of boxes) {
-      const t = `${b.n === home ? '⌂ ' : ''}№${b.n}`, tw = g.measureText(t).width + fs, th = fs * 1.5;
-      g.fillStyle = b.n === home ? 'rgba(120, 70, 10, 0.88)' : 'rgba(58, 28, 12, 0.78)'; g.strokeStyle = '#c8963e'; g.lineWidth = 1.5 / pz;
-      g.beginPath(); g.roundRect ? g.roundRect(b.c[0] - tw / 2, b.c[1] - th / 2, tw, th, th / 3) : g.rect(b.c[0] - tw / 2, b.c[1] - th / 2, tw, th); g.fill(); g.stroke();
-      g.fillStyle = '#f0d080'; g.fillText(t, b.c[0], b.c[1] + fs * 0.05);
+      if (b.c[0] < vr[0] || b.c[0] > vr[0] + vr[2] || b.c[1] < vr[1] || b.c[1] > vr[1] + vr[3]) continue;
+      const mine = b.n === home, pl = mine ? PH : PL;
+      g.drawImage(pl.cv, b.c[0] - pl.w / 2 - 2 / pz, b.c[1] - pl.h / 2 - 2 / pz, pl.w + 4 / pz, pl.h + 4 / pz);
+      g.fillText(`${mine ? '⌂ ' : ''}№${b.n}`, b.c[0], b.c[1] + fs * 0.05);
     }
   }
   g.restore();
