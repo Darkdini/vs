@@ -55,24 +55,26 @@ const PLACE_ICON = ['gold', 'silver', 'bronze'];
 // подарки в профиле: игроки дарят друг другу за золото
 // обычные — всем; premium: true — уникальный набор, дарить можно только с премиумом
 const GIFTS = {
-  gift_box: { name: 'Подарочная коробка', img: 'gifts/gift_box.png?v=2', gold: 1 },
-  gold_coin: { name: 'Золотая монета', img: 'gifts/gold_coin.png?v=2', gold: 1 },
-  fountain: { name: 'Фонтан желаний', img: 'gifts/fountain.png?v=2', gold: 2 },
-  treasure: { name: 'Сундук сокровищ', img: 'gifts/treasure.png?v=2', gold: 3 },
-  diamond: { name: 'Большой диамант', img: 'gifts/diamond.png?v=2', gold: 3, premium: true },
-  castle_box: { name: 'Королевская шкатулка', img: 'gifts/castle_box.png?v=2', gold: 10, premium: true },
-  helmet: { name: 'Шлем Легиона', img: 'gifts/helmet.png?v=2', gold: 5, premium: true },
-  crown: { name: 'Корона Авторитета', img: 'gifts/crown.png?v=2', gold: 8, premium: true },
+  gift_box: { name: 'Подарочная коробка', img: 'gifts/gift_box.png?v=2', gold: 1, cats: ['party', 'misc'] },
+  gold_coin: { name: 'Золотая монета', img: 'gifts/gold_coin.png?v=2', gold: 1, cats: ['misc'] },
+  fountain: { name: 'Фонтан желаний', img: 'gifts/fountain.png?v=2', gold: 2, cats: ['girls', 'misc'] },
+  treasure: { name: 'Сундук сокровищ', img: 'gifts/treasure.png?v=2', gold: 3, cats: ['boys', 'misc'] },
+  diamond: { name: 'Большой диамант', img: 'gifts/diamond.png?v=2', gold: 3, premium: true, cats: ['girls'] },
+  castle_box: { name: 'Королевская шкатулка', img: 'gifts/castle_box.png?v=2', gold: 10, premium: true, cats: ['girls', 'party'] },
+  helmet: { name: 'Шлем Легиона', img: 'gifts/helmet.png?v=2', gold: 5, premium: true, cats: ['war', 'boys'] },
+  crown: { name: 'Корона Авторитета', img: 'gifts/crown.png?v=2', gold: 8, premium: true, cats: ['boys', 'party'] },
   // премиум-подарки (новые)
-  p_roses: { name: 'Королевский букет', img: 'gifts/p_roses.png', gold: 6, premium: true },
-  p_goblet: { name: 'Кубок пиршества', img: 'gifts/p_goblet.png', gold: 7, premium: true },
-  p_heart: { name: 'Рубиновое сердце', img: 'gifts/p_heart.png', gold: 9, premium: true },
-  p_sword: { name: 'Меч героя', img: 'gifts/p_sword.png', gold: 10, premium: true },
-  p_potion: { name: 'Эликсир чародея', img: 'gifts/p_potion.png', gold: 8, premium: true },
-  p_horse: { name: 'Белый скакун', img: 'gifts/p_horse.png', gold: 12, premium: true },
-  p_decree: { name: 'Королевский указ', img: 'gifts/p_decree.png', gold: 11, premium: true },
-  p_scepter: { name: 'Скипетр власти', img: 'gifts/p_scepter.png', gold: 15, premium: true },
+  p_roses: { name: 'Королевский букет', img: 'gifts/p_roses.png', gold: 6, premium: true, cats: ['girls', 'party'], isNew: true },
+  p_goblet: { name: 'Кубок пиршества', img: 'gifts/p_goblet.png', gold: 7, premium: true, cats: ['boys', 'party'], isNew: true },
+  p_heart: { name: 'Рубиновое сердце', img: 'gifts/p_heart.png', gold: 9, premium: true, cats: ['girls'], isNew: true },
+  p_sword: { name: 'Меч героя', img: 'gifts/p_sword.png', gold: 10, premium: true, cats: ['war', 'boys'], isNew: true },
+  p_potion: { name: 'Эликсир чародея', img: 'gifts/p_potion.png', gold: 8, premium: true, cats: ['misc'], isNew: true },
+  p_horse: { name: 'Белый скакун', img: 'gifts/p_horse.png', gold: 12, premium: true, cats: ['boys', 'war'], isNew: true },
+  p_decree: { name: 'Королевский указ', img: 'gifts/p_decree.png', gold: 11, premium: true, cats: ['misc'], isNew: true },
+  p_scepter: { name: 'Скипетр власти', img: 'gifts/p_scepter.png', gold: 15, premium: true, cats: ['boys'], isNew: true },
 };
+// разделы окна «Подарки» (как в оригинале): порядок в списке; пустые разделы не показываются
+const GIFT_CATS = [['premium', 'Премиум'], ['girls', 'Девушкам'], ['boys', 'Парням'], ['war', 'Военные'], ['party', 'К празднику'], ['enemy', 'Врагам'], ['misc', 'Разное']];
 const GIFTS_DAY = 20;
 const REP_PER_GOLD = 2; // 1 монета = 2 репутации // сколько подарков игрок может отправить за сутки
 
@@ -341,4 +343,4 @@ function install(Game) {
   };
 }
 
-module.exports = { REP_PER_GOLD, GIFTS, install, HALLS, HALL_PAGES };
+module.exports = { REP_PER_GOLD, GIFTS, GIFT_CATS, install, HALLS, HALL_PAGES };

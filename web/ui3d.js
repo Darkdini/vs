@@ -525,7 +525,7 @@ $('#sheetBody').addEventListener('click', (e) => {
     if (d.ptile === 'treasury') return openSheet(treasuryWin);
     if (d.ptile === 'premium') return openPremium(p.self ? null : p.login);
     if (d.ptile === 'rep') { S.repTo = p; S.repCoins = 1; return openSheet(repWin); }
-    if (d.ptile === 'gift') { S.giftTo = p; return openSheet(giftsWin); }
+    if (d.ptile === 'gift') { S.giftTo = p; S.giftCat = 'all'; S.giftNew = false; S.giftPage = 0; return openSheet(giftsWin); }
     if (d.ptile === 'friend') { send({ t: 'friend', op: p.friend ? 'del' : 'add', id }); return send({ t: 'profile', id }); }
     if (d.ptile === 'msg') { if (p.self) { closeAllSheets(); return ACTS.mail(); } return openDialog(p.id); }
     if (d.ptile === 'map') { closeAllSheets(); S.world = null; setTab('world'); return send({ t: 'world', cx: p.castles[0].x, cy: p.castles[0].y }); }
@@ -591,18 +591,32 @@ $('#sheetBody').addEventListener('click', (e) => {
 });
 
 // ---------- Подарки: каталог «Все / Новые», отправка игроку ----------
+S.giftCat = 'all'; S.giftNew = false; S.giftPage = 0;
+const GIFT_PAGE = 6;
+// подарки по иерархии: сначала обычные, потом премиум; внутри — от дешёвых к дорогим
+const giftList = () => Object.entries(S.cat.gifts || {})
+  .filter(([, g]) => (S.giftCat === 'all' || (S.giftCat === 'premium' ? g.premium : (g.cats || []).includes(S.giftCat))) && (!S.giftNew || g.isNew))
+  .sort(([, a], [, b]) => (!!a.premium - !!b.premium) || a.gold - b.gold || a.name.localeCompare(b.name));
 function giftsWin() {
-  const p = S.giftTo, list = Object.entries(S.cat.gifts || {});
+  const p = S.giftTo, all = Object.values(S.cat.gifts || {});
+  const cats = [['all', 'Все'], ...(S.cat.giftCats || []).filter(([k]) => all.some((g) => (k === 'premium' ? g.premium : (g.cats || []).includes(k))))];
+  const list = giftList(), pages = Math.max(1, Math.ceil(list.length / GIFT_PAGE)); S.giftPage = Math.min(S.giftPage, pages - 1);
+  const pg = S.giftPage, show = list.slice(pg * GIFT_PAGE, pg * GIFT_PAGE + GIFT_PAGE);
   return `${ribbon('🎁 Подарки')}
-    <div class="combo"><select><option>Все</option></select></div>
-    <div class="center bwline">Все <span class="plink">Новые</span></div>
-    <div class="pager"><button>◀◀</button><button>◀</button><span>1</span><button>▶</button><button>▶▶</button></div>
+    <div class="combo"><select data-giftcat>${cats.map(([k, t]) => `<option value="${k}" ${k === S.giftCat ? 'selected' : ''}>${k === 'premium' ? '👑 ' : ''}${t}</option>`).join('')}</select></div>
+    <div class="center bwline gnew"><a class="${S.giftNew ? 'plink' : 'gsel'}" data-gnew="0">Все</a> <a class="${S.giftNew ? 'gsel' : 'plink'}" data-gnew="1">Новые</a></div>
+    <div class="pager"><button data-gpg="0" ${pg ? '' : 'disabled'}>◀◀</button><button data-gpg="${pg - 1}" ${pg ? '' : 'disabled'}>◀</button><span>${pg + 1} / ${pages}</span><button data-gpg="${pg + 1}" ${pg < pages - 1 ? '' : 'disabled'}>▶</button><button data-gpg="${pages - 1}" ${pg < pages - 1 ? '' : 'disabled'}>▶▶</button></div>
     <div class="bwline center">Кому: <b>${esc(p.login)}</b> · у вас ${gimg('coins_s.png', 'ri')} ${fmtFull(S.st.user.gold || 0)}</div>
-    ${list.map(([id, g]) => `<div class="giftrow"><img src="${GFX}${g.img}" alt="">
+    ${show.length ? show.map(([id, g]) => `<div class="giftrow"><img src="${GFX}${g.img}" alt="">
       ${g.premium ? '<div class="gprem">Премиум подарок</div>' : ''}
       <div class="bwline center">${esc(g.name)} ( ${gimg('coins_s.png', 'ri')} ${g.gold})</div>
-      ${g.premium && !isPrem() ? '<div class="center bwline muted">🔒 Уникальный подарок — дарить можно с премиумом</div>' : `<div class="center bwline">🎁 <a class="plink" data-giftsend="${id}">Отправить</a> игроку!</div>`}</div>`).join('')}`;
+      ${g.premium && !isPrem() ? '<div class="center bwline muted">🔒 Уникальный подарок — дарить можно с премиумом</div>' : `<div class="center bwline">🎁 <a class="plink" data-giftsend="${id}">Отправить</a> игроку!</div>`}</div>`).join('') : '<p class="parch-note">В этом разделе пока нет подарков.</p>'}`;
 }
+$('#sheetBody').addEventListener('change', (e) => { if (e.target.matches('[data-giftcat]')) { S.giftCat = e.target.value; S.giftPage = 0; refreshSheet(); } });
+$('#sheetBody').addEventListener('click', (e) => {
+  const n = e.target.closest('[data-gnew]'); if (n) { S.giftNew = n.dataset.gnew === '1'; S.giftPage = 0; return refreshSheet(); }
+  const pg = e.target.closest('[data-gpg]'); if (pg && !pg.disabled) { S.giftPage = Math.max(0, Number(pg.dataset.gpg)); refreshSheet(); const b = $('#sheetBody'); if (b) b.scrollTop = 0; }
+});
 $('#sheetBody').addEventListener('click', (e) => {
   const t = e.target.closest('[data-giftsend]'); if (!t) return;
   const p = S.giftTo, g = S.cat.gifts[t.dataset.giftsend];
