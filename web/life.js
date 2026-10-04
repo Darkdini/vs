@@ -163,6 +163,7 @@ function landsScene(c, dpr) {
   for (const w of LIFE.walkers) items.push([ptXY(w.fx, w.fy).cy, () => lifePerson(`villager${w.skin}`, w.wait > 0 ? w.look : DIR_ROW(w.ti - w.i, w.tj - w.j), w.wait > 0 ? 0 : w.frame, w.fx, w.fy, 8)]);
   items.sort((a, b) => a[0] - b[0]);
   for (const [, f] of items) f();
+  landBarsFlush(); // полосы стройки — поверх всех зданий
   LVLQ.length = 0; // уровни на землях не показываем — только в замке
   lifeFish(); lifeBirds(dpr);
 }

@@ -1056,6 +1056,20 @@ function bar(sx, sy, frac) {
     if (pct > i * 10) { ictx.fillStyle = '#4eff00'; ictx.fillRect(sx + 1, y + 1, 2, 2); }
   }
 }
+// полосы стройки на землях: рисуются после всех зданий (не перекрываются соседями), шириной в участок, над зданием
+const LANDBARS = [];
+function landBarsFlush() {
+  const x = ictx;
+  for (const [cx, top, f] of LANDBARS) {
+    const w = TW * 0.6, h = 7, bx = cx - w / 2, by = Math.max(top - 4, top - h - 2), p = Math.max(0, Math.min(1, f));
+    x.save();
+    x.fillStyle = 'rgba(20, 14, 6, 0.85)'; x.strokeStyle = '#c8963e'; x.lineWidth = 1.2;
+    x.beginPath(); x.roundRect ? x.roundRect(bx, by, w, h, 3) : x.rect(bx, by, w, h); x.fill(); x.stroke();
+    if (p > 0) { const g = x.createLinearGradient(0, by, 0, by + h); g.addColorStop(0, '#9dff4a'); g.addColorStop(1, '#3fb000'); x.fillStyle = g; x.beginPath(); x.roundRect ? x.roundRect(bx + 1.5, by + 1.5, (w - 3) * p, h - 3, 2) : x.rect(bx + 1.5, by + 1.5, (w - 3) * p, h - 3); x.fill(); }
+    x.restore();
+  }
+  LANDBARS.length = 0;
+}
 // здание на клетке (с учётом стройки): спрайт, уровень, полоса прогресса
 function drawCellBuilding(view, cell, b, lvl, p, k = 1, sel = false) {
   const q = queueAt(view, cell);
@@ -1071,7 +1085,7 @@ function drawCellBuilding(view, cell, b, lvl, p, k = 1, sel = false) {
     else { const im = pic(path); if (im) { const w = im.width * k, h = im.height * k; top = p.sy + TH / 2 + TH * PLOT / 2 - h + 2; drawPic(im, p.sx + TW / 2 - w / 2, top, w, h); } }
     if (sel) ictx.restore();
   }
-  if (q) bar(p.sx, p.sy, (now() - q.start) / (q.end - q.start));
+  if (q) { const f = (now() - q.start) / (q.end - q.start); if (view === 1 && k === 'fit') LANDBARS.push([p.sx + TW / 2, top !== null ? top : p.sy - TH, f]); else bar(p.sx, p.sy, f); } // земли — полоса поверх всех зданий (landBarsFlush)
   if (S.showLvl && b >= 0 && lvl > 0 && top !== null) LVLQ.push([p.sx + TW / 2, Math.max(top + 8, p.sy - TH * 1.4), lvl]);
 }
 // уровни зданий (кнопка со стрелкой вверху): значки рисуются поверх всех зданий
