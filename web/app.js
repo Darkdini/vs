@@ -1053,9 +1053,11 @@ const LANDBARS = [];
 function landBarsFlush() {
   const x = ictx, placed = [];
   for (const [cx, top, f, w] of LANDBARS.sort((a, b) => b[1] - a[1])) {
-    const h = 7, bx = cx - w / 2, p = Math.max(0, Math.min(1, f));
-    let by = top - h - 2;
-    for (let t = 0; t < 8 && placed.some((r) => bx < r[0] + r[2] + 2 && bx + w + 2 > r[0] && by < r[1] + h + 2 && by + h + 2 > r[1]); t++) by -= h + 3; // задевает соседнюю — выше
+    const h = 7, p = Math.max(0, Math.min(1, f)), hit = (X, Y) => placed.find((r) => X < r[0] + r[2] + 2 && X + w + 2 > r[0] && Y < r[1] + h + 2 && Y + h + 2 > r[1]);
+    let bx = cx - w / 2, by = top - h - 2;
+    // задевает соседнюю: сначала сдвиг вбок (от соседки, не дальше полуширины), потом — выше
+    const r0 = hit(bx, by); if (r0) { const nx = r0[0] + r0[2] / 2 < cx ? r0[0] + r0[2] + 3 : r0[0] - w - 3; if (Math.abs(nx - (cx - w / 2)) <= w * 0.6 && !hit(nx, by)) bx = nx; }
+    for (let t = 0; t < 8 && hit(bx, by); t++) by -= h + 3;
     placed.push([bx, by, w]);
     x.save();
     x.fillStyle = 'rgba(20, 14, 6, 0.85)'; x.strokeStyle = '#c8963e'; x.lineWidth = 1.2;
@@ -1080,7 +1082,7 @@ function drawCellBuilding(view, cell, b, lvl, p, k = 1, sel = false) {
     else { const im = pic(path); if (im) { const w = im.width * k, h = im.height * k; top = p.sy + TH / 2 + TH * PLOT / 2 - h + 2; drawPic(im, p.sx + TW / 2 - w / 2, top, w, h); } }
     if (sel) ictx.restore();
   }
-  if (q) { const f = (now() - q.start) / (q.end - q.start); LANDBARS.push([p.sx + TW / 2, top !== null ? top : p.sy - TH, f, TW * (view === 1 ? 0.6 : 0.46)]); } // полоса над зданием — поверх всех зданий (landBarsFlush)
+  if (q) { const f = (now() - q.start) / (q.end - q.start); LANDBARS.push([p.sx + TW / 2, top !== null ? top : p.sy - TH, f, TW * (view === 1 ? 0.6 : 0.36)]); } // полоса над зданием — поверх всех зданий (landBarsFlush)
   if (S.showLvl && b >= 0 && lvl > 0 && top !== null) LVLQ.push([p.sx + TW / 2, Math.max(top + 8, p.sy - TH * 1.4), lvl]);
 }
 // уровни зданий (кнопка со стрелкой вверху): значки рисуются поверх всех зданий
