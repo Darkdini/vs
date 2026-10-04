@@ -2094,3 +2094,8 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .nshots img { width: 100%; border: 2px solid #b08a5a; border-radius: 6px; box-shadow: 0 2px 6px #0005; cursor: zoom-in; }
 .nshotfull { position: fixed; inset: 0; z-index: 9999; background: #000d; display: flex; align-items: center; justify-content: center; padding: 10px; }
 .nshotfull img { max-width: 100%; max-height: 100%; border-radius: 4px; }
+/* лайк / дизлайк в чате */
+.cvotes { display: flex; justify-content: flex-end; gap: 6px; margin-top: 3px; }
+.cvote { border: 1px solid #b08a5a99; border-radius: 12px; background: #fff8e8aa; padding: 1px 8px; font: 14px var(--serif); color: #5a3a1a; min-width: 38px; }
+.cvote.on { background: #d8f0c0; border-color: #4a8a2a; color: #1f5a0a; } .cvote.dn.on { background: #f6d6cc; border-color: #a03a2a; color: #8a1a0a; }
+span.cvote { border-color: transparent; background: none; }

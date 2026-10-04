@@ -307,6 +307,16 @@ function install(Game) {
     return { msg: m };
   };
   // репутация — текущая (мечи/топоры рядом с ником в чате)
+  // лайк / дизлайк сообщения в общем чате: один голос от игрока, повторное нажатие — снять, другое — сменить; за своё — нельзя
+  P.chatVote = function chatVote(user, id, v) {
+    const m = (this.db.chat || []).find((x) => x.id === Number(id)); if (!m) return { error: 'Сообщение уже ушло из чата.' };
+    if (m.fromId === user.id) return { error: 'За своё сообщение голосовать нельзя.' };
+    v = Number(v) > 0 ? 1 : -1; const had = (m.up || []).includes(user.id) ? 1 : (m.dn || []).includes(user.id) ? -1 : 0;
+    m.up = (m.up || []).filter((x) => x !== user.id); m.dn = (m.dn || []).filter((x) => x !== user.id);
+    if (had !== v) (v > 0 ? m.up : m.dn).push(user.id);
+    if (!m.up.length) delete m.up; if (!m.dn.length) delete m.dn;
+    this.store.save(); return { ok: true, id: m.id, up: m.up || [], dn: m.dn || [] };
+  };
   P.chatLog = function chatLog() { return (this.db.chat || []).slice(-CHAT_KEEP).map((m) => { const u = this.userById(m.fromId); return { ...m, rep: u ? u.reputation ?? START_REP : m.rep, role: u ? (u.admin ? 'admin' : u.smod ? 'smod' : u.mod ? 'mod' : '') : m.role }; }); };
 
   P.setNotes = function setNotes(user, text) { user.notes = String(text || '').slice(0, 5000); this.store.save(); return { ok: true }; };

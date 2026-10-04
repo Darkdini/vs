@@ -420,6 +420,10 @@ const API = {
     for (const s of WebSession.all || []) if (s.user && s.sendChat) s.sendChat(r.msg);
   },
   premium(m) { const r = this.game.buyPremium(this.user, m.days, m.to); if (r.error) return this.error(r.error); this.toast(r.msg); this.pushState(); },
+  chatvote(m) {
+    const r = this.game.chatVote(this.user, m.id, m.v); if (r.error) return this.error(r.error);
+    for (const s of WebSession.all || []) if (s.user) s.send({ t: 'chatvote', id: r.id, up: r.up, dn: r.dn });
+  },
   chatmod(m) {
     const r = m.op === 'del' ? this.game.chatDelete(this.user, m.id) : this.game.chatBanUser(this.user, m.login, m.hours);
     if (r.error) return this.error(r.error);

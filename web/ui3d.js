@@ -152,8 +152,12 @@ function chatLine() {
 const SMILES = ['angel','beer','devil','worry','heart','tongue','kiss','cool','laugh','wink','rose','handshake','cry','hmm','smile','blush','wow','love','angry','confused','dislike','like','coins','swords','shield','lips','ghost','cheers','crown','cup','flower','tulip','sun','gift','cake','strawberry','apple','banana','watermelon','orange','cherry','poop','chicken','goat','bear','cat','panda','butterfly','bomb','pizza'];
 const OLD_SMILES = ['smile', 'sad', 'wok', 'angry', 'heart', 'kiss', 'notund', 'Uvula'];
 const SMILE_SET = new Set(SMILES);
-const smileSrc = (k) => (SMILE_SET.has(k) ? `gfx3d/smiles/${k}.png` : `${GFX}smallicon/smiles/${k}.png`);
+const smileSrc = (k) => (SMILE_SET.has(k) ? `gfx3d/smiles/${k}.png?v=2` : `${GFX}smallicon/smiles/${k}.png`);
 // текст сообщения чата; премиум-цвет — только допустимые значения #rrggbb
+// лайк / дизлайк под сообщением чата (за своё — только счётчик)
+const chatVotes = (m) => { const up = (m.up || []).length, dn = (m.dn || []).length, my = (m.up || []).includes(me()) ? 1 : (m.dn || []).includes(me()) ? -1 : 0, own = m.fromId === me();
+  if (own && !up && !dn) return '';
+  return `<span class="cvotes">${own ? `<span class="cvote on">👍 ${up}</span><span class="cvote on dn">👎 ${dn}</span>` : `<button class="cvote ${my > 0 ? 'on' : ''}" data-cvote="1" data-mid="${m.id}">👍 ${up || ''}</button><button class="cvote dn ${my < 0 ? 'on' : ''}" data-cvote="-1" data-mid="${m.id}">👎 ${dn || ''}</button>`}</span>`; };
 const chatText = (m) => (/^#[0-9a-f]{6}$/i.test(m.color || '') ? `<span class="ccol" style="color:${m.color}">${smiles(esc(m.text))}</span>` : smiles(esc(m.text)));
 const smiles = (html) => html.replace(/:([A-Za-z]{2,12}):/g, (m, k) => (SMILE_SET.has(k) || OLD_SMILES.includes(k) ? `<img class="csm" src="${smileSrc(k)}" alt="">` : m));
 S.chatUsers = null; S.smileOpen = false;
@@ -164,7 +168,7 @@ function chatWin() {
   return `${ribbon('Главный чат')}
     <div class="chattop"><button class="lbar" data-chatexit><img src="${GFX}chat/exit.png" alt=""> Выход</button><button class="lbar" data-chatusers><img src="${GFX}chat/players.png" alt=""> Игроки (${n})</button></div>
     <div id="chatList" class="chatlist ${S.smileOpen ? 'short' : ''}">${S.chat.filter((m) => !isBlack(m.fromId)).slice(-30).reverse().map((m) => { const hit = m.fromId !== me() && m.text.toLowerCase().includes(my);
-      return `<div class="cm ${hit ? 'hit' : ''} ${m.fromId === me() ? 'mine' : ''} ${m.role === 'smod' ? 'smodmsg' : ''}" data-chatpop="${m.fromId}" data-nick="${esc(m.from)}" data-mid="${m.id}"><small>${new Date(m.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</small> <b>[${esc(m.from)}]</b>${m.role ? ` <img class="admbadge s" src="${GFX}${m.role === 'admin' ? 'admin_badge_s.png' : m.role === 'smod' ? 'chat/smoder.png' : 'chat/moder.png'}" alt="">` : ''}${m.rep >= 10 ? ` ${repIcons(m.rep)}` : ''} ${chatText(m)}</div>`; }).join('') || '<p class="parch-note">Сообщений пока нет — напишите первым.</p>'}</div>
+      return `<div class="cm ${hit ? 'hit' : ''} ${m.fromId === me() ? 'mine' : ''} ${m.role === 'smod' ? 'smodmsg' : ''}" data-chatpop="${m.fromId}" data-nick="${esc(m.from)}" data-mid="${m.id}"><small>${new Date(m.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</small> <b>[${esc(m.from)}]</b>${m.role ? ` <img class="admbadge s" src="${GFX}${m.role === 'admin' ? 'admin_badge_s.png' : m.role === 'smod' ? 'chat/smoder.png' : 'chat/moder.png'}" alt="">` : ''}${m.rep >= 10 ? ` ${repIcons(m.rep)}` : ''} ${chatText(m)}${chatVotes(m)}</div>`; }).join('') || '<p class="parch-note">Сообщений пока нет — напишите первым.</p>'}</div>
     ${S.smileOpen ? `<div class="smilebox">${SMILES.map((k) => `<button data-smile="${k}"><img src="${smileSrc(k)}" alt=""></button>`).join('')}</div>` : ''}
     ${S.chatPop ? `<div class="cpop-bg" data-cpopclose><div class="cpop"><button class="cpop-x" data-cpopclose aria-label="Закрыть">✕</button><div class="cpop-nick">${esc(S.chatPop.nick)}</div>
       <div class="cpop-grid"><button class="ptile" data-cpop="reply"><img src="${GFX}chat/reply.png" alt=""><span>Обратиться</span></button>
@@ -188,6 +192,7 @@ function chatUsersWin() {
   return `${ribbon(`Игроки в игре (${l.length})`)}${l.map((u) => `<button class="rrow" data-cprof="${u.id}"><span class="rn"><b>${esc(u.login)} ${repIcons(u.rep)}</b></span></button>`).join('')}`;
 }
 $('#sheetBody').addEventListener('click', (e) => {
+  const cv = e.target.closest('[data-cvote]'); if (cv) { e.stopPropagation(); return send({ t: 'chatvote', id: Number(cv.dataset.mid), v: Number(cv.dataset.cvote) }); }
   const t = e.target.closest('[data-cban],[data-cpop],[data-cpopclose],[data-chatpop],[data-chatexit],[data-chatusers],[data-smile],[data-smiletoggle]'); if (!t) return;
   const d = t.dataset, inp = $('.chatbar input');
   if (d.cban !== undefined) { const pp = S.chatPop; S.chatPop = null; send({ t: 'chatmod', op: 'ban', login: pp.nick, hours: Number(d.cban) }); return refreshSheet(); }
@@ -474,6 +479,7 @@ const settingsWin = () => `${ribbon('Настройки')}<div class="pstats">И
 const prevMilMsg = milMsg;
 milMsg = function (m) { // eslint-disable-line no-global-assign
   if (m.t === 'profile') return; // обрабатывается в app.js
+  if (m.t === 'chatvote') { const x = S.chat.find((q) => q.id === m.id); if (x) { x.up = m.up; x.dn = m.dn; chatListUpdate(); } return; }
   if (m.t === 'chatdel') { S.chat = S.chat.filter((x) => x.id !== m.id); chatLine(); chatListUpdate(); return; }
   if (m.t === 'chatusers') { S.chatUsers = m.list; const b = $('[data-chatusers]'); if (b) b.innerHTML = `<img src="${GFX}chat/players.png" alt=""> Игроки (${m.list.length})`; return refreshSheet(); }
   if (m.t === 'chatlog') { S.chat = m.list; chatLine(); refreshSheet(); const l = $('#chatList'); if (l) l.scrollTop = l.scrollHeight; return; }

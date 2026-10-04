@@ -900,6 +900,15 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.ok(g.newsPicSweep(Date.now() + 91 * 86400000) >= 1 && !fs.existsSync(g.newsPicFile(r.id)) && g.newsGet(pl, n.id).pics.length === 0, 'через 3 месяца — удалён и из новости');
     console.log('✓ Скриншоты к новостям: PNG пересобран сервером, чужие id отброшены, живут 3 месяца');
   }
+  { // лайк / дизлайк в чате: один голос, повтор — снять, смена — переносит; за своё нельзя
+    const a = g.register({ login: 'cvA1x', password: '12345', race: 0 }).user, b = g.register({ login: 'cvB1x', password: '12345', race: 0 }).user;
+    const id = g.chatPost(a, 'Привет всем').msg.id;
+    assert.ok(g.chatVote(a, id, 1).error, 'за своё нельзя');
+    let r = g.chatVote(b, id, 1); assert.deepEqual([r.up, r.dn], [[b.id], []]);
+    r = g.chatVote(b, id, -1); assert.deepEqual([r.up, r.dn], [[], [b.id]], 'смена голоса');
+    r = g.chatVote(b, id, -1); assert.deepEqual([r.up, r.dn], [[], []], 'повтор — снять');
+    console.log('✓ Чат: лайк и дизлайк');
+  }
   try { fs.unlinkSync(DB); } catch {}
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });
