@@ -1108,7 +1108,7 @@ function drawCellBuilding(view, cell, b, lvl, p, k = 1, sel = false) {
 }
 // уровни зданий (кнопка со стрелкой вверху): значки рисуются поверх всех зданий
 const LVLQ = [];
-S.showLvl = (() => { try { return localStorage.getItem('showLvl') !== '0'; } catch { return true; } })(); // по умолчанию — показаны (и в замке, и на землях)
+S.showLvl = (() => { try { return localStorage.getItem('showLvl') === '1'; } catch { return false; } })(); // по умолчанию — скрыты (и в замке, и на землях); включаются в Настройках
 function lvlFlush() {
   const m = ictx.getTransform(), k = (window.devicePixelRatio || 1) / (Math.hypot(m.a, m.b) || 1); // одинаковый размер на экране при любом масштабе
   for (const [x, y, n] of LVLQ) {
