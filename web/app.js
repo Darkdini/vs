@@ -837,7 +837,7 @@ const HD = { 'build/castle.png': ['build/hd/castle.png', 8], 'build/spycentr.png
   'ground/grassC.png': ['ground/hd/grassC.png', 8], 'ground/grass1C.png': ['ground/hd/grass1C.png', 8],
   // здания замка — новая перерисовка (лист по образцу старых): хранятся в 6 раз крупнее, рисуются в прежнем размере
   // масштаб у каждого свой: основание здания — по ширине травяного участка (центр основания — по центру), но не выше 46 и не шире 40 точек (не залезают на соседние участки)
-  ...Object.fromEntries(Object.entries({ arhcamp: 4.05, art_tower: 3.496, baraks: 5.25, castle: 3.404, commerce: 5.1, diplomat: 4.436, expedition: 4.564, guard_tower: 3.365, magtower: 3.078, market: 4.757, mbases: 4.307, smith: 4.2, stables: 4.971, storage: 4.436, traveler: 4.436, university: 4.114, wisdom_house: 4.993, workshop: 5.079 }).map(([n, k]) => [`build/${n}.png`, [`build/hd2/${n}.png`, k]])) };
+  ...Object.fromEntries(Object.entries({ arhcamp: [4.05, 189], art_tower: [3.496, 149], baraks: [5.25, 245], castle: [3.404, 154], commerce: [5.1, 238], diplomat: [4.436, 207], expedition: [4.564, 213], guard_tower: [3.365, 121], magtower: [3.078, 102], market: [4.757, 222], mbases: [4.307, 201], smith: [4.2, 196], stables: [4.971, 232], storage: [4.436, 207], traveler: [4.436, 207], university: [4.114, 192], wisdom_house: [4.993, 233], workshop: [5.079, 237] }).map(([n, [k, fw]]) => [`build/${n}.png`, [`build/hd2/${n}.png`, k, fw]])) };
 
 // в замке трава своя (HD): снаружи стены — светлая (grass1C), внутри — с цветами (grassC); на Землях и в Мире — прежняя
 const CASTLE_GRASS = { 'ground/grass.png': 'ground/grass1C.png', 'ground/grass1.png': 'ground/grass1C.png' };
@@ -849,6 +849,7 @@ function pic(path) {
     const hd = HD[path];
     e.im.onload = () => {
       if (hd) { const w = e.im.naturalWidth / hd[1], h = e.im.naturalHeight / hd[1]; Object.defineProperty(e.im, 'width', { value: w }); Object.defineProperty(e.im, 'height', { value: h }); e.im.hd = true; }
+      if (hd && hd[2]) e.im.base = hd[2] / hd[1]; // ширина основания здания — чтобы ставить его по центру клетки
       e.ok = true; PIC_LOADED++; isoDraw();
     };
     e.im.src = GFX + (hd ? hd[0] : path); IMGS.set(path, e);
@@ -1104,7 +1105,7 @@ function drawCellBuilding(view, cell, b, lvl, p, k = 1, sel = false) {
       const im = pic(path); if (im) { const kk = TW * (path.includes('/lands/') ? 0.78 : 0.62) / im.width, w = im.width * kk, h = im.height * kk; // новые картинки — со своим круглым участком; старые — поменьше клетки
         top = p.sy + TH / 2 + w / 4 - h; if (S.showLvl && view === 1 && b >= 0 && lvl > 0 && !(q && q.level === 1)) landLvlRing(p, lvl); drawPic(im, p.sx + TW / 2 - w / 2, top, w, h);
         if (S.showLvl && view === 1 && b >= 0 && lvl > 0) LANDLV.push([p.sx + TW / 2, p.sy + TH / 2 + TH * 0.3, lvl]); } }
-    else { const im = pic(path); if (im) { const w = im.width * k, h = im.height * k; top = p.sy + TH / 2 + TH * PLOT / 2 - h + 2; drawPic(im, p.sx + TW / 2 - w / 2, top, w, h); } }
+    else { const im = pic(path); if (im) { const w = im.width * k, h = im.height * k; top = im.base ? p.sy + TH / 2 + im.base * k / 4 - h : p.sy + TH / 2 + TH * PLOT / 2 - h + 2; drawPic(im, p.sx + TW / 2 - w / 2, top, w, h); } } // новые здания: центр основания (ромб шириной base) — в центре клетки
     if (sel) ictx.restore();
   }
   if (q) { const f = (now() - q.start) / (q.end - q.start); LANDBARS.push([p.sx + TW / 2, p.sy + TH / 2, f, TW * (view === 1 ? 0.6 : 0.42)]); } // в центре своей клетки — клетки не пересекаются, полосы тоже // полоса над зданием — поверх всех зданий (landBarsFlush)
