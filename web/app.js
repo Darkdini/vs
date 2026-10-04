@@ -1088,7 +1088,7 @@ function fenceFront() {
 }
 // фон вокруг королевства: одна цельная картинка (местность с лесом, рекой, скалами) под замком; камера не выходит за картинку.
 // Оживление (кадры воды, мельница, колесо) — если у картинки заданы water / mill / wheel.
-const CASTLE_BG = { src: 'ground/bg/castle.jpg?v=18', // ?v — новая версия картинки сразу, без старого кэша телефона
+const CASTLE_BG = { src: 'ground/bg/castle.jpg?v=19', // ?v — новая версия картинки сразу, без старого кэша телефона
   // картинка без стен (стена — наш Забор): края луга совпадают со стеной, тропинки подходят к серединам сторон; река, мельница, рудник, водопад
   moat: false, iw: 1595, ih: 844, pad: 0,
   x: 527 - 670.80, y: 16 - 401.58, w: 1329.65, h: 704.15, // центр сетки замка (527, 16)
@@ -1101,8 +1101,9 @@ function castleBackdrop() {
   const t = flowOn() ? Date.now() / 1000 : 0;
   x.save(); x.translate(G.x, G.y); x.scale(G.w / G.iw, G.h / G.ih); x.translate(0, G.pad); // дальше — в точках исходной картинки
   if (!G.water) { x.restore(); x.imageSmoothingEnabled = sm; return im; } // у новой картинки — без наложенной анимации воды и мельниц
-  const wf = pic(`ground/bg/water_${flowOn() ? Math.floor(Date.now() / FLOW_MS) % G.water.n : 0}.webp`);
-  if (!castleBackdrop.pre) { castleBackdrop.pre = true; for (let k = 0; k < G.water.n; k++) pic(`ground/bg/water_${k}.webp`); }
+  const wv = (G.src.split('?')[1] || ''), wfn = (k) => `ground/bg/water_${k}.webp${wv ? `?${wv}` : ''}`; // кадры воды — той же версии, что и картинка (иначе телефон берёт старые из кэша)
+  const wf = pic(wfn(flowOn() ? Math.floor(Date.now() / FLOW_MS) % G.water.n : 0));
+  if (!castleBackdrop.pre) { castleBackdrop.pre = true; for (let k = 0; k < G.water.n; k++) pic(wfn(k)); }
   if (wf) x.drawImage(wf, G.water.x, G.water.y);
   if (!G.wheel) { x.restore(); x.imageSmoothingEnabled = sm; return im; } // мельница и колесо — только если заданы
   { // водяное колесо: содержимое эллипса поворачивается вокруг оси
