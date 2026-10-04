@@ -21,6 +21,8 @@ const BUILD_IMG = ['castle', 'storage', 'mbases', 'baraks', 'market', 'farm_smal
   'guard_tower', null, 'workshop', 'traveler', 'temple', 'secret', 'sawmill_avg', 'stone_avg', 'iron_avg', 'farm_avg', 'house_avg',
   'sawmill_big', 'stone_big', 'iron_big', 'farm_big', 'house_big', 'chip', 'portal', 'magscool', 'builder', 'beer', 'gendel',
   'alchimia', 'reasury', 'spycentr', 'resident'];
+// здания земель — своя картинка на каждый из 5 уровней (номера 100–129: Огород, Хибара, Дровосек, Каменьщик, Рудник, Рыболовная заводь)
+['farm', 'house', 'wood', 'stone', 'iron', 'fish'].forEach((k, i) => { for (let l = 1; l <= 5; l++) BUILD_IMG[100 + i * 5 + l - 1] = `lands/${k}${l}`; });
 const UNIT_IMG = {
   200: 'human/hd/swordman', 201: 'human/hd/javelineer', 202: 'human/hd/scout', 203: 'human/hd/mage', 204: 'human/hd/knight', 205: 'human/hd/paladin', 206: 'human/jin', 259: 'human/hd/nuruh', 260: 'human/hd/colossus', 261: 'human/hd/cuirassier',
   207: 'elf/hd/archer', 208: 'elf/hd/fighter', 209: 'elf/hd/scout', 210: 'elf/hd/create', 211: 'elf/hd/kenaur', 212: 'elf/hd/edinorog', 213: 'elf/hd/ent', 257: 'elf/hd/chimera', 258: 'elf/hd/beast',
@@ -482,7 +484,7 @@ const SUBPAGES = {
   book() {
     const group = (layer, title) => `<div class="section">${title}</div><div class="list">${S.cat.buildings.filter((b) => b.layer === layer).map((b) => {
       const lvl = buildingLevel(b.id), req = Object.entries(b.req).map(([id, l]) => `${S.by[id].name} ${l}`).join(', ');
-      return `<button class="row" data-book="${b.id}"><span class="ic">${bimg(b.id)}</span><div class="grow"><b>${esc(b.name)}</b>
+      return `<button class="row" data-book="${b.id}"><span class="ic">${bimg(displayId(b, 1))}</span><div class="grow"><b>${esc(b.name)}</b>
         <span>до ${b.max} ур. · ★ ${fr(ratingPer(b))} за уровень${req ? ` · нужно: ${esc(req)}` : ''}${lvl ? ` · у вас ${lvl} ур.` : ''}</span></div>›</button>`;
     }).join('')}</div>`;
     return `<div class="vhead"><button class="iconbtn" data-back>‹</button><h2>Справочник зданий</h2></div>
@@ -646,7 +648,7 @@ function buildingSheet(def, lvl, ctx) {
   const th = S.st.castle.townhall, w = ratingPer(def);
   const q = ctx && queueAt(ctx.view, ctx.cell);
   const cur = currentLine(def, lvl);
-  let h = bwinHead(def, lvl, `<b>${esc(def.name)}</b><div>${lvl ? `${lvl} уровень` : 'не построено'}</div><div>Рейтинг ★ : ${fr(lvl * w)}</div>`) +
+  let h = bwinHead(def, lvl, `<b>${esc(def.name)}</b><div>${lvl ? `${lvl} уровень` : 'не построено'}</div><div>Рейтинг ★ : ${fr(landEff(def, lvl) * w)}</div>`) +
     `${lvl ? `<div class="bwline center">Текущая прочность здания: ${fmtFull(def.hp * landEff(def, lvl))}</div>` : ''}
     <div class="bwline">${esc(def.desc)}</div>${cur ? `<hr class="cwhr"><div class="bwline">${cur}</div>` : ''}`;
   if (q) {
@@ -709,7 +711,7 @@ function emptySheet(view, cell) {
   const th = S.st.castle.townhall;
   return `<div class="sh-head"><div class="big">${view === VIEW.LANDS ? gimg(landGroundImg(cell)) : gimg('ground/stone.png')}</div><div><h3>${esc(title)}</h3><div class="muted small">${esc(sub)}</div></div></div>
     ${!items.length ? '<p class="muted">Здесь нечего строить.</p>' : `<div class="list">${items.map(({ def, blk }) => `
-      <button class="row ${blk.length ? 'locked' : ''}" data-pick="${view},${cell},${def.id}"><span class="ic">${bimg(def.id)}</span>
+      <button class="row ${blk.length ? 'locked' : ''}" data-pick="${view},${cell},${def.id}"><span class="ic">${bimg(displayId(def, 1))}</span>
       <div class="grow"><b>${esc(def.name)}</b>${costChips(def.costs[1]).replace('class="chips"', 'class="chips small"')}
       <span>${TIME_IC} ${fmtT(buildSec(def, 1, th))} · ★ +${fr(ratingPer(def))} · ${esc(effect(def, 1).text)}</span>
       ${blk.length ? `<span class="bad">${esc(blk[0])}</span>` : ''}</div>›</button>`).join('')}</div>`}`;
@@ -1064,7 +1066,7 @@ function drawCellBuilding(view, cell, b, lvl, p, k = 1, sel = false) {
     if (sel) { ictx.save(); ictx.filter = 'brightness(1.25) drop-shadow(0 0 3px #ffd84a) drop-shadow(0 0 2px #ffd84a)'; }
     if (k === 1) { sprite(path, p.sx, p.sy); const im = pic(path); if (im) top = p.sy - (im.height - TH); }
     else if (k === 'fit') { // земли: постройка на всю клетку, основание (ромб шириной в картинку) — по центру клетки
-      const im = pic(path); if (im) { const kk = TW * 0.74 / im.width, w = im.width * kk, h = im.height * kk; // поменьше клетки — между зданиями видно участки
+      const im = pic(path); if (im) { const kk = TW * (path.includes('/lands/') ? 0.98 : 0.74) / im.width, w = im.width * kk, h = im.height * kk; // новые картинки — со своим круглым участком; старые — поменьше клетки
         top = p.sy + TH / 2 + w / 4 - h; drawPic(im, p.sx + TW / 2 - w / 2, top, w, h); } }
     else { const im = pic(path); if (im) { const w = im.width * k, h = im.height * k; top = p.sy + TH / 2 + TH * PLOT / 2 - h + 2; drawPic(im, p.sx + TW / 2 - w / 2, top, w, h); } }
     if (sel) ictx.restore();
