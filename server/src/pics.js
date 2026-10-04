@@ -1,5 +1,5 @@
 'use strict';
-// Фото в личных сообщениях — живут 3 часа, потом удаляются (в базе не хранятся, только в памяти сервера).
+// Фото в личных сообщениях — живут 3 часа, потом удаляются. Хранятся файлом data/pics/<id>.png (переживают перезапуск сервера).
 // Безопасно, как аватары: файл игрока на сервер НЕ попадает. Браузер сам уменьшает картинку (до 960 точек по стороне)
 // и присылает только сжатые цвета точек (RGB, deflate) частями по ~150 КБ. Сервер распаковывает с жёстким
 // ограничением размера, проверяет, что точек ровно ширина×высота, и сам собирает новый PNG — чужих байтов в нём нет.
@@ -12,16 +12,28 @@ const { encodePng } = require('./avatar');
 const LIFE_MS = 3 * 3600000, MAX_SIDE = 960, MAX_PART = 160 * 1024, MAX_PARTS = 14, MAX_TOTAL_MB = 250;
 const PER_DAY = 40, GAP_MS = 15000;
 const PICS = new Map(); // id → { png, from, to, exp }
-let used = 0;
+let used = 0, loaded = false;
+const fs = require('fs'), path = require('path');
+const picDir = (g) => path.join(path.dirname(path.resolve(g.store.file)), 'pics');
+const picFile = (g, id) => (/^[0-9a-f]{32}$/.test(String(id)) ? path.join(picDir(g), `${id}.png`) : null);
+// после перезапуска: фото живых сообщений — снова в память из файлов
+const load = (g, now = Date.now()) => {
+  if (loaded) return; loaded = true;
+  for (const m of g.db.messages || []) if (m.pic && m.picExp > now && !PICS.has(m.pic)) {
+    try { const png = fs.readFileSync(picFile(g, m.pic)); PICS.set(m.pic, { png, from: m.from, to: m.to, exp: m.picExp }); used += png.length; } catch { /* файла нет — sweep отметит */ }
+  }
+  try { for (const f of fs.readdirSync(picDir(g))) if (!PICS.has(f.slice(0, 32))) fs.unlinkSync(path.join(picDir(g), f)); } catch { /* папки ещё нет */ } // лишние и просроченные файлы
+};
 
 const sweep = (g, now = Date.now()) => {
-  for (const [id, p] of PICS) if (p.exp <= now) { used -= p.png.length; PICS.delete(id); }
+  load(g, now);
+  for (const [id, p] of PICS) if (p.exp <= now) { used -= p.png.length; PICS.delete(id); try { fs.unlinkSync(picFile(g, id)); } catch { /* уже нет */ } }
   for (const m of g.db.messages || []) if (m.pic && !PICS.has(m.pic)) { delete m.pic; m.picGone = true; }
 };
 
 function install(Game) {
   const P = Game.prototype;
-  P.picGet = (id) => { const p = PICS.get(String(id)); return p && p.exp > Date.now() ? p : null; };
+  P.picGet = function picGet(id) { load(this); const p = PICS.get(String(id)); return p && p.exp > Date.now() ? p : null; };
   P.picSweep = function picSweep(now) { sweep(this, now); };
   // начало загрузки: проверки до приёма данных
   P.picBegin = function picBegin(user, toLogin, w, h, n) {
@@ -54,9 +66,10 @@ function install(Game) {
     const png = encodePng(rgba, up.w, up.h);
     const id = crypto.randomBytes(16).toString('hex'), now = Date.now();
     PICS.set(id, { png, from: user.id, to: up.to, exp: now + LIFE_MS }); used += png.length;
+    try { fs.mkdirSync(picDir(this), { recursive: true }); fs.writeFileSync(picFile(this, id), png); } catch (e) { console.error('фото на диск:', e.message); }
     user.picLog = [...(user.picLog || []), now];
     const r = this.sendMail(user, up.toLogin, 'Фото', '[фото]');
-    if (r.error) { PICS.delete(id); used -= png.length; return r; }
+    if (r.error) { PICS.delete(id); used -= png.length; try { fs.unlinkSync(picFile(this, id)); } catch { /* нет */ } return r; }
     r.message.pic = id; r.message.picExp = now + LIFE_MS; this.store.save();
     return { ok: true, to: r.to };
   };

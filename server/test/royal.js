@@ -839,6 +839,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const m = g.db.messages.filter((x) => x.from === a1.id && x.to === a2.id).pop(), p = g.picGet(m.pic);
   assert.ok(p && p.png.slice(1, 4).toString() === 'PNG' && !p.png.includes(Buffer.from('<?php')), 'новый PNG');
   assert.ok(g.picBegin(a1, 'picTo', w, h, 1).error, 'не чаще раза в 15 секунд');
+  g.store.flush(); { const g2 = new Game(new Store(DB)), m2 = g2.db.messages.find((x) => x.id === m.id); assert.ok(m2.pic && g2.picGet(m2.pic) && g2.picGet(m2.pic).png.length === p.png.length, 'после перезапуска сервера фото на месте'); }
   g.picSweep(Date.now() + 2 * 3600000); assert.ok(m.pic && g.picGet(m.pic), 'через 2 часа — ещё видно'); const pid = m.pic;
   g.picSweep(Date.now() + 3 * 3600000 + 60000); assert.ok(!m.pic && m.picGone && !g.picGet(pid), 'через 3 часа — удалено');
   { // «Мне нравится!» у аватарки: один голос, не за себя, список, сброс при новой аватарке
