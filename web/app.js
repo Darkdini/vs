@@ -443,7 +443,12 @@ const MAPWRAP = '<div class="mapwrap"><div class="infobox hidden"></div></div>';
 const TABS = {
   castle: () => `<div class="mapview">${MAPWRAP}</div>`,
   lands: () => `<div class="mapview">${MAPWRAP}</div>`,
-  world: () => `<div class="mapview">${MAPWRAP}<form class="wsearch" data-wsearch><span>X</span><input name="x" type="number" inputmode="numeric" value="${S.world ? S.world.cx : ''}"><span>Y</span><input name="y" type="number" inputmode="numeric" value="${S.world ? S.world.cy : ''}"><button class="pbtn small">Найти</button><button type="button" class="pbtn small" data-whome>Домой</button></form><div id="wprov" class="wprov"></div></div>`,
+  world: () => `<div class="mapview">${MAPWRAP}<button type="button" class="wtool" data-wpanel aria-label="Поиск на карте">🔍</button>
+    <div class="wpanel${S.wPanel ? ' open' : ''}"><div class="wp-head">Переход по карте<button type="button" class="wp-x" data-wpanel aria-label="Закрыть">✕</button></div>
+      <form class="wsearch" data-wsearch><span>X</span><input name="x" type="number" inputmode="numeric" value="${S.world ? S.world.cx : ''}"><span>Y</span><input name="y" type="number" inputmode="numeric" value="${S.world ? S.world.cy : ''}"><button class="pbtn small">Найти</button></form>
+      <form class="wsearch" data-wprovgo><span>Провинция №</span><input name="n" type="number" inputmode="numeric" min="1" placeholder="${S.st && S.st.castle ? provNum(S.st.castle.x, S.st.castle.y) : ''}"><button class="pbtn small">Перейти</button></form>
+      <div class="wp-row"><button type="button" class="pbtn small" data-whome>⌂ Домой</button><button type="button" class="pbtn small" data-wzoom>Провинции</button></div></div>
+    <div id="wprov" class="wprov"></div></div>`,
 };
 
 function summaryHtml(view) {
@@ -756,9 +761,21 @@ $('#view').addEventListener('submit', (e) => {
   const f = e.target.closest('[data-wsearch]'); if (!f) return; e.preventDefault(); document.activeElement && document.activeElement.blur();
   const x = Math.round(Number(f.x.value)), y = Math.round(Number(f.y.value));
   if (!Number.isFinite(x) || !Number.isFinite(y)) return toast('Введите X и Y.', 'err');
-  S.wJump = true; send({ t: 'world', cx: x, cy: y });
+  S.wJump = true; S.wPanel = false; send({ t: 'world', cx: x, cy: y });
 });
-$('#view').addEventListener('click', (e) => { if (e.target.closest('[data-whome]')) { S.wJump = true; send({ t: 'world', cx: S.st.castle.x, cy: S.st.castle.y }); } });
+$('#view').addEventListener('click', (e) => {
+  if (e.target.closest('[data-whome]')) { S.wJump = true; S.wPanel = false; send({ t: 'world', cx: S.st.castle.x, cy: S.st.castle.y }); }
+  if (e.target.closest('[data-wpanel]')) { S.wPanel = !S.wPanel; const p = $('.wpanel'); if (p) p.classList.toggle('open', S.wPanel); }
+  if (e.target.closest('[data-wzoom]')) { const c = cam(); isoZoom(0.1 / c.z); } // отдалить до секций
+});
+// переход к провинции по номеру: в её середину
+$('#view').addEventListener('submit', (e) => {
+  const f = e.target.closest('[data-wprovgo]'); if (!f) return; e.preventDefault(); document.activeElement && document.activeElement.blur();
+  const N = (S.cat.rules && S.cat.rules.provN) || 50, n = Math.round(Number(f.n.value));
+  if (!(n >= 1 && n <= N * N)) return toast(`Номер провинции — от 1 до ${N * N}.`, 'err');
+  const P = PROV(), px = (n - 1) % N, py = Math.floor((n - 1) / N);
+  S.wJump = true; S.wPanel = false; send({ t: 'world', cx: px * P + Math.floor(P / 2), cy: py * P + Math.floor(P / 2) });
+});
 $('#view').addEventListener('click', (e) => { const b = e.target.closest('.infobox'); if (b && Iso.sel && S.world) openWorldCell(S.world.cx - S.world.radius + Iso.sel.x, S.world.cy - S.world.radius + Iso.sel.y); });
 
 function openWorldCell(x, y) {
@@ -906,10 +923,12 @@ function clampCam(c) {
   c.x = r.width / 2 - mx * c.z; c.y = r.height / 2 - my * c.z;
   return c;
 }
+// карту мира можно отдалить сильнее: тогда видны только провинции-секции с номерами (PROV_ZOOM)
+const PROV_ZOOM = 0.2, zMin = () => (S.tab === 'world' ? 0.05 : 0.3), provMode = (c) => S.tab === 'world' && c.z < PROV_ZOOM;
 function isoZoom(k, mx, my) {
   const c = cam(), r = Iso.cv.getBoundingClientRect();
   if (mx === undefined) { mx = r.width / 2; my = r.height / 2; }
-  const z = Math.max(0.3, Math.min(3, c.z * k));
+  const z = Math.max(zMin(), Math.min(3, c.z * k));
   c.x = mx - (mx - c.x) * (z / c.z); c.y = my - (my - c.y) * (z / c.z); c.z = z; Iso.zt = Date.now();
   clampCam(c); isoDraw();
 }
@@ -937,7 +956,7 @@ function isoZoom(k, mx, my) {
       if (g.moved) { c.x = g.cx + dx; c.y = g.cy + dy; clampCam(c); isoDraw(); }
     } else if (g.mode === 'pinch' && P.size >= 2) {
       const [a, b] = [...P.values()], m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-      c.z = Math.max(0.3, Math.min(3, g.z0 * Math.hypot(a.x - b.x, a.y - b.y) / g.d0)); Iso.zt = Date.now();
+      c.z = Math.max(zMin(), Math.min(3, g.z0 * Math.hypot(a.x - b.x, a.y - b.y) / g.d0)); Iso.zt = Date.now();
       c.x = m.x - g.wx * c.z; c.y = m.y - g.wy * c.z;
       clampCam(c); isoDraw();
     }
@@ -968,6 +987,7 @@ function isoTap(px, py) {
     if (t2.x < 0 || t2.x >= LN() || t2.y < 0 || t2.y >= LN()) return;
     Iso.sel = { tab: 'lands', x: t2.x, y: t2.y }; isoDraw();
     openCell(VIEW.LANDS, t2.y * LN() + t2.x);
+  } else if (S.tab === 'world' && S.world && provMode(c)) { isoZoom(0.5 / c.z, px, py); // секции: нажатие — приблизить эту провинцию
   } else if (S.tab === 'world' && S.world) {
     const R0 = S.world.radius, n = 2 * R0 + 1, w = S.world;
     // стрелки за краем карты: сдвиг мира (вверх — y−, вправо — x+, вниз — y+, влево — x−)
@@ -1172,7 +1192,7 @@ function worldView(on) {
 function worldBg(w, c, dpr) {
   const im = pic('ground/world_bg.jpg?v=3'); if (!im) return;
   const vw = Iso.cv.width / dpr / c.z, vh = Iso.cv.height / dpr / c.z, vx = -c.x / c.z, vy = -c.y / c.z, zooming = Date.now() - (Iso.zt || 0) < 300;
-  const key = `${w.cx}:${w.cy}`, want = Math.min(2, Math.ceil(c.z * dpr * 4) / 4);
+  const pm = provMode(c), key = `${w.cx}:${w.cy}:${pm ? Math.round(Math.log2(c.z) * 3) : 'n'}`, want = Math.min(2, Math.ceil(c.z * dpr * 4) / 4);
   const out = vx < WV.bx || vy < WV.by || vx + vw > WV.bx + WV.bw || vy + vh > WV.by + WV.bh;
   if (!out && WV.bkey === key && (WV.bs >= want || zooming)) { if (WV.bs < want) setTimeout(isoDraw, 320); return; }
   const M = 0.4 * Math.max(vw, vh), bw = vw + 2 * M, bh = vh + 2 * M, sc = Math.min(want, Math.sqrt(5e6 / (bw * bh)));
@@ -1183,7 +1203,7 @@ function worldBg(w, c, dpr) {
   g.setTransform(sc, 0, 0, sc, 0, 0); g.imageSmoothingEnabled = true; g.fillStyle = pat; g.fillRect(0, 0, bw, bh);
   { // границы провинций — на фоне: он всегда покрывает экран с запасом, линии видны до края экрана, а не только на загруженном участке
     const f = screenToTileF(bx + bw / 2, by + bh / 2), span = Math.ceil(bw / TW + bh / TH) + 2;
-    g.save(); g.translate(-bx, -by); provBorders(g, w, Math.round(f.x) - span, Math.round(f.x) + span, Math.round(f.y) - span, Math.round(f.y) + span); g.restore();
+    g.save(); g.translate(-bx, -by); provBorders(g, w, Math.round(f.x) - span, Math.round(f.x) + span, Math.round(f.y) - span, Math.round(f.y) + span, pm ? c.z : 0); g.restore();
   }
   Object.assign(cv.style, { left: `${bx}px`, top: `${by}px`, width: `${bw}px`, height: `${bh}px` });
   Object.assign(WV, { bx, by, bw, bh, bs: sc, bkey: key });
@@ -1281,18 +1301,31 @@ function worldLayer(w, c, dpr) {
 // как плитки: между соседями — две отдельные линии, на перекрёстках — скруглённые углы, линии не соединяются
 const PROV = () => (S.cat && S.cat.rules && S.cat.rules.prov) || 20;
 const provNum = (x, y) => Math.floor(y / PROV()) * ((S.cat && S.cat.rules && S.cat.rules.provN) || 50) + Math.floor(x / PROV()) + 1;
-function provBorders(g, w, ax, bx, ay, by) { // ax..bx, ay..by — клетки относительно загруженного участка
-  const P = PROV(), X0 = w.cx - w.radius, Y0 = w.cy - w.radius, E = 0.12, RAD = 18;
+function provBorders(g, w, ax, bx, ay, by, pz) { // ax..bx, ay..by — клетки относительно загруженного участка; pz — масштаб в режиме секций
+  const P = PROV(), X0 = w.cx - w.radius, Y0 = w.cy - w.radius, E = pz ? 0.6 : 0.12, k = pz ? 1.1 / pz : 1, RAD = 18 * k;
   const pt = (x, y) => { const p = tileScreen(x - X0, y - Y0); return [p.sx, p.sy + TH / 2]; }; // угол сетки (x, y) — левый угол клетки
-  const boxes = [];
-  for (let py = Math.floor((Y0 + ay) / P); py * P <= Y0 + by; py++) for (let px = Math.floor((X0 + ax) / P); px * P <= X0 + bx; px++) {
-    const x0 = px * P + E, y0 = py * P + E, x1 = (px + 1) * P - E, y1 = (py + 1) * P - E;
-    boxes.push([pt(x0, y0), pt(x1, y0), pt(x1, y1), pt(x0, y1)]);
+  const boxes = [], N = (S.cat && S.cat.rules && S.cat.rules.provN) || 50, home = S.st && S.st.castle ? provNum(S.st.castle.x, S.st.castle.y) : 0;
+  for (let py = Math.max(0, Math.floor((Y0 + ay) / P)); py * P <= Y0 + by && py < N; py++) for (let px = Math.max(0, Math.floor((X0 + ax) / P)); px * P <= X0 + bx && px < N; px++) {
+    const x0 = px * P + E, y0 = py * P + E, x1 = (px + 1) * P - E, y1 = (py + 1) * P - E, b = [pt(x0, y0), pt(x1, y0), pt(x1, y1), pt(x0, y1)];
+    b.n = py * N + px + 1; b.c = pt((px + 0.5) * P, (py + 0.5) * P); boxes.push(b);
   }
   const path = () => { g.beginPath(); for (const b of boxes) { const m = [(b[0][0] + b[3][0]) / 2, (b[0][1] + b[3][1]) / 2]; g.moveTo(m[0], m[1]); for (let k = 0; k < 4; k++) g.arcTo(b[k][0], b[k][1], b[(k + 1) % 4][0], b[(k + 1) % 4][1], RAD); g.closePath(); } };
   g.save(); g.lineJoin = 'round';
-  path(); g.lineWidth = 4; g.strokeStyle = 'rgba(40, 80, 10, 0.22)'; g.stroke(); // мягкая тень рамки
-  path(); g.lineWidth = 2; g.strokeStyle = 'rgba(240, 250, 225, 0.85)'; g.stroke(); // светлая рамка
+  if (pz) { // секции: плитки чуть светлее травы, своя — золотистая
+    path(); g.fillStyle = 'rgba(255, 255, 230, 0.08)'; g.fill();
+    const hb = boxes.find((b) => b.n === home); if (hb) { g.beginPath(); g.moveTo(...hb[0]); for (let q = 1; q < 4; q++) g.lineTo(...hb[q]); g.closePath(); g.fillStyle = 'rgba(255, 210, 80, 0.35)'; g.fill(); }
+  }
+  path(); g.lineWidth = 4 * k; g.strokeStyle = 'rgba(40, 80, 10, 0.22)'; g.stroke(); // мягкая тень рамки
+  path(); g.lineWidth = 2 * k; g.strokeStyle = 'rgba(240, 250, 225, 0.85)'; g.stroke(); // светлая рамка
+  if (pz) { // номер провинции на табличке
+    const fs = 12 / pz; g.font = `bold ${fs}px Georgia, serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    for (const b of boxes) {
+      const t = `${b.n === home ? '⌂ ' : ''}№${b.n}`, tw = g.measureText(t).width + fs, th = fs * 1.5;
+      g.fillStyle = b.n === home ? 'rgba(120, 70, 10, 0.88)' : 'rgba(58, 28, 12, 0.78)'; g.strokeStyle = '#c8963e'; g.lineWidth = 1.5 / pz;
+      g.beginPath(); g.roundRect ? g.roundRect(b.c[0] - tw / 2, b.c[1] - th / 2, tw, th, th / 3) : g.rect(b.c[0] - tw / 2, b.c[1] - th / 2, tw, th); g.fill(); g.stroke();
+      g.fillStyle = '#f0d080'; g.fillText(t, b.c[0], b.c[1] + fs * 0.05);
+    }
+  }
   g.restore();
 }
 // купол защиты новичка над замком
@@ -1379,14 +1412,15 @@ function isoDrawNow() {
     worldBg(w, c, dpr); // нарисованная местность (бесшовная), привязана к координатам мира
     { // центр экрана ушёл к краю загруженного участка — подгрузить новый (без перерисовки, см. case 'world')
       const f = screenToTileF((Iso.cv.width / dpr / 2 - c.x) / c.z, (Iso.cv.height / dpr / 2 - c.y) / c.z), ex = Math.round(f.x) - R0, ey = Math.round(f.y) - R0;
-      if ((Math.abs(ex) > R0 - 5 || Math.abs(ey) > R0 - 5) && (!S.wPending || Date.now() - S.wPending > 1500)) { S.wPending = Date.now(); send({ t: 'world', cx: w.cx + ex, cy: w.cy + ey }); }
+      if (!provMode(c) && (Math.abs(ex) > R0 - 5 || Math.abs(ey) > R0 - 5) && (!S.wPending || Date.now() - S.wPending > 1500)) { S.wPending = Date.now(); send({ t: 'world', cx: w.cx + ex, cy: w.cy + ey }); }
       const pn = provNum(w.cx + ex, w.cy + ey), pl = $('#wprov'); if (pl && pl.dataset.n !== String(pn)) { pl.dataset.n = pn; pl.textContent = `Провинция №${pn}`; } // в какой провинции центр экрана
     }
     // статичное (поляны, замки, лагеря, купола, выделение) — готовым холстом; каждый кадр рисуется только фон, кольцо и стрелка
-    const L = worldLayer(w, c, dpr);
+    const L = worldLayer(w, c, dpr), pm = provMode(c);
     if (L.cv.parentNode !== WV.inner) WV.inner.appendChild(L.cv);
+    L.cv.style.display = pm ? 'none' : ''; // секции — без замков и лагерей
     WV.inner.style.transform = `translate(${c.x}px, ${c.y}px) scale(${c.z})`;
-    const myRings = w.objects.filter((o) => o.kind === 'castle' && S.st && o.castleId === S.st.castle.id).map((o) => [tileScreen(o.x - (w.cx - R0), o.y - (w.cy - R0)), true, o]);
+    const myRings = pm ? [] : w.objects.filter((o) => o.kind === 'castle' && S.st && o.castleId === S.st.castle.id).map((o) => [tileScreen(o.x - (w.cx - R0), o.y - (w.cy - R0)), true, o]);
     for (const [p, , o] of myRings) { myCastleRing(p, true, -1); worldObj(o, p, false, 0, true); } // задняя половина кольца — под своим замком (замок поверх)
     for (const [p, a] of myRings) myCastleRing(p, a, 1); // передняя половина кольца — поверх замка и соседей
     for (const [p, a] of myRings) if (a) { // текущий замок: прыгающая золотая стрелка над ним и подпись «Вы здесь»
