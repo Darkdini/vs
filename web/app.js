@@ -868,7 +868,7 @@ function screenToTile(px, py) {
   return { x: Math.round((a - b) / 2), y: Math.round((a + b) / 2) };
 }
 // участки замка сдвинуты к центру (KC) и меньше клетки (PLOT): промежутки между ними и отступ от стены
-const KC = 0.8, PLOT = 0.56, BK = 0.6, CC = CASTLE_OFF + 3; // шаг сетки, размер участка, масштаб зданий
+const KC = 0.92, PLOT = 0.56, BK = 0.6, CC = CASTLE_OFF + 3; // шаг сетки, размер участка, масштаб зданий
 // IN_DY: всё внутри стен (участки, здания, дорога) чуть выше — передняя стена закрывает низ, и отступы до стен на глаз равные
 const IN_DY = -12;
 const CASTLE_ORDER = Array.from({ length: 49 }, (_, i) => [i % 7, Math.floor(i / 7)]).sort((p, q) => (p[1] - p[0]) - (q[1] - q[0]) || p[0] - q[0]);
@@ -1469,7 +1469,7 @@ function isoDrawNow() {
     const bg = castleBackdrop();
     if (bg) groundIn((xx, y) => (!onPath(xx - CASTLE_OFF, y - CASTLE_OFF) ? null : `ground/${GROUND[CASTLE_BASE[y][xx]]}.png`)); // с фоном трава в замке — луг с картинки, рисуется только дорога
     else groundField(17, (xx, y) => (xx >= CASTLE_OFF && xx < CASTLE_OFF + 7 && y >= CASTLE_OFF && y < CASTLE_OFF + 7 && !onPath(xx - CASTLE_OFF, y - CASTLE_OFF) ? 'ground/grassC.png' : `ground/${GROUND[CASTLE_BASE[y][xx]]}.png`));
-    for (let y = 0; y < 7; y++) for (let xx = 0; xx < 7; xx++) if (!onPath(xx, y)) { const p = cellAt(xx, y); pathTile(p.sx + TW * (1 - KC) / 2, p.sy + TH * (1 - KC) / 2, KC, 0.27); } // в замке тропинки между участками шире
+    for (let y = 0; y < 7; y++) for (let xx = 0; xx < 7; xx++) if (!onPath(xx, y)) { const p = cellAt(xx, y); pathTile(p.sx + TW * (1 - KC) / 2, p.sy + TH * (1 - KC) / 2, KC, 0.34); } // в замке тропинки между участками шире
     if (!bg || CASTLE_BG.moat) moat();
     const fence = buildingLevel(22) > 0; // Забор построен — вокруг замка наша стена (на фон-картинке стен нет)
     if (fence) fenceBack();
