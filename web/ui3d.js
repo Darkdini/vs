@@ -155,9 +155,8 @@ const SMILE_SET = new Set(SMILES);
 const smileSrc = (k) => (SMILE_SET.has(k) ? `gfx3d/smiles2/${k}.png` : `${GFX}smallicon/smiles/${k}.png`);
 // текст сообщения чата; премиум-цвет — только допустимые значения #rrggbb
 // лайк / дизлайк под сообщением чата (за своё — только счётчик)
-const chatVotes = (m) => { const up = (m.up || []).length, dn = (m.dn || []).length, my = (m.up || []).includes(me()) ? 1 : (m.dn || []).includes(me()) ? -1 : 0, own = m.fromId === me();
-  if (own && !up && !dn) return '';
-  return `<span class="cvotes">${own ? `<span class="cvote on">👍 ${up}</span><span class="cvote on dn">👎 ${dn}</span>` : `<button class="cvote ${my > 0 ? 'on' : ''}" data-cvote="1" data-mid="${m.id}">👍 ${up || ''}</button><button class="cvote dn ${my < 0 ? 'on' : ''}" data-cvote="-1" data-mid="${m.id}">👎 ${dn || ''}</button>`}</span>`; };
+const chatVotes = (m) => { const up = (m.up || []).length, dn = (m.dn || []).length; if (!up && !dn) return ''; // счётчик — только если уже оценили; голос — через нажатие на сообщение
+  return `<span class="cvotes">${up ? `<span class="cvote up">👍 ${up}</span>` : ''}${dn ? `<span class="cvote dn">👎 ${dn}</span>` : ''}</span>`; };
 const chatText = (m) => (/^#[0-9a-f]{6}$/i.test(m.color || '') ? `<span class="ccol" style="color:${m.color}">${smiles(esc(m.text))}</span>` : smiles(esc(m.text)));
 const smiles = (html) => html.replace(/:([A-Za-z]{2,12}):/g, (m, k) => (SMILE_SET.has(k) || OLD_SMILES.includes(k) ? `<img class="csm" src="${smileSrc(k)}" alt="">` : m));
 S.chatUsers = null; S.smileOpen = false;
@@ -175,6 +174,8 @@ function chatWin() {
       <button class="ptile" data-cpop="profile"><img src="${GFX}chat/profile.png" alt=""><span>Профиль</span></button>
       <button class="ptile" data-cpop="report"><img src="${GFX}chat/report.png" alt=""><span>Жалоба</span></button>
       <button class="ptile" data-cpop="private"><img src="${GFX}chat/private.png" alt=""><span>Лично</span></button></div>
+      ${(() => { const cm = S.chat.find((x) => x.id === S.chatPop.mid); if (!cm || cm.fromId === me()) return ''; const my = (cm.up || []).includes(me()) ? 1 : (cm.dn || []).includes(me()) ? -1 : 0;
+        return `<div class="cpop-mod">Оценить сообщение:</div><div class="cpop-votes"><button class="cvbtn ${my > 0 ? 'on' : ''}" data-cvote="1" data-mid="${cm.id}">👍 Нравится${(cm.up || []).length ? ` · ${cm.up.length}` : ''}</button><button class="cvbtn dn ${my < 0 ? 'on' : ''}" data-cvote="-1" data-mid="${cm.id}">👎 Не нравится${(cm.dn || []).length ? ` · ${cm.dn.length}` : ''}</button></div>`; })()}
       ${S.st.user.admin || S.st.user.mod ? `<div class="cpop-mod">Модерация:</div><div class="cpop-grid">
         <button class="ptile" data-cpop="del"><img src="${GFX}chat/delete.png" alt=""><span>Удалить</span></button>
         <button class="ptile" data-cpop="ban"><img src="${GFX}chat/ban.png" alt=""><span>Бан в чате</span></button></div>
@@ -192,7 +193,7 @@ function chatUsersWin() {
   return `${ribbon(`Игроки в игре (${l.length})`)}${l.map((u) => `<button class="rrow" data-cprof="${u.id}"><span class="rn"><b>${esc(u.login)} ${repIcons(u.rep)}</b></span></button>`).join('')}`;
 }
 $('#sheetBody').addEventListener('click', (e) => {
-  const cv = e.target.closest('[data-cvote]'); if (cv) { e.stopPropagation(); return send({ t: 'chatvote', id: Number(cv.dataset.mid), v: Number(cv.dataset.cvote) }); }
+  const cv = e.target.closest('[data-cvote]'); if (cv) { e.stopPropagation(); S.chatPop = null; refreshSheet(); return send({ t: 'chatvote', id: Number(cv.dataset.mid), v: Number(cv.dataset.cvote) }); } // оценил — окно закрывается
   const t = e.target.closest('[data-cban],[data-cpop],[data-cpopclose],[data-chatpop],[data-chatexit],[data-chatusers],[data-smile],[data-smiletoggle]'); if (!t) return;
   const d = t.dataset, inp = $('.chatbar input');
   if (d.cban !== undefined) { const pp = S.chatPop; S.chatPop = null; send({ t: 'chatmod', op: 'ban', login: pp.nick, hours: Number(d.cban) }); return refreshSheet(); }
