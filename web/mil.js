@@ -182,7 +182,8 @@ function marketHtml() {
 // время в пути торговцев до X:Y (как на сервере: расстояние / скорость)
 function mktSec(g) {
   const m = MY().merchants, c = S.st.castle; if (g.x === '' || g.y === '' || !m.speed) return 0;
-  const d = Math.hypot(Number(g.x) - c.x, Number(g.y) - c.y); return d ? Math.max(5, Math.round(d / m.speed * 3600 / S.cat.speed)) : 0;
+  const own = (S.st.castles || []).some((k) => k.x === Number(g.x) && k.y === Number(g.y)) ? 3 : 1; // свои замки — втрое быстрее
+  const d = Math.hypot(Number(g.x) - c.x, Number(g.y) - c.y); return d ? Math.max(5, Math.round(d / (m.speed * own) * 3600 / S.cat.speed)) : 0;
 }
 const mktTime = (g) => { const s = mktSec(g); return s ? `${fmtT(s)} <small>(обратно столько же)</small>` : '—'; };
 function mktGiveWin() {
@@ -194,7 +195,7 @@ function mktGiveWin() {
     <div class="row2 cxy"><label>X<input type="number" inputmode="numeric" data-mkx="x" value="${esc(g.x)}"></label><label>Y<input type="number" inputmode="numeric" data-mkx="y" value="${esc(g.y)}"></label></div>
     <div class="row2">${RES4.map((r) => `<label>${RES_IC[r]}<input type="number" inputmode="numeric" min="0" data-mkr="${r}" value="${g.res[r] || ''}" placeholder="0"></label>`).join('')}</div>
     <div class="cinfo">Понадобится торговцев: <b id="mkNeed" class="${need > m.free ? 'bad' : ''}">${need}</b></div>
-    <div class="cinfo">Доставка: <b id="mkTime">${mktTime(g)}</b> · скорость ${m.speed} полей/час</div>
+    <div class="cinfo">Доставка: <b id="mkTime">${mktTime(g)}</b> · скорость ${m.speed} полей/час, в свои замки — ${m.speed * 3}</div>
     <button class="pbar" data-mkt="send">Отправить</button>`;
 }
 function mktMerchWin() {

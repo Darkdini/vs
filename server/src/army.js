@@ -176,6 +176,7 @@ const UNIT = Object.fromEntries(UNITS.map((u) => [u.id, u]));
 const MERCHANT_ID = 221, MERCHANTS = 20;
 Object.assign(UNIT[MERCHANT_ID], { speed: 60, notrain: true, carry: 45 }); // торговцы втрое быстрее оригинала (было 20 полей/час)
 const GENERAL_ID = 236;
+const OWN_TRADE = 3; // торговцы между своими замками — втрое быстрее (180 полей/час)
 const CAMP_FAST = 3; // набеги и нападения на лагеря разбойников (и логово «Тёмных земель») — втрое быстрее, туда и обратно
 // уникальные воины — только награда заданий и походов (в Кладовой), не тренируются. На 20% сильнее своего прообраза расы
 // (здоровье, атака, магия, защита), скорость, груз, население и содержание — как у прообраза. Картинка — gfx/units/uniq/<key>.png,
@@ -367,7 +368,8 @@ function install(Game, helpers) {
     const need = Math.ceil(total / m.carry);
     if (need > m.free) return { error: `Нужно торговцев: ${need}, свободных: ${m.free} (каждый везёт ${m.carry}).` };
     for (const r of RES4) castle.res[r] -= cargo[r];
-    const units = { [MERCHANT_ID]: need }, sec = Math.max(5, Math.round(Math.hypot(x - castle.x, y - castle.y) / m.speed * 3600 / SPEED)), now = Date.now();
+    const own = target.owner === castle.owner ? OWN_TRADE : 1; // между своими замками — ещё втрое быстрее
+    const units = { [MERCHANT_ID]: need }, sec = Math.max(5, Math.round(Math.hypot(x - castle.x, y - castle.y) / (m.speed * own) * 3600 / SPEED)), now = Date.now();
     const army = { id: this.db.nextId++, units, general: false, mission: 'trade', x, y, depart: now, arrive: now + sec * 1000, sec, state: 'go', loot: null, cargo, squad: null, portal: false };
     castle.armies.push(army); this.addStat(castle.owner, 'trades', 1); this.store.save();
     return { army, sec, need };
