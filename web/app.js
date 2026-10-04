@@ -227,7 +227,7 @@ function onMsg(m) {
       if (typeof gameLoading === 'function') gameLoading(); // заставка, пока грузится графика замка (loading.js)
       $('#auth').classList.add('hidden'); $('#game').classList.remove('hidden');
       break;
-    case 'state': onState(m); if (S.st && S.st.user && S.st.user.admin) loadAdmin(); if (typeof questBtn === 'function') questBtn(); if (typeof bossBtn === 'function') bossBtn(); if (typeof stashBtn === 'function') stashBtn(); if (typeof advBar === 'function') advBar(); break;
+    case 'state': onState(m); if (S.st && S.st.user && S.st.user.admin) loadAdmin(); if (typeof questBtn === 'function') questBtn(); if (typeof bossBtn === 'function') bossBtn(); if (typeof stashBtn === 'function') stashBtn(); if (typeof advBar === 'function') advBar(); if (typeof brankBadge === 'function') brankBadge(); break;
     case 'stash': S.stash = m.list; S.stashCastle = m.castle; refreshSheet(); break;
     case 'quests': S.quests = m.q; refreshSheet(); break;
     case 'qdone': questDone(m); break;
@@ -255,6 +255,7 @@ function onMsg(m) {
     case 'coin': case 'coinres': coinMsg(m); break;
     case 'market': case 'marketdone': marketMsg(m); break;
     case 'privacy': privacyMsg(m); break;
+    case 'brank': brankMsg(m); break;
     case 'zags': case 'zprops': case 'zpairs': case 'zpair': case 'zdone': zagsMsg(m); break;
     case 'news': newsMsg(m); break;
     case 'welcome': welcomeShow(m); break;

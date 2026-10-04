@@ -588,6 +588,7 @@ require('./chests').install(Game);
 require('./coin').install(Game);
 require('./market').install(Game);
 require('./privacy').install(Game);
+require('./battlerank').install(Game);
 require('./quests').install(Game);
 require('./hero').install(Game);
 require('./boss').install(Game);

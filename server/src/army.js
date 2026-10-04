@@ -391,11 +391,12 @@ function install(Game, helpers) {
     const race = this.raceOf(castle);
     const wallPer = { humans: 0.03, elves: 0.035, dwarves: 0.02, orcs: 0.025 }[race] || 0.03;
     const ms = scienceMiles(sci);
+    const br = this.brBonus ? this.brBonus(this.ownerOf(castle)) : { atk: 0, prod: 0 }; // боевой ранг
     return {
-      atk: (1 + SCIENCES.war.per * sci.war) * (1 + 0.01 * L(B.BREWERY)) * (1 + (rel === 'war' ? 0.01 * templeL : 0)) * (1 + art.atk) * (1 + ms.atk),
-      def: (1 + SCIENCES.war.per * sci.war) * (1 + (rel === 'light' ? 0.01 * templeL : 0)) * (1 + art.def) * (1 + GEN.cmd * gen) * (1 + ms.def),
+      atk: (1 + SCIENCES.war.per * sci.war) * (1 + 0.01 * L(B.BREWERY)) * (1 + (rel === 'war' ? 0.01 * templeL : 0)) * (1 + art.atk) * (1 + ms.atk) * (1 + br.atk),
+      def: (1 + SCIENCES.war.per * sci.war) * (1 + (rel === 'light' ? 0.01 * templeL : 0)) * (1 + art.def) * (1 + GEN.cmd * gen) * (1 + ms.def) * (1 + br.atk),
       magic: 1 + 0.02 * L(B.MAGIC_SCHOOL),
-      prod: (1 + SCIENCES.eco.per * sci.eco) * (1 + (rel === 'nature' ? 0.01 * templeL : 0)) * (1 + art.prod) * (1 + ms.prod),
+      prod: (1 + SCIENCES.eco.per * sci.eco) * (1 + (rel === 'nature' ? 0.01 * templeL : 0)) * (1 + art.prod) * (1 + ms.prod) * (1 + br.prod),
       speed: (1 + SCIENCES.fhi.per * sci.fhi) * (1 + art.speed) * (1 + ms.speed),
       train: (1 - 0.02 * L(B.ALCHEMY)) * (1 - art.train) * (1 - ms.train),
       build: (1 - SCIENCES.eng.per * sci.eng) * (1 - ms.build),
@@ -1165,6 +1166,7 @@ function install(Game, helpers) {
     if (loot) this.addStat(c.owner, 'loot', RES4.reduce((q, k) => q + loot[k], 0));
     this.addStat(c.owner, 'kills', target ? popOf(dLost) : (npc ? Math.round(npc.def.inf / 20 * dLoss) : 0));
     if (target) { this.addStat(target.owner, 'defKills', popOf(aLost)); this.addStat(target.owner, 'defLost', popOf(dLost)); this.addStat(c.owner, 'attLost', popOf(aLost)); }
+    if (this.brAdd) { if (target) { this.brAdd(c.owner, popOf(dLost), target.owner); this.brAdd(target.owner, popOf(aLost), c.owner); } else if (npc) this.brAdd(c.owner, Math.round(npc.def.inf / 20 * dLoss), null); } // боевой ранг (battlerank.js)
     if (siegeN) this.addStat(c.owner, 'ruins', siegeN);
     const defUser = target && this.ownerOf(target);
     const tname = target ? `${target.name} (${captured ? captured.prevLogin : defUser.login})` : `${npc.name} ${where}`;
@@ -1710,7 +1712,7 @@ function install(Game, helpers) {
     if (d && d.type === 'battle') return (d.side === 'att' ? d.win : !d.win) ? 'win' : 'lose';
     if (d && d.type === 'scout') return d.ok ? 'win' : 'lose';
     if (d && d.type === 'invite') return 'win'; // приглашение в альянс — зелёное
-    if (r.kind === 'market') return 'win'; // Биржа Замков: замок продан
+    if (r.kind === 'market' || r.kind === 'rank') return 'win'; // Биржа Замков: замок продан
     if (r.kind === 'scout' || /напал|захвачен/.test(r.title)) return 'lose';
     return 'info';
   };

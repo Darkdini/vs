@@ -802,6 +802,20 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(g.adminOp(adm, 'castledel', { login: 'admCast', cid: cap.id }).error, 'единственный — нельзя');
   console.log('✓ Админка: сброс одного замка и удаление замка');
 }
+{ // Боевой ранг: очки за бой, награды за каждый ранг в Кладовую, бонус урона/защиты/прироста, меньше очков за слабых
+  const BR = require('../src/battlerank');
+  const A = g.register({ login: 'brAaa', password: '12345', race: 0 }).user, Bq = g.register({ login: 'brBbb', password: '12345', race: 1 }).user;
+  assert.strictEqual(g.brRank(A), -1, 'без боёв — без ранга');
+  const st0 = JSON.stringify(g.stashOf(A).res);
+  g.brAdd(A.id, 70, Bq.id); assert.strictEqual(g.brRank(A), 1, '70 очков — 2-й ранг');
+  assert.ok(JSON.stringify(g.stashOf(A).res) !== st0 && g.stashOf(A).res.wood > 0, 'награды за ранги — в Кладовую');
+  g.brAdd(A.id, 100, null); assert.strictEqual(A.br.pts, 120, 'лагерь — половина очков');
+  A.br.pts = BR.NEED[30]; g.brAdd(A.id, 1, Bq.id); const before = A.br.pts; g.brAdd(A.id, 1000, Bq.id); assert.ok(A.br.pts - before < 1000, 'слабый противник — меньше очков');
+  const b = g.brBonus(A); assert.ok(b.atk > 0 && b.prod > 0 && b.atk <= 0.2, 'бонус ранга');
+  const v = g.brView(A, A); assert.ok(v.table.length === 78 && v.title && v.next, 'окно ранга');
+  assert.strictEqual(BR.rankInfo(77).title, 'Легенда'); assert.strictEqual(BR.bonusAt(77).atk, 0.2);
+  console.log('✓ Боевой ранг: очки за бои, награды за ранги, бонусы, таблица 78 рангов');
+}
 (async () => { // фото в сообщениях: только сжатые точки, проверка размера, новый PNG, удаление через 10 минут
   const zlib = require('zlib'), a1 = g.register({ login: 'picFrom', password: '12345', race: 0 }).user, a2 = g.register({ login: 'picTo', password: '12345', race: 0 }).user;
   const w = 40, h = 30, rgb = Buffer.alloc(w * h * 3, 200), z = zlib.deflateSync(rgb);

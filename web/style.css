@@ -1998,3 +1998,34 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .atabs { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
 .atabs button { min-width: 0; white-space: normal !important; overflow-wrap: normal; line-height: 1.15; font-size: min(13px, 3.3vw) !important; padding: 6px 1px !important; }
 #sheetBody { overflow-x: hidden; }
+/* Боевой ранг (brank.js) */
+.brstars { display: inline-flex; gap: 1px; vertical-align: middle; }
+.brstars img { width: 20px; height: 20px; object-fit: contain; }
+.brstars.sm img { width: 13px; height: 13px; }
+.brline { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; }
+.brline > img { height: 34px; }
+.brline small { color: #6a4a2a; font-size: 15px; }
+.brline .brarr { margin-left: auto; font-size: 26px; color: #a86a3a; }
+.brcard { display: flex; gap: 12px; align-items: center; padding: 8px 0; }
+.brbig { width: 96px; }
+.brtitle { font: 700 24px var(--serif); }
+.brcard .brstars img { width: 28px; height: 28px; }
+.brpts { font: 19px var(--serif); margin-top: 4px; }
+.brbar { position: relative; height: 24px; margin: 8px 0 4px; border: 2px solid #a86a3a; border-radius: 12px; background: #3a1a08; overflow: hidden; }
+.brbar i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(#f0c040, #b07010); }
+.brbar span { position: relative; display: block; text-align: center; font: 700 14px system-ui, sans-serif; color: #fff; text-shadow: 0 1px 2px #000; line-height: 20px; }
+.brbonus { font: 18px/1.4 var(--serif); padding: 8px; margin: 6px -4px; background: #f0d8b0; border-radius: 6px; text-align: center; }
+.brtable { margin: 0 -4px; }
+.brtable > div { display: grid; grid-template-columns: 1fr 26px 74px 70px 26px; align-items: center; gap: 4px; min-height: 36px; padding: 0 6px; background: #6a1a10; color: #f0d8a8; font: 16px var(--serif); cursor: pointer; }
+.brtable > div:nth-child(odd) { background: #7a2418; }
+.brtable > div.done { color: #ffd870; }
+.brtable > div.me { outline: 2px solid #f0c040; outline-offset: -2px; }
+.brtable > div > img { width: 24px; }
+.brtable b { text-align: right; font-weight: 400; }
+.brtable .brbox { width: 24px; }
+.brhelp { font: 18px/1.45 var(--serif); }
+#top > #btnRank { position: absolute; left: 4px; bottom: 2px; width: 60px; height: 60px; border: 0; background: none; padding: 0; z-index: 7; margin: 0; filter: none; cursor: pointer; }
+#btnRank .brfr { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+#btnRank .brsh { position: absolute; left: 50%; top: 46%; width: 54%; transform: translate(-50%, -50%); }
+#btnRank .brstars.top { position: absolute; left: 50%; bottom: 3px; transform: translateX(-50%); }
+#btnRank .brstars.top img { width: 9px; height: 9px; }

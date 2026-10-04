@@ -210,6 +210,7 @@ function install(Game) {
       allyInvite: (() => { const my = u.id !== viewer.id && !al && this.allianceOf(viewer); if (!my || !this.allyCan || !this.allyCan(my, viewer.id, 'invite')) return null;
         return { tag: my.tag, name: my.name, sent: (u.invites || []).includes(my.id) }; })(),
       marriage: this.marriageLine ? this.marriageLine(u) : null,
+      brank: this.brOf ? (({ idx, title, icon, stars }) => ({ idx, title, icon, stars }))(require('./battlerank').rankInfo(this.brRank(u))) : null,
       medals: this.medalsOf(u.id), hallRep: u.hallRep || 0, awards: (u.allyAwards || []).slice().reverse(), bossBadges: (u.bossBadges || []).slice().reverse(),
       castles: this.castlesOf(u).map((k, i) => ({ id: k.id, name: k.name, x: k.x, y: k.y, capital: i === 0, rating: this.rating(k) })),
       self: u.id === viewer.id,
