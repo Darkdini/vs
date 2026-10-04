@@ -71,6 +71,7 @@ const GIFTS = {
   p_potion: { name: 'Эликсир чародея', img: 'gifts/p_potion.png', gold: 8, premium: true, cats: ['misc'], isNew: true },
   p_horse: { name: 'Белый скакун', img: 'gifts/p_horse.png', gold: 12, premium: true, cats: ['boys', 'war'], isNew: true },
   p_decree: { name: 'Королевский указ', img: 'gifts/p_decree.png', gold: 11, premium: true, cats: ['misc'], isNew: true },
+  p_beer: { name: 'Гусь-полторашка', img: 'gifts/p_beer.png', gold: 5, premium: true, cats: ['boys', 'party', 'misc'], isNew: true },
   p_scepter: { name: 'Скипетр власти', img: 'gifts/p_scepter.png', gold: 15, premium: true, cats: ['boys'], isNew: true },
 };
 // разделы окна «Подарки» (как в оригинале): порядок в списке; пустые разделы не показываются
