@@ -847,6 +847,16 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     g.removeAvatar(a2); assert.ok(!g.avaLikes(a1, a2.id).list.length && g.avaLike(a1, a2.id).error, 'нет аватарки — голоса сброшены');
   }
   console.log('✓ Фото в сообщениях: только точки, новый PNG, шелл не пройдёт, удаление через 10 минут');
+  { // альянс: союзники не нападают, не грабят и не разведывают друг друга — только подкрепление и ресурсы; армия в пути к новому союзнику — домой без боя
+    const A = g.register({ login: 'alyAaa', password: '12345', race: 0 }).user, Bu = g.register({ login: 'alyBbb', password: '12345', race: 0 }).user, Cu = g.register({ login: 'alyCcc', password: '12345', race: 0 }).user;
+    const ca = g.castleOf(A), cb = g.castleOf(Bu), cc = g.castleOf(Cu); for (const c of [ca, cb, cc]) { g.mil(c); g.maxOut(c); c.units = { 200: 100, 202: 20, 221: 20 }; }
+    A.admin = true; const al = { id: g.db.nextId++, tag: 'TST', name: 'Test' }; g.db.alliances = g.db.alliances || {}; g.db.alliances[al.id] = al; A.alliance = Bu.alliance = al.id;
+    for (const [m, u] of [['attack', { 200: 5 }], ['raid', { 200: 5 }], ['scout', { 202: 2 }]]) assert.ok(/альянса/.test(g.sendArmy(ca, { units: u, x: cb.x, y: cb.y, mission: m }).error || ''), m);
+    assert.ok(g.sendArmy(ca, { units: { 200: 5 }, x: cb.x, y: cb.y, mission: 'reinforce' }).army && g.sendArmy(ca, { units: { 221: 2 }, x: cb.x, y: cb.y, mission: 'trade', res: { wood: 10 } }).army, 'подкрепление и ресурсы — можно');
+    const go = g.sendArmy(ca, { units: { 200: 5 }, x: cc.x, y: cc.y, mission: 'attack' }); assert.ok(go.army, 'на чужого — можно');
+    Cu.alliance = al.id; const n0 = cc.units[200]; g.arrive(ca, go.army, Date.now()); assert.ok(cc.units[200] === n0 && go.army.state === 'back', 'стали союзниками в пути — без боя');
+    console.log('✓ Альянс: на союзников только подкрепление и ресурсы, армия в пути — домой без боя');
+  }
   try { fs.unlinkSync(DB); } catch {}
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });

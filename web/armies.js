@@ -114,6 +114,8 @@ function campaignFit(mission, units) {
   return Object.fromEntries(Object.entries(units || {}).filter(([id, n]) => n > 0 && unitById(id) && fits(unitById(id).role)));
 }
 // идёт ли генерал с армией: в нападение/набег, а подкреплением — только в свой замок (перевод генерала)
+// замок союзника по альянсу: на него только подкрепление (нападать, грабить и разведывать нельзя)
+const allyCastleAt = (x, y) => { const me = S.st.user.ally, o = me && S.world && (S.world.objects || []).find((q) => q.kind === 'castle' && q.x === Number(x) && q.y === Number(y)); return !!(o && o.allyId === me && o.ownerId !== S.st.user.id); };
 const ownCastleAt = (x, y) => (S.st.castles || []).some((k) => k.x === Number(x) && k.y === Number(y) && !k.active);
 const genGoes = (a, c) => genHere(a) && (['attack', 'raid'].includes(c.mission) || (c.mission === 'reinforce' && ownCastleAt(c.x, c.y)));
 function campaignSec() {
@@ -139,6 +141,7 @@ function slowestHint(a, c, go) {
 }
 function campaignWin() {
   const c = S.cmp, armies = allArmies();
+  if (allyCastleAt(c.x, c.y) && ['raid', 'attack', 'scout'].includes(c.mission)) c.mission = 'reinforce'; // союзник — только подкрепление
   const a = armyByKey(c.army) || armies[0];
   const go = campaignFit(c.mission, a.units), n = armyTotal(go), sec = campaignSec();
   const portal = buildingLevel(38) > 0;
@@ -147,7 +150,7 @@ function campaignWin() {
     <div class="clabel">Выберите армию из замка:</div>
     <div class="combo"><select data-cmp="army">${armies.map((x) => `<option value="${x.key}" ${String(x.key) === String(a.key) ? 'selected' : ''}>${esc(x.name)} (🪖 ${fmtFull(armyTotal(x.units))})</option>`).join('')}</select></div>
     <div class="clabel">Цель похода:</div>
-    <div class="combo"><select data-cmp="mission">${CAMPAIGN_MISSIONS.map(([k, t]) => `<option value="${k}" ${k === c.mission ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+    <div class="combo"><select data-cmp="mission">${CAMPAIGN_MISSIONS.filter(([k]) => !allyCastleAt(c.x, c.y) || !['raid', 'attack', 'scout'].includes(k)).map(([k, t]) => `<option value="${k}" ${k === c.mission ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
     <div class="row2 cxy"><label>X<input type="number" inputmode="numeric" data-cmp="x" value="${esc(c.x)}"></label><label>Y<input type="number" inputmode="numeric" data-cmp="y" value="${esc(c.y)}"></label></div>
     ${c.mission === 'trade' ? `<div class="row2">${RES4.map((r) => `<label>${RES_IC[r]}<input type="number" inputmode="numeric" min="0" data-cres="${r}" value="${c.res[r] || ''}" placeholder="0"></label>`).join('')}</div>` : ''}
     ${chk('portal', c.portal, `${GFX}build/portal.png`, 'Через портал', !portal)}

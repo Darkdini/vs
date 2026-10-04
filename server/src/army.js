@@ -312,6 +312,7 @@ const SPY_OPEN = {
   riot: { name: 'Бунта', level: 12, survive: 0.85, cond: 'выжило больше 85% разведчиков' },
   reinf: { name: 'Подкреплений', level: 16, survive: 0.9, cond: 'выжило больше 90% разведчиков' },
 };
+const HOSTILE = ['attack', 'raid', 'scout']; // враждебные походы — не на союзников по альянсу
 const MISSIONS = { raid: 'Набег', attack: 'Нападение', reinforce: 'Подкрепление', scout: 'Разведка', expedition: 'Экспедиция', trade: 'Торговля' };
 
 function install(Game, helpers) {
@@ -762,6 +763,7 @@ function install(Game, helpers) {
     const target = this.castleAt(x, y);
     const obj = target ? null : this.worldObjects(x, y, 1, 1)[0];
     let cargo = null;
+    if (target && HOSTILE.includes(mission) && this.sameAlliance(castle.owner, target.owner)) return { error: 'Это замок Вашего альянса — нападать, грабить и разведывать нельзя. Можно отправить подкрепление или ресурсы.' };
     if (mission === 'scout' && roles.some((r) => !['scout', 'eye'].includes(r))) return { error: 'В разведку идут только разведчики (и Око).' };
     if (mission === 'expedition') {
       if (!this.buildingLevel(castle, B.EXPEDITION)) return { error: 'Нужна Экспедиция.' };
@@ -1049,6 +1051,10 @@ function install(Game, helpers) {
       a.cargo = null; return this.goBack(c, a, t);
     }
     if (a.mission === 'expedition') return this.expedition(c, a, t);
+    if (target && HOSTILE.includes(a.mission) && this.sameAlliance(c.owner, target.owner)) { // пока шли, стали союзниками — без боя домой
+      this.report(c.owner, `Поход на ${target.name} отменён`, [`${(this.ownerOf(target) || {}).login || 'Игрок'} — в Вашем альянсе: нападать на союзников нельзя. Армия вернулась домой.`], 'battle');
+      return this.goBack(c, a, t);
+    }
     if (a.mission === 'reinforce') { // подкрепление встаёт в замке и защищает его, пока его не отзовут
       if (!target) return this.goBack(c, a, t);
       if (target.owner === c.owner) return this.transferArmy(c, a, target); // в свой замок — армия (и генерал) переходят в его Военный штаб
@@ -1470,6 +1476,8 @@ function install(Game, helpers) {
   };
 
   // ----- альянсы (Дипломатический центр): приглашения, заявки, создание, управление -----
+  // игроки одного альянса не нападают друг на друга (нападение, набег, разведка) — только подкрепление и ресурсы
+  P.sameAlliance = function sameAlliance(aId, bId) { if (aId === bId) return false; const a = this.userById(aId), b = this.userById(bId); return !!(a && b && a.alliance && a.alliance === b.alliance); };
   P.allianceOf = function allianceOf(user) { return user && user.alliance && (this.db.alliances || {})[user.alliance]; };
   const ALLY_MAX = 50; // не больше 50 игроков в альянсе
   P.allianceSlots = function allianceSlots(al) {
