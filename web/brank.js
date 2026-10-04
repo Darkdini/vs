@@ -59,7 +59,7 @@ function brankBadge() {
   if (!b) { b = document.createElement('button'); b.id = 'btnRank'; b.type = 'button'; b.setAttribute('aria-label', 'Боевой ранг'); b.addEventListener('click', () => openBrank()); $('#top').prepend(b); }
   const r = S.st && S.st.user.brank; if (!r) return;
   const key = `${r.icon}:${r.stars}`; if (b.dataset.k === key) return; b.dataset.k = key;
-  b.innerHTML = `<img class="brfr" src="${GFX}rank/frame.png" alt=""><img class="brsh" src="${BR_IMG(r.icon)}" alt="">${brStars(r.idx < 0 ? 0 : r.stars, 'top')}`;
+  b.innerHTML = `<img class="brsh" src="${BR_IMG(r.icon)}" alt="">${brStars(r.idx < 0 ? 0 : r.stars, 'top')}`;
 }
 $('#sheetBody').addEventListener('click', (e) => {
   const t = e.target.closest('[data-brtab],[data-brank],[data-brprize]'); if (!t) return;
