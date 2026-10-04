@@ -294,7 +294,10 @@ function install(Game) {
         const n = Math.floor(Number(arg.n)); if (!(n >= 1 && n <= 1000)) return { error: 'Сумма — от 1 до 1000 золота каждому.' };
         const why = String(arg.why || '').replace(/[<>]/g, '').trim().slice(0, 100) || 'Подарок от администрации';
         let k = 0; for (const u of Object.values(this.db.users)) { if (u.bot || u.admin) continue; this.goldChange(u, n, `${why} (+${n})`); this.event(u.id, `🎁 ${why}: +${n} золота в Казну!`); k++; }
-        (this.db.goldAll = this.db.goldAll || []).push({ at: Date.now(), n, why, players: k }); msg = `Выдано по ${n} золота: ${k} игрокам (всего ${n * k}).`; break;
+        (this.db.goldAll = this.db.goldAll || []).push({ at: Date.now(), n, why, players: k }); msg = `Выдано по ${n} золота: ${k} игрокам (всего ${n * k}).`;
+        data = { msg, last: this.db.goldAll.slice(-5).reverse() }; break; // итог — прямо в админке (строку над картой закрывает окно)
+      }
+      case 'goldallget': { data = { msg: '', last: (this.db.goldAll || []).slice(-5).reverse() }; break;
       }
       case 'mailall': {
         const text = String(arg.text || '').trim(); if (!text) return { error: 'Введите текст.' };

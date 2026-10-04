@@ -13,7 +13,9 @@ const ADM_TABS = [['player', '👤 Игрок'], ['give', '🎁 Выдать'], 
 const aAct = (title, desc, controls, wide = false) => `<div class="aact ${wide ? 'wide' : ''}"><div class="aact-t"><b>${title}</b><small>${desc}</small></div><div class="aact-c">${controls}</div></div>`;
 const aBtn2 = (op, text, extra = '', cls = '') => `<button class="btn small ${cls}" data-adm="${op}" ${extra}>${text}</button>`;
 // «Золото всем игрокам» — на вкладках «Выдать» (сверху) и «Мир»
-const GOLD_ALL = () => aSec('🎁 Золото всем игрокам', `<p class="small">Каждому игроку на сервере (кроме ботов и Вас) — золото в Казну и сообщение в игре.</p><form class="stack" data-aform="goldall"><input class="anum" name="n" type="number" inputmode="numeric" min="1" max="1000" value="5" placeholder="Сколько каждому"><input name="why" maxlength="100" value="Подарок от администрации" placeholder="За что (видно игрокам)"><button class="btn primary">Выдать всем</button></form>`);
+const goldAllLog = () => { const g = S.adm.goldAll; if (!g) { if (!S.adm.goldAllAsked) { S.adm.goldAllAsked = true; send({ t: 'admin', op: 'goldallget' }); } return ''; }
+  return `${g.msg ? `<div class="smnote ok">✔ ${esc(g.msg)}</div>` : ''}${g.last.length ? `<p class="small"><b>Последние раздачи:</b><br>${g.last.map((x) => `${fmtDate(x.at)} — по ${x.n} зол. «${esc(x.why)}», игроков: ${x.players}`).join('<br>')}</p>` : '<p class="small">Раздач ещё не было.</p>'}`; };
+const GOLD_ALL = () => aSec('🎁 Золото всем игрокам', `<p class="small">Каждому игроку на сервере (кроме ботов и Вас) — золото в Казну и сообщение в игре.</p><form class="stack" data-aform="goldall"><input class="anum" name="n" type="number" inputmode="numeric" min="1" max="1000" value="5" placeholder="Сколько каждому"><input name="why" maxlength="100" value="Подарок от администрации" placeholder="За что (видно игрокам)"><button class="btn primary">Выдать всем</button></form>${goldAllLog()}`);
 const aSec = (title, body) => `<div class="acard"><div class="cwname">${title}</div>${body}</div>`;
 function adminHtml() {
   const a = S.adm, tab = ADM_TABS.some(([k]) => k === a.tab) ? a.tab : 'player';
@@ -211,7 +213,7 @@ $('#sheetBody').addEventListener('submit', (e) => {
   if (k === 'find') { S.adm.players = null; S.adm.q = f.q.value; return send({ t: 'admin', op: 'players', q: f.q.value }); }
   if (k === 'passcheck') { admSend('passcheck', { password: f.password.value }); f.password.value = ''; return; }
   if (k === 'newspub') { if (!confirm('Опубликовать новость всем игрокам?')) return; send({ t: 'news', op: 'publish', title: f.title.value, text: f.text.value }); f.reset(); return; }
-  if (k === 'goldall') { const n = Math.floor(Number(f.n.value)); if (!(n >= 1 && n <= 1000)) return toast('От 1 до 1000 золота.', 'err'); if (!confirm(`Выдать КАЖДОМУ игроку по ${n} золота?`)) return; return send({ t: 'admin', op: 'goldall', n, why: f.why.value }); }
+  if (k === 'goldall') { const n = Math.floor(Number(f.n.value)); if (!(n >= 1 && n <= 1000)) return toast('От 1 до 1000 золота.', 'err'); if (!confirm(`Выдать КАЖДОМУ игроку по ${n} золота?`)) return; S.adm.goldAll = { msg: 'Выдаю…', last: (S.adm.goldAll || { last: [] }).last }; refreshSheet(); return send({ t: 'admin', op: 'goldall', n, why: f.why.value }); }
   if (k === 'mailall') send({ t: 'admin', op: 'mailall', subject: f.subject.value, text: f.text.value });
   if (k === 'chat') { send({ t: 'admin', op: 'chat', text: f.text.value }); f.text.value = ''; }
   if (k === 'pass') { if (!confirm(`Сменить пароль игроку ${S.adm.login}? Все его входы завершатся.`)) return; admSend('pass', { password: f.password.value }); f.password.value = ''; }
@@ -232,6 +234,7 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
     if (m.op === 'sec') S.adm.sec = m.data;
     if (m.op === 'armyinfo') S.adm.ga = m.data;
     if (m.op === 'passcheck') S.adm.passcheck = m.data;
+    if (m.op === 'goldall' || m.op === 'goldallget') S.adm.goldAll = { ...m.data, at: Date.now() };
     return refreshSheet();
   }
   prevMil2(m);
