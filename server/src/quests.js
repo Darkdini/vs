@@ -172,13 +172,14 @@ function install(Game) {
   P.lairOf = function lairOf(u) {
     const q = this.qinit(u), k = q.camp; if (k >= CAMP.length) return null;
     const cap = this.castlesOf(u)[0]; if (!cap) return null;
-    if (!q.lair || q.lair.k !== k || q.lair.cap !== cap.id) {
+    const { onProvEdge } = require('./game'); // логово — не у границы провинции (и старое с границы переезжает)
+    if (!q.lair || q.lair.k !== k || q.lair.cap !== cap.id || onProvEdge(q.lair.x, q.lair.y)) {
       const W = require('./game').WORLD || 1000;
       for (let r = 3 + k; r < 40; r++) {
         let found = null;
         for (let i = 0; i < 16 && !found; i++) {
           const a = (u.id * 0.7 + k * 1.3 + i * Math.PI / 8), x = Math.round(cap.x + Math.cos(a) * r), y = Math.round(cap.y + Math.sin(a) * r);
-          if (x < 0 || y < 0 || x >= W || y >= W || this.castleAt(x, y) || this.worldObjects(x, y, 1, 1).length) continue;
+          if (x < 0 || y < 0 || x >= W || y >= W || onProvEdge(x, y) || this.castleAt(x, y) || this.worldObjects(x, y, 1, 1).length) continue;
           found = { x, y };
         }
         if (found) { q.lair = { k, cap: cap.id, ...found }; break; }

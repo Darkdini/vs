@@ -15,6 +15,8 @@ const SPAWN_GAP = 2;
 // провинции (как в оригинале): мир нарезан на квадраты PROV×PROV клеток; новые игроки заселяют провинцию по PROV_CAP замков,
 // потом — следующую, по спирали от центра карты (соседи рядом). Номер провинции — по строкам, с 1.
 const PROV = 15, PROV_CAP = 10, PROV_N = Math.ceil(WORLD / PROV);
+// клетки у границы провинции (по одной с каждой стороны линии) пустые: замки и лагеря не налезают на границу
+const onProvEdge = (x, y) => { const a = ((x % PROV) + PROV) % PROV, b = ((y % PROV) + PROV) % PROV; return a === 0 || a === PROV - 1 || b === 0 || b === PROV - 1; };
 const provinceOf = (x, y) => { const px = Math.floor(x / PROV), py = Math.floor(y / PROV); return { px, py, n: py * PROV_N + px + 1 }; };
 let PROV_ORDER = null; // провинции от центра карты к краям
 const provOrder = () => PROV_ORDER || (PROV_ORDER = Array.from({ length: PROV_N * PROV_N }, (_, i) => i).map((i) => ({ px: i % PROV_N, py: Math.floor(i / PROV_N) }))
@@ -222,8 +224,29 @@ class Game {
       this.db.accts[u.acct] = k;
     }
     this.cache = {};
+    this.provEdgeFix();
   }
   castleAt(x, y) { return this.byXY.get(x * WORLD + y); }
+  // замки, что стоят у самой границы провинции (поставлены до провинций), — на ближайшую свободную клетку внутри той же провинции;
+  // армии, идущие к старому месту, идут к новому
+  provEdgeFix() {
+    let moved = 0;
+    for (const c of [...this.byXY.values()]) {
+      if (!onProvEdge(c.x, c.y)) continue;
+      const px = Math.floor(c.x / PROV), py = Math.floor(c.y / PROV); let best = null;
+      for (let gap = 1; gap >= 0 && !best; gap--) for (let y = py * PROV + 1; y < py * PROV + PROV - 1; y++) for (let x = px * PROV + 1; x < px * PROV + PROV - 1; x++) {
+        if (x >= WORLD || y >= WORLD || this.byXY.has(x * WORLD + y)) continue;
+        let near = false; for (let dx = -gap; dx <= gap && !near; dx++) for (let dy = -gap; dy <= gap; dy++) { const k = this.castleAt(x + dx, y + dy); if (k && k !== c) { near = true; break; } }
+        if (near || this.worldObjects(x, y, 1, 1).length) continue;
+        const d = Math.hypot(x - c.x, y - c.y); if (!best || d < best.d) best = { x, y, d };
+      }
+      if (!best) continue;
+      const ox = c.x, oy = c.y; this.moveCastle(c, best.x, best.y); moved++;
+      for (const k of Object.values(this.db.castles)) for (const a of k.armies || []) if (a.x === ox && a.y === oy) { a.x = best.x; a.y = best.y; }
+    }
+    if (moved) { this.cache = {}; this.store.save(); }
+    return moved;
+  }
   moveCastle(c, x, y) { this.byXY.delete(c.x * WORLD + c.y); c.x = x; c.y = y; this.byXY.set(x * WORLD + y, c); }
   removeCastle(c) { this.byXY.delete(c.x * WORLD + c.y); delete this.db.castles[c.id]; }
   // кэш тяжёлых выборок по всем игрокам (рейтинги, Зал Славы) — пересчёт раз в ttl мс
@@ -536,7 +559,7 @@ class Game {
     }
     for (let y = y0; y < y0 + h; y++) {
       for (let x = x0; x < x0 + w; x++) {
-        if (occupied.has(`${x}:${y}`) || x < 0 || y < 0 || x >= WORLD || y >= WORLD) continue;
+        if (occupied.has(`${x}:${y}`) || x < 0 || y < 0 || x >= WORLD || y >= WORLD || onProvEdge(x, y)) continue;
         const roll = (((x * 73856093) ^ (y * 19349663)) >>> 0) % 100;
         // на карте только замки и лагеря для походов (камни и озёра убраны)
         const roll2 = (((x * 83492791) ^ (y * 2654435761)) >>> 0) % 100;
@@ -605,4 +628,4 @@ require('./quests').install(Game);
 require('./hero').install(Game);
 require('./boss').install(Game);
 
-module.exports = { PROV, PROV_CAP, PROV_N, provinceOf, passLogPush, checkPassword, meadowAt, fixPlaza, migrateLands, LANDS_N, WORLD, Game, Store, STORE, BASE_RATE, PEOPLE_FACTOR, storeBonus, RES_SPEED, buildTime, VIEW, GRID, landOptions, SPEED, MAX_QUEUE, LANDS_BASE, LANDS_DECOR, LANDS_EDGE };
+module.exports = { PROV, PROV_CAP, PROV_N, provinceOf, onProvEdge, passLogPush, checkPassword, meadowAt, fixPlaza, migrateLands, LANDS_N, WORLD, Game, Store, STORE, BASE_RATE, PEOPLE_FACTOR, storeBonus, RES_SPEED, buildTime, VIEW, GRID, landOptions, SPEED, MAX_QUEUE, LANDS_BASE, LANDS_DECOR, LANDS_EDGE };

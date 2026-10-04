@@ -1267,11 +1267,23 @@ function provBorders(w) {
   // линия y = const: левый-верхний край клеток (x, y) — от левого угла к верхнему (sx+TW/2, sy)
   for (let y = 0; y <= n; y++) if ((Y0 + y) % P === 0) { const a = tileScreen(0, y), b = tileScreen(n, y); segs.push([a.sx, a.sy + TH / 2, b.sx, b.sy + TH / 2]); }
   if (!segs.length) return;
-  g.save(); g.lineCap = 'round';
-  for (const [w2, col] of [[9, 'rgba(60, 90, 20, 0.35)'], [6, 'rgba(250, 240, 190, 0.75)'], [1.5, 'rgba(255, 255, 255, 0.9)']]) {
-    g.lineWidth = w2; g.strokeStyle = col; g.beginPath(); for (const [ax, ay, bx, by] of segs) { g.moveTo(ax, ay); g.lineTo(bx, by); } g.stroke();
-  }
+  // натоптанная межа: мягкая тень, светлая полоса, по середине — пунктир из камушков; на перекрёстках — межевой камень
+  g.save(); g.lineCap = 'round'; g.lineJoin = 'round';
+  const line = (wd, col, dash) => { g.lineWidth = wd; g.strokeStyle = col; g.setLineDash(dash || []); g.beginPath(); for (const [ax, ay, bx, by] of segs) { g.moveTo(ax, ay); g.lineTo(bx, by); } g.stroke(); };
+  line(18, 'rgba(40, 70, 10, 0.14)'); line(13, 'rgba(60, 90, 20, 0.18)');
+  line(10, 'rgba(206, 190, 128, 0.55)'); line(6, 'rgba(232, 220, 168, 0.6)');
+  line(2.6, 'rgba(110, 86, 50, 0.55)', [3, 9]); line(1.6, 'rgba(255, 248, 220, 0.9)', [3, 9]);
+  g.setLineDash([]);
+  for (let xx = 0; xx <= n; xx++) if ((X0 + xx) % P === 0) for (let y = 0; y <= n; y++) if ((Y0 + y) % P === 0) { const p = tileScreen(xx, y); provStone(g, p.sx, p.sy + TH / 2); }
   g.restore();
+}
+// межевой камень на углу провинций
+function provStone(g, x, y) {
+  g.fillStyle = 'rgba(30, 40, 10, 0.35)'; g.beginPath(); g.ellipse(x + 2, y + 1, 11, 5, 0, 0, Math.PI * 2); g.fill();
+  const gr = g.createLinearGradient(x - 6, 0, x + 6, 0); gr.addColorStop(0, '#d9d2c0'); gr.addColorStop(0.55, '#a9a08c'); gr.addColorStop(1, '#6f6656');
+  g.fillStyle = gr; g.strokeStyle = '#4a4236'; g.lineWidth = 1;
+  g.beginPath(); g.moveTo(x - 6, y); g.lineTo(x - 5, y - 15); g.quadraticCurveTo(x, y - 21, x + 5, y - 15); g.lineTo(x + 6, y); g.quadraticCurveTo(x, y + 3, x - 6, y); g.fill(); g.stroke();
+  g.fillStyle = '#b8862e'; g.fillRect(x - 5.6, y - 9, 11.2, 2.6); g.fillStyle = '#f0d27a'; g.fillRect(x - 5.6, y - 9, 11.2, 1); // медный поясок
 }
 // купол защиты новичка над замком
 function newbieDome(p) {

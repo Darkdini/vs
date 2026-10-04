@@ -40,7 +40,7 @@ function install(Game) {
     const cx = med(cs.map((c) => c.x)), cy = med(cs.map((c) => c.y));
     for (let k = 0; k < 2000; k++) {
       const r = 4 + Math.floor(k / 40), a = Math.random() * Math.PI * 2, x = Math.round(cx + Math.cos(a) * r), y = Math.round(cy + Math.sin(a) * r);
-      if (x < 2 || y < 2 || x >= W - 2 || y >= W - 2 || this.worldObjects(x, y, 1, 1).length) continue;
+      if (x < 2 || y < 2 || x >= W - 2 || y >= W - 2 || require('./game').onProvEdge(x, y) || this.worldObjects(x, y, 1, 1).length) continue;
       let near = false; for (let dy = -2; dy <= 2 && !near; dy++) for (let dx = -2; dx <= 2; dx++) if (this.castleAt(x + dx, y + dy)) { near = true; break; } // не вплотную к замкам
       if (near) continue;
       if (k < 1500 && !require('./game').meadowAt(x, y)) continue; // на лугу (require здесь — game.js грузит этот модуль)
