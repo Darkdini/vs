@@ -17,6 +17,28 @@ const SPAWN_GAP = 2;
 const PROV = 20, PROV_CAP = 10, PROV_EDGE = 2, PROV_N = Math.ceil(WORLD / PROV);
 // клетки у границы провинции (по PROV_EDGE с каждой стороны линии) пустые: замки и лагеря не налезают на границу
 const onProvEdge = (x, y) => { const a = ((x % PROV) + PROV) % PROV, b = ((y % PROV) + PROV) % PROV; return a < PROV_EDGE || a >= PROV - PROV_EDGE || b < PROV_EDGE || b >= PROV - PROV_EDGE; };
+// NPC в каждой провинции поровну (как в оригинале): один и тот же набор, разложенный ровно по провинции
+// (по номеру провинции — всегда одинаково), не у границы и не вплотную друг к другу
+const PROV_NPC = [[25, 'Дикари', 5], [26, 'Лесорубы', 5], [27, 'Рудник троллей', 3], [24, 'Заброшенный замок', 5],
+  [30, 'Лагерь разбойников (лёгкий)', 5], [31, 'Лагерь разбойников (средний)', 2], [32, 'Лагерь разбойников (тяжёлый)', 1]];
+const PROV_LAY = new Map();
+const provLayout = (n) => {
+  let L = PROV_LAY.get(n); if (L) return L;
+  let seed = (n * 2654435761) >>> 0 || 1; const rnd = () => ((seed = (seed * 1103515245 + 12345) >>> 0) / 4294967296);
+  const inner = PROV - 2 * PROV_EDGE, want = PROV_NPC.reduce((a, t) => a + t[2], 0), picked = [];
+  for (let k = 0; k < want; k++) { // каждый следующий — дальше всех от уже поставленных (равномерно)
+    let best = null, bs = -1;
+    for (let t = 0; t < 40; t++) { const x = Math.floor(rnd() * inner), y = Math.floor(rnd() * inner); if (picked.some((q) => q[0] === x && q[1] === y)) continue;
+      const sc = picked.length ? Math.min(...picked.map((q) => Math.hypot(q[0] - x, q[1] - y))) : 99; if (sc > bs) { bs = sc; best = [x, y]; } }
+    if (best) picked.push(best);
+  }
+  const kinds = PROV_NPC.flatMap(([img, name, c]) => Array(c).fill([img, name]));
+  for (let k = kinds.length - 1; k > 0; k--) { const r = Math.floor(rnd() * (k + 1)); [kinds[k], kinds[r]] = [kinds[r], kinds[k]]; } // виды вперемешку
+  L = new Map(picked.map((q, k) => [q[1] * PROV + q[0], kinds[k]]));
+  if (PROV_LAY.size > 5000) PROV_LAY.clear(); PROV_LAY.set(n, L); return L;
+};
+const provObjects = (x, y) => { const px = Math.floor(x / PROV), py = Math.floor(y / PROV), lx = x - px * PROV - PROV_EDGE, ly = y - py * PROV - PROV_EDGE, inner = PROV - 2 * PROV_EDGE;
+  if (lx < 0 || ly < 0 || lx >= inner || ly >= inner) return null; return provLayout(py * PROV_N + px + 1).get(ly * PROV + lx) || null; };
 const provinceOf = (x, y) => { const px = Math.floor(x / PROV), py = Math.floor(y / PROV); return { px, py, n: py * PROV_N + px + 1 }; };
 let PROV_ORDER = null; // провинции от центра карты к краям
 const provOrder = () => PROV_ORDER || (PROV_ORDER = Array.from({ length: PROV_N * PROV_N }, (_, i) => i).map((i) => ({ px: i % PROV_N, py: Math.floor(i / PROV_N) }))
@@ -227,12 +249,13 @@ class Game {
     this.provEdgeFix();
   }
   castleAt(x, y) { return this.byXY.get(x * WORLD + y); }
-  // замки, что стоят у самой границы провинции (поставлены до провинций), — на ближайшую свободную клетку внутри той же провинции;
+  // замки, что стоят у самой границы провинции или на месте её лагеря (поставлены до провинций), — на ближайшую свободную клетку внутри той же провинции;
   // армии, идущие к старому месту, идут к новому
   provEdgeFix() {
     let moved = 0;
     for (const c of [...this.byXY.values()]) {
-      if (!onProvEdge(c.x, c.y)) continue;
+      const on = provObjects(c.x, c.y); // стоит на месте лагеря провинции (не захваченные руины — те и есть этот замок)
+      if (!onProvEdge(c.x, c.y) && !(on && on[0] !== 24)) continue;
       const px = Math.floor(c.x / PROV), py = Math.floor(c.y / PROV); let best = null;
       for (let gap = 1; gap >= 0 && !best; gap--) for (let y = py * PROV + PROV_EDGE; y < (py + 1) * PROV - PROV_EDGE; y++) for (let x = px * PROV + PROV_EDGE; x < (px + 1) * PROV - PROV_EDGE; x++) {
         if (x >= WORLD || y >= WORLD || this.byXY.has(x * WORLD + y)) continue;
@@ -568,12 +591,7 @@ class Game {
     for (let y = y0; y < y0 + h; y++) {
       for (let x = x0; x < x0 + w; x++) {
         if (occupied.has(`${x}:${y}`) || x < 0 || y < 0 || x >= WORLD || y >= WORLD || onProvEdge(x, y)) continue;
-        const roll = (((x * 73856093) ^ (y * 19349663)) >>> 0) % 100;
-        // на карте только замки и лагеря для походов (камни и озёра убраны)
-        const roll2 = (((x * 83492791) ^ (y * 2654435761)) >>> 0) % 100;
-        const obj = roll < 2 ? [25, 'Дикари'] : roll < 4 ? [26, 'Лесорубы']
-          : roll < 5 ? [27, 'Рудник троллей'] : roll < 7 ? [24, 'Заброшенный замок']
-          : roll < 9 ? [30, 'Лагерь разбойников (лёгкий)'] : roll < 10 ? [roll2 < 60 ? 31 : 32, roll2 < 60 ? 'Лагерь разбойников (средний)' : 'Лагерь разбойников (тяжёлый)'] : null;
+        const obj = provObjects(x, y); // в каждой провинции — одинаковый набор лагерей и NPC (provObjects)
         if (obj) {
           const o = { kind: 'object', x, y, img: obj[0], name: obj[1] };
           const st = (this.db.npc || {})[`${x}:${y}`];
