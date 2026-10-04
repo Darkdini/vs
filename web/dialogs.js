@@ -41,7 +41,7 @@ function dialogWin() {
     ${d.hasMore ? '<button class="pbar" data-dlgmore>Показать раньше</button>' : ''}
     <div class="dbody">${body || '<p class="parch-note">Сообщений ещё нет — напишите первым.</p>'}</div>
     <form class="dform" data-form="dlgsend"><input name="text" maxlength="4000" autocomplete="off" placeholder="Сообщение для ${esc(w.login)}" value="${esc(d.draft || '')}">
-      <button type="button" class="dsm dpicb" data-dlgpic title="Прикрепить фото">📷</button><button type="button" class="dsm" data-dlgsmile><img src="gfx3d/smiles/smile.png" alt="Смайлы"></button></form>
+      <button type="button" class="dsm dpicb" data-dlgpic title="Прикрепить фото">📷</button><button type="button" class="dsm" data-dlgsmile><img src="gfx3d/smiles2/smile.png" alt="Смайлы"></button></form>
     ${S.dlg.picBusy ? `<div class="dpicst">📷 ${esc(S.dlg.picBusy)}</div>` : ''}
     ${d.smile ? `<div class="smilebox">${SMILES.map((k) => `<button data-dlgsm="${k}"><img src="${smileSrc(k)}" alt=""></button>`).join('')}</div>` : ''}
     <button class="pbar dsend" data-dlgsend><img src="gfx3d/chat/tosend_button.png" alt=""> Отправить</button>

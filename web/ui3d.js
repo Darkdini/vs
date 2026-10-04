@@ -152,7 +152,7 @@ function chatLine() {
 const SMILES = ['angel','beer','devil','worry','heart','tongue','kiss','cool','laugh','wink','rose','handshake','cry','hmm','smile','blush','wow','love','angry','confused','dislike','like','coins','swords','shield','lips','ghost','cheers','crown','cup','flower','tulip','sun','gift','cake','strawberry','apple','banana','watermelon','orange','cherry','poop','chicken','goat','bear','cat','panda','butterfly','bomb','pizza'];
 const OLD_SMILES = ['smile', 'sad', 'wok', 'angry', 'heart', 'kiss', 'notund', 'Uvula'];
 const SMILE_SET = new Set(SMILES);
-const smileSrc = (k) => (SMILE_SET.has(k) ? `gfx3d/smiles/${k}.png?v=2` : `${GFX}smallicon/smiles/${k}.png`);
+const smileSrc = (k) => (SMILE_SET.has(k) ? `gfx3d/smiles2/${k}.png` : `${GFX}smallicon/smiles/${k}.png`);
 // текст сообщения чата; премиум-цвет — только допустимые значения #rrggbb
 // лайк / дизлайк под сообщением чата (за своё — только счётчик)
 const chatVotes = (m) => { const up = (m.up || []).length, dn = (m.dn || []).length, my = (m.up || []).includes(me()) ? 1 : (m.dn || []).includes(me()) ? -1 : 0, own = m.fromId === me();
