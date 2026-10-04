@@ -892,7 +892,7 @@ function isoResize() {
 window.addEventListener('resize', () => { if (Iso.cv.isConnected) { isoResize(); isoDraw(); } });
 // начальная камера: замок целиком, земли и мир — примерно 8 клеток по ширине экрана, по центру
 function isoFit() {
-  if (S.tab === 'lands' && typeof hasPic === 'function' && hasPic()) { const r = Iso.cv.getBoundingClientRect(), L = LANDS_LAYOUT, q = L.quad, cx = (q[0][0] + q[2][0]) / 2, cy = (q[1][1] + q[3][1]) / 2, z = r.width / ((q[2][0] - q[0][0]) * 1.08); return { z, x: r.width / 2 - cx * z, y: r.height / 2 - cy * z }; }
+  if (S.tab === 'lands' && typeof hasPic === 'function' && hasPic()) { const r = Iso.cv.getBoundingClientRect(), L = LANDS_LAYOUT, q = L.quad, cx = (q[0][0] + q[2][0]) / 2, cy = (q[1][1] + q[3][1]) / 2, z = 2.4 * r.width / ((q[2][0] - q[0][0]) * 1.08); return { z, x: r.width / 2 - cx * z, y: r.height / 2 - cy * z }; } // земли — сразу крупно (середина участков), дальше игрок двигает сам
   const r = Iso.cv.getBoundingClientRect(), n = gridN(), vis = S.tab === 'castle' ? 4.4 : S.tab === 'lands' ? 5.6 : 4.6; // замок — сразу крупно (ров чуть за краями), карта мира — тоже крупно вокруг своего замка; отдалить можно щипком
   const z = Math.max(0.35, Math.min(2.5, Math.min(r.width / (vis * TW), r.height / (vis * TH + 60))));
   const c = tileScreen(n / 2 - 0.5, n / 2 - 0.5);
