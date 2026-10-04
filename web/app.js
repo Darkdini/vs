@@ -27,7 +27,13 @@ const UNIT_IMG = {
   214: 'dwarv/hd/fighter', 215: 'dwarv/hd/arbalet', 216: 'dwarv/hd/elder', 217: 'dwarv/hd/gryphon', 218: 'dwarv/hd/defender', 219: 'dwarv/hd/revolver', 220: 'dwarv/hd/yeti', 255: 'dwarv/hd/giant', 256: 'dwarv/hd/centurion',
 };
 const RACE_IMG = { humans: 'units/human/hd/knight.png', elves: 'units/elf/hd/archer.png', dwarves: 'units/dwarv/hd/fighter.png', orcs: 'units/orc/hd/marauder.png' };
-const displayId = (def, level) => (!def.tiers ? def.id : level >= 10 ? def.tiers[2] : level >= 5 ? def.tiers[1] : def.tiers[0]);
+// здания земель: 5 уровней, каждый — как прежний уровень из lands.eff (1, 5, 10, 15, 20): добыча, места, прочность
+const landEff = (def, level) => (def && def.layer === 'lands' && S.cat && S.cat.lands && S.cat.lands.eff ? S.cat.lands.eff[Math.max(0, Math.min(5, level))] || 0 : level);
+const displayId = (def, level) => {
+  if (!def.tiers) return def.id;
+  if (def.layer === 'lands' && def.tiers.length >= 5) return def.tiers[Math.max(1, Math.min(5, level)) - 1]; // своя картинка на каждый уровень
+  const e = landEff(def, level); return e >= 10 ? def.tiers[2] : e >= 5 ? def.tiers[1] : def.tiers[0];
+};
 // у Забора (22) картинки здания в клиенте нет — он виден оградой вокруг замка; в списках — кусок ограды
 const bsrc = (id) => { const p = id === 22 ? 'fence/fence1.png' : `build/${BUILD_IMG[id] || 'build'}.png`; return GFX + (HD[p] ? HD[p][0] : p); };
 const bimg = (id, cls = 'bi') => `<img class="${cls}" src="${bsrc(id)}" alt="">`;
@@ -107,11 +113,11 @@ function effect(def, level) {
   if (level <= 0) return { text: '—', short: '—' };
   const sp = S.cat.resSpeed || 1, K = S.cat.prodK || {};
   if (def.produces === 'people') {
-    const LM = (S.cat.lands && S.cat.lands.mult) || {}, cap = Math.round(R().store.peoplePerHut * (S.cat.lands.hutCap || 1) * level), p = Math.round(S.cat.prod[level] * K.people * (LM[def.id] || 1) * sp);
+    const LM = (S.cat.lands && S.cat.lands.mult) || {}, cap = Math.round(R().store.peoplePerHut * (S.cat.lands.hutCap || 1) * landEff(def, level)), p = Math.round(S.cat.prod[landEff(def, level)] * K.people * (LM[def.id] || 1) * sp);
     return { text: `+${cap} мест для людей, +${p} людей/ч`, short: `+${cap} мест` };
   }
   const GEN = { wood: 'дерева', stone: 'камня', iron: 'железа', food: 'еды' }; // текст (экранируется в окнах), без HTML-иконок
-  if (def.produces) { const p = Math.round(S.cat.prod[level] * (K[def.produces] || 1) * (((S.cat.lands && S.cat.lands.mult) || {})[def.id] || 1) * sp); return { text: `+${fmtFull(p)} ${GEN[def.produces]} в час`, short: `+${fmtN(p)}/ч` }; }
+  if (def.produces) { const p = Math.round(S.cat.prod[landEff(def, level)] * (K[def.produces] || 1) * (((S.cat.lands && S.cat.lands.mult) || {})[def.id] || 1) * sp); return { text: `+${fmtFull(p)} ${GEN[def.produces]} в час`, short: `+${fmtN(p)}/ч` }; }
   if (def.id === 1) { const c = R().store.levels[level]; return { text: `вместимость склада ${fmtFull(c)} ед.`, short: fmtN(c) }; }
   if (def.id === 0) { const p = Math.round((1 - R().time.townhallFactor ** level) * 100); return { text: `стройки быстрее на ${p}%`, short: `−${p}%` }; }
   const m = typeof milEffect === 'function' && S.st && milEffect(def, level); // функции зданий (mil.js)
@@ -495,8 +501,8 @@ const SUBPAGES = {
       <div class="section">Добыча и склад</div>
       <div class="formula">Базово ${R().baseRate.wood}/ч дерева, камня и железа + добыча зданий земель по таблице (еда ×${S.cat.prodK.food}, люди ×${S.cat.prodK.people})<br>
       Склад: ${st.base} + сумма всех Складов (по уровням: ${st.levels.slice(1).join(', ')})<br>Люди: ${st.people} + ${st.peoplePerHut} мест за уровень Хибары</div>
-      <div class="section">Добыча по уровням (в час, ×1)</div>
-      <div class="formula">${S.cat.prod.slice(1).map((p, i) => `${i + 1}: ${p}`).join(' · ')}</div></div>`;
+      <div class="section">Добыча здания земель по уровням (в час, ×1)</div>
+      <div class="formula">${[1, 2, 3, 4, 5].map((l) => `${l}: ${S.cat.prod[S.cat.lands.eff[l]]}`).join(' · ')}</div></div>`;
   },
 };
 
@@ -641,7 +647,7 @@ function buildingSheet(def, lvl, ctx) {
   const q = ctx && queueAt(ctx.view, ctx.cell);
   const cur = currentLine(def, lvl);
   let h = bwinHead(def, lvl, `<b>${esc(def.name)}</b><div>${lvl ? `${lvl} уровень` : 'не построено'}</div><div>Рейтинг ★ : ${fr(lvl * w)}</div>`) +
-    `${lvl ? `<div class="bwline center">Текущая прочность здания: ${fmtFull(def.hp * lvl)}</div>` : ''}
+    `${lvl ? `<div class="bwline center">Текущая прочность здания: ${fmtFull(def.hp * landEff(def, lvl))}</div>` : ''}
     <div class="bwline">${esc(def.desc)}</div>${cur ? `<hr class="cwhr"><div class="bwline">${cur}</div>` : ''}`;
   if (q) {
     h += `<div class="card next"><h4>Строится ${q.level} уровень</h4><div class="bar"><i data-s="${q.start}" data-e="${q.end}"></i></div>
@@ -711,10 +717,10 @@ function emptySheet(view, cell) {
 
 function ratingInfoSheet() {
   const c = S.st.castle, sum = (a) => a.reduce((x, y) => x + y, 0);
-  const lc = sum(c.levels[0]), ll = sum(c.levels[1]), rc = R().rating.castle, rl = R().rating.lands;
+  const lc = sum(c.levels[0]), ll = sum(c.levels[1]), le = c.levels[1].reduce((x, y) => x + ((S.cat.lands && S.cat.lands.eff) ? S.cat.lands.eff[y] || 0 : y), 0), rc = R().rating.castle, rl = R().rating.lands;
   return `${ribbon(`Рейтинг замка: ${fmtFull(c.rating)}`)}
-    <dl class="kv"><dt>Замок: ${lc} ур.</dt><dd>★ ${Math.min(R().rating.castleMax, Math.round(lc * rc))} из ${R().rating.castleMax}</dd><dt>Земли: ${ll} ур.</dt><dd>★ ${Math.min(R().rating.landsMax, Math.round(ll * rl))} из ${R().rating.landsMax}</dd><dt><b>Итого</b></dt><dd><b>★ ${c.rating} из ${R().rating.max}</b></dd></dl>
-    <p class="muted small">Полностью отстроенный замок даёт ${R().rating.max}. Уровень здания в замке: +${fr(rc)}, на землях: +${fr(rl)}.</p>`;
+    <dl class="kv"><dt>Замок: ${lc} ур.</dt><dd>★ ${Math.min(R().rating.castleMax, Math.round(lc * rc))} из ${R().rating.castleMax}</dd><dt>Земли: ${ll} ур.</dt><dd>★ ${Math.min(R().rating.landsMax, Math.round(le * rl))} из ${R().rating.landsMax}</dd><dt><b>Итого</b></dt><dd><b>★ ${c.rating} из ${R().rating.max}</b></dd></dl>
+    <p class="muted small">Полностью отстроенный замок даёт ${R().rating.max}. Уровень здания в замке: +${fr(rc)}, на землях: 1-й ур. +${fr(rl)}, каждый следующий — как 5 прежних (+${fr(rl * 5)}).</p>`;
 }
 
 function profileSheet(p) {
@@ -1058,7 +1064,7 @@ function drawCellBuilding(view, cell, b, lvl, p, k = 1, sel = false) {
     if (sel) { ictx.save(); ictx.filter = 'brightness(1.25) drop-shadow(0 0 3px #ffd84a) drop-shadow(0 0 2px #ffd84a)'; }
     if (k === 1) { sprite(path, p.sx, p.sy); const im = pic(path); if (im) top = p.sy - (im.height - TH); }
     else if (k === 'fit') { // земли: постройка на всю клетку, основание (ромб шириной в картинку) — по центру клетки
-      const im = pic(path); if (im) { const kk = Math.max(1.25, Math.min(1.9, TW * 0.95 / im.width)), w = im.width * kk, h = im.height * kk;
+      const im = pic(path); if (im) { const kk = TW * 0.74 / im.width, w = im.width * kk, h = im.height * kk; // поменьше клетки — между зданиями видно участки
         top = p.sy + TH / 2 + w / 4 - h; drawPic(im, p.sx + TW / 2 - w / 2, top, w, h); } }
     else { const im = pic(path); if (im) { const w = im.width * k, h = im.height * k; top = p.sy + TH / 2 + TH * PLOT / 2 - h + 2; drawPic(im, p.sx + TW / 2 - w / 2, top, w, h); } }
     if (sel) ictx.restore();

@@ -197,14 +197,30 @@ function migrateLands(castle) {
     let left = total / C.LAND_MULT[b]; // столько «добычи на новом уровне» надо набрать
     for (const c of cells) {
       if (left < C.PROD[1] * 0.5 && c !== cells[0]) break; // хотя бы одна постройка вида остаётся
-      let lv = 1; while (lv < C.LANDS_MAX && C.PROD[lv + 1] <= left + 1e-9) lv++;
+      let lv = 1; while (lv < C.LAND_EFF_MAX && C.PROD[lv + 1] <= left + 1e-9) lv++; // прежние уровни 1–20 (потом — в новые, landsV)
       g[c] = Number(b); l[c] = lv; left -= C.PROD[lv];
     }
   }
   const back = (castle.queue || []).filter((q) => q.view === 1);
   for (const q of back) for (const r of ['wood', 'stone', 'iron', 'food']) castle.res[r] += (q.cost && q.cost[r]) || 0;
   castle.queue = (castle.queue || []).filter((q) => q.view !== 1);
-  castle.grid[1] = g; castle.levels[1] = l;
+  castle.grid[1] = g; castle.levels[1] = l; castle.landsV = 1;
+}
+
+// земли: уровни 1–20 → 1–5 (C.landFromOld: ближайший из 1, 5, 10, 15, 20). Стройки на землях — к следующему новому уровню
+// (если новый уровень уже не выше — стройка отменяется с возвратом ресурсов)
+function landsToV2(castle) {
+  if (castle.landsV === 2) return;
+  const l = castle.levels[1];
+  for (let i = 0; i < l.length; i++) if (l[i] > 0) l[i] = C.landFromOld(l[i]);
+  const keep = [];
+  for (const q of castle.queue || []) {
+    if (q.view !== 1) { keep.push(q); continue; }
+    const cur = q.cell >= 0 ? l[q.cell] || 0 : 0, to = Math.max(cur + 1, C.landFromOld(q.level));
+    if (to > C.LANDS_MAX || keep.some((k) => k.view === 1 && k.cell === q.cell)) { for (const r of ['wood', 'stone', 'iron', 'food']) castle.res[r] += (q.cost && q.cost[r]) || 0; continue; }
+    q.level = to; keep.push(q);
+  }
+  castle.queue = keep; castle.landsV = 2;
 }
 
 // площадь в центре земель: если там стояла постройка (до появления площади) — переезжает на свободную клетку своего вида,
@@ -235,7 +251,7 @@ class Game {
     this.store = store; this.db = store.data;
     this.byXY = new Map(); // индекс замков по координатам: карта мира и поиск цели без перебора всех
     this.byId = new Map(); // игроки по id
-    for (const c of Object.values(this.db.castles)) { packCastle(c); if (c.grid[1].length !== LANDS_N * LANDS_N) migrateLands(c); fixPlaza(c); fixWall(c); this.byXY.set(c.x * WORLD + c.y, c); }
+    for (const c of Object.values(this.db.castles)) { packCastle(c); if (c.grid[1].length !== LANDS_N * LANDS_N) migrateLands(c); landsToV2(c); fixPlaza(c); fixWall(c); this.byXY.set(c.x * WORLD + c.y, c); }
     for (const u of Object.values(this.db.users)) this.byId.set(u.id, u);
     // ключ игрока = ник с учётом регистра; старые записи (ключ строчными, ник «Zevs») переносятся на ключ «Zevs»
     for (const [k, u] of Object.entries(this.db.users)) if (k !== u.login) { if (Object.prototype.hasOwnProperty.call(this.db.users, u.login)) u.login = k; else { delete this.db.users[k]; this.db.users[u.login] = u; } }
@@ -401,6 +417,7 @@ class Game {
     for (const [bx, by, b] of [[1, 8, 7], [10, 0, 8], [12, 0, 9], [3, 5, 5], [6, 3, 6]]) {
       landsGrid[by * LANDS_N + bx] = b; castle.levels[1][by * LANDS_N + bx] = 1;
     }
+    castle.landsV = 2; // земли — уже в новых уровнях (1–5)
     this.db.castles[id] = castle;
     this.byXY.set(x * WORLD + y, castle);
     return castle;
@@ -429,7 +446,7 @@ class Game {
   rating(castle) {
     const sum = (a) => a.reduce((x, y) => x + y, 0);
     const R = C.RATING;
-    return Math.min(R.max, Math.min(R.castleMax, Math.round((sum(castle.levels[0]) + (castle.wall || 0)) * R.castle)) + Math.min(R.landsMax, Math.round(sum(castle.levels[1]) * R.lands)));
+    return Math.min(R.max, Math.min(R.castleMax, Math.round((sum(castle.levels[0]) + (castle.wall || 0)) * R.castle)) + Math.min(R.landsMax, Math.round(castle.levels[1].reduce((x, y) => x + C.landEff(y), 0) * R.lands)));
   }
 
   buildingLevel(castle, buildingId) {
@@ -443,7 +460,7 @@ class Game {
     let store = STORE.base;
     castle.grid[0].forEach((b, i) => { if (b === 1) store += storeBonus(castle.levels[0][i]); });
     let huts = 0;
-    castle.grid[1].forEach((b, i) => { if (b === 6) huts += castle.levels[1][i]; });
+    castle.grid[1].forEach((b, i) => { if (b === 6) huts += C.landEff(castle.levels[1][i]); }); // места — как у прежнего уровня
     const people = Math.round(STORE.people + STORE.peoplePerHut * C.HUT_CAP_MULT * huts);
     return { wood: store, stone: store, iron: store, food: store, people };
   }
@@ -453,7 +470,7 @@ class Game {
     const r = { ...BASE_RATE };
     castle.grid[1].forEach((b, i) => {
       const def = C.BY_ID[b];
-      if (def && def.produces) r[def.produces] += C.PROD[castle.levels[1][i]] * C.PROD_K[def.produces] * (C.LAND_MULT[b] || 1);
+      if (def && def.produces) r[def.produces] += C.PROD[C.landEff(castle.levels[1][i])] * C.PROD_K[def.produces] * (C.LAND_MULT[b] || 1);
     });
     if (this.isPremium(this.userById(castle.owner))) r.people *= 1.5; // премиум: население +50%
     const prod = this.bonus(castle).prod; // наука Экономика, религия Природа, артефакты

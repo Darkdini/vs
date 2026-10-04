@@ -112,6 +112,26 @@ function lifeBirds(dpr) {
   x.restore();
 }
 
+// круглый участок земель: овал (круг в изометрии) с бортиком из камня; заливка по виду земли — один раз в готовую картинку
+const ROUND_PLOT = {};
+function roundPlot(P, kind) {
+  const key = /grass/.test(kind) ? 'grass' : /stone|kamen|rock/.test(kind) ? 'stone' : 'field';
+  let cv = ROUND_PLOT[key];
+  if (!cv) {
+    const K = 4, w = TW * K, h = TH * K; cv = document.createElement('canvas'); cv.width = w; cv.height = h + 2 * K; const g = cv.getContext('2d');
+    const col = { grass: ['#8fc24a', '#5f9a2c'], field: ['#a8794a', '#7a5230'], stone: ['#b9b2a4', '#8a8273'] }[key];
+    const ell = (k, dy = 0) => { g.beginPath(); g.ellipse(w / 2, h / 2 + dy, w / 2 * k, h / 2 * k, 0, 0, Math.PI * 2); };
+    ell(0.9, K * 1.5); g.fillStyle = 'rgba(40, 30, 10, 0.35)'; g.fill(); // тень под бортиком
+    ell(0.9); g.fillStyle = '#d8ccb0'; g.fill(); g.lineWidth = K; g.strokeStyle = '#6f6350'; g.stroke(); // каменный бортик
+    ell(0.8); const gr = g.createRadialGradient(w / 2, h * 0.42, 2, w / 2, h / 2, w * 0.42); gr.addColorStop(0, col[0]); gr.addColorStop(1, col[1]); g.fillStyle = gr; g.fill();
+    if (key === 'field') { g.save(); ell(0.8); g.clip(); g.strokeStyle = 'rgba(70, 45, 20, 0.45)'; g.lineWidth = K * 0.9; for (let i = -10; i <= 10; i++) { g.beginPath(); g.moveTo(w / 2 + i * K * 6 - w / 2, h / 2 - h / 2); g.lineTo(w / 2 + i * K * 6 + w / 2, h / 2 + h / 2); g.stroke(); } g.restore(); } // борозды
+    let seed = key.length * 97; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    if (key !== 'field') { g.save(); ell(0.8); g.clip(); for (let i = 0; i < 90; i++) { g.fillStyle = key === 'grass' ? (rnd() < 0.5 ? '#a6d660' : '#4f8a24') : (rnd() < 0.5 ? '#d2ccbd' : '#77705f'); g.fillRect(rnd() * w, rnd() * h, K * 1.2, K * (key === 'grass' ? 2 : 1.2)); } g.restore(); }
+    ROUND_PLOT[key] = cv;
+  }
+  ictx.drawImage(cv, P.cx - TW / 2, P.cy - TH / 2, TW, TH + 2);
+}
+
 // ---------- вся сцена земель ----------
 function landsScene(c, dpr) {
   const N = LN(), L = S.cat.lands, st = S.st.castle, now = Date.now(), x = ictx;
@@ -124,11 +144,8 @@ function landsScene(c, dpr) {
   for (let y = 0; y < N; y++) for (let xx = N - 1; xx >= 0; xx--) if (isWater(xx, y)) plotImage('ground/water.png', at(plotXY(xx, y)), SP * 1.02);
   // 2) тропинки: кольцо вокруг каждого сухого участка; соседние кольца сходятся в дорожку с камушками
   for (let y = 0; y < N; y++) for (let xx = N - 1; xx >= 0; xx--) if (!isWater(xx, y)) { const P = plotXY(xx, y); pathTile(P.cx - TW * SP / 2, P.cy - TH * SP / 2, SP); }
-  // 3) сам участок: пашня, камень или трава
-  for (let y = 0; y < N; y++) for (let xx = N - 1; xx >= 0; xx--) if (!isWater(xx, y)) {
-    const g = `ground/${GROUND[L.base[y][xx]]}.png`;
-    plotImage(/\/(grass|grass1)\.png$/.test(g) ? 'ground/grass1.png' : g, at(plotXY(xx, y)), 1.04);
-  }
+  // 3) сам участок — круглый (в изометрии — овал) с каменным бортиком: пашня, камень или трава
+  for (let y = 0; y < N; y++) for (let xx = N - 1; xx >= 0; xx--) if (!isWater(xx, y)) roundPlot(plotXY(xx, y), GROUND[L.base[y][xx]]);
   x.imageSmoothingEnabled = sm;
   if (Iso.sel && Iso.sel.tab === 'lands') glow(at(plotXY(Iso.sel.x, Iso.sel.y)), 1.04);
   // 4) объекты по глубине (ниже на экране — рисуется позже): здания, украшения, жители, строители, мельница
