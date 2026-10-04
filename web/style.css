@@ -2071,12 +2071,13 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .smkv dd { word-break: break-word; }
 .smsec { margin: 10px 0 4px; padding-bottom: 2px; border-bottom: 1px solid #b08a5a88; color: #6a2a0a; font: 700 16px var(--serif); }
 .smrow { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0; }
-.smrow input { flex: 1; min-width: 0; height: 34px; border: 1px solid #b08a5a; border-radius: 4px; padding: 0 6px; font: 15px var(--serif); background: #fffaf0; }
+.smrow input { flex: 1; min-width: 0; height: 34px; border: 1px solid #b08a5a; border-radius: 4px; padding: 0 6px; font: 15px var(--serif); background: #fffaf0; color: #2a1408; }
 .smline { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 2px; border-bottom: 1px solid #b08a5a55; font: 16px var(--serif); }
 .smgrp { padding: 6px 2px; border-bottom: 1px solid #b08a5a55; font: 16px var(--serif); }
 .smlog { padding: 5px 2px; border-bottom: 1px solid #b08a5a44; font: 15px var(--serif); }
 .smform { display: flex; flex-direction: column; gap: 6px; }
-.smform input { height: 36px; border: 1px solid #b08a5a; border-radius: 4px; padding: 0 8px; font: 16px var(--serif); background: #fffaf0; }
+.smform input { height: 36px; border: 1px solid #b08a5a; border-radius: 4px; padding: 0 8px; font: 16px var(--serif); background: #fffaf0; color: #2a1408; }
+.smrow input::placeholder, .smform input::placeholder { color: #8a7060; }
 .smred { color: #a01a10; } .smon { color: #2a7a10; font-style: normal; }
 .smnote { margin: 0 0 8px; padding: 8px 10px; border: 1px solid #a01a10; border-radius: 6px; background: #ffe2d8; color: #8a1008; font: 16px var(--serif); }
 .smnote.ok { border-color: #3a8a1a; background: #e6f6d8; color: #1f5a0a; }

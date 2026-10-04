@@ -80,8 +80,8 @@ $('#sheetBody').addEventListener('submit', (e) => {
   if (f.matches('[data-smfind]')) { e.preventDefault(); e.stopPropagation(); const w = f.who.value.trim(); if (w) smFind(w); return; }
   if (f.matches('[data-smaddmod]')) { e.preventDefault(); e.stopPropagation(); const w = f.who.value.trim(); if (w && confirm(`Назначить ${w} модератором?`)) send({ t: 'smod', op: 'mod', login: w, on: 1 }); return; }
   if (f.matches('[data-smally]')) {
-    e.preventDefault(); e.stopPropagation(); const go = e.submitter && e.submitter.value, id = f.id.value.trim(); if (!id) return toast('Укажите тег альянса.', 'err');
+    e.preventDefault(); e.stopPropagation(); const E = f.elements, go = e.submitter && e.submitter.value, id = E.id.value.trim(); // f.id / f.name — свойства самой формы, поля — через elements if (!id) return toast('Укажите тег альянса.', 'err');
     if (go === 'desc') { if (confirm(`Сбросить описание и устав [${id}]?`)) send({ t: 'smod', op: 'allydesc', id }); return; }
-    if (confirm(`Переименовать [${id}] в [${f.tag.value.trim()}] ${f.name.value.trim()}?`)) send({ t: 'smod', op: 'allyname', id, tag: f.tag.value, name: f.name.value });
+    if (confirm(`Переименовать [${id}] в [${E.tag.value.trim()}] ${E.name.value.trim()}?`)) send({ t: 'smod', op: 'allyname', id, tag: E.tag.value, name: E.name.value });
   }
 }, true);
