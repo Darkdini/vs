@@ -1048,20 +1048,15 @@ function label(text, sx, sy, color = '#ffd27a') {
   x.fillStyle = color; x.fillText(text, sx + TW / 2, sy + TH + 7);
 }
 // полоса стройки как в клиенте: 10 квадратиков 4×4 столбиком над клеткой, заполненные — зелёные (#4EFF00)
-function bar(sx, sy, frac) {
-  const pct = Math.max(0, Math.min(1, frac)) * 100;
-  for (let i = 0; i < 10; i++) {
-    const y = sy + 16 - 4 * i;
-    ictx.fillStyle = '#424939'; ictx.fillRect(sx, y, 4, 4);
-    if (pct > i * 10) { ictx.fillStyle = '#4eff00'; ictx.fillRect(sx + 1, y + 1, 2, 2); }
-  }
-}
-// полосы стройки на землях: рисуются после всех зданий (не перекрываются соседями), шириной в участок, над зданием
+// полосы стройки (замок и земли): рисуются после всех зданий (не перекрываются соседями), шириной в участок, над зданием
 const LANDBARS = [];
 function landBarsFlush() {
-  const x = ictx;
-  for (const [cx, top, f] of LANDBARS) {
-    const w = TW * 0.6, h = 7, bx = cx - w / 2, by = Math.max(top - 4, top - h - 2), p = Math.max(0, Math.min(1, f));
+  const x = ictx, placed = [];
+  for (const [cx, top, f, w] of LANDBARS.sort((a, b) => b[1] - a[1])) {
+    const h = 7, bx = cx - w / 2, p = Math.max(0, Math.min(1, f));
+    let by = top - h - 2;
+    for (let t = 0; t < 8 && placed.some((r) => bx < r[0] + r[2] + 2 && bx + w + 2 > r[0] && by < r[1] + h + 2 && by + h + 2 > r[1]); t++) by -= h + 3; // задевает соседнюю — выше
+    placed.push([bx, by, w]);
     x.save();
     x.fillStyle = 'rgba(20, 14, 6, 0.85)'; x.strokeStyle = '#c8963e'; x.lineWidth = 1.2;
     x.beginPath(); x.roundRect ? x.roundRect(bx, by, w, h, 3) : x.rect(bx, by, w, h); x.fill(); x.stroke();
@@ -1085,7 +1080,7 @@ function drawCellBuilding(view, cell, b, lvl, p, k = 1, sel = false) {
     else { const im = pic(path); if (im) { const w = im.width * k, h = im.height * k; top = p.sy + TH / 2 + TH * PLOT / 2 - h + 2; drawPic(im, p.sx + TW / 2 - w / 2, top, w, h); } }
     if (sel) ictx.restore();
   }
-  if (q) { const f = (now() - q.start) / (q.end - q.start); if (view === 1 && k === 'fit') LANDBARS.push([p.sx + TW / 2, top !== null ? top : p.sy - TH, f]); else bar(p.sx, p.sy, f); } // земли — полоса поверх всех зданий (landBarsFlush)
+  if (q) { const f = (now() - q.start) / (q.end - q.start); LANDBARS.push([p.sx + TW / 2, top !== null ? top : p.sy - TH, f, TW * (view === 1 ? 0.6 : 0.46)]); } // полоса над зданием — поверх всех зданий (landBarsFlush)
   if (S.showLvl && b >= 0 && lvl > 0 && top !== null) LVLQ.push([p.sx + TW / 2, Math.max(top + 8, p.sy - TH * 1.4), lvl]);
 }
 // уровни зданий (кнопка со стрелкой вверху): значки рисуются поверх всех зданий
@@ -1457,6 +1452,7 @@ function isoDrawNow() {
       for (let xx = 6; xx >= 0; xx--) { const cell = y * 7 + xx; drawCellBuilding(0, cell, st.grid[0][cell], st.levels[0][cell], cellAt(xx, y), BK, isSel(xx, y)); }
     }
     if (fence) fenceFront();
+    landBarsFlush(); // полосы стройки — поверх зданий и ограды
     lvlFlush();
     if (typeof advMarker === 'function') advMarker(VIEW.CASTLE, cellAt); // советник показывает нужную клетку
   } else if (S.tab === 'lands') {
