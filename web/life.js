@@ -132,6 +132,17 @@ function roundPlot(P, kind) {
   const k = 0.8; ictx.drawImage(cv, P.cx - TW * k / 2, P.cy - TH * k / 2, TW * k, (TH + 2) * k); // поменьше клетки — между участками просвет
 }
 
+// подсветка выбранного участка: мягкое золотое свечение и кольцо по краю круглого участка (дышит, пока идёт анимация земель)
+function roundSel(P) {
+  const x = ictx, k = 0.8, rx = TW * k / 2, ry = TH * k / 2, cy = P.cy + 1, a = flowOn() ? 0.75 + 0.25 * Math.sin(Date.now() / 260) : 1; // анимация выключена — без «дыхания»
+  x.save();
+  const g = x.createRadialGradient(P.cx, cy, rx * 0.2, P.cx, cy, rx * 1.15); g.addColorStop(0, `rgba(255, 236, 140, ${0.32 * a})`); g.addColorStop(0.75, `rgba(255, 214, 74, ${0.22 * a})`); g.addColorStop(1, 'rgba(255, 200, 40, 0)');
+  x.fillStyle = g; x.beginPath(); x.ellipse(P.cx, cy, rx * 1.15, ry * 1.15, 0, 0, Math.PI * 2); x.fill();
+  x.lineWidth = 7; x.strokeStyle = `rgba(255, 210, 60, ${0.55 * a})`; x.beginPath(); x.ellipse(P.cx, cy, rx * 0.98, ry * 0.98, 0, 0, Math.PI * 2); x.stroke();
+  x.lineWidth = 2.8; x.strokeStyle = `rgba(255, 244, 170, ${a})`; x.stroke();
+  x.restore();
+}
+
 // ---------- вся сцена земель ----------
 function landsScene(c, dpr) {
   const N = LN(), L = S.cat.lands, st = S.st.castle, now = Date.now(), x = ictx;
@@ -147,7 +158,7 @@ function landsScene(c, dpr) {
   // 3) сам участок — круглый (в изометрии — овал) с каменным бортиком: пашня, камень или трава
   for (let y = 0; y < N; y++) for (let xx = N - 1; xx >= 0; xx--) if (!isWater(xx, y)) roundPlot(plotXY(xx, y), GROUND[L.base[y][xx]]);
   x.imageSmoothingEnabled = sm;
-  if (Iso.sel && Iso.sel.tab === 'lands') glow(at(plotXY(Iso.sel.x, Iso.sel.y)), 1.04);
+  if (Iso.sel && Iso.sel.tab === 'lands') roundSel(plotXY(Iso.sel.x, Iso.sel.y)); // выбранный участок — золотое кольцо по форме круга
   // 4) объекты по глубине (ниже на экране — рисуется позже): здания, украшения, жители, строители, мельница
   const items = [];
   for (let y = 0; y < N; y++) for (let xx = 0; xx < N; xx++) {
