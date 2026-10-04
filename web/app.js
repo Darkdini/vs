@@ -1156,7 +1156,8 @@ function moat() {
 }
 // стена чуть шире сетки участков (FENCE_K), чтобы крайние здания не прижимались к ней; растягивается от центра замка
 const FENCE_K = 1.07;
-function fenceWide(draw) { const p = tileScreen(CC + 0.5, CC + 0.5), cx = p.sx, cy = p.sy + TH / 2; ictx.save(); ictx.translate(cx, cy); ictx.scale(FENCE_K, FENCE_K); ictx.translate(-cx, -cy); draw(); ictx.restore(); }
+// центр растяжения — середина клетки Ратуши (с IN_DY, как у дороги): ворота остаются на линии дороги
+function fenceWide(draw) { const p = tileScreen(CC, CC), cx = p.sx + TW / 2, cy = p.sy + TH / 2 + IN_DY; ictx.save(); ictx.translate(cx, cy); ictx.scale(FENCE_K, FENCE_K); ictx.translate(-cx, -cy + IN_DY); draw(); ictx.restore(); } // стена сдвинута как всё внутри (IN_DY) — ворота точно на дороге
 function fenceBack() {
   for (const i of [0, 1, 2, 4, 5, 6]) raw('fence/fence2.png', D(CG + i, CH) - 5, E(CG + i, CH) - 26);
   for (let i = 0; i < CN; i++) raw('fence/fence0.png', D(CG + 6, CH + i) + 25, E(CG + 6, CH + i) - 25);
@@ -1220,6 +1221,9 @@ function castleBackdrop() {
 }
 // земля только внутри стен (вокруг — фон-картинка)
 function groundIn(at) {
+  // дорога доходит до ворот: стена шире сетки (FENCE_K), поэтому крайние клетки дороги продлены наружу
+  for (const [x, y, dx, dy] of [[CASTLE_OFF + 3, CASTLE_OFF, 0, -1], [CASTLE_OFF, CASTLE_OFF + 3, -1, 0]]) { const g = at(x, y); if (!g) continue;
+    for (const k of [0.75, 0.4]) { const p = tileScreen(x + dx * k, y + dy * k); ground(g, p.sx, p.sy + IN_DY); } }
   for (let y = CASTLE_OFF; y < CASTLE_OFF + 7; y++) for (let x = CASTLE_OFF + 6; x >= CASTLE_OFF; x--) { const g = at(x, y); if (g) { const p = tileScreen(x, y); ground(g, p.sx, p.sy + IN_DY); } }
 }
 // земля сетки + поле grass1 на 5 клеток вокруг (s.a(g, true) в клиенте)
