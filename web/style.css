@@ -2028,11 +2028,11 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .brtable b { text-align: right; font-weight: 400; }
 .brtable .brbox { width: 24px; }
 .brhelp { font: 18px/1.45 var(--serif); }
-#top > #btnRank { position: absolute; left: 4px; bottom: 2px; width: 60px; height: 60px; border: 0; background: none; padding: 0; z-index: 7; margin: 0; filter: none; cursor: pointer; }
+#top > #btnRank { position: absolute; left: 6px; bottom: 9px; width: 44px; height: 44px; border: 0; background: none; padding: 0; z-index: 7; margin: 0; filter: none; cursor: pointer; }
 #btnRank .brfr { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
-#btnRank .brsh { position: absolute; left: 50%; top: 46%; width: 54%; transform: translate(-50%, -50%); }
-#btnRank .brstars.top { position: absolute; left: 50%; bottom: 3px; transform: translateX(-50%); }
-#btnRank .brstars.top img { width: 9px; height: 9px; }
+#btnRank .brsh { position: absolute; left: 50%; top: 45%; width: 50%; transform: translate(-50%, -50%); }
+#btnRank .brstars.top { position: absolute; left: 50%; bottom: 4px; transform: translateX(-50%); gap: 0; }
+#btnRank .brstars.top img { width: 6px; height: 6px; }
 .rinfo-box.brprize { width: min(380px, 94vw); padding: 12px 12px 14px; }
 .brp-head { display: flex; align-items: center; gap: 10px; justify-content: center; }
 .brp-head > img { width: 64px; }
