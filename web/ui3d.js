@@ -218,7 +218,7 @@ $('#sheetBody').addEventListener('click', (e) => {
 $('#sheetBody').addEventListener('input', (e) => { if (e.target.closest('.chatbar')) S.chatDraft = e.target.value; });
 
 // ---------- профиль (как «Профиль» в клиенте: пергамент, красные ленты) ----------
-// аватар игрока (PNG 96×96, собранный сервером) или картинка расы
+// аватар игрока (PNG до 256×256, собранный сервером) или картинка расы
 // своей аватарки нет — портрет расы (gfx/auth/race_*.webp, те же, что при регистрации)
 const raceAva = (race, cls = '') => `<img class="${cls} raceava" src="${GFX}auth/race_${['humans', 'elves', 'dwarves', 'orcs'].includes(race) ? race : 'humans'}.webp" alt="">`;
 const avatarImg = (p, cls = '') => (p.avatar ? `<img class="${cls}" src="avatar/${p.id}.png?v=${p.avatar}" alt="">` : raceAva(p.race, cls));
@@ -544,8 +544,8 @@ onState = function (m) {
 }; // eslint-disable-line no-global-assign
 
 // ---------- загрузка аватара ----------
-// Картинка не уходит на сервер как файл: браузер вырезает квадрат, уменьшает до 96×96
-// и отправляет только пиксели RGBA; сервер сам собирает из них PNG (server/src/avatar.js).
+// Картинка не уходит на сервер как файл: браузер вырезает квадрат, уменьшает до 256×256 и отправляет только сжатые
+// цвета точек; сервер проверяет размер, сам собирает из них новый PNG и называет его номером игрока (server/src/avatar.js).
 const AVA = 96;
 const avInput = Object.assign(document.createElement('input'), { type: 'file', accept: 'image/png,image/jpeg,image/webp,image/gif' });
 avInput.addEventListener('change', async () => {
@@ -555,7 +555,21 @@ avInput.addEventListener('change', async () => {
   if (f.size > 15 * 1024 * 1024) return toast('Файл больше 15 МБ.', 'err');
   let bmp;
   try { bmp = await createImageBitmap(f); } catch { return toast('Не удалось открыть картинку.', 'err'); }
-  const side = Math.min(bmp.width, bmp.height), cv = document.createElement('canvas'); cv.width = cv.height = AVA;
+  const side = Math.min(bmp.width, bmp.height);
+  const pack = async (n) => { // квадрат n×n → сжатые цвета точек RGB (base64)
+    const cv = document.createElement('canvas'); cv.width = cv.height = n;
+    const g = cv.getContext('2d'); g.imageSmoothingQuality = 'high'; g.fillStyle = '#fff'; g.fillRect(0, 0, n, n);
+    g.drawImage(bmp, (bmp.width - side) / 2, (bmp.height - side) / 2, side, side, 0, 0, n, n);
+    const px = g.getImageData(0, 0, n, n).data, rgb = new Uint8Array(n * n * 3);
+    for (let s = 0, d = 0; s < px.length; s += 4, d += 3) { rgb[d] = px[s]; rgb[d + 1] = px[s + 1]; rgb[d + 2] = px[s + 2]; }
+    const z = new Uint8Array(await new Response(new Blob([rgb]).stream().pipeThrough(new CompressionStream('deflate'))).arrayBuffer());
+    let bin = ''; for (let i = 0; i < z.length; i += 0x8000) bin += String.fromCharCode.apply(null, z.subarray(i, i + 0x8000));
+    return btoa(bin);
+  };
+  if (typeof CompressionStream !== 'undefined') { // хорошее качество: 256×256, если не влезает в одно сообщение — меньше
+    for (const n of [256, 224, 192, 160, 128]) { const z = await pack(n); if (z.length < 390000) return send({ t: 'avatar', op: 'set', z, size: n, acct: 1 }); }
+  }
+  const cv = document.createElement('canvas'); cv.width = cv.height = AVA; // старый браузер — 96×96
   const g = cv.getContext('2d'); g.imageSmoothingQuality = 'high';
   g.drawImage(bmp, (bmp.width - side) / 2, (bmp.height - side) / 2, side, side, 0, 0, AVA, AVA);
   const px = g.getImageData(0, 0, AVA, AVA).data;

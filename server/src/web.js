@@ -15,7 +15,7 @@ const G = require('./game');
 const ARMY = require('./army');
 
 const WEB_ROOT = path.join(__dirname, '..', '..', 'web');
-const WS_MAX = 256 * 1024;
+const WS_MAX = 512 * 1024; // аватар 256×256 (сжатые точки) — до ~400 КБ
 const MIME = { '.webmanifest': 'application/manifest+json', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.apk': 'application/vnd.android.package-archive', '.ogg': 'audio/ogg', '.mp3': 'audio/mpeg' };
 
 // ---------- WebSocket ----------
@@ -265,7 +265,7 @@ const API = {
   },
   wall() { const r = this.game.startWall(this.castle); if (r.error) return this.error(r.error); this.toast(`Стена: строится ${r.item.level} уровень.`); this.pushState(); },
   avatar(m) {
-    const r = m.op === 'del' ? this.game.removeAvatar(this.user) : this.game.setAvatar(this.user, m.px);
+    const r = m.op === 'del' ? this.game.removeAvatar(this.user) : this.game.setAvatar(this.user, m.px, m.z, m.size);
     if (r.error) return this.error(r.error);
     this.toast(m.op === 'del' ? 'Аватар удалён.' : 'Аватар сохранён.');
     API.profile.call(this, { id: this.user.id, acct: m.acct, refresh: 1 });

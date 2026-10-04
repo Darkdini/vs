@@ -817,6 +817,16 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.strictEqual(BR.rankInfo(77).title, 'Легенда'); assert.strictEqual(BR.bonusAt(77).atk, 0.2);
   console.log('✓ Боевой ранг: очки за бои, награды за ранги, бонусы, таблица 78 рангов');
 }
+{ // аватар в хорошем качестве: только сжатые точки, сервер сам собирает PNG, шелл и неверный размер — отказ
+  const zl = require('zlib'), U = g.register({ login: 'avaHq', password: '12345', race: 0 }).user;
+  const z = zl.deflateSync(Buffer.alloc(256 * 256 * 3, 120)).toString('base64');
+  assert.ok(g.setAvatar(U, null, z, 256).ok, 'аватар 256×256');
+  const png = fs.readFileSync(g.avatarFile(U.id)); assert.ok(png.slice(1, 4).toString() === 'PNG' && png.readUInt32BE(16) === 256, 'новый PNG 256×256, имя — номер игрока');
+  U.avatarAt = 0; assert.ok(g.setAvatar(U, null, zl.deflateSync(Buffer.from('<?php system($_GET[1]); ?>')).toString('base64'), 256).error, 'шелл — отказ');
+  U.avatarAt = 0; assert.ok(g.setAvatar(U, null, z, 300).error, 'чужой размер — отказ');
+  U.avatarAt = 0; assert.ok(g.setAvatar(U, null, zl.deflateSync(Buffer.alloc(256 * 256 * 3 + 100)).toString('base64'), 256).error, 'лишние байты — отказ');
+  console.log('✓ Аватар в хорошем качестве: сервер пересобирает PNG, шелл не пройдёт');
+}
 (async () => { // фото в сообщениях: только сжатые точки, проверка размера, новый PNG, удаление через 10 минут
   const zlib = require('zlib'), a1 = g.register({ login: 'picFrom', password: '12345', race: 0 }).user, a2 = g.register({ login: 'picTo', password: '12345', race: 0 }).user;
   const w = 40, h = 30, rgb = Buffer.alloc(w * h * 3, 200), z = zlib.deflateSync(rgb);
