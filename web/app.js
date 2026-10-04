@@ -834,7 +834,9 @@ const HD = { 'build/castle.png': ['build/hd/castle.png', 8], 'build/spycentr.png
   ...Object.fromEntries(['TL', 'R', 'BR', 'L', 'cL', 'cT', 'cR', 'cB', 'bL', 'bTL'].flatMap((n) => Array.from({ length: 16 }, (_, f) => [`ground/moat_${n}_${f}.png`, [`ground/hd/moat_${n}_${f}.png`, 6]]))),
   // Караульная башня — новая графика, растёт с уровнем: 1–4, 5–9, 10+ (ширина основания ≈ 50 точек, как у старых зданий)
   'build/watch1.png': ['watch/tower1.png', 354 / 50], 'build/watch2.png': ['watch/tower2.png', 319 / 46], 'build/watch3.png': ['watch/tower3.png', 323 / 46],
-  'ground/grassC.png': ['ground/hd/grassC.png', 8], 'ground/grass1C.png': ['ground/hd/grass1C.png', 8] };
+  'ground/grassC.png': ['ground/hd/grassC.png', 8], 'ground/grass1C.png': ['ground/hd/grass1C.png', 8],
+  // здания замка — новая перерисовка (лист по образцу старых): хранятся в 6 раз крупнее, рисуются в прежнем размере
+  ...Object.fromEntries('arhcamp art_tower baraks castle commerce diplomat expedition guard_tower magtower market mbases smith stables storage traveler university wisdom_house workshop'.split(' ').map((n) => [`build/${n}.png`, [`build/hd2/${n}.png`, 6]])) };
 
 // в замке трава своя (HD): снаружи стены — светлая (grass1C), внутри — с цветами (grassC); на Землях и в Мире — прежняя
 const CASTLE_GRASS = { 'ground/grass.png': 'ground/grass1C.png', 'ground/grass1.png': 'ground/grass1C.png' };
