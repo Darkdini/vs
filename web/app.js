@@ -1257,33 +1257,28 @@ function worldLayer(w, c, dpr) {
   Object.assign(cv.style, { left: `${x0}px`, top: `${y0}px`, width: `${Wp / s}px`, height: `${Hp / s}px` });
   return WLAYER;
 }
-// границы провинций (квадраты PROV×PROV клеток): светлая полоса по краю клеток, как дорожка; X·PROV — граница между клетками X−1 и X
+// границы провинций (как в оригинале): у каждой провинции PROV×PROV клеток — своя тонкая светлая рамка со скруглёнными углами,
+// поэтому между соседями — двойная линия с ложбинкой, на перекрёстках — плавные углы
 const PROV = () => (S.cat && S.cat.rules && S.cat.rules.prov) || 15;
 const provNum = (x, y) => Math.floor(y / PROV()) * ((S.cat && S.cat.rules && S.cat.rules.provN) || 67) + Math.floor(x / PROV()) + 1;
 function provBorders(w) {
-  const P = PROV(), R0 = w.radius, n = 2 * R0 + 1, X0 = w.cx - R0, Y0 = w.cy - R0, g = ictx, segs = [];
-  // линия x = const: левый-нижний край клеток (x, y) — от левого угла (sx, sy+TH/2) к нижнему (sx+TW/2, sy+TH)
-  for (let xx = 0; xx <= n; xx++) if ((X0 + xx) % P === 0) { const a = tileScreen(xx, 0), b = tileScreen(xx, n); segs.push([a.sx, a.sy + TH / 2, b.sx, b.sy + TH / 2]); }
-  // линия y = const: левый-верхний край клеток (x, y) — от левого угла к верхнему (sx+TW/2, sy)
-  for (let y = 0; y <= n; y++) if ((Y0 + y) % P === 0) { const a = tileScreen(0, y), b = tileScreen(n, y); segs.push([a.sx, a.sy + TH / 2, b.sx, b.sy + TH / 2]); }
-  if (!segs.length) return;
-  // натоптанная межа: мягкая тень, светлая полоса, по середине — пунктир из камушков; на перекрёстках — межевой камень
-  g.save(); g.lineCap = 'round'; g.lineJoin = 'round';
-  const line = (wd, col, dash) => { g.lineWidth = wd; g.strokeStyle = col; g.setLineDash(dash || []); g.beginPath(); for (const [ax, ay, bx, by] of segs) { g.moveTo(ax, ay); g.lineTo(bx, by); } g.stroke(); };
-  line(18, 'rgba(40, 70, 10, 0.14)'); line(13, 'rgba(60, 90, 20, 0.18)');
-  line(10, 'rgba(206, 190, 128, 0.55)'); line(6, 'rgba(232, 220, 168, 0.6)');
-  line(2.6, 'rgba(110, 86, 50, 0.55)', [3, 9]); line(1.6, 'rgba(255, 248, 220, 0.9)', [3, 9]);
-  g.setLineDash([]);
-  for (let xx = 0; xx <= n; xx++) if ((X0 + xx) % P === 0) for (let y = 0; y <= n; y++) if ((Y0 + y) % P === 0) { const p = tileScreen(xx, y); provStone(g, p.sx, p.sy + TH / 2); }
+  const P = PROV(), R0 = w.radius, n = 2 * R0 + 1, X0 = w.cx - R0, Y0 = w.cy - R0, g = ictx, E = 0.1, RAD = 14;
+  const pt = (x, y) => { const p = tileScreen(x - X0, y - Y0); return [p.sx, p.sy + TH / 2]; }; // угол сетки (x, y) — левый угол клетки
+  const boxes = [];
+  for (let py = Math.floor(Y0 / P); py * P <= Y0 + n; py++) for (let px = Math.floor(X0 / P); px * P <= X0 + n; px++) {
+    const x0 = px * P + E, y0 = py * P + E, x1 = (px + 1) * P - E, y1 = (py + 1) * P - E;
+    boxes.push([pt(x0, y0), pt(x1, y0), pt(x1, y1), pt(x0, y1)]);
+  }
+  const path = () => { g.beginPath(); for (const b of boxes) { const m = [(b[0][0] + b[3][0]) / 2, (b[0][1] + b[3][1]) / 2]; g.moveTo(m[0], m[1]); for (let k = 0; k < 4; k++) g.arcTo(b[k][0], b[k][1], b[(k + 1) % 4][0], b[(k + 1) % 4][1], RAD); g.closePath(); } };
+  g.save(); g.lineJoin = 'round';
+  // ложбинка между рамками — чуть светлее травы
+  g.lineWidth = TW * E * 2.2; g.strokeStyle = 'rgba(225, 240, 190, 0.18)'; g.beginPath();
+  for (let xx = 0; xx <= n; xx++) if ((X0 + xx) % P === 0) { const a = pt(X0 + xx, Y0), b = pt(X0 + xx, Y0 + n); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); }
+  for (let y = 0; y <= n; y++) if ((Y0 + y) % P === 0) { const a = pt(X0, Y0 + y), b = pt(X0 + n, Y0 + y); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); }
+  g.stroke();
+  path(); g.lineWidth = 4; g.strokeStyle = 'rgba(40, 80, 10, 0.22)'; g.stroke(); // мягкая тень рамки
+  path(); g.lineWidth = 2; g.strokeStyle = 'rgba(240, 250, 225, 0.85)'; g.stroke(); // светлая рамка
   g.restore();
-}
-// межевой камень на углу провинций
-function provStone(g, x, y) {
-  g.fillStyle = 'rgba(30, 40, 10, 0.35)'; g.beginPath(); g.ellipse(x + 2, y + 1, 11, 5, 0, 0, Math.PI * 2); g.fill();
-  const gr = g.createLinearGradient(x - 6, 0, x + 6, 0); gr.addColorStop(0, '#d9d2c0'); gr.addColorStop(0.55, '#a9a08c'); gr.addColorStop(1, '#6f6656');
-  g.fillStyle = gr; g.strokeStyle = '#4a4236'; g.lineWidth = 1;
-  g.beginPath(); g.moveTo(x - 6, y); g.lineTo(x - 5, y - 15); g.quadraticCurveTo(x, y - 21, x + 5, y - 15); g.lineTo(x + 6, y); g.quadraticCurveTo(x, y + 3, x - 6, y); g.fill(); g.stroke();
-  g.fillStyle = '#b8862e'; g.fillRect(x - 5.6, y - 9, 11.2, 2.6); g.fillStyle = '#f0d27a'; g.fillRect(x - 5.6, y - 9, 11.2, 1); // медный поясок
 }
 // купол защиты новичка над замком
 function newbieDome(p) {

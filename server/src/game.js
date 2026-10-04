@@ -14,9 +14,9 @@ const WORLD = Number(process.env.WORLD_SIZE || 1000);
 const SPAWN_GAP = 2;
 // провинции (как в оригинале): мир нарезан на квадраты PROV×PROV клеток; новые игроки заселяют провинцию по PROV_CAP замков,
 // потом — следующую, по спирали от центра карты (соседи рядом). Номер провинции — по строкам, с 1.
-const PROV = 15, PROV_CAP = 10, PROV_N = Math.ceil(WORLD / PROV);
-// клетки у границы провинции (по одной с каждой стороны линии) пустые: замки и лагеря не налезают на границу
-const onProvEdge = (x, y) => { const a = ((x % PROV) + PROV) % PROV, b = ((y % PROV) + PROV) % PROV; return a === 0 || a === PROV - 1 || b === 0 || b === PROV - 1; };
+const PROV = 15, PROV_CAP = 10, PROV_EDGE = 2, PROV_N = Math.ceil(WORLD / PROV);
+// клетки у границы провинции (по PROV_EDGE с каждой стороны линии) пустые: замки и лагеря не налезают на границу
+const onProvEdge = (x, y) => { const a = ((x % PROV) + PROV) % PROV, b = ((y % PROV) + PROV) % PROV; return a < PROV_EDGE || a >= PROV - PROV_EDGE || b < PROV_EDGE || b >= PROV - PROV_EDGE; };
 const provinceOf = (x, y) => { const px = Math.floor(x / PROV), py = Math.floor(y / PROV); return { px, py, n: py * PROV_N + px + 1 }; };
 let PROV_ORDER = null; // провинции от центра карты к краям
 const provOrder = () => PROV_ORDER || (PROV_ORDER = Array.from({ length: PROV_N * PROV_N }, (_, i) => i).map((i) => ({ px: i % PROV_N, py: Math.floor(i / PROV_N) }))
@@ -234,7 +234,7 @@ class Game {
     for (const c of [...this.byXY.values()]) {
       if (!onProvEdge(c.x, c.y)) continue;
       const px = Math.floor(c.x / PROV), py = Math.floor(c.y / PROV); let best = null;
-      for (let gap = 1; gap >= 0 && !best; gap--) for (let y = py * PROV + 1; y < py * PROV + PROV - 1; y++) for (let x = px * PROV + 1; x < px * PROV + PROV - 1; x++) {
+      for (let gap = 1; gap >= 0 && !best; gap--) for (let y = py * PROV + PROV_EDGE; y < (py + 1) * PROV - PROV_EDGE; y++) for (let x = px * PROV + PROV_EDGE; x < (px + 1) * PROV - PROV_EDGE; x++) {
         if (x >= WORLD || y >= WORLD || this.byXY.has(x * WORLD + y)) continue;
         let near = false; for (let dx = -gap; dx <= gap && !near; dx++) for (let dy = -gap; dy <= gap; dy++) { const k = this.castleAt(x + dx, y + dy); if (k && k !== c) { near = true; break; } }
         if (near || this.worldObjects(x, y, 1, 1).length) continue;
@@ -346,7 +346,7 @@ class Game {
       let spot = null;
       for (const p of provOrder()) {
         if ((cnt.get(p.py * PROV_N + p.px + 1) || 0) >= PROV_CAP) continue;
-        const x0 = p.px * PROV + 1, y0 = p.py * PROV + 1, w = Math.min(PROV - 2, WORLD - 1 - x0), h = Math.min(PROV - 2, WORLD - 1 - y0);
+        const x0 = p.px * PROV + PROV_EDGE, y0 = p.py * PROV + PROV_EDGE, w = Math.min(PROV - 2 * PROV_EDGE, WORLD - 1 - x0), h = Math.min(PROV - 2 * PROV_EDGE, WORLD - 1 - y0);
         if (w < 1 || h < 1) continue;
         for (let k = 0; k < 300 && !spot; k++) { const X = x0 + Math.floor(Math.random() * w), Y = y0 + Math.floor(Math.random() * h); if (free(X, Y)) spot = { x: X, y: Y }; }
         if (spot) break; // провинция тесная (старые замки) — следующая
