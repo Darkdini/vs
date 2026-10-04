@@ -882,6 +882,20 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     const r = g.adminOp(adm, 'goldall', { n: 5, why: 'Праздник' }); assert.ok(!r.error && pl.gold === g0 + 5 && (adm.gold || 0) === a0 && pl.goldLog.some((x) => /Праздник/.test(x.reason || x.why || JSON.stringify(x))), r.msg);
     console.log('✓ Золото всем:', r.msg);
   }
+  { // скриншоты к новости: только админ/старший модератор, сервер сам собирает PNG; подставной id не пройдёт
+    const zlib = require('zlib'), adm = Object.values(g.db.users).find((u) => u.admin), pl = Object.values(g.db.users).find((u) => !u.admin && !u.smod && !u.bot);
+    assert.ok(g.newsPicBegin(pl, 100, 50, 1).error, 'игроку нельзя');
+    assert.ok(g.newsPicBegin(adm, 5000, 50, 1).error, 'размер ограничен');
+    const b = g.newsPicBegin(adm, 100, 50, 1); const rgb = Buffer.alloc(100 * 50 * 3, 200);
+    const r = await g.newsPicPart(adm, b.up, 0, zlib.deflateSync(rgb).toString('base64')); assert.ok(r.id && /^[0-9a-f]{32}$/.test(r.id), r.error);
+    const png = fs.readFileSync(g.newsPicFile(r.id)); assert.ok(png.slice(1, 4).toString() === 'PNG', 'новый PNG');
+    const bad = g.newsPicBegin(adm, 100, 50, 1); assert.ok((await g.newsPicPart(adm, bad.up, 0, zlib.deflateSync(Buffer.alloc(10)).toString('base64'))).error, 'неверные точки — отказ');
+    assert.ok(g.newsPicFile('../../etc/passwd') === null, 'путь не подставить');
+    g.newsOp(adm, { op: 'publish', title: 'Скрины', text: 'Смотрите', pics: [r.id, 'f'.repeat(32), '../x'] });
+    const n = g.newsDb()[g.newsDb().length - 1]; assert.deepEqual(n.pics, [r.id], 'в новости только загруженные картинки');
+    assert.deepEqual(g.newsGet(pl, n.id).pics, [r.id]);
+    console.log('✓ Скриншоты к новостям: PNG пересобран сервером, чужие id отброшены');
+  }
   try { fs.unlinkSync(DB); } catch {}
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });

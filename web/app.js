@@ -258,6 +258,7 @@ function onMsg(m) {
     case 'mail': S.mail = m; refreshSheet(); break;
     case 'dialogs': case 'dialog': dialogsMsg(m); break;
     case 'picok': picMsg(m); break;
+    case 'newspicok': if (typeof newsPicMsg === 'function') newsPicMsg(m); else if (m.done === undefined) { /* ошибка загрузки — без админки */ } break;
     case 'avalikes': avaMsg(m); break;
     case 'chests': case 'chestres': chestsMsg(m); break;
     case 'coin': case 'coinres': coinMsg(m); break;

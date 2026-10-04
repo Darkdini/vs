@@ -528,6 +528,15 @@ const API = {
     this.send({ t: 'letter', letter: { id: x.id, from: from && from.login, to: to && to.login, subject: x.subject, text: x.text, at: x.at } });
   },
   // фото в личных сообщениях (pics.js): begin → part… → сообщение с фото на 10 минут
+  // скриншот к новости (news.js): begin → part… → id для формы публикации
+  async newspic(m) {
+    if (m.op === 'begin') { const r = this.game.newsPicBegin(this.user, m.w, m.h, m.n); if (r.error) return this.error(r.error); this.npUp = r.up; return this.send({ t: 'newspicok', i: 0 }); }
+    if (m.op !== 'part' || !this.npUp) return this.error('Скриншот: начните загрузку заново.');
+    const r = await this.game.newsPicPart(this.user, this.npUp, m.i, m.data);
+    if (r.error) { this.npUp = null; return this.error(r.error); }
+    if (r.more) return this.send({ t: 'newspicok', i: this.npUp.parts.length });
+    this.npUp = null; this.send({ t: 'newspicok', done: true, id: r.id });
+  },
   async pic(m) {
     if (m.op === 'begin') { const r = this.game.picBegin(this.user, m.to, m.w, m.h, m.n); if (r.error) return this.error(r.error); this.picUp = r.up; return this.send({ t: 'picok', i: 0 }); }
     if (m.op !== 'part' || !this.picUp) return this.error('Фото: начните отправку заново.');
@@ -683,6 +692,12 @@ function startWeb(game, sessions, { port, host, log }) {
       if (!p) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('expired'); }
       res.writeHead(200, { 'Content-Type': 'image/png', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'", 'Cache-Control': 'private, max-age=600', 'Referrer-Policy': 'no-referrer' });
       return res.end(p.png);
+    }
+    const np = /^\/newspic\/([0-9a-f]{32})\.png$/.exec(url); // скриншоты новостей (news.js): PNG собран сервером, имя случайное
+    if (np) {
+      let body; try { body = fs.readFileSync(game.newsPicFile(np[1])); } catch { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('no pic'); }
+      res.writeHead(200, { 'Content-Type': 'image/png', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'", 'Cache-Control': 'public, max-age=31536000, immutable' });
+      return res.end(body);
     }
     const ava = /^\/avatar\/(\d{1,9})\.png$/.exec(url); // аватары: только цифры → data/avatars/<id>.png (PNG собран сервером)
     if (ava) {

@@ -12,6 +12,36 @@ const ADM_TABS = [['player', '👤 Игрок'], ['give', '🎁 Выдать'], 
 // строка действия: название и пояснение слева, поле и кнопка справа
 const aAct = (title, desc, controls, wide = false) => `<div class="aact ${wide ? 'wide' : ''}"><div class="aact-t"><b>${title}</b><small>${desc}</small></div><div class="aact-c">${controls}</div></div>`;
 const aBtn2 = (op, text, extra = '', cls = '') => `<button class="btn small ${cls}" data-adm="${op}" ${extra}>${text}</button>`;
+// скриншоты к новости: до 4, загружаются сразу (сервер пересобирает PNG), в форме — миниатюры с ✕
+S.np = null;
+const newsPicsHtml = () => { const n = S.np || { ids: [] };
+  return `<div class="npics">${n.ids.map((id) => `<span class="npic"><img src="newspic/${id}.png" alt=""><button type="button" data-npdel="${id}" aria-label="Убрать">✕</button></span>`).join('')}
+    ${n.ids.length < 4 ? `<button type="button" class="btn small" data-npadd ${n.busy ? 'disabled' : ''}>${n.busy ? esc(n.busy) : '📷 Добавить скриншот'}</button>` : ''}</div>`; };
+let npInput = null;
+// черновик новости: заголовок и текст не стираются, когда форма перерисовывается (загрузка скриншота)
+$('#sheetBody').addEventListener('input', (e) => { if (e.target.dataset.npdraft === undefined) return; const f = e.target.form; S.npDraft = { title: f.title.value, text: f.text.value }; });
+async function newsPicUpload(file) {
+  if (typeof CompressionStream === 'undefined' || typeof createImageBitmap === 'undefined') return toast('Браузер не умеет загружать картинки — обновите его.', 'err');
+  S.np = S.np || { ids: [] }; S.np.busy = 'Готовлю…'; refreshSheet();
+  try {
+    let p = null; for (const side of [1280, 1024, 800, 640]) { p = await picPack(file, side); if (p.z.length <= 24 * 150 * 1024) break; }
+    if (p.z.length > 24 * 150 * 1024) throw new Error('big');
+    const parts = []; for (let i = 0; i < p.z.length; i += 150 * 1024) parts.push(b64(p.z.subarray(i, i + 150 * 1024)));
+    S.npQ = { parts }; S.np.busy = 'Загрузка… 0%'; refreshSheet(); send({ t: 'newspic', op: 'begin', w: p.w, h: p.h, n: parts.length });
+  } catch (e) { S.np.busy = null; refreshSheet(); toast('Не удалось прочитать картинку.', 'err'); }
+}
+function newsPicMsg(m) {
+  const q = S.npQ; if (!S.np) return;
+  if (m.done) { S.npQ = null; S.np.busy = null; if (m.id) S.np.ids.push(m.id); return refreshSheet(); }
+  if (q && m.i < q.parts.length) { send({ t: 'newspic', op: 'part', i: m.i, data: q.parts[m.i] }); S.np.busy = `Загрузка… ${Math.round(m.i / q.parts.length * 100)}%`; refreshSheet(); }
+}
+$('#sheetBody').addEventListener('click', (e) => {
+  const d = e.target.closest('[data-npdel]'); if (d && S.np) { S.np.ids = S.np.ids.filter((x) => x !== d.dataset.npdel); return refreshSheet(); }
+  if (!e.target.closest('[data-npadd]') || (S.np && S.np.busy)) return;
+  if (!npInput) { npInput = document.createElement('input'); npInput.type = 'file'; npInput.accept = 'image/*'; npInput.style.display = 'none'; document.body.appendChild(npInput);
+    npInput.addEventListener('change', () => { const f = npInput.files && npInput.files[0]; npInput.value = ''; if (f) newsPicUpload(f); }); }
+  npInput.click();
+});
 // «Золото всем игрокам» — на вкладках «Выдать» (сверху) и «Мир»
 const goldAllLog = () => { const g = S.adm.goldAll; if (!g) { if (!S.adm.goldAllAsked) { S.adm.goldAllAsked = true; send({ t: 'admin', op: 'goldallget' }); } return ''; }
   return `${g.msg ? `<div class="smnote ok">✔ ${esc(g.msg)}</div>` : ''}${g.last.length ? `<p class="small"><b>Последние раздачи:</b><br>${g.last.map((x) => `${fmtDate(x.at)} — по ${x.n} зол. «${esc(x.why)}», игроков: ${x.players}`).join('<br>')}</p>` : '<p class="small">Раздач ещё не было.</p>'}`; };
@@ -56,7 +86,7 @@ function adminHtml() {
       ${aSec('👥 Мульты', multiHtml(a.multis))}
       ${aSec('📮 Жалобы и сообщения об ошибках', `<p class="small">Жалобы из чата и сообщения «Сообщить об ошибке» от игроков.</p><button class="pbar" data-adm="bugs">Показать</button>
         ${a.bugs ? `<div class="pstats">${a.bugs.length ? a.bugs.map((b) => `<b>${esc(b.from)}</b> · ${fmtDate(b.at)}<br>${esc(b.text)}`).join('<hr>') : 'Сообщений нет.'}</div>${a.bugs.length ? '<button class="pbar" data-adm="bugsclear">Очистить список</button>' : ''}` : ''}`)}`,
-    world: () => `${aSec('📰 Новость', `<p class="small">Всем придёт фиолетовый конверт в верхней панели; новость останется в «Инфо → Новости».</p><form class="stack" data-aform="newspub"><input name="title" maxlength="80" placeholder="Заголовок" required><textarea name="text" rows="5" maxlength="4000" placeholder="Текст новости" required></textarea><button class="btn primary">Опубликовать</button></form>`)}
+    world: () => `${aSec('📰 Новость', `<p class="small">Всем придёт фиолетовый конверт в верхней панели; новость останется в «Инфо → Новости».</p><form class="stack" data-aform="newspub"><input name="title" maxlength="80" placeholder="Заголовок" required value="${esc((S.npDraft || {}).title || '')}" data-npdraft><textarea name="text" rows="5" maxlength="4000" placeholder="Текст новости" required data-npdraft>${esc((S.npDraft || {}).text || '')}</textarea>${newsPicsHtml()}<button class="btn primary">Опубликовать</button></form>`)}
       ${GOLD_ALL()}
       ${aSec('✉ Письмо всем', `<p class="small">Личное письмо каждому игроку (в «Сообщения»).</p><form class="stack" data-aform="mailall"><input name="subject" placeholder="Тема письма" value="Сообщение администрации"><textarea name="text" rows="3" placeholder="Текст письма" required></textarea><button class="btn primary">Разослать всем</button></form>`)}
       ${aSec('💬 Объявление в чат', `<p class="small">Сообщение в общий чат с пометкой [Администрация].</p><form class="chatform" data-aform="chat"><input name="text" placeholder="Текст объявления" required><button class="btn primary small">В чат</button></form>`)}
@@ -212,7 +242,7 @@ $('#sheetBody').addEventListener('submit', (e) => {
   if (k === 'addmod') { const l = f.login.value.trim(); if (!l) return; send({ t: 'admin', op: 'mod', login: l, on: 1 }); f.login.value = ''; return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
   if (k === 'find') { S.adm.players = null; S.adm.q = f.q.value; return send({ t: 'admin', op: 'players', q: f.q.value }); }
   if (k === 'passcheck') { admSend('passcheck', { password: f.password.value }); f.password.value = ''; return; }
-  if (k === 'newspub') { if (!confirm('Опубликовать новость всем игрокам?')) return; send({ t: 'news', op: 'publish', title: f.title.value, text: f.text.value }); f.reset(); return; }
+  if (k === 'newspub') { if (S.np && S.np.busy) return toast('Дождитесь загрузки скриншота.', 'err'); if (!confirm(`Опубликовать новость всем игрокам${(S.np && S.np.ids.length) ? ` (скриншотов: ${S.np.ids.length})` : ''}?`)) return; send({ t: 'news', op: 'publish', title: f.title.value, text: f.text.value, pics: S.np ? S.np.ids : [] }); f.reset(); S.np = null; S.npDraft = null; return refreshSheet(); }
   if (k === 'goldall') { const n = Math.floor(Number(f.n.value)); if (!(n >= 1 && n <= 1000)) return toast('От 1 до 1000 золота.', 'err'); if (!confirm(`Выдать КАЖДОМУ игроку по ${n} золота?`)) return; S.adm.goldAll = { msg: 'Выдаю…', last: (S.adm.goldAll || { last: [] }).last }; refreshSheet(); return send({ t: 'admin', op: 'goldall', n, why: f.why.value }); }
   if (k === 'mailall') send({ t: 'admin', op: 'mailall', subject: f.subject.value, text: f.text.value });
   if (k === 'chat') { send({ t: 'admin', op: 'chat', text: f.text.value }); f.text.value = ''; }

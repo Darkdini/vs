@@ -5,9 +5,35 @@
 
 const PAGE = 8, TITLE_MAX = 80, TEXT_MAX = 4000, COMMENT_MAX = 300, COMMENT_GAP_MS = 10000;
 const clean = (s, n) => String(s || '').replace(/[<>]/g, '').slice(0, n).trim();
+// скриншоты к новости: как фото в сообщениях — браузер шлёт только сжатые цвета точек (RGB, deflate), сервер сам собирает новый PNG
+// (чужих байтов в файле нет — ни скрипта, ни шелла). Имя файла — случайное (128 бит), хранится в data/news/<id>.png навсегда.
+const fs = require('fs'), path = require('path'), zlib = require('zlib'), crypto = require('crypto');
+const NP_SIDE = 1280, NP_PART = 160 * 1024, NP_PARTS = 24, NP_MAX = 4;
 
 function install(Game) {
   const P = Game.prototype;
+  P.newsPicDir = function newsPicDir() { return path.join(path.dirname(path.resolve(this.store.file)), 'news'); };
+  P.newsPicFile = function newsPicFile(id) { return /^[0-9a-f]{32}$/.test(String(id)) ? path.join(this.newsPicDir(), `${id}.png`) : null; };
+  // загрузка скриншота (только админ / старший модератор — кто публикует): begin → part… → id картинки
+  P.newsPicBegin = function newsPicBegin(u, w, h, n) {
+    if (!u.admin && !u.smod) return { error: 'Нет прав.' };
+    w = Math.floor(Number(w)); h = Math.floor(Number(h)); n = Math.floor(Number(n));
+    if (!(w >= 8 && h >= 8 && w <= NP_SIDE && h <= NP_SIDE) || !(n >= 1 && n <= NP_PARTS)) return { error: 'Неверная картинка.' };
+    return { ok: true, up: { w, h, n, parts: [] } };
+  };
+  P.newsPicPart = async function newsPicPart(u, up, i, data) {
+    i = Math.floor(Number(i));
+    if (!up || i !== up.parts.length || typeof data !== 'string') return { error: 'Скриншот: неверная часть — загрузите заново.' };
+    const buf = Buffer.from(data, 'base64'); if (!buf.length || buf.length > NP_PART) return { error: 'Скриншот: слишком большая часть.' };
+    up.parts.push(buf); if (up.parts.length < up.n) return { ok: true, more: true };
+    const raw = await new Promise((res) => zlib.inflate(Buffer.concat(up.parts), { maxOutputLength: up.w * up.h * 3 + 1 }, (e, out) => res(e ? null : out)));
+    if (!raw || raw.length !== up.w * up.h * 3) return { error: 'Скриншот повреждён — попробуйте другой.' };
+    const rgba = Buffer.alloc(up.w * up.h * 4);
+    for (let s = 0, d = 0; s < raw.length; s += 3, d += 4) { rgba[d] = raw[s]; rgba[d + 1] = raw[s + 1]; rgba[d + 2] = raw[s + 2]; rgba[d + 3] = 255; }
+    const id = crypto.randomBytes(16).toString('hex');
+    fs.mkdirSync(this.newsPicDir(), { recursive: true }); fs.writeFileSync(this.newsPicFile(id), require('./avatar').encodePng(rgba, up.w, up.h));
+    return { ok: true, id, w: up.w, h: up.h };
+  };
   P.newsDb = function newsDb() { return (this.db.news = this.db.news || []); };
   // сколько новостей игрок ещё не читал (не считаются опубликованные до его регистрации)
   // доклад советника при входе (число игроков онлайн добавляет web.js), нападения и отчёты за время отсутствия, новые подарки, непрочитанные письма и новости
@@ -44,7 +70,7 @@ function install(Game) {
   P.newsGet = function newsGet(u, id) {
     const n = this.newsDb().find((x) => x.id === Number(id) && !x.deleted); if (!n) return { error: 'Новость не найдена.' };
     if (!(u.newsRead || []).includes(n.id)) { (u.newsRead = u.newsRead || []).push(n.id); if (u.newsRead.length > 500) u.newsRead.shift(); this.store.save(); }
-    return { id: n.id, title: n.title, text: n.text, at: n.at, canMod: this.canModerate(u),
+    return { id: n.id, title: n.title, text: n.text, at: n.at, pics: n.pics || [], canMod: this.canModerate(u),
       comments: n.comments.filter((c) => !c.deleted).slice(-100).map((c) => ({ id: c.id, by: c.by, byId: c.byId, text: c.text, at: c.at })) };
   };
   P.newsOp = function newsOp(u, m) {
@@ -54,7 +80,8 @@ function install(Game) {
         if (!u.admin && !u.smod) return { error: 'Публикует администратор или старший модератор.' };
         const title = clean(m.title, TITLE_MAX), text = String(m.text || '').replace(/[<>]/g, '').slice(0, TEXT_MAX).trim();
         if (title.length < 3 || !text) return { error: 'Нужны заголовок (от 3 символов) и текст.' };
-        const n = { id: this.db.nextId++, title, text, at: now, by: u.login, comments: [] }; db.push(n);
+        const pics = [...new Set([].concat(m.pics || []).map(String))].filter((p) => { const f = this.newsPicFile(p); return f && fs.existsSync(f); }).slice(0, NP_MAX); // только загруженные на сервер
+        const n = { id: this.db.nextId++, title, text, at: now, by: u.login, comments: [], ...(pics.length ? { pics } : {}) }; db.push(n);
         if (db.length > 300) db.shift();
         this.store.save(); return { msg: 'Новость опубликована — игроки увидят фиолетовый конверт.', id: n.id };
       }

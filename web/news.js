@@ -15,7 +15,7 @@ function newsListWin() {
 }
 function newsItemWin() {
   const n = S.news.item; if (!n) return `${ribbon('Новость')}<p class="parch-note">Загрузка…</p>`;
-  return `${ribbon('Новость')}<div class="nitem"><h3>${esc(n.title)}</h3><div class="ndate">${newsDate(n.at)}</div><div class="ntext">${smiles(esc(n.text))}</div>
+  return `${ribbon('Новость')}<div class="nitem"><h3>${esc(n.title)}</h3><div class="ndate">${newsDate(n.at)}</div><div class="ntext">${smiles(esc(n.text))}</div>${(n.pics || []).length ? `<div class="nshots">${n.pics.map((p) => `<img src="newspic/${p}.png" alt="" data-nshot="${p}" loading="lazy">`).join('')}</div>` : ''}
     ${S.st.user.admin ? `<button class="pbar" data-newsdel="${n.id}">Удалить новость</button>` : ''}
     <form class="dform" data-form="newscmt"><input name="text" maxlength="300" autocomplete="off" placeholder="Ваш комментарий…"><button class="btn primary small">Отправить</button></form></div>
     ${ribbon('Комментарии:')}<div class="ncmts">${n.comments.length ? n.comments.slice().reverse().map((c) => `<div class="ncmt"><a class="fnick" data-cprof="${c.byId}">${esc(c.by)}:</a>
@@ -39,3 +39,10 @@ $('#sheetBody').addEventListener('submit', (e) => {
   const f = e.target, text = f.text.value.trim(); if (!text || !S.news.item) return;
   send({ t: 'news', op: 'comment', id: S.news.item.id, text }); f.text.value = '';
 }, true);
+
+// скриншот новости — на весь экран по нажатию, закрыть — нажатием
+document.addEventListener('click', (e) => {
+  const im = e.target.closest('[data-nshot]'); if (!im) return;
+  const d = document.createElement('div'); d.className = 'nshotfull'; d.innerHTML = `<img src="newspic/${im.dataset.nshot}.png" alt="">`;
+  d.addEventListener('click', () => d.remove()); document.body.appendChild(d);
+});
