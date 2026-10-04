@@ -117,7 +117,7 @@ function install(Game) {
         const f = m.topic ? this.forumTopic(m.topic) : null;
         if (!this.forumCanMod(user, f && f.s)) return { error: 'Нет прав модератора.' };
         const t = this.userById(Number(m.id)); if (!t) return { error: 'Игрок не найден.' };
-        if (t.admin || (t.mod && !user.admin)) return { error: 'Модератора запретить нельзя.' };
+        if (t.admin || (t.smod && !user.admin) || (t.mod && !user.admin && !user.smod)) return { error: 'Модератора запретить нельзя.' };
         const h = Number(m.hours); if (!Number.isFinite(h)) return { error: 'Укажите срок.' };
         t.forumBan = h === 0 ? 0 : h < 0 ? -1 : now + Math.min(h, 24 * 365) * 3600000;
         if (h !== 0) { t.violations = (t.violations || 0) + 1; this.event(t.id, h < 0 ? 'Вам запрещено писать на форуме навсегда.' : `Вам запрещено писать на форуме на ${h} ч.`); }

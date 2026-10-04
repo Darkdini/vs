@@ -201,9 +201,9 @@ function install(Game) {
     return {
       id: u.id, login: u.login, race: u.race, raceName: C.RACE_NAMES[u.race], created: u.created, lastSeen: u.id === viewer.id || viewer.admin ? u.lastSeen || u.created : null, // кто когда в игре — видно только себе и админу
       rating: this.userRating(u), rank: this.rankOf(u.id), reputation: u.reputation ?? START_REP,
-      title: u.admin ? 'Администратор' : u.mod ? 'Модератор форума' : this.isPremium(u) ? 'VIP' : null,
+      title: u.admin ? 'Администратор' : u.smod ? 'Старший модератор' : u.mod ? 'Модератор форума' : this.isPremium(u) ? 'VIP' : null,
       // звания в профиле: VIP — пока действует купленный премиум (закончился — строка пропадает), плюс админ/модератор
-      titles: [...((u.premium || 0) > Date.now() ? ['VIP'] : []), ...(u.admin ? ['Администратор'] : u.mod ? ['Модератор форума'] : [])], premium: this.isPremium(u) && !u.admin ? u.premium : 0,
+      titles: [...((u.premium || 0) > Date.now() ? ['VIP'] : []), ...(u.admin ? ['Администратор'] : u.smod ? ['Старший модератор'] : u.mod ? ['Модератор форума'] : [])], premium: this.isPremium(u) && !u.admin ? u.premium : 0,
       chatBan: viewer.admin || viewer.mod || u.id === viewer.id ? u.chatBan || 0 : undefined,
       alliance: al ? { id: al.id, name: al.name, tag: al.tag, ...(this.allyTitle ? (({ title, ep }) => ({ role: title, ep }))(this.allyTitle(al, u.id)) : { role: al.leader === u.id ? 'Глава' : 'Участник', ep: 0 }) } : null,
       // «Пригласить в альянс» в чужом профиле: у игрока нет альянса, у смотрящего — альянс и право приглашать
@@ -285,10 +285,11 @@ function install(Game) {
   P.chatBanUser = function chatBanUser(user, login, hours) {
     if (!this.canModerate(user)) return { error: 'Нет прав.' };
     const t = this.db.users[String(login || '').trim()]; if (!t) return { error: 'Игрок не найден.' };
-    if (t.admin || (t.mod && !user.admin)) return { error: 'Этого игрока забанить нельзя.' };
+    if (t.admin || (t.smod && !user.admin) || (t.mod && !user.admin && !user.smod)) return { error: 'Этого игрока забанить нельзя.' }; // модератора — старший модератор, старшего — только админ
     hours = Number(hours);
     t.chatBan = hours === 0 ? 0 : hours < 0 ? -1 : Date.now() + hours * 3600000;
     if (hours !== 0) t.violations = (t.violations || 0) + 1; // «Нарушения» в профиле
+    if (this.modLog) this.modLog(user, 'chat', t.login, hours === 0 ? 'запрет в чате снят' : `чат ${hours < 0 ? 'навсегда' : `на ${hours} ч.`}`); // журнал модерации
     this.event(t.id, hours === 0 ? 'Бан в чате снят.' : `Вам запрещено писать в чат ${hours < 0 ? 'навсегда' : `на ${hours} ч.`} (модератор ${user.login}).`);
     this.store.save();
     return { ok: true, msg: hours === 0 ? `Бан снят: ${t.login}.` : `${t.login}: бан в чате ${hours < 0 ? 'навсегда' : `на ${hours} ч.`}` };
@@ -299,7 +300,7 @@ function install(Game) {
     text = String(text || '').trim().slice(0, 300);
     if (!text) return { error: 'Пустое сообщение.' };
     this.db.chat = this.db.chat || [];
-    const m = { id: this.db.nextId++, from: user.login, fromId: user.id, text, at: Date.now(), rep: user.reputation ?? START_REP, role: user.admin ? 'admin' : user.mod ? 'mod' : '', color: this.msgColor ? this.msgColor(user) : '' }; // цвет текста — премиум
+    const m = { id: this.db.nextId++, from: user.login, fromId: user.id, text, at: Date.now(), rep: user.reputation ?? START_REP, role: user.admin ? 'admin' : user.smod ? 'smod' : user.mod ? 'mod' : '', color: this.msgColor ? this.msgColor(user) : '' }; // цвет текста — премиум
     this.db.chat.push(m);
     if (this.db.chat.length > CHAT_KEEP) this.db.chat.splice(0, this.db.chat.length - CHAT_KEEP); // в чате хранятся последние 30
     this.store.save();

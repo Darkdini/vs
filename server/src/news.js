@@ -51,7 +51,7 @@ function install(Game) {
     const db = this.newsDb(), now = Date.now();
     switch (m.op) {
       case 'publish': {
-        if (!u.admin) return { error: 'Публикует только администратор.' };
+        if (!u.admin && !u.smod) return { error: 'Публикует администратор или старший модератор.' };
         const title = clean(m.title, TITLE_MAX), text = String(m.text || '').replace(/[<>]/g, '').slice(0, TEXT_MAX).trim();
         if (title.length < 3 || !text) return { error: 'Нужны заголовок (от 3 символов) и текст.' };
         const n = { id: this.db.nextId++, title, text, at: now, by: u.login, comments: [] }; db.push(n);

@@ -134,7 +134,7 @@ class WebSession {
       t: 'state',
       now: Date.now(),
       quests: this.questsLite(),
-      user: { id: u.id, login: u.login, ally: u.alliance || null, race: u.race, raceName: C.RACE_NAMES[u.race], premium: u.premium || 0, gold: u.gold || 0, goldLog: (u.goldLog || []).slice(-50).reverse(), admin: !!u.admin, mod: !!u.mod, alertsNew: u.admin ? this.game.alertsNew() : 0, secNew: u.admin ? this.game.secNew() : 0, zagsNew: this.game.zagsNew(u), brank: (({ idx, icon, stars, title }) => ({ idx, icon, stars, title }))(require('./battlerank').rankInfo(this.game.brRank(u))), black: this.game.privacyOf(u).black, multiNew: u.admin ? (this.game.db.multiLog || []).filter((x) => x.at > (u.multiSeen || 0)).length : 0 },
+      user: { id: u.id, login: u.login, ally: u.alliance || null, race: u.race, raceName: C.RACE_NAMES[u.race], premium: u.premium || 0, gold: u.gold || 0, goldLog: (u.goldLog || []).slice(-50).reverse(), admin: !!u.admin, mod: !!u.mod, smod: !!u.smod, alertsNew: u.admin ? this.game.alertsNew() : 0, secNew: u.admin ? this.game.secNew() : 0, zagsNew: this.game.zagsNew(u), brank: (({ idx, icon, stars, title }) => ({ idx, icon, stars, title }))(require('./battlerank').rankInfo(this.game.brRank(u))), black: this.game.privacyOf(u).black, multiNew: u.admin ? (this.game.db.multiLog || []).filter((x) => x.at > (u.multiSeen || 0)).length : 0 },
       castle: {
         id: c.id, name: c.name, x: c.x, y: c.y, grid: { 0: Array.from(c.grid[0]), 1: Array.from(c.grid[1]) }, levels: { 0: Array.from(c.levels[0]), 1: Array.from(c.levels[1]) },
         res: c.res, rate: this.game.rates(c), cap: this.game.capacity(c),
@@ -242,7 +242,7 @@ const API = {
     if (!m.token) this.game.loginOk(this.ip);
     this.game.trackLogin(u, this.ip, m.dev); this.dev = m.dev;
     if (!u.admin && this.game.devBanned(m.dev)) return this.error('Это устройство заблокировано администрацией.');
-    if (u.banned) return this.error('Аккаунт заблокирован администрацией.');
+    if (!this.game.banExpired(u)) return this.error(u.banUntil ? `Аккаунт заблокирован модерацией до ${new Date(u.banUntil + 3 * 3600000).toISOString().slice(0, 16).replace('T', ' ')} (МСК). Причина: ${u.banWhy || '—'}` : 'Аккаунт заблокирован администрацией.');
     const prevSeen = u.lastSeen || 0;
     this.user = u; u.online = true; u.lastSeen = Date.now(); this.game.markActive(u);
     this.log(`web login ${u.login}`);
@@ -425,6 +425,17 @@ const API = {
     if (r.error) return this.error(r.error);
     if (m.op === 'del') for (const s of WebSession.all || []) if (s.user) s.send({ t: 'chatdel', id: Number(m.id) });
     this.toast(r.msg || 'Сообщение удалено.');
+  },
+  // «Модерация» старшего модератора (smod.js): данные, сведения об игроке, действия
+  smod(m) {
+    const g = this.game, op = String(m.op || 'view');
+    if (op === 'view') { const r = g.smodView(this.user); if (r.error) return this.error(r.error); return this.send({ t: 'smod', view: 'main', data: r }); }
+    if (op === 'player') { const r = g.smodPlayer(this.user, m.login); if (r.error) return this.send({ t: 'smod', view: 'deny', msg: r.error }); return this.send({ t: 'smod', view: 'player', data: r }); }
+    const r = g.smodOp(this.user, m); if (r.error) return this.send({ t: 'smod', view: 'deny', msg: r.error });
+    this.send({ t: 'smod', view: 'ok', msg: r.msg });
+    if (r.kick) for (const s of WebSession.all || []) if (s.user && s.user.id === r.kick) s.socket.destroy(); // заблокированного — из игры
+    this.send({ t: 'smod', view: 'main', data: g.smodView(this.user) });
+    if (m.login && op !== 'nick') { const p = g.smodPlayer(this.user, m.login); if (!p.error) this.send({ t: 'smod', view: 'player', data: p }); }
   },
   chatlog() { this.send({ t: 'chatlog', list: this.game.chatLog() }); },
   // «Игроки (N)» в главном чате: кто сейчас в игре (только ники)

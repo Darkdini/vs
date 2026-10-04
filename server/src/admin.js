@@ -104,7 +104,7 @@ function install(Game) {
   P.playerInfo = function playerInfo(u) {
     const cs = this.castlesOf(u);
     return { id: u.id, login: u.login, acct: u.acct || '', email: u.email || '', race: C.RACE_NAMES[u.race], castles: cs.length, rating: this.userRating(u), gold: u.gold || 0,
-      online: !!u.online, banned: !!u.banned, admin: !!u.admin, mod: !!u.mod, created: u.created, lastSeen: u.lastSeen || u.created, x: cs[0] && cs[0].x, y: cs[0] && cs[0].y };
+      online: !!u.online, banned: !!u.banned, admin: !!u.admin, mod: !!u.mod, smod: !!u.smod, created: u.created, lastSeen: u.lastSeen || u.created, x: cs[0] && cs[0].x, y: cs[0] && cs[0].y };
   };
 
   // все админ-команды. arg.login — над каким игроком (пусто — над собой); arg.all — над всеми его замками
@@ -245,7 +245,8 @@ function install(Game) {
         const hits = log.map((x, i) => ({ x, i })).filter(({ x }) => x.h && checkPassword(p, x.h)).map(({ x, i }) => ({ from: x.at, to: i + 1 < log.length ? log[i + 1].at : 0, current: i === log.length - 1, by: x.by }));
         data = { hits, login: target.login }; msg = hits.length ? `Совпадает: ${hits.map((h) => (h.current ? 'текущий пароль' : 'прежний пароль')).join(', ')}.` : 'Не совпадает ни с текущим, ни с прежними паролями.'; break;
       }
-      case 'mod': if (target.admin) return { error: 'Админ и так может всё.' }; target.mod = arg.on === undefined ? !target.mod : !!Number(arg.on); msg = `${target.login} — ${target.mod ? 'модератор форума' : 'больше не модератор'}.`; if (target.mod) this.event(target.id, 'Вас назначили модератором форума.'); break;
+      case 'smod': if (target.admin) return { error: 'Админ и так может всё.' }; target.smod = arg.on === undefined ? !target.smod : !!Number(arg.on); if (target.smod) target.mod = true; msg = `${target.login} — ${target.smod ? 'старший модератор' : 'больше не старший модератор'}.`; this.event(target.id, target.smod ? 'Вас назначили старшим модератором. Панель — Меню → «Модерация».' : 'Вы больше не старший модератор.'); break;
+      case 'mod': if (target.admin) return { error: 'Админ и так может всё.' }; target.mod = arg.on === undefined ? !target.mod : !!Number(arg.on); if (!target.mod) target.smod = false; msg = `${target.login} — ${target.mod ? 'модератор форума' : 'больше не модератор'}.`; if (target.mod) this.event(target.id, 'Вас назначили модератором форума.'); break;
       case 'race': { const r = this.adminSetRace(target, String(arg.race || '')); if (r.error) return r; msg = `${target.login}: раса — ${C.RACE_NAMES[target.race]}.`; break; }
       // --- один замок игрока (arg.cid): сброс к стартовому виду на том же месте или удаление ---
       case 'castlereset': case 'castledel': {

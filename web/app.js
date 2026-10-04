@@ -266,6 +266,7 @@ function onMsg(m) {
     case 'brank': brankMsg(m); break;
     case 'zags': case 'zprops': case 'zpairs': case 'zpair': case 'zdone': zagsMsg(m); break;
     case 'news': newsMsg(m); break;
+    case 'smod': smodMsg(m); break;
     case 'welcome': welcomeShow(m); break;
     case 'boss': S.boss = m.data; refreshSheet(); break;
     case 'forum': forumMsg(m); break;

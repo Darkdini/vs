@@ -857,6 +857,24 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     Cu.alliance = al.id; const n0 = cc.units[200]; g.arrive(ca, go.army, Date.now()); assert.ok(cc.units[200] === n0 && go.army.state === 'back', 'стали союзниками в пути — без боя');
     console.log('✓ Альянс: на союзников только подкрепление и ресурсы, армия в пути — домой без боя');
   }
+  { // старший модератор: модераторы, блокировка 1–7 дней, сброс ника; администратора не видит и не трогает, другого старшего — тоже
+    const adm = Object.values(g.db.users).find((u) => u.admin) || (() => { const x = g.register({ login: 'smAdmin', password: '12345', race: 0 }).user; x.admin = true; return x; })();
+    const sm = g.register({ login: 'smSenior', password: '12345', race: 0 }).user, sm2 = g.register({ login: 'smSecond', password: '12345', race: 0 }).user, pl = g.register({ login: 'smPlayer', password: '12345', race: 0 }).user, md = g.register({ login: 'smModer', password: '12345', race: 0 }).user;
+    assert.ok(g.smodView(pl).error, 'обычному игроку панель недоступна');
+    sm.smod = sm.mod = true; sm2.smod = sm2.mod = true; md.mod = true;
+    for (const op of ['ban', 'chat', 'nick', 'castles', 'viol', 'mod']) assert.ok(/Администратора/.test(g.smodOp(sm, { op, login: adm.login, days: 1, why: 'тест', hours: 1, d: 1, on: 0 }).error || ''), `админа нельзя: ${op}`);
+    assert.ok(/Администратора/.test(g.smodPlayer(sm, adm.login).error || ''), 'админа нельзя посмотреть');
+    const v = g.smodView(sm); assert.ok(![...v.mods, ...v.smods, ...v.banned].some((x) => x.login === adm.login) && !v.multis.some((gr) => gr.users.some((x) => x.login === adm.login)), 'админа нет в списках и мультах');
+    assert.ok(/Старшего/.test(g.smodOp(sm, { op: 'ban', login: sm2.login, days: 1, why: 'тест' }).error || ''), 'другого старшего — только админ');
+    assert.ok(g.chatBanUser(sm, md.login, 1).ok && g.chatBanUser(md, sm.login, 1).error, 'старший наказывает модератора, модератор старшего — нет');
+    assert.ok(g.smodOp(sm, { op: 'ban', login: pl.login, days: 5, why: 'тест' }).error, 'только 1, 3, 7 дней');
+    assert.ok(g.smodOp(sm, { op: 'ban', login: pl.login, days: 3, why: 'оскорбления' }).msg && pl.banned && !g.banExpired(pl), 'блокировка на 3 дня');
+    assert.ok(g.banExpired(pl, Date.now() + 4 * 86400000) && !pl.banned, 'через 3 дня — снята сама');
+    const r = g.smodOp(sm, { op: 'nick', login: pl.login }); assert.ok(/^Игрок/.test(pl.login) && g.db.users[pl.login] === pl, r.msg);
+    assert.ok(g.smodOp(sm, { op: 'mod', login: pl.login, on: 1 }).msg && pl.mod && !pl.smod, 'назначил модератора');
+    assert.ok((g.db.modLog || []).length >= 4, 'журнал модерации');
+    console.log('✓ Старший модератор: права работают, администратора не видит и не трогает');
+  }
   try { fs.unlinkSync(DB); } catch {}
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });

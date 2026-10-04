@@ -656,6 +656,7 @@ require('./premium').install(Game);
 require('./security').install(Game);
 require('./forum').install(Game);
 require('./news').install(Game);
+require('./smod').install(Game);
 require('./stash').install(Game);
 require('./metrics').install(Game);
 require('./anomaly').install(Game);
