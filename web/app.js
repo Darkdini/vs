@@ -866,7 +866,7 @@ function screenToTile(px, py) {
   return { x: Math.round((a - b) / 2), y: Math.round((a + b) / 2) };
 }
 // участки замка сдвинуты к центру (KC) и меньше клетки (PLOT): промежутки между ними и отступ от стены
-const KC = 0.8, PLOT = 0.62, BK = 0.72, CC = CASTLE_OFF + 3; // шаг сетки, размер участка, масштаб зданий
+const KC = 0.8, PLOT = 0.56, BK = 0.6, CC = CASTLE_OFF + 3; // шаг сетки, размер участка, масштаб зданий
 // IN_DY: всё внутри стен (участки, здания, дорога) чуть выше — передняя стена закрывает низ, и отступы до стен на глаз равные
 const IN_DY = -12;
 const cellAt = (cx, cy) => { const p = tileScreen(CC + (CASTLE_OFF + cx - CC) * KC, CC + (CASTLE_OFF + cy - CC) * KC); return { sx: p.sx, sy: p.sy + IN_DY }; };
