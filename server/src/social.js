@@ -307,7 +307,7 @@ function install(Game) {
     return { msg: m };
   };
   // репутация — текущая (мечи/топоры рядом с ником в чате)
-  P.chatLog = function chatLog() { return (this.db.chat || []).slice(-CHAT_KEEP).map((m) => { const u = this.userById(m.fromId); return { ...m, rep: u ? u.reputation ?? START_REP : m.rep, role: u ? (u.admin ? 'admin' : u.mod ? 'mod' : '') : m.role }; }); };
+  P.chatLog = function chatLog() { return (this.db.chat || []).slice(-CHAT_KEEP).map((m) => { const u = this.userById(m.fromId); return { ...m, rep: u ? u.reputation ?? START_REP : m.rep, role: u ? (u.admin ? 'admin' : u.smod ? 'smod' : u.mod ? 'mod' : '') : m.role }; }); };
 
   P.setNotes = function setNotes(user, text) { user.notes = String(text || '').slice(0, 5000); this.store.save(); return { ok: true }; };
   P.setAbout = function setAbout(user, text) { user.about = String(text || '').slice(0, 500); this.store.save(); return { ok: true }; };
