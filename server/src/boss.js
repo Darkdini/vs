@@ -4,15 +4,19 @@
 // Бой — тот же общий удар (army.js clash): босс — «гарнизон» из частей по SEG здоровья, его сила удара постоянна.
 // Итог (босс повержен или время вышло): награды по месту в таблице урона — ресурсы, снаряжение генерала, артефакт.
 // Если босс ушёл непобеждённым — награды вдвое меньше. Золото босс не даёт.
+// Здоровье — 1,5 млн + 150 тыс. за каждого активного игрока (до 30 млн).
 
 const RES4 = ['wood', 'stone', 'iron', 'food'];
 const DAY = 86400000, LIFE = 2 * DAY, SEG = 1000;
 const KILL_REP = 3, KILL_RES = 15000; // за последний удар
+// сила босса: за удар он забирает не меньше kill армии (набег — вдвое меньше), в ярости (меньше RAGE здоровья) — в полтора раза больше;
+// один удар снимает не больше HIT_MAX здоровья — одному игроку босса не свалить, нужен весь сервер
+const HIT_MAX = 0.05, RAGE = 0.3, RAGE_K = 1.5;
 const SLAYER = { dragon: 'Драконоборец', troll: 'Сокрушитель троллей', lich: 'Изгоняющий тьму' };
 const BOSSES = [
-  { kind: 'dragon', name: 'Древний дракон Игнис', desc: 'Пробудился в огненных горах и жжёт всё на своём пути.', bite: 0.4, def: 32, mdef: 18 },
-  { kind: 'troll', name: 'Тролль-вожак Грох', desc: 'Каменная шкура держит удары, но магия его жжёт.', bite: 0.3, def: 45, mdef: 10 },
-  { kind: 'lich', name: 'Король-лич Морвейн', desc: 'Мёртвый король с армией теней. Магия против него слаба.', bite: 0.35, def: 20, mdef: 45 },
+  { kind: 'dragon', name: 'Древний дракон Игнис', desc: 'Пробудился в огненных горах и жжёт всё на своём пути.', bite: 0.4, def: 32, mdef: 18, kill: 0.15 },
+  { kind: 'troll', name: 'Тролль-вожак Грох', desc: 'Каменная шкура держит удары, но магия его жжёт.', bite: 0.3, def: 45, mdef: 10, kill: 0.12 },
+  { kind: 'lich', name: 'Король-лич Морвейн', desc: 'Мёртвый король с армией теней. Магия против него слаба.', bite: 0.35, def: 20, mdef: 45, kill: 0.15 },
 ];
 // следующая суббота 15:00 UTC (18:00 МСК)
 function nextSaturday(now) {
@@ -50,7 +54,7 @@ function install(Game) {
     if (this.bossNow()) this.bossFinish(now);
     const K = BOSSES[kindIdx !== undefined ? kindIdx % BOSSES.length : s.n % BOSSES.length]; s.n++;
     const active = Object.values(this.db.users).filter((u) => !u.bot && !u.banned && (u.lastSeen || u.created || 0) > now - 7 * DAY).length;
-    const hp = Math.min(5e6, 300000 + 30000 * active);
+    const hp = Math.min(30e6, 1500000 + 150000 * active);
     const spot = this.bossSpot();
     s.cur = { id: this.db.nextId++, kind: K.kind, name: K.name, ...spot, hp, maxHp: hp, start: now, end: now + LIFE, dmg: {}, hits: {}, done: false };
     s.next = nextSaturday(now + LIFE);
@@ -108,13 +112,23 @@ function install(Game) {
     const npc = { name: b.name, boss: true, garrison: [{ key: 'boss', name: b.name, n: segs, hp: SEG, atk: raw * K.bite / segs, mag: 0, def: K.def, mdef: K.mdef, type: 'infantry' }] };
     const before = Object.values(a.units).reduce((q, n) => q + n, 0);
     const R = this.clash(c, a, null, npc, t);
-    const lost = Math.min(segs, (R.garrison[0] || {}).lost || 0), dmg = Math.min(b.hp, lost * SEG);
+    const lost = Math.min(segs, (R.garrison[0] || {}).lost || 0), cap = Math.round(b.maxHp * HIT_MAX), dmg = Math.min(b.hp, lost * SEG, cap);
+    // потери не меньше доли kill: босс выкашивает часть армии при любом её размере
+    const rage = b.hp / b.maxHp < RAGE, need = Math.round(before * K.kill * (a.mission === 'raid' ? 0.5 : 1) * (rage ? RAGE_K : 1));
+    const extra = need - Object.values(R.aLost).reduce((q, n) => q + n, 0);
+    if (extra > 0) {
+      const ids = Object.keys(a.units).filter((id) => a.units[id] > 0 && !(UNIT[id] && UNIT[id].oneUse)).sort((p, q) => a.units[q] - a.units[p]), left = ids.reduce((q, id) => q + a.units[id], 0);
+      const take = ids.map((id) => [id, Math.min(a.units[id], Math.floor(extra * a.units[id] / Math.max(1, left)))]);
+      let rest = Math.min(extra, left) - take.reduce((q, [, n]) => q + n, 0);
+      for (const tk of take) { if (rest <= 0) break; const add = Math.min(rest, a.units[tk[0]] - tk[1]); tk[1] += add; rest -= add; }
+      for (const [id, n] of take) if (n > 0) { a.units[id] -= n; R.aLost[id] = (R.aLost[id] || 0) + n; }
+    }
     b.hp -= dmg; b.dmg[c.owner] = (b.dmg[c.owner] || 0) + dmg; b.hits[c.owner] = (b.hits[c.owner] || 0) + 1;
     if (b.hp <= 0 && !b.killer) b.killer = c.owner;
     const alive = Object.values(a.units).some((n) => n > 0), lostN = Object.values(R.aLost).reduce((q, n) => q + n, 0);
     const lines = [`${a.mission === 'raid' ? 'Набег' : 'Нападение'} на ${b.name} (${b.x}:${b.y}).`, `Урон по боссу: ${dmg.toLocaleString('ru-RU')} (${(dmg / b.maxHp * 100).toFixed(2)}% здоровья).`,
       b.hp > 0 ? `У босса осталось ${b.hp.toLocaleString('ru-RU')} из ${b.maxHp.toLocaleString('ru-RU')}.` : 'Босс повержен! Ваш удар — последний.',
-      `Ваши потери: ${lostN} из ${before} воинов.`, `Ваш урон за всё время: ${b.dmg[c.owner].toLocaleString('ru-RU')}.`];
+      `Ваши потери: ${lostN} из ${before} воинов.${rage ? ` ${b.name} в ярости — бьёт в полтора раза сильнее!` : ''}`, ...(dmg === cap && lost * SEG > cap ? [`Больше ${Math.round(HIT_MAX * 100)}% здоровья босса за один удар не снять.`] : []), `Ваш урон за всё время: ${b.dmg[c.owner].toLocaleString('ru-RU')}.`];
     if (a.general && c.general && !c.general.dead) {
       if (!alive) {
         if (Math.random() < this.heroBonus(c.general).survive) lines.push('Армия разбита, но генерал уцелел.');
