@@ -1049,6 +1049,25 @@ function label(text, sx, sy, color = '#ffd27a') {
   x.fillStyle = color; x.fillText(text, sx + TW / 2, sy + TH + 7);
 }
 // полоса стройки как в клиенте: 10 квадратиков 4×4 столбиком над клеткой, заполненные — зелёные (#4EFF00)
+// уровень здания на землях: цветное кольцо вокруг участка и кружок с цифрой (1 серый, 2 зелёный, 3 синий, 4 фиолетовый, 5 золотой)
+const LV_COL = [null, ['#b8b8b8', '#5a5a5a'], ['#5fd84a', '#1f6a10'], ['#4aa8ff', '#10407a'], ['#c070ff', '#4a1080'], ['#ffd040', '#7a5000']];
+const LANDLV = [];
+function landLvlRing(p, lvl) {
+  const c = LV_COL[Math.max(1, Math.min(5, lvl))], x = ictx, cx = p.sx + TW / 2, cy = p.sy + TH / 2 + 1, rx = TW * 0.41, ry = TH * 0.41;
+  x.save(); x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+  x.lineWidth = 5; x.strokeStyle = c[1]; x.stroke(); x.lineWidth = 3; x.strokeStyle = c[0]; x.stroke(); x.restore();
+}
+function landLvlFlush() {
+  const x = ictx;
+  for (const [cx, cy, lvl] of LANDLV) {
+    const c = LV_COL[Math.max(1, Math.min(5, lvl))], r = 6.5;
+    x.save(); x.beginPath(); x.arc(cx, cy, r, 0, Math.PI * 2); x.fillStyle = c[0]; x.fill(); x.lineWidth = 1.5; x.strokeStyle = c[1]; x.stroke();
+    x.fillStyle = lvl >= 5 ? '#3a2400' : '#fff'; x.font = 'bold 9px system-ui, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    if (lvl < 5) { x.lineWidth = 2; x.strokeStyle = 'rgba(0,0,0,0.6)'; x.strokeText(String(lvl), cx, cy + 0.5); }
+    x.fillText(String(lvl), cx, cy + 0.5); x.restore();
+  }
+  LANDLV.length = 0;
+}
 // полосы стройки (замок и земли): рисуются после всех зданий, в центре своей клетки (у основания здания) — клетки не пересекаются, полосы тоже
 const LANDBARS = [];
 function landBarsFlush() {
@@ -1079,7 +1098,8 @@ function drawCellBuilding(view, cell, b, lvl, p, k = 1, sel = false) {
     if (k === 1) { sprite(path, p.sx, p.sy); const im = pic(path); if (im) top = p.sy - (im.height - TH); }
     else if (k === 'fit') { // земли: постройка на всю клетку, основание (ромб шириной в картинку) — по центру клетки
       const im = pic(path); if (im) { const kk = TW * (path.includes('/lands/') ? 0.78 : 0.62) / im.width, w = im.width * kk, h = im.height * kk; // новые картинки — со своим круглым участком; старые — поменьше клетки
-        top = p.sy + TH / 2 + w / 4 - h; drawPic(im, p.sx + TW / 2 - w / 2, top, w, h); } }
+        top = p.sy + TH / 2 + w / 4 - h; if (view === 1 && b >= 0 && lvl > 0 && !(q && q.level === 1)) landLvlRing(p, lvl); drawPic(im, p.sx + TW / 2 - w / 2, top, w, h);
+        if (view === 1 && b >= 0 && lvl > 0) LANDLV.push([p.sx + TW / 2, p.sy + TH / 2 + TH * 0.3, lvl]); } }
     else { const im = pic(path); if (im) { const w = im.width * k, h = im.height * k; top = p.sy + TH / 2 + TH * PLOT / 2 - h + 2; drawPic(im, p.sx + TW / 2 - w / 2, top, w, h); } }
     if (sel) ictx.restore();
   }

@@ -186,6 +186,7 @@ function landsScene(c, dpr) {
   items.sort((a, b) => a[0] - b[0]);
   for (const [, f] of items) f();
   if (Iso.sel && Iso.sel.tab === 'lands') roundSel(plotXY(Iso.sel.x, Iso.sel.y), 'front'); // передняя половина кольца — поверх здания
+  landLvlFlush(); // цифры уровней — поверх зданий
   landBarsFlush(); // полосы стройки — поверх всех зданий
   LVLQ.length = 0; // уровни на землях не показываем — только в замке
   lifeFish(); lifeBirds(dpr);
