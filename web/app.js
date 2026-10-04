@@ -443,7 +443,7 @@ const MAPWRAP = '<div class="mapwrap"><div class="infobox hidden"></div></div>';
 const TABS = {
   castle: () => `<div class="mapview">${MAPWRAP}</div>`,
   lands: () => `<div class="mapview">${MAPWRAP}</div>`,
-  world: () => `<div class="mapview">${MAPWRAP}<form class="wsearch" data-wsearch><span>X</span><input name="x" type="number" inputmode="numeric" value="${S.world ? S.world.cx : ''}"><span>Y</span><input name="y" type="number" inputmode="numeric" value="${S.world ? S.world.cy : ''}"><button class="pbtn small">Найти</button><button type="button" class="pbtn small" data-whome>Домой</button></form></div>`,
+  world: () => `<div class="mapview">${MAPWRAP}<form class="wsearch" data-wsearch><span>X</span><input name="x" type="number" inputmode="numeric" value="${S.world ? S.world.cx : ''}"><span>Y</span><input name="y" type="number" inputmode="numeric" value="${S.world ? S.world.cy : ''}"><button class="pbtn small">Найти</button><button type="button" class="pbtn small" data-whome>Домой</button></form><div id="wprov" class="wprov"></div></div>`,
 };
 
 function summaryHtml(view) {
@@ -1248,6 +1248,7 @@ function worldLayer(w, c, dpr) {
     const objs = new Map(w.objects.map((o) => [`${o.x}:${o.y}`, o]));
     if (Iso.sel && Iso.sel.tab === 'world') glow(tileScreen(Iso.sel.x, Iso.sel.y), 0.92);
     for (const o of w.objects) worldClearing(tileScreen(o.x - (w.cx - R0), o.y - (w.cy - R0))); // под замками и лагерями — поляна (без деревьев фона)
+    provBorders(w);
     for (let y = 0; y < n; y++) for (let xx = n - 1; xx >= 0; xx--) {
       const o = objs.get(`${w.cx - R0 + xx}:${w.cy - R0 + y}`); if (o) worldObj(o, tileScreen(xx, y), isSel(xx, y), s);
     }
@@ -1255,6 +1256,22 @@ function worldLayer(w, c, dpr) {
   Object.assign(WLAYER, { cv, key, base, s, x0, y0 });
   Object.assign(cv.style, { left: `${x0}px`, top: `${y0}px`, width: `${Wp / s}px`, height: `${Hp / s}px` });
   return WLAYER;
+}
+// границы провинций (квадраты PROV×PROV клеток): светлая полоса по краю клеток, как дорожка; X·PROV — граница между клетками X−1 и X
+const PROV = () => (S.cat && S.cat.rules && S.cat.rules.prov) || 15;
+const provNum = (x, y) => Math.floor(y / PROV()) * ((S.cat && S.cat.rules && S.cat.rules.provN) || 67) + Math.floor(x / PROV()) + 1;
+function provBorders(w) {
+  const P = PROV(), R0 = w.radius, n = 2 * R0 + 1, X0 = w.cx - R0, Y0 = w.cy - R0, g = ictx, segs = [];
+  // линия x = const: левый-нижний край клеток (x, y) — от левого угла (sx, sy+TH/2) к нижнему (sx+TW/2, sy+TH)
+  for (let xx = 0; xx <= n; xx++) if ((X0 + xx) % P === 0) { const a = tileScreen(xx, 0), b = tileScreen(xx, n); segs.push([a.sx, a.sy + TH / 2, b.sx, b.sy + TH / 2]); }
+  // линия y = const: левый-верхний край клеток (x, y) — от левого угла к верхнему (sx+TW/2, sy)
+  for (let y = 0; y <= n; y++) if ((Y0 + y) % P === 0) { const a = tileScreen(0, y), b = tileScreen(n, y); segs.push([a.sx, a.sy + TH / 2, b.sx, b.sy + TH / 2]); }
+  if (!segs.length) return;
+  g.save(); g.lineCap = 'round';
+  for (const [w2, col] of [[9, 'rgba(60, 90, 20, 0.35)'], [6, 'rgba(250, 240, 190, 0.75)'], [1.5, 'rgba(255, 255, 255, 0.9)']]) {
+    g.lineWidth = w2; g.strokeStyle = col; g.beginPath(); for (const [ax, ay, bx, by] of segs) { g.moveTo(ax, ay); g.lineTo(bx, by); } g.stroke();
+  }
+  g.restore();
 }
 // купол защиты новичка над замком
 function newbieDome(p) {
@@ -1341,6 +1358,7 @@ function isoDrawNow() {
     { // центр экрана ушёл к краю загруженного участка — подгрузить новый (без перерисовки, см. case 'world')
       const f = screenToTileF((Iso.cv.width / dpr / 2 - c.x) / c.z, (Iso.cv.height / dpr / 2 - c.y) / c.z), ex = Math.round(f.x) - R0, ey = Math.round(f.y) - R0;
       if ((Math.abs(ex) > R0 - 5 || Math.abs(ey) > R0 - 5) && (!S.wPending || Date.now() - S.wPending > 1500)) { S.wPending = Date.now(); send({ t: 'world', cx: w.cx + ex, cy: w.cy + ey }); }
+      const pn = provNum(w.cx + ex, w.cy + ey), pl = $('#wprov'); if (pl && pl.dataset.n !== String(pn)) { pl.dataset.n = pn; pl.textContent = `Провинция №${pn}`; } // в какой провинции центр экрана
     }
     // статичное (поляны, замки, лагеря, купола, выделение) — готовым холстом; каждый кадр рисуется только фон, кольцо и стрелка
     const L = worldLayer(w, c, dpr);

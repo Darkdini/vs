@@ -837,6 +837,8 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .ri[src$="coins_s.png"] { height: 1.4em; width: auto; }
 .mapview { position: relative; }
 .wsearch { position: absolute; top: 32px; left: 6px; right: 90px; z-index: 5; display: flex; align-items: center; gap: 4px; padding: 4px 6px; background: #3a1c0cdd; border: 2px solid #c8963e; border-radius: 8px; color: #f0d080; font: 700 16px var(--serif); }
+.wprov { position: absolute; top: 78px; left: 50%; transform: translateX(-50%); z-index: 5; padding: 2px 12px; background: #3a1c0cdd; border: 2px solid #c8963e; border-radius: 8px; color: #f0d080; font: 700 15px var(--serif); white-space: nowrap; pointer-events: none; }
+.wprov:empty { display: none; }
 .wsearch input { width: 0; flex: 1; min-width: 0; height: 30px; border: 2px solid #d8a850; border-radius: 5px; background: #6e7e5a; color: #fff4c0; font: 16px var(--serif); padding: 0 4px; }
 .wsearch .pbtn.small { font-size: 14px; padding: 2px 6px; white-space: nowrap; }
 /* боковая панель — компактнее */

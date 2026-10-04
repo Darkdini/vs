@@ -11,8 +11,15 @@ const C = require('./catalog');
 const SPEED = Number(process.env.SPEED || 1);
 // мир: карта WORLD×WORLD клеток, рассчитан на ~5 000 игроков (заселённый круг ~220 клеток)
 const WORLD = Number(process.env.WORLD_SIZE || 1000);
-const SPAWN_DENSITY = 4.5; // клеток карты на один замок в зоне заселения (соседи близко — походы короткие)
 const SPAWN_GAP = 2;
+// провинции (как в оригинале): мир нарезан на квадраты PROV×PROV клеток; новые игроки заселяют провинцию по PROV_CAP замков,
+// потом — следующую, по спирали от центра карты (соседи рядом). Номер провинции — по строкам, с 1.
+const PROV = 15, PROV_CAP = 10, PROV_N = Math.ceil(WORLD / PROV);
+const provinceOf = (x, y) => { const px = Math.floor(x / PROV), py = Math.floor(y / PROV); return { px, py, n: py * PROV_N + px + 1 }; };
+let PROV_ORDER = null; // провинции от центра карты к краям
+const provOrder = () => PROV_ORDER || (PROV_ORDER = Array.from({ length: PROV_N * PROV_N }, (_, i) => i).map((i) => ({ px: i % PROV_N, py: Math.floor(i / PROV_N) }))
+  .map((p) => ({ ...p, d: Math.hypot((p.px + 0.5) * PROV - WORLD / 2, (p.py + 0.5) * PROV - WORLD / 2), a: Math.atan2((p.py + 0.5) * PROV - WORLD / 2, (p.px + 0.5) * PROV - WORLD / 2) }))
+  .sort((p, q) => Math.round(p.d / PROV) - Math.round(q.d / PROV) || p.a - q.a));
 // где на нарисованном фоне карты мира луг, а не роща (world_open.json — маска картинки web/gfx/ground/world_bg.jpg):
 // клетка мира (X, Y) лежит в точке фона ((X+Y)·31+31, (Y−X)·16+16) по модулю размера картинки.
 // Сейчас фон — ровная трава без рощ, маски нет: луг везде
@@ -309,16 +316,20 @@ class Game {
     const id = this.db.nextId++;
     let x, y;
     if (at) ({ x, y } = at);
-    else { // новые игроки — в круге вокруг центра карты, круг растёт с числом замков (плотность SPAWN_DENSITY)
-      const n = this.byXY.size, R = Math.max(3, Math.sqrt((n + 1) * SPAWN_DENSITY / Math.PI)), C0 = WORLD / 2;
-      for (let k = 0; ; k++) {
-        const a = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * (R + k * 0.2);
-        x = Math.round(C0 + Math.cos(a) * d); y = Math.round(C0 + Math.sin(a) * d);
-        if (x < 0 || y < 0 || x >= WORLD || y >= WORLD) continue;
-        let near = false; // соседи ближе SPAWN_GAP (после 300 попыток — только сама клетка свободна)
-        for (let dx = -SPAWN_GAP; dx <= SPAWN_GAP && !near; dx++) for (let dy = -SPAWN_GAP; dy <= SPAWN_GAP; dy++) if ((k < 300 || (!dx && !dy)) && this.byXY.has((x + dx) * WORLD + (y + dy))) { near = true; break; }
-        if (!near && (k > 600 || meadowAt(x, y)) && !this.worldObjects(x, y, 1, 1).some((o) => o.kind === 'object')) break; // на лугу, не в роще
+    else { // новые игроки — в первую от центра провинцию, где меньше PROV_CAP замков; внутри — свободная клетка не у самой границы
+      const cnt = new Map(); for (const k of this.byXY.values()) { const p = provinceOf(k.x, k.y); cnt.set(p.n, (cnt.get(p.n) || 0) + 1); }
+      const free = (X, Y) => { for (let dx = -SPAWN_GAP; dx <= SPAWN_GAP; dx++) for (let dy = -SPAWN_GAP; dy <= SPAWN_GAP; dy++) if (this.byXY.has((X + dx) * WORLD + (Y + dy))) return false;
+        return !this.worldObjects(X, Y, 1, 1).some((o) => o.kind === 'object'); };
+      let spot = null;
+      for (const p of provOrder()) {
+        if ((cnt.get(p.py * PROV_N + p.px + 1) || 0) >= PROV_CAP) continue;
+        const x0 = p.px * PROV + 1, y0 = p.py * PROV + 1, w = Math.min(PROV - 2, WORLD - 1 - x0), h = Math.min(PROV - 2, WORLD - 1 - y0);
+        if (w < 1 || h < 1) continue;
+        for (let k = 0; k < 300 && !spot; k++) { const X = x0 + Math.floor(Math.random() * w), Y = y0 + Math.floor(Math.random() * h); if (free(X, Y)) spot = { x: X, y: Y }; }
+        if (spot) break; // провинция тесная (старые замки) — следующая
       }
+      if (!spot) for (let k = 0; !spot; k++) { const X = Math.floor(Math.random() * WORLD), Y = Math.floor(Math.random() * WORLD); if (!this.byXY.has(X * WORLD + Y)) spot = { x: X, y: Y }; }
+      ({ x, y } = spot);
     }
     const castleGrid = new Int8Array(49).fill(-1);
     const landsGrid = new Int8Array(LANDS_N * LANDS_N).fill(-1);
@@ -594,4 +605,4 @@ require('./quests').install(Game);
 require('./hero').install(Game);
 require('./boss').install(Game);
 
-module.exports = { passLogPush, checkPassword, meadowAt, fixPlaza, migrateLands, LANDS_N, WORLD, Game, Store, STORE, BASE_RATE, PEOPLE_FACTOR, storeBonus, RES_SPEED, buildTime, VIEW, GRID, landOptions, SPEED, MAX_QUEUE, LANDS_BASE, LANDS_DECOR, LANDS_EDGE };
+module.exports = { PROV, PROV_CAP, PROV_N, provinceOf, passLogPush, checkPassword, meadowAt, fixPlaza, migrateLands, LANDS_N, WORLD, Game, Store, STORE, BASE_RATE, PEOPLE_FACTOR, storeBonus, RES_SPEED, buildTime, VIEW, GRID, landOptions, SPEED, MAX_QUEUE, LANDS_BASE, LANDS_DECOR, LANDS_EDGE };

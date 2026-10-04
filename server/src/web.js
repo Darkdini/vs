@@ -86,7 +86,7 @@ function catalogJson() {
     campFast: require('./army').CAMP_FAST,
     maxQueue: G.MAX_QUEUE,
     rules: {
-      time: C.TIME, rating: C.RATING, store: G.STORE, baseRate: G.BASE_RATE, peopleFactor: G.PEOPLE_FACTOR, minBuildSec: 3,
+      prov: G.PROV, provN: G.PROV_N, time: C.TIME, rating: C.RATING, store: G.STORE, baseRate: G.BASE_RATE, peopleFactor: G.PEOPLE_FACTOR, minBuildSec: 3,
     },
     buildings: C.BUILDINGS.map((b) => ({
       id: b.id, name: b.name, desc: b.desc, layer: b.layer, max: b.max || 20, unique: !!b.unique, req: b.req || {},
