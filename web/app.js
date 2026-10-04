@@ -836,8 +836,8 @@ const HD = { 'build/castle.png': ['build/hd/castle.png', 8], 'build/spycentr.png
   'build/watch1.png': ['watch/tower1.png', 354 / 50], 'build/watch2.png': ['watch/tower2.png', 319 / 46], 'build/watch3.png': ['watch/tower3.png', 323 / 46],
   'ground/grassC.png': ['ground/hd/grassC.png', 8], 'ground/grass1C.png': ['ground/hd/grass1C.png', 8],
   // здания замка — новая перерисовка (лист по образцу старых): хранятся в 6 раз крупнее, рисуются в прежнем размере
-  // масштаб у каждого свой: основание здания — по ширине травяного участка (центр основания — по центру), но не выше 46 и не шире 40 точек (не залезают на соседние участки)
-  ...Object.fromEntries(Object.entries({ arhcamp: [4.05, 189], art_tower: [3.496, 149], baraks: [5.25, 245], castle: [3.404, 154], commerce: [5.1, 238], diplomat: [4.436, 207], expedition: [4.564, 213], guard_tower: [3.365, 121], magtower: [3.078, 102], market: [4.757, 222], mbases: [4.307, 201], smith: [4.2, 196], stables: [4.971, 232], storage: [4.436, 207], traveler: [4.436, 207], university: [4.114, 192], wisdom_house: [4.993, 233], workshop: [5.079, 237] }).map(([n, [k, fw]]) => [`build/${n}.png`, [`build/hd2/${n}.png`, k, fw]])) };
+  // масштаб у каждого свой: основание здания — по ширине травяного участка (центр основания — по центру), но не выше 38 и не шире 40 точек (не закрывают соседей)
+  ...Object.fromEntries(Object.entries({ arhcamp: [4.05, 189], art_tower: [4.232, 149], baraks: [5.25, 245], castle: [4.121, 154], commerce: [5.1, 238], diplomat: [4.436, 207], expedition: [4.564, 213], guard_tower: [4.074, 121], magtower: [3.726, 102], market: [4.757, 222], mbases: [4.307, 201], smith: [4.737, 196], stables: [4.971, 232], storage: [4.436, 207], traveler: [4.436, 207], university: [4.114, 192], wisdom_house: [4.993, 233], workshop: [5.079, 237] }).map(([n, [k, fw]]) => [`build/${n}.png`, [`build/hd2/${n}.png`, k, fw]])) };
 
 // в замке трава своя (HD): снаружи стены — светлая (grass1C), внутри — с цветами (grassC); на Землях и в Мире — прежняя
 const CASTLE_GRASS = { 'ground/grass.png': 'ground/grass1C.png', 'ground/grass1.png': 'ground/grass1C.png' };
@@ -871,6 +871,7 @@ function screenToTile(px, py) {
 const KC = 0.8, PLOT = 0.56, BK = 0.6, CC = CASTLE_OFF + 3; // шаг сетки, размер участка, масштаб зданий
 // IN_DY: всё внутри стен (участки, здания, дорога) чуть выше — передняя стена закрывает низ, и отступы до стен на глаз равные
 const IN_DY = -12;
+const CASTLE_ORDER = Array.from({ length: 49 }, (_, i) => [i % 7, Math.floor(i / 7)]).sort((p, q) => (p[1] - p[0]) - (q[1] - q[0]) || p[0] - q[0]);
 const cellAt = (cx, cy) => { const p = tileScreen(CC + (CASTLE_OFF + cx - CC) * KC, CC + (CASTLE_OFF + cy - CC) * KC); return { sx: p.sx, sy: p.sy + IN_DY }; };
 function screenToTileF(px, py) { const a = (px - TW / 2) / (TW / 2), b = (py - TH / 2) / (TH / 2); return { x: (a - b) / 2, y: (a + b) / 2 }; }
 // ромб (участок) уменьшенного размера k с центром в центре клетки p
@@ -1476,9 +1477,11 @@ function isoDrawNow() {
       const p = cellAt(xx, y); if (!onPath(xx, y) && !bg) plotImage('ground/stone.png', p, PLOT); // с фоном участок — тот же луг в рамке тропинки
       if (isSel(xx, y)) glow(p, PLOT);
     }
-    for (let y = 0; y < 7; y++) {
-      for (let xx = 6; xx >= 0; xx--) { const cell = y * 7 + xx; drawCellBuilding(0, cell, st.grid[0][cell], st.levels[0][cell], cellAt(xx, y), BK, isSel(xx, y)); }
-    }
+    // порядок — от дальних к ближним (по экранной глубине y − x), иначе дальнее здание рисуется поверх ближнего
+    for (const [xx, y] of CASTLE_ORDER) { const cell = y * 7 + xx; drawCellBuilding(0, cell, st.grid[0][cell], st.levels[0][cell], cellAt(xx, y), BK, isSel(xx, y)); }
+    // выбранное здание — ещё раз поверх соседей (его не закрывают здания перед ним)
+    if (Iso.sel && Iso.sel.tab === 'castle' && st.grid[0][Iso.sel.y * 7 + Iso.sel.x] >= 0) { const cell = Iso.sel.y * 7 + Iso.sel.x; const n0 = LANDBARS.length, l0 = LVLQ.length;
+      drawCellBuilding(0, cell, st.grid[0][cell], st.levels[0][cell], cellAt(Iso.sel.x, Iso.sel.y), BK, true); LANDBARS.length = n0; LVLQ.length = l0; }
     if (fence) fenceFront();
     landBarsFlush(); // полосы стройки — поверх зданий и ограды
     lvlFlush();
