@@ -290,6 +290,12 @@ function install(Game) {
         this.moveCastle(this.castleOf(target), x, y); msg = `Замок перенесён на ${x}:${y}.`; break;
       }
       // --- мир, связь ---
+      case 'goldall': { // подарок от администрации: всем игрокам (кроме ботов и админа) по n золота, в Казну, с письмом
+        const n = Math.floor(Number(arg.n)); if (!(n >= 1 && n <= 1000)) return { error: 'Сумма — от 1 до 1000 золота каждому.' };
+        const why = String(arg.why || '').replace(/[<>]/g, '').trim().slice(0, 100) || 'Подарок от администрации';
+        let k = 0; for (const u of Object.values(this.db.users)) { if (u.bot || u.admin) continue; this.goldChange(u, n, `${why} (+${n})`); this.event(u.id, `🎁 ${why}: +${n} золота в Казну!`); k++; }
+        (this.db.goldAll = this.db.goldAll || []).push({ at: Date.now(), n, why, players: k }); msg = `Выдано по ${n} золота: ${k} игрокам (всего ${n * k}).`; break;
+      }
       case 'mailall': {
         const text = String(arg.text || '').trim(); if (!text) return { error: 'Введите текст.' };
         for (const u of Object.values(this.db.users)) if (u.id !== user.id) { this.sendMail(user, u.login, String(arg.subject || 'Сообщение администрации'), text); this.event(u.id, 'Новое письмо от администрации.'); }

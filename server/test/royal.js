@@ -875,6 +875,13 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.ok((g.db.modLog || []).length >= 4, 'журнал модерации');
     console.log('✓ Старший модератор: права работают, администратора не видит и не трогает');
   }
+  { // «Золото всем»: только админ, каждому игроку (не ботам и не админу) по n в Казну
+    const adm = Object.values(g.db.users).find((u) => u.admin), pl = Object.values(g.db.users).find((u) => !u.admin && !u.bot), g0 = pl.gold || 0, a0 = adm.gold || 0;
+    assert.ok(g.adminOp(pl, 'goldall', { n: 5 }).error, 'не админу — нельзя');
+    assert.ok(g.adminOp(adm, 'goldall', { n: 0 }).error && g.adminOp(adm, 'goldall', { n: 5000 }).error, 'от 1 до 1000');
+    const r = g.adminOp(adm, 'goldall', { n: 5, why: 'Праздник' }); assert.ok(!r.error && pl.gold === g0 + 5 && (adm.gold || 0) === a0 && pl.goldLog.some((x) => /Праздник/.test(x.reason || x.why || JSON.stringify(x))), r.msg);
+    console.log('✓ Золото всем:', r.msg);
+  }
   try { fs.unlinkSync(DB); } catch {}
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });
