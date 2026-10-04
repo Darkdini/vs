@@ -836,7 +836,7 @@ const HD = { 'build/castle.png': ['build/hd/castle.png', 8], 'build/spycentr.png
   'build/watch1.png': ['watch/tower1.png', 354 / 50], 'build/watch2.png': ['watch/tower2.png', 319 / 46], 'build/watch3.png': ['watch/tower3.png', 323 / 46],
   'ground/grassC.png': ['ground/hd/grassC.png', 8], 'ground/grass1C.png': ['ground/hd/grass1C.png', 8],
   // здания замка — новая перерисовка (лист по образцу старых): хранятся в 6 раз крупнее, рисуются в прежнем размере
-  ...Object.fromEntries('arhcamp art_tower baraks castle commerce diplomat expedition guard_tower magtower market mbases smith stables storage traveler university wisdom_house workshop'.split(' ').map((n) => [`build/${n}.png`, [`build/hd2/${n}.png`, 6]])) };
+  ...Object.fromEntries('arhcamp art_tower baraks castle commerce diplomat expedition guard_tower magtower market mbases smith stables storage traveler university wisdom_house workshop'.split(' ').map((n) => [`build/${n}.png`, [`build/hd2/${n}.png`, 7]])) };
 
 // в замке трава своя (HD): снаружи стены — светлая (grass1C), внутри — с цветами (grassC); на Землях и в Мире — прежняя
 const CASTLE_GRASS = { 'ground/grass.png': 'ground/grass1C.png', 'ground/grass1.png': 'ground/grass1C.png' };
@@ -1417,11 +1417,11 @@ function newbieDome(p) {
 }
 // тропинки между клетками (как в оригинале): земляная полоса по краю ромба + камушки вдоль травы.
 // Соседние клетки дают по половине тропинки. Текстура рисуется один раз в 4× разрешении.
-let PATH_RING = null;
-function pathRing() {
-  if (PATH_RING) return PATH_RING;
+const PATH_RING = {};
+function pathRing(band = 0.17) { // band — доля ширины ромба под тропинку
+  if (PATH_RING[band]) return PATH_RING[band];
   const K = 4, w = TW * K, h = TH * K, cv = document.createElement('canvas'); cv.width = w; cv.height = h;
-  const g = cv.getContext('2d'), band = 0.17; // доля ширины ромба под тропинку
+  const g = cv.getContext('2d');
   const dia = (k) => { g.beginPath(); g.moveTo(w / 2, h / 2 - h / 2 * k); g.lineTo(w / 2 + w / 2 * k, h / 2); g.lineTo(w / 2, h / 2 + h / 2 * k); g.lineTo(w / 2 - w / 2 * k, h / 2); g.closePath(); };
   let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
   dia(1); g.fillStyle = '#9a6b3c'; g.fill();
@@ -1438,9 +1438,9 @@ function pathRing() {
       g.fillStyle = '#fff6dc'; g.beginPath(); g.ellipse(x - r * 0.3, y - r * 0.22, r * 0.35, r * 0.2, 0, 0, Math.PI * 2); g.fill();
     }
   }
-  return (PATH_RING = cv);
+  return (PATH_RING[band] = cv);
 }
-function pathTile(sx, sy, k = 1) { ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(pathRing(), sx, sy, TW * k, TH * k); ictx.restore(); }
+function pathTile(sx, sy, k = 1, band) { ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(pathRing(band), sx, sy, TW * k, TH * k); ictx.restore(); }
 const GRASSY = (img) => /\/(grass|grass1|ground)\.png$/.test(img);
 function groundField(n, at, m = 5) { // m — сколько клеток травы вокруг
   for (let y = -m; y < n + m; y++) for (let x = n + m - 1; x >= -m; x--) {
@@ -1466,7 +1466,7 @@ function isoDrawNow() {
     const bg = castleBackdrop();
     if (bg) groundIn((xx, y) => (!onPath(xx - CASTLE_OFF, y - CASTLE_OFF) ? null : `ground/${GROUND[CASTLE_BASE[y][xx]]}.png`)); // с фоном трава в замке — луг с картинки, рисуется только дорога
     else groundField(17, (xx, y) => (xx >= CASTLE_OFF && xx < CASTLE_OFF + 7 && y >= CASTLE_OFF && y < CASTLE_OFF + 7 && !onPath(xx - CASTLE_OFF, y - CASTLE_OFF) ? 'ground/grassC.png' : `ground/${GROUND[CASTLE_BASE[y][xx]]}.png`));
-    for (let y = 0; y < 7; y++) for (let xx = 0; xx < 7; xx++) if (!onPath(xx, y)) { const p = cellAt(xx, y); pathTile(p.sx + TW * (1 - KC) / 2, p.sy + TH * (1 - KC) / 2, KC); }
+    for (let y = 0; y < 7; y++) for (let xx = 0; xx < 7; xx++) if (!onPath(xx, y)) { const p = cellAt(xx, y); pathTile(p.sx + TW * (1 - KC) / 2, p.sy + TH * (1 - KC) / 2, KC, 0.27); } // в замке тропинки между участками шире
     if (!bg || CASTLE_BG.moat) moat();
     const fence = buildingLevel(22) > 0; // Забор построен — вокруг замка наша стена (на фон-картинке стен нет)
     if (fence) fenceBack();
