@@ -132,14 +132,25 @@ function roundPlot(P, kind) {
   const k = 0.8; ictx.drawImage(cv, P.cx - TW * k / 2, P.cy - TH * k / 2, TW * k, (TH + 2) * k); // поменьше клетки — между участками просвет
 }
 
-// подсветка выбранного участка: мягкое золотое свечение и кольцо по краю круглого участка (дышит, пока идёт анимация земель)
-function roundSel(P) {
-  const x = ictx, k = 0.8, rx = TW * k / 2, ry = TH * k / 2, cy = P.cy + 1, a = flowOn() ? 0.75 + 0.25 * Math.sin(Date.now() / 260) : 1; // анимация выключена — без «дыхания»
+// подсветка выбранного участка (хорошо видна на траве, пашне и камне):
+// back — под зданием: яркое свечение, толстое золотое кольцо с тёмной обводкой и расходящаяся волна;
+// front — после всех зданий: передняя половина кольца поверх основания здания
+function roundSel(P, part = 'back') {
+  const x = ictx, k = 0.8, rx = TW * k / 2, ry = TH * k / 2, cy = P.cy + 1, anim = flowOn(), t = Date.now();
+  const a = anim ? 0.8 + 0.2 * Math.sin(t / 240) : 1;
+  const ring = (from, to, sc = 1) => { x.beginPath(); x.ellipse(P.cx, cy, rx * sc, ry * sc, 0, from, to); };
   x.save();
-  const g = x.createRadialGradient(P.cx, cy, rx * 0.2, P.cx, cy, rx * 1.15); g.addColorStop(0, `rgba(255, 236, 140, ${0.32 * a})`); g.addColorStop(0.75, `rgba(255, 214, 74, ${0.22 * a})`); g.addColorStop(1, 'rgba(255, 200, 40, 0)');
-  x.fillStyle = g; x.beginPath(); x.ellipse(P.cx, cy, rx * 1.15, ry * 1.15, 0, 0, Math.PI * 2); x.fill();
-  x.lineWidth = 7; x.strokeStyle = `rgba(255, 210, 60, ${0.55 * a})`; x.beginPath(); x.ellipse(P.cx, cy, rx * 0.98, ry * 0.98, 0, 0, Math.PI * 2); x.stroke();
-  x.lineWidth = 2.8; x.strokeStyle = `rgba(255, 244, 170, ${a})`; x.stroke();
+  if (part === 'back') {
+    const g = x.createRadialGradient(P.cx, cy, rx * 0.1, P.cx, cy, rx * 1.45);
+    g.addColorStop(0, `rgba(255, 245, 170, ${0.55 * a})`); g.addColorStop(0.6, `rgba(255, 215, 70, ${0.4 * a})`); g.addColorStop(1, 'rgba(255, 190, 30, 0)');
+    x.fillStyle = g; ring(0, Math.PI * 2, 1.45); x.fill();
+    if (anim) { const q = (t % 1400) / 1400; x.lineWidth = 3; x.strokeStyle = `rgba(255, 230, 120, ${0.8 * (1 - q)})`; ring(0, Math.PI * 2, 1 + q * 0.55); x.stroke(); } // волна
+  }
+  const from = part === 'back' ? 0 : 0, to = part === 'back' ? Math.PI * 2 : Math.PI; // спереди — нижняя (ближняя) половина
+  x.lineCap = 'round';
+  x.lineWidth = 7; x.strokeStyle = 'rgba(70, 40, 0, 0.75)'; ring(from, to); x.stroke(); // тёмная обводка — контраст на светлом
+  x.lineWidth = 4.5; x.strokeStyle = `rgba(255, 205, 40, ${a})`; ring(from, to); x.stroke();
+  x.lineWidth = 1.6; x.strokeStyle = `rgba(255, 252, 215, ${a})`; ring(from, to); x.stroke(); // блик
   x.restore();
 }
 
@@ -174,6 +185,7 @@ function landsScene(c, dpr) {
   for (const w of LIFE.walkers) items.push([ptXY(w.fx, w.fy).cy, () => lifePerson(`villager${w.skin}`, w.wait > 0 ? w.look : DIR_ROW(w.ti - w.i, w.tj - w.j), w.wait > 0 ? 0 : w.frame, w.fx, w.fy, 8)]);
   items.sort((a, b) => a[0] - b[0]);
   for (const [, f] of items) f();
+  if (Iso.sel && Iso.sel.tab === 'lands') roundSel(plotXY(Iso.sel.x, Iso.sel.y), 'front'); // передняя половина кольца — поверх здания
   landBarsFlush(); // полосы стройки — поверх всех зданий
   LVLQ.length = 0; // уровни на землях не показываем — только в замке
   lifeFish(); lifeBirds(dpr);
