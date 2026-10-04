@@ -808,10 +808,11 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.strictEqual(g.brRank(A), -1, 'без боёв — без ранга');
   const st0 = JSON.stringify(g.stashOf(A).res);
   g.brAdd(A.id, 70, Bq.id); assert.strictEqual(g.brRank(A), 0, '70 очков: первый ранг сегодня, второй — только завтра');
-  const D = 86400000, T0 = Date.now(); g.brOf(A, T0 + D); assert.strictEqual(g.brRank(A), 1, 'на следующий день — следующий ранг');
-  assert.ok(g.stashOf(A).res.wood > 0, 'награды за ранги — в Кладовую');
-  const p0 = A.br.pts; g.brAdd(A.id, 100, null, T0 + D); assert.strictEqual(A.br.pts - p0, 50, 'лагерь — половина очков');
-  g.brAdd(A.id, 50000, Bq.id, T0 + D); assert.ok(A.br.got <= 10000, 'не больше 10 000 очков в сутки');
+  const D = 86400000, T0 = Date.now(); g.brOf(A, T0 + D); assert.strictEqual(g.brRank(A), 0, 'через день — ещё нет');
+  g.brOf(A, T0 + 3 * D); assert.strictEqual(g.brRank(A), 1, 'через 3 дня — следующий ранг');
+  const un = Object.values(g.stashOf(A).units).reduce((a, n) => a + n, 0); assert.ok(un === 300 + 600 && g.stashOf(A).res.wood >= 1500, `армия 300+600 и ресурсы 500+1000 — в Кладовую (${un})`);
+  const p0 = A.br.pts; g.brAdd(A.id, 100, null, T0 + 3 * D); assert.strictEqual(A.br.pts - p0, 50, 'лагерь — половина очков');
+  g.brAdd(A.id, 50000, Bq.id, T0 + 3 * D); assert.ok(A.br.got <= 5000, 'не больше 5 000 очков в сутки');
   const C1 = g.register({ login: 'brCcc', password: '12345', race: 2 }).user; for (let i = 0; i < 5; i++) g.brAdd(C1.id, 10, Bq.id, T0); assert.strictEqual(C1.br.pts, 30, 'с одним противником — 3 боя в сутки');
   const b = g.brBonus(A); assert.ok(b.atk > 0 && b.prod > 0 && b.atk <= 0.2, 'бонус ранга');
   const v = g.brView(A, A); assert.ok(v.table.length === 78 && v.title && v.next, 'окно ранга');

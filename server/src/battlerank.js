@@ -13,21 +13,20 @@ const NEED = [20, 60, 80, 100, 100, 110, 320, 600, 1150, 1210, 1220, 1900, 4550,
   354800, 522080, 531440, 551020, 579840, 602780, 617480, 637260, 653280, 671740, 687120, 720240, 744840, 764120, 781000, 799520, 816760, 835120,
   866080, 897560, 915800, 934760, 954160, 971620, 990920, 1128880, 1297360, 1306380, 1325940, 1329080, 1359080, 2786340, 3000000, 3500000, 4000000, 5000000];
 const N = NEED.length, MAX_ATK = 0.20, MAX_PROD = 0.30, NPC_K = 0.5;
-// чтобы ранги не прокачали за пару дней: не больше DAY_PTS очков в сутки, не больше одного нового ранга в сутки,
+// чтобы ранги не прокачали за пару дней: не больше DAY_PTS очков в сутки, новый ранг — не чаще раза в RANK_GAP дня,
 // с одним и тем же противником засчитываются только PAIR_DAY боя в сутки; старая статистика даёт не выше START_MAX ранга.
-// Так Чемпион — не раньше чем через месяц, Мастер войны — ~1,5 месяца, Герой — ~4,5 месяца, Легенда 5★ — больше года.
-const DAY_PTS = 10000, PAIR_DAY = 3, START_MAX = 11, MSK = 3 * 3600000;
+// Так Боец — через ~2 месяца, Чемпион — ~3 месяца, Мастер войны — ~4 месяца, Триумфатор — ~6,5 месяца, Герой — ~9 месяцев.
+const DAY_PTS = 5000, PAIR_DAY = 3, START_MAX = 11, RANK_GAP = 3, // новый ранг — не чаще раза в 3 дня
+  MSK = 3 * 3600000;
 const dayKey = (t) => new Date(t + MSK).toISOString().slice(0, 10);
 
 const rankIdx = (pts) => { let i = -1; while (i + 1 < N && pts >= NEED[i + 1]) i++; return i; }; // -1 — ещё без ранга
 const rankInfo = (i) => (i < 0 ? { idx: -1, title: 'Без ранга', icon: 1, stars: 0 } : { idx: i, title: TITLES[Math.floor(i / 6)], icon: Math.floor(i / 6) + 1, stars: i % 6 });
 const bonusAt = (i) => { const f = i < 0 ? 0 : (i + 1) / N; return { atk: +(MAX_ATK * f).toFixed(3), prod: +(MAX_PROD * f).toFixed(3) }; };
-// награда за открытие ранга i
-const prizeAt = (i) => {
-  const t = Math.floor(i / 6), r = Math.round(200 * (1 + i) ** 1.35 / 10) * 10, rw = { wood: r, stone: r, iron: r, food: r };
-  if (i % 6 === 0 && i > 0) { const k = 1 + t; rw.u = { inf: k, cav: k, mag: k }; rw.exp = 50 * (t + 1); }
-  return rw;
-};
+// награда за открытие ранга i: армия 300 × номер ранга (поровну пехота, конница, маги своей расы) и ресурсы по 500 × номер ранга;
+// на новом звании ещё опыт генерала
+const prizeAt = (i) => { const n = i + 1; return { army: 300 * n, res: 500 * n, exp: i % 6 === 0 && i > 0 ? 100 * (Math.floor(i / 6) + 1) : 0 }; };
+const ARMY_ROLES = ['atk_inf', 'light_cav', 'mage'];
 
 function install(Game) {
   const P = Game.prototype;
@@ -36,13 +35,21 @@ function install(Game) {
     if (!u.br || u.br.v !== 2) { const s = this.stats(u), pts = Math.min(NEED[START_MAX], Math.round((s.kills || 0) + (s.defKills || 0))); u.br = { v: 2, pts, claimed: rankIdx(pts), day: '', got: 0, pairs: {}, upDay: '' }; }
     const b = u.br, d = dayKey(now);
     if (b.day !== d) { b.day = d; b.got = 0; b.pairs = {}; }
-    if (rankIdx(b.pts) > b.claimed && b.upDay !== d) this.brUp(u, b, d); // накопленные очки — следующий ранг в новый день
+    if (rankIdx(b.pts) > b.claimed && gapOk(b, d)) this.brUp(u, b, d); // накопленные очки — следующий ранг, когда прошло 3 дня
     return b;
+  };
+  const gapOk = (b, d) => !b.upDay || (Date.parse(d) - Date.parse(b.upDay)) / 86400000 >= RANK_GAP;
+  // награда ранга → в Кладовую: армия поровну пехота / конница / маги расы игрока, ресурсы, опыт
+  P.brPrize = function brPrize(u, i) {
+    const p = prizeAt(i), list = require('./army').unitsForRace(u.race), units = {};
+    const ids = ARMY_ROLES.map((r) => (list.find((x) => x.role === r) || {}).id).filter(Boolean);
+    ids.forEach((id, k) => { units[id] = Math.floor(p.army / ids.length) + (k < p.army % ids.length ? 1 : 0); });
+    return this.stashAdd(u, { wood: p.res, stone: p.res, iron: p.res, food: p.res, units, exp: p.exp });
   };
   P.brUp = function brUp(u, b, d) {
     b.claimed++; b.upDay = d;
-    const i = b.claimed, inf = rankInfo(i), got = this.stashAdd(u, prizeAt(i));
-    this.report(u.id, `Боевой ранг: ${inf.title} ${'★'.repeat(inf.stars) || '☆'} (${i + 1}-й)!`, [`Награда в Кладовую: ${got.join(', ')}.`, `Бонус ранга: урон и защита воинов +${Math.round(bonusAt(i).atk * 100)}%, прирост ресурсов +${Math.round(bonusAt(i).prod * 100)}%.`, 'Новый ранг — не чаще одного в сутки.'], 'rank');
+    const i = b.claimed, inf = rankInfo(i), got = this.brPrize(u, i);
+    this.report(u.id, `Боевой ранг: ${inf.title} ${'★'.repeat(inf.stars) || '☆'} (${i + 1}-й)!`, [`Награда в Кладовую: ${got.join(', ')}.`, `Бонус ранга: урон и защита воинов +${Math.round(bonusAt(i).atk * 100)}%, прирост ресурсов +${Math.round(bonusAt(i).prod * 100)}%.`, 'Новый ранг — не чаще раза в 3 дня.'], 'rank');
   };
   P.brRank = function brRank(u) { return u ? this.brOf(u).claimed : -1; };
   P.brBonus = function brBonus(u) { return bonusAt(u ? this.brRank(u) : -1); };
@@ -57,11 +64,11 @@ function install(Game) {
     }
     const add = Math.min(Math.round(pts * k), DAY_PTS - b.got); if (add <= 0) return;
     b.got += add; b.pts += add;
-    if (rankIdx(b.pts) > b.claimed && b.upDay !== b.day) this.brUp(u, b, b.day);
+    if (rankIdx(b.pts) > b.claimed && gapOk(b, b.day)) this.brUp(u, b, b.day);
   };
   P.brView = function brView(viewer, u) {
     const b = this.brOf(u), i = b.claimed, cur = rankInfo(i), next = i + 1 < N ? NEED[i + 1] : null, prev = i >= 0 ? NEED[i] : 0;
-    return { login: u.login, self: viewer.id === u.id, pts: b.pts, ...cur, next, prev, bonus: bonusAt(i), titles: TITLES, today: b.got, dayMax: DAY_PTS, wait: rankIdx(b.pts) > b.claimed,
+    return { login: u.login, self: viewer.id === u.id, pts: b.pts, ...cur, next, prev, bonus: bonusAt(i), titles: TITLES, today: b.got, dayMax: DAY_PTS, wait: rankIdx(b.pts) > b.claimed, gap: RANK_GAP,
       table: NEED.map((need, k) => ({ ...rankInfo(k), need, prize: prizeAt(k), bonus: bonusAt(k) })) };
   };
 }
