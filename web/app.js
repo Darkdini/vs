@@ -870,7 +870,7 @@ window.addEventListener('resize', () => { if (Iso.cv.isConnected) { isoResize();
 // начальная камера: замок целиком, земли и мир — примерно 8 клеток по ширине экрана, по центру
 function isoFit() {
   if (S.tab === 'lands' && typeof hasPic === 'function' && hasPic()) { const r = Iso.cv.getBoundingClientRect(), L = LANDS_LAYOUT, q = L.quad, cx = (q[0][0] + q[2][0]) / 2, cy = (q[1][1] + q[3][1]) / 2, z = r.width / ((q[2][0] - q[0][0]) * 1.08); return { z, x: r.width / 2 - cx * z, y: r.height / 2 - cy * z }; }
-  const r = Iso.cv.getBoundingClientRect(), n = gridN(), vis = S.tab === 'castle' ? 4.4 : S.tab === 'lands' ? 5.6 : 8; // замок — сразу крупно (ров чуть за краями), отдалить можно щипком
+  const r = Iso.cv.getBoundingClientRect(), n = gridN(), vis = S.tab === 'castle' ? 4.4 : S.tab === 'lands' ? 5.6 : 4.6; // замок — сразу крупно (ров чуть за краями), карта мира — тоже крупно вокруг своего замка; отдалить можно щипком
   const z = Math.max(0.35, Math.min(2.5, Math.min(r.width / (vis * TW), r.height / (vis * TH + 60))));
   const c = tileScreen(n / 2 - 0.5, n / 2 - 0.5);
   return { z, x: r.width / 2 - (c.sx + TW / 2) * z, y: r.height / 2 - (c.sy + TH / 2) * z + 18 * z };
@@ -1258,11 +1258,11 @@ function worldLayer(w, c, dpr) {
   return WLAYER;
 }
 // границы провинций (как в оригинале): у каждой провинции PROV×PROV клеток — своя тонкая светлая рамка со скруглёнными углами,
-// поэтому между соседями — двойная линия с ложбинкой, на перекрёстках — плавные углы
-const PROV = () => (S.cat && S.cat.rules && S.cat.rules.prov) || 15;
-const provNum = (x, y) => Math.floor(y / PROV()) * ((S.cat && S.cat.rules && S.cat.rules.provN) || 67) + Math.floor(x / PROV()) + 1;
+// как плитки: между соседями — две отдельные линии, на перекрёстках — скруглённые углы, линии не соединяются
+const PROV = () => (S.cat && S.cat.rules && S.cat.rules.prov) || 20;
+const provNum = (x, y) => Math.floor(y / PROV()) * ((S.cat && S.cat.rules && S.cat.rules.provN) || 50) + Math.floor(x / PROV()) + 1;
 function provBorders(w) {
-  const P = PROV(), R0 = w.radius, n = 2 * R0 + 1, X0 = w.cx - R0, Y0 = w.cy - R0, g = ictx, E = 0.1, RAD = 14;
+  const P = PROV(), R0 = w.radius, n = 2 * R0 + 1, X0 = w.cx - R0, Y0 = w.cy - R0, g = ictx, E = 0.12, RAD = 18;
   const pt = (x, y) => { const p = tileScreen(x - X0, y - Y0); return [p.sx, p.sy + TH / 2]; }; // угол сетки (x, y) — левый угол клетки
   const boxes = [];
   for (let py = Math.floor(Y0 / P); py * P <= Y0 + n; py++) for (let px = Math.floor(X0 / P); px * P <= X0 + n; px++) {
@@ -1271,11 +1271,6 @@ function provBorders(w) {
   }
   const path = () => { g.beginPath(); for (const b of boxes) { const m = [(b[0][0] + b[3][0]) / 2, (b[0][1] + b[3][1]) / 2]; g.moveTo(m[0], m[1]); for (let k = 0; k < 4; k++) g.arcTo(b[k][0], b[k][1], b[(k + 1) % 4][0], b[(k + 1) % 4][1], RAD); g.closePath(); } };
   g.save(); g.lineJoin = 'round';
-  // ложбинка между рамками — чуть светлее травы
-  g.lineWidth = TW * E * 2.2; g.strokeStyle = 'rgba(225, 240, 190, 0.18)'; g.beginPath();
-  for (let xx = 0; xx <= n; xx++) if ((X0 + xx) % P === 0) { const a = pt(X0 + xx, Y0), b = pt(X0 + xx, Y0 + n); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); }
-  for (let y = 0; y <= n; y++) if ((Y0 + y) % P === 0) { const a = pt(X0, Y0 + y), b = pt(X0 + n, Y0 + y); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); }
-  g.stroke();
   path(); g.lineWidth = 4; g.strokeStyle = 'rgba(40, 80, 10, 0.22)'; g.stroke(); // мягкая тень рамки
   path(); g.lineWidth = 2; g.strokeStyle = 'rgba(240, 250, 225, 0.85)'; g.stroke(); // светлая рамка
   g.restore();

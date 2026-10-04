@@ -12,9 +12,9 @@ const SPEED = Number(process.env.SPEED || 1);
 // мир: карта WORLD×WORLD клеток, рассчитан на ~5 000 игроков (заселённый круг ~220 клеток)
 const WORLD = Number(process.env.WORLD_SIZE || 1000);
 const SPAWN_GAP = 2;
-// провинции (как в оригинале): мир нарезан на квадраты PROV×PROV клеток; новые игроки заселяют провинцию по PROV_CAP замков,
+// провинции (как в оригинале): мир нарезан на квадраты PROV×PROV клеток (20×20); новые игроки заселяют провинцию по PROV_CAP замков,
 // потом — следующую, по спирали от центра карты (соседи рядом). Номер провинции — по строкам, с 1.
-const PROV = 15, PROV_CAP = 10, PROV_EDGE = 2, PROV_N = Math.ceil(WORLD / PROV);
+const PROV = 20, PROV_CAP = 10, PROV_EDGE = 2, PROV_N = Math.ceil(WORLD / PROV);
 // клетки у границы провинции (по PROV_EDGE с каждой стороны линии) пустые: замки и лагеря не налезают на границу
 const onProvEdge = (x, y) => { const a = ((x % PROV) + PROV) % PROV, b = ((y % PROV) + PROV) % PROV; return a < PROV_EDGE || a >= PROV - PROV_EDGE || b < PROV_EDGE || b >= PROV - PROV_EDGE; };
 const provinceOf = (x, y) => { const px = Math.floor(x / PROV), py = Math.floor(y / PROV); return { px, py, n: py * PROV_N + px + 1 }; };
@@ -348,7 +348,15 @@ class Game {
         if ((cnt.get(p.py * PROV_N + p.px + 1) || 0) >= PROV_CAP) continue;
         const x0 = p.px * PROV + PROV_EDGE, y0 = p.py * PROV + PROV_EDGE, w = Math.min(PROV - 2 * PROV_EDGE, WORLD - 1 - x0), h = Math.min(PROV - 2 * PROV_EDGE, WORLD - 1 - y0);
         if (w < 1 || h < 1) continue;
-        for (let k = 0; k < 300 && !spot; k++) { const X = x0 + Math.floor(Math.random() * w), Y = y0 + Math.floor(Math.random() * h); if (free(X, Y)) spot = { x: X, y: Y }; }
+        // ровно: из случайных свободных клеток берётся та, что дальше всех от замков провинции (первый — ближе к середине)
+        const mine = [...this.byXY.values()].filter((k) => provinceOf(k.x, k.y).n === p.py * PROV_N + p.px + 1), mx = x0 + (w - 1) / 2, my = y0 + (h - 1) / 2;
+        let best = -Infinity;
+        for (let k = 0; k < 300; k++) {
+          const X = x0 + Math.floor(Math.random() * w), Y = y0 + Math.floor(Math.random() * h); if (!free(X, Y)) continue;
+          const edge = 2 * (Math.min(X - p.px * PROV, (p.px + 1) * PROV - 1 - X, Y - p.py * PROV, (p.py + 1) * PROV - 1 - Y) + 0.5); // граница «отталкивает» как сосед
+          const sc = mine.length ? Math.min(edge, ...mine.map((c) => Math.hypot(c.x - X, c.y - Y))) : -Math.hypot(X - mx, Y - my);
+          if (sc > best) { best = sc; spot = { x: X, y: Y }; }
+        }
         if (spot) break; // провинция тесная (старые замки) — следующая
       }
       if (!spot) for (let k = 0; !spot; k++) { const X = Math.floor(Math.random() * WORLD), Y = Math.floor(Math.random() * WORLD); if (!this.byXY.has(X * WORLD + Y)) spot = { x: X, y: Y }; }
