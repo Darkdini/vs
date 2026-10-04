@@ -894,7 +894,10 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     g.newsOp(adm, { op: 'publish', title: 'Скрины', text: 'Смотрите', pics: [r.id, 'f'.repeat(32), '../x'] });
     const n = g.newsDb()[g.newsDb().length - 1]; assert.deepEqual(n.pics, [r.id], 'в новости только загруженные картинки');
     assert.deepEqual(g.newsGet(pl, n.id).pics, [r.id]);
-    console.log('✓ Скриншоты к новостям: PNG пересобран сервером, чужие id отброшены');
+    const b2 = g.newsPicBegin(adm, 40, 40, 1), r2 = await g.newsPicPart(adm, b2.up, 0, zlib.deflateSync(Buffer.alloc(40 * 40 * 3, 9)).toString('base64')); // загружен, но не опубликован
+    assert.ok(g.newsPicSweep(Date.now() + 2 * 86400000) >= 1 && !fs.existsSync(g.newsPicFile(r2.id)) && fs.existsSync(g.newsPicFile(r.id)), 'неопубликованный — через сутки, опубликованный живёт');
+    assert.ok(g.newsPicSweep(Date.now() + 91 * 86400000) >= 1 && !fs.existsSync(g.newsPicFile(r.id)) && g.newsGet(pl, n.id).pics.length === 0, 'через 3 месяца — удалён и из новости');
+    console.log('✓ Скриншоты к новостям: PNG пересобран сервером, чужие id отброшены, живут 3 месяца');
   }
   try { fs.unlinkSync(DB); } catch {}
   process.exit(0);

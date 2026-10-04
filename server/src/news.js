@@ -9,6 +9,7 @@ const clean = (s, n) => String(s || '').replace(/[<>]/g, '').slice(0, n).trim();
 // (чужих байтов в файле нет — ни скрипта, ни шелла). Имя файла — случайное (128 бит), хранится в data/news/<id>.png навсегда.
 const fs = require('fs'), path = require('path'), zlib = require('zlib'), crypto = require('crypto');
 const NP_SIDE = 1280, NP_PART = 160 * 1024, NP_PARTS = 24, NP_MAX = 4;
+const NP_LIFE = 90 * 86400000, NP_ORPHAN = 86400000; // скриншот живёт 3 месяца; загруженный, но не опубликованный — сутки
 
 function install(Game) {
   const P = Game.prototype;
@@ -33,6 +34,20 @@ function install(Game) {
     const id = crypto.randomBytes(16).toString('hex');
     fs.mkdirSync(this.newsPicDir(), { recursive: true }); fs.writeFileSync(this.newsPicFile(id), require('./avatar').encodePng(rgba, up.w, up.h));
     return { ok: true, id, w: up.w, h: up.h };
+  };
+  // уборка: файлы старше 3 месяцев (и неопубликованные старше суток) удаляются, из новостей пропадают ссылки на них
+  P.newsPicSweep = function newsPicSweep(now = Date.now()) {
+    let files = []; try { files = fs.readdirSync(this.newsPicDir()).filter((f) => /^[0-9a-f]{32}\.png$/.test(f)); } catch { return 0; }
+    const used = new Set(); for (const n of this.newsDb()) for (const p of n.pics || []) used.add(p);
+    let gone = 0;
+    for (const f of files) {
+      const id = f.slice(0, 32), file = this.newsPicFile(id); let at = now; try { at = fs.statSync(file).mtimeMs; } catch { continue; }
+      if (now - at > NP_LIFE || (!used.has(id) && now - at > NP_ORPHAN)) { try { fs.unlinkSync(file); gone++; } catch { /* уже нет */ } }
+    }
+    let changed = false;
+    for (const n of this.newsDb()) if (n.pics && n.pics.length) { const keep = n.pics.filter((p) => fs.existsSync(this.newsPicFile(p))); if (keep.length !== n.pics.length) { n.pics = keep; changed = true; } }
+    if (changed) this.store.save();
+    return gone;
   };
   P.newsDb = function newsDb() { return (this.db.news = this.db.news || []); };
   // сколько новостей игрок ещё не читал (не считаются опубликованные до его регистрации)

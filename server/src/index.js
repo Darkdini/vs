@@ -29,6 +29,8 @@ setInterval(() => { try { game.metricTick(new Set([...sessions].filter((s) => s.
 
 // раз в 30 секунд: фото в сообщениях старше 10 минут удаляются (pics.js)
 setInterval(() => { try { game.picSweep(); } catch (e) { console.error(e); } }, 30000);
+setInterval(() => { try { game.newsPicSweep(); } catch (e) { console.error(e); } }, 3600000); // скриншоты новостей: 3 месяца
+try { game.newsPicSweep(); } catch (e) { console.error(e); }
 // «Орёл-решка»: вызовы, которые никто не принял за сутки, — ставка обратно в Кладовую
 setInterval(() => { try { game.coinSweep(); game.marketSweep(); } catch (e) { console.error(e); } }, 300000); // и лоты Биржи Замков старше 7 дней
 
