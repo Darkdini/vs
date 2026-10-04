@@ -201,6 +201,12 @@ function client() {
     assert.ok(av.name === 'Короли Мира' && av.members.find((x) => x.login === 'Webby').title === 'Казначей' && av.forum[0].replies === 2 && av.log.length > 0);
     console.log('✓ окно альянса: права, описание, форум, казна, логи');
     console.log('✓ Дипломатический центр: приглашения, исключение, заявка и одобрение');
+    // союзники не нападают и не разведывают друг друга — дальше Webby вне альянса (разведка и набег на него)
+    adm.send({ t: 'send', units: { 202: 5 }, x: target.x, y: target.y, mission: 'scout' });
+    await adm.expect('error', (m) => /альянса/.test(m.msg || m.error || ''));
+    adm.send({ t: 'alliance', op: 'kick', login: 'Webby' });
+    await a.expect('state', (m) => !m.castle.mil.alliance);
+    console.log('✓ союзника по альянсу разведать нельзя');
 
     // ---- Центр разведки: разведчики тренируются в нём, отчёт зависит от уровня и выживших ----
     assert.ok(mil.units.find((u) => u.id === 202).building === 45 && mil.units.some((u) => u.name === 'Орк загонщик')) // разведчики всех рас тренируются в Центре разведки;
