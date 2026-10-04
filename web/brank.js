@@ -13,12 +13,13 @@ function brankWin() {
   if (!b) return `${ribbon('Боевой ранг')}${tabs}<p class="parch-note">Загрузка…</p>`;
   let body;
   if (S.brTab === 'prog') {
-    const pct = b.next ? Math.max(0, Math.min(100, ((b.pts - b.prev) / (b.next - b.prev)) * 100)) : 100;
+    const pi = Math.max(b.idx, b.pending), nx = pi + 1 < b.table.length ? b.table[pi + 1].need : null, pv = pi >= 0 ? b.table[pi].need : 0;
+    const pct = nx ? Math.max(0, Math.min(100, ((b.pts - pv) / (nx - pv)) * 100)) : 100;
     body = `<div class="brcard"><img class="brbig" src="${BR_IMG(b.icon)}" alt=""><div>
         <div class="brtitle">${b.idx < 0 ? 'Без ранга' : `${b.idx + 1}. ${esc(b.title)}`}</div>${brStars(b.idx < 0 ? 0 : b.stars)}
         <div class="brpts">Очки ранга: <b>${fmtFull(b.pts)}</b></div></div></div>
-      ${b.next ? `<div class="brbar"><i style="width:${pct.toFixed(1)}%"></i><span>${fmtFull(b.pts)} / ${fmtFull(b.next)}</span></div><p class="coinhint">До следующего ранга: <b>${fmtFull(b.next - b.pts)}</b> очков.</p>` : '<p class="coinhint">Высший ранг достигнут!</p>'}
-      <p class="coinhint">Сегодня набрано: <b>${fmtFull(b.today)}</b> из ${fmtFull(b.dayMax)} очков в сутки.${b.wait ? '<br>Очков уже хватает на следующий ранг — он откроется, когда пройдёт ${b.gap} дня с прошлого ранга.' : ''}</p>
+      ${nx ? `<div class="brbar"><i style="width:${pct.toFixed(1)}%"></i><span>${fmtFull(b.pts)} / ${fmtFull(nx)}</span></div><p class="coinhint">До ${pi + 2}-го ранга: <b>${fmtFull(nx - b.pts)}</b> очков.</p>` : '<p class="coinhint">Очков хватает на высший ранг!</p>'}
+      <p class="coinhint">Ранг обновится через <b><span class="cd" data-e="${b.update}"></span></b> (1-го числа).${b.pending > b.idx ? `<br>По набранным очкам Вы получите: <b>${b.pending + 1}. ${esc(b.pendingInfo.title)} ${'★'.repeat(b.pendingInfo.stars)}</b> и награды за ${b.pending - b.idx} ${b.pending - b.idx === 1 ? 'ранг' : 'рангов'}.` : ''}</p>
       <div class="brbonus">Бонус ранга: урон и защита воинов <b>+${(Math.round(b.bonus.atk * 1000) / 10)}%</b>, прирост ресурсов <b>+${(Math.round(b.bonus.prod * 1000) / 10)}%</b></div>
       ${b.self ? '' : `<p class="coinhint">Игрок: <b>${esc(b.login)}</b></p>`}`;
   } else if (S.brTab === 'table') {
@@ -28,12 +29,28 @@ function brankWin() {
     body = `<div class="pstats brhelp">Ранг отражает успехи правителя в битвах. Очки ранга выдаются за уничтоженных воинов противника — чем больше воинов уничтожено в одном бою, тем больше очков.<br><br>
       • Нападения и набеги на игроков и защита своего замка — полные очки.<br>• Лагеря разбойников — половина очков.<br>
       • Если противник слабее Вас больше чем на 5 рангов — очков меньше.<br>
-      • С одним и тем же противником засчитываются 3 боя в сутки.<br>
-      • В сутки — не больше 5 000 очков. Новый ранг — не чаще раза в 3 дня. Накопленные очки не пропадают: ранг догонит позже.<br><br>
-      За открытие каждого ранга — награда в Кладовую: армия (300 воинов за 1-й ранг, 600 за 2-й и так далее) и ресурсы (по 500, 1 000…), на новом звании ещё опыт генерала. Нажмите на ранг в «Таблице уровней», чтобы увидеть награду.<br><br>
+      • Очки копятся всё время, а ранг обновляется 1-го числа каждого месяца — тогда же приходят награды за все открытые ранги<br><br>
+      За каждый открытый ранг — награда в Кладовую (1-го числа): армия (300 воинов за 1-й ранг, 600 за 2-й и так далее) и ресурсы (по 500, 1 000…), на новом звании ещё опыт генерала. Нажмите на ранг в «Таблице уровней», чтобы увидеть награду.<br><br>
       Пока ранг у Вас, действует бонус: урон и защита воинов и прирост ресурсов во всех замках — чем выше ранг, тем больше (на Легенде 5★: +20% и +30%).</div>`;
   }
   return `${ribbon('Боевой ранг')}${tabs}${body}`;
+}
+// окно награды ранга: щит, звёзды, воины и ресурсы со значками, всё — в Кладовую
+function brPrizePopup(r) {
+  const p = r.prize, units = (S.brank.units || []).map((id) => unitById(id)).filter(Boolean), per = Math.floor(p.army / Math.max(1, units.length));
+  const pct = (v) => Math.round(v * 1000) / 10;
+  const d = document.createElement('div'); d.className = 'rinfo';
+  d.innerHTML = `<div class="rinfo-box brprize"><div class="brp-head"><img src="${BR_IMG(r.icon)}" alt=""><div><b>${r.idx + 1}. ${esc(r.title)}</b>${brStars(r.stars)}</div></div>
+    <div class="brp-sec">Награда — в Кладовую <img class="brp-chest" src="${GFX}stash/btn.png" data-fb="${GFX}quest/chest.png" alt=""></div>
+    <div class="brp-grid">${units.map((u) => `<div class="brp-it"><img src="${unitSrc(raceUnit ? raceUnit(u) : u)}" alt=""><b>${fmtFull(per)}</b><small>${esc(u.name)}</small></div>`).join('')}
+      ${['wood', 'stone', 'iron', 'food'].map((k) => `<div class="brp-it res"><img src="gfx3d/res/${k}.png" alt=""><b>${fmtFull(p.res)}</b></div>`).join('')}
+      ${p.exp ? `<div class="brp-it"><img src="${GFX}stash/exp.png" alt=""><b>+${fmtFull(p.exp)}</b><small>опыт генерала</small></div>` : ''}</div>
+    <div class="brp-sec">Бонус, пока ранг у Вас</div>
+    <div class="brp-bon"><span>⚔ Урон и защита <b>+${pct(r.bonus.atk)}%</b></span><span>📈 Прирост ресурсов <b>+${pct(r.bonus.prod)}%</b></span></div>
+    <p class="brp-note">Ранг и награды начисляются 1-го числа каждого месяца.</p>
+    <button type="button" class="okbtn">Ок</button></div>`;
+  d.addEventListener('click', (e) => { if (e.target.closest('.okbtn') || e.target === d) d.remove(); });
+  document.body.appendChild(d);
 }
 function brankMsg(m) { S.brank = m.data; refreshSheet(); }
 // значок ранга вверху экрана (слева)
@@ -48,5 +65,5 @@ $('#sheetBody').addEventListener('click', (e) => {
   const t = e.target.closest('[data-brtab],[data-brank],[data-brprize]'); if (!t) return;
   if (t.dataset.brtab) { S.brTab = t.dataset.brtab; return refreshSheet(); }
   if (t.dataset.brank !== undefined) return openBrank(Number(t.dataset.brank));
-  const r = S.brank && S.brank.table[Number(t.dataset.brprize)]; if (r) okPopup(`${r.idx + 1}. ${r.title}: ${brPrize(r.prize)}. Бонус: урон и защита +${(Math.round(r.bonus.atk * 1000) / 10)}%, прирост +${(Math.round(r.bonus.prod * 1000) / 10)}%.`);
+  const r = S.brank && S.brank.table[Number(t.dataset.brprize)]; if (r) brPrizePopup(r);
 });
