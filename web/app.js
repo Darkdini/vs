@@ -836,7 +836,8 @@ const HD = { 'build/castle.png': ['build/hd/castle.png', 8], 'build/spycentr.png
   'build/watch1.png': ['watch/tower1.png', 354 / 50], 'build/watch2.png': ['watch/tower2.png', 319 / 46], 'build/watch3.png': ['watch/tower3.png', 323 / 46],
   'ground/grassC.png': ['ground/hd/grassC.png', 8], 'ground/grass1C.png': ['ground/hd/grass1C.png', 8],
   // здания замка — новая перерисовка (лист по образцу старых): хранятся в 6 раз крупнее, рисуются в прежнем размере
-  ...Object.fromEntries('arhcamp art_tower baraks castle commerce diplomat expedition guard_tower magtower market mbases smith stables storage traveler university wisdom_house workshop'.split(' ').map((n) => [`build/${n}.png`, [`build/hd2/${n}.png`, 7]])) };
+  // масштаб у каждого свой: основание здания — по ширине травяного участка (центр основания — по центру), но не выше 46 и не шире 40 точек (не залезают на соседние участки)
+  ...Object.fromEntries(Object.entries({ arhcamp: 4.05, art_tower: 3.496, baraks: 5.25, castle: 3.404, commerce: 5.1, diplomat: 4.436, expedition: 4.564, guard_tower: 3.365, magtower: 3.078, market: 4.757, mbases: 4.307, smith: 4.2, stables: 4.971, storage: 4.436, traveler: 4.436, university: 4.114, wisdom_house: 4.993, workshop: 5.079 }).map(([n, k]) => [`build/${n}.png`, [`build/hd2/${n}.png`, k]])) };
 
 // в замке трава своя (HD): снаружи стены — светлая (grass1C), внутри — с цветами (grassC); на Землях и в Мире — прежняя
 const CASTLE_GRASS = { 'ground/grass.png': 'ground/grass1C.png', 'ground/grass1.png': 'ground/grass1C.png' };
