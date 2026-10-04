@@ -129,7 +129,7 @@ function roundPlot(P, kind) {
     if (key !== 'field') { g.save(); ell(0.8); g.clip(); for (let i = 0; i < 90; i++) { g.fillStyle = key === 'grass' ? (rnd() < 0.5 ? '#a6d660' : '#4f8a24') : (rnd() < 0.5 ? '#d2ccbd' : '#77705f'); g.fillRect(rnd() * w, rnd() * h, K * 1.2, K * (key === 'grass' ? 2 : 1.2)); } g.restore(); }
     ROUND_PLOT[key] = cv;
   }
-  ictx.drawImage(cv, P.cx - TW / 2, P.cy - TH / 2, TW, TH + 2);
+  const k = 0.8; ictx.drawImage(cv, P.cx - TW * k / 2, P.cy - TH * k / 2, TW * k, (TH + 2) * k); // поменьше клетки — между участками просвет
 }
 
 // ---------- вся сцена земель ----------
