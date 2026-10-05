@@ -101,7 +101,7 @@ function catalogJson() {
     army: armyJson(),
     premiumPlans: require('./premium').PLANS, gifts: require('./social').GIFTS, giftCats: require('./social').GIFT_CATS, repPerGold: require('./social').REP_PER_GOLD,
     mil: ARMY.catalogJson(), // юниты игры, науки, религии, артефакты, NPC-лагеря
-    lands: { eff: C.LAND_EFF, time: C.LAND_TIME, base: G.LANDS_BASE, decor: G.LANDS_DECOR, edge: G.LANDS_EDGE, n: G.LANDS_N, mult: C.LAND_MULT, hutCap: C.HUT_CAP_MULT },
+    lands: { eff: C.LAND_EFF, time: C.LAND_TIME, base: G.LANDS_BASE, decor: G.LANDS_DECOR, edge: G.LANDS_EDGE, n: G.LANDS_N, mult: C.LAND_YIELD, hutCap: C.HUT_CAP_MULT },
     landOptions: G.LANDS_BASE.map((row, y) => row.map((_, x) => G.landOptions(x, y))),
   };
 }

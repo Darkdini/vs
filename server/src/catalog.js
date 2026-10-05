@@ -109,6 +109,16 @@ for (const b of BUILDINGS) if (b.layer === 'lands') b.max = LANDS_MAX;
 const LAND_MULT_BY_SIZE = { 225: LAND_MULT, 49: landMult({ 5: 9, 6: 12, 7: 7, 8: 7, 9: 7, 37: 6 }, 25), 25: landMult({ 5: 4, 6: 5, 7: 4, 8: 4, 9: 4, 37: 3 }, 30) };
 const HUT_CAP_MULT = Math.round(LAND_CELLS_OLD[6] * 20 / (LAND_CELLS[6] * LAND_EFF_MAX) * 1000) / 1000; // места для людей за уровень Хибары
 const PROD_K = { wood: 1, stone: 1, iron: 1, food: 0.5788, people: 1.5163 };
+// добыча земель как в оригинале: все клетки земель на 5 ур. (без науки, религии и артефактов) дают в час
+// дерево / камень / железо / еду — по 852, людей — 1303 (вместе с базовой добычей замка LAND_BASE). LAND_YIELD — множитель
+// добычи одной клетки каждого вида; LAND_MULT (выше) остаётся только для переноса старых раскладок.
+const LAND_TARGET = { wood: 852, stone: 852, iron: 852, food: 852, people: 1303 }, LAND_BASE = { wood: 29.5, stone: 29.5, iron: 29.5, food: 29.5, people: 14 };
+const LAND_YIELD = (() => {
+  const by = {}; for (const b of BUILDINGS) if (b.layer === 'lands' && b.produces && LAND_CELLS[b.id]) (by[b.produces] = by[b.produces] || []).push(b.id);
+  const out = {};
+  for (const [r, ids] of Object.entries(by)) { const cells = ids.reduce((s, id) => s + LAND_CELLS[id], 0); for (const id of ids) out[id] = (LAND_TARGET[r] - LAND_BASE[r]) / (cells * PROD[LAND_EFF_MAX] * PROD_K[r]); }
+  return out;
+})();
 
 // цена улучшения; у зданий земель — прежняя цена уровня LAND_COST_EFF × LAND_COST_K (сумма прежних уровней не влезла бы в склады).
 // 4 и 5 ур. — по цене прежних 12 и 14 ур. (а не 15 и 20): каждый следующий уровень дороже примерно вдвое, а не в 6 раз; время — прежнее (LAND_EFF)
@@ -167,4 +177,4 @@ function displayId(b, level) {
   return e >= 10 ? b.tiers[2] : e >= 5 ? b.tiers[1] : b.tiers[0];
 }
 
-module.exports = { LAND_TIME, LAND_COST_K, LAND_EFF, LAND_EFF_MAX, landEff, landFromOld, LAND_MULT_BY_SIZE, LANDS_N, LANDS_MAX, LAND_MULT, HUT_CAP_MULT, LAND_CELLS, TIME, RATING, RES, RES_ICON, TIME_ICON, BUILDINGS, BY_ID, UNITS, RACES, RACE_NAMES, PROD, PROD_K, CASTLE_PATH, durability, levelCost, levelTimeSec, displayId };
+module.exports = { LAND_YIELD, LAND_TARGET, LAND_TIME, LAND_COST_K, LAND_EFF, LAND_EFF_MAX, landEff, landFromOld, LAND_MULT_BY_SIZE, LANDS_N, LANDS_MAX, LAND_MULT, HUT_CAP_MULT, LAND_CELLS, TIME, RATING, RES, RES_ICON, TIME_ICON, BUILDINGS, BY_ID, UNITS, RACES, RACE_NAMES, PROD, PROD_K, CASTLE_PATH, durability, levelCost, levelTimeSec, displayId };

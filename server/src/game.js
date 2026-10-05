@@ -484,7 +484,7 @@ class Game {
     const r = { ...BASE_RATE };
     castle.grid[1].forEach((b, i) => {
       const def = C.BY_ID[b];
-      if (def && def.produces) r[def.produces] += C.PROD[C.landEff(castle.levels[1][i])] * C.PROD_K[def.produces] * (C.LAND_MULT[b] || 1);
+      if (def && def.produces) r[def.produces] += C.PROD[C.landEff(castle.levels[1][i])] * C.PROD_K[def.produces] * (C.LAND_YIELD[b] || 1);
     });
     if (this.isPremium(this.userById(castle.owner))) r.people *= 1.5; // премиум: население +50%
     const prod = this.bonus(castle).prod; // наука Экономика, религия Природа, артефакты

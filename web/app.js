@@ -434,13 +434,19 @@ setInterval(tick, 500);
 
 // окно «Ресурсы» как в оригинале: запасы/вместимость и добыча в час
 // окно «Ресурсы» в новом оформлении: золотая рамка с короной, ленты «Ресурсы» и «Добыча», кнопка «Закрыть»
+// «Добыча замка» (как в оригинале): у каждого ресурса — шкала «сейчас / вместимость» и добыча в час; цифры обновляются каждую секунду (data-rsres)
 function resSheet() {
-  const c = S.st.castle, row = (r, t) => `<div class="rsline"><img src="gfx3d/res/${r}.png" alt="">${t}</div>`;
-  return `<div class="rsframe"><img class="rscrown" src="gfx3d/res/crown.png" alt="">
-    <div class="rsrib">Ресурсы</div><div class="rspanel">${RES.map((r) => row(r, `${Math.floor(resNow(r))}/${c.cap[r]} ед.`)).join('')}</div>
-    <div class="rsrib">Добыча</div><div class="rspanel">${RES.map((r) => row(r, `${c.rate[r]} ед/час`)).join('')}
-    <button class="rsclosebtn" data-rsclose><img src="gfx3d/res/closebtn.png" alt="Закрыть"></button></div></div>`;
+  const c = S.st.castle, fmt = (n) => fmtFull(Math.floor(n));
+  const row = (r) => { const now = Math.max(0, resNow(r)), cap = c.cap[r] || 1, pc = Math.max(0, Math.min(100, now / cap * 100));
+    return `<div class="rsrow"><img src="gfx3d/res/${r}.png" alt=""><div class="rsbar ${pc >= 100 ? 'full' : ''}"><i style="width:${pc}%"></i><span data-rsres="${r}">${fmt(now)}/${fmt(cap)}</span></div><b>${fmtFull(c.rate[r])} ед./час</b></div>`; };
+  return `<div class="rswin"><div class="rstitle">Добыча замка</div>${RES.map(row).join('')}
+    <div class="rsnote">${esc(c.name)} · добыча — с учётом науки, религии и артефактов</div>
+    <button class="rsclosebtn" data-rsclose><img src="gfx3d/res/closebtn.png" alt="Закрыть"></button></div>`;
 }
+// живые цифры в окне ресурсов
+setInterval(() => { const els = document.querySelectorAll('[data-rsres]'); if (!els.length || !S.st) return; const c = S.st.castle;
+  els.forEach((el) => { const r = el.dataset.rsres, now = resNow(r), cap = c.cap[r] || 1; el.textContent = `${fmtFull(Math.floor(now))}/${fmtFull(cap)}`;
+    const bar = el.parentNode; bar.querySelector('i').style.width = `${Math.max(0, Math.min(100, now / cap * 100))}%`; bar.classList.toggle('full', now >= cap); }); }, 1000);
 $('#sheetBody').addEventListener('click', (e) => { if (e.target.closest('[data-rsclose]')) closeSheet(); });
 
 // ---------- вкладки ----------
