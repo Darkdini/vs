@@ -3,6 +3,13 @@
 // репутация, альянс; тип аккаунта, премиум, нарушения; безопасность (уникальный номер, смена пароля); замок (название, описание);
 // управление (личная информация, мой публичный профиль). Сервер: profile(acct), avatar, passwd, castleinfo.
 function openAccount() { S.acctView = true; send({ t: 'profile', id: S.st.user.id, acct: 1 }); }
+// Telegram: привязка для восстановления пароля (server/src/tgauth.js)
+function tgBlock(t) {
+  if (!t || !t.on || S.st.user.admin) return '';
+  return `<div class="actg"><span class="actgi">📱</span><div>${t.linked ? `Telegram привязан: <b>${esc(t.name)}</b><br><small>Забудете пароль — бот пришлёт код для смены.</small>`
+    : 'Telegram не привязан.<br><small>Привяжите — и если забудете пароль, бот пришлёт код для смены.</small>'}</div></div>
+    ${t.linked ? '<button class="pbar acbar" data-tg="unlink">Отвязать Telegram</button>' : '<button class="pbar acbar gold" data-tg="link">📱 Привязать Telegram</button>'}`;
+}
 function accountWin(p) {
   const a = p.acct || {}, bar = (attr, icon, text) => `<button class="pbar acbar" ${attr}>${icon ? `<img src="${icon}" alt="">` : ''} ${text}</button>`;
   const title = (p.titles || []).length ? p.titles.map((t) => `${t === 'Администратор' ? `<img class="acico" src="${GFX}admin_badge_s.png" alt="">` : t === 'Старший модератор' ? `<img class="acico" src="${GFX}smod_badge_s.png" alt="">` : t === 'Модератор форума' ? `<img class="acico" src="${GFX}mod_badge_s.png" alt="">` : `<img class="acico" src="${GFX}premium_crown.png" alt="">`} ${esc(t)}`).join(', ') : '—';
@@ -17,6 +24,7 @@ function accountWin(p) {
     ${ribbon('Безопасность')}
     <div class="acuid">Ваш уникальный номер в игре:<br><b>${a.uid}</b>${a.acctLogin ? `<br>Логин для входа: <b>${esc(a.acctLogin)}</b>` : ''}</div>
     ${bar('data-acct="pass"', '', '🔑 Изменить пароль')}
+    ${tgBlock(a.tg)}
     ${p.self !== false && !(S.st.user.admin) ? `<form class="acform" data-form="nickcase"><label>Новый ник (3–10 символов):<input name="nick" maxlength="10" value="${esc(p.login)}" autocapitalize="none" required></label><button class="pbar">Сменить ник за ${S.st.nickPrice || 100} золота</button></form>` : ''}
     ${ribbon('Цвет сообщений')}<div class="mcolhead"><img src="${GFX}chat/color.png" alt=""><span>Цвет текста в чате, письмах и на форуме (премиум)</span></div><div class="mcolors">${(S.st.msgColors || ['']).map((c, i) => `<button type="button" class="mcol ${i === (S.st.msgColor || 0) ? 'on' : ''}" data-mcol="${i}" style="background:${c || '#3a2410'}" aria-label="цвет ${i}">${i ? '' : 'Аа'}</button>`).join('')}</div>
     <div class="bwline small center">${a.premium ? 'Этим цветом будут видны ваши сообщения в диалогах и на форуме.' : '🔒 Выбор цвета — с премиумом.'}</div>
@@ -55,3 +63,13 @@ $('#sheetBody').addEventListener('submit', (e) => {
   if (f.new.value !== f.new2.value) return toast('Новые пароли не совпадают.', 'err');
   send({ t: 'passwd', old: f.old.value, new: f.new.value }); f.reset(); closeSheet();
 }, true);
+// привязка Telegram: сервер выдаёт одноразовую ссылку t.me/<бот>?start=<код>, игрок жмёт «Старт» в боте
+$('#sheetBody').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-tg]'); if (!b) return;
+  if (b.dataset.tg === 'unlink') { if (confirm('Отвязать Telegram? Восстановить пароль через бота будет нельзя.')) send({ t: 'tg', op: 'unlink' }); return; }
+  S.tgWin = window.open('about:blank', '_blank'); send({ t: 'tg', op: 'link' }); // окно открывается сразу (иначе телефон заблокирует всплывающее)
+});
+function tgMsg(m) {
+  if (m.url) { if (S.tgWin && !S.tgWin.closed) S.tgWin.location.href = m.url; else location.href = m.url; S.tgWin = null; toast('Нажмите «Старт» в боте — и вернитесь в игру.'); return; }
+  if (S.acctView) send({ t: 'profile', id: S.st.user.id, acct: 1 }); // обновить блок в Профиле
+}

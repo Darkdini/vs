@@ -628,6 +628,38 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(!g.ipBanned('77.7.7.7') && !g.ipBanned('127.0.0.1'), 'адрес игрока и локальный — без автоблока');
   console.log('✓ Безопасность: поиск дыр, подбор пароля админа, блокировка IP (себя — нельзя), автоблок после 3 попыток');
 }
+{ // Telegram: привязка аккаунта и восстановление пароля кодом (tgauth.js); бот подменён — сеть не трогаем
+  process.env.TG_AUTH_TOKEN = '1:x'; process.env.TG_AUTH_BOT = 'war_test_bot';
+  const said = []; const realApi = g.tgApi; g.tgApi = async (method, body) => { said.push(body); return {}; };
+  const tu = g.register({ login: 'tgplayer', password: 'oldpass1', race: 0 }).user;
+  assert.ok(g.tgLinkStart(g.adminUser()).error, 'админ — без Telegram');
+  const link = g.tgLinkStart(tu).url, code = link.split('start=')[1];
+  assert.ok(link.startsWith('https://t.me/war_test_bot?start=') && /^[0-9a-f]{24}$/.test(code), 'одноразовая ссылка');
+  g.tgOnMessage({ chat: { id: 777, type: 'private' }, from: { username: 'vasya' }, text: `/start ${code}` });
+  assert.ok(tu.tg && tu.tg.chat === 777 && tu.tg.name === '@vasya' && !tu.tgLink && /привязан/.test(said.pop().text), 'привязан');
+  g.tgOnMessage({ chat: { id: 778, type: 'private' }, from: {}, text: `/start ${code}` }); assert.ok(/устарела/.test(said.pop().text) && tu.tg.chat === 777, 'ссылка одноразовая');
+  // запрос кода: ответ всегда одинаковый; код — только привязанному
+  const r0 = g.tgResetRequest('nosuchuser', '9.9.9.1'), r1 = g.tgResetRequest('tgplayer', '9.9.9.1');
+  assert.strictEqual(r0.msg, r1.msg, 'по ответу не понять, есть ли логин');
+  const m = said.pop(); const c = (/(\d{6})/.exec(m.text) || [])[1]; assert.ok(m.chat_id === 777 && c, 'код пришёл в Telegram');
+  assert.ok(!JSON.stringify(tu.tgReset).includes(c), 'код в базе — только хешем');
+  assert.ok(g.tgResetConfirm('tgplayer', '000000', 'newpass1').error && tu.tgReset.tries === 1, 'неверный код');
+  assert.ok(/коротк/.test(g.tgResetConfirm('tgplayer', c, '123').error || ''), 'короткий пароль');
+  const ok = g.tgResetConfirm('tgplayer', c, 'NewPass1', '9.9.9.1');
+  assert.ok(ok.msg && ok.uid === tu.id && g.login('tgplayer', 'newpass1') && !g.login('tgplayer', 'oldpass1') && /изменён/.test(said.pop().text), 'пароль сменён, старый не подходит');
+  assert.ok(g.tgResetConfirm('tgplayer', c, 'again123').error, 'код одноразовый');
+  assert.ok(tu.passLog.slice(-1)[0].by === 'telegram', 'в истории паролей — «telegram»');
+  // 5 неверных попыток — код сгорает
+  g.tgResetRequest('tgplayer', '9.9.9.2'); const c2 = (/(\d{6})/.exec(said.pop().text) || [])[1];
+  for (let i = 0; i < 5; i++) g.tgResetConfirm('tgplayer', '111111', 'xxxxx1');
+  assert.ok(/попыток/.test(g.tgResetConfirm('tgplayer', c2, 'xxxxx1').error || ''), 'после 5 ошибок — новый код');
+  // не чаще 3 кодов в час на аккаунт
+  const n0 = said.length; for (let i = 0; i < 3; i++) g.tgResetRequest('tgplayer', `9.9.8.${i}`); assert.strictEqual(said.length, n0 + 1, 'лимит 3 кода в час (2 уже были)');
+  assert.ok(g.tgUnlink(tu).msg && !tu.tg, 'отвязан');
+  g.tgApi = realApi; delete process.env.TG_AUTH_TOKEN; delete process.env.TG_AUTH_BOT;
+  assert.ok(g.tgResetRequest('tgplayer').error, 'без бота — подсказка написать администрации');
+  console.log('✓ Telegram: привязка по одноразовой ссылке, код сброса (хеш, 15 мин, 5 попыток, 3 в час), пароль не пересылается');
+}
 { // «Лавка Короля» (shop.js): ускорения стройки и сундуки ресурсов
   const su = g.register({ login: 'shopper', password: '12345', race: 0 }).user, sc = g.castlesOf(su)[0], now = Date.now();
   su.gold = 100;

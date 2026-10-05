@@ -177,7 +177,7 @@ class WebSession {
     }
     const fn = Object.prototype.hasOwnProperty.call(API, msg.t) ? API[msg.t] : null;
     if (!fn) { this.game.secEvent(this.ip, 'bad', `неизвестная команда «${String(msg.t).slice(0, 30)}»`); return this.error(`Неизвестная команда ${msg.t}`); }
-    if (!['register', 'login', 'hello', 'captcha', 'ping'].includes(msg.t) && !this.user) return this.error('Сначала войдите.');
+    if (!['register', 'login', 'hello', 'captcha', 'ping', 'reset'].includes(msg.t) && !this.user) return this.error('Сначала войдите.');
     this.failed = false;
     const ret = fn.call(this, msg); if (ret && ret.catch) ret.catch((e) => { this.log(`handler error: ${e.stack}`); this.error('Ошибка сервера.'); });
     // лояльность населения (Резиденция) растёт за действия, а не за онлайн
@@ -265,6 +265,22 @@ const API = {
     if (res.error) return this.error(res.error);
     this.pushState();
   },
+  // «Забыли пароль?» (tgauth.js) — без входа: request — код в Telegram, confirm — код + новый пароль
+  reset(m) {
+    const g = this.game, op = String(m.op || '');
+    if (op === 'info') return this.send({ t: 'reset', info: g.tgAuthInfo(null) });
+    const r = op === 'confirm' ? g.tgResetConfirm(m.login, m.code, m.password, this.ip) : g.tgResetRequest(m.login, this.ip);
+    if (r.error) { if (op === 'confirm') g.secEvent(this.ip, 'login', `сброс пароля: ${String(m.login || '').slice(0, 30)}`); return this.send({ t: 'reset', op, ok: false, msg: r.error }); }
+    if (r.uid) for (const s of WebSession.all || []) if (s.user && s.user.id === r.uid) s.socket.destroy(); // прежние входы — из игры
+    this.send({ t: 'reset', op, ok: true, msg: r.msg, login: r.login });
+  },
+  // привязка Telegram в Профиле
+  tg(m) {
+    const g = this.game, op = String(m.op || '');
+    if (op === 'link') { const r = g.tgLinkStart(this.user); if (r.error) return this.error(r.error); return this.send({ t: 'tg', url: r.url, info: g.tgAuthInfo(this.user) }); }
+    if (op === 'unlink') { const r = g.tgUnlink(this.user); if (r.error) return this.error(r.error); this.toast(r.msg); }
+    this.send({ t: 'tg', info: g.tgAuthInfo(this.user) });
+  },
   // «Лавка Короля» (shop.js): view — цены и лимиты; speed — ускорить стройку; chest — сундук ресурсов
   shop(m) {
     const g = this.game, u = this.user, op = String(m.op || '');
@@ -339,7 +355,7 @@ const API = {
     const profile = this.game.profileOf(u, this.user);
     if (m.acct && u.id === this.user.id) { // «Кабинет → Профиль»: настройки своего аккаунта
       const c = this.castle, v = this.user.violations || 0;
-      profile.acct = { castleName: c.name, castleDesc: c.desc || '', premium: this.game.isPremium(this.user), violations: v, uid: this.user.id, acctLogin: this.user.admin ? '' : this.user.acct || '' };
+      profile.acct = { castleName: c.name, castleDesc: c.desc || '', premium: this.game.isPremium(this.user), violations: v, uid: this.user.id, acctLogin: this.user.admin ? '' : this.user.acct || '', tg: this.game.tgAuthInfo(this.user) };
     }
     this.send({ t: 'profile', acct: !!profile.acct, refresh: !!m.refresh, profile });
   },

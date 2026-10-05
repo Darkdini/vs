@@ -37,6 +37,20 @@
         <div class="lockt2">Три раза введён неверный логин или пароль.<br>Попробуйте через</div><div class="lockt" id="lockT">3:00</div></div>
       <div id="authErr" class="err"></div>
       <button class="btn primary" id="authBtn">Войти</button>
+      <button type="button" class="linkbtn" id="forgotBtn">Забыли пароль?</button>
+    </form>
+    <form id="resetForm" class="hidden" autocomplete="off">
+      <div class="rstitle">Восстановление пароля</div>
+      <p class="rshint" id="resetHint">Введите логин — бот в Telegram пришлёт код. Telegram должен быть привязан в игре: Кабинет → Профиль → «Привязать Telegram».</p>
+      <label>Email / Логин<input name="login" autocapitalize="none" spellcheck="false" maxlength="40" required></label>
+      <div id="resetStep2" class="hidden">
+        <label>Код из Telegram<input name="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code"></label>
+        <label>Новый пароль<input name="password" type="password" autocomplete="new-password" placeholder="от 5 символов"></label>
+        <label>Повторите пароль<input name="password2" type="password" autocomplete="new-password"></label>
+      </div>
+      <div id="resetMsg" class="err"></div>
+      <button class="btn primary" id="resetBtn">Получить код</button>
+      <button type="button" class="linkbtn" id="resetBack">← Назад ко входу</button>
     </form>
     <div id="ver" class="ver"></div>
     <a id="apkLink" class="apklink hidden" href="war-kings.apk" download="war-kings.apk"><img src="gfx3d/ui/android.svg" alt=""><b>Скачать для Android</b></a>
@@ -123,6 +137,7 @@
 <script src="dialogs.js"></script>
 <script src="news.js"></script>
 <script src="shop.js"></script>
+<script src="reset.js"></script>
 <script src="smod.js"></script>
 <script src="sound.js"></script>
 </body>

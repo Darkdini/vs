@@ -342,6 +342,8 @@ class Game {
     this.store.save();
     return { ok: true };
   }
+  // новый пароль по коду из Telegram (tgauth.js): старый не нужен, все входы завершаются
+  setPasswordReset(user, newPass, ip = '') { user.pass = hashPassword(newPass); user.tokens = []; passLogPush(user, 'telegram', ip); this.store.save(); }
   // смена ника — только за золото (цена NICK_PRICE, по умолчанию 100); новый ник должен быть свободен, вход — по новому нику
   changeNick(user, nick) {
     nick = String(nick || '').trim();
@@ -675,6 +677,7 @@ require('./anomaly').install(Game);
 require('./secwatch').install(Game);
 require('./tgbackup').install(Game);
 require('./shop').install(Game);
+require('./tgauth').install(Game);
 require('./pics').install(Game);
 require('./zags').install(Game);
 require('./chests').install(Game);

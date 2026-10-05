@@ -1596,13 +1596,13 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 #auth form { margin-top: 0; padding: 16px 14px 18px; border-radius: 0 0 14px 14px; }
 #auth .auth-box label, #auth .label { color: #f0d690; font: 600 15px var(--serif); text-shadow: 0 1px 2px #000; }
 #auth .auth-box label small { color: #c9a87a; }
-#auth form input[name=login], #auth form input[name=password], #auth form input[name=nick], #auth form input[name=captcha] {
+#auth form input[name=login], #auth form input[name=password], #auth form input[name=nick], #auth form input[name=captcha], #auth form input[name=code], #auth form input[name=password2] {
   height: 60px; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; outline: none; color: #ffeec0; font: 600 18px var(--serif); padding: 0 13% 0 27%;
   background: var(--fic) 18.6% 50% / 30px 30px no-repeat, url(gfx/auth/field.png) 0 0 / 100% 100% no-repeat !important; }
 #auth form input::placeholder { color: #b8996a; }
 #auth form input[name=login] { --fic: url(gfx/chat/profile.png); } #auth form input[name=password] { --fic: url(gfx/chat/ban.png); }
-#auth form input[name=nick] { --fic: url(gfx/chat/reply.png); } #auth form input[name=captcha] { --fic: url(gfx/chat/report.png); }
-#auth form input[name=login]:focus, #auth form input[name=password]:focus, #auth form input[name=nick]:focus, #auth form input[name=captcha]:focus {
+#auth form input[name=nick] { --fic: url(gfx/chat/reply.png); } #auth form input[name=password2] { --fic: url(gfx/chat/ban.png); } #auth form input[name=code] { --fic: url(gfx/chat/report.png); } #auth form input[name=captcha] { --fic: url(gfx/chat/report.png); }
+#auth form input[name=login]:focus, #auth form input[name=password]:focus, #auth form input[name=nick]:focus, #auth form input[name=captcha]:focus, #auth form input[name=code]:focus, #auth form input[name=password2]:focus {
   background: var(--fic) 18.6% 50% / 30px 30px no-repeat, url(gfx/auth/field_focus.png) 0 0 / 100% 100% no-repeat !important; }
 #auth form.bad input { background: var(--fic) 18.6% 50% / 30px 30px no-repeat, url(gfx/auth/field_err.png) 0 0 / 100% 100% no-repeat !important; }
 #authBtn:disabled ~ *, #auth form:has(#authBtn:disabled) input { background: var(--fic) 18.6% 50% / 30px 30px no-repeat, url(gfx/auth/field_off.png) 0 0 / 100% 100% no-repeat !important; }
@@ -2130,3 +2130,11 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .shava { width: 84px; height: 84px; flex: none; display: block; }
 .shmove { display: flex; gap: 6px; align-items: stretch; flex-wrap: wrap; margin-top: 4px; } .shmove input { width: 76px; flex: none; } .shmove .pbar { flex: 1; min-width: 150px; margin: 0; }
 .shnote { position: sticky; top: 0; z-index: 3; }
+/* «Забыли пароль?» и Telegram в Профиле */
+.linkbtn { background: none; border: 0; color: #f3d9a0; text-decoration: underline; font: inherit; font-size: .95em; margin: 10px auto 0; display: block; cursor: pointer; padding: 6px; }
+#resetForm .rstitle { font: 700 20px var(--serif); text-align: center; color: #f3d9a0; margin-bottom: 6px; }
+#resetForm .rshint { font-size: .9em; color: #e8d6b0; text-align: center; margin: 0 0 10px; }
+#resetForm .okmsg { color: #9fe07a; text-align: center; min-height: 1.2em; margin: 6px 0; }
+.actg { display: flex; gap: 10px; align-items: center; margin: 8px 4px; }
+.actgi { font-size: 34px; flex: none; }
+.pbar.acbar.gold { background: linear-gradient(#e9c25a, #b8862a); color: #3a2205; }

@@ -273,6 +273,8 @@ function onMsg(m) {
     case 'zags': case 'zprops': case 'zpairs': case 'zpair': case 'zdone': zagsMsg(m); break;
     case 'news': newsMsg(m); break;
     case 'shop': shopMsg(m); break;
+    case 'reset': resetMsg(m); break;
+    case 'tg': tgMsg(m); break;
     case 'smod': smodMsg(m); break;
     case 'welcome': welcomeShow(m); break;
     case 'boss': S.boss = m.data; refreshSheet(); break;
@@ -340,6 +342,7 @@ new MutationObserver(() => $('#authForm').classList.toggle('bad', !!$('#authErr'
 function setMode(mode) {
   S.mode = mode;
   $$('#authTabs button').forEach((b) => b.classList.toggle('on', b.dataset.mode === mode));
+  $('#forgotBtn').classList.toggle('hidden', mode === 'reg');
   $('#raceBox').classList.toggle('hidden', mode !== 'reg'); $('#nickBox').classList.toggle('hidden', mode !== 'reg'); $('#authForm').nick.required = mode === 'reg';
   $('#capBox').classList.toggle('hidden', mode !== 'reg'); if (mode === 'reg') send({ t: 'captcha' });
   $('#authBtn').textContent = mode === 'reg' ? 'Создать аккаунт' : 'Войти';

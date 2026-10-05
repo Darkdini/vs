@@ -97,6 +97,9 @@ function client() {
     b.send({ t: 'login', login: 'Second', password: 'pass2' });
     await b.expect('auth');
     assert.equal((await b.expect('welcome')).players, 2, 'советник: онлайн — двое (Webby и Second), а не все зарегистрированные');
+    { // «Забыли пароль?» работает без входа (бот не подключён — понятная подсказка, а не «Сначала войдите»)
+      const nb = client(); await nb.open(); nb.send({ t: 'reset', op: 'request', login: 'Webby' }); const rr = await nb.expect('reset');
+      assert.ok(rr.ok === false && /администрац/.test(rr.msg), 'сброс пароля без бота — подсказка'); nb.close && nb.close(); console.log('✓ «Забыли пароль?» без входа'); }
     b.send({ t: 'sendmail', to: 'Webby', subject: 'Привет', text: 'Из браузера' });
     await a.expect('toast', (m) => /Новое письмо/.test(m.msg));
     a.send({ t: 'mail', folder: 0 });
