@@ -34,6 +34,10 @@ try { game.newsPicSweep(); } catch (e) { console.error(e); }
 // «Орёл-решка»: вызовы, которые никто не принял за сутки, — ставка обратно в Кладовую
 setInterval(() => { try { game.coinSweep(); game.marketSweep(); } catch (e) { console.error(e); } }, 300000); // и лоты Биржи Замков старше 7 дней
 
+// раз в 10 минут: копия базы в Telegram, если пора (tgbackup.js; раз в сутки в TG_BACKUP_HOUR)
+setInterval(() => { try { game.tgBackupCheck(); } catch (e) { console.error(e); } }, 600000);
+setTimeout(() => { try { game.tgBackupCheck(); } catch (e) { console.error(e); } }, 60000).unref();
+
 // раз в 10 минут: «Подозрительное» — резкие скачки армии, золота, лояльности, ресурсов (anomaly.js)
 setInterval(() => { try { game.anomalyScan(); } catch (e) { console.error(e); } }, 600000);
 

@@ -15,3 +15,25 @@
 Если весь трафик идёт только через Cloudflare (проксирование включено, прямого доступа к серверу нет) — можно TRUST_PROXY=cf: тогда IP берётся из CF-Connecting-IP. Без этого условия заголовок подделывается — оставляйте TRUST_PROXY=1.
 Cloudflare Tunnel в Termux:  pkg install cloudflared
   проверка без домена:  cloudflared tunnel --url http://127.0.0.1:8080   (выдаст адрес *.trycloudflare.com)
+
+=== Защита сервера (VPS) ===
+1) fail2ban + фаервол:   sh /opt/war/game/harden.sh
+   • 5 неверных паролей SSH за 10 минут — IP в бан на сутки (кто попадается снова — до недели);
+   • фаервол: открыты только SSH, 80 и 443, всё остальное закрыто.
+   Проверка: sh /opt/war/game/harden.sh status
+
+2) Вход по ключу (пароль SSH больше не подобрать):
+   Termius (телефон): Keychain → «+» → Generate Key (тип ED25519) → открыть ключ → Export to host → выбрать сервер.
+   Termux (Android):  pkg install openssh;  ssh-keygen -t ed25519  (Enter на все вопросы);  ssh-copy-id root@IP_сервера
+   Компьютер:         ssh-keygen -t ed25519;  ssh-copy-id root@IP_сервера
+   Проверьте в НОВОМ окне, что вход идёт без пароля. Только потом:  sh /opt/war/game/harden.sh nopass
+   Старое окно не закрывайте, пока не убедитесь. Ключ берегите: потеряли телефон — вход через консоль в панели хостинга
+   (там выполнить: rm /etc/ssh/sshd_config.d/00-war.conf && systemctl reload ssh — пароль снова заработает).
+
+=== Копия базы в Telegram ===
+1) В Telegram: @BotFather → /newbot → получите токен. Откройте своего бота → «Старт».
+2) На сервере:  sh /opt/war/game/tgbackup.sh   (спросит токен и пароль шифрования — пароль ЗАПИШИТЕ отдельно)
+   Раз в сутки (около 4:00 по времени сервера) база приходит файлом в чат с ботом. Вручную: Админ-панель → 🔒 Защита.
+   Восстановить (в т. ч. на новом сервере после install-vps.sh и tgbackup.sh): перешлите файл копии боту,
+   затем  sh /opt/war/game/tgbackup.sh restore
+   Выключить:  sh /opt/war/game/tgbackup.sh off

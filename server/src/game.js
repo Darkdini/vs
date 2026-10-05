@@ -661,6 +661,7 @@ require('./stash').install(Game);
 require('./metrics').install(Game);
 require('./anomaly').install(Game);
 require('./secwatch').install(Game);
+require('./tgbackup').install(Game);
 require('./pics').install(Game);
 require('./zags').install(Game);
 require('./chests').install(Game);

@@ -116,7 +116,7 @@ function install(Game) {
     const num = (v, d) => (Number.isFinite(Number(v)) && v !== '' ? Number(v) : d);
     const now = Date.now();
     // админ что-то меняет у игрока — «Подозрительное» (anomaly.js) начнёт замер заново, без ложной тревоги
-    if (!['player', 'players', 'stats', 'alerts', 'mods', 'multis', 'bugs', 'passcheck', 'armyinfo', 'sec', 'ipban', 'ipunban', 'secclear', 'alertsclear'].includes(op)) target.admTouch = now;
+    if (!['player', 'players', 'stats', 'alerts', 'mods', 'multis', 'bugs', 'passcheck', 'armyinfo', 'sec', 'ipban', 'ipunban', 'secclear', 'alertsclear', 'tgbackup'].includes(op)) target.admTouch = now;
     let data = null, msg = 'Готово.';
     switch (op) {
       // --- ресурсы, золото ---
@@ -195,9 +195,10 @@ function install(Game) {
         const l = (this.db.alerts || []).slice(-150).reverse(); data = l.map((x) => ({ ...x })); for (const x of this.db.alerts || []) x.seen = true; break;
       }
       case 'alertsclear': this.db.alerts = []; msg = 'Список подозрительного очищен.'; break;
-      case 'sec': data = this.secView(arg.ip); break; // «Безопасность» (secwatch.js); arg.ip — адрес самого админа (от web.js)
+      case 'sec': data = { ...this.secView(arg.ip), tg: this.tgBackupInfo() }; break; // «Безопасность» (secwatch.js); arg.ip — адрес самого админа (от web.js)
       case 'ipban': { const r = this.ipBan(arg.target, arg.why, arg.ip); if (r.error) return r; msg = r.msg; break; }
       case 'ipunban': msg = this.ipUnban(arg.target).msg; break;
+      case 'tgbackup': { if (!this.tgBackupInfo().on) return { error: 'Копия в Telegram не настроена: на сервере sh /opt/war/game/tgbackup.sh' }; this.tgBackupSend('manual').then((r) => { if (this.event) this.event(user.id, r.error || r.msg); }); msg = 'Отправляю копию в Telegram…'; break; } // tgbackup.js
       case 'secclear': this.db.sec = {}; msg = 'Журнал адресов очищен (блокировки остались).'; break; // статистика (metrics.js); онлайн сейчас — от web.js
       case 'mods': // модераторы форума (общие) и модераторы разделов форума
         data = { mods: Object.values(this.db.users).filter((u) => u.mod && !u.admin).map((u) => ({ login: u.login, online: !!u.online })),

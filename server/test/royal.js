@@ -621,6 +621,24 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(!g.ipBanned('77.7.7.7') && !g.ipBanned('127.0.0.1'), 'адрес игрока и локальный — без автоблока');
   console.log('✓ Безопасность: поиск дыр, подбор пароля админа, блокировка IP (себя — нельзя), автоблок после 3 попыток');
 }
+{ // копия базы в Telegram (tgbackup.js): шифрование, расписание; сеть не трогаем
+  const TB = require('../src/tgbackup'), zlib = require('zlib');
+  const gz = zlib.gzipSync(Buffer.from('{"users":{}}')), enc = TB.encrypt(gz, 'пароль123');
+  assert.ok(!enc.includes(Buffer.from('users')) && TB.decrypt(enc, 'пароль123').equals(gz), 'зашифровано и расшифровывается');
+  assert.throws(() => TB.decrypt(enc, 'неверный'), /неверный пароль/, 'чужой пароль — отказ');
+  assert.ok(!g.tgBackupInfo().on && !g.tgBackupCheck(), 'без токена — выключено');
+  const adm = g.adminUser(); assert.ok(g.adminOp(adm, 'tgbackup', {}).error, 'кнопка без настройки — подсказка');
+  process.env.TG_BACKUP_TOKEN = '1:x'; process.env.TG_BACKUP_CHAT = '5'; process.env.TG_BACKUP_HOUR = '4';
+  let sent = 0; const real = g.tgBackupSend; g.tgBackupSend = () => { sent++; return Promise.resolve({}); };
+  const at = (h, d = 0) => new Date(2030, 0, 10 + d, h, 5).getTime(), st = g.db.tgBackup = { lastOk: 0, lastTry: 0, err: '', size: 0 };
+  assert.ok(g.tgBackupCheck(at(13)) && sent === 1, 'ни разу не отправлялась — сразу');
+  st.lastOk = at(4); assert.ok(!g.tgBackupCheck(at(13)) && !g.tgBackupCheck(at(4, 1) - 3 * 3600000), 'в тот же день — нет');
+  assert.ok(g.tgBackupCheck(at(4, 1)) && sent === 2, 'на следующий день в 4:00 — да');
+  st.err = 'сеть'; st.lastTry = at(9, 3) - 60000; assert.ok(!g.tgBackupCheck(at(9, 3)), 'после ошибки — пауза 30 минут');
+  assert.ok(g.tgBackupCheck(at(9, 3) + 31 * 60000), 'пропущено больше 26 часов — сразу');
+  g.tgBackupSend = real; delete process.env.TG_BACKUP_TOKEN; delete process.env.TG_BACKUP_CHAT; delete process.env.TG_BACKUP_HOUR; delete g.db.tgBackup;
+  console.log('✓ Копия базы в Telegram: шифрование AES-256-GCM, раз в сутки в заданный час, пауза после ошибки');
+}
 { // советник-строитель: шаги, ресурсы сразу в замок, лишнее — в Кладовую; опытным цепочка не выдаётся
   const u = g.register({ login: 'advnew1', password: '12345', race: 0 }).user, c = g.castleOf(u);
   let a = g.advState(u, c); assert.ok(a.idx === 0 && !a.done && a.bid === 0 && a.need === 2, 'первый шаг — Ратуша 2');

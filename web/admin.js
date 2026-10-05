@@ -222,6 +222,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (op === 'players' || op === 'bugs' || op === 'multis') return send({ t: 'admin', op });
   if (op === 'alertsclear') { send({ t: 'admin', op }); S.adm.alerts = []; return refreshSheet(); }
   if (op === 'secclear') { send({ t: 'admin', op }); return setTimeout(() => send({ t: 'admin', op: 'sec' }), 200); }
+  if (op === 'tgbackup') { send({ t: 'admin', op }); return setTimeout(() => send({ t: 'admin', op: 'sec' }), 4000); }
   if (op === 'bugsclear') { S.adm.bugs = null; return send({ t: 'admin', op }); }
   if (op === 'delete') { admSend(op); S.adm.login = ''; S.adm.player = null; S.adm.players = null; return; }
   admSend(op, extra);
@@ -322,6 +323,15 @@ function admAlertsHtml(l) {
     : '<p class="parch-note">Ничего подозрительного. Проверка идёт каждые 10 минут.</p>'}`);
 }
 
+// копия базы в Telegram (server/src/tgbackup.js): включена ли, когда ушла последняя, кнопка «Отправить сейчас»
+function admTgHtml(t) {
+  if (!t) return '';
+  if (!t.on) return aSec('🗄 Копия базы в Telegram', '<p class="small">Не настроена. Раз в сутки база игроков будет приходить файлом в чат с Вашим ботом — если с сервером что-то случится, игроки не пропадут. Настройка на сервере: <code>sh /opt/war/game/tgbackup.sh</code> (инструкция — в README.txt).</p>');
+  const ok = t.lastOk ? `последняя — <b>${fmtDate(t.lastOk)}</b> (${Math.round(t.size / 1024)} КБ)` : 'ещё не отправлялась';
+  return aSec('🗄 Копия базы в Telegram', `<p class="small">Включена: раз в сутки около ${t.hour}:00 по времени сервера${t.enc ? ', файл зашифрован паролем 🔒' : ' (без шифрования)'}; ${ok}.</p>
+      ${t.err ? `<p class="small bad">Ошибка ${fmtDate(t.lastTry)}: ${esc(t.err)}</p>` : ''}
+      ${aBtn2('tgbackup', t.busy ? 'Отправляется…' : '📤 Отправить копию сейчас', '', '')}`);
+}
 // ---------- 🔒 Безопасность (server/src/secwatch.js): подозрительные IP — подбор паролей, поиск дыр, флуд ----------
 function admSecHtml(d) {
   const intro = '<p class="small">Адреса, с которых было подозрительное: подбор паролей (особенно к Вашему аккаунту), поиск уязвимостей на сайте (.php, .env, wp-admin, обход папок), попытки отправить файл, флуд, подделанные запросы. Красные — свежие с прошлого просмотра. Вход на сам сервер (SSH) сюда не попадает — его смотрят командой <code>lastb</code>.</p><p class="small"><b>Автоблок:</b> 3 запроса «поиск дыр» или «отправка файла» с одного адреса — IP закрывается сам на 30 дней. Адреса, с которых уже заходили игроки, автоблок не трогает.</p>';
@@ -336,6 +346,7 @@ function admSecHtml(d) {
   return `${aSec('🔒 Безопасность', `${intro}<p class="small">Ваш адрес сейчас: <b>${esc(d.me || '?')}</b> — его заблокировать нельзя. Осторожно: у мобильного интернета один адрес бывает у многих людей — блокировка закроет игру им всем.</p>
       ${d.list.length ? `<div class="alist">${d.list.map(row).join('')}</div>` : '<p class="parch-note">Пока ничего подозрительного.</p>'}
       <button class="btn small" data-asec>↻ Обновить</button> ${aBtn2('secclear', 'Очистить журнал', 'data-confirm="Очистить журнал адресов? Блокировки останутся."', 'danger')}`)}
+    ${admTgHtml(d.tg)}
     ${aSec('⛔ Заблокированные адреса', `${d.bans.length ? d.bans.map((b) => `<div class="srow"><span><b>${esc(b.ip)}</b> · ${fmtDate(b.at)}${b.until ? ` · до ${fmtDate(b.until)}` : ''}${b.why ? ` · ${esc(b.why)}` : ''}</span><button class="btn small" data-ipunban="${esc(b.ip)}">Снять</button></div>`).join('') : '<p class="small">Нет.</p>'}
       <form class="chatform" data-aform="ipban"><input name="ip" placeholder="IP вручную, например 1.2.3.4" autocomplete="off" required><button class="btn small danger">Заблокировать</button></form>`)}`;
 }
