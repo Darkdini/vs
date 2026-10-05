@@ -1156,28 +1156,30 @@ function moat() {
 }
 // стена чуть шире сетки участков (FENCE_K), чтобы крайние здания не прижимались к ней; растягивается от центра замка
 const FENCE_K = 1.07;
-// центр растяжения — середина клетки Ратуши (с IN_DY, как у дороги): ворота остаются на линии дороги
-function fenceWide(draw) { const p = tileScreen(CC, CC), cx = p.sx + TW / 2, cy = p.sy + TH / 2 + IN_DY; ictx.save(); ictx.translate(cx, cy); ictx.scale(FENCE_K, FENCE_K); ictx.translate(-cx, -cy + IN_DY); draw(); ictx.restore(); } // стена сдвинута как всё внутри (IN_DY) — ворота точно на дороге
+// центр растяжения — середина клетки Ратуши (с IN_DY, как у зданий): отступ стены одинаковый со всех сторон
+function fenceWide(draw) { const p = tileScreen(CC, CC), cx = p.sx + TW / 2, cy = p.sy + TH / 2 + IN_DY; ictx.save(); ictx.translate(cx, cy); ictx.scale(FENCE_K, FENCE_K); ictx.translate(-cx, -cy); draw(); ictx.restore(); }
+// ворота сдвинуты вдоль своей стены на линию дороги (дорога нарисована с IN_DY): под воротами — обычный пролёт стены, чтобы не было щели
+const GATE_T = -IN_DY / TH; // сдвиг ворот, доля клетки
 function fenceBack() {
-  for (const i of [0, 1, 2, 4, 5, 6]) raw('fence/fence2.png', D(CG + i, CH) - 5, E(CG + i, CH) - 26);
+  for (const i of [0, 1, 2, 3, 4, 5, 6]) raw('fence/fence2.png', D(CG + i, CH) - 5, E(CG + i, CH) - 26);
   for (let i = 0; i < CN; i++) raw('fence/fence0.png', D(CG + 6, CH + i) + 25, E(CG + 6, CH + i) - 25);
   raw('fence/fence3.png', D(CG + 6, CH - 1) + 53, E(CG + 6, CH - 1) + 19 - imH('fence/fence3.png'));
-  raw('fence/fence4.png', D(CG + 3, CH), E(CG + 3, CH) - 20);
+  raw('fence/fence4.png', D(CG + 3 + GATE_T, CH), E(CG + 3 + GATE_T, CH) - 20);
 }
 function fenceFront() {
-  for (const i of [0, 1, 2, 4, 5, 6]) raw('fence/fence0.png', D(CG - 1, CH + i) + 25, E(CG - 1, CH + i) - 25);
+  for (const i of [0, 1, 2, 3, 4, 5, 6]) raw('fence/fence0.png', D(CG - 1, CH + i) + 25, E(CG - 1, CH + i) - 25);
   for (let i = 0; i < CN; i++) raw('fence/fence2.png', D(CG + i, CH + 7) - 3, E(CG + i, CH + 7) - 24);
   raw('fence/fence3.png', D(CG - 1, CH - 1) + 52, E(CG - 1, CH - 1) + 18 - imH('fence/fence3.png'));
   raw('fence/fence3.png', D(CG - 1, CH + 6) + 55, E(CG - 1, CH + 6) + 21 - imH('fence/fence3.png'));
   raw('fence/fence3.png', D(CG + 6, CH + 6) + 54, E(CG + 6, CH + 6) + 20 - imH('fence/fence3.png'));
-  raw('fence/fence1.png', D(CG - 1, CH + 3) + 25, E(CG - 1, CH + 3) - 25);
+  raw('fence/fence1.png', D(CG - 1, CH + 3 - GATE_T) + 25, E(CG - 1, CH + 3 - GATE_T) - 25);
 }
 // фон вокруг королевства: одна цельная картинка (местность с лесом, рекой, скалами) под замком; камера не выходит за картинку.
 // Оживление (кадры воды, мельница, колесо) — если у картинки заданы water / mill / wheel.
 const CASTLE_BG = { src: 'ground/bg/castle.jpg?v=19', // ?v — новая версия картинки сразу, без старого кэша телефона
   // картинка без стен (стена — наш Забор): края луга совпадают со стеной, тропинки подходят к серединам сторон; река, мельница, рудник, водопад
   moat: false, iw: 1595, ih: 844, pad: 0,
-  x: 527 - 670.80, y: 16 - 401.58, w: 1329.65, h: 704.15, // центр сетки замка (527, 16)
+  x: 527 - 670.80, y: 16 - 401.58 - 37.5, w: 1329.65, h: 704.15, // центр сетки замка (527, 16); −37.5 — замок со стеной ровно по центру луга
   water: { n: 12, x: 2, y: 1 } }; // кадры течения воды: tools/bgwater.py
 function castleBackdrop() {
   const G = CASTLE_BG, im = pic(G.src); if (!im) return null;
