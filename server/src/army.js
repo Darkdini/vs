@@ -1171,7 +1171,8 @@ function install(Game, helpers) {
     // статистика для Зала Славы (social.js)
     if (loot) this.addStat(c.owner, 'loot', RES4.reduce((q, k) => q + loot[k], 0));
     this.addStat(c.owner, 'kills', target ? popOf(dLost) : (npc ? Math.round(npc.def.inf / 20 * dLoss) : 0));
-    if (target) { this.addStat(target.owner, 'defKills', popOf(aLost)); this.addStat(target.owner, 'defLost', popOf(dLost)); this.addStat(c.owner, 'attLost', popOf(aLost)); }
+    if (target) { this.addStat(target.owner, 'defKills', popOf(aLost)); this.addStat(target.owner, 'defLost', popOf(dLost)); this.addStat(target.owner, 'attLost', popOf(dLost)); }
+    this.addStat(c.owner, 'attLost', popOf(aLost)); // Зал Гибели: все потери — нападения на замки и NPC, защита своего замка (выше), бой с боссом (boss.js)
     if (this.brAdd) { if (target) { this.brAdd(c.owner, popOf(dLost), target.owner); this.brAdd(target.owner, popOf(aLost), c.owner); } else if (npc) this.brAdd(c.owner, Math.round(npc.def.inf / 20 * dLoss), null); } // боевой ранг (battlerank.js)
     if (siegeN) this.addStat(c.owner, 'ruins', siegeN);
     const defUser = target && this.ownerOf(target);

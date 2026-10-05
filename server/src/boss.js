@@ -123,6 +123,7 @@ function install(Game) {
       for (const tk of take) { if (rest <= 0) break; const add = Math.min(rest, a.units[tk[0]] - tk[1]); tk[1] += add; rest -= add; }
       for (const [id, n] of take) if (n > 0) { a.units[id] -= n; R.aLost[id] = (R.aLost[id] || 0) + n; }
     }
+    this.addStat(c.owner, 'attLost', Object.entries(R.aLost).reduce((q, [id, n]) => q + ((UNIT[id] && UNIT[id].pop) || 0) * n, 0)); // Зал Гибели: потери в бою с боссом
     b.hp -= dmg; b.dmg[c.owner] = (b.dmg[c.owner] || 0) + dmg; b.hits[c.owner] = (b.hits[c.owner] || 0) + 1;
     if (b.hp <= 0 && !b.killer) b.killer = c.owner;
     const alive = Object.values(a.units).some((n) => n > 0), lostN = Object.values(R.aLost).reduce((q, n) => q + n, 0);
