@@ -4,11 +4,11 @@
 S.shop = null;
 // пока лавка не открыта для всех — её видит только администратор (сервер проверяет так же)
 const shopVisible = () => !!(S.st && S.st.user && (S.st.user.admin || (S.cat && S.cat.shopOpen)));
-function openShop() { send({ t: 'shop', op: 'view' }); openSheet(shopWin); }
+function openShop() { S.shopNote = null; send({ t: 'shop', op: 'view' }); openSheet(shopWin); }
 const shopCoin = (n) => `<img class="shcoin" src="${GFX}coins_s.png" alt=""> ${fmtFull(n)}`;
 const shopKey = (q) => (q.wall ? 'wall' : `${q.view}:${q.cell}`);
-// цена «Достроить сейчас»: 1 монета за каждые 15 минут, не меньше 2 (те же числа, что на сервере)
-const shopFinish = (q) => { const s = S.shop || { finishStep: 15, finishMin: 2 }; return Math.max(s.finishMin, Math.ceil(Math.max(0, q.end - Date.now()) / (s.finishStep * 60000))); };
+// цена «Достроить сейчас»: finishPer монеты за каждые 15 минут, не меньше finishMin (числа — с сервера)
+const shopFinish = (q) => { const s = S.shop || { finishStep: 15, finishPer: 3, finishMin: 6 }; return Math.max(s.finishMin, Math.ceil(Math.max(0, q.end - Date.now()) / (s.finishStep * 60000)) * (s.finishPer || 1)); };
 // две кнопки ускорения для одной стройки
 function shopSpeedBtns(q) {
   if (!shopVisible()) return '';
@@ -30,13 +30,22 @@ function shopWin() {
       <button class="pbar" data-shchest="${x.id}" data-cost="${x.gold}" data-name="${esc(x.name)}" ${s.chestsLeft > 0 ? '' : 'disabled'}>Купить · ${shopCoin(x.gold)}</button></div></div>`).join('')
     + `<p class="bwline center small">Ресурсы падают в Кладовую — заберёте в любой свой замок. Сегодня можно ещё ${s.chestsLeft} из ${s.dayLimit}.</p>
       <button class="pbar" data-shstash>📦 Открыть Кладовую</button>`;
+  const move = !s ? '' : `<div class="shcard"><img class="shico" src="${GFX}shop/move.png" alt=""><div class="shgrow"><b>«${esc(c.name)}» сейчас на ${c.x}:${c.y}</b>
+      <span class="small">Перенести замок на выбранные координаты — только на свободное место: не у границы провинции, не на лагере, не ближе 2 клеток к другим замкам, в провинции меньше 10 замков. Армии должны быть дома.</span>
+      <form class="shmove" data-shmove><input name="x" type="number" inputmode="numeric" placeholder="X" required><input name="y" type="number" inputmode="numeric" placeholder="Y" required>
+      <button class="pbar gold">Переехать · ${shopCoin(s.moveGold)}</button></form></div></div>`;
   const me = S.st.user, frames = !s ? '' : s.frames.map((f) => `<div class="shcard"><span class="shava">${avatarImg({ id: me.id, race: me.race, avatar: me.avatar, frame: f.id })}</span><div class="shgrow"><b>${esc(f.name)}</b>
       <span class="small">${f.own ? (s.frame === f.id ? '✅ Надета — её видят все.' : 'Куплена навсегда.') : 'Навсегда. Видна в профиле, переписке и ЗАГСе.'}</span>
       ${f.own ? (s.frame === f.id ? '<button class="pbar" data-shframe="" data-use="1">Снять</button>' : `<button class="pbar" data-shframe="${f.id}" data-use="1">Надеть</button>`)
     : `<button class="pbar gold" data-shframe="${f.id}" data-cost="${f.gold}" data-name="${esc(f.name)}">Купить · ${shopCoin(f.gold)}</button>`}</div></div>`).join('');
-  return `${ribbon('Лавка Короля')}${head}${s && !s.open ? '<p class="bwline center small shwarn">🔒 Лавку пока видите только Вы (администратор). Для всех — SHOP_OPEN=1 в game.env.</p>' : ''}${ribbon('⏩ Ускорить стройку')}${speed}${ribbon('📦 Ресурсы')}${chests}${ribbon('✨ Рамки аватара')}${frames}`;
+  const n = S.shopNote && Date.now() - S.shopNote.at < 8000 ? `<div class="smnote shnote ${S.shopNote.ok ? 'ok' : ''}">${S.shopNote.ok ? '✔' : '⛔'} ${esc(S.shopNote.msg)}</div>` : '';
+  return `${ribbon('Лавка Короля')}${n}${head}${s && !s.open ? '<p class="bwline center small shwarn">🔒 Лавку пока видите только Вы (администратор). Для всех — SHOP_OPEN=1 в game.env.</p>' : ''}${ribbon('⏩ Ускорить стройку')}${speed}${ribbon('📦 Ресурсы')}${chests}${ribbon('🏰 Переезд замка')}${move}${ribbon('✨ Рамки аватара')}${frames}`;
 }
-function shopMsg(m) { S.shop = m.data; if (S.sheets.includes(shopWin)) refreshSheet(); }
+function shopMsg(m) {
+  S.shop = m.data;
+  if (m.note) { if (S.sheets.includes(shopWin)) S.shopNote = { ...m.note, at: Date.now() }; else toast(m.note.msg, m.note.ok ? '' : 'err'); } // в окне здания — строкой над картой
+  if (S.sheets.includes(shopWin)) refreshSheet();
+}
 $('#sheetBody').addEventListener('click', (e) => {
   if (e.target.closest('[data-shstash]')) return openStash();
   const fr = e.target.closest('[data-shframe]');
@@ -58,3 +67,11 @@ $('#sheetBody').addEventListener('click', (e) => {
   send({ t: 'shop', op: 'chest', id: b.dataset.shchest });
 });
 $('#sheetBody').addEventListener('click', (e) => { if (e.target.closest('[data-shopopen]')) openShop(); });
+$('#sheetBody').addEventListener('submit', (e) => {
+  const f = e.target.closest('[data-shmove]'); if (!f) return; e.preventDefault();
+  const x = Math.floor(Number(f.x.value)), y = Math.floor(Number(f.y.value)), cost = (S.shop && S.shop.moveGold) || 500, gold = S.st.user.gold || 0;
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+  if (gold < cost) return toast(`Не хватает монет: нужно ${cost}, у вас ${gold}.`, 'err');
+  if (!confirm(`Перенести «${S.st.castle.name}» на ${x}:${y} за ${cost} монет?`)) return;
+  send({ t: 'shop', op: 'move', x, y });
+});

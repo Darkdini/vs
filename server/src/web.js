@@ -269,11 +269,11 @@ const API = {
   shop(m) {
     const g = this.game, u = this.user, op = String(m.op || '');
     if (!g.shopAllowed(u)) return this.error('Лавка Короля скоро откроется.');
-    if (op === 'speed' || op === 'chest' || op === 'frame' || op === 'frameuse') {
-      const r = op === 'speed' ? g.shopSpeed(u, this.castle, m.key, m.mode) : op === 'chest' ? g.shopChest(u, String(m.id || ''))
+    if (op === 'speed' || op === 'chest' || op === 'frame' || op === 'frameuse' || op === 'move') {
+      const r = op === 'speed' ? g.shopSpeed(u, this.castle, m.key, m.mode) : op === 'chest' ? g.shopChest(u, String(m.id || '')) : op === 'move' ? g.shopMove(u, this.castle, m.x, m.y)
         : g.shopFrame(u, m.id, op === 'frameuse');
-      if (r.error) this.error(r.error); else this.toast(r.msg);
       this.pushState();
+      return this.send({ t: 'shop', data: g.shopInfo(u), note: { ok: !r.error, msg: r.error || r.msg } }); // ответ — плашкой в окне лавки
     }
     this.send({ t: 'shop', data: g.shopInfo(u) });
   },

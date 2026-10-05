@@ -632,32 +632,45 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const su = g.register({ login: 'shopper', password: '12345', race: 0 }).user, sc = g.castlesOf(su)[0], now = Date.now();
   su.gold = 100;
   sc.queue.push({ view: 0, cell: 3, building: 1, level: 2, start: now, end: now + 3 * 3600000 + 60000, cost: { wood: 0, stone: 0, iron: 0, food: 0, people: 0 } });
-  assert.ok(g.shopSpeed(su, sc, '0:3', 'hour', now).msg && su.gold === 95 && sc.queue.find((q) => q.cell === 3).end === now + 2 * 3600000 + 60000, '−1 час за 5');
-  assert.ok(g.shopSpeed(su, sc, '0:3', 'finish', now).msg && su.gold === 86 && !sc.queue.some((q) => q.cell === 3), 'достроить: 2 ч 1 мин = 9 монет');
-  assert.ok(g.shopSpeed(su, sc, '0:3', 'finish', now).error, 'стройки нет — ошибка, золото не тратится'); assert.strictEqual(su.gold, 86);
+  assert.ok(g.shopSpeed(su, sc, '0:3', 'hour', now).msg && su.gold === 85 && sc.queue.find((q) => q.cell === 3).end === now + 2 * 3600000 + 60000, '−1 час за 15');
+  assert.ok(g.shopSpeed(su, sc, '0:3', 'finish', now).msg && su.gold === 58 && !sc.queue.some((q) => q.cell === 3), 'достроить: 2 ч 1 мин = 9 × 3 = 27 монет');
+  assert.ok(g.shopSpeed(su, sc, '0:3', 'finish', now).error, 'стройки нет — ошибка, золото не тратится'); assert.strictEqual(su.gold, 58);
   sc.queue.push({ view: 0, cell: 4, building: 1, level: 2, start: now, end: now + 30 * 60000, cost: { wood: 0, stone: 0, iron: 0, food: 0, people: 0 } });
-  assert.ok(g.shopSpeed(su, sc, '0:4', 'hour', now).error && su.gold === 86, 'меньше часа — «−1 час» нельзя');
+  assert.ok(g.shopSpeed(su, sc, '0:4', 'hour', now).error && su.gold === 58, 'меньше часа — «−1 час» нельзя');
   sc.queue = sc.queue.filter((q) => q.cell !== 4);
   // сундуки — в Кладовую (без ограничения Складом), 5 в сутки
   const st0 = (g.stashOf(su).res.wood || 0);
-  assert.ok(g.shopChest(su, 'chest_s', now).msg && su.gold === 76 && g.stashOf(su).res.wood === st0 + 10000, 'сундук — в Кладовую целиком');
+  su.gold = 1000; assert.ok(g.shopChest(su, 'chest_s', now).msg && su.gold === 970 && g.stashOf(su).res.wood === st0 + 10000, 'сундук (30) — в Кладовую целиком');
   for (let i = 0; i < 4; i++) assert.ok(g.shopChest(su, 'wagon', now).msg, 'обоз ' + i);
   assert.ok(/завтра/.test(g.shopChest(su, 'wagon', now).error || ''), 'лимит 5 в сутки');
   assert.ok(g.shopChest(su, 'wagon', now + 86400000).msg, 'на следующий день — снова можно');
   // рамки аватара: купить навсегда, надеть, снять
-  su.gold = 100;
-  assert.ok(g.shopFrame(su, 'gold').msg && su.gold === 40 && su.frame === 'gold', 'золотая рамка куплена и надета');
-  assert.ok(g.shopFrame(su, 'gold').error && su.gold === 40, 'второй раз не продаётся');
+  su.gold = 200;
+  assert.ok(g.shopFrame(su, 'gold').msg && su.gold === 20 && su.frame === 'gold', 'золотая рамка (180) куплена и надета');
+  assert.ok(g.shopFrame(su, 'gold').error && su.gold === 20, 'второй раз не продаётся');
   assert.ok(g.shopFrame(su, 'fire').error, 'мало монет на огненную');
   assert.ok(g.shopFrame(su, 'silver', true).error, 'некупленную не надеть');
   assert.ok(g.shopFrame(su, '', true).msg && su.frame === '' && g.shopFrame(su, 'gold', true).msg && su.frame === 'gold', 'снять и надеть — бесплатно');
   assert.strictEqual(g.profileOf(su, g.adminUser()).frame, 'gold', 'рамку видят другие в профиле');
+  // переезд замка за 500: только на свободное место, армии дома, к замку никто не идёт
+  { const { WORLD } = require('../src/game'), PROV_EDGE = 2;
+    let spot = null; for (let y = PROV_EDGE; y < WORLD && !spot; y++) for (let x = PROV_EDGE; x < WORLD && !spot; x++) if (!g.placeError(x, y, sc)) spot = { x, y };
+    const old = { x: sc.x, y: sc.y }; su.gold = 499;
+    assert.ok(/Не хватает/.test(g.shopMove(su, sc, spot.x, spot.y).error || '') && sc.x === old.x, 'мало монет');
+    su.gold = 600; const busy = g.castlesOf(g.register({ login: 'shopnbr', password: '12345', race: 0 }).user)[0];
+    assert.ok(g.shopMove(su, sc, busy.x, busy.y).error && g.shopMove(su, sc, busy.x + 1, busy.y).error, 'на чужой замок и рядом — нельзя');
+    assert.ok(/границ/.test(g.shopMove(su, sc, 0, 0).error || ''), 'граница провинции — нельзя');
+    assert.ok(g.shopMove(su, sc, -5, 3).error && g.shopMove(su, sc, 1.5, 3).error, 'кривые координаты');
+    sc.armies = [{ state: 'go', x: 1, y: 1 }]; assert.ok(/армии/.test(g.shopMove(su, sc, spot.x, spot.y).error || ''), 'армии в походе — нельзя'); sc.armies = [];
+    busy.armies = [{ state: 'go', x: sc.x, y: sc.y }]; assert.ok(/чужая армия/.test(g.shopMove(su, sc, spot.x, spot.y).error || ''), 'к замку идёт армия — нельзя'); busy.armies = [];
+    assert.ok(g.shopMove(su, sc, spot.x, spot.y).msg && sc.x === spot.x && sc.y === spot.y && su.gold === 100 && g.castleAt(spot.x, spot.y) === sc && !g.castleAt(old.x, old.y), 'переехал за 500');
+    assert.ok((su.goldLog || []).some((x) => /переезд/.test(x.reason)), 'переезд — в журнале золота'); }
   // пока лавка не открыта для всех — только администратор
   delete process.env.SHOP_OPEN; assert.ok(!g.shopAllowed(su) && g.shopAllowed(g.adminUser()), 'лавка — только админу');
   process.env.SHOP_OPEN = '1'; assert.ok(g.shopAllowed(su), 'SHOP_OPEN=1 — всем'); delete process.env.SHOP_OPEN;
   su.gold = 3; assert.ok(/Не хватает/.test(g.shopChest(su, 'chest_l', now + 86400000).error || ''), 'мало монет');
   assert.ok((su.goldLog || []).some((x) => /Лавка: достроить/.test(x.reason)), 'покупки — в журнале золота');
-  console.log('✓ Лавка Короля: −1 час, достроить сейчас, сундуки в Кладовую (5 в сутки), рамки аватара, пока только админу');
+  console.log('✓ Лавка Короля: −1 час, достроить сейчас, сундуки в Кладовую (5 в сутки), рамки аватара, переезд замка за 500, пока только админу');
 }
 { // копия базы в Telegram (tgbackup.js): шифрование, расписание; сеть не трогаем
   const TB = require('../src/tgbackup'), zlib = require('zlib');

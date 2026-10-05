@@ -1,6 +1,7 @@
 'use strict';
 // «Лавка Короля»: покупки за золото (золото — только с доната).
-// • Ускорения стройки: «−1 час» (SPEED_HOUR монет) и «Достроить сейчас» (1 монета за каждые 15 минут, не меньше FINISH_MIN).
+// • Ускорения стройки: «−1 час» (SPEED_HOUR монет) и «Достроить сейчас» (FINISH_PER монеты за каждые 15 минут, не меньше FINISH_MIN).
+// • Переезд замка на выбранные координаты (MOVE_GOLD) — только на свободное место (game.placeError), когда армии дома и к замку никто не идёт.
 // • Сундуки ресурсов: ресурсы падают в Кладовую (одна на все замки), игрок забирает их в нужный замок сам;
 //   не больше DAY_LIMIT сундуков в сутки (по Москве), чтобы золото не заменяло игру.
 // • Рамки аватара (FRAMES): покупаются навсегда, надеть / снять — бесплатно.
@@ -8,20 +9,20 @@
 // Каждая покупка — в журнале золота игрока (Казна → История), админ видит её в карточке игрока.
 const C = require('./catalog');
 
-const SPEED_HOUR = 5, FINISH_STEP = 15 * 60000, FINISH_MIN = 2, DAY_LIMIT = 5, HOUR = 3600000;
+const SPEED_HOUR = 15, FINISH_STEP = 15 * 60000, FINISH_PER = 3, FINISH_MIN = 6, MOVE_GOLD = 500, DAY_LIMIT = 5, HOUR = 3600000;
 const CHESTS = {
-  chest_s: { name: 'Малый сундук ресурсов', gold: 10, res: { wood: 10000, stone: 10000, iron: 10000, food: 10000 } },
-  chest_l: { name: 'Большой сундук ресурсов', gold: 40, res: { wood: 50000, stone: 50000, iron: 50000, food: 50000 } },
-  wagon: { name: 'Продовольственный обоз', gold: 15, res: { food: 30000 } },
+  chest_s: { name: 'Малый сундук ресурсов', gold: 30, res: { wood: 10000, stone: 10000, iron: 10000, food: 10000 } },
+  chest_l: { name: 'Большой сундук ресурсов', gold: 120, res: { wood: 50000, stone: 50000, iron: 50000, food: 50000 } },
+  wagon: { name: 'Продовольственный обоз', gold: 45, res: { food: 30000 } },
 };
 const FRAMES = {
-  silver: { name: 'Серебряная рамка', gold: 30 },
-  gold: { name: 'Золотая рамка', gold: 60 },
-  fire: { name: 'Огненная рамка', gold: 100 },
+  silver: { name: 'Серебряная рамка', gold: 90 },
+  gold: { name: 'Золотая рамка', gold: 180 },
+  fire: { name: 'Огненная рамка', gold: 300 },
 };
 const shopOpen = () => process.env.SHOP_OPEN === '1';
 const mskDay = (t) => new Date(t + 3 * HOUR).toISOString().slice(0, 10);
-const finishCost = (left) => Math.max(FINISH_MIN, Math.ceil(left / FINISH_STEP));
+const finishCost = (left) => Math.max(FINISH_MIN, Math.ceil(left / FINISH_STEP) * FINISH_PER);
 const qKey = (q) => (q.wall ? 'wall' : `${q.view}:${q.cell}`);
 
 function install(Game) {
@@ -30,7 +31,7 @@ function install(Game) {
 
   P.shopAllowed = function shopAllowed(u) { return !!(u && (u.admin || shopOpen())); };
   P.shopInfo = function shopInfo(u, now = Date.now()) {
-    return { open: shopOpen(), speedHour: SPEED_HOUR, finishStep: FINISH_STEP / 60000, finishMin: FINISH_MIN, dayLimit: DAY_LIMIT, chestsLeft: DAY_LIMIT - bought(u, now),
+    return { open: shopOpen(), speedHour: SPEED_HOUR, finishStep: FINISH_STEP / 60000, finishPer: FINISH_PER, finishMin: FINISH_MIN, moveGold: MOVE_GOLD, dayLimit: DAY_LIMIT, chestsLeft: DAY_LIMIT - bought(u, now),
       chests: Object.entries(CHESTS).map(([id, c]) => ({ id, name: c.name, gold: c.gold, res: c.res })),
       frames: Object.entries(FRAMES).map(([id, f]) => ({ id, name: f.name, gold: f.gold, own: (u.frames || []).includes(id) })), frame: u.frame || '' };
   };
@@ -67,6 +68,23 @@ function install(Game) {
     return { msg: `${c.name} — в Кладовой! Заберите ресурсы в нужный замок: кнопка «Кладовая».`, stash: true };
   };
 
+  // переезд замка на координаты (x, y) — только на свободное место
+  P.shopMove = function shopMove(u, castle, x, y) {
+    if (!castle || castle.owner !== u.id) return { error: 'Это не ваш замок.' };
+    x = Number(x); y = Number(y);
+    if (castle.x === x && castle.y === y) return { error: 'Замок уже стоит здесь.' };
+    const bad = this.placeError(x, y, castle); if (bad) return { error: bad };
+    if ((castle.armies || []).some((a) => a.state !== 'stay')) return { error: 'Дождитесь, пока армии этого замка вернутся домой.' };
+    const ox = castle.x, oy = castle.y, all = Object.values(this.db.castles);
+    if (all.some((k) => k !== castle && (k.armies || []).some((a) => a.x === ox && a.y === oy && (a.state === 'go' || a.state === 'wait')))) return { error: 'К замку идёт чужая армия — переезд невозможен, пока она не дойдёт.' };
+    if ((u.gold || 0) < MOVE_GOLD) return { error: `Не хватает монет: нужно ${MOVE_GOLD}, у вас ${u.gold || 0}.` };
+    this.goldChange(u, -MOVE_GOLD, `Лавка: переезд «${castle.name}» ${ox}:${oy} → ${x}:${y}`);
+    this.moveCastle(castle, x, y);
+    for (const k of all) for (const a of k.armies || []) if (a.x === ox && a.y === oy) { a.x = x; a.y = y; } // подкрепления, что стоят в замке, — с ним
+    this.cache = {}; this.store.save();
+    return { msg: `«${castle.name}» переехал на ${x}:${y}.` };
+  };
+
   // рамка аватара: купить (навсегда, сразу надевается) / надеть / снять (id = '')
   P.shopFrame = function shopFrame(u, id, use) {
     id = String(id || '');
@@ -83,4 +101,4 @@ function install(Game) {
   };
 }
 
-module.exports = { install, FRAMES, CHESTS, SPEED_HOUR, FINISH_MIN, DAY_LIMIT, finishCost };
+module.exports = { install, FRAMES, CHESTS, SPEED_HOUR, FINISH_MIN, MOVE_GOLD, DAY_LIMIT, finishCost };

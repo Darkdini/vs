@@ -2128,3 +2128,5 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .pinfo .avatar .afr { width: calc(92px * 100 / var(--hw)); height: calc(92px * 100 / var(--hw)); }
 .dava:has(.afr), .zava:has(.afr), .zpava:has(.afr) { border-color: transparent; background: none; }
 .shava { width: 84px; height: 84px; flex: none; display: block; }
+.shmove { display: flex; gap: 6px; align-items: stretch; flex-wrap: wrap; margin-top: 4px; } .shmove input { width: 76px; flex: none; } .shmove .pbar { flex: 1; min-width: 150px; margin: 0; }
+.shnote { position: sticky; top: 0; z-index: 3; }

@@ -286,6 +286,18 @@ class Game {
     if (moved) { this.cache = {}; this.store.save(); }
     return moved;
   }
+  // можно ли поставить замок на (x, y): в пределах мира, не у границы провинции, не на лагере/объекте, вокруг (SPAWN_GAP) — ни одного замка,
+  // в провинции меньше PROV_CAP замков. except — замок, который переносится (его самого не считаем). Возвращает текст ошибки или null.
+  placeError(x, y, except = null) {
+    if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= WORLD || y >= WORLD) return `Координаты — от 0 до ${WORLD - 1}.`;
+    if (onProvEdge(x, y)) return 'Это граница провинции — замок там не поставить.';
+    if (!meadowAt(x, y)) return 'Там лес — замок не поставить.';
+    for (let dx = -SPAWN_GAP; dx <= SPAWN_GAP; dx++) for (let dy = -SPAWN_GAP; dy <= SPAWN_GAP; dy++) { const k = this.castleAt(x + dx, y + dy); if (k && k !== except) return dx || dy ? `Слишком близко к другому замку — между замками нужно ${SPAWN_GAP} пустые клетки.` : 'Клетка занята замком.'; }
+    if (this.worldObjects(x, y, 1, 1).some((o) => o.kind === 'object')) return 'Клетка занята (лагерь, руины или рудник).';
+    const p = provinceOf(x, y); let n = 0; for (const k of this.byXY.values()) if (k !== except && provinceOf(k.x, k.y).n === p.n) n++;
+    if (n >= PROV_CAP) return `Провинция ${p.n} заполнена (${PROV_CAP} замков).`;
+    return null;
+  }
   moveCastle(c, x, y) { this.byXY.delete(c.x * WORLD + c.y); c.x = x; c.y = y; this.byXY.set(x * WORLD + y, c); }
   removeCastle(c) { this.byXY.delete(c.x * WORLD + c.y); delete this.db.castles[c.id]; }
   // кэш тяжёлых выборок по всем игрокам (рейтинги, Зал Славы) — пересчёт раз в ttl мс
