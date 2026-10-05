@@ -96,7 +96,7 @@ const PROD = Array.from({ length: 31 }, (_, l) => (l ? Math.round((2 + (l - 1) *
 // полностью отстроенные земли дают столько же, сколько прежние 225 клеток на 20 ур.
 const LANDS_N = 15, LANDS_MAX = 5;
 // здания земель — 5 уровней; каждый равен прежнему уровню из LAND_EFF (1, 5, 10, 15, 20): добыча, рейтинг, места в Хибаре и прочность —
-// как у прежнего уровня (полные земли дают столько же, сколько прежние 20 ур.); цена и время — прежние того уровня × LAND_COST_K
+// как у прежнего уровня (полные земли дают столько же, сколько прежние 20 ур.); цена — см. levelCost, время — LAND_TIME
 const LAND_EFF = [0, 1, 5, 10, 15, 20], LAND_EFF_MAX = 20;
 const landEff = (level) => LAND_EFF[Math.max(0, Math.min(LANDS_MAX, level | 0))];
 const landFromOld = (o) => { if (!(o > 0)) return 0; let best = 1; for (let l = 1; l <= LANDS_MAX; l++) if (Math.abs(LAND_EFF[l] - o) <= Math.abs(LAND_EFF[best] - o)) best = l; return best; }; // прежний уровень 1–20 → ближайший новый
@@ -133,8 +133,10 @@ function levelCost0(b, level) {
 
 // время: база × рост^(ур-1) × 0.95^ур.Ратуши (Ратуша ускоряет стройки на 5% за уровень)
 const TIME = { lands: { base: 60, growth: 1.45 }, castle: { base: 180, growth: 1.25 }, townhallFactor: 0.95, min: 5 };
+// здания земель: своё время уровней 1–5 (при Ратуше 1: 2, 5, 9, 15, 30 мин); Ратуша ускоряет так же — на 5% за уровень
+const LAND_TIME = [0, 120, 300, 540, 900, 1800];
 function levelTimeSec(b, level, townhallLevel) {
-  if (b.layer === 'lands' && !b.time && level > 1) return Math.round(levelTimeSec0(b, landEff(level), townhallLevel) * LAND_COST_K);
+  if (b.layer === 'lands' && !b.time) return Math.max(TIME.min, Math.round(LAND_TIME[Math.max(1, Math.min(LANDS_MAX, level))] * TIME.townhallFactor ** Math.max(0, townhallLevel - 1)));
   return levelTimeSec0(b, level, townhallLevel);
 }
 function levelTimeSec0(b, level, townhallLevel) {
@@ -165,4 +167,4 @@ function displayId(b, level) {
   return e >= 10 ? b.tiers[2] : e >= 5 ? b.tiers[1] : b.tiers[0];
 }
 
-module.exports = { LAND_COST_K, LAND_EFF, LAND_EFF_MAX, landEff, landFromOld, LAND_MULT_BY_SIZE, LANDS_N, LANDS_MAX, LAND_MULT, HUT_CAP_MULT, LAND_CELLS, TIME, RATING, RES, RES_ICON, TIME_ICON, BUILDINGS, BY_ID, UNITS, RACES, RACE_NAMES, PROD, PROD_K, CASTLE_PATH, durability, levelCost, levelTimeSec, displayId };
+module.exports = { LAND_TIME, LAND_COST_K, LAND_EFF, LAND_EFF_MAX, landEff, landFromOld, LAND_MULT_BY_SIZE, LANDS_N, LANDS_MAX, LAND_MULT, HUT_CAP_MULT, LAND_CELLS, TIME, RATING, RES, RES_ICON, TIME_ICON, BUILDINGS, BY_ID, UNITS, RACES, RACE_NAMES, PROD, PROD_K, CASTLE_PATH, durability, levelCost, levelTimeSec, displayId };

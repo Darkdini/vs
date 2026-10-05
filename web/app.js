@@ -109,8 +109,8 @@ function buildSecRaw(def, level, townhall) {
   return Math.max(T.min, Math.round(t.base * t.growth ** (Math.min(level, 20) - 1) * 1.03 ** Math.max(0, level - 20) * T.townhallFactor ** townhall));
 }
 function buildSec(def, level, townhall) {
-  const L = S.cat.lands; // здания земель: время прежнего уровня (landEff) × timeK
-  const raw = def.layer === 'lands' && !def.time && level > 1 && L && L.timeK ? Math.round(buildSecRaw(def, landEff(def, level), townhall) * L.timeK) : buildSecRaw(def, level, townhall);
+  const L = S.cat.lands, T = R().time; // здания земель: своё время уровней 1–5 при Ратуше 1, Ратуша ускоряет на 5% за уровень
+  const raw = def.layer === 'lands' && !def.time && L && L.time ? Math.max(T.min, Math.round(L.time[Math.max(1, Math.min(5, level))] * T.townhallFactor ** Math.max(0, townhall - 1))) : buildSecRaw(def, level, townhall);
   return Math.max(R().minBuildSec, Math.round(raw / S.cat.speed));
 }
 const ratingPer = (def) => (def.layer === 'lands' ? R().rating.lands : R().rating.castle);
