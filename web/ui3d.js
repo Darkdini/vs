@@ -23,7 +23,7 @@ const MENUS = {
     ['Казна', M3('treasury'), () => openSheet(treasuryWin)],
     ['Премиум', M3('premium'), () => openPremium()],
     ['Королевство', M3('loyalty'), () => openKingdom()],
-    ['Ресурсы', M3('resources'), () => openSheet(resSheet)],
+    ['Ресурсы', M3('resources'), () => openRes()],
     ['Подарки', M3('gifts'), () => openSoon('Подарки')],
     [S.st.user.zagsNew ? `ЗАГС (${S.st.user.zagsNew})` : 'ЗАГС', 'zags/rings.png', () => openZags()],
     ['Репутация', M3('reputation'), () => openRating('reputation')],
@@ -45,7 +45,7 @@ const MENUS = {
     ['Генерал', 'units/human/general.png', () => openGeneral()],
     ['Армии', 'build/baraks.png', () => openSheet(armiesWin)],
     ['Поход', 'smallicon/swordred.png', () => openArmySheet({})],
-    ['Ресурсы', 'gfx3d/locs2/res.png', () => openSheet(resSheet)],
+    ['Ресурсы', 'gfx3d/locs2/res.png', () => openRes()],
     ['Здания', 'build/build.png', () => openSheet(() => ribbon('Здания замка') + summaryHtml(VIEW.CASTLE))],
     ['Постройки', 'build/farm_big.png', () => openSheet(() => ribbon('Постройки на землях') + summaryHtml(VIEW.LANDS))],
   ] },
@@ -136,7 +136,7 @@ $('#locs').addEventListener('click', (e) => {
   const k = b.dataset.loc;
   if (['castle', 'lands', 'world'].includes(k)) return setTab(k);
   if (k === 'castles') return openSheet(castlesWin);
-  if (k === 'res') return openSheet(resSheet);
+  if (k === 'res') return openRes();
 });
 $('#chatline').addEventListener('click', () => openChat());
 $('#btnGear').addEventListener('click', () => openSheet(settingsWin));

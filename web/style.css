@@ -2151,3 +2151,7 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .rsrow > b { flex: none; width: auto; min-width: 26%; white-space: nowrap; color: #fff4dc; font: 600 min(16px, 3.8vw) system-ui, sans-serif; text-shadow: 0 1px 2px #000; text-align: left; }
 .rsnote { text-align: center; color: #f6dcc0; font-size: 13px; margin: 8px 0 4px; opacity: .85; }
 .rswin .rsclosebtn { display: block; margin: 8px auto 0; }
+.resov { position: fixed; inset: 0; z-index: 60; background: #000000a8; display: flex; align-items: center; justify-content: center; padding: 0 10px; animation: resIn .15s ease-out; }
+.resov .rswin { width: min(460px, 100%); margin: 0; }
+.resx { position: absolute; top: max(10px, env(safe-area-inset-top)); right: 10px; width: 52px; height: 52px; border-radius: 50%; border: 3px solid #d9a441; background: #3a2414; color: #fff3d0; font-size: 26px; line-height: 1; box-shadow: 0 3px 8px #000a; }
+@keyframes resIn { from { opacity: 0; } to { opacity: 1; } }

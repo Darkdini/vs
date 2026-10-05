@@ -107,6 +107,7 @@ const STORE = { base: 200, levels: [0, 100, 300, 500, 800, 1000, 1500, 2000, 300
 const storeBonus = (level) => STORE.levels[Math.max(0, Math.min(10, level))];
 // добыча ресурсов не ускоряется скоростью мира (числа как в оригинале); RES_SPEED — отдельный множитель для тестов
 const RES_SPEED = Number(process.env.RES_SPEED || 1);
+const PEOPLE_SCI = (1400 / 1303 - 1) / 20; // прирост людей за уровень Экономики: на 20 ур. — 1400 в час при полных землях, как в оригинале
 // базовая добыча замка в час (без зданий); Хибара даёт людей с коэффициентом 0.2 от таблицы PROD
 const BASE_RATE = { wood: 29.5, stone: 29.5, iron: 29.5, food: 29.5, people: 14 };
 const PEOPLE_FACTOR = C.PROD_K.people;
@@ -486,6 +487,7 @@ class Game {
       const def = C.BY_ID[b];
       if (def && def.produces) r[def.produces] += C.PROD[C.landEff(castle.levels[1][i])] * C.PROD_K[def.produces] * (C.LAND_YIELD[b] || 1);
     });
+    r.people *= 1 + PEOPLE_SCI * ((castle.sciences && castle.sciences.eco) || 0); // наука «Экономика»: люди +0,37% за уровень (полные земли 1303 → 1400)
     if (this.isPremium(this.userById(castle.owner))) r.people *= 1.5; // премиум: население +50%
     const prod = this.bonus(castle).prod; // наука Экономика, религия Природа, артефакты
     for (const k of ['wood', 'stone', 'iron', 'food']) r[k] *= prod;

@@ -413,7 +413,7 @@ function topRes() {
     el.classList.toggle('full', full);
   });
 }
-$('#resBar').addEventListener('click', () => openSheet(resSheet));
+$('#resBar').addEventListener('click', () => openRes());
 function tick() {
   if (!S.st) return;
   const c = S.st.castle, t = now();
@@ -442,6 +442,13 @@ function resSheet() {
   return `<div class="rswin"><div class="rstitle">Добыча замка</div>${RES.map(row).join('')}
     <div class="rsnote">${esc(c.name)} · добыча — с учётом науки, религии и артефактов</div>
     <button class="rsclosebtn" data-rsclose><img src="gfx3d/res/closebtn.png" alt="Закрыть"></button></div>`;
+}
+// окно ресурсов — поверх игры: фон затемнён, королевство просвечивает (как в оригинале); закрыть — «Закрыть», ✕ или тап по фону
+function openRes() {
+  document.querySelectorAll('.resov').forEach((x) => x.remove());
+  const d = document.createElement('div'); d.className = 'resov'; d.innerHTML = `<button class="resx" aria-label="Закрыть">✕</button>${resSheet()}`;
+  d.addEventListener('click', (e) => { if (e.target === d || e.target.closest('[data-rsclose],.resx')) d.remove(); });
+  document.body.appendChild(d);
 }
 // живые цифры в окне ресурсов
 setInterval(() => { const els = document.querySelectorAll('[data-rsres]'); if (!els.length || !S.st) return; const c = S.st.castle;
