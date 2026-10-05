@@ -643,6 +643,7 @@ class Game {
     this.db.messages = this.db.messages || [];
     const m = { id: this.db.nextId++, from: fromUser.id, to: to.id, subject: String(subject || '').slice(0, 80), text: String(text || '').slice(0, 4000), at: Date.now(), read: false, color: this.msgColor ? this.msgColor(fromUser) : '' };
     this.db.messages.push(m);
+    if (this.tgNotify && fromUser && fromUser.id !== to.id) this.tgNotify(to.id, 'mail', `✉ Письмо от ${fromUser.login}: «${m.subject || 'без темы'}». Прочитать — в игре.`);
     this.store.save();
     return { message: m, to };
   }

@@ -278,6 +278,7 @@ const API = {
   tg(m) {
     const g = this.game, op = String(m.op || '');
     if (op === 'link') { const r = g.tgLinkStart(this.user); if (r.error) return this.error(r.error); return this.send({ t: 'tg', url: r.url, info: g.tgAuthInfo(this.user) }); }
+    if (op === 'notify') { const r = g.tgNotifySet(this.user, String(m.kind || ''), !!m.on); if (r.error) return this.error(r.error); return this.send({ t: 'tg', info: g.tgAuthInfo(this.user) }); }
     if (op === 'unlink' || op === 'unlinkok') { // отвязка: unlink — код в Telegram, unlinkok — ввод кода
       const r = op === 'unlink' ? g.tgUnlinkStart(this.user) : g.tgUnlink(this.user, m.code);
       return this.send({ t: 'tg', info: g.tgAuthInfo(this.user), note: { ok: !r.error, msg: r.error || r.msg } });

@@ -837,6 +837,8 @@ function install(Game, helpers) {
     return due.length;
   };
   P.returnHome = function returnHome(c, a) {
+    if (this.tgNotify && a.mission !== 'trade') { const n = Object.values(a.units).reduce((q, k) => q + k, 0), loot = a.loot ? Object.values(a.loot).reduce((q, k) => q + (k || 0), 0) : 0;
+      this.tgNotify(c.owner, 'home', `🏰 Армия вернулась в «${c.name}»: ${n.toLocaleString('ru-RU')} воинов${a.general ? ' и генерал' : ''}${loot ? `, добыча ${Math.floor(loot).toLocaleString('ru-RU')} ресурсов` : ''}.`); }
     this.tick(c);
     this.mil(c);
     const units = Object.fromEntries(Object.entries(a.units).filter(([id, n]) => n > 0 && Number(id) !== MERCHANT_ID)); // торговцы просто возвращаются на Рынок
@@ -938,6 +940,7 @@ function install(Game, helpers) {
     this.db.reports.push({ id: this.db.nextId++, owner: userId, at: Date.now(), kind, title, lines, data, read: false });
     if (this.db.reports.length > 2000) this.db.reports.splice(0, this.db.reports.length - 2000);
     this.event(userId, title);
+    if (this.tgNotify && ['battle', 'scout', 'expedition'].includes(kind)) this.tgNotify(userId, 'battle', `📜 ${title}`);
   };
 
   // ===== бой: один общий удар (без раундов) =====
@@ -1439,6 +1442,7 @@ function install(Game, helpers) {
     const min = Math.max(1, Math.round((a.arrive - Date.now()) / 60000));
     const x = this.incoming(t).find((q) => q.id === a.id), size = x && x.size != null ? `, войск ${x.exact ? '' : '≈ '}${x.size.toLocaleString('ru-RU')}` : '';
     this.event(owner.id, `⚔ Караульная башня: ${MISSIONS[a.mission]} на «${t.name}» от ${this.ownerOf(c).login}${size}, прибытие через ${min} мин.`);
+    if (this.tgNotify) this.tgNotify(owner.id, 'attack', `⚔ ${MISSIONS[a.mission]} на ваш замок «${t.name}» (${t.x}:${t.y})! Идёт ${this.ownerOf(c).login}${size}, прибытие через ${min} мин.`);
   };
 
   // ----- рынок -----

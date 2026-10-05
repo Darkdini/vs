@@ -49,7 +49,8 @@ if (game.ensureAdmin()) {
   else if (game.login('admin', 'admin')) console.log('ВНИМАНИЕ: у admin стандартный пароль «admin» — смените его: Админ-панель → Цель (пусто) → Сменить пароль');
 }
 
-game.tgPollStart(); // бот Telegram игроков (tgauth.js), если задан TG_AUTH_TOKEN
+game.tgPollStart();
+setInterval(() => { try { game.tgBuildScan(); } catch (e) { console.error(e); } }, 30000); // готовые стройки — в Telegram // бот Telegram игроков (tgauth.js), если задан TG_AUTH_TOKEN
 startWeb(game, sessions, { port: WEB_PORT, host: HOST, log: (m) => console.log(m) });
 console.log(`Война Королей: скорость мира x${process.env.SPEED || 1}, база ${DB}`);
 

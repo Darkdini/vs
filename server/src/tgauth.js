@@ -9,6 +9,10 @@
 const https = require('https');
 const crypto = require('crypto');
 
+// виды уведомлений: [ключ, название, пояснение]
+const NOTIFY = [['attack', 'Нападение на замок', 'видит Караульная башня — приходит, даже если вы в игре'], ['battle', 'Отчёты о боях и разведке', ''], ['home', 'Армия вернулась домой', ''],
+  ['build', 'Стройка завершена', ''], ['mail', 'Новое письмо', '']];
+const NOTIFY_HOUR = 20;
 const LINK_MS = 15 * 60000, CODE_MS = 15 * 60000, CODE_TRIES = 5, REQ_PER_HOUR = 3, HOUR = 3600000;
 const sha = (t) => crypto.createHash('sha256').update(String(t)).digest('hex');
 const token = () => process.env.TG_AUTH_TOKEN || '';
@@ -29,9 +33,47 @@ function api(method, body, timeoutMs = 20000) {
 function install(Game) {
   const P = Game.prototype;
   P.tgApi = api;
-  P.tgSay = function tgSay(chat, text) { return this.tgApi('sendMessage', { chat_id: chat, text }).catch((e) => console.error('бот Telegram:', e.message)); };
+  // очередь отправки: Telegram пускает ~30 сообщений в секунду — шлём не больше 20 в секунду (рассылки администрации)
+  P.tgSay = function tgSay(chat, text) {
+    const q = this.tgQ = this.tgQ || [];
+    return new Promise((resolve) => {
+      q.push({ chat, text, resolve });
+      if (this.tgQT) return;
+      const pump = () => { const batch = q.splice(0, 20);
+        for (const m of batch) this.tgApi('sendMessage', { chat_id: m.chat, text: m.text }).then(m.resolve, (e) => { console.error('бот Telegram:', e.message); m.resolve(null); });
+        this.tgQT = q.length ? setTimeout(pump, 1000) : null; };
+      pump();
+    });
+  };
   P.tgBotName = function tgBotName() { return process.env.TG_AUTH_BOT || this.tgBot || ''; };
-  P.tgAuthInfo = function tgAuthInfo(u) { return { on: enabled() && !!this.tgBotName(), bot: this.tgBotName(), linked: !!(u && u.tg), name: u && u.tg ? u.tg.name : '', unlinking: !!(u && u.tg && u.tgUnlinkReq && u.tgUnlinkReq.exp > Date.now()) }; };
+  P.tgAuthInfo = function tgAuthInfo(u) { return { on: enabled() && !!this.tgBotName(), bot: this.tgBotName(), linked: !!(u && u.tg), name: u && u.tg ? u.tg.name : '', unlinking: !!(u && u.tg && u.tgUnlinkReq && u.tgUnlinkReq.exp > Date.now()),
+    notify: NOTIFY.map(([k, t, d]) => ({ k, t, d, on: !(u && u.tgOff && u.tgOff[k]) })) }; };
+  // уведомления в Telegram (тем, кто привязал): kind — из NOTIFY, игрок выключает каждое в Профиле.
+  // Нападение приходит всегда (если включено), остальное — только когда игрок не в игре. Не больше NOTIFY_HOUR сообщений в час.
+  P.tgNotify = function tgNotify(userId, kind, text, now = Date.now()) {
+    if (!enabled()) return false;
+    const u = this.userById(userId); if (!u || !u.tg || u.bot || (u.tgOff && u.tgOff[kind])) return false;
+    if (kind !== 'attack' && u.online) return false;
+    const sent = (u.tgNotes || []).filter((t) => t > now - HOUR); if (sent.length >= NOTIFY_HOUR) return false;
+    u.tgNotes = [...sent, now];
+    this.tgSay(u.tg.chat, text); return true;
+  };
+  P.tgNotifySet = function tgNotifySet(u, kind, on) {
+    if (!NOTIFY.some(([k]) => k === kind)) return { error: 'Нет такого уведомления.' };
+    u.tgOff = u.tgOff || {}; if (on) delete u.tgOff[kind]; else u.tgOff[kind] = true; this.store.save(); return { ok: true };
+  };
+  // готовые стройки (раз в 30 с): по каждому замку — одно сообщение со всеми законченными стройками
+  P.tgBuildScan = function tgBuildScan(now = Date.now()) {
+    if (!enabled()) return 0; let n = 0;
+    const C = require('./catalog');
+    for (const c of Object.values(this.db.castles)) {
+      const done = (c.queue || []).filter((q) => q.end <= now && !q.tgSent); if (!done.length) continue;
+      for (const q of done) q.tgSent = true;
+      const list = done.map((q) => `${(C.BY_ID[q.building] || {}).name || 'Здание'} ${q.level} ур.`).join(', ');
+      if (this.tgNotify(c.owner, 'build', `🏗 «${c.name}»: построено — ${list}.`, now)) n++;
+    }
+    return n;
+  };
 
   // ссылка для привязки: одноразовый код, 15 минут
   P.tgLinkStart = function tgLinkStart(u, now = Date.now()) {
@@ -127,4 +169,4 @@ function install(Game) {
   };
 }
 
-module.exports = { install, enabled, sha, CODE_TRIES };
+module.exports = { install, enabled, sha, CODE_TRIES, NOTIFY };

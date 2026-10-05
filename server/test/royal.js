@@ -660,9 +660,20 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   tu.tgSent = []; assert.ok(g.tgUnlinkStart(tu).msg); const uc = (/(\d{6})/.exec(said.pop().text) || [])[1];
   assert.ok(g.tgUnlink(tu, '000000').error && tu.tg, 'неверный код — не отвязан');
   assert.ok(g.tgUnlink(tu, uc).msg && !tu.tg && /отвязан/.test(said.pop().text), 'код из Telegram — отвязан');
+  { // уведомления: только привязанным, офлайн (кроме нападения), выключаются в Профиле, не больше 20 в час
+    const nu = g.register({ login: 'tgnotif', password: '12345', race: 0 }).user; nu.tg = { chat: 999, name: '@n', at: Date.now() };
+    const n0 = said.length;
+    nu.online = true; g.tgNotify(nu.id, 'mail', 'x'); g.tgNotify(nu.id, 'attack', '⚔ test'); assert.strictEqual(said.length, n0 + 1, 'в игре — только нападение');
+    nu.online = false; g.sendMail(g.adminUser(), 'tgnotif', 'Привет', 'текст'); assert.ok(/Письмо от/.test(said[said.length - 1].text), 'письмо — в Telegram');
+    g.tgNotifySet(nu, 'mail', false); const n1 = said.length; g.sendMail(g.adminUser(), 'tgnotif', 'Ещё', 'т'); assert.strictEqual(said.length, n1, 'выключено — молчит');
+    const nc = g.castlesOf(nu)[0]; nc.queue.push({ view: 0, cell: 3, building: 1, level: 2, start: 0, end: Date.now() - 1, cost: {} });
+    assert.ok(g.tgBuildScan() >= 1 && /построено/.test(said[said.length - 1].text) && g.tgBuildScan() === 0, 'стройка — одно сообщение');
+    nu.tgNotes = []; for (let i = 0; i < 25; i++) g.tgNotify(nu.id, 'battle', 'b'); assert.strictEqual(nu.tgNotes.length, 20, 'не больше 20 в час');
+    assert.ok(!g.tgNotify(g.db.users.newsr ? g.db.users.newsr.id : 0, 'battle', 'z'), 'без привязки — нет');
+  }
   g.tgApi = realApi; delete process.env.TG_AUTH_TOKEN; delete process.env.TG_AUTH_BOT;
   assert.ok(g.tgResetRequest('tgplayer').error, 'без бота — подсказка написать администрации');
-  console.log('✓ Telegram: привязка по одноразовой ссылке, код сброса (хеш, 15 мин, 5 попыток, 3 в час), пароль не пересылается, отвязка — по коду');
+  console.log('✓ Telegram: привязка по одноразовой ссылке, код сброса (хеш, 15 мин, 5 попыток, 3 в час), пароль не пересылается, отвязка — по коду, уведомления');
 }
 { // «Лавка Короля» (shop.js): ускорения стройки и сундуки ресурсов
   const su = g.register({ login: 'shopper', password: '12345', race: 0 }).user, sc = g.castlesOf(su)[0], now = Date.now();

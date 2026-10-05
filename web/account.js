@@ -12,7 +12,9 @@ function tgBlock(t) {
     ${!t.linked ? '<button class="pbar acbar gold" data-tg="link">📱 Привязать Telegram</button>'
     : t.unlinking ? `<form class="acform" data-tgun><label>Код из Telegram для отвязки:<input name="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" required></label>
       <button class="pbar">Подтвердить отвязку</button></form><button class="pbar acbar" data-tg="unlink">Прислать код ещё раз</button>`
-    : '<button class="pbar acbar" data-tg="unlink">Отвязать Telegram</button>'}`;
+    : '<button class="pbar acbar" data-tg="unlink">Отвязать Telegram</button>'}
+    ${t.linked ? `<div class="tgnot"><div class="tgnh">🔔 Уведомления в Telegram</div>${(t.notify || []).map((x) => `<label class="tgn"><input type="checkbox" data-tgn="${x.k}" ${x.on ? 'checked' : ''}><span>${esc(x.t)}${x.d ? `<small>${esc(x.d)}</small>` : ''}</span></label>`).join('')}
+      <small class="tgnf">Пока вы в игре, бот молчит (кроме нападений). Не больше 20 сообщений в час.</small></div>` : ''}`;
 }
 function accountWin(p) {
   const a = p.acct || {}, bar = (attr, icon, text) => `<button class="pbar acbar" ${attr}>${icon ? `<img src="${icon}" alt="">` : ''} ${text}</button>`;
@@ -82,3 +84,4 @@ function tgMsg(m) {
   if (m.url) { if (S.tgWin && !S.tgWin.closed) S.tgWin.location.href = m.url; else location.href = m.url; S.tgWin = null; toast('Нажмите «Старт» в боте — и вернитесь в игру.'); return; }
   if (S.acctView) send({ t: 'profile', id: S.st.user.id, acct: 1 }); // обновить блок в Профиле
 }
+$('#sheetBody').addEventListener('change', (e) => { const c = e.target.closest('[data-tgn]'); if (c) send({ t: 'tg', op: 'notify', kind: c.dataset.tgn, on: c.checked }); });
