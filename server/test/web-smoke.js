@@ -127,6 +127,11 @@ function client() {
     assert.ok(!cu.list.some((x) => x.login === 'admin') && cu.list.length === 2, 'админа нет в списке онлайна');
     console.log('✓ админ не виден онлайн');
     // код админ-панели не отдаётся никому, кроме админа с действующей сессией
+    { // логин и пароль в адресе (форма ушла без скрипта) — сразу на чистый адрес
+      const r = await fetch(`http://127.0.0.1:${WEB_PORT}/?login=a%40b&password=secret&remember=on`, { redirect: 'manual' });
+      assert.ok(r.status === 303 && r.headers.get('location') === '/' && r.headers.get('cache-control') === 'no-store', 'пароль из адреса убран');
+      const html2 = await (await fetch(`http://127.0.0.1:${WEB_PORT}/`)).text();
+      assert.ok(/id="authBtn" disabled/.test(html2), 'кнопка «Войти» до загрузки скрипта выключена'); console.log('✓ пароль не остаётся в адресе'); }
     assert.equal((await fetch(`http://127.0.0.1:${WEB_PORT}/admin.js`)).status, 404);
     assert.equal((await fetch(`http://127.0.0.1:${WEB_PORT}/admin.js?l=admin&t=${'0'.repeat(48)}`)).status, 404);
     assert.ok(/function adminHtml/.test(await (await fetch(`http://127.0.0.1:${WEB_PORT}/admin.js?l=admin&t=${admAuth.token}`)).text()));

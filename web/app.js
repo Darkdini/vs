@@ -370,6 +370,8 @@ let DEVINFO = null; deviceInfo().then((d) => { DEVINFO = d; }).catch(() => {});
 $('#capNew').addEventListener('click', () => send({ t: 'captcha' }));
 $('#authTabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) setMode(b.dataset.mode); });
 $('#races').addEventListener('click', (e) => { const b = e.target.closest('[data-race]'); if (b) { S.race = Number(b.dataset.race); renderRaces(); raceInfo(S.cat.raceOrder[S.race]); } });
+// пароль никогда не должен попасть в адрес: если форма успела уйти без скрипта (кнопки до загрузки выключены, но на всякий случай) — адрес чистится
+if (/[?&](password|login|captcha)=/.test(location.search)) history.replaceState(null, '', location.pathname);
 $('#authForm').addEventListener('submit', (e) => {
   e.preventDefault();
   const f = e.target, login = f.login.value.trim(), password = f.password.value;
@@ -1594,3 +1596,6 @@ document.addEventListener('click', (e) => {
     b.dataset.pressOk = '1'; b.click(); delete b.dataset.pressOk;
   }, 130);
 }, true);
+// скрипт загружен — форма входа обрабатывается здесь; до этого кнопки выключены (иначе браузер отправил бы логин и пароль в адресе)
+if (!S.lockUntil) $('#authBtn').disabled = false;
+$('#resetBtn').disabled = false;

@@ -719,6 +719,8 @@ function startWeb(game, sessions, { port, host, log }) {
     if (game.ipBanned(ip)) { res.writeHead(403, { 'Content-Type': 'text/plain' }); return res.end('forbidden'); }
     // у сайта игры нет форм для отправки: POST/PUT и т. п. — попытка залить файл или подобрать уязвимость
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) { game.secEvent(ip, 'upload', `${req.method} ${String(req.url).slice(0, 60)}`); req.resume(); res.writeHead(405, { 'Content-Type': 'text/plain' }); return res.end('method not allowed'); }
+    // логин/пароль в адресе (форма ушла без скрипта) — сразу на чистый адрес, без кэша; сами данные никуда не пишутся
+    if (/[?&](password|login|captcha|nick)=/.test(req.url)) { res.writeHead(303, { Location: req.url.split('?')[0] || '/', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' }); return res.end(); }
     let url; try { url = decodeURIComponent(req.url.split('?')[0]); } catch { url = '/'; }
     const pm = /^\/pic\/([0-9a-f]{32})\.png$/.exec(url); // фото из сообщений (pics.js): только по случайному адресу, 3 часа
     if (pm) {

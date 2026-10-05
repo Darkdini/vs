@@ -36,7 +36,7 @@
       <div id="lockBox" class="lockbox hidden" role="alert"><div class="lockt1">🔒 Вход временно закрыт</div>
         <div class="lockt2">Три раза введён неверный логин или пароль.<br>Попробуйте через</div><div class="lockt" id="lockT">3:00</div></div>
       <div id="authErr" class="err"></div>
-      <button class="btn primary" id="authBtn">Войти</button>
+      <button class="btn primary" id="authBtn" disabled>Войти</button>
       <button type="button" class="linkbtn" id="forgotBtn">Забыли пароль?</button>
     </form>
     <form id="resetForm" class="hidden" autocomplete="off">
@@ -49,7 +49,7 @@
         <label>Повторите пароль<input name="password2" type="password" autocomplete="new-password"></label>
       </div>
       <div id="resetMsg" class="err"></div>
-      <button class="btn primary" id="resetBtn">Получить код</button>
+      <button class="btn primary" id="resetBtn" disabled>Получить код</button>
       <button type="button" class="linkbtn" id="resetBack">← Назад ко входу</button>
     </form>
     <div id="ver" class="ver"></div>
