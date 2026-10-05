@@ -108,9 +108,10 @@ function catalogJson() {
 // кто сейчас в игре (открытые соединения с входом; один игрок с двух устройств — один раз)
 // обновить состояние (оповещения) у игрока, если он сейчас в игре
 function pushTo(u) { if (u) for (const s of WebSession.all || []) if (s.user && s.user.id === u.id) s.pushState(); }
+// администратора в списке и в счётчике онлайна нет — для игроков он всегда «не в игре»
 function onlineUsers() {
   const seen = new Map();
-  for (const s of WebSession.all || []) if (s.user && !s.user.bot) seen.set(s.user.id, { id: s.user.id, login: s.user.login, rep: s.user.reputation ?? 10 });
+  for (const s of WebSession.all || []) if (s.user && !s.user.bot && !s.user.admin) seen.set(s.user.id, { id: s.user.id, login: s.user.login, rep: s.user.reputation ?? 10 });
   return seen;
 }
 const onlineCount = () => onlineUsers().size;

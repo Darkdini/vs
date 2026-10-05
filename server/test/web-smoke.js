@@ -119,6 +119,10 @@ function client() {
     assert.ok(mil.units.length >= 30 && mil.units.some((u) => u.name === 'Генерал'));
     adm.send({ t: 'login', login: 'admin', password: 'admin' });
     const admAuth = await adm.expect('auth');
+    // админ в игре, но игроки его не видят: ни в «Игроки (N)», ни в счётчике онлайна
+    b.send({ t: 'chatusers' }); const cu = await b.expect('chatusers');
+    assert.ok(!cu.list.some((x) => x.login === 'admin') && cu.list.length === 2, 'админа нет в списке онлайна');
+    console.log('✓ админ не виден онлайн');
     // код админ-панели не отдаётся никому, кроме админа с действующей сессией
     assert.equal((await fetch(`http://127.0.0.1:${WEB_PORT}/admin.js`)).status, 404);
     assert.equal((await fetch(`http://127.0.0.1:${WEB_PORT}/admin.js?l=admin&t=${'0'.repeat(48)}`)).status, 404);
