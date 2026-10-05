@@ -611,7 +611,15 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(g.adminOp(adm, 'ipban', { target: '5.6.7.8', why: 'тест', ip: '1.1.1.1' }).msg && g.ipBanned('5.6.7.8') && !g.ipBanned('9.9.9.9'), 'IP заблокирован');
   assert.ok(g.adminOp(adm, 'ipban', { target: 'drop table', ip: '1.1.1.1' }).error, 'мусор вместо IP — отказ');
   g.adminOp(adm, 'ipunban', { target: '5.6.7.8' }); assert.ok(!g.ipBanned('5.6.7.8'), 'разблокирован');
-  console.log('✓ Безопасность: поиск дыр, подбор пароля админа, блокировка IP (себя — нельзя)');
+  // автоблок: 3 запроса «поиск дыр» — IP закрыт на 30 дней; адрес игрока и локальный — не трогаем
+  for (let i = 0; i < 2; i++) g.secEvent('45.1.2.3', 'probe', '/wp-login.php'); assert.ok(!g.ipBanned('45.1.2.3'), '2 запроса — ещё не блок');
+  g.secEvent('45.1.2.3', 'upload', 'POST /x'); const ab = g.db.ipBans['45.1.2.3'];
+  assert.ok(g.ipBanned('45.1.2.3') && ab.auto && ab.until - ab.at === 30 * 86400000 && /автоблок/.test(ab.why), 'автоблок на 30 дней');
+  ab.until = Date.now() - 1; assert.ok(!g.ipBanned('45.1.2.3') && !g.db.ipBans['45.1.2.3'], 'срок вышел — разблокирован');
+  const pl = Object.values(g.db.users).find((u) => !u.bot && !u.admin); (pl.ips = pl.ips || []).push({ ip: '77.7.7.7', at: Date.now() });
+  for (let i = 0; i < 5; i++) { g.secEvent('77.7.7.7', 'probe', '/x.php'); g.secEvent('127.0.0.1', 'probe', '/x.php'); }
+  assert.ok(!g.ipBanned('77.7.7.7') && !g.ipBanned('127.0.0.1'), 'адрес игрока и локальный — без автоблока');
+  console.log('✓ Безопасность: поиск дыр, подбор пароля админа, блокировка IP (себя — нельзя), автоблок после 3 попыток');
 }
 { // советник-строитель: шаги, ресурсы сразу в замок, лишнее — в Кладовую; опытным цепочка не выдаётся
   const u = g.register({ login: 'advnew1', password: '12345', race: 0 }).user, c = g.castleOf(u);

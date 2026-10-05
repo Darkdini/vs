@@ -324,11 +324,11 @@ function admAlertsHtml(l) {
 
 // ---------- 🔒 Безопасность (server/src/secwatch.js): подозрительные IP — подбор паролей, поиск дыр, флуд ----------
 function admSecHtml(d) {
-  const intro = '<p class="small">Адреса, с которых было подозрительное: подбор паролей (особенно к Вашему аккаунту), поиск уязвимостей на сайте (.php, .env, wp-admin, обход папок), попытки отправить файл, флуд, подделанные запросы. Красные — свежие с прошлого просмотра. Вход на сам сервер (SSH) сюда не попадает — его смотрят командой <code>lastb</code>.</p>';
+  const intro = '<p class="small">Адреса, с которых было подозрительное: подбор паролей (особенно к Вашему аккаунту), поиск уязвимостей на сайте (.php, .env, wp-admin, обход папок), попытки отправить файл, флуд, подделанные запросы. Красные — свежие с прошлого просмотра. Вход на сам сервер (SSH) сюда не попадает — его смотрят командой <code>lastb</code>.</p><p class="small"><b>Автоблок:</b> 3 запроса «поиск дыр» или «отправка файла» с одного адреса — IP закрывается сам на 30 дней. Адреса, с которых уже заходили игроки, автоблок не трогает.</p>';
   if (!d) return aSec('🔒 Безопасность', `${intro}<p class="small">Загрузка…</p>`);
   const danger = (x) => x.kinds.some((k) => ['admin', 'probe', 'upload'].includes(k.k));
   const row = (x) => `<div class="alrt ${x.fresh && danger(x) ? 'new' : ''}"><i>${danger(x) ? '⛔' : '⚠'}</i><div>
-      <b>${esc(x.ip)}${x.ip === d.me ? ' <span class="ok">(это Вы)</span>' : ''}${x.banned ? ' <span class="bad">[заблокирован]</span>' : ''}</b>
+      <b>${esc(x.ip)}${x.ip === d.me ? ' <span class="ok">(это Вы)</span>' : ''}${x.banned ? ` <span class="bad">[${x.auto ? 'автоблок' : 'заблокирован'}]</span>` : ''}</b>
       <small>${x.kinds.map((k) => `${esc(k.t)} ×${k.v}`).join(' · ')}</small>
       <small class="muted">${x.samples.map(esc).join('<br>')}</small>
       <span>первый раз ${fmtDate(x.first)} · последний ${fmtDate(x.last)}</span>
@@ -336,7 +336,7 @@ function admSecHtml(d) {
   return `${aSec('🔒 Безопасность', `${intro}<p class="small">Ваш адрес сейчас: <b>${esc(d.me || '?')}</b> — его заблокировать нельзя. Осторожно: у мобильного интернета один адрес бывает у многих людей — блокировка закроет игру им всем.</p>
       ${d.list.length ? `<div class="alist">${d.list.map(row).join('')}</div>` : '<p class="parch-note">Пока ничего подозрительного.</p>'}
       <button class="btn small" data-asec>↻ Обновить</button> ${aBtn2('secclear', 'Очистить журнал', 'data-confirm="Очистить журнал адресов? Блокировки останутся."', 'danger')}`)}
-    ${aSec('⛔ Заблокированные адреса', `${d.bans.length ? d.bans.map((b) => `<div class="srow"><span><b>${esc(b.ip)}</b> · ${fmtDate(b.at)}${b.why ? ` · ${esc(b.why)}` : ''}</span><button class="btn small" data-ipunban="${esc(b.ip)}">Снять</button></div>`).join('') : '<p class="small">Нет.</p>'}
+    ${aSec('⛔ Заблокированные адреса', `${d.bans.length ? d.bans.map((b) => `<div class="srow"><span><b>${esc(b.ip)}</b> · ${fmtDate(b.at)}${b.until ? ` · до ${fmtDate(b.until)}` : ''}${b.why ? ` · ${esc(b.why)}` : ''}</span><button class="btn small" data-ipunban="${esc(b.ip)}">Снять</button></div>`).join('') : '<p class="small">Нет.</p>'}
       <form class="chatform" data-aform="ipban"><input name="ip" placeholder="IP вручную, например 1.2.3.4" autocomplete="off" required><button class="btn small danger">Заблокировать</button></form>`)}`;
 }
 $('#sheetBody').addEventListener('click', (e) => {
