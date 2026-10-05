@@ -1,18 +1,25 @@
 'use strict';
 // «Лавка Короля»: покупки за золото (золото — только с доната).
 // • Ускорения стройки: «−1 час» (SPEED_HOUR монет) и «Достроить сейчас» (1 монета за каждые 15 минут, не меньше FINISH_MIN).
-// • Сундуки ресурсов: ресурсы в текущий замок — только до вместимости Склада (сверх не кладём, золото за пустое не берём);
+// • Сундуки ресурсов: ресурсы падают в Кладовую (одна на все замки), игрок забирает их в нужный замок сам;
 //   не больше DAY_LIMIT сундуков в сутки (по Москве), чтобы золото не заменяло игру.
+// • Рамки аватара (FRAMES): покупаются навсегда, надеть / снять — бесплатно.
+// Пока лавка не открыта для всех (SHOP_OPEN=1 в game.env), ею пользуется только администратор.
 // Каждая покупка — в журнале золота игрока (Казна → История), админ видит её в карточке игрока.
 const C = require('./catalog');
 
 const SPEED_HOUR = 5, FINISH_STEP = 15 * 60000, FINISH_MIN = 2, DAY_LIMIT = 5, HOUR = 3600000;
-const R4 = { wood: 1, stone: 1, iron: 1, food: 1 };
 const CHESTS = {
   chest_s: { name: 'Малый сундук ресурсов', gold: 10, res: { wood: 10000, stone: 10000, iron: 10000, food: 10000 } },
   chest_l: { name: 'Большой сундук ресурсов', gold: 40, res: { wood: 50000, stone: 50000, iron: 50000, food: 50000 } },
   wagon: { name: 'Продовольственный обоз', gold: 15, res: { food: 30000 } },
 };
+const FRAMES = {
+  silver: { name: 'Серебряная рамка', gold: 30 },
+  gold: { name: 'Золотая рамка', gold: 60 },
+  fire: { name: 'Огненная рамка', gold: 100 },
+};
+const shopOpen = () => process.env.SHOP_OPEN === '1';
 const mskDay = (t) => new Date(t + 3 * HOUR).toISOString().slice(0, 10);
 const finishCost = (left) => Math.max(FINISH_MIN, Math.ceil(left / FINISH_STEP));
 const qKey = (q) => (q.wall ? 'wall' : `${q.view}:${q.cell}`);
@@ -21,11 +28,11 @@ function install(Game) {
   const P = Game.prototype;
   const bought = (u, now) => { const s = u.shopDay; return s && s.day === mskDay(now) ? s.n : 0; };
 
-  P.shopInfo = function shopInfo(u, castle, now = Date.now()) {
-    let room = null; // сколько ещё влезет в Склады текущего замка — чтобы не купить сундук «в пустоту»
-    if (castle && castle.owner === u.id) { this.tick(castle, now); const cap = this.capacity(castle); room = {}; for (const r of Object.keys(R4)) room[r] = Math.max(0, Math.floor(cap[r] - castle.res[r])); }
-    return { room, speedHour: SPEED_HOUR, finishStep: FINISH_STEP / 60000, finishMin: FINISH_MIN, dayLimit: DAY_LIMIT, chestsLeft: DAY_LIMIT - bought(u, now),
-      chests: Object.entries(CHESTS).map(([id, c]) => ({ id, name: c.name, gold: c.gold, res: c.res })) };
+  P.shopAllowed = function shopAllowed(u) { return !!(u && (u.admin || shopOpen())); };
+  P.shopInfo = function shopInfo(u, now = Date.now()) {
+    return { open: shopOpen(), speedHour: SPEED_HOUR, finishStep: FINISH_STEP / 60000, finishMin: FINISH_MIN, dayLimit: DAY_LIMIT, chestsLeft: DAY_LIMIT - bought(u, now),
+      chests: Object.entries(CHESTS).map(([id, c]) => ({ id, name: c.name, gold: c.gold, res: c.res })),
+      frames: Object.entries(FRAMES).map(([id, f]) => ({ id, name: f.name, gold: f.gold, own: (u.frames || []).includes(id) })), frame: u.frame || '' };
   };
 
   // ускорить стройку: key — «view:cell» или «wall»; mode — hour | finish
@@ -48,24 +55,32 @@ function install(Game) {
     return { msg, cost };
   };
 
-  // сундук ресурсов в текущий замок
-  P.shopChest = function shopChest(u, castle, id, now = Date.now()) {
+  // сундук ресурсов — в Кладовую
+  P.shopChest = function shopChest(u, id, now = Date.now()) {
     const c = CHESTS[id]; if (!c) return { error: 'Нет такого товара.' };
-    if (!castle || castle.owner !== u.id) return { error: 'Это не ваш замок.' };
     if (bought(u, now) >= DAY_LIMIT) return { error: `Сегодня уже куплено ${DAY_LIMIT} сундуков — следующие завтра.` };
     if ((u.gold || 0) < c.gold) return { error: `Не хватает монет: нужно ${c.gold}, у вас ${u.gold || 0}.` };
-    this.tick(castle, now);
-    const cap = this.capacity(castle), add = {};
-    for (const r of Object.keys(R4)) { const n = c.res[r] || 0; add[r] = Math.max(0, Math.min(n, Math.floor(cap[r] - castle.res[r]))); }
-    if (!Object.values(add).some((v) => v > 0)) return { error: 'Склады уже полны — ресурсы некуда положить.' };
-    this.goldChange(u, -c.gold, `Лавка: ${c.name} → «${castle.name}»`);
-    for (const r of Object.keys(add)) castle.res[r] += add[r];
+    this.goldChange(u, -c.gold, `Лавка: ${c.name} → Кладовая`);
+    this.stashAdd(u, c.res);
     u.shopDay = { day: mskDay(now), n: bought(u, now) + 1 };
     this.store.save();
-    const NM = { wood: 'дерева', stone: 'камня', iron: 'железа', food: 'еды' }, got = Object.entries(add).filter(([, v]) => v > 0).map(([r, v]) => `${v.toLocaleString('ru-RU')} ${NM[r]}`).join(', ');
-    const cut = Object.keys(R4).some((r) => (c.res[r] || 0) > add[r]);
-    return { msg: `${c.name}: получено ${got}.${cut ? ' Остальное не влезло в Склады.' : ''}`, add };
+    return { msg: `${c.name} — в Кладовой! Заберите ресурсы в нужный замок: кнопка «Кладовая».`, stash: true };
+  };
+
+  // рамка аватара: купить (навсегда, сразу надевается) / надеть / снять (id = '')
+  P.shopFrame = function shopFrame(u, id, use) {
+    id = String(id || '');
+    if (use) {
+      if (id && !(u.frames || []).includes(id)) return { error: 'Эта рамка ещё не куплена.' };
+      u.frame = id; this.store.save(); return { msg: id ? `Надета: ${FRAMES[id].name}.` : 'Рамка снята.' };
+    }
+    const f = FRAMES[id]; if (!f) return { error: 'Нет такой рамки.' };
+    if ((u.frames || []).includes(id)) return { error: 'Эта рамка уже ваша — нажмите «Надеть».' };
+    if ((u.gold || 0) < f.gold) return { error: `Не хватает монет: нужно ${f.gold}, у вас ${u.gold || 0}.` };
+    this.goldChange(u, -f.gold, `Лавка: ${f.name}`);
+    (u.frames = u.frames || []).push(id); u.frame = id; this.store.save();
+    return { msg: `${f.name} — ваша навсегда и уже надета. Её видят все в профиле, переписке и ЗАГСе.` };
   };
 }
 
-module.exports = { install, CHESTS, SPEED_HOUR, FINISH_MIN, DAY_LIMIT, finishCost };
+module.exports = { install, FRAMES, CHESTS, SPEED_HOUR, FINISH_MIN, DAY_LIMIT, finishCost };

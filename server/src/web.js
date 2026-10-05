@@ -83,6 +83,7 @@ function catalogJson() {
   return {
     version: VERSION,
     speed: G.SPEED,
+    shopOpen: process.env.SHOP_OPEN === '1', // «Лавка Короля» для всех (иначе — только администратор)
     campFast: require('./army').CAMP_FAST,
     maxQueue: G.MAX_QUEUE,
     rules: {
@@ -266,13 +267,15 @@ const API = {
   },
   // «Лавка Короля» (shop.js): view — цены и лимиты; speed — ускорить стройку; chest — сундук ресурсов
   shop(m) {
-    const g = this.game, op = String(m.op || '');
-    if (op === 'speed' || op === 'chest') {
-      const r = op === 'speed' ? g.shopSpeed(this.user, this.castle, m.key, m.mode) : g.shopChest(this.user, this.castle, String(m.id || ''));
+    const g = this.game, u = this.user, op = String(m.op || '');
+    if (!g.shopAllowed(u)) return this.error('Лавка Короля скоро откроется.');
+    if (op === 'speed' || op === 'chest' || op === 'frame' || op === 'frameuse') {
+      const r = op === 'speed' ? g.shopSpeed(u, this.castle, m.key, m.mode) : op === 'chest' ? g.shopChest(u, String(m.id || ''))
+        : g.shopFrame(u, m.id, op === 'frameuse');
       if (r.error) this.error(r.error); else this.toast(r.msg);
       this.pushState();
     }
-    this.send({ t: 'shop', data: g.shopInfo(this.user, this.castle) });
+    this.send({ t: 'shop', data: g.shopInfo(u) });
   },
   wall() { const r = this.game.startWall(this.castle); if (r.error) return this.error(r.error); this.toast(`Стена: строится ${r.item.level} уровень.`); this.pushState(); },
   avatar(m) {
@@ -517,7 +520,7 @@ const API = {
       if (x.to === me && !x.read) d.unread++;
       d.last = x; by.set(o, d);
     }
-    const list = [...by.entries()].map(([id, d]) => { const u = this.game.userById(id); return u ? { id, login: u.login, race: u.race, avatar: u.avatar || 0,
+    const list = [...by.entries()].map(([id, d]) => { const u = this.game.userById(id); return u ? { id, login: u.login, race: u.race, avatar: u.avatar || 0, frame: u.frame || '',
       text: d.last.text || d.last.subject || '', at: d.last.at, mine: d.last.from === me, unread: d.unread } : null; }).filter(Boolean).sort((a, b) => b.at - a.at);
     const page = Math.max(0, Math.floor(Number(m.page)) || 0), pages = Math.max(1, Math.ceil(list.length / 10)), pg = Math.min(page, pages - 1);
     const filter = m.filter === 'unread' ? list.filter((x) => x.unread) : list;
@@ -532,7 +535,7 @@ const API = {
     let changed = false; for (const x of all) if (x.to === me && !x.read) { x.read = true; changed = true; }
     if (changed) { this.game.store.save(); this.pushState(); }
     const lim = Math.min(all.length, Math.max(30, Math.floor(Number(m.more)) || 30));
-    this.send({ t: 'dialog', with: { id: o.id, login: o.login, race: o.race, avatar: o.avatar || 0 }, more: all.length > lim,
+    this.send({ t: 'dialog', with: { id: o.id, login: o.login, race: o.race, avatar: o.avatar || 0, frame: o.frame || '' }, more: all.length > lim,
       list: all.slice(-lim).map((x) => ({ id: x.id, mine: x.from === me, subject: x.subject, text: x.text, at: x.at, color: x.color || '', ...(x.pic && this.game.picGet(x.pic) ? { pic: x.pic, picExp: x.picExp } : x.pic || x.picGone ? { picGone: true } : {}) })), keep: !!m.keep });
   },
   read(m) {

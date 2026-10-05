@@ -19,7 +19,7 @@ const MENUS = {
     ['Задания', M3('quests'), () => openQuests()],
     ['Профиль', M3('profile'), () => openAccount()],
     ['Советник', `units/${S.cat.mil.raceDir[S.st.user.race]}/wisdom.png${S.st.user.race === 'orcs' ? '?orc' : ''}`, () => openSheet(advisorWin)],
-    ['Лавка Короля', 'shop/stall.png', () => openShop()],
+    ...(shopVisible() ? [['Лавка Короля', 'shop/stall.png', () => openShop()]] : []),
     ['Казна', M3('treasury'), () => openSheet(treasuryWin)],
     ['Премиум', M3('premium'), () => openPremium()],
     ['Королевство', M3('loyalty'), () => openKingdom()],
@@ -229,7 +229,11 @@ $('#sheetBody').addEventListener('input', (e) => { if (e.target.closest('.chatba
 // аватар игрока (PNG до 256×256, собранный сервером) или картинка расы
 // своей аватарки нет — портрет расы (gfx/auth/race_*.webp, те же, что при регистрации)
 const raceAva = (race, cls = '') => `<img class="${cls} raceava" src="${GFX}auth/race_${['humans', 'elves', 'dwarves', 'orcs'].includes(race) ? race : 'humans'}.webp" alt="">`;
-const avatarImg = (p, cls = '') => (p.avatar ? `<img class="${cls}" src="avatar/${p.id}.png?v=${p.avatar}" alt="">` : raceAva(p.race, cls));
+const avatarImg0 = (p, cls = '') => (p.avatar ? `<img class="${cls}" src="avatar/${p.id}.png?v=${p.avatar}" alt="">` : raceAva(p.race, cls));
+// рамка аватара из «Лавки Короля»: аватар в круге, рамка поверх (большой просмотр — без рамки)
+const AVA_FRAMES = ['silver', 'gold', 'fire'];
+const avaFramed = (p, inner) => (p.frame && AVA_FRAMES.includes(p.frame) ? `<span class="afr afr-${p.frame}"><span class="afr-in">${inner}</span><img class="afr-f" src="${GFX}shop/frame_${p.frame}.png" alt=""></span>` : inner);
+const avatarImg = (p, cls = '') => (cls === 'avabig' ? avatarImg0(p, cls) : avaFramed(p, avatarImg0(p, cls)));
 function profileWin(p) {
   const tile = (key, icon, text, off) => `<button class="ptile ${off ? 'off' : ''}" data-ptile="${key}" data-pid="${p.id}"><img src="${icon.startsWith('gfx3d/') ? icon : GFX + icon}" alt=""><span>${text}</span></button>`;
   // Зал Славы как в оригинале: в «Информации» — ряд значков (по лучшему месту в каждой категории),
@@ -430,7 +434,7 @@ function castleWin(o, x, y) {
 const treasuryWin = () => {
   const log = S.st.user.goldLog || [];
   return `${ribbon('Казна')}<div class="cwin"><img class="cwimg" src="${GFX}coins.png" alt=""><div><div class="cwname">Монеты</div><b>${fmtFull(S.st.user.gold)}</b></div></div>
-  <p class="parch-note">Монеты выдаёт администрация. Тратятся в «Лавке Короля» (ускорения, ресурсы), на премиум, подарки, репутацию, праздники, ритуалы и казну альянса.</p><button class="pbar" data-shopopen>🏪 Лавка Короля</button>
+  <p class="parch-note">Монеты выдаёт администрация. Тратятся${shopVisible() ? ' в «Лавке Короля» (ускорения, ресурсы, рамки),' : ''} на премиум, подарки, репутацию, праздники, ритуалы и казну альянса.</p>${shopVisible() ? '<button class="pbar" data-shopopen>🏪 Лавка Короля</button>' : ''}
   ${ribbon('История')}${log.map((x) => `<div class="glog"><span class="${x.delta > 0 ? 'plus' : 'minus'}">${x.delta > 0 ? '+' : ''}${fmtFull(x.delta)}</span><span>${esc(x.reason)}<br><small>${new Date(x.at).toLocaleString('ru-RU')} · осталось ${fmtFull(x.left)}</small></span></div>`).join('') || '<p class="parch-note">Операций пока не было.</p>'}`;
 };
 

@@ -219,7 +219,7 @@ function install(Game) {
       self: u.id === viewer.id,
       friend: (viewer.friends || []).includes(u.id),
       repToday: ((viewer.repGiven || {})[u.id] || 0) > Date.now() - 86400000,
-      about: u.about || '', avatar: u.avatar || 0, gold: u.id === viewer.id ? u.gold || 0 : undefined,
+      about: u.about || '', avatar: u.avatar || 0, frame: u.frame || '', gold: u.id === viewer.id ? u.gold || 0 : undefined,
       gifts: (u.gifts || []).slice(-50).reverse().map((g) => ({ gift: g.gift, from: (this.userById(g.from) || { login: '—' }).login, fromId: g.from, at: g.at, text: g.text || '' })),
       online: u.id === viewer.id || viewer.admin ? !!u.online : false,
     };

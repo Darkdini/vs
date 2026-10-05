@@ -57,7 +57,7 @@ function install(Game) {
     return { ok: true, msg: `Предложение отправлено игроку ${to.login}. Ждите ответа!` };
   };
   P.proposals = function proposals(user) {
-    const ps = PROPS(this), row = (p, other) => { const o = this.userById(other); return { id: p.id, user: { id: o.id, login: o.login, race: o.race, avatar: o.avatar || 0 }, role: p.role, text: p.text, at: p.at, exp: p.at + PROPOSE_LIFE }; };
+    const ps = PROPS(this), row = (p, other) => { const o = this.userById(other); return { id: p.id, user: { id: o.id, login: o.login, race: o.race, avatar: o.avatar || 0, frame: o.frame || '' }, role: p.role, text: p.text, at: p.at, exp: p.at + PROPOSE_LIFE }; };
     return { in: ps.filter((p) => p.to === user.id).reverse().map((p) => row(p, p.from)), out: ps.filter((p) => p.from === user.id).reverse().map((p) => row(p, p.to)), married: !!this.marriageOf(user), price: PROPOSE_GOLD };
   };
   // ответ на предложение: yes — свадьба, no — отказ; отправитель может отозвать своё (cancel)
@@ -97,7 +97,7 @@ function install(Game) {
   P.pairPage = function pairPage(viewer, id) {
     const m = MAR(this)[Number(id)];
     if (!m || !this.userById(m.king) || !this.userById(m.queen)) return { error: 'Пара не найдена — возможно, брак расторгнут.' };
-    const one = (uid) => { const u = this.userById(uid); return { id: u.id, login: u.login, race: u.race, avatar: u.avatar || 0 }; };
+    const one = (uid) => { const u = this.userById(uid); return { id: u.id, login: u.login, race: u.race, avatar: u.avatar || 0, frame: u.frame || '' }; };
     return { id: m.id, king: one(m.king), queen: one(m.queen), at: m.at, votes: m.votes || 0, place: this.pairPlace(m), mine: m.king === viewer.id || m.queen === viewer.id,
       gifts: (m.gifts || []).slice(-60).reverse().map((g) => ({ gift: g.gift, from: (this.userById(g.from) || { login: '—' }).login, fromId: g.from, at: g.at })),
       comments: (m.comments || []).slice().reverse().map((c) => { const u = this.userById(c.from); return { id: c.id, from: u ? u.login : '—', fromId: c.from, text: c.text, at: c.at,
