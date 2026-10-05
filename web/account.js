@@ -2,13 +2,17 @@
 // «Кабинет → Профиль» — настройки своего аккаунта, как в оригинале: аватар (Изменить/Удалить), ник, раса, звание, рейтинг,
 // репутация, альянс; тип аккаунта, премиум, нарушения; безопасность (уникальный номер, смена пароля); замок (название, описание);
 // управление (личная информация, мой публичный профиль). Сервер: profile(acct), avatar, passwd, castleinfo.
-function openAccount() { S.acctView = true; send({ t: 'profile', id: S.st.user.id, acct: 1 }); }
+function openAccount() { S.acctView = true; S.tgNote = null; send({ t: 'profile', id: S.st.user.id, acct: 1 }); }
 // Telegram: привязка для восстановления пароля (server/src/tgauth.js)
 function tgBlock(t) {
   if (!t || !t.on || S.st.user.admin) return '';
   return `<div class="actg"><span class="actgi">📱</span><div>${t.linked ? `Telegram привязан: <b>${esc(t.name)}</b><br><small>Забудете пароль — бот пришлёт код для смены.</small>`
     : 'Telegram не привязан.<br><small>Привяжите — и если забудете пароль, бот пришлёт код для смены.</small>'}</div></div>
-    ${t.linked ? '<button class="pbar acbar" data-tg="unlink">Отвязать Telegram</button>' : '<button class="pbar acbar gold" data-tg="link">📱 Привязать Telegram</button>'}`;
+    ${S.tgNote ? `<div class="smnote ${S.tgNote.ok ? 'ok' : ''}">${S.tgNote.ok ? '✔' : '⛔'} ${esc(S.tgNote.msg)}</div>` : ''}
+    ${!t.linked ? '<button class="pbar acbar gold" data-tg="link">📱 Привязать Telegram</button>'
+    : t.unlinking ? `<form class="acform" data-tgun><label>Код из Telegram для отвязки:<input name="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" required></label>
+      <button class="pbar">Подтвердить отвязку</button></form><button class="pbar acbar" data-tg="unlink">Прислать код ещё раз</button>`
+    : '<button class="pbar acbar" data-tg="unlink">Отвязать Telegram</button>'}`;
 }
 function accountWin(p) {
   const a = p.acct || {}, bar = (attr, icon, text) => `<button class="pbar acbar" ${attr}>${icon ? `<img src="${icon}" alt="">` : ''} ${text}</button>`;
@@ -66,10 +70,15 @@ $('#sheetBody').addEventListener('submit', (e) => {
 // привязка Telegram: сервер выдаёт одноразовую ссылку t.me/<бот>?start=<код>, игрок жмёт «Старт» в боте
 $('#sheetBody').addEventListener('click', (e) => {
   const b = e.target.closest('[data-tg]'); if (!b) return;
-  if (b.dataset.tg === 'unlink') { if (confirm('Отвязать Telegram? Восстановить пароль через бота будет нельзя.')) send({ t: 'tg', op: 'unlink' }); return; }
+  if (b.dataset.tg === 'unlink') return send({ t: 'tg', op: 'unlink' }); // бот пришлёт код — отвязка только с ним
   S.tgWin = window.open('about:blank', '_blank'); send({ t: 'tg', op: 'link' }); // окно открывается сразу (иначе телефон заблокирует всплывающее)
 });
+$('#sheetBody').addEventListener('submit', (e) => {
+  const f = e.target.closest('[data-tgun]'); if (!f) return; e.preventDefault(); e.stopImmediatePropagation();
+  send({ t: 'tg', op: 'unlinkok', code: f.code.value.trim() });
+});
 function tgMsg(m) {
+  if (m.note) S.tgNote = m.note;
   if (m.url) { if (S.tgWin && !S.tgWin.closed) S.tgWin.location.href = m.url; else location.href = m.url; S.tgWin = null; toast('Нажмите «Старт» в боте — и вернитесь в игру.'); return; }
   if (S.acctView) send({ t: 'profile', id: S.st.user.id, acct: 1 }); // обновить блок в Профиле
 }

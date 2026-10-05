@@ -278,7 +278,10 @@ const API = {
   tg(m) {
     const g = this.game, op = String(m.op || '');
     if (op === 'link') { const r = g.tgLinkStart(this.user); if (r.error) return this.error(r.error); return this.send({ t: 'tg', url: r.url, info: g.tgAuthInfo(this.user) }); }
-    if (op === 'unlink') { const r = g.tgUnlink(this.user); if (r.error) return this.error(r.error); this.toast(r.msg); }
+    if (op === 'unlink' || op === 'unlinkok') { // отвязка: unlink — код в Telegram, unlinkok — ввод кода
+      const r = op === 'unlink' ? g.tgUnlinkStart(this.user) : g.tgUnlink(this.user, m.code);
+      return this.send({ t: 'tg', info: g.tgAuthInfo(this.user), note: { ok: !r.error, msg: r.error || r.msg } });
+    }
     this.send({ t: 'tg', info: g.tgAuthInfo(this.user) });
   },
   // «Лавка Короля» (shop.js): view — цены и лимиты; speed — ускорить стройку; chest — сундук ресурсов

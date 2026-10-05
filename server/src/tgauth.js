@@ -31,7 +31,7 @@ function install(Game) {
   P.tgApi = api;
   P.tgSay = function tgSay(chat, text) { return this.tgApi('sendMessage', { chat_id: chat, text }).catch((e) => console.error('бот Telegram:', e.message)); };
   P.tgBotName = function tgBotName() { return process.env.TG_AUTH_BOT || this.tgBot || ''; };
-  P.tgAuthInfo = function tgAuthInfo(u) { return { on: enabled() && !!this.tgBotName(), bot: this.tgBotName(), linked: !!(u && u.tg), name: u && u.tg ? u.tg.name : '' }; };
+  P.tgAuthInfo = function tgAuthInfo(u) { return { on: enabled() && !!this.tgBotName(), bot: this.tgBotName(), linked: !!(u && u.tg), name: u && u.tg ? u.tg.name : '', unlinking: !!(u && u.tg && u.tgUnlinkReq && u.tgUnlinkReq.exp > Date.now()) }; };
 
   // ссылка для привязки: одноразовый код, 15 минут
   P.tgLinkStart = function tgLinkStart(u, now = Date.now()) {
@@ -40,9 +40,22 @@ function install(Game) {
     const code = crypto.randomBytes(12).toString('hex'); u.tgLink = { h: sha(code), exp: now + LINK_MS }; this.store.save();
     return { url: `https://t.me/${this.tgBotName()}?start=${code}` };
   };
-  P.tgUnlink = function tgUnlink(u) {
+  // отвязка — только по коду из Telegram: кто-то зашёл в аккаунт — без телефона хозяина он Telegram не отвяжет
+  P.tgUnlinkStart = function tgUnlinkStart(u, now = Date.now()) {
     if (!u.tg) return { error: 'Telegram не привязан.' };
-    const chat = u.tg.chat; delete u.tg; this.store.save();
+    const sent = (u.tgSent || []).filter((t) => t > now - HOUR); if (sent.length >= REQ_PER_HOUR) return { error: 'Слишком много кодов — попробуйте через час.' };
+    const code = String(crypto.randomInt(100000, 1000000));
+    u.tgSent = [...sent, now]; u.tgUnlinkReq = { h: sha(`un:${u.id}:${code}`), exp: now + CODE_MS, tries: 0 }; this.store.save();
+    this.tgSay(u.tg.chat, `⚠ Запрос на ОТВЯЗКУ Telegram от аккаунта «${u.login}». Код подтверждения: ${code}\nДействует 15 минут.\nЕсли это не вы — никому не сообщайте код и сразу смените пароль в игре.`);
+    return { msg: 'Бот прислал код в Telegram — введите его, чтобы отвязать.' };
+  };
+  P.tgUnlink = function tgUnlink(u, code, now = Date.now()) {
+    const r = u.tgUnlinkReq; if (!u.tg) return { error: 'Telegram не привязан.' };
+    if (!r || r.exp < now) return { error: 'Код устарел — запросите новый.' };
+    if (r.tries >= CODE_TRIES) { delete u.tgUnlinkReq; this.store.save(); return { error: 'Слишком много неверных попыток — запросите новый код.' }; }
+    const a = Buffer.from(sha(`un:${u.id}:${String(code || '').trim()}`)), b = Buffer.from(r.h);
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) { r.tries++; this.store.save(); return { error: 'Неверный код.' }; }
+    const chat = u.tg.chat; delete u.tg; delete u.tgUnlinkReq; this.store.save();
     this.tgSay(chat, `Аккаунт «${u.login}» отвязан от этого Telegram.`);
     return { msg: 'Telegram отвязан.' };
   };

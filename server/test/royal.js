@@ -655,10 +655,14 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(/попыток/.test(g.tgResetConfirm('tgplayer', c2, 'xxxxx1').error || ''), 'после 5 ошибок — новый код');
   // не чаще 3 кодов в час на аккаунт
   const n0 = said.length; for (let i = 0; i < 3; i++) g.tgResetRequest('tgplayer', `9.9.8.${i}`); assert.strictEqual(said.length, n0 + 1, 'лимит 3 кода в час (2 уже были)');
-  assert.ok(g.tgUnlink(tu).msg && !tu.tg, 'отвязан');
+  // отвязка — только кодом из Telegram
+  assert.ok(g.tgUnlink(tu, '123456').error && tu.tg, 'без запроса кода — не отвязать');
+  tu.tgSent = []; assert.ok(g.tgUnlinkStart(tu).msg); const uc = (/(\d{6})/.exec(said.pop().text) || [])[1];
+  assert.ok(g.tgUnlink(tu, '000000').error && tu.tg, 'неверный код — не отвязан');
+  assert.ok(g.tgUnlink(tu, uc).msg && !tu.tg && /отвязан/.test(said.pop().text), 'код из Telegram — отвязан');
   g.tgApi = realApi; delete process.env.TG_AUTH_TOKEN; delete process.env.TG_AUTH_BOT;
   assert.ok(g.tgResetRequest('tgplayer').error, 'без бота — подсказка написать администрации');
-  console.log('✓ Telegram: привязка по одноразовой ссылке, код сброса (хеш, 15 мин, 5 попыток, 3 в час), пароль не пересылается');
+  console.log('✓ Telegram: привязка по одноразовой ссылке, код сброса (хеш, 15 мин, 5 попыток, 3 в час), пароль не пересылается, отвязка — по коду');
 }
 { // «Лавка Короля» (shop.js): ускорения стройки и сундуки ресурсов
   const su = g.register({ login: 'shopper', password: '12345', race: 0 }).user, sc = g.castlesOf(su)[0], now = Date.now();
