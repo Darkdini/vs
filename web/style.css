@@ -2155,3 +2155,4 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .resov .rswin { width: min(460px, 100%); margin: 0; }
 @keyframes resIn { from { opacity: 0; } to { opacity: 1; } }
 
+body.menuopen #advbar, body.menuopen #advhand { display: none; } /* открыто меню — полоска «Задание» и рука-подсказка не просвечивают */

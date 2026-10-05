@@ -102,10 +102,10 @@ function renderMenu() {
   $('#menubar').innerHTML = Object.entries(MENUS).map(([k, v]) => `<button data-menu="${k}" class="${k === S.menu ? 'on' : ''}"><img src="${G3}${v.icon}" alt=""><span>${v.label}</span></button>`).join('');
 }
 function openMenu(k = 'cabinet') {
-  S.menu = k; renderMenu(); $('#menu').classList.remove('hidden');
+  S.menu = k; renderMenu(); $('#menu').classList.remove('hidden'); document.body.classList.add('menuopen'); // полоска «Задание» под меню прячется
   pushOverlay();
 }
-function closeMenu(fromPop) { if (!S.menu) return; S.menu = null; $('#menu').classList.add('hidden'); if (!fromPop) popOverlay(); }
+function closeMenu(fromPop) { if (!S.menu) return; S.menu = null; $('#menu').classList.add('hidden'); document.body.classList.remove('menuopen'); if (!fromPop) popOverlay(); }
 $('#btnMenu').addEventListener('click', () => (S.menu ? closeMenu() : openMenu()));
 $('#menu').addEventListener('click', (e) => {
   const b = e.target.closest('button');
