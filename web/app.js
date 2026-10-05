@@ -216,6 +216,12 @@ function onMsg(m) {
   switch (m.t) {
     case 'pong': clearTimeout(S.pingTimer); break;
     case 'catalog': // справочник: по отпечатку h — из кэша браузера (или сети), пока он не пришёл, остальные сообщения ждут
+      // игру обновили на сервере, а страница открыта старая (вкладка висела в фоне) — перезагрузиться один раз, без чистки браузера
+      if (m.v && m.v !== 'dev') {
+        let done = null; try { done = sessionStorage.getItem('tw.reloadedV'); } catch { /* нет хранилища */ }
+        if (S.ver && S.ver !== m.v && done !== m.v) { try { sessionStorage.setItem('tw.reloadedV', m.v); } catch { /* */ } location.reload(); break; } // защита от перезагрузки по кругу
+        S.ver = m.v;
+      }
       if (m.catalog) { setCatalog(m.catalog); break; }
       if (S.cat && S.catH === m.h) break;
       S.catWait = fetch(`catalog.json?h=${m.h}`).then((r) => r.json()).then((c) => { S.catH = m.h; setCatalog(c); })

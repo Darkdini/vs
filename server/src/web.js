@@ -208,7 +208,7 @@ const ROYAL_ACTIONS = new Set(['forge', 'ritual', 'calm', 'build', 'wall', 'trai
 const API = {
   // справочник игры (~120 КБ) не шлём по сокету каждый раз: только отпечаток, а сам файл браузер берёт по HTTP
   // (/catalog.json?h=… — сжатый и с вечным кэшем: при повторном входе он уже в памяти телефона)
-  hello() { this.send({ t: 'catalog', h: catalogFile().hash }); },
+  hello() { this.send({ t: 'catalog', h: catalogFile().hash, v: VERSION }); }, // v — версия игры: у открытой старой страницы клиент сам перезагрузится
   // капча для регистрации: новая при каждом запросе и после каждой попытки
   captcha() { const c = SEC.captcha(); this.captchaAns = { a: c.answer, exp: Date.now() + 300000 }; this.send({ t: 'captcha', img: c.img }); },
   register(m) {
