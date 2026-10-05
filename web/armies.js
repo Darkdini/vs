@@ -163,7 +163,7 @@ function campaignWin() {
     ${chk('sched', c.sched, `${GFX}res/time.png`, 'Расписание отправки')}
     ${c.sched ? `<input type="datetime-local" data-cmp="at" value="${esc(c.at)}">` : ''}
     <div class="cinfo">В поход идут: <b>${fmtFull(n)}</b> ${genGoes(a, c) ? '+ генерал' : ''} · в пути: <b id="cmpTime">${sec ? fmtT(sec) : '—'}</b></div>
-    ${goUnits(go, c.mission)}
+    ${n ? '' : goUnits(go, c.mission)}
     ${slowestHint(a, c, go)}
     ${n < armyTotal(a.units) ? `<div class="cinfo small">${c.mission === 'scout' ? 'В разведку идут только разведчики — остальные' : 'Неподходящие для этого похода юниты'} останутся в замке.</div>` : ''}
     <button class="pbar" data-cmpgo>Отправить</button>`;

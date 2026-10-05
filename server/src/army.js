@@ -1414,7 +1414,7 @@ function install(Game, helpers) {
     for (const c of this.castlesOf(user)) {
       for (const a of c.armies || []) mine.push({ id: a.id, castle: c.name, cx: c.x, cy: c.y, mission: a.mission, x: a.x, y: a.y, state: a.state, depart: a.depart, arrive: a.arrive, back: a.back, sec: a.sec,
         stayName: a.state === 'stay' && this.db.castles[a.stayAt] ? this.db.castles[a.stayAt].name : null, n: Object.values(a.units).reduce((s, k) => s + k, 0),
-        units: a.units, general: !!a.general, to: this.placeName(a.x, a.y) });
+        units: a.units, general: !!a.general, army: a.squad ? a.squad.name : 'Армия', to: this.placeName(a.x, a.y) });
       inc.push(...this.incoming(c));
     }
     return { mine, incoming: inc.sort((p, q) => p.arrive - q.arrive) };
