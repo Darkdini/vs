@@ -2115,13 +2115,16 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .shbtns .pbar.gold { background: linear-gradient(#e9c25a, #b8862a); color: #3a2205; }
 .shcoin { width: 1.15em; height: 1.15em; vertical-align: -0.2em; }
 .shwarn { color: #9a2a10; }
-/* рамка аватара (Лавка Короля): контейнер = размер места под аватар, сам аватар — круг в «окне» рамки */
+/* рамка аватара (Лавка Короля): квадратная, фото — целиком в «окне» рамки (рамка его не закрывает).
+   --hx/--hy/--hw/--hh — окно рамки в % от картинки рамки (измерено при нарезке). В профиле рамка крупнее: окно = размер фото. */
 .afr { position: relative; display: block; width: 100%; height: 100%; min-width: 64px; min-height: 64px; aspect-ratio: 1; }
-.pinfo .avatar .afr { width: 112px; height: 112px; }
-.afr .afr-in { position: absolute; border-radius: 50%; overflow: hidden; background: #2a1408; display: block; }
-.afr.afr-silver .afr-in { left: 22.5%; top: 27.1%; width: 57.4%; height: 57.4%; }
-.afr.afr-gold .afr-in { left: 23%; top: 28.7%; width: 55.4%; height: 55.4%; }
-.afr.afr-fire .afr-in { left: 22.7%; top: 26.6%; width: 55.8%; height: 55.8%; }
-.afr .afr-in img, .pinfo .avatar .afr .afr-in img, .acleft .avatar .afr .afr-in img { width: 100% !important; height: 100% !important; object-fit: cover; display: block; }
-.afr img.afr-f, .pinfo .avatar .afr img.afr-f, .acleft .avatar .afr img.afr-f, .zava .afr img.afr-f, .zpava .afr img.afr-f, .avasm .afr img.afr-f { position: absolute; inset: 0; width: 100% !important; height: 100% !important; object-fit: contain; pointer-events: none; }
+.afr-silver { --hx: 19.7; --hy: 18.7; --hw: 60.4; --hh: 62.2; }
+.afr-gold { --hx: 21.6; --hy: 22.6; --hw: 56.8; --hh: 58.5; }
+.afr-fire { --hx: 24.7; --hy: 27.6; --hw: 50; --hh: 52.7; }
+.afr .afr-in { position: absolute; left: calc(var(--hx) * 1%); top: calc(var(--hy) * 1%); width: calc(var(--hw) * 1%); height: calc(var(--hh) * 1%); overflow: hidden; background: #2a1408; display: block; border-radius: 4px; }
+.afr .afr-in img, .pinfo .avatar .afr .afr-in img, .acleft .avatar .afr .afr-in img { width: 100% !important; height: 100% !important; object-fit: cover; display: block; border: 0; }
+.afr img.afr-f, .pinfo .avatar .afr img.afr-f, .acleft .avatar .afr img.afr-f, .zava .afr img.afr-f, .zpava .afr img.afr-f, .avasm .afr img.afr-f, .dava .afr img.afr-f { position: absolute; inset: 0; width: 100% !important; height: 100% !important; object-fit: contain; pointer-events: none; border: 0; }
+.pinfo .avatar:has(.afr) { width: auto; height: auto; border: 0; background: none; }
+.pinfo .avatar .afr { width: calc(92px * 100 / var(--hw)); height: calc(92px * 100 / var(--hw)); }
+.dava:has(.afr), .zava:has(.afr), .zpava:has(.afr) { border-color: transparent; background: none; }
 .shava { width: 84px; height: 84px; flex: none; display: block; }
