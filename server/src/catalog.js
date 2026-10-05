@@ -110,11 +110,12 @@ const LAND_MULT_BY_SIZE = { 225: LAND_MULT, 49: landMult({ 5: 9, 6: 12, 7: 7, 8:
 const HUT_CAP_MULT = Math.round(LAND_CELLS_OLD[6] * 20 / (LAND_CELLS[6] * LAND_EFF_MAX) * 1000) / 1000; // места для людей за уровень Хибары
 const PROD_K = { wood: 1, stone: 1, iron: 1, food: 0.5788, people: 1.5163 };
 
-// цена улучшения; у зданий земель — прежняя цена уровня LAND_EFF × LAND_COST_K (сумма прежних уровней не влезла бы в склады)
-const LAND_COST_K = 1.5;
+// цена улучшения; у зданий земель — прежняя цена уровня LAND_COST_EFF × LAND_COST_K (сумма прежних уровней не влезла бы в склады).
+// 4 и 5 ур. — по цене прежних 12 и 14 ур. (а не 15 и 20): каждый следующий уровень дороже примерно вдвое, а не в 6 раз; время — прежнее (LAND_EFF)
+const LAND_COST_K = 1.5, LAND_COST_EFF = [0, 1, 5, 10, 12, 14];
 function levelCost(b, level) {
   if (b.layer !== 'lands' || level <= 1) return levelCost0(b, level);
-  const c = levelCost0(b, landEff(level)), out = {};
+  const c = levelCost0(b, LAND_COST_EFF[Math.min(LANDS_MAX, level)]), out = {};
   for (const r of RES) out[r] = r === 'people' ? Math.ceil(c[r] * LAND_COST_K) : Math.round(c[r] * LAND_COST_K / 5) * 5;
   return out;
 }
@@ -164,4 +165,4 @@ function displayId(b, level) {
   return e >= 10 ? b.tiers[2] : e >= 5 ? b.tiers[1] : b.tiers[0];
 }
 
-module.exports = { LAND_EFF, LAND_EFF_MAX, landEff, landFromOld, LAND_MULT_BY_SIZE, LANDS_N, LANDS_MAX, LAND_MULT, HUT_CAP_MULT, LAND_CELLS, TIME, RATING, RES, RES_ICON, TIME_ICON, BUILDINGS, BY_ID, UNITS, RACES, RACE_NAMES, PROD, PROD_K, CASTLE_PATH, durability, levelCost, levelTimeSec, displayId };
+module.exports = { LAND_COST_K, LAND_EFF, LAND_EFF_MAX, landEff, landFromOld, LAND_MULT_BY_SIZE, LANDS_N, LANDS_MAX, LAND_MULT, HUT_CAP_MULT, LAND_CELLS, TIME, RATING, RES, RES_ICON, TIME_ICON, BUILDINGS, BY_ID, UNITS, RACES, RACE_NAMES, PROD, PROD_K, CASTLE_PATH, durability, levelCost, levelTimeSec, displayId };
