@@ -19,6 +19,7 @@ const MENUS = {
     ['Задания', M3('quests'), () => openQuests()],
     ['Профиль', M3('profile'), () => openAccount()],
     ['Советник', `units/${S.cat.mil.raceDir[S.st.user.race]}/wisdom.png${S.st.user.race === 'orcs' ? '?orc' : ''}`, () => openSheet(advisorWin)],
+    ['Лавка Короля', 'shop/stall.png', () => openShop()],
     ['Казна', M3('treasury'), () => openSheet(treasuryWin)],
     ['Премиум', M3('premium'), () => openPremium()],
     ['Королевство', M3('loyalty'), () => openKingdom()],
@@ -429,7 +430,7 @@ function castleWin(o, x, y) {
 const treasuryWin = () => {
   const log = S.st.user.goldLog || [];
   return `${ribbon('Казна')}<div class="cwin"><img class="cwimg" src="${GFX}coins.png" alt=""><div><div class="cwname">Монеты</div><b>${fmtFull(S.st.user.gold)}</b></div></div>
-  <p class="parch-note">Монеты выдаёт администрация. Тратятся на подарки, репутацию, праздники, ритуалы и казну альянса.</p>
+  <p class="parch-note">Монеты выдаёт администрация. Тратятся в «Лавке Короля» (ускорения, ресурсы), на премиум, подарки, репутацию, праздники, ритуалы и казну альянса.</p><button class="pbar" data-shopopen>🏪 Лавка Короля</button>
   ${ribbon('История')}${log.map((x) => `<div class="glog"><span class="${x.delta > 0 ? 'plus' : 'minus'}">${x.delta > 0 ? '+' : ''}${fmtFull(x.delta)}</span><span>${esc(x.reason)}<br><small>${new Date(x.at).toLocaleString('ru-RU')} · осталось ${fmtFull(x.left)}</small></span></div>`).join('') || '<p class="parch-note">Операций пока не было.</p>'}`;
 };
 

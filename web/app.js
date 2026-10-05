@@ -272,6 +272,7 @@ function onMsg(m) {
     case 'brank': brankMsg(m); break;
     case 'zags': case 'zprops': case 'zpairs': case 'zpair': case 'zdone': zagsMsg(m); break;
     case 'news': newsMsg(m); break;
+    case 'shop': shopMsg(m); break;
     case 'smod': smodMsg(m); break;
     case 'welcome': welcomeShow(m); break;
     case 'boss': S.boss = m.data; refreshSheet(); break;
@@ -660,7 +661,7 @@ function buildingSheet(def, lvl, ctx) {
     <div class="bwline">${esc(def.desc)}</div>${cur ? `<hr class="cwhr"><div class="bwline">${cur}</div>` : ''}`;
   if (q) {
     h += `<div class="card next"><h4>Строится ${q.level} уровень</h4><div class="bar"><i data-s="${q.start}" data-e="${q.end}"></i></div>
-      <p class="small" style="margin:6px 0 0">Осталось: <span class="cd" data-e="${q.end}"></span></p></div>`;
+      <p class="small" style="margin:6px 0 0">Осталось: <span class="cd" data-e="${q.end}"></span></p>${typeof shopSpeedBtns === 'function' ? shopSpeedBtns(q) : ''}</div>`;
   } else if (lvl < def.max) {
     const n = lvl + 1, cost = def.costs[n];
     const reqs = Object.entries(def.req);

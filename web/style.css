@@ -2102,3 +2102,16 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .cvbtn.dn { border-color: #a03a2a; background: linear-gradient(#fdeee8, #f6d6cc); color: #8a1a0a; }
 .cvbtn.on { box-shadow: inset 0 0 0 2px currentColor; font-weight: 700; }
 .gnew a { margin: 0 6px; cursor: pointer; } .gnew .gsel { font-weight: 700; color: #3a1a0a; text-decoration: none; }
+
+/* «Лавка Короля» (shop.js) */
+.shhead { display: flex; gap: 12px; align-items: center; margin: 6px 4px 10px; }
+.shhead > img { width: 84px; height: 84px; object-fit: contain; flex: none; }
+.shhead b { font-size: 1.3em; }
+.shcard { display: flex; gap: 10px; align-items: center; padding: 8px; margin: 6px 2px; border: 1px solid #b1a47f88; border-radius: 6px; background: #fff3d955; }
+.shico { width: 64px; height: 64px; object-fit: contain; flex: none; }
+.shgrow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.shgrow .pbar { margin: 2px 0 0; }
+.shbtns { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.shbtns .pbar.gold { background: linear-gradient(#e9c25a, #b8862a); color: #3a2205; }
+.shcoin { width: 1.15em; height: 1.15em; vertical-align: -0.2em; }
+.shwarn { color: #9a2a10; }

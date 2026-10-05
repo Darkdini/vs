@@ -628,6 +628,30 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(!g.ipBanned('77.7.7.7') && !g.ipBanned('127.0.0.1'), 'адрес игрока и локальный — без автоблока');
   console.log('✓ Безопасность: поиск дыр, подбор пароля админа, блокировка IP (себя — нельзя), автоблок после 3 попыток');
 }
+{ // «Лавка Короля» (shop.js): ускорения стройки и сундуки ресурсов
+  const su = g.register({ login: 'shopper', password: '12345', race: 0 }).user, sc = g.castlesOf(su)[0], now = Date.now();
+  su.gold = 100;
+  sc.queue.push({ view: 0, cell: 3, building: 1, level: 2, start: now, end: now + 3 * 3600000 + 60000, cost: { wood: 0, stone: 0, iron: 0, food: 0, people: 0 } });
+  assert.ok(g.shopSpeed(su, sc, '0:3', 'hour', now).msg && su.gold === 95 && sc.queue.find((q) => q.cell === 3).end === now + 2 * 3600000 + 60000, '−1 час за 5');
+  assert.ok(g.shopSpeed(su, sc, '0:3', 'finish', now).msg && su.gold === 86 && !sc.queue.some((q) => q.cell === 3), 'достроить: 2 ч 1 мин = 9 монет');
+  assert.ok(g.shopSpeed(su, sc, '0:3', 'finish', now).error, 'стройки нет — ошибка, золото не тратится'); assert.strictEqual(su.gold, 86);
+  sc.queue.push({ view: 0, cell: 4, building: 1, level: 2, start: now, end: now + 30 * 60000, cost: { wood: 0, stone: 0, iron: 0, food: 0, people: 0 } });
+  assert.ok(g.shopSpeed(su, sc, '0:4', 'hour', now).error && su.gold === 86, 'меньше часа — «−1 час» нельзя');
+  sc.queue = sc.queue.filter((q) => q.cell !== 4);
+  const cap = g.capacity(sc); for (const r of ['wood', 'stone', 'iron', 'food']) sc.res[r] = cap[r] - 300;
+  const r1 = g.shopChest(su, sc, 'chest_s', now);
+  assert.ok(r1.msg && su.gold === 76 && sc.res.wood === cap.wood && r1.add.wood === 300 && /не влезло/.test(r1.msg), 'сундук: только до Склада');
+  assert.ok(g.shopChest(su, sc, 'chest_s', now).error && su.gold === 76, 'склады полны — золото не списано');
+  for (const r of ['wood', 'stone', 'iron', 'food']) sc.res[r] = 0;
+  for (let i = 0; i < 4; i++) { sc.res.food = 0; assert.ok(g.shopChest(su, sc, 'wagon', now).msg, 'обоз ' + i); }
+  assert.ok(/завтра/.test(g.shopChest(su, sc, 'wagon', now).error || ''), 'лимит 5 в сутки');
+  sc.res.food = 0; assert.ok(g.shopChest(su, sc, 'wagon', now + 86400000).msg, 'на следующий день — снова можно');
+  const other = g.castlesOf(g.register({ login: 'shopothr', password: '12345', race: 0 }).user)[0];
+  assert.ok(g.shopChest(su, other, 'chest_s', now + 86400000).error, 'в чужой замок — нельзя');
+  su.gold = 3; assert.ok(/Не хватает/.test(g.shopChest(su, sc, 'chest_l', now + 86400000).error || ''), 'мало монет');
+  assert.ok((su.goldLog || []).some((x) => /Лавка: достроить/.test(x.reason)), 'покупки — в журнале золота');
+  console.log('✓ Лавка Короля: −1 час, достроить сейчас, сундуки до Склада, 5 в сутки, журнал золота');
+}
 { // копия базы в Telegram (tgbackup.js): шифрование, расписание; сеть не трогаем
   const TB = require('../src/tgbackup'), zlib = require('zlib');
   const gz = zlib.gzipSync(Buffer.from('{"users":{}}')), enc = TB.encrypt(gz, 'пароль123');

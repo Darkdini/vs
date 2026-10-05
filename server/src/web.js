@@ -264,6 +264,16 @@ const API = {
     if (res.error) return this.error(res.error);
     this.pushState();
   },
+  // «Лавка Короля» (shop.js): view — цены и лимиты; speed — ускорить стройку; chest — сундук ресурсов
+  shop(m) {
+    const g = this.game, op = String(m.op || '');
+    if (op === 'speed' || op === 'chest') {
+      const r = op === 'speed' ? g.shopSpeed(this.user, this.castle, m.key, m.mode) : g.shopChest(this.user, this.castle, String(m.id || ''));
+      if (r.error) this.error(r.error); else this.toast(r.msg);
+      this.pushState();
+    }
+    this.send({ t: 'shop', data: g.shopInfo(this.user, this.castle) });
+  },
   wall() { const r = this.game.startWall(this.castle); if (r.error) return this.error(r.error); this.toast(`Стена: строится ${r.item.level} уровень.`); this.pushState(); },
   avatar(m) {
     const r = m.op === 'del' ? this.game.removeAvatar(this.user) : this.game.setAvatar(this.user, m.px, m.z, m.size);
