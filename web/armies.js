@@ -139,6 +139,12 @@ function slowestHint(a, c, go) {
   if (slow.speed === fast.speed) return '';
   return `<div class="cinfo small">Армия идёт со скоростью самого медленного: <b>${esc(slow.name)}</b> (${slow.speed} пол./ч). Без медленных юнитов быстрее — ${esc(fast.name)}: ${fast.speed} пол./ч.</div>`;
 }
+// кто именно идёт в поход: значки юнитов с числом (в разведку — только разведчики и Око)
+function goUnits(go, mission) {
+  const list = Object.entries(go).filter(([, n]) => n > 0);
+  if (!list.length) return `<div class="cinfo cbad">${mission === 'scout' ? 'В этой армии нет разведчиков — обучите их в Центре разведки.' : mission === 'expedition' ? 'В этой армии нет археологов.' : 'В этой армии нет подходящих юнитов.'}</div>`;
+  return `<div class="cgo">${list.map(([id, n]) => { const u = unitById(Number(id)); return u ? `<span class="tu" title="${esc(u.name)}"><img src="${unitSrc(u)}" alt="">${fmtFull(n)}</span>` : ''; }).join('')}</div>`;
+}
 function campaignWin() {
   const c = S.cmp, armies = allArmies();
   if (allyCastleAt(c.x, c.y) && ['raid', 'attack', 'scout'].includes(c.mission)) c.mission = 'reinforce'; // союзник — только подкрепление
@@ -148,7 +154,7 @@ function campaignWin() {
   const chk = (key, on, icon, text, dis) => `<label class="cchk ${dis ? 'off' : ''}"><input type="checkbox" data-cchk="${key}" ${on ? 'checked' : ''} ${dis ? 'disabled' : ''}><i></i><img src="${icon}" alt=""> ${text}</label>`;
   return `${ribbon('Военный поход')}
     <div class="clabel">Выберите армию из замка:</div>
-    <div class="combo"><select data-cmp="army">${armies.map((x) => `<option value="${x.key}" ${String(x.key) === String(a.key) ? 'selected' : ''}>${esc(x.name)} (🪖 ${fmtFull(armyTotal(x.units))})</option>`).join('')}</select></div>
+    <div class="combo"><select data-cmp="army">${armies.map((x) => `<option value="${x.key}" ${String(x.key) === String(a.key) ? 'selected' : ''}>${esc(x.name)} (🪖 ${fmtFull(armyTotal(campaignFit(c.mission, x.units)))}${c.mission === 'scout' ? ' разведчиков' : ''})</option>`).join('')}</select></div>
     <div class="clabel">Цель похода:</div>
     <div class="combo"><select data-cmp="mission">${CAMPAIGN_MISSIONS.filter(([k]) => !allyCastleAt(c.x, c.y) || !['raid', 'attack', 'scout'].includes(k)).map(([k, t]) => `<option value="${k}" ${k === c.mission ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
     <div class="row2 cxy"><label>X<input type="number" inputmode="numeric" data-cmp="x" value="${esc(c.x)}"></label><label>Y<input type="number" inputmode="numeric" data-cmp="y" value="${esc(c.y)}"></label></div>
@@ -157,8 +163,9 @@ function campaignWin() {
     ${chk('sched', c.sched, `${GFX}res/time.png`, 'Расписание отправки')}
     ${c.sched ? `<input type="datetime-local" data-cmp="at" value="${esc(c.at)}">` : ''}
     <div class="cinfo">В поход идут: <b>${fmtFull(n)}</b> ${genGoes(a, c) ? '+ генерал' : ''} · в пути: <b id="cmpTime">${sec ? fmtT(sec) : '—'}</b></div>
+    ${goUnits(go, c.mission)}
     ${slowestHint(a, c, go)}
-    ${n < armyTotal(a.units) ? '<div class="cinfo small">Неподходящие для этого похода юниты останутся в замке.</div>' : ''}
+    ${n < armyTotal(a.units) ? `<div class="cinfo small">${c.mission === 'scout' ? 'В разведку идут только разведчики — остальные' : 'Неподходящие для этого похода юниты'} останутся в замке.</div>` : ''}
     <button class="pbar" data-cmpgo>Отправить</button>`;
 }
 

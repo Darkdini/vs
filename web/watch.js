@@ -1,11 +1,13 @@
 'use strict';
 // Караульная башня: «Передвижения армий» королевства — свои армии из всех замков и армии, идущие на замки короля (без разведки).
 S.moves = null;
+// юниты похода значками с числом (вместо «N воинов»)
+const mvUnits = (a) => `<div class="tunits mvunits">${Object.entries(a.units || {}).filter(([, n]) => n > 0).map(([id, n]) => { const u = unitById(Number(id)); return u ? `<span class="tu"><img src="${unitSrc(u)}" alt="">${fmtFull(n)}</span>` : ''; }).join('')}${a.general ? '<span class="tu">+ генерал</span>' : ''}</div>`;
 function movesWin() {
   const m = S.moves; if (!m) return `${ribbon('Передвижения армий')}<p class="parch-note">Загрузка…</p>`;
   const st = (a) => (a.state === 'wait' ? `выйдет через <span class="cd" data-e="${a.depart}"></span>` : a.state === 'go' ? `прибудет через <span class="cd" data-e="${a.arrive}"></span>` : a.state === 'back' ? `вернётся через <span class="cd" data-e="${a.back}"></span>` : `стоит в «${esc(a.stayName || '')}»`);
   return `${ribbon('Передвижения армий')}
-    ${ribbon('Армии королевства')}${m.mine.length ? m.mine.map((a) => `<button type="button" class="mrow mrowbtn" data-mvid="${a.id}"><span><b>${esc(a.castle)}</b> → <b>${esc(a.to || `${a.x}:${a.y}`)}</b> (${a.x}:${a.y}) · ${M().missions[a.mission]}<br><small>${fmtFull(a.n)} воинов · ${st(a)}</small></span><i class="mvgo">›</i></button>`).join('') : '<p class="parch-note">Все армии дома.</p>'}
+    ${ribbon('Армии королевства')}${m.mine.length ? m.mine.map((a) => `<button type="button" class="mrow mrowbtn" data-mvid="${a.id}"><span><b>${esc(a.castle)}</b> → <b>${esc(a.to || `${a.x}:${a.y}`)}</b> (${a.x}:${a.y}) · ${M().missions[a.mission]}<br><small>${st(a)}</small>${mvUnits(a)}</span><i class="mvgo">›</i></button>`).join('') : '<p class="parch-note">Все армии дома.</p>'}
     ${ribbon('Надвигающиеся атаки')}${m.incoming.length ? m.incoming.map((a) => `<div class="mrow ${['attack', 'raid'].includes(a.mission) ? 'danger' : ''}">${['attack', 'raid'].includes(a.mission) ? `<img class="wic" src="${GFX}watch/ic_${a.mission}.png" alt="">` : ''}<span><b>${M().missions[a.mission]}</b> на «${esc(a.to)}» от ${esc(a.from)}<br><small>из «${esc(a.castle)}» · прибудет через <span class="cd" data-e="${a.arrive}"></span></small>${threatInfo(a)}</span></div>`).join('') : '<p class="parch-note">Никто не идёт на Ваши замки.</p>'}
     <p class="small muted whint"><img src="${GFX}watch/ic_watch.png" alt="">${watchHint()} Разведку, направленную в Ваши замки, башня не показывает.</p>`;
 }

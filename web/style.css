@@ -2162,3 +2162,7 @@ body.menuopen #advbar, body.menuopen #advhand { display: none; } /* открыт
 .mvline { display: flex; gap: 8px; padding: 4px 0; border-bottom: 1px solid #b08a5a44; } .mvline > span { width: 36%; flex: none; color: #6a4a2a; } .mvline > b { flex: 1; font-weight: 600; }
 .mvunits { margin-top: 8px; }
 .mrowbtn small { font-size: .9em; }
+.cgo { display: flex; flex-wrap: wrap; gap: 6px 10px; margin: 6px 2px; padding: 6px; border: 1px solid #b08a5a66; border-radius: 6px; background: #fff3d944; }
+.cgo .tu, .mvunits .tu { display: inline-flex; align-items: center; gap: 3px; font: 600 min(17px, 4.2vw) var(--serif); }
+.cgo .tu img { width: 36px; height: 36px; object-fit: contain; } .mvunits .tu img { width: 30px; height: 30px; object-fit: contain; }
+.cinfo.cbad { color: #9a2a10; }
