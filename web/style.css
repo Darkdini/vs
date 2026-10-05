@@ -2156,3 +2156,9 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 @keyframes resIn { from { opacity: 0; } to { opacity: 1; } }
 
 body.menuopen #advbar, body.menuopen #advhand { display: none; } /* открыто меню — полоска «Задание» и рука-подсказка не просвечивают */
+.mrowbtn { display: flex; width: 100%; align-items: center; text-align: left; background: none; border: 0; border-bottom: 1px solid #b08a5a55; font: min(19px, 4.6vw)/1.35 var(--serif); color: inherit; padding: 6px 4px; cursor: pointer; }
+.mrowbtn > span { flex: 1; } .mrowbtn .mvgo { font-style: normal; font-size: 28px; color: #8a5a2b; padding: 0 6px; }
+.mvcard { padding: 8px 6px; font: min(19px, 4.6vw) var(--serif); }
+.mvline { display: flex; gap: 8px; padding: 4px 0; border-bottom: 1px solid #b08a5a44; } .mvline > span { width: 36%; flex: none; color: #6a4a2a; } .mvline > b { flex: 1; font-weight: 600; }
+.mvunits { margin-top: 8px; }
+.mrowbtn small { font-size: .9em; }

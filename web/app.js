@@ -466,7 +466,7 @@ $('#sheetBody').addEventListener('click', (e) => { if (e.target.closest('[data-r
 function setTab(tab) {
   S.tab = tab;
   $$('#locs [data-loc]').forEach((b) => b.classList.toggle('on', b.dataset.loc === tab));
-  if (tab === 'world') { S.wJump = true; S.world = null; send({ t: 'world', cx: S.st.castle.x, cy: S.st.castle.y }); } // выход в мир — всегда к текущему замку
+  if (tab === 'world') { const g = S.wGoto || { x: S.st.castle.x, y: S.st.castle.y }; S.wGoto = null; S.wJump = true; S.world = null; send({ t: 'world', cx: g.x, cy: g.y }); } // выход в мир — к текущему замку (или к цели похода: S.wGoto)
   renderView(); if (typeof stashBtn === 'function' && S.st) stashBtn(); if (typeof advBar === 'function' && S.st) advBar();
 }
 

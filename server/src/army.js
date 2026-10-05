@@ -1402,11 +1402,19 @@ function install(Game, helpers) {
     }
     return out.sort((p, q) => p.arrive - q.arrive);
   };
+  // что стоит в клетке (x, y) — для «Куда идёт армия»: замок с владельцем, лагерь/руины, мировой босс или пустая клетка
+  P.placeName = function placeName(x, y) {
+    const k = this.castleAt(x, y); if (k) { const o = this.userById(k.owner); return `${k.name}${o ? ` (${o.login})` : ''}`; }
+    const b = this.bossAt && this.bossAt(x, y); if (b) return b.name;
+    const ob = this.worldObjects(x, y, 1, 1).find((q) => q.kind === 'object'); return ob ? ob.name : 'пустая клетка';
+  };
   // «Передвижения армий» королевства (окно Караульной башни): свои армии из всех замков и идущие на все замки
   P.kingdomMoves = function kingdomMoves(user) {
     const mine = [], inc = [];
     for (const c of this.castlesOf(user)) {
-      for (const a of c.armies || []) mine.push({ castle: c.name, mission: a.mission, x: a.x, y: a.y, state: a.state, depart: a.depart, arrive: a.arrive, back: a.back, stayName: a.state === 'stay' && this.db.castles[a.stayAt] ? this.db.castles[a.stayAt].name : null, n: Object.values(a.units).reduce((s, k) => s + k, 0) });
+      for (const a of c.armies || []) mine.push({ id: a.id, castle: c.name, cx: c.x, cy: c.y, mission: a.mission, x: a.x, y: a.y, state: a.state, depart: a.depart, arrive: a.arrive, back: a.back, sec: a.sec,
+        stayName: a.state === 'stay' && this.db.castles[a.stayAt] ? this.db.castles[a.stayAt].name : null, n: Object.values(a.units).reduce((s, k) => s + k, 0),
+        units: a.units, general: !!a.general, to: this.placeName(a.x, a.y) });
       inc.push(...this.incoming(c));
     }
     return { mine, incoming: inc.sort((p, q) => p.arrive - q.arrive) };
