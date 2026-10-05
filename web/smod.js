@@ -28,7 +28,7 @@ function smodPlayerCard(p) {
     ${p.smod ? '' : `<div class="smsec">Команда</div><div class="smrow">${smBtn('mod', p.mod ? 'Снять с модераторов' : 'Назначить модератором', `data-on="${p.mod ? 0 : 1}" data-confirm="${p.mod ? 'Снять права модератора?' : 'Назначить модератором?'}"`)}</div>`}`}</div>`;
 }
 function smodWin() {
-  const d = S.smod, T = [['player', 'Игрок'], ['team', 'Команда'], ['bans', 'Наказания'], ['multi', 'Мульты'], ['ally', 'Альянсы'], ['log', 'Журнал']];
+  const d = S.smod, T = [['player', 'Игрок'], ['team', 'Команда'], ['bans', 'Наказания'], ['multi', 'Мульты'], ['ally', 'Альянсы'], ['news', 'Новость'], ['log', 'Журнал']];
   const tabs = `<div class="coin-tabs smtabs">${T.map(([k, t]) => `<button class="${S.smodTab === k ? 'on' : ''}" data-smtab="${k}">${t}</button>`).join('')}</div>`;
   if (!d) return `${ribbon('Модерация')}${tabs}<p class="parch-note">Загрузка…</p>`;
   let body = '';
@@ -51,8 +51,10 @@ function smodWin() {
     body = `<p class="coinhint">Альянс с оскорбительным названием — переименовать; описание и устав — сбросить. Укажите тег или номер альянса.</p>
       <form class="smform" data-smally><input name="id" placeholder="Тег альянса (сейчас)" autocapitalize="characters"><input name="tag" placeholder="Новый тег (2–5)" maxlength="5"><input name="name" placeholder="Новое название" maxlength="24">
         <div class="smrow"><button class="btn primary small" name="go" value="name">Переименовать</button><button class="btn small cbno" name="go" value="desc">Сбросить описание</button></div></form>`;
+  } else if (S.smodTab === 'news') {
+    body = `<p class="coinhint">Новость увидят все игроки: фиолетовый конверт в верхней панели, потом — в «Инфо → Новости». До 4 скриншотов. Публикация записывается в журнал модерации.</p>${newsPubForm()}`;
   } else {
-    const OP = { mod: 'Модератор', ban: 'Блокировка', unban: 'Разблокировка', chat: 'Чат', viol: 'Нарушения', nick: 'Ник', castles: 'Замки', avatar: 'Аватар', allyname: 'Альянс', allydesc: 'Альянс' };
+    const OP = { news: 'Новость', mod: 'Модератор', ban: 'Блокировка', unban: 'Разблокировка', chat: 'Чат', viol: 'Нарушения', nick: 'Ник', castles: 'Замки', avatar: 'Аватар', allyname: 'Альянс', allydesc: 'Альянс' };
     body = d.log.map((x) => `<div class="smlog"><small>${smDate(x.at)} · <b>${esc(x.by)}</b></small><div>${OP[x.op] || esc(x.op)}: <b>${esc(x.target)}</b> — ${esc(x.text)}</div></div>`).join('') || '<p class="parch-note">Журнал пуст.</p>';
   }
   const n = S.smodNote && Date.now() - S.smodNote.at < 6000 ? `<div class="smnote ${S.smodNote.ok ? 'ok' : ''}">${S.smodNote.ok ? '✔' : '⛔'} ${esc(S.smodNote.msg)}</div>` : '';

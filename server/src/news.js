@@ -98,6 +98,7 @@ function install(Game) {
         const pics = [...new Set([].concat(m.pics || []).map(String))].filter((p) => { const f = this.newsPicFile(p); return f && fs.existsSync(f); }).slice(0, NP_MAX); // только загруженные на сервер
         const n = { id: this.db.nextId++, title, text, at: now, by: u.login, comments: [], ...(pics.length ? { pics } : {}) }; db.push(n);
         if (db.length > 300) db.shift();
+        if (!u.admin && this.modLog) this.modLog(u, 'news', `«${title}»`, 'опубликована'); // старший модератор — в журнал модерации (админ видит)
         this.store.save(); return { msg: 'Новость опубликована — игроки увидят фиолетовый конверт.', id: n.id };
       }
       case 'delete': {

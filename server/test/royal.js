@@ -249,6 +249,13 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   const ad = g.adminUser(), u = g.register({ login: 'newsr', password: '12345', race: 0 }).user;
   assert.ok(g.newsOp(u, { op: 'publish', title: 'Привет', text: 'x' }).error, 'публикует только админ');
   const id = g.newsOp(ad, { op: 'publish', title: 'Обновление игры', text: 'Что нового' }).id;
+  { // старший модератор публикует новость (в журнал модерации); простой модератор — нет
+    const sm = g.register({ login: 'newsmod', password: '12345', race: 0 }).user; sm.mod = true;
+    assert.ok(g.newsOp(sm, { op: 'publish', title: 'Турнир', text: 'x' }).error, 'модератор — нельзя');
+    sm.smod = true; const r = g.newsOp(sm, { op: 'publish', title: 'Турнир', text: 'В субботу' });
+    assert.ok(r.id && (g.db.modLog || []).some((x) => x.op === 'news' && x.by === 'newsmod' && x.target === '«Турнир»'), 'старший модератор — публикует, запись в журнале');
+    g.db.news = g.db.news.filter((n) => n.id !== r.id); sm.mod = sm.smod = false;
+  }
   assert.strictEqual(g.newsUnread(u), 1); assert.strictEqual(g.newsFirst(u), id);
   const it = g.newsGet(u, id); assert.ok(it.title && !it.error); assert.strictEqual(g.newsUnread(u), 0, 'прочитал — конверт исчез');
   assert.strictEqual(g.newsList(u, 0).list.length, 1, 'новость осталась в списке');
