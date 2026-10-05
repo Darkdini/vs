@@ -2168,3 +2168,4 @@ body.menuopen #advbar, body.menuopen #advhand { display: none; } /* открыт
 .cinfo.cbad { color: #9a2a10; }
 .mvtype { display: inline-block; padding: 1px 10px; border-radius: 10px; font-weight: 700; color: #fff; background: #6a4a2a; }
 .mvtype.mv-attack { background: #a01a10; } .mvtype.mv-raid { background: #c06010; } .mvtype.mv-scout { background: #2a5a9a; } .mvtype.mv-reinforce { background: #2a7a2a; } .mvtype.mv-trade { background: #8a6a1a; }
+.mvtype.mv-home { background: #3a6a8a; }
