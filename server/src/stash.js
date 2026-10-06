@@ -28,12 +28,13 @@ function install(Game) {
     const add = (id, n) => { if (!(n > 0)) return; s.units[id] = (s.units[id] || 0) + Math.floor(n); got.push(`${ARMY().UNIT[id].name} ×${Math.floor(n)}`); };
     for (const [slot, n] of Object.entries(rw.u || {})) { const u = ARMY().uniqueFor(race, slot); if (u) add(u.id, n); }
     for (const [id, n] of Object.entries(rw.units || {})) if (ARMY().UNIT[id]) add(Number(id), n);
+    if (rw.royal > 0) { s.royal = (s.royal || 0) + Math.floor(rw.royal); got.push(`лояльность населения ${Math.floor(rw.royal)}`); }
     if (rw.exp > 0) { s.exp = (s.exp || 0) + Math.floor(rw.exp); got.push(`опыт генерала ${Math.floor(rw.exp)}`); }
     return got;
   };
   P.stashCount = function stashCount(u) {
     const s = this.stashOf(u);
-    return RES4.filter((r) => s.res[r] > 0).length + Object.values(s.units).filter((n) => n > 0).length + (s.exp > 0 ? 1 : 0);
+    return RES4.filter((r) => s.res[r] > 0).length + Object.values(s.units).filter((n) => n > 0).length + (s.exp > 0 ? 1 : 0) + (s.royal > 0 ? 1 : 0);
   };
   // для окна: сколько лежит и сколько можно забрать прямо сейчас в замок c (где игрок сейчас)
   P.stashView = function stashView(u, c) {
@@ -41,7 +42,8 @@ function install(Game) {
     const res = RES4.filter((r) => s.res[r] > 0).map((r) => ({ kind: 'res', key: r, name: RES_NAME[r], n: s.res[r], max: Math.max(0, Math.min(s.res[r], Math.floor(cap[r] - c.res[r]))) }));
     const units = Object.entries(s.units).filter(([, n]) => n > 0).map(([id, n]) => ({ kind: 'unit', key: Number(id), name: ARMY().UNIT[id].name, n, max: n, quest: !!ARMY().UNIT[id].quest }));
     const exp = s.exp > 0 ? [{ kind: 'exp', key: 'exp', name: 'Опыт генерала', n: s.exp, max: g ? s.exp : 0 }] : [];
-    return [...res, ...units, ...exp];
+    const royal = s.royal > 0 ? [{ kind: 'royal', key: 'royal', name: 'Лояльность населения', n: s.royal, max: s.royal }] : [];
+    return [...res, ...units, ...royal, ...exp];
   };
   P.stashTake = function stashTake(u, c, kind, key, n) {
     const r = this.stashTake1(u, c, kind, key, n);
@@ -67,6 +69,11 @@ function install(Game) {
       c.units[id] = (c.units[id] || 0) + k;
       if (this.addStat) this.addStat(u.id, 'stashUnits', k); // для «Подозрительного»: воины из Кладовой — законный прирост армии
       return { ok: true, msg: `${un.name} ×${k} — в замке «${c.name}».` };
+    }
+    if (kind === 'royal') { // лояльность населения — общая на королевство (Резиденция)
+      if (!(s.royal > 0)) return { error: 'Лояльности в Кладовой нет.' };
+      const k = Math.min(n, s.royal); s.royal -= k; this.royalTick(u); u.royal = (u.royal || 0) + k;
+      return { ok: true, msg: `Лояльность населения +${k} (теперь ${u.royal}).` };
     }
     if (kind === 'exp') {
       const g = c.general;

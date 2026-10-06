@@ -2,13 +2,14 @@
 // Мировой босс: появляется, когда его вызывает администратор (админ-панель → «Мировой босс»), на 48 часов. Его бьёт весь сервер —
 // армиями (Нападение или Набег, набег — половина урона). Здоровье общее и не восстанавливается.
 // Бой — тот же общий удар (army.js clash): босс — «гарнизон» из частей по SEG здоровья, его сила удара постоянна.
-// Итог (босс повержен или время вышло): награды по месту в таблице урона — ресурсы, снаряжение генерала, артефакт.
-// Если босс ушёл непобеждённым — награды вдвое меньше. Золото босс не даёт.
+// Итог: если босс повержен — тройка лучших по урону получает репутацию и лояльность населения (1: 150 и 700, 2: 100 и 500, 3: 50 и 300).
+// Ушёл непобеждённым — наград нет. Золото и значки босс не даёт.
 // Здоровье — 1,5 млн + 150 тыс. за каждого активного игрока (до 30 млн).
 
 const RES4 = ['wood', 'stone', 'iron', 'food'];
 const DAY = 86400000, LIFE = 2 * DAY, SEG = 1000;
-const KILL_REP = 3, KILL_RES = 15000; // за последний удар
+// награды: только если босс повержен, только 1–3 место по урону (репутация сразу, лояльность — в Кладовую)
+const PRIZE = [{ rep: 150, royal: 700 }, { rep: 100, royal: 500 }, { rep: 50, royal: 300 }];
 // сила босса: за удар он забирает не меньше kill армии (набег — вдвое меньше), в ярости (меньше RAGE здоровья) — в полтора раза больше;
 // один удар снимает не больше HIT_MAX здоровья — одному игроку босса не свалить, нужен весь сервер
 const HIT_MAX = 0.05, RAGE = 0.3, RAGE_K = 1.5;
@@ -77,30 +78,20 @@ function install(Game) {
     b.done = true; const killed = b.hp <= 0, total = Object.values(b.dmg).reduce((q, v) => q + v, 0) || 1;
     const rows = Object.entries(b.dmg).map(([id, d]) => ({ id: Number(id), d })).sort((p, q) => q.d - p.d);
     rows.forEach((r, i) => {
-      const u = this.userById(r.id), cap = u && this.castlesOf(u)[0]; if (!cap) return;
-      const place = i + 1, share = r.d / total, k = killed ? 1 : 0.5;
-      const res = Math.round((2000 + 80000 * share + (place === 1 ? 20000 : place <= 3 ? 10000 : place <= 10 ? 4000 : 0)) * k);
-      this.stashAdd(u, Object.fromEntries(RES4.map((x) => [x, res]))); // награды — в Кладовую игрока (Склад не переполнится)
-      const lines = [`${b.name} ${killed ? 'повержен!' : 'ушёл непобеждённым — награды вдвое меньше.'}`, `Ваше место: ${place} из ${rows.length}. Урон: ${r.d.toLocaleString('ru-RU')} (${(share * 100).toFixed(1)}%).`, `Ресурсы в Кладовой: по ${res.toLocaleString('ru-RU')} каждого.`];
-      let rar = place === 1 ? 3 : place <= 3 ? 2 : place <= 10 ? 1 : share >= 0.005 && Math.random() < 0.5 ? 0 : -1;
-      if (!killed) rar = place <= 10 ? rar - 1 : -1;
-      if (rar >= 0) lines.push(this.giveGear(cap, this.rollGear(0, rar)));
-      if (killed && b.killer === r.id) { // убийца босса: значок в профиле, немного репутации и ресурсов, эпическая вещь
-        this.stashAdd(u, Object.fromEntries(RES4.map((x) => [x, KILL_RES])));
-        u.reputation = (u.reputation ?? 10) + KILL_REP;
-        (u.bossBadges = u.bossBadges || []).push({ kind: b.kind, name: b.name, at: now, kill: true });
-        lines.push(`Последний удар — ваш! Значок «${SLAYER[b.kind] || 'Убийца чудовищ'}» в профиле, +${KILL_REP} репутации, ещё по ${KILL_RES.toLocaleString('ru-RU')} ресурсов. ${this.giveGear(cap, this.rollGear(0, 2))}`);
-      }
-      if (place <= 3) { // медаль топ-3 по урону: золото, серебро, бронза (и если босс ушёл непобеждённым)
-        (u.bossBadges = u.bossBadges || []).push({ kind: b.kind, name: b.name, at: now, place, killed });
-        lines.push(`Медаль «${['Золото', 'Серебро', 'Бронза'][place - 1]}: ${b.name}» — в Вашем профиле.`);
-      }
-      if (killed && place <= 3) { this.mil(cap); const types = Object.keys(require('./army').ART_TYPES); cap.artifacts.push({ id: this.db.nextId++, type: types[Math.floor(Math.random() * types.length)], rarity: place === 1 ? 2 : 1, active: false, found: now }); lines.push('Артефакт за место в тройке лучших — в Сокровищнице.'); }
+      const u = this.userById(r.id); if (!u) return;
+      const place = i + 1, share = r.d / total;
+      const lines = [`${b.name} ${killed ? 'повержен!' : 'ушёл непобеждённым — наград нет.'}`, `Ваше место: ${place} из ${rows.length}. Урон: ${r.d.toLocaleString('ru-RU')} (${(share * 100).toFixed(1)}%).`];
+      const pr = killed && PRIZE[place - 1];
+      if (pr) { // награды — только тройке лучших и только если босс повержен
+        u.reputation = (u.reputation ?? 10) + pr.rep;
+        this.stashAdd(u, { royal: pr.royal });
+        lines.push(`Награда за ${place}-е место: +${pr.rep} репутации, ${pr.royal} лояльности населения — в Кладовой.`);
+      } else if (killed) lines.push('Награды получают три лучших по урону.');
       this.addStat(r.id, 'bossDmg', r.d);
       this.report(r.id, `Мировой босс: ${place}-е место`, lines, 'battle');
     });
     s.last = { name: b.name, kind: b.kind, killed, top: rows.slice(0, 10).map((r) => ({ login: (this.userById(r.id) || {}).login || '?', d: r.d })), at: now };
-    this.bossNews(killed ? `🏆 ${b.name} повержен! Лучший урон: ${s.last.top[0] ? s.last.top[0].login : '—'}. Награды разосланы в отчётах.` : `${b.name} ушёл непобеждённым. Участники получили половину наград.`);
+    this.bossNews(killed ? `🏆 ${b.name} повержен! Лучший урон: ${s.last.top[0] ? s.last.top[0].login : '—'}. Награды разосланы в отчётах.` : `${b.name} ушёл непобеждённым. Наград нет.`);
     this.store.save();
   };
 

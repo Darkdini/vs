@@ -8,6 +8,7 @@ S.stash = null; S.stashOpen = null;
 function openStash() { S.stash = null; S.stashOpen = null; send({ t: 'stash' }); openSheet(stashWin); }
 function stashIcon(x) {
   if (x.kind === 'res') return `<img src="${STASH_IC[x.key]}" alt="">`;
+  if (x.kind === 'royal') return `<img src="gfx3d/menu3/loyalty.png" alt="">`;
   if (x.kind === 'exp') return `<img src="${GFX}stash/exp.png" data-fb="${GFX}smallicon/magattack.png" alt="">`;
   const u = unitById(x.key); return u ? `<img class="u" src="${unitSrc(u)}" alt="">` : '';
 }
