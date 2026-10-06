@@ -682,6 +682,25 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(g.tgResetRequest('tgplayer').error, 'без бота — подсказка написать администрации');
   console.log('✓ Telegram: привязка по одноразовой ссылке, код сброса (хеш, 15 мин, 5 попыток, 3 в час), пароль не пересылается, отвязка — по коду, уведомления');
 }
+{ // Ратуша → Защита (shield.js): купол на замок/королевство, контрразведка
+  const a = g.register({ login: 'shldatt', password: '12345', race: 0 }).user, d = g.register({ login: 'shlddef', password: '12345', race: 0 }).user;
+  g.adminAddCastles(a, 1); g.adminAddCastles(d, 1); const ac = g.castlesOf(a)[1], dc = g.castlesOf(d)[1]; g.mil(ac); g.mil(dc); d.gold = 200; a.gold = 0; a.created = d.created = 0;
+  assert.ok(/монет/.test(g.shieldBuy(d, dc, 'castle', 1).error || '') === false, 'хватает монет');
+  assert.ok(g.castleShield(dc) && d.gold === 195, 'защита замка за 5');
+  const r1 = g.shieldBuy(d, dc, 'castle', 3); assert.ok(r1.msg && dc.shieldUntil - Date.now() > 3.9 * 86400000 && d.gold === 182, 'продление: 1 + 3 дня');
+  assert.ok(g.worldObjects(dc.x, dc.y, 1, 1)[0].shield, 'купол на карте');
+  ac.units = { 200: 50 }; const old = require('../src/army').NEWBIE_RATING;
+  const e1 = g.sendArmy(ac, { units: { 200: 10 }, mission: 'attack', x: dc.x, y: dc.y });
+  assert.ok(/защит/.test(e1.error || ''), 'на защищённый замок не напасть: ' + JSON.stringify(e1).slice(0, 120));
+  assert.ok(/защит/.test(g.sendArmy(ac, { units: { 200: 10 }, mission: 'reinforce', x: dc.x, y: dc.y }).error || ''), 'и подкрепление не отправить');
+  dc.units = { 200: 20 }; assert.ok(/защита/.test(g.sendArmy(dc, { units: { 200: 5 }, mission: 'attack', x: ac.x, y: ac.y }).error || ''), 'под защитой сам не воюет');
+  assert.ok(g.shieldBuy(d, dc, 'kingdom', 7).msg && d.gold === 74 && d.shieldKingdom > Date.now(), 'королевство за 108');
+  assert.ok(g.shieldBuy(d, dc, 'castle', 5).error && g.shieldBuy(d, dc, 'spy', 1).msg && g.spyShield(d), 'нет 5 дней; контрразведка за 5');
+  a.gold = 50; ac.armies = [{ mission: 'attack', state: 'go', x: 1, y: 1, units: {} }];
+  assert.ok(/походе/.test(g.shieldBuy(a, ac, 'castle', 1).error || '') && a.gold === 50, 'армии в походе — защиту не включить');
+  ac.armies = [];
+  console.log('✓ Защита: замок (5/13/27), королевство (20/52/108), контрразведка; купол, продление, запреты атак и подкреплений');
+}
 { // «Лавка Короля» (shop.js): ускорения стройки и сундуки ресурсов
   const su = g.register({ login: 'shopper', password: '12345', race: 0 }).user, sc = g.castlesOf(su)[0], now = Date.now();
   su.gold = 100;

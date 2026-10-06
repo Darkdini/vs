@@ -279,6 +279,7 @@ function onMsg(m) {
     case 'zags': case 'zprops': case 'zpairs': case 'zpair': case 'zdone': zagsMsg(m); break;
     case 'news': newsMsg(m); break;
     case 'shop': shopMsg(m); break;
+    case 'shield': shieldMsg(m); break;
     case 'reset': resetMsg(m); break;
     case 'tg': tgMsg(m); break;
     case 'smod': smodMsg(m); break;
@@ -1373,7 +1374,7 @@ function worldObj(o, p, sel, k, noDome) {
   else if (o.qimg && pic(o.qimg)) { const im = pic(o.qimg), q = TW * 1.25 / im.width; ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(im, p.sx + TW / 2 - im.width * q / 2, p.sy + TH * 0.85 - im.height * q, im.width * q, im.height * q); ictx.restore(); } // логово похода
   else ground(WORLD_NAME_IMG(o), p.sx, p.sy);
   if (sel) ictx.restore();
-  if (o.newbie && !noDome) newbieDome(p);
+  if (o.shield && !noDome) shieldDome(p); else if (o.newbie && !noDome) newbieDome(p); // купол: купленная защита — золотой, защита новичка — голубой
 }
 // статичный слой карты мира: рисуется заново только когда пришёл новый участок, сменилось выделение,
 // догрузилась картинка или заметно изменился масштаб; иначе — одна готовая картинка на кадр
@@ -1450,6 +1451,13 @@ function provBorders(g, w, ax, bx, ay, by, pz, vr) { // ax..bx, ay..by — кл�
   g.restore();
 }
 // купол защиты новичка над замком
+function shieldDome(p) { // купленная защита (Ратуша → Защита): золотой купол
+  const cx = p.sx + TW / 2, cy = p.sy + TH / 2 + 1, rx = TW * 0.46, ry = TH * 1.2;
+  const g = ictx.createRadialGradient(cx, cy - ry * 0.55, 4, cx, cy - ry * 0.4, rx * 1.1);
+  g.addColorStop(0, 'rgba(255, 250, 210, 0.6)'); g.addColorStop(0.6, 'rgba(255, 205, 70, 0.32)'); g.addColorStop(1, 'rgba(255, 160, 20, 0.16)');
+  ictx.save(); ictx.beginPath(); ictx.ellipse(cx, cy, rx, ry, 0, Math.PI, 0); ictx.ellipse(cx, cy, rx, ry * 0.32, 0, 0, Math.PI); ictx.fillStyle = g; ictx.fill();
+  ictx.lineWidth = 2; ictx.strokeStyle = 'rgba(255, 225, 120, 0.95)'; ictx.shadowColor = '#ffcc33'; ictx.shadowBlur = 6; ictx.stroke(); ictx.restore();
+}
 function newbieDome(p) {
   const cx = p.sx + TW / 2, cy = p.sy + TH / 2 + 1, rx = TW * 0.4, ry = TH * 1.05; // купол по размеру замка
   const g = ictx.createRadialGradient(cx, cy - ry * 0.55, 4, cx, cy - ry * 0.4, rx * 1.1);

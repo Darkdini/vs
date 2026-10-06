@@ -802,6 +802,8 @@ function install(Game, helpers) {
       }
     }
     const me = this.ownerOf(castle);
+    if (['attack', 'raid', 'scout'].includes(mission) && this.userShielded(me)) return { error: 'У Вас включена защита замка или королевства — армии не ведут боевых действий, пока она действует.' };
+    if (target && target.owner !== castle.owner && this.castleShield(target)) return { error: mission === 'reinforce' ? 'Замок под защитой — подкрепление в него отправить нельзя.' : 'Замок под защитой — нападать и разведывать его нельзя.' };
     if (target && ['attack', 'raid', 'scout'].includes(mission) && !me.admin && this.rating(target) < NEWBIE_RATING) return { error: `Игрок под защитой новичка (рейтинг ниже ${NEWBIE_RATING}).` };
     const lair = !target && !obj && ['attack', 'raid'].includes(mission) ? this.lairAt(castle.owner, x, y) : null; // логово похода «Тёмные земли»
     const boss = !target && !obj && !lair && ['attack', 'raid'].includes(mission) ? this.bossAt(x, y) : null; // мировой босс (boss.js)
@@ -1067,6 +1069,10 @@ function install(Game, helpers) {
       this.report(c.owner, `Поход на ${target.name} отменён`, [`${(this.ownerOf(target) || {}).login || 'Игрок'} — в Вашем альянсе: нападать на союзников нельзя. Армия вернулась домой.`], 'battle');
       return this.goBack(c, a, t);
     }
+    if (target && target.owner !== c.owner && (HOSTILE.includes(a.mission) || a.mission === 'reinforce') && this.castleShield(target)) {
+      this.report(c.owner, `Поход на ${target.name} отменён`, ['Замок под защитой — армия вернулась домой без боя.'], 'battle');
+      return this.goBack(c, a, t);
+    }
     if (a.mission === 'reinforce') { // подкрепление встаёт в замке и защищает его, пока его не отзовут
       if (!target) return this.goBack(c, a, t);
       if (target.owner === c.owner) return this.transferArmy(c, a, target); // в свой замок — армия (и генерал) переходят в его Военный штаб
@@ -1279,7 +1285,9 @@ function install(Game, helpers) {
     const where = `${a.x}:${a.y}`;
     const lines = [`Разведка ${target ? target.name : where}. Потери: ${unitsLine(a.units, lost)}`];
     if (!alive) lines.push('Разведчики не вернулись.');
-    else if (target) {
+    else if (target && this.spyShield(this.ownerOf(target))) {
+      lines.push('Контрразведка противника: склады, постройки, армии и их расположение скрыты. Узнать ничего не удалось.');
+    } else if (target) {
       const b = this.bonus(target), lvl = this.buildingLevel(c, B.SPY) || 1;
       const alivePart = Object.values(a.units).reduce((s, n) => s + n, 0) / sent;
       const can = (k) => lvl >= SPY_OPEN[k].level && alivePart > SPY_OPEN[k].survive;

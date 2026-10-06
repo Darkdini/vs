@@ -285,6 +285,12 @@ const API = {
     }
     this.send({ t: 'tg', info: g.tgAuthInfo(this.user) });
   },
+  // Ратуша → «Защита» (shield.js): view — сроки и цены; buy — купить
+  shield(m) {
+    const g = this.game;
+    if (m.op === 'buy') { const r = g.shieldBuy(this.user, this.castle, String(m.kind || ''), m.days); this.pushState(); return this.send({ t: 'shield', data: g.shieldInfo(this.user, this.castle), note: { ok: !r.error, msg: r.error || r.msg } }); }
+    this.send({ t: 'shield', data: g.shieldInfo(this.user, this.castle) });
+  },
   // «Лавка Короля» (shop.js): view — цены и лимиты; speed — ускорить стройку; chest — сундук ресурсов
   shop(m) {
     const g = this.game, u = this.user, op = String(m.op || '');

@@ -619,7 +619,7 @@ class Game {
     for (const c of castles) {
       const owner = this.userById(c.owner);
       const al = this.allianceOf(owner);
-      out.push({ kind: 'castle', x: c.x, y: c.y, img: 10, prem: this.isPremium(owner) || undefined, castleId: c.id, name: c.name, ownerId: owner.id, owner: owner.login, race: owner.race, rating: this.rating(c), alliance: al ? al.tag : null, allyId: al ? al.id : null, newbie: !owner.admin && this.rating(c) < require('./army').NEWBIE_RATING });
+      out.push({ kind: 'castle', x: c.x, y: c.y, img: 10, prem: this.isPremium(owner) || undefined, castleId: c.id, name: c.name, ownerId: owner.id, owner: owner.login, race: owner.race, rating: this.rating(c), alliance: al ? al.tag : null, allyId: al ? al.id : null, newbie: !owner.admin && this.rating(c) < require('./army').NEWBIE_RATING, shield: this.castleShield(c) ? 1 : undefined });
     }
     for (let y = y0; y < y0 + h; y++) {
       for (let x = x0; x < x0 + w; x++) {
@@ -681,6 +681,7 @@ require('./secwatch').install(Game);
 require('./tgbackup').install(Game);
 require('./shop').install(Game);
 require('./tgauth').install(Game);
+require('./shield').install(Game);
 require('./pics').install(Game);
 require('./zags').install(Game);
 require('./chests').install(Game);
