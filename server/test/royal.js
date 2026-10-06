@@ -545,12 +545,13 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(b.dmg[P1.id] > b.dmg[P2.id] && b.dmg[P2.id] > 0 && b.hp < b.maxHp, 'урон записан');
   const rep0 = P1.reputation ?? 10, rep2 = P2.reputation ?? 10, gear0 = (c1.gear || []).length; b.hp = 0; b.killer = P1.id; g.bossFinish(Date.now());
   assert.ok(P1.reputation === rep0 + 150 && P1.stash.royal === 700 && P2.reputation === rep2 + 100 && P2.stash.royal === 500, '1 место: 150 реп. и 700 лояльности, 2: 100 и 500');
-  assert.ok(!(P1.bossBadges || []).length && !(P2.bossBadges || []).length && (c1.gear || []).length === gear0, 'значков и снаряжения нет');
+  assert.ok(P1.bossBadges.some((x) => x.place === 1) && P2.bossBadges.some((x) => x.place === 2) && (c1.gear || []).length === gear0, 'медали первым трём, снаряжения нет');
+  assert.strictEqual(require('../src/boss').PRIZE.length, 12, 'награды — 12 мест');
   const roy0 = g.royalTick(P1); assert.ok(g.stashTake(P1, c1, 'royal', 'royal', 700).ok && P1.royal === roy0 + 700 && !P1.stash.royal, 'лояльность из Кладовой');
   assert.ok(!g.bossNow() && g.db.boss.last.killed);
   { const b2 = g.bossSpawn(Date.now(), 0); b2.dmg[P1.id] = 1000; const r1 = P1.reputation; b2.end = Date.now() - 1; g.bossFinish(Date.now()); assert.ok(P1.reputation === r1 && !P1.stash.royal, 'ушёл непобеждённым — наград нет'); }
   assert.ok(g.reportsOf(P2.id).some((r) => /2-е место/.test(r.title)), 'отчёт с местом');
-  console.log('✓ Мировой босс: награды только топ-3 и только за победу (репутация + лояльность в Кладовую)');
+  console.log('✓ Мировой босс: награды 12 местам и только за победу, медали первым трём');
 }
 { // премиум: цвет сообщений и в общем чате
   const u = g.register({ login: 'colorchat', password: '12345', race: 0 }).user; u.premium = Date.now() + 86400000;
