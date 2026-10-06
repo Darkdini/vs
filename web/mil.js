@@ -9,7 +9,7 @@ const HQ = 2;
 let UNIT_BY = null;
 const unitById = (id) => { if (!UNIT_BY) UNIT_BY = Object.fromEntries(M().units.map((u) => [u.id, u])); return UNIT_BY[id]; };
 // у орков нет своих спрайтов в клиенте: берутся похожие, ?orc красит их в зелёный (style.css)
-const DW_HD = ['traveler', 'buntar', 'arheolog', 'wisdom']; // у всех рас — новые картинки (оригинал); у людей нет нового Путешественника — прежний
+const DW_HD = ['traveler', 'buntar', 'arheolog', 'wisdom', 'general']; // у всех рас — новые картинки (оригинал); у людей нет нового Путешественника — прежний
 const HD_DIR = { dwarves: 'dwarv/hd', orcs: 'orc/hd', elves: 'elf/hd', humans: 'human/hd' };
 const unitSrc = (u, race = S.st.user.race) => `${GFX}units/${u.img === 'unical/taran' ? 'dwarv/hd/taran' : u.race === 'all' && !u.img.includes('/') ? (HD_DIR[race] && DW_HD.includes(u.img) && !(race === 'humans' && u.img === 'traveler') ? `${HD_DIR[race]}/${u.img}` : `${M().raceDir[race]}/${u.img}`) : u.img}.png${(u.race === 'orcs' && !u.img.startsWith('orc/') && !u.img.startsWith('uniq/')) || (u.race === 'all' && race === 'orcs' && !u.img.includes('/') && !DW_HD.includes(u.img)) ? '?orc' : ''}`;
 const uimg = (u, cls = 'ui') => `<img class="${cls}" src="${unitSrc(u)}" alt="">`;
@@ -444,7 +444,7 @@ function reportHtml(r) {
       : sideBlock(d.def, d.def.rating, d.x, d.y, dW ? `${ic('skull')} Общие потери: ${fmtFull(dL)} из ${fmtFull(dW)} ( ${pct(dL, dW)}% )` : `${ic('skull')} В замке не было защитников!`)}
     <hr class="rhr">
     ${bar('swords', 'Армия атаки')}${army(d.att, aW, aL, `${fmtFull(aW)} воинов · сила ${fmtFull(d.power.att)}`)}
-    ${d.att.general ? `<div class="rp">${gimg('units/human/general.png', 'ric')} Генерал ${d.att.general} ур. ${d.att.generalDied ? '<span class="rbad">— пал в бою</span>' : '— в строю'}</div>` : ''}
+    ${d.att.general ? `<div class="rp">${gimg(`units/${HD_DIR[d.att.race] || 'human/hd'}/general.png`, 'ric')} Генерал ${d.att.general} ур. ${d.att.generalDied ? '<span class="rbad">— пал в бою</span>' : '— в строю'}</div>` : ''}
     ${bar('shield', 'Армия защиты')}
     ${d.def.npc ? `<div class="rp">Сила охраны: ${fmtFull(d.power.def)}</div>` : dW ? army(d.def, dW, dL, `${fmtFull(dW)} воинов · сила ${fmtFull(d.power.def)}`) + (d.def.wall ? `<div class="rp">${gimg('fence/fence1.png', 'ric')} Забор ${d.def.wall} ур.</div>` : '') : '<div class="rp">Нападение не встретило сопротивления в замке.</div>'}
     ${d.calc ? battleCalcHtml(d, attV, bar) : ''}
