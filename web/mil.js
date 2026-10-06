@@ -152,7 +152,7 @@ function unitsListHtml(units, empty = 'нет') {
 // Военный штаб — как в оригинале (видео): кнопки Армии, Симулятор, Генерал, Расписание походов, Обзор армий, Учения
 function hqHtml() {
   return `<button class="rbar" data-armies>Армии</button><button class="rbar" data-hq="sim">Симулятор</button>
-    <button class="rbar" data-general>Генерал</button><button class="rbar" data-hq="sched">Расписание походов</button>
+    <button class="rbar" data-general>Генерал</button><button class="rbar ${isPrem() ? '' : 'rlock'}" data-hq="sched">${isPrem() ? '' : '🔒 '}Расписание походов</button>
     <button class="rbar" data-moves>Обзор армий</button><button class="rbar" data-hq="drill">Учения</button>`;
 }
 // «Расписание походов» — армии, отправленные по расписанию и ещё не вышедшие
@@ -164,6 +164,7 @@ function schedWin() {
 $('#sheetBody').addEventListener('click', (e) => {
   const t = e.target.closest('[data-hq]'); if (!t) return;
   const k = t.dataset.hq;
+  if (k === 'sched' && !isPrem()) return toast('Расписание походов — только с премиумом.', 'err');
   if (k === 'sched') return openSheet(schedWin);
   if (k === 'sim') return openSoon('Симулятор');
   if (k === 'drill') return openSoon('Учения');
