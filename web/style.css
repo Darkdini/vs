@@ -2222,3 +2222,4 @@ body.menuopen #advbar, body.menuopen #advhand { display: none; } /* открыт
 .nicklist li::marker { font-weight: 700; color: #7a2a10; }
 .nicklist li small { float: right; color: #8a6a3a; font-size: 14px; line-height: 25px; }
 .nicklist li.now { background: #ffe9a8; }
+.gjob { color: #6a3a10; font-weight: 700; } .gjob .cd { color: #1f7a1f; }

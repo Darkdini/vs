@@ -50,6 +50,9 @@ const GEAR_MAX_PLUS = 5, GEAR_BAG = 24, SURVIVE_MAX = 0.6;
 const gearVal = (it) => GEAR[it.slot].val[it.r] * (1 + 0.15 * (it.plus || 0));
 const enhanceCost = (it) => Object.fromEntries(RES4.map((r) => [r, Math.round(1500 * (it.r + 1) * ((it.plus || 0) + 1) ** 2)]));
 const sellPrice = (it) => Object.fromEntries(RES4.map((r) => [r, Math.round(400 * (it.r + 1) * ((it.plus || 0) + 1))]));
+// время усиления у Кузнеца: до +1 — 10 мин … до +5 — 4 ч; редкие вещи дольше (×1, ×1,5, ×2, ×2,5). Одна вещь за раз.
+const ENH_MIN = [10, 30, 60, 120, 240];
+const enhanceSec = (it) => Math.round(ENH_MIN[Math.min(ENH_MIN.length - 1, it.plus || 0)] * 60 * (1 + 0.5 * it.r) / Number(process.env.SPEED || 1));
 const gearName = (it) => `${GEAR[it.slot].items[it.r]}${it.plus ? ` +${it.plus}` : ''}`;
 
 function install(Game) {
@@ -96,6 +99,7 @@ function install(Game) {
     const findBag = (id) => bag.find((x) => x.id === Number(id));
     if (m.op === 'sell') {
       const it = findBag(m.item); if (!it) return { error: 'Вещь не найдена.' };
+      if (castle.gearJob && castle.gearJob.item === it.id) return { error: 'Вещь сейчас у Кузнеца — дождитесь конца усиления.' };
       const p = sellPrice(it), cap = this.capacity(castle);
       castle.gear = bag.filter((x) => x !== it);
       for (const r of RES4) castle.res[r] = Math.max(castle.res[r], Math.min(cap[r], castle.res[r] + p[r]));
@@ -128,24 +132,35 @@ function install(Game) {
       const it = findBag(m.item) || Object.values(g.eq).find((x) => x && x.id === Number(m.item)); if (!it) return { error: 'Вещь не найдена.' };
       if ((it.plus || 0) >= GEAR_MAX_PLUS) return { error: 'Вещь усилена до предела.' };
       if (!this.buildingLevel(castle, 11)) return { error: 'Нужна Кузница.' };
+      if (castle.gearJob) return { error: 'Кузнец уже усиливает другую вещь — дождитесь конца.' };
       const c = enhanceCost(it);
       for (const r of RES4) if (castle.res[r] < c[r]) return { error: 'Недостаточно ресурсов.' };
       for (const r of RES4) castle.res[r] -= c[r];
-      it.plus = (it.plus || 0) + 1;
-      this.store.save(); return { ok: true, msg: `Кузнец усилил: «${gearName(it)}».` };
+      const now = Date.now(), sec = enhanceSec(it);
+      castle.gearJob = { item: it.id, plus: (it.plus || 0) + 1, start: now, end: now + sec * 1000 };
+      this.store.save(); return { ok: true, msg: `Кузнец взялся за «${gearName(it)}» — будет +${castle.gearJob.plus}.` };
     } else return { error: 'Неизвестное действие.' };
     this.store.save(); return { ok: true };
   };
 
+  // усиление у Кузнеца закончилось: вещь (в Оружейной, на генерале или у павшего) получает +1
+  P.heroGearTick = function heroGearTick(castle, now = Date.now()) {
+    const j = castle.gearJob; if (!j || j.end > now) return;
+    const all = [...this.heroGear(castle), ...Object.values((castle.general && castle.general.eq) || {}), ...(castle.deadGenerals || []).flatMap((d) => Object.values(d.eq || {}))];
+    const it = all.find((x) => x && x.id === j.item);
+    if (it) { it.plus = Math.max(it.plus || 0, j.plus); this.event(castle.owner, `Кузнец усилил: «${gearName(it)}».`); }
+    castle.gearJob = null;
+  };
   P.heroView = function heroView(castle) {
     const g = castle.general;
-    const v = { gear: this.heroGear(castle), bagMax: GEAR_BAG };
+    const v = { gear: this.heroGear(castle), bagMax: GEAR_BAG, job: castle.gearJob || null };
     if (g && !g.dead) { norm(g); Object.assign(v, { tal: g.tal, eq: g.eq, talPts: talentPoints(g.level), talFree: talentPoints(g.level) - spent(g), talResets: g.talResets, bonus: this.heroBonus(g) }); }
     return v;
   };
 }
 
 const heroCatalog = () => ({ talents: TALENTS, gear: GEAR, gearRarity: GEAR_RARITY, gearMaxPlus: GEAR_MAX_PLUS, talResetGold: TAL_RESET_GOLD,
+  enhanceSec: Array.from({ length: 4 }, (_, r) => Array.from({ length: GEAR_MAX_PLUS }, (_, p) => enhanceSec({ r, plus: p }))),
   enhanceCost: SLOTS.length && Array.from({ length: 4 }, (_, r) => Array.from({ length: GEAR_MAX_PLUS }, (_, p) => enhanceCost({ r, plus: p }))),
   sellPrice: Array.from({ length: 4 }, (_, r) => Array.from({ length: GEAR_MAX_PLUS + 1 }, (_, p) => sellPrice({ r, plus: p }))) });
 

@@ -505,7 +505,9 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const it = g.rollGear(0, 3); it.slot = 'weapon'; g.giveGear(ca, it);
   assert.ok(g.heroOp(ca, A, { op: 'equip', item: it.id }).ok && ca.general.eq.weapon === it && !ca.gear.length);
   Object.assign(ca.res, { wood: 1e6, stone: 1e6, iron: 1e6, food: 1e6 });
-  assert.ok(g.heroOp(ca, A, { op: 'enhance', item: it.id }).ok && it.plus === 1);
+  assert.ok(g.heroOp(ca, A, { op: 'enhance', item: it.id }).ok && it.plus === 0 && ca.gearJob && ca.gearJob.end - ca.gearJob.start >= 9 * 60000, 'усиление — по времени');
+  assert.ok(/уже усиливает/.test(g.heroOp(ca, A, { op: 'enhance', item: it.id }).error), 'одна вещь за раз');
+  ca.gearJob.end = Date.now() - 1; g.heroGearTick(ca); assert.ok(it.plus === 1 && !ca.gearJob, 'по окончании +1');
   const hb = g.heroBonus(ca.general); assert.ok(Math.abs(hb.atk - (0.10 + 0.15 * 1.15)) < 1e-9 && Math.abs(hb.mag - 0.15) < 1e-9, JSON.stringify(hb));
   const fight = (gen) => { cd.units = { 247: 100 }; cd.squads = []; ca.forge = {}; cd.forge = {}; return g.clash(ca, { units: { 247: 100 }, mission: 'attack', general: gen }, cd, null, Date.now()); };
   const plain = fight(false), hero = fight(true);

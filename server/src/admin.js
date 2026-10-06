@@ -137,6 +137,7 @@ function install(Game) {
           for (const t of c.training) t.start = now - t.each * t.count;
           if (c.research) c.research.end = now;
           for (const j of Object.values(c.upJobs || {})) j.end = now;
+          if (c.gearJob) c.gearJob.end = now;
           for (const a of c.armies) { if (a.state === 'go') { const d = a.arrive - a.depart; a.arrive = now; a.depart = now - d; } else a.back = now; }
           if (c.general && c.general.reviveAt) c.general.reviveAt = now;
           for (const d of c.deadGenerals || []) if (d.reviveAt) d.reviveAt = now;

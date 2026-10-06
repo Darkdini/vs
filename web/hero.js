@@ -42,6 +42,7 @@ function heroGearWin() {
   return `${ribbon('Снаряжение')}
     ${g ? `<div class="gdoll"><div class="gcol">${GEAR_L.map(slot).join('')}</div><div class="gmid">${portrait}<b>${esc(g.name)}</b><small>${fmtFull(g.level)} ур.</small></div><div class="gcol">${GEAR_R.map(slot).join('')}</div></div>
     <div class="gbon">${bonus || '<span>Наденьте снаряжение и изучите умения — бонусы появятся здесь.</span>'}</div>` : '<p class="parch-note">Генерала нет — снаряжение ждёт в Оружейной.</p>'}
+    ${h.job ? (() => { const all = [...h.gear, ...Object.values(eq)], it = all.find((x) => x && x.id === h.job.item); return `<div class="upbody center gjob">⚒ Кузнец усиливает${it ? ` «${esc(gearNm(it))}»` : ''} до +${h.job.plus}: <b><span class="cd" data-e="${h.job.end}"></span></b></div>`; })() : ''}
     ${ribbon(`Оружейная ${h.gear.length}/${h.bagMax}`)}
     <div class="gbag">${h.gear.length ? h.gear.map((it) => `<button class="gitem" data-gitem="${it.id}" style="--rc:${RR[it.r].color}">${gearIcon(it)}${it.plus ? `<em>+${it.plus}</em>` : ''}</button>`).join('')
       : '<p class="parch-note">Пусто. Снаряжение добывает генерал: в логовах похода «Тёмные земли» — всегда, в лагерях — иногда (умение «Охотник за трофеями» повышает шанс). Бывает и в Сундуке дня.</p>'}</div>`;
@@ -54,13 +55,15 @@ function heroItemWin() {
   if (!it) return heroGearWin();
   const cur = !worn && h.eq && h.eq[it.slot];
   const cost = (it.plus || 0) < HC().gearMaxPlus ? HC().enhanceCost[it.r][it.plus || 0] : null, sell = HC().sellPrice[it.r][it.plus || 0];
-  const res = (c) => `<div class="upcost">${RES4.map((r) => `<span data-need="${r}:${c[r]}">${RES_IC[r]}<b>${fmtFull(c[r])}</b></span>`).join('')}</div>`;
+  const res = (c, sec) => `<div class="upcost">${RES4.map((r) => `<span data-need="${r}:${c[r]}">${RES_IC[r]}<b>${fmtFull(c[r])}</b></span>`).join('')}${sec ? `<span>${TIME_IC}<b>${fmtT(sec)}</b></span>` : ''}</div>`;
+  const job = h.job, mine = job && job.item === it.id;
   return `${ribbon(G[it.slot].name)}
     <div class="gcard" style="--rc:${RR[it.r].color}">${gearIcon(it, 'big')}<div><b>${esc(gearNm(it))}</b><small>${RR[it.r].name}</small>
       <p>+${pc(gearVl(it))} — ${G[it.slot].txt}${cur ? `<br><span class="muted">сейчас надето: ${esc(gearNm(cur))} (+${pc(gearVl(cur))})</span>` : ''}</p></div></div>
     ${worn ? `<button class="pbar" data-gun="${it.slot}">Снять</button>` : MY().general ? `<button class="pbar" data-geq="${it.id}">Надеть</button>` : ''}
-    ${cost ? `<div class="upbody center">Усилить у Кузнеца до +${(it.plus || 0) + 1} (+15% к силе вещи):</div>${res(cost)}<button class="pbar" data-genh="${it.id}">Усилить</button>` : '<div class="upbody center">Вещь усилена до предела.</div>'}
-    ${inBag ? `<div class="upbody center">Разобрать на ресурсы:</div>${res(sell)}<button class="pbar" data-gsell="${it.id}">Разобрать</button>` : ''}`;
+    ${mine ? `<div class="upbody center gjob">⚒ Кузнец усиливает до +${job.plus}: <b><span class="cd" data-e="${job.end}"></span></b></div>`
+      : cost ? `<div class="upbody center">Усилить у Кузнеца до +${(it.plus || 0) + 1} (+15% к силе вещи):</div>${res(cost, HC().enhanceSec[it.r][it.plus || 0])}${job ? '<div class="upbody center muted">Кузнец занят другой вещью — дождитесь конца.</div>' : `<button class="pbar" data-genh="${it.id}">Усилить</button>`}` : '<div class="upbody center">Вещь усилена до предела.</div>'}
+    ${inBag && !mine ? `<div class="upbody center">Разобрать на ресурсы:</div>${res(sell)}<button class="pbar" data-gsell="${it.id}">Разобрать</button>` : ''}`;
 }
 
 function openHeroGear() { openSheet(heroGearWin); }

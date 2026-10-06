@@ -505,6 +505,7 @@ function install(Game, helpers) {
     // экспедиции из здания вернулись
     if (castle.expeds && castle.expeds.some((x) => x.end <= now)) { const done = castle.expeds.filter((x) => x.end <= now); castle.expeds = castle.expeds.filter((x) => x.end > now); for (const x of done) this.expedBack(castle, x); }
     // улучшение в Кузнице
+    if (castle.gearJob && this.heroGearTick) this.heroGearTick(castle, now);
     for (const [k, j] of Object.entries(castle.upJobs || {})) {
       if (!j || j.end > now) continue;
       const f = castle.forge[j.unit] || (castle.forge[j.unit] = { a: 0, d: 0 });
