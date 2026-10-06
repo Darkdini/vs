@@ -763,7 +763,7 @@ function ratingInfoSheet() {
 function profileSheet(p) {
   const self = p.self;
   const c = p.castles[0];
-  return `<div class="sh-head"><div class="big">${gimg(RACE_IMG[Object.keys(S.cat.races).find((k) => S.cat.races[k] === p.race)] || 'units/human/general.png')}</div>
+  return `<div class="sh-head"><div class="big">${gimg(RACE_IMG[Object.keys(S.cat.races).find((k) => S.cat.races[k] === p.race)] || 'units/human/hd/general.png')}</div>
     <div><h3>${esc(p.login)}</h3><div class="muted small">${esc(p.race)}${self ? ' · это вы' : ''}</div></div></div>
     <dl class="kv"><dt>Рейтинг</dt><dd>★ ${fmtFull(p.rating)}</dd><dt>В игре с</dt><dd>${fmtDate(p.created)}</dd>
     ${c ? `<dt>Замок</dt><dd>${esc(c.name)} (${c.x}:${c.y})</dd>` : ''}</dl>

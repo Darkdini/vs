@@ -595,7 +595,6 @@ input.num { width: 76px; padding: 7px; text-align: center; }
 #menubar button { min-width: 0; overflow: visible; }
 
 /* орки: спрайты гномов/людей с зелёной кожей (своих картинок орков в клиенте нет) */
-img[src$="?orc"] { filter: hue-rotate(85deg) saturate(1.5) brightness(0.92) contrast(1.1); }
 
 /* армии в замке и военный поход (как в оригинале) */
 .pager { display: flex; gap: 6px; margin: 6px 0 8px; }

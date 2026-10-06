@@ -2,7 +2,7 @@
 // Военная часть и функции зданий: юниты, тренировка, генерал, армии и бой, торговля, альянсы, науки, религия,
 // экспедиции и артефакты. Подключается к Game (game.js) как набор методов — см. install() внизу.
 //
-// Юниты — оригинальные из клиента «Третий Мир» (имена texts/strings.txt, картинки units/*), по 7 на расу
+// Юниты: по 10 боевых и 5 особых на расу, картинки — units/<раса>/hd/*.png, общие уникальные — units/unical/hd
 // + общие специальные и уникальные. Характеристики и цены берутся по роли из data/units.json (наш баланс, GDD §6),
 // формулы боя — GDD §9 (docs/02-game-design.md).
 
@@ -13,7 +13,7 @@ const C = require('./catalog');
 const SPEED = Number(process.env.SPEED || 1);
 const GDD = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'data', 'units.json'), 'utf8'));
 const RES4 = ['wood', 'stone', 'iron', 'food'];
-const RACE_DIR = { humans: 'human', elves: 'elf', dwarves: 'dwarv', orcs: 'dwarv' }; // у орков своих спрайтов в клиенте нет — гномьи с зелёным оттенком (клиент)
+const RACE_DIR = { humans: 'human/hd', elves: 'elf/hd', dwarves: 'dwarv/hd', orcs: 'orc/hd' }; // портреты рас (свои у каждой)
 
 // ---------- здания с функциями (id из клиента) ----------
 const B = {
@@ -36,7 +36,7 @@ const UNIT_LIST = [
   [205, 'Паладин', 'humans', 'human/hd/paladin', 'heavy_cav', B.STABLE, 5, { [B.WORKSHOP]: 5 }],
   [260, 'Колосс', 'humans', 'human/hd/colossus', 'elite_inf', B.MAGE_ACADEMY, 7, { [B.SMITH]: 3, [B.MAGIC_SCHOOL]: 7 }], // список на скрине может быть обрезан
   [259, 'Нурух', 'humans', 'human/hd/nuruh', 'legendary', B.MAGE_ACADEMY, 10, { [B.WORKSHOP]: 10 }], // список обрезан
-  [206, 'Джин', 'humans', 'human/jin', 'legendary', B.PORTAL, 1], // на скринах оригинала нет — оставлен как был
+  [206, 'Джин', 'humans', 'human/hd/jin', 'legendary', B.PORTAL, 1], // на скринах оригинала нет — оставлен как был
   // эльфы — как в оригинале (скрины окна «Юнит»): имена, требования, характеристики — в ORIG ниже
   [207, 'Эльф лучник', 'elves', 'elf/hd/archer', 'ranged', B.BARRACKS, 1],
   [208, 'Танцующий с клинками', 'elves', 'elf/hd/fighter', 'atk_inf', B.BARRACKS, 3, { [B.SMITH]: 1 }],
@@ -67,7 +67,7 @@ const UNIT_LIST = [
   [250, 'Тиран', 'orcs', 'orc/hd/tyrant', 'elite_inf', B.BARRACKS, 10, { [B.SMITH]: 10 }],
   [248, 'Шаман', 'orcs', 'orc/hd/shaman', 'mage', B.BARRACKS, 10, { [B.WORKSHOP]: 10, [B.SMITH]: 8 }],
   [249, 'Кулак Ярости', 'orcs', 'orc/hd/fist', 'legendary', B.STABLE, 10, { [B.SMITH]: 10 }], // требования на скрине не видны — прежние
-  [251, 'Изувер', 'orcs', 'dwarv/yeti', 'legendary', B.PORTAL, 1], // на скринах оригинала нет — оставлен как был
+  [251, 'Изувер', 'orcs', 'orc/hd/butcher', 'legendary', B.PORTAL, 1], // на скринах оригинала нет — оставлен как был
   // специальные — у каждой расы своя картинка (units/<раса>/torg.png и т.д.)
   [221, 'Торговец', 'all', 'torg', 'merchant', B.MARKET, 1],
   [224, 'Путешественник', 'all', 'traveler', 'settler', B.TRAVELER, 5],
@@ -76,12 +76,12 @@ const UNIT_LIST = [
   [233, 'Бунтарь', 'all', 'buntar', 'rebel', B.TRAVELER, 10],
   [236, 'Генерал', 'all', 'general', 'general', B.HQ, 1],
   // уникальные (units/unical)
-  [239, 'Великан', 'all', 'unical/giant', 'giant', B.TAVERN, 1],
-  [240, 'Катапульта', 'all', 'unical/katapulta', 'catapult', B.WORKSHOP, 5],
-  [241, 'Око', 'all', 'unical/oko', 'eye', B.SPY, 1],
-  [242, 'Тень', 'all', 'unical/shadow', 'shadow', B.SPY, 5],
-  [243, 'Таран', 'all', 'unical/taran', 'ram', B.WORKSHOP, 10, { [B.SMITH]: 10 }],
-  [244, 'Валькирия', 'all', 'unical/valkiriya', 'valkyrie', B.TAVERN, 5],
+  [239, 'Великан', 'all', 'unical/hd/giant', 'giant', B.TAVERN, 1],
+  [240, 'Катапульта', 'all', 'unical/hd/katapulta', 'catapult', B.WORKSHOP, 5],
+  [241, 'Око', 'all', 'unical/hd/oko', 'eye', B.SPY, 1],
+  [242, 'Тень', 'all', 'unical/hd/shadow', 'shadow', B.SPY, 5],
+  [243, 'Таран', 'all', 'unical/hd/taran', 'ram', B.WORKSHOP, 10, { [B.SMITH]: 10 }],
+  [244, 'Валькирия', 'all', 'unical/hd/valkiriya', 'valkyrie', B.TAVERN, 5],
 ];
 // роли, которых нет в GDD, — свой баланс в том же формате
 const CUSTOM = {

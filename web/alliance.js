@@ -189,7 +189,7 @@ function allyNewsAddWin() { return formWin('Новость', '<div class="clabel
 // ----- логи -----
 S.allyLogKind = 'war';
 // категории военного лога: подпись, иконка, фильтр
-const WAR_CAT = { att: ['Нападение', 'smallicon/swordred.png', 'att'], def: ['Оборона', 'smallicon/shieldblue.png', 'def'], scout: ['Разведка', 'units/human/scout.png', 'scout'],
+const WAR_CAT = { att: ['Нападение', 'smallicon/swordred.png', 'att'], def: ['Оборона', 'smallicon/shieldblue.png', 'def'], scout: ['Разведка', 'units/human/hd/scout.png', 'scout'],
   sdef: ['Вражеская разведка', 'smallicon/shieldgreen.png', 'scout'], rout: ['Подкрепление союзнику', 'smallicon/swordgreen.png', 'reinf'], rin: ['Подкрепление получено', 'smallicon/shieldgreen.png', 'reinf'] };
 function allyLogsWin() {
   const a = S.ally; if (!a) return loading('Военные логи');

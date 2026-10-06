@@ -8,10 +8,10 @@ const RES4 = ['wood', 'stone', 'iron', 'food'];
 const HQ = 2;
 let UNIT_BY = null;
 const unitById = (id) => { if (!UNIT_BY) UNIT_BY = Object.fromEntries(M().units.map((u) => [u.id, u])); return UNIT_BY[id]; };
-// у орков нет своих спрайтов в клиенте: берутся похожие, ?orc красит их в зелёный (style.css)
-const DW_HD = ['traveler', 'buntar', 'arheolog', 'wisdom', 'general']; // у всех рас — новые картинки (оригинал); у людей нет нового Путешественника — прежний
+// портреты юнитов: units/<раса>/hd/*.png, у каждой расы свои
+const DW_HD = ['torg', 'traveler', 'buntar', 'arheolog', 'wisdom', 'general']; // у всех рас — новые картинки (оригинал); у людей нет нового Путешественника — прежний
 const HD_DIR = { dwarves: 'dwarv/hd', orcs: 'orc/hd', elves: 'elf/hd', humans: 'human/hd' };
-const unitSrc = (u, race = S.st.user.race) => `${GFX}units/${u.img === 'unical/taran' ? 'dwarv/hd/taran' : u.race === 'all' && !u.img.includes('/') ? (HD_DIR[race] && DW_HD.includes(u.img) && !(race === 'humans' && u.img === 'traveler') ? `${HD_DIR[race]}/${u.img}` : `${M().raceDir[race]}/${u.img}`) : u.img}.png${(u.race === 'orcs' && !u.img.startsWith('orc/') && !u.img.startsWith('uniq/')) || (u.race === 'all' && race === 'orcs' && !u.img.includes('/') && !DW_HD.includes(u.img)) ? '?orc' : ''}`;
+const unitSrc = (u, race = S.st.user.race) => `${GFX}units/${u.race === 'all' && !u.img.includes('/') ? `${HD_DIR[race] || 'human/hd'}/${u.img}` : u.img}.png`;
 const uimg = (u, cls = 'ui') => `<img class="${cls}" src="${unitSrc(u)}" alt="">`;
 const raceUnit = (u, race = S.st.user.race) => (u && u.raceOvr && u.raceOvr[race] ? { ...u, ...u.raceOvr[race] } : u); // цена общих юнитов по расе
 const myUnitList = () => M().units.filter((u) => (u.race === S.st.user.race || u.race === 'all') && !u.notrain).map((u) => raceUnit(u));
@@ -268,7 +268,7 @@ function expedHtml() {
   const free = I.slots - ex.length, n = Math.max(0, Math.min(I.have, I.maxN, S.exN ?? Math.min(10, I.have)));
   const KIMG = { near: 'build/arhcamp.png', city: 'ground/castle_old.png', tomb: 'ground/mount.png' };
   return `<div class="section">Экспедиции</div>
-    ${ex.map((x) => { const k = I.kinds.find((y) => y.k === x.kind); return `<div class="card job exrun"><img class="exic" src="${GFX}units/human/arheolog.png" alt="">
+    ${ex.map((x) => { const k = I.kinds.find((y) => y.k === x.kind); return `<div class="card job exrun"><img class="exic" src="${GFX}units/human/hd/arheolog.png" alt="">
       <div class="grow"><b>${esc(k ? k.name : '')}</b> · археологов ${x.n}<div class="bar"><i data-s="${x.start}" data-e="${x.end}"></i></div></div><span class="cd" data-e="${x.end}"></span></div>`; }).join('')}
     <div class="card exhead"><div>Археологов в замке: <b>${fmtFull(I.have)}</b> · экспедиций: <b>${ex.length} из ${I.slots}</b></div>
       <label class="exn">В экспедицию: <input type="number" inputmode="numeric" min="1" max="${Math.min(I.have, I.maxN)}" value="${n}" data-exn> <small>(не больше ${I.maxN}; +2% к находке за каждого)</small></label></div>

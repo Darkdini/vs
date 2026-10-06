@@ -8,7 +8,7 @@ const me = () => S.st.user.id;
 const ribbon = (t) => `<div class="ribbon">${esc(t)}</div>`;
 const soonWin = (title) => () => `${ribbon(title)}<div class="parch-note">Этот раздел появится в следующих версиях сервера.</div>`;
 const openSoon = (title) => openSheet(soonWin(title));
-const raceIcon = (race) => gimg(RACE_IMG[race] || 'units/human/general.png', 'rico');
+const raceIcon = (race) => gimg(RACE_IMG[race] || 'units/human/hd/general.png', 'rico');
 
 // ---------- меню ----------
 const M3 = (n) => `gfx3d/menu3/${n}.png`; // иконки плиток меню — как в оригинале
@@ -18,7 +18,7 @@ const MENUS = {
     ...(S.st.user.smod || S.st.user.admin ? [['Модерация', 'smod_badge_s.png', () => openSmod()]] : []),
     ['Задания', M3('quests'), () => openQuests()],
     ['Профиль', M3('profile'), () => openAccount()],
-    ['Советник', `units/${S.cat.mil.raceDir[S.st.user.race]}/wisdom.png${S.st.user.race === 'orcs' ? '?orc' : ''}`, () => openSheet(advisorWin)],
+    ['Советник', `units/${S.cat.mil.raceDir[S.st.user.race]}/wisdom.png`, () => openSheet(advisorWin)],
     ...(shopVisible() ? [['Лавка Короля', 'shop/stall.png', () => openShop()]] : []),
     ['Казна', M3('treasury'), () => openSheet(treasuryWin)],
     ['Премиум', M3('premium'), () => openPremium()],
@@ -476,7 +476,7 @@ function advisorWin() {
   if (!L(22)) tips.push('Забор даёт бонус к защите замка и всех войск в нём.');
   if (!L(26)) tips.push('Тайник прячет часть ресурсов от грабителей.');
   if (!tips.length) tips.push('Замок развивается отлично! Грабьте лагеря Дикарей и Лесорубов на карте мира и поднимайтесь в Зале Славы.');
-  return `${ribbon('Советник')}<div class="advisor"><img src="${GFX}units/${S.cat.mil.raceDir[S.st.user.race]}/wisdom.png${S.st.user.race === 'orcs' ? '?orc' : ''}" alt=""><div>${tips.map((t) => `<p>${esc(t)}</p>`).join('')}</div></div>`;
+  return `${ribbon('Советник')}<div class="advisor"><img src="${GFX}units/${S.cat.mil.raceDir[S.st.user.race]}/wisdom.png" alt=""><div>${tips.map((t) => `<p>${esc(t)}</p>`).join('')}</div></div>`;
 }
 const newsWin = () => `${ribbon('Новости')}<div class="pstats"><b>Тестовый сервер</b><br>Работают: постройки и таблицы уровней, армии и генералы, бои и набеги, разведка, экспедиции и артефакты,
   рынок, альянсы, науки, религия, чат, друзья, репутация, Зал Славы.<br><br>Скорость мира ×${S.cat.speed}.</div>`;
@@ -484,7 +484,7 @@ const contactsWin = () => `${ribbon('Контакты')}<div class="pstats">Во
 const menuDescWin = () => `${ribbon('Описание меню')}<div class="pstats">${Object.values(MENUS).map((m) => `<b>${m.label}</b>: ${m.items().filter(Boolean).map((i) => i[0]).join(', ')}`).join('<br><br>')}</div>`;
 const helpWin = () => `${ribbon('Справка')}<div class="mitems light">
   <button class="mitem" data-act="book"><img src="${GFX}build/university.png" alt=""><span>Справочник зданий</span></button>
-  <button class="mitem" data-act="army"><img src="${GFX}units/human/knight.png" alt=""><span>Войска</span></button>
+  <button class="mitem" data-act="army"><img src="${GFX}units/human/hd/knight.png" alt=""><span>Войска</span></button>
   <button class="mitem" data-act="rules"><img src="${GFX}smallicon/Ekoscience.png" alt=""><span>Формулы</span></button></div>`;
 const settingsWin = () => `${ribbon('Настройки')}<div class="pstats">Игрок: <b>${esc(S.st.user.login)}</b> · ${esc(S.st.user.raceName)}<br>Скорость мира ×${S.cat.speed}</div>
   <label class="cchk setchk"><input type="checkbox" data-showlvl ${S.showLvl ? 'checked' : ''}><i></i><img src="gfx3d/top/btn_lvl.png" alt=""> Показывать уровни зданий (замок и земли)</label>
