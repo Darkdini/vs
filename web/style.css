@@ -1500,6 +1500,7 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .gmid b { font: 700 15px system-ui; } .gmid small { font-size: 12px; }
 .gbon { display: flex; flex-wrap: wrap; gap: 4px 10px; justify-content: center; font: 600 12px system-ui; color: #1d5a1d; margin: 4px 0 8px; }
 .gbon span { white-space: nowrap; }
+.gbon span.ghint { white-space: normal; text-align: center; font-size: 14px; padding: 0 8px; }
 .gbag { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin: 8px 0; }
 .gbag .parch-note { grid-column: 1 / -1; }
 .gitem { position: relative; aspect-ratio: 1; min-width: 0; padding: 3px; border-radius: 8px; border: 3px solid var(--rc); background: radial-gradient(#4a2e16, #24140a); box-shadow: 0 0 5px var(--rc); }

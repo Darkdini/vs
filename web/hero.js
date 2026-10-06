@@ -41,7 +41,7 @@ function heroGearWin() {
   const race = S.st.user.race, portrait = g ? `<img class="gport" src="${GFX}hero/portrait_${race}.png" data-fb="${unitSrc(unitById(M().generalId))}" alt="">` : '';
   return `${ribbon('Снаряжение')}
     ${g ? `<div class="gdoll"><div class="gcol">${GEAR_L.map(slot).join('')}</div><div class="gmid">${portrait}<b>${esc(g.name)}</b><small>${fmtFull(g.level)} ур.</small></div><div class="gcol">${GEAR_R.map(slot).join('')}</div></div>
-    <div class="gbon">${bonus || '<span>Наденьте снаряжение и изучите умения — бонусы появятся здесь.</span>'}</div>` : '<p class="parch-note">Генерала нет — снаряжение ждёт в Оружейной.</p>'}
+    <div class="gbon">${bonus || '<span class="ghint">Наденьте снаряжение и изучите умения — бонусы появятся здесь.</span>'}</div>` : '<p class="parch-note">Генерала нет — снаряжение ждёт в Оружейной.</p>'}
     ${h.job ? (() => { const all = [...h.gear, ...Object.values(eq)], it = all.find((x) => x && x.id === h.job.item); return `<div class="upbody center gjob">⚒ Кузнец усиливает${it ? ` «${esc(gearNm(it))}»` : ''} до +${h.job.plus}: <b><span class="cd" data-e="${h.job.end}"></span></b></div>`; })() : ''}
     ${ribbon(`Оружейная ${h.gear.length}/${h.bagMax}`)}
     <div class="gbag">${h.gear.length ? h.gear.map((it) => `<button class="gitem" data-gitem="${it.id}" style="--rc:${RR[it.r].color}">${gearIcon(it)}${it.plus ? `<em>+${it.plus}</em>` : ''}</button>`).join('')
