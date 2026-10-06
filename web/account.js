@@ -22,7 +22,7 @@ function accountWin(p) {
   return `${ribbon('Профиль')}
     <div class="acctop"><div class="acleft"><div class="avatar">${avatarImg(p)}</div>
       <button class="pbtn acbtn" data-avatar="set">Изменить</button>${p.avatar ? '<button class="pbtn acbtn" data-avatar="del">Удалить</button>' : ''}</div>
-      <div class="acinfo">Мой ник: <b>${esc(p.login)}</b><br>Раса: ${raceIcon(p.race)} ${esc(p.raceName)}<br>Звание: ${title}<br>Рейтинг: ${fmtFull(p.rating)}<br>
+      <div class="acinfo">Мой ник: <b>${esc(p.login)}</b><br>${(p.nicks || []).length ? `<button class="plink nickhist" data-nicks>Бывшие ники: ${p.nicks.slice(0, 3).map((n) => esc(n.from)).join(', ')}${p.nicks.length > 3 ? ` +${p.nicks.length - 3}` : ''} ›</button><br>` : ''}Раса: ${raceIcon(p.race)} ${esc(p.raceName)}<br>Звание: ${title}<br>Рейтинг: ${fmtFull(p.rating)}<br>
         Репутация (${fmtFull(p.reputation)}): ${repIcons(p.reputation)}<br>Альянс: ${p.alliance ? `<b>${esc(p.alliance.name)} [${esc(p.alliance.tag)}]</b>` : '—'}</div></div>
     <div class="acctype">Тип аккаунта: ${a.premium ? 'Премиум «Завоеватель»' : 'Базовый'}</div>
     ${bar('data-acct="premium"', `${GFX}premium_crown.png`, 'Премиум пакеты')}

@@ -1090,6 +1090,15 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     g.friendOp(a, 'add', b.id); assert.ok(g.friendOp(b, 'decline', a.id).ok && !g.isFriend(a, b) && g.friendState(a, b) === null, 'отклонить');
     console.log('✓ Друзья: заявка, отчёт, взаимность, лента, дни рождения, админ оффлайн');
   }
+  { // история ников: видна в профиле, поиск по старому нику; сброс модерацией видят только модераторы
+    const a = g.register({ login: 'nkOld1', password: '12345', race: 0 }).user, b = g.register({ login: 'nkSee1', password: '12345', race: 0 }).user;
+    a.gold = 500; assert.ok(g.changeNick(a, 'nkNew1').ok);
+    let p = g.profileOf(a, b); assert.ok(p.nicks.length === 1 && p.nicks[0].from === 'nkOld1' && p.nicks[0].to === 'nkNew1', 'бывший ник в профиле');
+    assert.ok(g.searchPlayers('nkold1').some((r) => r.id === a.id), 'находится по старому нику');
+    a.nickLog.push({ at: Date.now(), from: 'Плохой', to: 'Игрок1', by: 'mod' });
+    assert.ok(g.profileOf(a, b).nicks.length === 1 && g.profileOf(a, Object.values(g.db.users).find((u) => u.admin)).nicks.length === 2, 'сброшенный модерацией ник скрыт от игроков');
+    console.log('✓ История ников в профиле');
+  }
   try { fs.unlinkSync(DB); } catch {}
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });

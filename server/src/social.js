@@ -218,6 +218,8 @@ function install(Game) {
       brank: this.brOf ? (({ idx, title, icon, stars }) => ({ idx, title, icon, stars }))(require('./battlerank').rankInfo(this.brRank(u))) : null,
       medals: this.medalsOf(u.id), hallRep: u.hallRep || 0, awards: (u.allyAwards || []).slice().reverse(), bossBadges: (u.bossBadges || []).slice().reverse(),
       castles: this.castlesOf(u).map((k, i) => ({ id: k.id, name: k.name, x: k.x, y: k.y, capital: i === 0, rating: this.rating(k) })),
+      // история ников: прежние ники с датой смены; неприличный ник, сброшенный модерацией, видят только админ и модераторы
+      nicks: (u.nickLog || []).filter((n) => !n.by || viewer.admin || viewer.mod || viewer.smod).map((n) => ({ from: n.from, to: n.to, at: n.at, mod: n.by ? 1 : undefined })).reverse(),
       self: u.id === viewer.id,
       friend: this.isFriend ? this.isFriend(viewer, u) : false, friendState: this.friendState ? this.friendState(viewer, u) : null, bday: u.bday ? this.bdayText(u.bday) : '', bdayRaw: u.id === viewer.id ? u.bday || '' : undefined,
       repToday: ((viewer.repGiven || {})[u.id] || 0) > Date.now() - 86400000,
@@ -251,7 +253,7 @@ function install(Game) {
   };
   P.searchPlayers = function searchPlayers(q) {
     q = String(q || '').trim().toLowerCase();
-    const list = q ? Object.values(this.db.users).filter((u) => u.login.toLowerCase().includes(q)) : this.leaderboard().slice(0, 30).map((x) => x.u);
+    const list = q ? Object.values(this.db.users).filter((u) => u.login.toLowerCase().includes(q) || (u.nickLog || []).some((n) => !n.by && n.from.toLowerCase() === q)) : this.leaderboard().slice(0, 30).map((x) => x.u);
     return list.slice(0, 30).map((u) => this.playerRow(u));
   };
   // земляки — игроки в радиусе от замка

@@ -262,7 +262,7 @@ function profileWin(p) {
     <button class="pbar" data-soon="Авторитет города">Стать Авторитетом!</button>
     ${ribbon('Информация')}
     <div class="pinfo"><div class="avatar ${p.avatar ? 'avaclick' : ''}" ${p.avatar ? `data-avaview="${p.id}"` : ''}>${avatarImg(p)}</div><div>
-      Никнейм: <b>${esc(p.login)}</b><br>Ранг: ${p.rank}<br>Рейтинг: ${fmtFull(p.rating)}<br>Раса: ${raceIcon(p.race)} ${esc(p.raceName)}</div></div>
+      Никнейм: <b>${esc(p.login)}</b><br>${(p.nicks || []).length ? `<button class="plink nickhist" data-nicks>Бывшие ники: ${p.nicks.slice(0, 3).map((n) => esc(n.from)).join(', ')}${p.nicks.length > 3 ? ` +${p.nicks.length - 3}` : ''} ›</button><br>` : ''}Ранг: ${p.rank}<br>Рейтинг: ${fmtFull(p.rating)}<br>Раса: ${raceIcon(p.race)} ${esc(p.raceName)}</div></div>
     ${p.brank ? `<button class="brline" data-brank="${p.id}"><span class="brl-t">Боевой ранг:</span><span class="brl-r"><img src="${BR_IMG(p.brank.icon)}" alt="">${brStars(p.brank.idx < 0 ? 0 : p.brank.stars)}<small>${esc(p.brank.title)}</small></span><b class="brarr">›</b></button>` : ''}
     <button class="pline plink2" data-reptable>Репутация (${fmtFull(p.reputation)}): ${repIcons(p.reputation)}</button>
     ${best.length ? `<div class="pline">Зал Славы: ${medals}</div>` : ''}
@@ -305,6 +305,12 @@ function profileMoreWin(p) {
     ${p.self ? '' : `<button class="ptile" data-coinvs="${esc(p.login)}"><img src="${GFX}coin/stack.png" alt=""><span>Орёл-решка</span></button>`}
   </div>`;
 }
+// история ников игрока: какой ник был и когда сменён
+function nicksWin(p) {
+  return `${ribbon('История ников')}<div class="bwline center">Сейчас: <b>${esc(p.login)}</b></div>
+    ${(p.nicks || []).map((n) => `<div class="nickrow"><span><b>${esc(n.from)}</b> → ${esc(n.to)}${n.mod ? ' <small class="muted">(сброшен модерацией)</small>' : ''}</span><small>${fmtDate(n.at)}</small></div>`).join('') || '<p class="parch-note">Ник не менялся.</p>'}`;
+}
+$('#sheetBody').addEventListener('click', (e) => { if (e.target.closest('[data-nicks]') && S.lastProfile) openSheet(() => nicksWin(S.lastProfile)); });
 function profileInfoWin(p) {
   return `${ribbon('Личная информация')}<div class="pstats">Игрок: <b>${esc(p.login)}</b><br>Раса: ${esc(p.raceName)}<br>В игре с: ${fmtDate(p.created)}${p.lastSeen ? `<br>Последний вход: ${fmtDate(p.lastSeen)}` : ''}</div>
     ${p.self ? bdayForm(p.bdayRaw) : p.bday ? `<div class="pstats">🎂 День рождения: <b>${esc(p.bday)}</b></div>` : ''}
