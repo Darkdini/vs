@@ -206,11 +206,11 @@ function mktMerchWin() {
     <p class="small muted">Торговцы не тренируются и не участвуют в боях — при Рынке их всегда 20. Груз — 45 ед. за уровень Рынка (20 ур. — 900 ед.), скорость — ${m.speed || 60} полей/час.</p>`;
 }
 function mktBarterWin() {
-  const rate = MY().bonus.marketRate, opt = (sel) => RES4.map((r) => `<option value="${r}" ${r === sel ? 'selected' : ''}>${RES_NAME[r]}</option>`).join('');
+  const opt = (sel) => RES4.map((r) => `<option value="${r}" ${r === sel ? 'selected' : ''}>${RES_NAME[r]}</option>`).join('');
   return `${ribbon('Бартер')}<form class="card stack" data-form="exchange">
       <div class="row2"><label>Отдать<select name="from">${opt('wood')}</select></label><label>Получить<select name="to">${opt('iron')}</select></label></div>
-      <input name="amount" type="number" inputmode="numeric" min="1" placeholder="Сколько отдать" required>
-      <p class="small muted">Курс ${rate.toFixed(2)} (растёт с уровнем Рынка, максимум 1:1).</p><button class="btn primary">Обменять</button></form>`;
+      <input name="amount" type="number" inputmode="numeric" min="1" placeholder="Сколько отдать" required data-bxamt>
+      <p class="small muted">Курс 2,5 : 1 — отдаёте 2,5 единицы, получаете 1.</p><p class="bxgot" data-bxgot>Получите: <b>0</b></p><button class="btn primary">Обменять</button></form>`;
 }
 $('#sheetBody').addEventListener('click', (e) => {
   const own = e.target.closest('[data-mkown]');
@@ -547,3 +547,5 @@ $('#sheetBody').addEventListener('click', (e) => {
   send({ t: 'alliance', op: b.dataset.repinv, id: Number(b.dataset.id) });
   b.closest('.two').innerHTML = `<p class="parch-note">${b.dataset.repinv === 'accept' ? 'Вступаете в альянс…' : 'Приглашение отклонено.'}</p>`;
 });
+// бартер: сколько получите при курсе 2,5 : 1
+$('#sheetBody').addEventListener('input', (e) => { const i = e.target.closest('[data-bxamt]'); if (!i) return; const g = $('[data-bxgot] b'); if (g) g.textContent = fmtFull(Math.floor((Number(i.value) || 0) * (MY().bonus.marketRate || 0.4))); });

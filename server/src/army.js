@@ -419,7 +419,7 @@ function install(Game, helpers) {
       hidden: L(B.CACHE) ? Math.round(200 * 1.3 ** (L(B.CACHE) - 1) * (race === 'dwarves' ? 2 : 1) * (1 + ms.hidden)) : 0,
       watch: L(B.WATCHTOWER), spyCenter: L(B.SPY), mason: L(B.MASON),
       tradeCarry: 1 + 0.1 * L(B.TRADE_HALL) + ms.tradeCarry, tradeSpeed: 1 + 0.1 * L(B.TRADE_HALL) + ms.tradeSpeed,
-      marketRate: L(B.MARKET) ? Math.min(1, 0.7 + 0.015 * L(B.MARKET)) : 0,
+      marketRate: L(B.MARKET) ? 0.4 : 0, // бартер: отдаёшь 2,5 — получаешь 1 (уровень Рынка не влияет)
       artSlots: L(B.ART_TOWER) ? 1 + Math.floor(L(B.ART_TOWER) / 3) : 0,
       artStore: L(B.TREASURY) ? 3 + L(B.TREASURY) : 3,
     };
