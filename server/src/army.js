@@ -300,7 +300,8 @@ function npcGarrison(npc) {
   const big = npc.def.inf >= 1000, g = big ? GUARD.troll : GUARD.guard;
   return [{ key: big ? 'troll' : 'guard', n: Math.max(1, Math.round(npc.def.inf / g.def / (big ? 1.1 : 1))), ...g }, { key: 'shaman', n: Math.max(0, Math.round(npc.def.mag / GUARD.shaman.mdef)), ...GUARD.shaman }].filter((x) => x.n > 0);
 }
-const NEWBIE_RATING = Number(process.env.NEWBIE_RATING || 100); // защита новичка: на слабых игроков нападать нельзя
+const NEWBIE_RATING = Number(process.env.NEWBIE_RATING || 100); // (прежнее правило по рейтингу — больше не используется)
+// защита новичка: ровно NEWBIE_DAYS дней с регистрации (по умолчанию 3); нападёт сам на игрока — защита снимается
 
 // Центр разведки: какой уровень здания открывает пункт и какая доля разведчиков должна выжить
 const UP = {
@@ -323,6 +324,10 @@ function install(Game, helpers) {
 
   // ----- состояние замка (добавляется лениво, старые базы подхватываются) -----
   // науки игрока: одни на все замки, хранятся у игрока; при первом обращении — лучший уровень из всех его замков (прежние науки каждого замка)
+  // защита новичка: NEWBIE_DAYS дней с регистрации (у всех, кто зарегистрировался позже, — сама); админ и боты — без неё
+  P.newbieUntil = function newbieUntil(u) { const d = Number(process.env.NEWBIE_DAYS ?? 3); return !u || u.admin || u.bot || u.newbieOff || !d ? 0 : (u.created || 0) + d * 86400000; };
+  P.isNewbie = function isNewbie(u, now = Date.now()) { return this.newbieUntil(u) > now; };
+  P.newbieLeftText = function newbieLeftText(u, now = Date.now()) { const ms = this.newbieUntil(u) - now, h = Math.ceil(ms / 3600000); return h >= 24 ? `${Math.floor(h / 24)} дн. ${h % 24} ч.` : `${Math.max(1, h)} ч.`; };
   P.sciOf = function sciOf(castle) {
     const u = this.userById(castle.owner), z = { eco: 0, eng: 0, fhi: 0, war: 0 };
     if (!u) return castle.sciences || z;
@@ -804,7 +809,8 @@ function install(Game, helpers) {
     const me = this.ownerOf(castle);
     if (['attack', 'raid', 'scout'].includes(mission) && this.userShielded(me)) return { error: 'У Вас включена защита замка или королевства — армии не ведут боевых действий, пока она действует.' };
     if (target && target.owner !== castle.owner && this.castleShield(target)) return { error: mission === 'reinforce' ? 'Замок под защитой — подкрепление в него отправить нельзя.' : 'Замок под защитой — нападать и разведывать его нельзя.' };
-    if (target && ['attack', 'raid', 'scout'].includes(mission) && !me.admin && this.rating(target) < NEWBIE_RATING) return { error: `Игрок под защитой новичка (рейтинг ниже ${NEWBIE_RATING}).` };
+    if (target && ['attack', 'raid', 'scout'].includes(mission) && !me.admin && this.isNewbie(this.ownerOf(target))) return { error: `Игрок под защитой новичка ещё ${this.newbieLeftText(this.ownerOf(target))}.` };
+    if (target && ['attack', 'raid'].includes(mission) && this.isNewbie(me)) { me.newbieOff = true; this.cache = {}; } // новичок напал сам — его защита снимается
     const lair = !target && !obj && ['attack', 'raid'].includes(mission) ? this.lairAt(castle.owner, x, y) : null; // логово похода «Тёмные земли»
     const boss = !target && !obj && !lair && ['attack', 'raid'].includes(mission) ? this.bossAt(x, y) : null; // мировой босс (boss.js)
     if (!target && !lair && !boss && (!obj || (!NPC[obj.img] && mission !== 'scout'))) return { error: 'Здесь некого атаковать.' };

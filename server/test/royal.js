@@ -1,6 +1,7 @@
 'use strict';
 // Баланс лояльности населения: самый активный игрок может захватить первый замок только через ~месяц.
 const assert = require('assert');
+process.env.NEWBIE_DAYS = process.env.NEWBIE_DAYS ?? '0'; // бои в тестах — без защиты новичка (её проверка — отдельно)
 process.env.LUCK = '0';
 const os = require('os'), path = require('path'), fs = require('fs');
 const DB = path.join(os.tmpdir(), `royal-${process.pid}.json`);
@@ -681,6 +682,18 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   g.tgApi = realApi; delete process.env.TG_AUTH_TOKEN; delete process.env.TG_AUTH_BOT;
   assert.ok(g.tgResetRequest('tgplayer').error, 'без бота — подсказка написать администрации');
   console.log('✓ Telegram: привязка по одноразовой ссылке, код сброса (хеш, 15 мин, 5 попыток, 3 в час), пароль не пересылается, отвязка — по коду, уведомления');
+}
+{ // защита новичка: ровно 3 дня с регистрации; уже зарегистрированные — по своей дате; напал сам — снимается
+  process.env.NEWBIE_DAYS = '3';
+  const n1 = g.register({ login: 'newb3d', password: '12345', race: 0 }).user, n2 = g.register({ login: 'newb4d', password: '12345', race: 0 }).user, at = g.register({ login: 'newbatt', password: '12345', race: 0 }).user;
+  n2.created = Date.now() - 4 * 86400000; at.created = 0; g.adminAddCastles(at, 1); const ac = g.castlesOf(at)[1]; g.mil(ac); ac.units = { 200: 100 };
+  const c1 = g.castlesOf(n1)[0], c2 = g.castlesOf(n2)[0];
+  assert.ok(g.isNewbie(n1) && !g.isNewbie(n2) && /новичка ещё 3 дн/.test(g.sendArmy(ac, { units: { 200: 5 }, mission: 'attack', x: c1.x, y: c1.y }).error || ''), '3 дня с регистрации');
+  assert.ok(g.worldObjects(c1.x, c1.y, 1, 1)[0].newbie && !g.worldObjects(c2.x, c2.y, 1, 1)[0].newbie, 'купол — только у новичка');
+  n1.created = Date.now() - 3 * 86400000 + 3600000; assert.ok(g.isNewbie(n1) && g.newbieLeftText(n1) === '1 ч.', 'последний час');
+  n1.created = Date.now() - 3 * 86400000 - 1000; assert.ok(!g.isNewbie(n1), 'ровно через 3 дня — без защиты');
+  process.env.NEWBIE_DAYS = '0';
+  console.log('✓ Защита новичка: ровно 3 дня с регистрации, купол на карте, зарегистрированные раньше — по своей дате');
 }
 { // Ратуша → Защита (shield.js): купол на замок/королевство, контрразведка
   const a = g.register({ login: 'shldatt', password: '12345', race: 0 }).user, d = g.register({ login: 'shlddef', password: '12345', race: 0 }).user;
