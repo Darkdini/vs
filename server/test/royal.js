@@ -69,6 +69,13 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(Math.abs(at(4) - 1.052) < 1e-9 && Math.abs(at(5) - 1.065) < 1e-9 && Math.abs(at(20) - 1.26) < 1e-9, `${at(4)} ${at(5)} ${at(20)}`); // максимум +26%
   sc.sciences.eng = 20; assert.ok(Math.abs(g.bonus(sc).build - 0.8 * 0.95) < 1e-9);
   const lv = require('../src/army').SCIENCES.war.levels; assert.ok(lv.length === 20 && lv[4].mile && !lv[3].mile);
+  { // науки общие на все замки: изучаются в столице, второй замок получает их сразу
+    const q = g.register({ login: 'scishare', password: '12345', race: 0 }).user; g.adminAddCastles(q, 1); const [cap, two] = g.castlesOf(q);
+    g.mil(cap); g.mil(two); q.sciences = null; cap.sciences = { eco: 0, eng: 3, fhi: 0, war: 7 }; two.sciences = { eco: 5, eng: 0, fhi: 0, war: 2 };
+    delete q.sciences; const m = g.sciOf(cap); assert.ok(m.war === 7 && m.eco === 5 && m.eng === 3, 'перенос: лучший уровень из всех замков');
+    const a0 = g.bonus(two).atk; m.war = 10; g.mil(two); assert.ok(g.sciOf(two) === g.sciOf(cap) && two.sciences.war === 10 && Math.abs(g.bonus(two).atk / a0 - 1.13 / 1.091) < 1e-9, 'второй замок — те же науки');
+    assert.ok(/столице/.test(g.research(two, 'war').error || ''), 'во втором замке не изучить');
+  }
   console.log('✓ науки: Военное дело 20 ур. — атака +26% (максимум), Инженерия 20 ур. — стройка ×0.76');
 }
 // военные логи альянса: категории и доступ к отчётам союзников

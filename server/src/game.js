@@ -487,7 +487,7 @@ class Game {
       const def = C.BY_ID[b];
       if (def && def.produces) r[def.produces] += C.PROD[C.landEff(castle.levels[1][i])] * C.PROD_K[def.produces] * (C.LAND_YIELD[b] || 1);
     });
-    r.people *= 1 + PEOPLE_SCI * ((castle.sciences && castle.sciences.eco) || 0); // наука «Экономика»: люди +0,37% за уровень (полные земли 1303 → 1400)
+    r.people *= 1 + PEOPLE_SCI * ((this.sciOf ? this.sciOf(castle) : castle.sciences || {}).eco || 0); // наука «Экономика»: люди +0,37% за уровень (полные земли 1303 → 1400)
     if (this.isPremium(this.userById(castle.owner))) r.people *= 1.5; // премиум: население +50%
     const prod = this.bonus(castle).prod; // наука Экономика, религия Природа, артефакты
     for (const k of ['wood', 'stone', 'iron', 'food']) r[k] *= prod;

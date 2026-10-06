@@ -322,11 +322,18 @@ function install(Game, helpers) {
   const { buildTime } = helpers;
 
   // ----- состояние замка (добавляется лениво, старые базы подхватываются) -----
+  // науки игрока: одни на все замки, хранятся у игрока; при первом обращении — лучший уровень из всех его замков (прежние науки каждого замка)
+  P.sciOf = function sciOf(castle) {
+    const u = this.userById(castle.owner), z = { eco: 0, eng: 0, fhi: 0, war: 0 };
+    if (!u) return castle.sciences || z;
+    if (!u.sciences) { u.sciences = z; for (const c of this.castlesOf(u)) for (const k of Object.keys(z)) u.sciences[k] = Math.max(u.sciences[k], (c.sciences && c.sciences[k]) || 0); }
+    return u.sciences;
+  };
   P.mil = function mil(castle) {
     if (!castle.units) castle.units = {};
     if (!castle.training) castle.training = [];
     if (!castle.armies) castle.armies = [];
-    if (!castle.sciences) castle.sciences = { eco: 0, eng: 0, fhi: 0, war: 0 };
+    castle.sciences = this.sciOf(castle); // науки — общие на все замки игрока (изучаются в столице)
     if (!castle.artifacts) castle.artifacts = [];
     if (!castle.expeds) castle.expeds = [];
     { const now = Date.now(); // пробуждённые артефакты: срок действия; истёкшие рассыпаются
@@ -387,7 +394,7 @@ function install(Game, helpers) {
   P.bonus = function bonus(castle) {
     this.mil(castle);
     const L = (id) => this.buildingLevel(castle, id);
-    const sci = castle.sciences, templeL = L(B.TEMPLE), rel = castle.religion;
+    const sci = this.sciOf(castle), templeL = L(B.TEMPLE), rel = castle.religion;
     const art = { atk: 0, def: 0, prod: 0, speed: 0, train: 0 };
     for (const a of castle.artifacts) if (a.active) art[a.type] += RARITY[a.rarity].bonus;
     const gen = castle.general && !castle.general.dead && !castle.general.away && castle.general.pts ? castle.general.pts.cdef : 0;
@@ -503,7 +510,7 @@ function install(Game, helpers) {
     }
     // исследование
     if (castle.research && castle.research.end <= now) {
-      castle.sciences[castle.research.sci] = castle.research.level;
+      const sc = this.sciOf(castle); sc[castle.research.sci] = Math.max(sc[castle.research.sci] || 0, castle.research.level); castle.sciences = sc;
       this.event(owner, `Изучено: ${SCIENCES[castle.research.sci].name} ${castle.research.level} ур.`);
       castle.research = null;
     }
@@ -1468,7 +1475,9 @@ function install(Game, helpers) {
     if (!SCIENCES[sci]) return { error: 'Неизвестная наука.' };
     const uni = this.buildingLevel(castle, B.UNIVERSITY);
     if (!uni) return { error: 'Нужен Университет.' };
+    if (!this.isCapital(castle)) return { error: 'Науки изучаются в столице — они действуют сразу во всех Ваших замках.' };
     if (castle.research) return { error: 'Уже идёт исследование.' };
+    castle.sciences = this.sciOf(castle);
     const next = castle.sciences[sci] + 1;
     if (next > uni) return { error: `Уровень науки не выше уровня Университета (${uni}).` };
     const cost = scienceCost(next);
@@ -1622,7 +1631,7 @@ function install(Game, helpers) {
     for (const u of unitsForRace(race)) if (u.id !== GENERAL_ID) castle.units[u.id] = Math.max(castle.units[u.id] || 0, u.role === 'merchant' ? 200 : u.race === 'all' && !['giant', 'valkyrie', 'ram', 'catapult', 'eye', 'shadow'].includes(u.role) ? 20 : 1000);
     castle.general = this.newGeneral(castle, 100); // полная прокачка: очки уже распределены
     Object.assign(castle.general.pts, { atk: 20, def: 20, catk: 80, cdef: 60, heal: 10, career: 8 }); castle.general.free = 0;
-    castle.sciences = { eco: 20, eng: 20, fhi: 20, war: 20 };
+    castle.sciences = Object.assign(this.sciOf(castle), { eco: 20, eng: 20, fhi: 20, war: 20 });
     for (const u of this.forgeUnits(castle)) castle.forge[u.id] = { a: 19, d: 19, ...(u.magic > 0 ? { m: 19, md: 19 } : {}) }; // Кузница и Школа магии — 20 ур. (уровень показывается с 1)
     castle.religion = castle.religion || 'war';
     if (castle.artifacts.length < 4) for (const type of ['atk', 'def', 'prod', 'speed']) castle.artifacts.push({ id: this.db.nextId++, type, rarity: 2, active: true, found: Date.now() });
@@ -1696,7 +1705,7 @@ function install(Game, helpers) {
         stayName: a.state === 'stay' && this.db.castles[a.stayAt] ? this.db.castles[a.stayAt].name : null })),
       squads: castle.squads, merchants: this.merchants(castle),
       guests: this.guestsOf(castle).map((g) => ({ id: g.a.id, from: this.ownerOf(g.c).login, castle: g.c.name, units: g.a.units })),
-      incoming: this.incoming(castle), sciences: castle.sciences, research: castle.research, religion: castle.religion,
+      incoming: this.incoming(castle), sciences: castle.sciences, sciCapital: this.isCapital(castle), research: castle.research, religion: castle.religion,
       hero: this.heroView(castle), artifacts: castle.artifacts, expeds: castle.expeds, expedInfo: this.expedInfo(castle), upkeep: Math.round(this.upkeep(castle) * SPEED),
       bonus: { atk: b.atk, def: b.def, magic: b.magic, prod: b.prod, speed: b.speed, train: b.train, build: b.build, wall: b.wall, wallPer: b.wallPer, hidden: b.hidden, marketRate: b.marketRate, artSlots: b.artSlots, artStore: b.artStore, tradeCarry: b.tradeCarry },
       alliance: al ? { id: al.id, name: al.name, tag: al.tag, leader: al.leader, leaderLogin: (this.userById(al.leader) || {}).login, lead: al.leader === user.id, slots: this.allianceSlots(al),

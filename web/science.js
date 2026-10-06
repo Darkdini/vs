@@ -11,7 +11,7 @@ function sciJob() {
 function sciWin() {
   const my = MY(), uni = buildingLevel(15);
   return `${ribbon('Науки')}${sciJob()}
-    <div class="bwline small center">Университет ${uni} ур. — науки изучаются до ${uni} ур. · ученых в замке: ${my.units[227] || 0}</div>
+    <div class="bwline small center">${my.sciCapital === false ? '📜 Науки общие для всех Ваших замков и изучаются в <b>столице</b>. Здесь — уровни, которые уже действуют в этом замке.' : `Университет ${uni} ур. — науки изучаются до ${uni} ур. · ученых в замке: ${my.units[227] || 0}<br>Изученные науки действуют сразу во всех Ваших замках.`}</div>
     ${Object.entries(M().sciences).map(([k, s]) => `<button class="fbar sbar" data-scik="${k}"><img src="${FLASK(s)}" alt="">
       <span class="grow"><b>${esc(s.name)}</b><br><small>${esc(s.sub)}</small></span><span class="slvl">${my.sciences[k]}<small>/20</small></span></button>`).join('')}`;
 }
@@ -20,6 +20,7 @@ function sciOne() {
   const cost = n <= 20 ? M().scienceCost[n] : null;
   let study;
   if (n > 20) study = '<div class="bwline center"><b>Наука изучена полностью.</b></div>';
+  else if (my.sciCapital === false) study = '<div class="bwline center muted">Изучается в столице — и сразу действует во всех Ваших замках.</div>';
   else if (r) study = `<div class="bwline center muted">Университет занят: ${esc(M().sciences[r.sci].name)} ${r.level} ур. — <span class="cd" data-e="${r.end}"></span></div>`;
   else if (n > uni) study = `<div class="bwline center reasons">Для ${n} ур. нужен Университет ${n} ур.</div>`;
   else study = `<div class="chips center">${RES4.map((q) => `<span data-need="${q}:${cost[q]}">${RES_IC[q]} ${fmtFull(cost[q])}</span>`).join('')}<span>${TIME_IC} ${fmtT(sciSec(n))}</span></div>
