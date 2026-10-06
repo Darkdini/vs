@@ -47,7 +47,7 @@ function allyMainWin() {
       ${aTile('data-soon="Скоро здесь появится новая функция альянса"', `${AL}quest.png`, '')}
     </div>
     ${ribbon('Состав')}
-    <div class="atable">${a.members.slice(0, 5).map((m, i) => `<div class="atr4"><span>${i + 1}</span><span><a data-cprof="${m.id}" style="color:${nameColor(m.rep)}">${esc(m.login)}</a><br>${repIcons(m.rep)}</span><span>${epImg(m.ep)}</span><span>${fmtFull(m.score)}</span></div>`).join('')}</div>
+    <div class="atable">${a.members.slice(0, 5).map((m, i) => `<div class="atr4"><span>${i + 1}</span><span><a data-cprof="${m.id}" style="color:${nameColor(m.rep)}">${esc(m.login)}</a><br>${repIcons(m.rep)}${allyMedalsRow(m)}</span><span>${epImg(m.ep)}</span><span>${fmtFull(m.score)}</span></div>`).join('')}</div>
     <button class="pbar" data-aw="members">Весь состав</button>
     <div class="ptiles pbig">
       ${aTile('data-aw="manage"', `${AL}manage.png`, 'Управление')}
@@ -61,7 +61,7 @@ function allyMainWin() {
 
 function allyMembersWin() {
   const a = S.ally; if (!a) return loading('Весь состав');
-  return `${ribbon('Весь состав')}<div class="atable">${a.members.map((m, i) => `<div class="atr4"><span>${i + 1}</span><span><a data-cprof="${m.id}" style="color:${nameColor(m.rep)}">${esc(m.login)}</a><br>${repIcons(m.rep)}<br><small>рейтинг ${fmtFull(m.rating)} + репутация ${fmtFull(m.rep)}</small></span><span>${epImg(m.ep)}</span><span>${fmtFull(m.score)}</span></div>`).join('')}</div>`;
+  return `${ribbon('Весь состав')}<div class="atable">${a.members.map((m, i) => `<div class="atr4"><span>${i + 1}</span><span><a data-cprof="${m.id}" style="color:${nameColor(m.rep)}">${esc(m.login)}</a><br>${repIcons(m.rep)}${allyMedalsRow(m)}<small>рейтинг ${fmtFull(m.rating)} + репутация ${fmtFull(m.rep)}</small></span><span>${epImg(m.ep)}</span><span>${fmtFull(m.score)}</span></div>`).join('')}</div>`;
 }
 function allyTitlesWin() {
   const a = S.ally; if (!a) return loading('Звания и погоны');
@@ -278,7 +278,7 @@ function allyInfoWin() {
       ${aTile('data-soon="Скоро здесь появится новая функция альянса"', `${AL}quest.png`, '')}
     </div>
     ${ribbon('Состав')}
-    <div class="atable">${a.members.map((m, i) => `<div class="atr4"><span>${i + 1}</span><span><a data-cprof="${m.id}" style="color:${nameColor(m.rep)}">${esc(m.login)}</a><br>${repIcons(m.rep)}</span><span>${epImg(m.ep)}</span><span>${fmtFull(m.score)}</span></div>`).join('')}</div>`;
+    <div class="atable">${a.members.map((m, i) => `<div class="atr4"><span>${i + 1}</span><span><a data-cprof="${m.id}" style="color:${nameColor(m.rep)}">${esc(m.login)}</a><br>${repIcons(m.rep)}${allyMedalsRow(m)}</span><span>${epImg(m.ep)}</span><span>${fmtFull(m.score)}</span></div>`).join('')}</div>`;
 }
 function allyInfoTitlesWin() { const a = S.allyInfo; return a ? `${ribbon('Звания')}<div class="atable"><div class="atr3 head"><span>Звание</span><span>Имя</span><span>Погоны</span></div>${a.members.map((m) => `<div class="atr3"><span>${esc(m.title)}</span><span><a data-cprof="${m.id}">${esc(m.login)}</a></span><span>${epImg(m.ep)}</span></div>`).join('')}</div>` : loading('Звания'); }
 function allyInfoTextWin(title, text, empty) { return `${ribbon(title)}<div class="bwline" style="white-space:pre-wrap">${esc(text) || `<span class="muted">${empty}</span>`}</div>`; }
@@ -293,3 +293,8 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (k === 'charter') return openSheet(() => allyInfoTextWin('Устав', a.charter, 'Устав не написан.'));
   if (k === 'desc') return openSheet(() => allyInfoTextWin('Описание', a.desc, 'Описание не заполнено.'));
 }, true);
+// медали Зала славы участника (за последний месяц) — под ником в «Составе», как в оригинале
+function allyMedalsRow(m) {
+  const l = m.medals || []; if (!l.length) return '';
+  return `<div class="amedals">${l.map((x) => `<img src="${medalSrc(x.icon)}" alt="" title="${esc(x.name)} — ${['I', 'II', 'III'][x.place - 1]} место">`).join('')}</div>`;
+}

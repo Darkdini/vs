@@ -1111,6 +1111,24 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.ok(r.got === 100 && c.res.wood < 760 && c.res.iron >= 100, JSON.stringify(r)); // за время обмена замок мог чуть добыть
     console.log('✓ Бартер: отдаёшь 2,5 — получаешь 1');
   }
+  { // альянс: ушёл создатель — права к тому, у кого больше прав, иначе к самому рейтинговому; последний ушёл — альянс исчезает
+    const mk = (l, max) => { const u = g.register({ login: l, password: '12345', race: 0 }).user; const c = g.castleOf(u); g.mil(c); if (max) g.maxOut(c); return u; };
+    const L = mk('alL1x', 1), A = mk('alA1x'), B = mk('alB1x'), C = mk('alC1x'), D = mk('alD1x', 1);
+    const ally = (u, op, x = {}) => g.alliance(u, g.castleOf(u), { op, ...x });
+    const r = ally(L, 'create', { name: 'Кронос', tag: 'KRN' }); assert.ok(r.ok, JSON.stringify(r)); const al = g.allianceOf(L);
+    for (const u of [A, B, C, D]) { al.members.push(u.id); u.alliance = al.id; }
+    al.ranks = { [A.id]: { title: 'Зам', rights: ['invite'] }, [B.id]: { title: 'Казначей', rights: ['invite', 'treasury', 'logs'] } };
+    const O = mk('alO1x', 1); ally(O, 'create', { name: 'Другие', tag: 'OTH' }); const al2 = g.allianceOf(O); al2.diplo = { [al.id]: 'war' };
+    assert.ok(ally(L, 'leave').ok && al.leader === B.id, 'больше прав — новый создатель');
+    assert.ok(ally(B, 'leave').ok && al.leader === A.id, 'следующий по правам');
+    assert.ok(g.userRating(D) > g.userRating(C));
+    assert.ok(ally(A, 'leave').ok && al.leader === D.id, 'прав нет — к самому рейтинговому');
+    assert.ok(ally(D, 'leave').ok && al.leader === C.id);
+    assert.ok(ally(C, 'leave').ok && !g.db.alliances[al.id] && !al2.diplo[al.id] && !C.alliance, 'последний ушёл — альянса нет нигде');
+    assert.ok(!g.ratingAlliances().some((x) => x.id === al.id), 'и в рейтинге нет');
+    g.db.alliances[999999] = { id: 999999, name: 'Пустой', tag: 'ZZ', leader: 123456789, members: [123456789] }; g.allyCleanup(); assert.ok(!g.db.alliances[999999], 'пустой альянс убран');
+    console.log('✓ Альянс: передача прав создателя и роспуск пустого альянса');
+  }
   try { fs.unlinkSync(DB); } catch {}
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });

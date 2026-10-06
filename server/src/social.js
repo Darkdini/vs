@@ -323,9 +323,9 @@ function install(Game) {
       .sort((a, b) => b.rating - a.rating).slice(0, 500);
   };
   // очки альянса = сумма (рейтинг + репутация) всех участников
-  P.allianceScore = function allianceScore(a) { return a.members.reduce((s, id) => { const u = this.userById(id); return s + (u ? this.userRating(u) + (u.reputation ?? START_REP) : 0); }, 0); };
+  P.allianceScore = function allianceScore(a) { return (a.members || []).reduce((s, id) => { const u = this.userById(id); return s + (u ? this.userRating(u) + (u.reputation ?? START_REP) : 0); }, 0); };
   P.ratingAlliances = function ratingAlliances() {
-    return Object.values(this.db.alliances || {}).map((a) => ({ id: a.id, name: a.name, tag: a.tag, members: a.members.length,
+    return Object.values(this.db.alliances || {}).filter((a) => (a.members || []).length).map((a) => ({ id: a.id, name: a.name, tag: a.tag, members: a.members.length,
       rating: this.allianceScore(a) }))
       .sort((a, b) => b.rating - a.rating);
   };

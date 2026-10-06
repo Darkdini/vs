@@ -20,6 +20,53 @@ function install(Game) {
     const r = (al.ranks || {})[uid];
     return !!(r && r.rights && r.rights.includes(right));
   };
+  // игрок уходит из альянса (вышел, исключён, удалён администрацией).
+  // Ушёл создатель: права создателя — участнику с наибольшим числом прав (при равенстве — с большим рейтингом),
+  // если прав ни у кого нет — участнику с самым большим рейтингом. Никого не осталось — альянс исчезает отовсюду.
+  P.allyRemoveMember = function allyRemoveMember(al, uid) {
+    if (!al) return null;
+    al.members = al.members.filter((m) => m !== uid && this.userById(m));
+    if (al.ranks) delete al.ranks[uid];
+    const u = this.userById(uid); if (u && u.alliance === al.id) delete u.alliance;
+    if (!al.members.length) { this.allyDissolve(al); return null; }
+    if (al.leader === uid || !al.members.includes(al.leader)) {
+      const nRights = (id) => (((al.ranks || {})[id] || {}).rights || []).length, rating = (id) => this.userRating(this.userById(id));
+      const next = al.members.slice().sort((a, b) => nRights(b) - nRights(a) || rating(b) - rating(a))[0];
+      al.leader = next; if (al.ranks) delete al.ranks[next]; // создатель и так может всё
+      const nu = this.userById(next);
+      this.allyLog(al, `Права создателя перешли к ${nu.login}`);
+      this.event(next, `Вы теперь создатель альянса [${al.tag}] ${al.name}.`);
+      for (const m of al.members) if (m !== next) this.event(m, `Новый создатель альянса [${al.tag}]: ${nu.login}.`);
+    }
+    return al;
+  };
+  // альянс исчезает: из списка, рейтинга, дипломатии других альянсов, приглашений и заявок игроков
+  P.allyDissolve = function allyDissolve(al) {
+    const A = this.db.alliances || {};
+    delete A[al.id];
+    for (const o of Object.values(A)) if (o.diplo) delete o.diplo[al.id];
+    for (const u of Object.values(this.db.users)) {
+      if (u.alliance === al.id) delete u.alliance;
+      if (u.invites && u.invites.includes(al.id)) u.invites = u.invites.filter((x) => x !== al.id);
+      if (u.inviteBy) delete u.inviteBy[al.id];
+    }
+    this.cache = {};
+  };
+  // зависшие альянсы (участники удалены, создатель пропал) — привести в порядок
+  P.allyCleanup = function allyCleanup() {
+    for (const al of Object.values(this.db.alliances || {})) {
+      // живые участники: игрок есть и не состоит в другом альянсе
+      al.members = (al.members || []).filter((m) => { const u = this.userById(m); return u && (u.alliance === al.id || u.alliance == null); });
+      if (!al.members.length) this.allyDissolve(al);
+      else if (!al.members.includes(al.leader)) this.allyRemoveMember(al, al.leader);
+    }
+  };
+  // медали Зала славы участника за последний месяц (по лучшему месту в каждом зале) — для «Состава» альянса
+  P.allyMedals = function allyMedals(u, now = Date.now()) {
+    const best = {};
+    for (const m of u.awards || []) if (m.at > now - 35 * 86400000 && (!best[m.hall] || m.place < best[m.hall].place)) best[m.hall] = m;
+    return Object.values(best).sort((a, b) => a.place - b.place).map((m) => ({ icon: m.icon, name: m.name, place: m.place, month: m.month }));
+  };
   P.allyLog = function allyLog(al, text, kind = 'log') {
     const key = kind === 'store' ? 'slog' : 'log';
     (al[key] = al[key] || []).push({ at: Date.now(), text });
@@ -53,7 +100,7 @@ function install(Game) {
   P.allyView = function allyView(user, al) {
     const me = user.id, can = (r) => this.allyCan(al, me, r), now = Date.now();
     const members = al.members.map((id) => { const m = this.userById(id); if (!m) return null;
-      const t = this.allyTitle(al, id); return { id, login: m.login, rating: this.userRating(m), rep: m.reputation ?? START_REP, score: this.userRating(m) + (m.reputation ?? START_REP), ...t,
+      const t = this.allyTitle(al, id); return { id, login: m.login, rating: this.userRating(m), rep: m.reputation ?? START_REP, score: this.userRating(m) + (m.reputation ?? START_REP), medals: this.allyMedals(m), ...t,
         rights: id === al.leader ? Object.keys(RIGHTS) : ((al.ranks || {})[id] || {}).rights || [] }; }).filter(Boolean).sort((a, b) => b.score - a.score);
     const A = this.db.alliances || {};
     // военные логи: каждое военное действие участников — нападение, оборона, разведка (своя и вражеская), подкрепления
@@ -77,7 +124,7 @@ function install(Game) {
   // публичная карточка чужого (или своего) альянса — то, что видит любой игрок: без казны, логов, прав и форума
   P.allyPublic = function allyPublic(al) {
     const members = al.members.map((id) => { const m = this.userById(id); if (!m) return null;
-      return { id, login: m.login, rep: m.reputation ?? START_REP, score: this.userRating(m) + (m.reputation ?? START_REP), ...this.allyTitle(al, id) }; }).filter(Boolean).sort((a, b) => b.score - a.score);
+      return { id, login: m.login, rep: m.reputation ?? START_REP, score: this.userRating(m) + (m.reputation ?? START_REP), medals: this.allyMedals(m), ...this.allyTitle(al, id) }; }).filter(Boolean).sort((a, b) => b.score - a.score);
     const A = this.db.alliances || {};
     return { id: al.id, tag: al.tag, name: al.name, desc: al.desc || '', charter: al.charter || '', created: al.created, rank: this.allyRank(al), score: this.allianceScore(al),
       leader: al.leader, leaderLogin: (this.userById(al.leader) || {}).login, slots: this.allianceSlots(al), members,

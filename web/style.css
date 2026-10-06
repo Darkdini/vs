@@ -2225,3 +2225,4 @@ body.menuopen #advbar, body.menuopen #advhand { display: none; } /* открыт
 .nicklist li.now { background: #ffe9a8; }
 .gjob { color: #6a3a10; font-weight: 700; } .gjob .cd { color: #1f7a1f; }
 .bxgot { text-align: center; font: 600 17px var(--serif); margin: 2px 0; }
+.amedals { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; margin: 4px 0 2px; } .amedals img { width: 40px; height: 40px; object-fit: contain; }

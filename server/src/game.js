@@ -264,6 +264,7 @@ class Game {
     }
     this.cache = {};
     this.provEdgeFix();
+    if (this.allyCleanup) this.allyCleanup(); // пустые альянсы (участники удалены) — убрать отовсюду
   }
   castleAt(x, y) { return this.byXY.get(x * WORLD + y); }
   // замки, что стоят у самой границы провинции или на месте её лагеря (поставлены до провинций), — на ближайшую свободную клетку внутри той же провинции;

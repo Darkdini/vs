@@ -277,8 +277,8 @@ function install(Game) {
         if (target.admin) return { error: 'Админа удалить нельзя.' };
         this.removeAvatar(target);
         for (const c of this.castlesOf(target)) this.removeCastle(c);
-        for (const al of Object.values(this.db.alliances || {})) al.members = al.members.filter((m) => m !== target.id);
-        delete this.db.users[target.login]; if (target.acct) delete this.db.accts[target.acct]; this.byId.delete(target.id); msg = `Игрок ${target.login} удалён.`; break;
+        const al0 = this.allianceOf(target);
+        delete this.db.users[target.login]; if (target.acct) delete this.db.accts[target.acct]; this.byId.delete(target.id); if (al0) this.allyRemoveMember(al0, target.id); msg = `Игрок ${target.login} удалён.`; break;
       }
       case 'rename': {
         const c = this.castleAt(num(arg.x, NaN), num(arg.y, NaN)) || this.castleOf(target);

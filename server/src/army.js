@@ -1595,17 +1595,16 @@ function install(Game, helpers) {
       if (op === 'kick') {
         if (t.id === user.id || !cur.members.includes(t.id)) return { error: 'Нельзя исключить.' };
         if (t.id === cur.leader) return { error: 'Создателя исключить нельзя.' };
-        cur.members = cur.members.filter((m) => m !== t.id); delete t.alliance; if (cur.ranks) delete cur.ranks[t.id];
         this.allyLog(cur, `${user.login} исключил ${t.login}`);
+        this.allyRemoveMember(cur, t.id);
         this.event(t.id, `Вас исключили из альянса [${cur.tag}].`); this.store.save(); return { ok: true };
       }
     }
     if (op === 'leave') {
       if (!cur) return { error: 'Вы не в альянсе.' };
-      cur.members = cur.members.filter((m) => m !== user.id); delete user.alliance; if (cur.ranks) delete cur.ranks[user.id];
       this.allyLog(cur, `${user.login} покинул альянс`);
-      if (!cur.members.length) delete this.db.alliances[cur.id]; else if (cur.leader === user.id) cur.leader = cur.members[0];
-      this.store.save(); return { ok: true };
+      const left = this.allyRemoveMember(cur, user.id);
+      this.store.save(); return { ok: true, msg: left ? 'Вы покинули альянс.' : `Вы покинули альянс — в нём никого не осталось, альянс [${cur.tag}] распущен.` };
     }
     if (!emb) return { error: 'Нужен Дипломатический центр.' };
     if (cur) return { error: 'Сначала выйдите из текущего альянса.' };
