@@ -1073,6 +1073,23 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     r = g.chatVote(b, id, -1); assert.deepEqual([r.up, r.dn], [[], []], 'повтор — снять');
     console.log('✓ Чат: лайк и дизлайк');
   }
+  { // друзья: заявка → отчёт → принять; взаимно; лента; дни рождения; админ всегда оффлайн
+    const a = g.register({ login: 'frA1x', password: '12345', race: 0 }).user, b = g.register({ login: 'frB1x', password: '12345', race: 1 }).user;
+    assert.ok(g.friendOp(a, 'add', b.id).ok && g.friendState(a, b) === 'sent' && g.friendState(b, a) === 'in', 'заявка');
+    assert.ok(!g.isFriend(a, b) && g.friendOp(a, 'add', b.id).error, 'пока не друзья, повтор — нельзя');
+    const rep = g.reportsOf(b.id).find((r) => r.data && r.data.type === 'friendreq'); assert.ok(rep && rep.data.from.id === a.id, 'отчёт с заявкой');
+    assert.ok(g.friendOp(b, 'accept', a.id).ok && g.isFriend(a, b) && g.isFriend(b, a) && rep.data.state === 'accepted', 'взаимная дружба');
+    assert.ok(g.setBirthday(a, 31, 2).error && g.setBirthday(a, 29, 2).ok && a.bday === '29.02');
+    const now = new Date(); g.setBirthday(a, new Date(now.getTime() + 3 * 3600000).getUTCDate(), new Date(now.getTime() + 3 * 3600000).getUTCMonth() + 1);
+    a.online = true;
+    g.friendFeed(a.id, 'frA1x захватил(а) замок «Тест» (X:1, Y:1)');
+    const v = g.friendsView(b); assert.ok(v.list[0].login === 'frA1x' && v.list[0].online && v.today === 1 && v.feed.some((e) => /захватил/.test(e.text)), 'список, онлайн, ДР сегодня, лента');
+    const adm = Object.values(g.db.users).find((u) => u.admin); adm.online = true; g.friendOp(adm, 'add', b.id); g.friendOp(b, 'accept', adm.id);
+    assert.ok(g.friendsView(b).list.find((x) => x.id === adm.id).online === false, 'админ не виден онлайн');
+    assert.ok(g.friendOp(a, 'del', b.id).ok && !g.isFriend(b, a), 'удаление — у обоих');
+    g.friendOp(a, 'add', b.id); assert.ok(g.friendOp(b, 'decline', a.id).ok && !g.isFriend(a, b) && g.friendState(a, b) === null, 'отклонить');
+    console.log('✓ Друзья: заявка, отчёт, взаимность, лента, дни рождения, админ оффлайн');
+  }
   try { fs.unlinkSync(DB); } catch {}
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });

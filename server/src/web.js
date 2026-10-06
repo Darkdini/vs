@@ -136,7 +136,7 @@ class WebSession {
       t: 'state',
       now: Date.now(),
       quests: this.questsLite(),
-      user: { id: u.id, login: u.login, ally: u.alliance || null, race: u.race, raceName: C.RACE_NAMES[u.race], premium: u.premium || 0, gold: u.gold || 0, goldLog: (u.goldLog || []).slice(-50).reverse(), admin: !!u.admin, mod: !!u.mod, smod: !!u.smod, alertsNew: u.admin ? this.game.alertsNew() : 0, secNew: u.admin ? this.game.secNew() : 0, zagsNew: this.game.zagsNew(u), brank: (({ idx, icon, stars, title }) => ({ idx, icon, stars, title }))(require('./battlerank').rankInfo(this.game.brRank(u))), black: this.game.privacyOf(u).black, multiNew: u.admin ? (this.game.db.multiLog || []).filter((x) => x.at > (u.multiSeen || 0)).length : 0 },
+      user: { id: u.id, login: u.login, ally: u.alliance || null, race: u.race, raceName: C.RACE_NAMES[u.race], premium: u.premium || 0, gold: u.gold || 0, goldLog: (u.goldLog || []).slice(-50).reverse(), admin: !!u.admin, mod: !!u.mod, smod: !!u.smod, alertsNew: u.admin ? this.game.alertsNew() : 0, secNew: u.admin ? this.game.secNew() : 0, zagsNew: this.game.zagsNew(u), friendsNew: this.game.friendsNew(u), brank: (({ idx, icon, stars, title }) => ({ idx, icon, stars, title }))(require('./battlerank').rankInfo(this.game.brRank(u))), black: this.game.privacyOf(u).black, multiNew: u.admin ? (this.game.db.multiLog || []).filter((x) => x.at > (u.multiSeen || 0)).length : 0 },
       castle: {
         id: c.id, name: c.name, x: c.x, y: c.y, grid: { 0: Array.from(c.grid[0]), 1: Array.from(c.grid[1]) }, levels: { 0: Array.from(c.levels[0]), 1: Array.from(c.levels[1]) },
         res: c.res, rate: this.game.rates(c), cap: this.game.capacity(c),
@@ -449,7 +449,14 @@ const API = {
     this.toast(`Репутация +${r.add} (теперь ${r.rep}).`); this.pushState();
     this.send({ t: 'profile', refresh: true, profile: this.game.profileOf(this.game.userById(Number(m.id)), this.user) });
   },
-  friend(m) { const r = this.game.friendOp(this.user, m.op, m.id); if (r.error) return this.error(r.error); this.toast(m.op === 'add' ? 'Добавлен в друзья.' : 'Удалён из друзей.'); API.friends.call(this); },
+  friend(m) {
+    const r = this.game.friendOp(this.user, String(m.op || ''), m.id); if (r.error) return this.error(r.error); this.toast(r.msg);
+    const o = this.game.userById(Number(m.id)); if (o) pushTo(o);
+    if (m.view === 'my') API.myfriends.call(this); else if (m.view === 'list') API.friends.call(this);
+    this.pushState();
+  },
+  myfriends() { this.send({ t: 'myfriends', data: this.game.friendsView(this.user) }); },
+  bday(m) { const r = this.game.setBirthday(this.user, m.day, m.month); if (r.error) return this.error(r.error); this.toast(r.msg); this.send({ t: 'bday', bday: this.user.bday || '' }); },
   friends() { this.send({ t: 'players', kind: 'friends', list: this.game.friendsOf(this.user) }); },
   search(m) { this.send({ t: 'players', kind: 'search', q: m.q || '', list: this.game.searchPlayers(m.q) }); },
   nearby() { this.send({ t: 'players', kind: 'nearby', list: this.game.nearby(this.user) }); },

@@ -682,6 +682,7 @@ require('./tgbackup').install(Game);
 require('./shop').install(Game);
 require('./tgauth').install(Game);
 require('./shield').install(Game);
+require('./friends').install(Game);
 require('./pics').install(Game);
 require('./zags').install(Game);
 require('./chests').install(Game);

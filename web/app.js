@@ -280,6 +280,7 @@ function onMsg(m) {
     case 'news': newsMsg(m); break;
     case 'shop': shopMsg(m); break;
     case 'shield': shieldMsg(m); break;
+    case 'myfriends': case 'bday': friendsMsg(m); break;
     case 'reset': resetMsg(m); break;
     case 'tg': tgMsg(m); break;
     case 'smod': smodMsg(m); break;

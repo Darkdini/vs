@@ -29,7 +29,7 @@ const MENUS = {
     ['Репутация', M3('reputation'), () => openRating('reputation')],
     ['Авторитет', M3('authority'), () => openSoon('Авторитет города')],
     ['События', 'gfx3d/mail/events.png', () => openReports()],
-    ['Друзья', M3('friends'), () => openPlayers('friends')],
+    [S.st.user.friendsNew ? `Друзья (${S.st.user.friendsNew})` : 'Друзья', M3('friends'), () => openFriends()],
     ['Поиск', M3('search'), () => openPlayers('search')],
     ['Земляки', 'ground/castle_small.png', () => openPlayers('nearby')],
     ['Биржа', M3('exchange'), () => openMarket()],
@@ -276,7 +276,7 @@ function profileWin(p) {
       ${tile('treasury', 'gfx3d/prof/treasury.png', 'Пополнить Казну', !p.self)}
       ${tile('rep', 'gfx3d/prof/rep.png', 'Поднять Репутацию')}
       ${tile('gift', 'gfx3d/prof/gift.png', 'Отправить Подарок')}
-      ${tile('friend', 'gfx3d/prof/friend.png', p.friend ? 'Убрать из друзей' : 'Добавить в друзья', p.self)}
+      ${tile('friend', 'gfx3d/prof/friend.png', { friend: 'Убрать из друзей', sent: 'Заявка отправлена', in: 'Принять дружбу' }[p.friendState] || 'Добавить в друзья', p.self)}
       ${tile('msg', 'gfx3d/prof/msg.png', 'Сообщение')}
       ${tile('hof', 'gfx3d/prof/hof.png', 'Зал Славы')}
       ${tile('premium', 'gfx3d/prof/premium.png', p.self ? 'Премиум' : 'Подарить Премиум')}
@@ -307,6 +307,7 @@ function profileMoreWin(p) {
 }
 function profileInfoWin(p) {
   return `${ribbon('Личная информация')}<div class="pstats">Игрок: <b>${esc(p.login)}</b><br>Раса: ${esc(p.raceName)}<br>В игре с: ${fmtDate(p.created)}${p.lastSeen ? `<br>Последний вход: ${fmtDate(p.lastSeen)}` : ''}</div>
+    ${p.self ? bdayForm(p.bdayRaw) : p.bday ? `<div class="pstats">🎂 День рождения: <b>${esc(p.bday)}</b></div>` : ''}
     ${p.self ? `<form class="stack" data-form="about"><textarea name="text" rows="4" placeholder="О себе">${esc(p.about)}</textarea><button class="btn primary">Сохранить</button></form>` : `<div class="pstats">${esc(p.about) || '<span class="muted">Игрок ничего о себе не написал.</span>'}</div>`}`;
 }
 
@@ -531,7 +532,12 @@ $('#sheetBody').addEventListener('click', (e) => {
     if (d.ptile === 'premium') return openPremium(p.self ? null : p.login);
     if (d.ptile === 'rep') { S.repTo = p; S.repCoins = 1; return openSheet(repWin); }
     if (d.ptile === 'gift') { S.giftTo = p; S.giftCat = 'all'; S.giftNew = false; S.giftPage = 0; return openSheet(giftsWin); }
-    if (d.ptile === 'friend') { send({ t: 'friend', op: p.friend ? 'del' : 'add', id }); return send({ t: 'profile', id }); }
+    if (d.ptile === 'friend') {
+      const st = p.friendState, op = st === 'friend' ? 'del' : st === 'sent' ? 'cancel' : st === 'in' ? 'accept' : 'add';
+      if (op === 'del' && !confirm(`Убрать ${p.login} из друзей?`)) return;
+      if (op === 'cancel' && !confirm(`Отозвать заявку в друзья игроку ${p.login}?`)) return;
+      send({ t: 'friend', op, id }); return send({ t: 'profile', id, refresh: 1 });
+    }
     if (d.ptile === 'msg') { if (p.self) { closeAllSheets(); return ACTS.mail(); } return openDialog(p.id); }
     if (d.ptile === 'map') { closeAllSheets(); S.world = null; setTab('world'); return send({ t: 'world', cx: p.castles[0].x, cy: p.castles[0].y }); }
     if (d.ptile === 'info') return openSheet(() => profileInfoWin(p));

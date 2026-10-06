@@ -138,6 +138,7 @@ function install(Game) {
       u.reputation = (u.reputation ?? START_REP) + bonus; u.hallRep = (u.hallRep || 0) + bonus; // бонус — репутация
       (u.awards = u.awards || []).push({ hall: h.id, name: h.name, place: i + 1, value: x.value, month: s.key, at: now, icon: hallIcon(h, i), bonus });
       this.event(u.id, `Зал Славы «${h.name}»: ${i + 1} место по итогам месяца! Бонус +${bonus} репутации, медаль — в Вашем профиле.`);
+      if (this.friendFeed) this.friendFeed(u.id, `${u.login} получил(а) медаль Зала славы «${h.name}» — ${['I', 'II', 'III'][i]} место`, now);
       winners.push({ hall: h.name, place: i + 1, login: u.login });
     });
     // письмо каждому победителю: за что и сколько репутации начислено
@@ -192,6 +193,7 @@ function install(Game) {
     if (to.gifts.length > 200) to.gifts = to.gifts.slice(-200);
     if (to.id !== user.id) {
       this.event(to.id, `${user.login} подарил Вам: ${g.name}!`);
+      if (this.friendFeed) this.friendFeed(to.id, `${to.login} получил(а) подарок «${g.name}» от ${user.login}`, now);
       // сообщение в «Сообщения» от дарителя: какой подарок и подпись — подарок виден в профиле
       const note = String(text || '').trim().slice(0, 100);
       this.sendMail(user, to.login, 'Подарок', `🎁 Дарю тебе подарок «${g.name}»!${note ? `\n«${note}»` : ''}\nОн теперь в твоём профиле, раздел «Подарки».`);
@@ -217,7 +219,7 @@ function install(Game) {
       medals: this.medalsOf(u.id), hallRep: u.hallRep || 0, awards: (u.allyAwards || []).slice().reverse(), bossBadges: (u.bossBadges || []).slice().reverse(),
       castles: this.castlesOf(u).map((k, i) => ({ id: k.id, name: k.name, x: k.x, y: k.y, capital: i === 0, rating: this.rating(k) })),
       self: u.id === viewer.id,
-      friend: (viewer.friends || []).includes(u.id),
+      friend: this.isFriend ? this.isFriend(viewer, u) : false, friendState: this.friendState ? this.friendState(viewer, u) : null, bday: u.bday ? this.bdayText(u.bday) : '', bdayRaw: u.id === viewer.id ? u.bday || '' : undefined,
       repToday: ((viewer.repGiven || {})[u.id] || 0) > Date.now() - 86400000,
       about: u.about || '', avatar: u.avatar || 0, frame: u.frame || '', gold: u.id === viewer.id ? u.gold || 0 : undefined,
       gifts: (u.gifts || []).slice(-50).reverse().map((g) => ({ gift: g.gift, from: (this.userById(g.from) || { login: '—' }).login, fromId: g.from, at: g.at, text: g.text || '' })),
@@ -241,25 +243,12 @@ function install(Game) {
     return { ok: true, add, rep: to.reputation };
   };
 
-  P.friendOp = function friendOp(user, op, id) {
-    user.friends = user.friends || [];
-    const other = this.userById(Number(id));
-    if (!other) return { error: 'Игрок не найден.' };
-    if (op === 'add') {
-      if (other.id === user.id) return { error: 'Это вы.' };
-      if (!user.friends.includes(other.id)) user.friends.push(other.id);
-      this.event(other.id, `${user.login} добавил вас в друзья.`);
-    } else user.friends = user.friends.filter((f) => f !== other.id);
-    this.store.save();
-    return { ok: true };
-  };
   P.playerRow = function playerRow(u, from) {
     const c = this.castlesOf(u)[0]; // столица
     const row = { id: u.id, login: u.login, race: u.race, raceName: C.RACE_NAMES[u.race], rating: this.userRating(u), x: c.x, y: c.y };
     if (from) row.dist = Math.round(Math.hypot(c.x - from.x, c.y - from.y) * 10) / 10;
     return row;
   };
-  P.friendsOf = function friendsOf(user) { return (user.friends || []).map((id) => this.userById(id)).filter(Boolean).map((u) => this.playerRow(u)); };
   P.searchPlayers = function searchPlayers(q) {
     q = String(q || '').trim().toLowerCase();
     const list = q ? Object.values(this.db.users).filter((u) => u.login.toLowerCase().includes(q)) : this.leaderboard().slice(0, 30).map((x) => x.u);

@@ -399,6 +399,14 @@ function reportHtml(r) {
           <p class="small muted center">Вступление по приглашению — сразу, Дипломатический центр не нужен.</p><button class="rlinkbig" data-repinvgo>Все приглашения (Дипломатический центр)</button>`
         : '<p class="parch-note">Приглашение уже недействительно (отклонено или отозвано).</p>'}</div>${foot}`;
   }
+  if (d.type === 'friendreq') { // заявка в друзья: принять или отклонить прямо из отчёта
+    const u = d.from || {}, st = d.state;
+    return `${head}<div class="invcard"><div class="invh">Предложение дружбы</div>
+      <div class="invname">${plink(u.id, u.login || '')}</div><div class="invinfo">Рейтинг: <b>${fmtFull(u.rating || 0)}</b></div>
+      ${st === 'accepted' ? '<p class="parch-note">Заявка принята — вы друзья.</p>' : st === 'declined' ? '<p class="parch-note">Заявка отклонена.</p>' : st === 'cancelled' ? '<p class="parch-note">Игрок отозвал заявку.</p>'
+        : `<div class="two"><button class="pbtn invyes" data-frreq="accept" data-id="${u.id}">Принять</button><button class="pbtn invno" data-frreq="decline" data-id="${u.id}">Отклонить</button></div>`}
+      <button class="rlinkbig" data-frgo>Мои друзья</button></div>${foot}`;
+  }
   if (d.type === 'scout') {
     const res = d.ok ? '<span class="rgood">Разведка прошла успешно.</span>' : '<span class="rbad">Разведка провалилась.</span>';
     return `${head}<div class="rp">Тип похода: Разведка<br>${ic('star')} Результат атаки: ${res}</div><hr class="rhr">

@@ -1222,6 +1222,10 @@ function install(Game, helpers) {
     if (royalBlocked) lines.push(royalBlocked.wait ? `Захват не удался: первый замок можно захватить только через ${royalBlocked.wait} дн. игры.` : `Захват не удался: не хватает лояльности населения (есть ${royalBlocked.have}, нужно ${royalBlocked.need}) — см. Резиденцию.`);
     if (capitalBlocked) lines.push('Столицу захватить нельзя — бунтари бессильны.');
     if (captured) lines.push(`Замок захвачен! Теперь это ваш замок «${captured.name}».`);
+    if (captured && this.friendFeed) {
+      this.friendFeed(att.id, `${att.login} захватил(а) замок «${captured.name}» (X:${a.x}, Y:${a.y})`, t);
+      if (captured.prevOwner) this.friendFeed(captured.prevOwner, `${captured.prevLogin} потерял(а) замок «${captured.name}» (X:${a.x}, Y:${a.y})`, t);
+    }
     if (genDied) lines.push('Генерал пал в бою — воскресите его в Военном штабе.');
     lines.push(...genA.filter((x) => !genDied || !/пал в бою/.test(x)));
     if (calc.saved) lines.push(`Полевой лекарь спас ${calc.saved} воинов.`);
