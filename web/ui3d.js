@@ -322,7 +322,7 @@ function profileInfoWin(p) {
 
 // ---------- Зал Славы ----------
 // Зал Славы — как в оригинале: 4 страницы по 5 категорий, у каждой медаль, «Позиция», «Подробнее» и описание
-const HALL_IMG = (id, place) => `gfx3d/halls/${id}${place ? `_${place}` : ''}.png`;
+const HALL_IMG = (id, place) => `gfx3d/halls/${id}_${place || 1}.png`; // значок зала — его золотая медаль
 const medalSrc = (icon) => (String(icon).startsWith('gfx3d/') ? icon : GFX + icon);
 S.hallPage = 0;
 function hallsWin() {
