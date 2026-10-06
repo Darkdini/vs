@@ -259,8 +259,9 @@ function onMsg(m) {
         if (Iso.sel && Iso.sel.tab === 'world') { Iso.sel.x -= dx; Iso.sel.y -= dy; }
         S.world = m; const f = $('[data-wsearch]'); if (f && document.activeElement !== f.x && document.activeElement !== f.y) { f.x.value = m.cx; f.y.value = m.cy; } isoDraw(); break;
       }
-      S.wJump = false;
-      if (!old || old.cx !== m.cx || old.cy !== m.cy) { delete Iso.cams.world; if (Iso.sel && Iso.sel.tab === 'world') Iso.sel = null; }
+      const jump = S.wJump; S.wJump = false;
+      // прыжок (вход в мир, «Домой», поиск) — камера всегда заново по центру
+      if (jump || !old || old.cx !== m.cx || old.cy !== m.cy) { delete Iso.cams.world; if (Iso.sel && Iso.sel.tab === 'world') Iso.sel = null; }
       S.world = m; if (S.tab === 'world') renderView(); break;
     }
     case 'rating': S.ratingRows = m.rows; refreshSheet(); break;
