@@ -1,5 +1,5 @@
 'use strict';
-// «Война Королей» — сервер браузерной игры. Отдаёт клиент (web/) и говорит с ним по WebSocket (web.js).
+// «Средневековье» — сервер браузерной игры. Отдаёт клиент (web/) и говорит с ним по WebSocket (web.js).
 // Запуск: npm start (из папки server) → http://localhost:8080
 // Переменные окружения: WEB_PORT/PORT (8080), HOST (0.0.0.0), SPEED (скорость мира, 1 — как в оригинале), DB (файл базы),
 // ADMIN_LOGIN (секретный логин админа), ADMIN_PASS (пароль админа), TRUST_PROXY=1 (за Caddy / nginx / Cloudflare Tunnel; TRUST_PROXY=cf — только если весь трафик идёт через Cloudflare)
@@ -52,7 +52,7 @@ if (game.ensureAdmin()) {
 game.tgPollStart();
 setInterval(() => { try { game.tgBuildScan(); } catch (e) { console.error(e); } }, 30000); // готовые стройки — в Telegram // бот Telegram игроков (tgauth.js), если задан TG_AUTH_TOKEN
 startWeb(game, sessions, { port: WEB_PORT, host: HOST, log: (m) => console.log(m) });
-console.log(`Война Королей: скорость мира x${process.env.SPEED || 1}, база ${DB}`);
+console.log(`Средневековье: скорость мира x${process.env.SPEED || 1}, база ${DB}`);
 
 // pid рядом с базой — по нему update.sh аккуратно останавливает сервер (SIGTERM → сохранение базы)
 const PID = path.join(path.dirname(path.resolve(DB)), 'server.pid');

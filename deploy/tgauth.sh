@@ -19,7 +19,7 @@ if grep -q "^TG_BACKUP_TOKEN=$TOKEN\$" "$ENV"; then echo "Это бот копи
 BOT=$(curl -fsS "https://api.telegram.org/bot$TOKEN/getMe" | json "j.ok&&j.result.username") || true
 [ -n "$BOT" ] || { echo "Telegram не принял токен (или сервер не достучался до api.telegram.org)."; exit 1; }
 curl -fsS -o /dev/null "https://api.telegram.org/bot$TOKEN/deleteWebhook" || true
-curl -fsS -o /dev/null "https://api.telegram.org/bot$TOKEN/setMyDescription" --data-urlencode "description=Бот игры «Война Королей»: привязка аккаунта и восстановление пароля. Код для смены пароля приходит только сюда. Администрация никогда не спрашивает код." || true
+curl -fsS -o /dev/null "https://api.telegram.org/bot$TOKEN/setMyDescription" --data-urlencode "description=Бот игры «Средневековье»: привязка аккаунта и восстановление пароля. Код для смены пароля приходит только сюда. Администрация никогда не спрашивает код." || true
 clean
 { echo "TG_AUTH_TOKEN=$TOKEN"; echo "TG_AUTH_BOT=$BOT"; } >> "$ENV"
 chmod 600 "$ENV"

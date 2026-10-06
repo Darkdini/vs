@@ -12,7 +12,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
-// «Война Королей» для Android: игра открывается во весь экран во встроенном браузере (WebView).
+// «Средневековье» для Android: игра открывается во весь экран во встроенном браузере (WebView).
 // Адрес сервера — строка game_url в res/values/strings.xml (подставляет tools/build-apk.sh).
 // Без лямбд и новых возможностей Java: код собирается старым dx (см. build-apk.sh).
 public class MainActivity extends Activity {

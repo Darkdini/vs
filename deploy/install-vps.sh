@@ -62,7 +62,7 @@ chown -R war:war /opt/war; chmod 600 /opt/war/game-data/admin.env 2>/dev/null ||
 echo "== Служба war"
 cat > /etc/systemd/system/war.service <<'EOF'
 [Unit]
-Description=Война Королей — сервер игры
+Description=Средневековье — сервер игры
 After=network.target
 
 [Service]

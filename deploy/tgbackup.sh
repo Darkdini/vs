@@ -62,7 +62,7 @@ case "$PASS" in *"'"*) echo "В пароле не должно быть симв
 clean
 { echo "TG_BACKUP_TOKEN=$TOKEN"; echo "TG_BACKUP_CHAT=$CHAT"; [ -n "$PASS" ] && echo "TG_BACKUP_PASS='$PASS'"; } >> "$ENV"
 chmod 600 "$ENV"
-curl -fsS -o /dev/null "https://api.telegram.org/bot$TOKEN/sendMessage" --data-urlencode "chat_id=$CHAT" --data-urlencode "text=✓ Бот подключён к серверу «Война Королей». Копия базы будет приходить сюда раз в сутки. Первая — через минуту." || true
+curl -fsS -o /dev/null "https://api.telegram.org/bot$TOKEN/sendMessage" --data-urlencode "chat_id=$CHAT" --data-urlencode "text=✓ Бот подключён к серверу «Средневековье». Копия базы будет приходить сюда раз в сутки. Первая — через минуту." || true
 restart
 echo "✓ Готово. Первая копия придёт в Telegram примерно через минуту, дальше — раз в сутки около 4:00 (время сервера)."
 echo "  Отправить вручную: Админ-панель → 🔒 Защита → «Отправить копию сейчас»."

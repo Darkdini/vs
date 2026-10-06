@@ -50,7 +50,7 @@ function client() {
   const a = client(), b = client();
   try {
     const html = await (await fetch(`http://127.0.0.1:${WEB_PORT}/`)).text();
-    assert.match(html, /Война Королей/);
+    assert.match(html, /Средневековье/);
     assert.ok((await fetch(`http://127.0.0.1:${WEB_PORT}/app.js`)).ok);
     console.log('✓ страница и скрипт отдаются');
 

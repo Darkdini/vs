@@ -24,7 +24,7 @@ function zagsWin() {
     ${ribbon('Последние браки')}
     ${!h ? '<p class="parch-note">Загрузка…</p>' : h.last.length ? h.last.map((m) => `<div class="zlast">${ZI('queen')} Королева ${zname(m.queen)} заключила брак с ${ZI('king')} Королем ${zname(m.king)}! Совет Вам, да любовь!</div>
       <button class="zbar" data-zcongr="${m.id}">${ZI('cake')} Поздравить пару!</button><button class="zbar" data-zpair="${m.id}">${ZI('heartat')} Страница пары</button>`).join('')
-      : '<p class="parch-note">Браков пока не было — станьте первой парой Третьего Мира!</p>'}`;
+      : '<p class="parch-note">Браков пока не было — станьте первой парой Средневековья!</p>'}`;
 }
 // «Свадьба» — заявление о браке
 function zproposeWin() {
@@ -50,7 +50,7 @@ function zpropsWin() {
 }
 function zpairsWin() {
   const list = S.zpairs;
-  const head = `${ribbon('Рейтинг')}<p class="center zhead">Рейтинг самых крепких семейных пар Третьего Мира:</p>`;
+  const head = `${ribbon('Рейтинг')}<p class="center zhead">Рейтинг самых крепких семейных пар Средневековья:</p>`;
   if (!list) return `${head}<p class="parch-note">Загрузка…</p>`;
   const pages = Math.max(1, Math.ceil(list.length / 10)), pg = Math.min(S.zpage || 0, pages - 1);
   const nav = `<div class="hnav"><button data-zpg="0" ${pg ? '' : 'disabled'}>◀◀</button><button data-zpg="${pg - 1}" ${pg ? '' : 'disabled'}>◀</button>

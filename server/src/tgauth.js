@@ -133,7 +133,7 @@ function install(Game) {
     const sent = (u.tgSent || []).filter((t) => t > now - HOUR); if (sent.length >= REQ_PER_HOUR) return same; // не чаще 3 кодов в час на аккаунт
     const code = String(crypto.randomInt(100000, 1000000));
     u.tgSent = [...sent, now]; u.tgReset = { h: sha(`${u.id}:${code}`), exp: now + CODE_MS, tries: 0 }; this.store.save();
-    this.tgSay(u.tg.chat, `🔑 Код для смены пароля в «Война Королей» (аккаунт «${u.login}»): ${code}\nДействует 15 минут. Никому его не сообщайте — администрация код никогда не спрашивает.\nЕсли это были не вы — просто ничего не делайте, пароль останется прежним.`);
+    this.tgSay(u.tg.chat, `🔑 Код для смены пароля в игре «Средневековье» (аккаунт «${u.login}»): ${code}\nДействует 15 минут. Никому его не сообщайте — администрация код никогда не спрашивает.\nЕсли это были не вы — просто ничего не делайте, пароль останется прежним.`);
     return same;
   };
   // шаг 2: код + новый пароль

@@ -61,7 +61,7 @@ function install(Game) {
       let name = `db-${stamp}.json.gz`; if (c.pass) { data = encrypt(data, c.pass); name += '.enc'; }
       if (data.length > TG_MAX) throw new Error(`копия ${(data.length / 1048576).toFixed(1)} МБ — больше лимита Telegram 50 МБ`);
       const users = Object.values(this.db.users).filter((u) => !u.bot).length, ver = (() => { try { return fs.readFileSync(path.join(__dirname, '..', '..', 'VERSION'), 'utf8').trim(); } catch { return 'dev'; } })();
-      const caption = `🗄 Копия базы «Война Королей»${why === 'auto' ? '' : ' (вручную)'}\n${stamp.replace('_', ' ')} · игроков ${users} · ${(data.length / 1024).toFixed(0)} КБ · версия ${ver}${c.pass ? '\n🔒 зашифрована паролем' : ''}`;
+      const caption = `🗄 Копия базы «Средневековье»${why === 'auto' ? '' : ' (вручную)'}\n${stamp.replace('_', ' ')} · игроков ${users} · ${(data.length / 1024).toFixed(0)} КБ · версия ${ver}${c.pass ? '\n🔒 зашифрована паролем' : ''}`;
       await tgSend(c.token, 'sendDocument', { chat_id: c.chat, caption, disable_notification: why === 'auto' ? 'true' : 'false' }, { name, data });
       s.lastOk = Date.now(); s.err = ''; s.size = data.length; this.store.save();
       return { msg: `Копия отправлена в Telegram (${(data.length / 1024).toFixed(0)} КБ).` };

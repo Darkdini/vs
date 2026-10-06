@@ -1,5 +1,5 @@
 #!/bin/sh
-# Сборка Android-приложения «Война Королей» (WebView с игрой во весь экран) без Android Studio и SDK:
+# Сборка Android-приложения «Средневековье» (WebView с игрой во весь экран) без Android Studio и SDK:
 #   sh tools/build-apk.sh [адрес игры]      по умолчанию https://193-176-78-254.sslip.io
 # Результат: dist/war-kings.apk (подписан v2, minSdk 24, Android 7+, targetSdk 34).
 # Инструменты берутся с Maven Central (кэш ~/.cache/war-apk): android.jar (API 16 + ресурсы), dx (dex),

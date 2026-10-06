@@ -780,7 +780,7 @@ function startWeb(game, sessions, { port, host, log }) {
     const useWebp = f.webp && /image\/webp/.test(req.headers.accept || '');
     const etag = useWebp ? f.etag.replace(/"$/, '-w"') : f.etag;
     const head = { 'Content-Type': useWebp ? 'image/webp' : f.type, ETag: etag, 'Cache-Control': pinned ? 'public, max-age=31536000, immutable' : 'no-cache', ...(f.webp ? { Vary: 'Accept' } : {}), ...SEC_HEADERS };
-    if (file.endsWith('.apk')) head['Content-Disposition'] = 'attachment; filename="war-kings.apk"'; // приложение для Android — скачивается файлом
+    if (file.endsWith('.apk')) head['Content-Disposition'] = 'attachment; filename="srednevekovye.apk"'; // приложение для Android — скачивается файлом
     if (req.headers['if-none-match'] === etag) { res.writeHead(304, head); return res.end(); }
     if (useWebp) { res.writeHead(200, head); return res.end(f.webp); }
     if (f.gz && /\bgzip\b/.test(req.headers['accept-encoding'] || '')) { res.writeHead(200, { ...head, 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' }); return res.end(f.gz); }
