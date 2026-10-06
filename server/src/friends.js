@@ -74,7 +74,9 @@ function install(Game) {
       if (!has(user, other.id)) user.friends.push(other.id);
       if (!has(other, user.id)) other.friends.push(user.id);
       this.friendReqMark(user.id, other.id, 'accepted');
-      this.event(other.id, `${user.login} принял(а) Вашу дружбу!`);
+      this.report(other.id, `${user.login} принял(а) Вашу дружбу!`, [`Игрок ${user.login} принял(а) Ваше предложение дружбы. Теперь вы друзья.`], 'friend',
+        { type: 'friendok', from: { id: user.id, login: user.login, race: user.race, rating: this.userRating(user) } });
+      if (this.tgNotify) this.tgNotify(other.id, 'mail', `🤝 ${user.login} принял(а) Вашу дружбу!`);
       const now = Date.now(); this.friendFeed(user.id, `${link(user)} и ${link(other)} теперь друзья`, now);
       this.store.save();
       return { ok: true, msg: `${other.login} теперь Ваш друг!` };

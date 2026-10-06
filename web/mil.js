@@ -407,6 +407,12 @@ function reportHtml(r) {
         : `<div class="two"><button class="pbtn invyes" data-frreq="accept" data-id="${u.id}">Принять</button><button class="pbtn invno" data-frreq="decline" data-id="${u.id}">Отклонить</button></div>`}
       <button class="rlinkbig" data-frgo>Мои друзья</button></div>${foot}`;
   }
+  if (d.type === 'friendok') { // дружба принята
+    const u = d.from || {};
+    return `${head}<div class="invcard"><div class="invh">🤝 Дружба принята</div>
+      <div class="invname">${plink(u.id, u.login || '')}</div><div class="invinfo">теперь Ваш друг · Рейтинг: <b>${fmtFull(u.rating || 0)}</b></div>
+      <button class="rlinkbig" data-frgo>Мои друзья</button></div>${foot}`;
+  }
   if (d.type === 'scout') {
     const res = d.ok ? '<span class="rgood">Разведка прошла успешно.</span>' : '<span class="rbad">Разведка провалилась.</span>';
     return `${head}<div class="rp">Тип похода: Разведка<br>${ic('star')} Результат атаки: ${res}</div><hr class="rhr">

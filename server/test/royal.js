@@ -1081,6 +1081,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.ok(!g.isFriend(a, b) && g.friendOp(a, 'add', b.id).error, 'пока не друзья, повтор — нельзя');
     const rep = g.reportsOf(b.id).find((r) => r.data && r.data.type === 'friendreq'); assert.ok(rep && rep.data.from.id === a.id, 'отчёт с заявкой');
     assert.ok(g.friendOp(b, 'accept', a.id).ok && g.isFriend(a, b) && g.isFriend(b, a) && rep.data.state === 'accepted', 'взаимная дружба');
+    assert.ok(g.reportsOf(a.id).some((r) => r.data && r.data.type === 'friendok' && r.data.from.id === b.id), 'отправителю — отчёт «дружба принята»');
     assert.ok(g.setBirthday(a, 31, 2).error && g.setBirthday(a, 29, 2).ok && a.bday === '29.02');
     const now = new Date(); g.setBirthday(a, new Date(now.getTime() + 3 * 3600000).getUTCDate(), new Date(now.getTime() + 3 * 3600000).getUTCMonth() + 1);
     a.online = true;
