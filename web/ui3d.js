@@ -262,7 +262,7 @@ function profileWin(p) {
     <button class="pbar" data-soon="Авторитет города">Стать Авторитетом!</button>
     ${ribbon('Информация')}
     <div class="pinfo"><div class="avatar ${p.avatar ? 'avaclick' : ''}" ${p.avatar ? `data-avaview="${p.id}"` : ''}>${avatarImg(p)}</div><div>
-      Никнейм: <b>${esc(p.login)}</b><br>${(p.nicks || []).length ? `<button class="plink nickhist" data-nicks>Бывшие ники: ${p.nicks.slice(0, 3).map((n) => esc(n.from)).join(', ')}${p.nicks.length > 3 ? ` +${p.nicks.length - 3}` : ''} ›</button><br>` : ''}Ранг: ${p.rank}<br>Рейтинг: ${fmtFull(p.rating)}<br>Раса: ${raceIcon(p.race)} ${esc(p.raceName)}</div></div>
+      Никнейм: <b>${esc(p.login)}</b><br>Ранг: ${p.rank}<br>Рейтинг: ${fmtFull(p.rating)}<br>Раса: ${raceIcon(p.race)} ${esc(p.raceName)}</div></div>
     ${p.brank ? `<button class="brline" data-brank="${p.id}"><span class="brl-t">Боевой ранг:</span><span class="brl-r"><img src="${BR_IMG(p.brank.icon)}" alt="">${brStars(p.brank.idx < 0 ? 0 : p.brank.stars)}<small>${esc(p.brank.title)}</small></span><b class="brarr">›</b></button>` : ''}
     <button class="pline plink2" data-reptable>Репутация (${fmtFull(p.reputation)}): ${repIcons(p.reputation)}</button>
     ${best.length ? `<div class="pline">Зал Славы: ${medals}</div>` : ''}
@@ -302,6 +302,7 @@ function profileMoreWin(p) {
     ${tile('map', 'ground/castle_small.png', 'На карте')}
     ${tile('attack', 'smallicon/swordred.png', 'Атаковать', p.self)}
     ${p.self ? '' : `<button class="ptile" data-blackop="${p.id}" data-nick="${esc(p.login)}"><img src="gfx3d/mail/privacy.png" alt=""><span>${isBlack(p.id) ? 'Убрать из чёрного списка' : 'В чёрный список'}</span></button>`}
+    <button class="ptile" data-nicks><img src="gfx3d/menu3/files.png" alt=""><span>История ников${(p.nicks || []).length ? ` (${p.nicks.length})` : ''}</span></button>
     ${p.self ? '' : `<button class="ptile" data-coinvs="${esc(p.login)}"><img src="${GFX}coin/stack.png" alt=""><span>Орёл-решка</span></button>`}
   </div>`;
 }
