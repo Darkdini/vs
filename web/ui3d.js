@@ -308,8 +308,10 @@ function profileMoreWin(p) {
 }
 // история ников игрока: какой ник был и когда сменён
 function nicksWin(p) {
-  return `${ribbon('История ников')}<div class="bwline center">Сейчас: <b>${esc(p.login)}</b></div>
-    ${(p.nicks || []).map((n) => `<div class="nickrow"><span><b>${esc(n.from)}</b> → ${esc(n.to)}${n.mod ? ' <small class="muted">(сброшен модерацией)</small>' : ''}</span><small>${fmtDate(n.at)}</small></div>`).join('') || '<p class="parch-note">Ник не менялся.</p>'}`;
+  const old = (p.nicks || []).slice().reverse(); // от первого ника к последнему
+  const list = [...old.map((n) => ({ name: n.from, note: `до ${fmtDay(n.at)}${n.mod ? ' · сброшен модерацией' : ''}` })), { name: p.login, note: 'сейчас', now: 1 }];
+  return `${ribbon('История ников')}<ol class="nicklist">${list.map((n) => `<li class="${n.now ? 'now' : ''}"><b>${esc(n.name)}</b><small>${n.note}</small></li>`).join('')}</ol>
+    ${old.length ? '' : '<p class="parch-note">Ник не менялся.</p>'}`;
 }
 $('#sheetBody').addEventListener('click', (e) => { if (e.target.closest('[data-nicks]') && S.lastProfile) openSheet(() => nicksWin(S.lastProfile)); });
 function profileInfoWin(p) {

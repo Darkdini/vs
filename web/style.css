@@ -2217,5 +2217,8 @@ body.menuopen #advbar, body.menuopen #advhand { display: none; } /* открыт
 .bdform select[name=day] { flex: 0 0 76px; }
 .bdform .btn { flex: none; }
 /* история ников */
-.nickrow { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 6px 0; padding: 8px 10px; border-left: 4px solid #c9a15a; border-radius: 6px; background: #fff6dd; color: #3a2205; font: 16px/1.3 var(--serif); }
-.nickrow small { color: #8a6a3a; white-space: nowrap; }
+.nicklist { margin: 8px 0; padding: 0 0 0 34px; font: 19px/1.3 var(--serif); color: #3a2205; }
+.nicklist li { margin: 6px 0; padding: 6px 10px; border-radius: 6px; background: #fff6dd; display: list-item; }
+.nicklist li::marker { font-weight: 700; color: #7a2a10; }
+.nicklist li small { float: right; color: #8a6a3a; font-size: 14px; line-height: 25px; }
+.nicklist li.now { background: #ffe9a8; }
