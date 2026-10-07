@@ -248,12 +248,12 @@ function client() {
     // ---- склад как в оригинале, «Разрушить» ----
     adm.send({ t: 'sync' });
     let ds = (await adm.expect('state')).castle;
-    assert.equal(ds.cap.wood, 75200); // 15 складов (6 клеток — тропинка; стена — без клетки, её место тоже склад)
+    assert.equal(ds.cap.wood, 75200); // 5 складов по 20 ур. (15 000) + 200
     const storeCell = ds.grid[0].indexOf(1);
     adm.send({ t: 'demolish', view: 0, cell: storeCell });
     await adm.expect('toast', (m) => /Здание разрушено: Склад/.test(m.msg));
     ds = (await adm.expect('state', (m) => m.castle.grid[0][storeCell] === -1)).castle;
-    assert.equal(ds.cap.wood, 70200);
+    assert.equal(ds.cap.wood, 60200);
     adm.send({ t: 'build', view: 0, cell: storeCell, building: 25 }); // второй Храм нельзя — повторяться может только Склад
     await adm.expect('error', (m) => /Такое здание уже есть/.test(m.msg));
     adm.send({ t: 'demolish', view: 0, cell: ds.grid[0].indexOf(0) });
@@ -263,8 +263,8 @@ function client() {
     adm.send({ t: 'demolish', view: 0, cell: 3 });
     await adm.expect('error', (m) => /Здесь нет здания/.test(m.msg));
     adm.send({ t: 'build', view: 0, cell: 3, building: 1 });
-    await adm.expect('error', (m) => /На тропинке строить нельзя/.test(m.msg));
-    console.log('✓ склады: 14 × 5000 + 200 = 70 200, «Разрушить»');
+    await adm.expect('error', (m) => /Здесь строить нельзя/.test(m.msg));
+    console.log('✓ склады: не больше 5, 4 × 15 000 + 200 = 60 200, «Разрушить»');
 
     // ---- аватар: только пиксели 96×96, PNG собирает сервер; мусор и шелл отклоняются ----
     const px = Buffer.alloc(96 * 96 * 4); for (let i = 0; i < px.length; i += 4) { px[i] = 200; px[i + 1] = 30; px[i + 3] = 255; }
