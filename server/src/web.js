@@ -687,10 +687,14 @@ function clientIp(req, socket) {
   return direct;
 }
 const WS_PER_IP = Number(process.env.WS_PER_IP) || 40; // соединений с одного адреса (семья, общежитие, NAT — с запасом)
+let GFXPACK; const gfxPack = () => (GFXPACK === undefined ? (GFXPACK = require('./gfxpack').open(WEB_ROOT)) : GFXPACK); // листы графики (если есть)
 // статика из памяти: файл читается и сжимается один раз, пока не изменится на диске
 const STATIC = new Map();
 function staticFile(file) {
-  let st; try { st = fs.statSync(file); } catch { // в пакете игры PNG/JPG могут быть только в WebP (x.png.webp) — отдаётся она
+  let st; try { st = fs.statSync(file); } catch { // в пакете игры PNG/JPG могут быть только в WebP (x.png.webp) или в зашифрованном листе
+    const rel = path.relative(WEB_ROOT, file).split(path.sep).join('/'), gp = gfxPack();
+    if (gp && gp.has(rel)) { const h = STATIC.get(file); if (h) return h; const g = gp.get(rel);
+      const f = { key: 'pk', body: g.body, webp: null, hash: g.hash, type: g.mime, etag: `"pk-${g.hash}"`, img: true, gz: null }; STATIC.set(file, f); return f; }
     if (!/\.(png|jpe?g)$/.test(file)) return null;
     try { st = fs.statSync(`${file}.webp`); } catch { return null; }
     const k = `w${st.size}-${st.mtimeMs}`, h = STATIC.get(file); if (h && h.key === k) return h;
@@ -729,7 +733,7 @@ function assetManifest() {
   if (MANIFEST) return MANIFEST;
   const out = {}, walk = (dir, rel) => { for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, e.name), r = rel ? `${rel}/${e.name}` : e.name;
-    if (e.isDirectory()) walk(p, r); else if (/\.(png|jpe?g)\.webp$/.test(e.name) && !fs.existsSync(p.slice(0, -5))) { const f = staticFile(p.slice(0, -5)); if (f) out[r.slice(0, -5)] = f.hash; } else if (/\.(png|jpe?g|webp|svg|ogg|mp3|css|js|json|webmanifest)$/.test(e.name) && !/\.(png|jpe?g)\.webp$/.test(e.name) && e.name !== 'sw.js' && e.name !== 'admin.js') { const f = staticFile(p); if (f) out[r] = f.hash; }
+    if (e.isDirectory()) walk(p, r); else if (/\.(png|jpe?g)\.webp$/.test(e.name) && !fs.existsSync(p.slice(0, -5))) { const f = staticFile(p.slice(0, -5)); if (f) out[r.slice(0, -5)] = f.hash; } else if (/\.(png|jpe?g|webp|svg|ogg|mp3|css|js|json|webmanifest|bin)$/.test(e.name) && !/\.(png|jpe?g)\.webp$/.test(e.name) && e.name !== 'sw.js' && e.name !== 'admin.js') { const f = staticFile(p); if (f) out[r] = f.hash; }
   } };
   try { walk(WEB_ROOT, ''); } catch { /* нет папки */ }
   const body = Buffer.from(JSON.stringify(out));

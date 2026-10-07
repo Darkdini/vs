@@ -191,7 +191,7 @@ const UNIQUE = [
 const UNIQ_K = 1.2;
 for (const [id, name, race, base, slot, key] of UNIQUE) {
   const b = UNIT[base], k = (v) => Math.round(v * UNIQ_K);
-  const img = fs.existsSync(path.join(__dirname, '..', '..', 'web', 'gfx', 'units', 'uniq', `${key}.png`)) ? `uniq/${key}` : b.img;
+  const img = require('./gfxpack').exists(path.join(__dirname, '..', '..', 'web'), `gfx/units/uniq/${key}.png`) ? `uniq/${key}` : b.img;
   const u = { ...b, id, name, race, img, base, slot, quest: true, notrain: true, hp: k(b.hp), attack: k(b.attack), magic: k(b.magic), def: { inf: k(b.def.inf), cav: k(b.def.cav), mag: k(b.def.mag) } };
   UNITS.push(u); UNIT[id] = u;
 }
