@@ -690,7 +690,14 @@ const WS_PER_IP = Number(process.env.WS_PER_IP) || 40; // соединений �
 // статика из памяти: файл читается и сжимается один раз, пока не изменится на диске
 const STATIC = new Map();
 function staticFile(file) {
-  let st; try { st = fs.statSync(file); } catch { return null; }
+  let st; try { st = fs.statSync(file); } catch { // в пакете игры PNG/JPG могут быть только в WebP (x.png.webp) — отдаётся она
+    if (!/\.(png|jpe?g)$/.test(file)) return null;
+    try { st = fs.statSync(`${file}.webp`); } catch { return null; }
+    const k = `w${st.size}-${st.mtimeMs}`, h = STATIC.get(file); if (h && h.key === k) return h;
+    const body = fs.readFileSync(`${file}.webp`);
+    const f = { key: k, body, webp: null, hash: require('crypto').createHash('md5').update(body).digest('hex').slice(0, 10), type: 'image/webp', etag: `"${st.size.toString(36)}-${Math.floor(st.mtimeMs).toString(36)}"`, img: true, gz: null };
+    STATIC.set(file, f); return f;
+  }
   if (st.isDirectory()) return null;
   const key = `${st.size}-${st.mtimeMs}`, hit = STATIC.get(file);
   if (hit && hit.key === key) return hit;
@@ -722,7 +729,7 @@ function assetManifest() {
   if (MANIFEST) return MANIFEST;
   const out = {}, walk = (dir, rel) => { for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, e.name), r = rel ? `${rel}/${e.name}` : e.name;
-    if (e.isDirectory()) walk(p, r); else if (/\.(png|jpe?g|webp|svg|ogg|mp3|css|js|json|webmanifest)$/.test(e.name) && !/\.(png|jpe?g)\.webp$/.test(e.name) && e.name !== 'sw.js' && e.name !== 'admin.js') { const f = staticFile(p); if (f) out[r] = f.hash; }
+    if (e.isDirectory()) walk(p, r); else if (/\.(png|jpe?g)\.webp$/.test(e.name) && !fs.existsSync(p.slice(0, -5))) { const f = staticFile(p.slice(0, -5)); if (f) out[r.slice(0, -5)] = f.hash; } else if (/\.(png|jpe?g|webp|svg|ogg|mp3|css|js|json|webmanifest)$/.test(e.name) && !/\.(png|jpe?g)\.webp$/.test(e.name) && e.name !== 'sw.js' && e.name !== 'admin.js') { const f = staticFile(p); if (f) out[r] = f.hash; }
   } };
   try { walk(WEB_ROOT, ''); } catch { /* нет папки */ }
   const body = Buffer.from(JSON.stringify(out));

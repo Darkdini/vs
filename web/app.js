@@ -16,10 +16,10 @@ const GROUND = ['grass', 'stone', 'roadS0', 'roadS1', 'roadS2', 'roadG0', 'roadG
 const DECOR = ['wood', 'walun', 'mount'];
 const EDGE = ['0', '1', '2', '3', '40', '41', '50', '51', '60', '61', '70', '71'];
 // id здания → build/<имя>.png (порядок картинок клиента: id = номер картинки − 100)
-const BUILD_IMG = ['castle', 'storage', 'mbases', 'baraks', 'market', 'farm_small', 'house_small', 'sawmill_small', 'stone_small', 'iron_small',
+const BUILD_IMG = ['castle', 'storage', 'mbases', 'baraks', 'market', 'lands/farm1', 'lands/house1', 'lands/wood1', 'lands/stone1', 'lands/iron1',
   'build', 'smith', 'stables', 'diplomat', 'wisdom_house', 'university', 'arhcamp', 'expedition', 'art_tower', 'commerce', 'magtower',
-  'guard_tower', null, 'workshop', 'traveler', 'temple', 'secret', 'sawmill_avg', 'stone_avg', 'iron_avg', 'farm_avg', 'house_avg',
-  'sawmill_big', 'stone_big', 'iron_big', 'farm_big', 'house_big', 'chip', 'portal', 'magscool', 'builder', 'beer', 'gendel',
+  'guard_tower', null, 'workshop', 'traveler', 'temple', 'secret', 'lands/wood3', 'lands/stone3', 'lands/iron3', 'lands/farm3', 'lands/house3',
+  'lands/wood5', 'lands/stone5', 'lands/iron5', 'lands/farm5', 'lands/house5', 'lands/fish1', 'portal', 'magscool', 'builder', 'beer', 'gendel',
   'alchimia', 'reasury', 'spycentr', 'resident'];
 // здания земель — своя картинка на каждый из 5 уровней (номера 100–129: Огород, Хибара, Дровосек, Каменьщик, Рудник, Рыболовная заводь)
 ['farm', 'house', 'wood', 'stone', 'iron', 'fish'].forEach((k, i) => { for (let l = 1; l <= 5; l++) BUILD_IMG[100 + i * 5 + l - 1] = `lands/${k}${l}`; });
@@ -744,7 +744,7 @@ function emptySheet(view, cell) {
     .filter(({ blk }) => !blk.includes('Такое здание уже есть.'))
     .sort((a, b) => a.blk.length - b.blk.length);
   const th = S.st.castle.townhall;
-  return `<div class="sh-head"><div class="big">${view === VIEW.LANDS ? gimg(landGroundImg(cell)) : gimg('ground/stone.png')}</div><div><h3>${esc(title)}</h3><div class="muted small">${esc(sub)}</div></div></div>
+  return `<div class="sh-head"><div class="big">${view === VIEW.LANDS ? gimg(landGroundImg(cell)) : gimg('ground/plot.png')}</div><div><h3>${esc(title)}</h3><div class="muted small">${esc(sub)}</div></div></div>
     ${!items.length ? '<p class="muted">Здесь нечего строить.</p>' : `<div class="list">${items.map(({ def, blk }) => `
       <button class="row ${blk.length ? 'locked' : ''}" data-pick="${view},${cell},${def.id}"><span class="ic">${bimg(displayId(def, 1))}</span>
       <div class="grow"><b>${esc(def.name)}</b>${costChips(def.costs[1]).replace('class="chips"', 'class="chips small"')}
@@ -831,18 +831,6 @@ function openWorldCell(x, y) {
 }
 
 // ---------- изометрическая карта (как в оригинале: ромб 62×32, тайлы и спрайты из клиента) ----------
-// Основание замка 17×17 (массив k.i клиента): 0 трава, 1 камень, 2-6 дорога; здания — в квадрате 5..11
-const CASTLE_BASE = [
-  [0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 1, 1, 1, 3, 1, 1, 1, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 1, 1, 1, 3, 1, 1, 1, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 1, 1, 1, 3, 1, 1, 1, 0, 0, 0, 0, 0],
-  [5, 5, 5, 5, 5, 2, 2, 2, 4, 1, 1, 1, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-];
 const CASTLE_OFF = 5, TW = 62, TH = 32;
 function landGroundImg(cell) {
   const x = cell % LN(), y = Math.floor(cell / LN()), L = S.cat.lands;
@@ -859,21 +847,15 @@ let PIC_LOADED = 0; // сколько картинок догрузилось �
 const IMGS = new Map();
 // перерисованная графика высокого качества: файл в HD[path] во столько раз крупнее, на карте рисуется в прежнем размере
 const HD = {
-  // здания Земель и декор — сглаженное увеличение ×8 (Scale2x ×3) старой пиксельной графики
-  ...Object.fromEntries('chip farm_avg farm_big farm_small house_avg house_big house_small iron_avg iron_big iron_small mount sawmill_avg sawmill_big sawmill_small stone_avg stone_big stone_small walun'.split(' ').map((n) => [`build/${n}.png`, [`build/hd/${n}.png`, 8]])), 'ground/camp1.png': ['ground/hd/camp1.png', 4], 'ground/camp2.png': ['ground/hd/camp2.png', 4], 'ground/camp3.png': ['ground/hd/camp3.png', 4],
-  // стена замка (Забор) — HD, нарисована по листу с 5 частями
-  ...Object.fromEntries([0, 1, 2, 3, 4].map((i) => [`fence/fence${i}.png`, [`fence/hd/fence${i}.png`, 8]])),
-  // ров (кольцо из одного нарисованного куска, с течением) и трава в замке — HD
-  ...Object.fromEntries(['TL', 'R', 'BR', 'L', 'cL', 'cT', 'cR', 'cB', 'bL', 'bTL'].flatMap((n) => Array.from({ length: 16 }, (_, f) => [`ground/moat_${n}_${f}.png`, [`ground/hd/moat_${n}_${f}.png`, 6]]))),
-  'ground/grassC.png': ['ground/hd/grassC.png', 8], 'ground/grass1C.png': ['ground/hd/grass1C.png', 8],
+  // лагеря на карте мира — HD
+  'ground/camp1.png': ['ground/hd/camp1.png', 4], 'ground/camp2.png': ['ground/hd/camp2.png', 4], 'ground/camp3.png': ['ground/hd/camp3.png', 4],
+  'fence/fence1.png': ['fence/hd/fence1.png', 8], // значок стены (Забор) в окнах
   // здания замка — новая графика «Средневековье»: каждое на своей ромбовидной плите; [масштаб, ширина плиты, y центра плиты, x центра плиты] в точках картинки.
   // плита — шириной 48 точек на экране, её центр — в центре клетки
   ...Object.fromEntries(Object.entries({ castle: [5.792, 278, 274.0, 140.0], storage: [5.646, 271, 187.2, 138.5], mbases: [5.875, 282, 244.5, 141.0], baraks: [5.771, 277, 165.0, 139.5], market: [5.812, 279, 158.5, 141.5], smith: [5.708, 274, 238.0, 139.0], stables: [5.875, 282, 175.8, 142.0], diplomat: [5.875, 282, 220.2, 142.0], wisdom_house: [5.479, 263, 243.5, 132.5], university: [5.688, 273, 225.5, 137.5], arhcamp: [5.792, 278, 197.8, 141.0], expedition: [5.812, 279, 217.0, 142.5], art_tower: [5.042, 242, 242.2, 122.0], commerce: [5.875, 282, 211.0, 141.0], magtower: [5.438, 261, 243.0, 131.5], guard_tower: [4.792, 230, 287.2, 117.0], workshop: [5.604, 269, 173.2, 134.5], traveler: [5.458, 262, 211.5, 133.0], temple: [5.812, 279, 247.8, 140.5], secret: [5.417, 260, 178.0, 132.0], portal: [5.417, 260, 223.5, 131.0], magscool: [5.625, 270, 246.2, 136.0], builder: [5.792, 278, 188.5, 139.0], beer: [5.812, 279, 233.0, 140.5], gendel: [5.583, 268, 214.2, 135.0], alchimia: [5.229, 251, 224.5, 127.5], reasury: [5.625, 270, 202.5, 135.0], spycentr: [5.396, 259, 227.5, 129.5], resident: [6.021, 289, 214.0, 144.5], build: [5.646, 271, 177.8, 138.5] }).map(([n, [k, fw, ay, ax]]) => [`build/${n}.png`, [`build/hd3/${n}.png`, k, fw, ay, ax]])),
   'build/watch1.png': ['build/hd3/guard_tower.png', 4.792, 230, 287.2, 117.0], 'build/watch2.png': ['build/hd3/guard_tower.png', 4.792, 230, 287.2, 117.0], 'build/watch3.png': ['build/hd3/guard_tower.png', 4.792, 230, 287.2, 117.0] };
 
-// в замке трава своя (HD): снаружи стены — светлая (grass1C), внутри — с цветами (grassC); на Землях и в Мире — прежняя
-const CASTLE_GRASS = { 'ground/grass.png': 'ground/grass1C.png', 'ground/grass1.png': 'ground/grass1C.png' };
-const gpath = (path) => (S.tab === 'castle' && CASTLE_GRASS[path]) || path;
+const gpath = (path) => path;
 function pic(path) {
   let e = IMGS.get(path);
   if (!e) {
@@ -900,11 +882,6 @@ function screenToTile(px, py) {
   const a = (px - TW / 2) / (TW / 2), b = (py - TH / 2) / (TH / 2);
   return { x: Math.round((a - b) / 2), y: Math.round((a + b) / 2) };
 }
-// участки замка сдвинуты к центру (KC) и меньше клетки (PLOT): промежутки между ними и отступ от стены
-const KC = 0.92, PLOT = 0.56, BK = 0.6, CC = CASTLE_OFF + 3; // шаг сетки, размер участка, масштаб зданий
-// IN_DY: всё внутри стен (участки, здания, дорога) чуть выше — передняя стена закрывает низ, и отступы до стен на глаз равные
-const IN_DY = -12;
-const CASTLE_ORDER = Array.from({ length: 49 }, (_, i) => [i % 7, Math.floor(i / 7)]).sort((p, q) => (p[1] - p[0]) - (q[1] - q[0]) || p[0] - q[0]);
 const cellAt = (cx, cy) => { const P = CASTLE_XY[cy * 7 + cx]; return P ? { sx: P[0] * CB_K - TW / 2, sy: P[1] * CB_K - TH / 2 } : { sx: -1e4, sy: -1e4 }; }; // центр площадки на фоне
 function screenToTileF(px, py) { const a = (px - TW / 2) / (TW / 2), b = (py - TH / 2) / (TH / 2); return { x: (a - b) / 2, y: (a + b) / 2 }; }
 // ромб (участок) уменьшенного размера k с центром в центре клетки p
@@ -1164,8 +1141,6 @@ function lvlFlush() {
   LVLQ.length = 0;
 }
 
-const D = (x, y) => tileScreen(x, y).sx, E = (x, y) => tileScreen(x, y).sy;
-const CG = CASTLE_OFF, CH = CASTLE_OFF, CN = 7;
 // ров: кольцо клеток вокруг замка (прямые стороны, закруглённые углы, мосты у ворот); вода течёт по часовой стрелке
 const FLOW_N = 16, FLOW_MS = 165, ANIM_MS = 90; // кадр течения рва / частота перерисовки (плавнее для мельниц)
 const flowOn = () => typeof SND === 'undefined' || SND.anim !== false;
@@ -1175,45 +1150,11 @@ function flowTick() { // перерисовка только пока откры
   if (!['castle', 'lands', 'world'].includes(S.tab) || document.hidden || !flowOn() || !Iso.cv.isConnected) return;
   isoDraw(); flowTimer = setTimeout(flowTick, ANIM_MS);
 }
-const MOAT_T = ['TL', 'R', 'BR', 'L', 'cL', 'cT', 'cR', 'cB', 'bL', 'bTL'];
-function moat() {
-  if (!flowTimer && flowOn()) flowTimer = setTimeout(flowTick, FLOW_MS);
-  const f = flowOn() ? Math.floor(Date.now() / FLOW_MS) % FLOW_N : 0;
-  if (!moat.pre) { moat.pre = true; for (const n of MOAT_T) for (let k = 0; k < FLOW_N; k++) pic(`ground/moat_${n}_${k}.png`); } // все кадры — заранее
-  const tile = (n, x, y) => { const p = tileScreen(x, y), im = pic(`ground/moat_${n}_${f}.png`) || pic(`ground/moat_${n}_0.png`); if (im) drawPic(im, p.sx, p.sy); };
-  for (let i = 0; i < CN; i++) {
-    tile(i === 3 ? 'bTL' : 'TL', CG + i, CH - 1); // верхняя левая сторона, мост у задних ворот
-    tile('R', CG + CN, CH + i);
-    tile('BR', CG + i, CH + CN);
-    tile(i === 3 ? 'bL' : 'L', CG - 1, CH + i); // левая сторона, мост у главных ворот
-  }
-  tile('cL', CG - 1, CH - 1); tile('cT', CG + CN, CH - 1); tile('cR', CG + CN, CH + CN); tile('cB', CG - 1, CH + CN);
-}
-// стена чуть шире сетки участков (FENCE_K), чтобы крайние здания не прижимались к ней; растягивается от центра замка
-const FENCE_K = 1.07;
-// центр растяжения — середина клетки Ратуши (с IN_DY, как у зданий): отступ стены одинаковый со всех сторон
-function fenceWide(draw) { const p = tileScreen(CC, CC), cx = p.sx + TW / 2, cy = p.sy + TH / 2 + IN_DY; ictx.save(); ictx.translate(cx, cy); ictx.scale(FENCE_K, FENCE_K); ictx.translate(-cx, -cy); draw(); ictx.restore(); }
-// ворота сдвинуты вдоль своей стены на линию дороги (дорога нарисована с IN_DY): под воротами — обычный пролёт стены, чтобы не было щели
-const GATE_T = -IN_DY / TH; // сдвиг ворот, доля клетки
-function fenceBack() {
-  for (const i of [0, 1, 2, 3, 4, 5, 6]) raw('fence/fence2.png', D(CG + i, CH) - 5, E(CG + i, CH) - 26);
-  for (let i = 0; i < CN; i++) raw('fence/fence0.png', D(CG + 6, CH + i) + 25, E(CG + 6, CH + i) - 25);
-  raw('fence/fence3.png', D(CG + 6, CH - 1) + 53, E(CG + 6, CH - 1) + 19 - imH('fence/fence3.png'));
-  raw('fence/fence4.png', D(CG + 3 + GATE_T, CH), E(CG + 3 + GATE_T, CH) - 20);
-}
-function fenceFront() {
-  for (const i of [0, 1, 2, 3, 4, 5, 6]) raw('fence/fence0.png', D(CG - 1, CH + i) + 25, E(CG - 1, CH + i) - 25);
-  for (let i = 0; i < CN; i++) raw('fence/fence2.png', D(CG + i, CH + 7) - 3, E(CG + i, CH + 7) - 24);
-  raw('fence/fence3.png', D(CG - 1, CH - 1) + 52, E(CG - 1, CH - 1) + 18 - imH('fence/fence3.png'));
-  raw('fence/fence3.png', D(CG - 1, CH + 6) + 55, E(CG - 1, CH + 6) + 21 - imH('fence/fence3.png'));
-  raw('fence/fence3.png', D(CG + 6, CH + 6) + 54, E(CG + 6, CH + 6) + 20 - imH('fence/fence3.png'));
-  raw('fence/fence1.png', D(CG - 1, CH + 3 - GATE_T) + 25, E(CG - 1, CH + 3 - GATE_T) - 25);
-}
 // фон вокруг королевства: одна цельная картинка (местность с лесом, рекой, скалами) под замком; камера не выходит за картинку.
 // Оживление (кадры воды, мельница, колесо) — если у картинки заданы water / mill / wheel.
 // замок на картинке-фоне: стены, ворота, река и 33 места (площадь Ратуши + 32 площадки) нарисованы на картинке; здания ставятся на площадки
 const CB_K = 0.5; // точек мира на точку картинки
-const CASTLE_BG = { src: 'ground/bg/castle2.webp?v=1', moat: false, iw: 1672, ih: 940, pad: 0, x: 0, y: 0, w: 1672 * CB_K, h: 940 * CB_K };
+const CASTLE_BG = { src: 'ground/bg/castle2.webp?v=1', iw: 1672, ih: 940, pad: 0, x: 0, y: 0, w: 1672 * CB_K, h: 940 * CB_K };
 // клетка сетки замка → центр площадки на картинке (сервер: C.CASTLE_OK); 24 — площадь Ратуши
 const CASTLE_XY = {24: [822, 186], 0: [994, 264], 1: [1098, 322], 2: [1198, 380], 4: [1302, 440], 5: [832, 290], 7: [926, 338], 8: [1020, 386], 9: [1120, 444], 11: [1216, 495], 12: [661, 268], 14: [738, 336], 15: [832, 392], 16: [930, 440], 18: [1025, 498], 19: [1126, 552], 25: [566, 317], 26: [648, 386], 28: [738, 444], 29: [836, 496], 30: [932, 551], 31: [1030, 606], 32: [466, 374], 33: [552, 440], 35: [644, 494], 36: [739, 554], 37: [836, 610], 38: [938, 662], 39: [361, 433], 40: [454, 491], 42: [545, 554], 43: [641, 610], 44: [736, 663]};
 const CB_PLOT = 93 * CB_K, CB_PLOTH = 59.5 * CB_K, CB_HALL = 228 * CB_K; // ширина площадки и площади (в точках мира)
@@ -1221,49 +1162,8 @@ const CASTLE_ORDER2 = Object.keys(CASTLE_XY).map(Number).sort((a, b) => CASTLE_X
 function castleBackdrop() {
   const G = CASTLE_BG, im = pic(G.src); if (!im) return null;
   const x = ictx, sm = x.imageSmoothingEnabled; x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
-  x.drawImage(im, G.x, G.y, G.w, G.h);
-  if (G.water && flowOn() && !flowTimer) flowTimer = setTimeout(flowTick, ANIM_MS);
-  const t = flowOn() ? Date.now() / 1000 : 0;
-  x.save(); x.translate(G.x, G.y); x.scale(G.w / G.iw, G.h / G.ih); x.translate(0, G.pad); // дальше — в точках исходной картинки
-  if (!G.water) { x.restore(); x.imageSmoothingEnabled = sm; return im; } // у новой картинки — без наложенной анимации воды и мельниц
-  const wv = (G.src.split('?')[1] || ''), wfn = (k) => `ground/bg/water_${k}.webp${wv ? `?${wv}` : ''}`; // кадры воды — той же версии, что и картинка (иначе телефон берёт старые из кэша)
-  const wf = pic(wfn(flowOn() ? Math.floor(Date.now() / FLOW_MS) % G.water.n : 0));
-  if (!castleBackdrop.pre) { castleBackdrop.pre = true; for (let k = 0; k < G.water.n; k++) pic(wfn(k)); }
-  if (wf) x.drawImage(wf, G.water.x, G.water.y);
-  if (!G.wheel) { x.restore(); x.imageSmoothingEnabled = sm; return im; } // мельница и колесо — только если заданы
-  { // водяное колесо: содержимое эллипса поворачивается вокруг оси
-    const W = G.wheel, a = (t * W.speed) % W.step;
-    x.save(); x.translate(W.hub[0], W.hub[1]); x.transform(W.u[0], W.u[1], W.v[0], W.v[1], 0, 0);
-    x.beginPath(); x.arc(0, 0, 0.98, 0, Math.PI * 2); x.clip(); x.rotate(a);
-    const det = W.u[0] * W.v[1] - W.u[1] * W.v[0]; // обратно в точки картинки
-    x.transform(W.v[1] / det, -W.u[1] / det, -W.v[0] / det, W.u[0] / det, 0, 0); x.translate(-W.hub[0], -W.hub[1]);
-    x.drawImage(im, W.hub[0] - 70, W.hub[1] - 70 + G.pad, 140, 140, W.hub[0] - 70, W.hub[1] - 70, 140, 140);
-    x.restore();
-  }
-  { // ветряк: 4 решётчатых крыла
-    const Mw = G.mill, a0 = t * Mw.speed;
-    x.save(); x.translate(Mw.hub[0], Mw.hub[1]); x.transform(Mw.u[0], Mw.u[1], Mw.v[0], Mw.v[1], 0, 0);
-    for (let k = 0; k < 4; k++) {
-      x.save(); x.rotate(a0 + k * Math.PI / 2);
-      x.fillStyle = 'rgba(214,196,150,0.88)'; x.fillRect(0.22, 0.02, 0.8, 0.24);
-      x.strokeStyle = '#5f3e22'; x.lineWidth = 0.022; x.beginPath();
-      for (let i = 0; i <= 5; i++) { const sx = 0.22 + i * 0.16; x.moveTo(sx, 0.02); x.lineTo(sx, 0.26); }
-      x.moveTo(0.22, 0.14); x.lineTo(1.02, 0.14); x.moveTo(0.22, 0.26); x.lineTo(1.02, 0.26); x.stroke();
-      x.strokeStyle = '#462d19'; x.lineWidth = 0.045; x.beginPath(); x.moveTo(0, 0); x.lineTo(1.06, 0); x.stroke();
-      x.restore();
-    }
-    x.fillStyle = '#3c2816'; x.beginPath(); x.arc(0, 0, 0.06, 0, Math.PI * 2); x.fill();
-    x.restore();
-  }
-  x.restore(); x.imageSmoothingEnabled = sm;
+  x.drawImage(im, G.x, G.y, G.w, G.h); x.imageSmoothingEnabled = sm;
   return im;
-}
-// земля только внутри стен (вокруг — фон-картинка)
-function groundIn(at) {
-  // дорога доходит до ворот: стена шире сетки (FENCE_K), поэтому крайние клетки дороги продлены наружу
-  for (const [x, y, dx, dy] of [[CASTLE_OFF + 3, CASTLE_OFF, 0, -1], [CASTLE_OFF, CASTLE_OFF + 3, -1, 0]]) { const g = at(x, y); if (!g) continue;
-    for (const k of [0.75, 0.4]) { const p = tileScreen(x + dx * k, y + dy * k); ground(g, p.sx, p.sy + IN_DY); } }
-  for (let y = CASTLE_OFF; y < CASTLE_OFF + 7; y++) for (let x = CASTLE_OFF + 6; x >= CASTLE_OFF; x--) { const g = at(x, y); if (g) { const p = tileScreen(x, y); ground(g, p.sx, p.sy + IN_DY); } }
 }
 // земля сетки + поле grass1 на 5 клеток вокруг (s.a(g, true) в клиенте)
 // бесшовная трава на весь экран: узор 62×32 из ромба-тайла и четырёх соседей (как сетка изометрии)
@@ -1514,7 +1414,7 @@ function isoDrawNow() {
   else { x.fillStyle = '#16240f'; x.fillRect(0, 0, Iso.cv.width, Iso.cv.height); }
   x.setTransform(c.z * dpr, 0, 0, c.z * dpr, c.x * dpr, c.y * dpr);
   x.imageSmoothingEnabled = false;
-  if (S.tab !== 'world') grassBackdrop('ground/grass1.png', c, dpr); // трава до краёв экрана — без чёрных краёв (мир — своим фоном)
+  if (S.tab === 'lands') grassBackdrop('ground/grass1.png', c, dpr); // трава до краёв экрана (замок и мир — своим фоном) — без чёрных краёв (мир — своим фоном)
   const st = S.st.castle;
   if (S.tab === 'castle') { // фон-картинка со стенами и площадками → здания на площадках (от дальних к ближним) → полосы стройки и уровни
     castleBackdrop();

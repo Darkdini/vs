@@ -266,7 +266,7 @@ function religionHtml() {
 function expedHtml() {
   const my = MY(), I = my.expedInfo, ex = my.expeds || []; if (!I) return '';
   const free = I.slots - ex.length, n = Math.max(0, Math.min(I.have, I.maxN, S.exN ?? Math.min(10, I.have)));
-  const KIMG = { near: 'build/arhcamp.png', city: 'ground/castle_old.png', tomb: 'ground/mount.png' };
+  const KIMG = { near: 'build/hd3/arhcamp.png', city: 'ground/castle_old.png', tomb: 'ground/mount.png' };
   return `<div class="section">Экспедиции</div>
     ${ex.map((x) => { const k = I.kinds.find((y) => y.k === x.kind); return `<div class="card job exrun"><img class="exic" src="${GFX}units/human/hd/arheolog.png" alt="">
       <div class="grow"><b>${esc(k ? k.name : '')}</b> · археологов ${x.n}<div class="bar"><i data-s="${x.start}" data-e="${x.end}"></i></div></div><span class="cd" data-e="${x.end}"></span></div>`; }).join('')}

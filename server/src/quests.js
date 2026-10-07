@@ -6,7 +6,7 @@
 const C = require('./catalog');
 const RES4 = ['wood', 'stone', 'iron', 'food'];
 const DAY = 86400000;
-const b = (id) => `build/${({ 0: 'castle', 1: 'storage', 2: 'mbases', 3: 'baraks', 4: 'market', 5: 'farm_small', 11: 'smith', 15: 'university', 17: 'expedition', 18: 'art_tower', 39: 'magscool', 44: 'reasury', 6: 'house_small' })[id] || 'build'}.png`;
+const b = (id) => `build/${({ 0: 'hd3/castle', 1: 'hd3/storage', 2: 'hd3/mbases', 3: 'hd3/baraks', 4: 'hd3/market', 5: 'lands/farm1', 11: 'hd3/smith', 15: 'hd3/university', 17: 'hd3/expedition', 18: 'hd3/art_tower', 39: 'hd3/magscool', 44: 'hd3/reasury', 6: 'lands/house1' })[id] || 'hd3/build'}.png`;
 // награды заданий — ресурсы, уникальные воины расы (u: { inf, cav, mag }), опыт генерала (exp) и артефакты.
 // Всё, кроме артефактов, падает в Кладовую игрока (stash.js) — общую на все замки. Золото и премиум — только донат, заданиями не раздаются.
 const R = (n, extra = {}) => ({ wood: n, stone: n, iron: n, food: n, ...extra });
@@ -22,7 +22,7 @@ const TUT = [
   { id: 'raid', title: 'Боевое крещение', text: 'На карте мира рядом с замком стоят лагеря разбойников. Одержите победу над любым лагерем (Набег или Нападение).', icon: 'ground/dikari.png', need: (g, u, c, base) => [g.qstat(u, 'npcWins', base), 1], reward: R(500, { u: { inf: 5 }, exp: 30 }) },
   { id: 'smith', title: 'Голос наковальни', text: 'Кузнец усиливает атаку и защиту воинов. Постройте Кузнеца.', icon: b(11), need: (g, u, c) => [g.buildingLevel(c, 11), 1], reward: R(500) },
   { id: 'forge', title: 'Острее клинки', text: 'Начните улучшение атаки или защиты любого воина в Кузнице.', icon: b(11), need: (g, u, c, base) => [g.qstat(u, 'upgrades', base), 1], reward: R(600, { u: { cav: 3 } }) },
-  { id: 'fence', title: 'Каменный пояс', text: 'Стена усиливает защитников и сдерживает врага. Откройте Ратушу → «Стена» и развейте её до 3 уровня.', icon: 'fence/fence1.png', need: (g, u, c) => [g.buildingLevel(c, 22), 3], reward: R(700) },
+  { id: 'fence', title: 'Каменный пояс', text: 'Стена усиливает защитников и сдерживает врага. Откройте Ратушу → «Стена» и развейте её до 3 уровня.', icon: 'fence/hd/fence1.png', need: (g, u, c) => [g.buildingLevel(c, 22), 3], reward: R(700) },
   { id: 'market', title: 'Торговый путь', text: 'Постройте Рынок и отправьте торговцев с ресурсами в любой замок (можно другу).', icon: b(4), need: (g, u, c, base) => [g.qstat(u, 'trades', base), 1], reward: R(700, { exp: 50 }) },
   { id: 'univ', title: 'Свет знаний', text: 'Постройте Университет и начните изучать любую науку.', icon: b(15), need: (g, u, c, base) => [g.qstat(u, 'research', base), 1], reward: R(800, { u: { mag: 3 } }) },
   { id: 'general', title: 'Полководец', text: 'Генерал ведёт армию и усиливает её. Натренируйте генерала в Военном штабе.', icon: b(2), need: (g, u, c) => [c.general && !c.general.dead ? 1 : 0, 1], reward: R(900, { exp: 100 }) },
@@ -36,7 +36,7 @@ const TUT = [
   { id: 'genpts', title: 'Опыт полководца', text: 'Откройте Военный штаб → Генерал и распределите очки опыта: атака, защита, командование.', icon: b(2), need: (g, u, c) => [c.general && !c.general.dead && Object.values(c.general.pts || {}).some((v) => v > 0) ? 1 : 0, 1], reward: R(1200, { exp: 150 }) },
   { id: 'talent', title: 'Путь героя', text: 'Изучите у генерала первое умение (Генерал → Умения): Завоеватель, Страж или Мародёр.', icon: 'hero/icon_point.png', need: (g, u, c) => [c.general && !c.general.dead && Object.values(c.general.tal || {}).some((v) => v > 0) ? 1 : 0, 1], reward: R(1300, { u: { mag: 5 } }) },
   { id: 'gear', title: 'Доспехи полководца', text: 'Наденьте на генерала любую вещь (Генерал → Снаряжение). Снаряжение добывается в логовах похода и в лагерях.', icon: 'hero/gear_helm_1.png', need: (g, u, c) => [c.general && !c.general.dead && Object.values(c.general.eq || {}).some(Boolean) ? 1 : 0, 1], reward: R(1500, { exp: 250 }) },
-  { id: 'temple', title: 'Вера предков', text: 'Постройте Храм и примите религию: Свет, Природа или Война.', icon: 'build/temple.png', need: (g, u, c) => [c.religion ? 1 : 0, 1], reward: R(1800, { u: { inf: 10 } }) },
+  { id: 'temple', title: 'Вера предков', text: 'Постройте Храм и примите религию: Свет, Природа или Война.', icon: 'build/hd3/temple.png', need: (g, u, c) => [c.religion ? 1 : 0, 1], reward: R(1800, { u: { inf: 10 } }) },
   { id: 'kills', title: 'Гроза врагов', text: 'Уничтожьте в боях 300 вражеских воинов (лагеря, логова и чужие замки — всё считается).', icon: 'gfx3d/rep/swords.png', need: (g, u, c, base) => [g.qstat(u, 'kills', base), 300], reward: R(2500, { u: { inf: 10, cav: 10, mag: 5 }, exp: 400 }) },
 ];
 

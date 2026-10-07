@@ -41,13 +41,13 @@ const MENUS = {
     ['Земли', 'gfx3d/locs2/lands.png', () => setTab('lands')],
     ['Мир', 'gfx3d/locs2/world.png', () => setTab('world')],
     ['Мои замки', 'gfx3d/locs2/castles.png', () => openSheet(castlesWin)],
-    ['Штаб', 'build/mbases.png', () => ACTS.hq()],
+    ['Штаб', 'build/hd3/mbases.png', () => ACTS.hq()],
     ['Генерал', `units/${HD_DIR[S.st.user.race] || 'human/hd'}/general.png`, () => openGeneral()],
-    ['Армии', 'build/baraks.png', () => openSheet(armiesWin)],
+    ['Армии', 'build/hd3/baraks.png', () => openSheet(armiesWin)],
     ['Поход', 'smallicon/swordred.png', () => openArmySheet({})],
     ['Ресурсы', 'gfx3d/locs2/res.png', () => openRes()],
-    ['Здания', 'build/build.png', () => openSheet(() => ribbon('Здания замка') + summaryHtml(VIEW.CASTLE))],
-    ['Постройки', 'build/farm_big.png', () => openSheet(() => ribbon('Постройки на землях') + summaryHtml(VIEW.LANDS))],
+    ['Здания', 'build/hd3/build.png', () => openSheet(() => ribbon('Здания замка') + summaryHtml(VIEW.CASTLE))],
+    ['Постройки', 'build/lands/farm5.png', () => openSheet(() => ribbon('Постройки на землях') + summaryHtml(VIEW.LANDS))],
   ] },
   alliance: { label: 'Альянс', icon: 'menu2/alliance.png', note: () => (MY().alliance ? '' : 'Вы не состоите в альянсе.'), items: () => [
     ...(!MY().alliance && (MY().invites || []).length ? [[`Приглашения (${MY().invites.length})`, 'gfx3d/rep/envnew.svg', () => openInvites()]] : []),
@@ -433,8 +433,8 @@ function castleWin(o, x, y) {
     ${o.alliance ? `<div class="cwrow"><span>Альянс:</span><span>[${esc(o.alliance)}]</span></div>` : ''}
     <hr class="cwhr">
     <div class="ptiles">
-      ${mine ? tile(`data-switchxy="${x},${y}"`, 'build/castle.png', 'Войти в замок') : tile(`data-write="${esc(o.owner)}"`, 'smallicon/unmes.png', 'Сообщение')}
-      ${tile(`data-armyopen="trade" data-ax="${x}" data-ay="${y}"`, 'build/storage.png', 'Торговля')}
+      ${mine ? tile(`data-switchxy="${x},${y}"`, 'build/hd3/castle.png', 'Войти в замок') : tile(`data-write="${esc(o.owner)}"`, 'smallicon/unmes.png', 'Сообщение')}
+      ${tile(`data-armyopen="trade" data-ax="${x}" data-ay="${y}"`, 'build/hd3/storage.png', 'Торговля')}
       ${mine ? '' : tile(`data-armyopen="attack" data-ax="${x}" data-ay="${y}"`, 'smallicon/swordred.png', 'Война')}
     </div>
     <button class="pbar cwsave" data-saveplace="${x},${y}">${saved ? 'Место запомнено' : 'Запомнить место'}</button>`;
@@ -483,7 +483,7 @@ const newsWin = () => `${ribbon('Новости')}<div class="pstats"><b>Тес�
 const contactsWin = () => `${ribbon('Контакты')}<div class="pstats">Вопросы и ошибки — через «Инфо → Служба поддержки»: сообщение сохранится на сервере и попадёт разработчикам.</div>`;
 const menuDescWin = () => `${ribbon('Описание меню')}<div class="pstats">${Object.values(MENUS).map((m) => `<b>${m.label}</b>: ${m.items().filter(Boolean).map((i) => i[0]).join(', ')}`).join('<br><br>')}</div>`;
 const helpWin = () => `${ribbon('Справка')}<div class="mitems light">
-  <button class="mitem" data-act="book"><img src="${GFX}build/university.png" alt=""><span>Справочник зданий</span></button>
+  <button class="mitem" data-act="book"><img src="${GFX}build/hd3/university.png" alt=""><span>Справочник зданий</span></button>
   <button class="mitem" data-act="army"><img src="${GFX}units/human/hd/knight.png" alt=""><span>Войска</span></button>
   <button class="mitem" data-act="rules"><img src="${GFX}smallicon/Ekoscience.png" alt=""><span>Формулы</span></button></div>`;
 const settingsWin = () => `${ribbon('Настройки')}<div class="pstats">Игрок: <b>${esc(S.st.user.login)}</b> · ${esc(S.st.user.raceName)}<br>Скорость мира ×${S.cat.speed}</div>

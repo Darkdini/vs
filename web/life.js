@@ -1,7 +1,7 @@
 'use strict';
 // «Живые земли»: участки 7×7 разделены тропинками (как в замке), по тропинкам гуляют жители — останавливаются и смотрят на участки;
 // на стройках и у лесопилок стучат строители, из труб идёт дым, над огородами порхают бабочки,
-// в озере плещется рыба, в небе пролетают птицы. Фигурки — кадры 3D-моделей клиента (gfx/anim/*.png).
+// в озере плещется рыба, в небе пролетают птицы.
 // Координаты: участок (x, y) стоит в точке (x·SP, y·SP) изометрической сетки; тропинки — между участками.
 const LIFE = { walkers: [], last: 0, fish: null, birds: [] };
 const AN = { K: 4, CW: 56, CH: 88, FX: 28, FY: 76, KM: 6, MW: 276, MH: 384, MX: 138, MY: 300 };
@@ -58,7 +58,7 @@ function lifeStep(dt) {
   for (const b of LIFE.birds) b.t += dt;
   if (!LIFE.birds.length && Math.random() < dt / 25) LIFE.birds.push({ t: 0, dur: 14, y0: Math.random() * 0.6, dir: Math.random() < 0.5 ? 1 : -1, n: 3 + Math.floor(Math.random() * 4) });
 }
-const lifeSheet = (name) => pic(`anim/${name}.png`);
+const lifeSheet = () => null; // фигурки жителей, строителя и мельницы — будут своей графикой (старые кадры удалены)
 function lifePerson(sheet, row, f, fx, fy, cols) {
   const im = lifeSheet(sheet); if (!im) return;
   const { cx, cy } = ptXY(fx, fy), k = AN.K / MAN_S, x = ictx, sm = x.imageSmoothingEnabled; x.imageSmoothingEnabled = true;

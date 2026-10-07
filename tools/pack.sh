@@ -16,6 +16,8 @@ cp "$ROOT/deploy/admin.sh" "$G/" 2>/dev/null || true
 TZ=Europe/Moscow date '+%Y-%m-%d %H:%M' > "$G/VERSION"
 # облегчённые WebP-копии картинок (сервер отдаёт их браузерам с поддержкой WebP; без Python/Pillow — пропуск)
 python3 "$ROOT/tools/webp.py" "$G/web" 2>/dev/null || echo "webp: пропущено (нужен python3 с Pillow)"
+# где есть WebP-копия — оригинал PNG/JPG в пакет не кладётся (сервер отдаёт WebP под прежним именем): пакет вдвое легче
+find "$G/web" -name "*.png.webp" -o -name "*.jpg.webp" | while read -r w; do rm -f "${w%.webp}"; done
 # клиент для хостинга: все скрипты страницы склеены в один g.js и минифицированы (без комментариев и пробелов),
 # стили и admin.js тоже сжаты; исходники клиента в пакет не попадают
 ESB="npx --yes esbuild@0.28.2"

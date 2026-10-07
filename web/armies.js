@@ -32,9 +32,9 @@ function armiesListHtml() {
     ${bar('inc', `${TOP}inc.png`, 'Приближающиеся армии', n.inc.length)}
     ${bar('mine', `${TOP}att.png`, 'Ваши армии', n.mine.length)}
     ${bar('reinf', `${TOP}reinf.png`, 'Ваши подкрепления', n.reinf.length)}
-    ${bar('outpost', `${GFX}build/guard_tower.png`, 'Форпост', 0)}
+    ${bar('outpost', `${GFX}build/hd3/guard_tower.png`, 'Форпост', 0)}
     ${bar('guests', `${TOP}guest.png`, 'Чужие подкрепления', n.guests.length)}
-    ${bar('portal', `${GFX}build/portal.png`, 'В портале', n.portal.length)}
+    ${bar('portal', `${GFX}build/hd3/portal.png`, 'В портале', n.portal.length)}
     <button class="pbar" data-campaign>Военный поход</button>`;
 }
 // армии вне замка по разделам
@@ -159,7 +159,7 @@ function campaignWin() {
     <div class="combo"><select data-cmp="mission">${CAMPAIGN_MISSIONS.filter(([k]) => !allyCastleAt(c.x, c.y) || !['raid', 'attack', 'scout'].includes(k)).map(([k, t]) => `<option value="${k}" ${k === c.mission ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
     <div class="row2 cxy"><label>X<input type="number" inputmode="numeric" data-cmp="x" value="${esc(c.x)}"></label><label>Y<input type="number" inputmode="numeric" data-cmp="y" value="${esc(c.y)}"></label></div>
     ${c.mission === 'trade' ? `<div class="row2">${RES4.map((r) => `<label>${RES_IC[r]}<input type="number" inputmode="numeric" min="0" data-cres="${r}" value="${c.res[r] || ''}" placeholder="0"></label>`).join('')}</div>` : ''}
-    ${chk('portal', c.portal, `${GFX}build/portal.png`, 'Через портал', !portal)}
+    ${chk('portal', c.portal, `${GFX}build/hd3/portal.png`, 'Через портал', !portal)}
     ${chk('sched', c.sched && isPrem(), `${GFX}res/time.png`, isPrem() ? 'Расписание отправки' : 'Расписание отправки 🔒 премиум', !isPrem())}
     ${c.sched && isPrem() ? `<input type="datetime-local" data-cmp="at" value="${esc(c.at)}">` : ''}
     <div class="cinfo">В поход идут: <b>${fmtFull(n)}</b> ${genGoes(a, c) ? '+ генерал' : ''} · в пути: <b id="cmpTime">${sec ? fmtT(sec) : '—'}</b></div>

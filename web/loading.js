@@ -12,7 +12,7 @@ function gameLoading() {
   const t0 = Date.now();
   const tick = () => {
     if (!S.st) return setTimeout(tick, 100);
-    const c = S.st.castle, need = [CASTLE_BG.src, 'ground/grass1C.png'];
+    const c = S.st.castle, need = [CASTLE_BG.src];
     c.grid[0].forEach((b, i) => { if (b >= 0 && BUILD_IMG[displayId(S.by[b], c.levels[0][i])]) need.push(`build/${BUILD_IMG[displayId(S.by[b], c.levels[0][i])]}.png`); });
     const list = [...new Set(need)], ok = list.filter((p) => pic(p)).length + extra.filter((o) => o.ok).length, all = list.length + extra.length;
     d.querySelector('i').style.width = `${Math.round(ok / all * 100)}%`;
