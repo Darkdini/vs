@@ -8,7 +8,8 @@ const loadMan = () => (manP = fetch('/assets.json', { cache: 'no-store' }).then(
 // убрать из памяти телефона файлы прошлых версий игры (отпечаток не совпадает с текущим списком)
 const prune = (m) => m && caches.open(CACHE).then((c) => c.keys().then((ks) => Promise.all(ks.map((k) => { const u = new URL(k.url); return m[decodeURIComponent(u.pathname.slice(1))] === u.searchParams.get('h') ? null : c.delete(k); })))).catch(() => {});
 // листы графики (tools/gfxpack.py): картинки лежат в нескольких зашифрованных листах web/pk/<n>.bin — лист скачивается
-// один раз целиком, расшифровывается здесь и хранится в памяти телефона; картинка отдаётся из листа под своим обычным адресом
+// один раз целиком, расшифровывается здесь и хранится в памяти телефона (в приложении для Android файл отдаёт само приложение —
+// пометка X-App-Local, копировать его в кэш не нужно); картинка отдаётся из листа под своим обычным адресом
 const PK_KEY = '__PK_KEY__'; // ключ сборки (подставляет tools/gfxpack.py; в исходниках листов нет)
 let pk = null, pkP = null; const PLAIN = new Map();
 const loadPk = () => (pkP = (PK_KEY.startsWith('__') ? Promise.resolve(null) : (man ? Promise.resolve(man) : manP || loadMan()).then((m) => fetch(`/pk/index.json?h=${(m && m['pk/index.json']) || Date.now()}`)).then((r) => (r.ok ? r.json() : null)).then((j) => { pk = j && j.kid === seedOf('check') ? j : null; PLAIN.clear(); return pk; }).catch(() => null)));
@@ -26,7 +27,7 @@ function decrypt(ab, n) {
 function bundle(n) {
   if (PLAIN.has(n)) return PLAIN.get(n);
   const url = `/pk/${n}.bin?h=${pk.bundles[n]}`;
-  const p = caches.open(CACHE).then((c) => c.match(url).then((hit) => hit || fetch(url).then((r) => { if (r.ok) c.put(url, r.clone()).catch(() => {}); return r; })))
+  const p = caches.open(CACHE).then((c) => c.match(url).then((hit) => hit || fetch(url).then((r) => { if (r.ok && !r.headers.get('X-App-Local')) c.put(url, r.clone()).catch(() => {}); return r; })))
     .then((r) => { if (!r.ok) throw new Error('pk'); return r.arrayBuffer(); }).then((ab) => decrypt(ab, n));
   PLAIN.set(n, p); p.catch(() => PLAIN.delete(n));
   return p;

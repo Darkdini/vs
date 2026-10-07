@@ -5,6 +5,14 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.security.MessageDigest;
+import java.util.HashMap;
 import java.util.HashSet;
 import android.view.Window;
 import android.webkit.ServiceWorkerClient;
@@ -28,6 +36,9 @@ public class MainActivity extends Activity {
     // графика игры, вшитая в приложение (assets/pk/<id>.bin, кладёт tools/build-apk.sh): имя файла — отпечаток содержимого,
     // поэтому файл из приложения всегда совпадает с серверным; картинки, которых нет в приложении (новые), идут с сервера
     private final HashSet<String> pk = new HashSet<String>();
+    // графика, которую сервер добавил или изменил после выпуска приложения: скачивается один раз и хранится в памяти приложения
+    private File cacheDir;
+    private static final long CACHE_MAX = 60L * 1024 * 1024; // больше 60 МБ — старое удаляется (стоит выпустить новую версию приложения)
 
     @Override
     protected void onCreate(Bundle state) {
@@ -56,6 +67,9 @@ public class MainActivity extends Activity {
         try { WebSettings.class.getMethod("setMixedContentMode", int.class).invoke(s, 1); } catch (Exception e) { /* MIXED_CONTENT_NEVER_ALLOW, API 21+ */ }
 
         try { String[] l = getAssets().list("pk"); if (l != null) for (String n : l) pk.add(n); } catch (Exception e) { /* нет вшитой графики */ }
+        cacheDir = new File(getFilesDir(), "pk");
+        cacheDir.mkdirs();
+        trimCache();
         // запросы помощника кэша (sw.js) за графикой — из приложения, без сети
         try {
             ServiceWorkerController.getInstance().setServiceWorkerClient(new ServiceWorkerClient() {
@@ -106,15 +120,70 @@ public class MainActivity extends Activity {
         web.loadUrl(home);
     }
 
-    // свой сервер, /pk/<id>.bin — файл из приложения (как есть, зашифрованный: расшифровывает sw.js); иначе null — запрос идёт в сеть
+    // свой сервер, /pk/<id>.bin?h=<отпечаток> — графика (как есть, зашифрованная: расшифровывает sw.js):
+    // 1) вшитая в приложение; 2) скачанная раньше; 3) скачать сейчас, проверить отпечаток и сохранить. Иначе null — запрос идёт в сеть.
     private WebResourceResponse local(String url) {
         try {
             if (url == null || !url.startsWith(home + "/pk/")) return null;
-            String name = url.substring(home.length() + 4);
-            int q = name.indexOf('?'); if (q >= 0) name = name.substring(0, q);
-            if (!name.endsWith(".bin") || name.indexOf('/') >= 0 || !pk.contains(name)) return null;
-            return new WebResourceResponse("application/octet-stream", null, getAssets().open("pk/" + name));
+            String name = url.substring(home.length() + 4), h = null;
+            int q = name.indexOf('?');
+            if (q >= 0) { String qs = name.substring(q + 1); name = name.substring(0, q); int i = qs.indexOf("h="); if (i >= 0) { h = qs.substring(i + 2); int a = h.indexOf('&'); if (a >= 0) h = h.substring(0, a); } }
+            if (!name.matches("[0-9a-f]{6,32}\\.bin")) return null;
+            if (pk.contains(name)) return answer(getAssets().open("pk/" + name));
+            if (h == null || !h.matches("[0-9a-f]{6,32}")) return null;
+            File f = new File(cacheDir, name);
+            if (f.isFile() && h.equals(md5(f))) return answer(new FileInputStream(f));
+            if (!download(url, f, h)) return null; // не вышло — пусть грузит сам WebView
+            return answer(new FileInputStream(f));
         } catch (Exception e) { return null; }
+    }
+
+    // ответ с пометкой X-App-Local: помощник кэша (sw.js) не копирует такие файлы к себе — они уже есть в приложении
+    private WebResourceResponse answer(InputStream in) {
+        HashMap<String, String> hd = new HashMap<String, String>();
+        hd.put("X-App-Local", "1");
+        hd.put("Access-Control-Expose-Headers", "X-App-Local");
+        try { return new WebResourceResponse("application/octet-stream", null, 200, "OK", hd, in); }
+        catch (Throwable e) { return new WebResourceResponse("application/octet-stream", null, in); }
+    }
+
+    // скачать файл графики с сервера, проверить отпечаток (md5, первые знаки — как в ?h=) и только тогда сохранить
+    private boolean download(String url, File f, String h) {
+        HttpURLConnection c = null;
+        File tmp = new File(cacheDir, f.getName() + ".part");
+        try {
+            c = (HttpURLConnection) new URL(url).openConnection();
+            c.setConnectTimeout(10000); c.setReadTimeout(20000);
+            if (c.getResponseCode() != 200) return false;
+            InputStream in = c.getInputStream(); FileOutputStream out = new FileOutputStream(tmp);
+            byte[] b = new byte[16384]; int n; long total = 0;
+            try { while ((n = in.read(b)) > 0) { total += n; if (total > 8L * 1024 * 1024) return false; out.write(b, 0, n); } } finally { out.close(); in.close(); }
+            if (!h.equals(md5(tmp))) return false;
+            return tmp.renameTo(f);
+        } catch (Exception e) { return false; }
+        finally { if (c != null) c.disconnect(); if (tmp.exists()) tmp.delete(); }
+    }
+
+    private static String md5(File f) {
+        try {
+            MessageDigest d = MessageDigest.getInstance("MD5"); FileInputStream in = new FileInputStream(f);
+            byte[] b = new byte[16384]; int n;
+            try { while ((n = in.read(b)) > 0) d.update(b, 0, n); } finally { in.close(); }
+            StringBuilder sb = new StringBuilder(); byte[] r = d.digest();
+            for (int i = 0; i < 5; i++) sb.append(String.format("%02x", r[i] & 255)); // 10 знаков — как отпечаток в оглавлении
+            return sb.toString();
+        } catch (Exception e) { return ""; }
+    }
+
+    // память приложения не растёт без конца: больше CACHE_MAX — удалить самые старые файлы
+    private void trimCache() {
+        try {
+            File[] l = cacheDir.listFiles(); if (l == null) return;
+            long sum = 0; for (File x : l) sum += x.length();
+            if (sum <= CACHE_MAX) return;
+            java.util.Arrays.sort(l, new java.util.Comparator<File>() { public int compare(File a, File b) { return a.lastModified() < b.lastModified() ? -1 : a.lastModified() > b.lastModified() ? 1 : 0; } });
+            for (File x : l) { if (sum <= CACHE_MAX / 2) break; sum -= x.length(); x.delete(); }
+        } catch (Exception e) { /* не страшно */ }
     }
 
     private String offlinePage() {
