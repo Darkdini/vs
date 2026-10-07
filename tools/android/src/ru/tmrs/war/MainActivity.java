@@ -5,9 +5,14 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import java.util.HashSet;
 import android.view.Window;
+import android.webkit.ServiceWorkerClient;
+import android.webkit.ServiceWorkerController;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -20,6 +25,9 @@ public class MainActivity extends Activity {
     private WebView web;
     private ValueCallback<Uri[]> fileCb;
     private String home;
+    // графика игры, вшитая в приложение (assets/pk/<id>.bin, кладёт tools/build-apk.sh): имя файла — отпечаток содержимого,
+    // поэтому файл из приложения всегда совпадает с серверным; картинки, которых нет в приложении (новые), идут с сервера
+    private final HashSet<String> pk = new HashSet<String>();
 
     @Override
     protected void onCreate(Bundle state) {
@@ -41,15 +49,32 @@ public class MainActivity extends Activity {
         // фоновая музыка без касания (API 17+, вызываем через reflection — android.jar сборки старее)
         try { WebSettings.class.getMethod("setMediaPlaybackRequiresUserGesture", boolean.class).invoke(s, false); } catch (Exception e) { /* старый Android */ }
         s.setUserAgentString(s.getUserAgentString() + " WarKingsApp/1");
+        // защита: странице не нужны файлы телефона по адресам file:// (выбор картинки для аватара работает через окно выбора — оно не затронуто)
+        s.setAllowFileAccess(false);
+        s.setAllowFileAccessFromFileURLs(false);
+        s.setAllowUniversalAccessFromFileURLs(false);
+        try { WebSettings.class.getMethod("setMixedContentMode", int.class).invoke(s, 1); } catch (Exception e) { /* MIXED_CONTENT_NEVER_ALLOW, API 21+ */ }
+
+        try { String[] l = getAssets().list("pk"); if (l != null) for (String n : l) pk.add(n); } catch (Exception e) { /* нет вшитой графики */ }
+        // запросы помощника кэша (sw.js) за графикой — из приложения, без сети
+        try {
+            ServiceWorkerController.getInstance().setServiceWorkerClient(new ServiceWorkerClient() {
+                @Override
+                public WebResourceResponse shouldInterceptRequest(WebResourceRequest r) { return local(String.valueOf(r.getUrl())); }
+            });
+        } catch (Throwable e) { /* старый Android — всё с сервера */ }
 
         web.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView v, String url) {
                 // свои страницы — внутри приложения, чужие ссылки — во внешнем браузере
-                if (url.startsWith(home)) return false;
+                if (url.equals(home) || url.startsWith(home + "/")) return false; // не startsWith(home): «home.чужой-сайт.ru» не наш
                 try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception e) { /* нет браузера */ }
                 return true;
             }
+
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebView v, String url) { return local(url); }
 
             @Override
             public void onReceivedError(WebView v, int code, String desc, String url) {
@@ -79,6 +104,17 @@ public class MainActivity extends Activity {
         // историю WebView не сохраняем: игра кладёт каждое окно в history, и большой Bundle ронял приложение при сворачивании.
         // После возврата страница просто открывается заново, вход — по сохранённой сессии «Запомнить меня».
         web.loadUrl(home);
+    }
+
+    // свой сервер, /pk/<id>.bin — файл из приложения (как есть, зашифрованный: расшифровывает sw.js); иначе null — запрос идёт в сеть
+    private WebResourceResponse local(String url) {
+        try {
+            if (url == null || !url.startsWith(home + "/pk/")) return null;
+            String name = url.substring(home.length() + 4);
+            int q = name.indexOf('?'); if (q >= 0) name = name.substring(0, q);
+            if (!name.endsWith(".bin") || name.indexOf('/') >= 0 || !pk.contains(name)) return null;
+            return new WebResourceResponse("application/octet-stream", null, getAssets().open("pk/" + name));
+        } catch (Exception e) { return null; }
     }
 
     private String offlinePage() {

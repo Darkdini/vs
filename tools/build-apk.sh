@@ -33,13 +33,21 @@ s = open(p, encoding='utf-8').read().replace('GAME_URL', html.escape(url))
 open(p, 'w', encoding='utf-8').write(s)
 PY
 
+# графика игры — внутрь приложения: зашифрованные файлы web/pk/<id>.bin из собранного dist/game.zip (sh tools/pack.sh — раньше).
+# Имя файла — отпечаток содержимого: приложение отдаёт игре свой файл без сети, новые картинки берутся с сервера.
+mkdir -p "$B/assets/pk"
+if [ -f "$ROOT/dist/game.zip" ] && [ "${NO_GFX:-}" != 1 ]; then
+  (cd "$B" && unzip -q -o -j "$ROOT/dist/game.zip" 'game/web/pk/*.bin' -d "$B/assets/pk") || true
+fi
+echo "== графика в приложении: $(ls "$B/assets/pk" | wc -l) файлов, $(du -sh "$B/assets/pk" | cut -f1)"
+
 echo "== ресурсы (aapt2)"
 "$C/aapt2" compile --dir "$B/res" -o "$B/res.zip"
-"$C/aapt2" link -o "$B/base.apk" -I "$C/android.jar" --manifest "$A/AndroidManifest.xml" --java "$B/gen" \
+"$C/aapt2" link -o "$B/base.apk" -I "$C/android.jar" --manifest "$A/AndroidManifest.xml" --java "$B/gen" -A "$B/assets" \
   --min-sdk-version 24 --target-sdk-version 34 --version-code "$VERSION_CODE" --version-name "$VERSION_NAME" "$B/res.zip"
 
 echo "== код (javac → dx)"
-javac -nowarn -Xlint:-options --release 8 -d "$B/stubs" -cp "$C/android.jar" "$A/stubs/android/webkit/WebChromeClient.java"
+javac -nowarn -Xlint:-options --release 8 -d "$B/stubs" -cp "$C/android.jar" $(find "$A/stubs" -name '*.java')
 javac -nowarn -Xlint:-options --release 8 -encoding UTF-8 -d "$B/cls" -cp "$B/stubs:$C/android.jar" \
   "$A/src/ru/tmrs/war/MainActivity.java" $(find "$B/gen" -name '*.java')
 # старый dx понимает только class-файлы Java 6: код без лямбд и новых конструкций, поэтому версию можно понизить

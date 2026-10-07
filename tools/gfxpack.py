@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
-"""Графика игры — в зашифрованные листы (вызывается из tools/pack.sh для пакета игры, исходники web/ не трогает).
+"""Графика игры — в зашифрованные файлы (вызывается из tools/pack.sh для пакета игры, исходники web/ не трогает).
 
     python3 tools/gfxpack.py <папка game/web> <файл ключа>
 
-Каждая картинка web/gfx и web/gfx3d (WebP-копия, если есть) шифруется отдельно (LIMIT = 0; больше — склейка в листы по папкам),
-каждый файл шифруется (XOR с потоком xorshift32 от ключа и номера листа) → web/pk/<n>.bin,
-оглавление → web/pk/index.json ({files: {путь: [лист, смещение, длина, тип]}, bundles: [отпечаток…]}).
+Каждая картинка web/gfx и web/gfx3d (WebP-копия, если есть) шифруется отдельно (XOR с потоком xorshift32 от ключа и имени)
+и кладётся в web/pk/<id>.bin, где id — отпечаток ключа и содержимого: неизменённая картинка в любой сборке получает
+то же имя и те же байты. Поэтому приложение для Android (tools/build-apk.sh) может хранить графику у себя и брать её
+без сети, а изменённая на сервере картинка получит новое имя и скачается.
+Оглавление → web/pk/index.json ({files: {путь: [id, 0, длина, тип]}, bundles: {id: отпечаток файла}}).
 Исходные файлы картинок из пакета удаляются: открыть их распаковкой пакета нельзя.
-Ключ — случайный на каждую сборку: пишется в файл ключа (для сервера) и в web/sw.js (помощник кэша расшифровывает листы).
-Расшифровка та же в server/src/gfxpack.js и web/sw.js.
+Ключ — постоянный (tools/pk.key; при первой сборке создаётся). Это не секрет: он и так виден в web/sw.js у каждого игрока,
+шифр — защита только от простого копирования картинок из пакета. Пишется в файл ключа (для сервера) и в web/sw.js.
+Расшифровка та же в server/src/gfxpack.js, web/sw.js и tools/android (приложение отдаёт файлы как есть, не расшифровывая).
 """
 import sys, os, json, secrets, hashlib, struct
 
 MIME = {'.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml'}
-LIMIT = 0  # каждая картинка — свой файл: телефон качает только нужные (листы по 1,5 МБ тянули лишние мегабайты и тормозили загрузку)
+KEYFILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pk.key')
 
 
 def seed_of(key, n):
@@ -37,8 +40,14 @@ def crypt(data, key, n):
     return struct.pack(f'<{len(out)}I', *out)[:len(data)]
 
 
+def stable_key():
+    if not os.path.exists(KEYFILE):
+        open(KEYFILE, 'w').write(secrets.token_hex(16))
+    return open(KEYFILE).read().strip()
+
+
 def main(web, keyfile):
-    key = secrets.token_hex(16)
+    key = stable_key()
     items = []
     for top in ('gfx', 'gfx3d'):
         for dp, _, fs in os.walk(os.path.join(web, top)):
@@ -54,31 +63,21 @@ def main(web, keyfile):
                 src, mime = p, MIME[ext]
                 if os.path.exists(p + '.webp'):
                     src, mime = p + '.webp', 'image/webp'
-                group = '/'.join(rel.split('/')[:2]) if rel.count('/') >= 2 else rel.split('/')[0]
-                items.append((group, rel, src, mime, p))
-    items.sort(key=lambda t: (t[0], t[1]))
+                items.append((rel, src, mime, p))
+    items.sort()
     os.makedirs(os.path.join(web, 'pk'), exist_ok=True)
-    files, bundles, cur, cur_g, n = {}, [], bytearray(), None, 0
-
-    def flush():
-        nonlocal cur, n
-        if not cur:
-            return
-        enc = crypt(bytes(cur), key, n)
-        open(os.path.join(web, 'pk', f'{n}.bin'), 'wb').write(enc)
-        bundles.append(hashlib.md5(enc).hexdigest()[:10])
-        cur = bytearray(); n += 1
-
-    for group, rel, src, mime, orig in items:
+    files, bundles, total = {}, {}, 0
+    for rel, src, mime, orig in items:
         data = open(src, 'rb').read()
-        if cur and (group != cur_g or len(cur) + len(data) > LIMIT):
-            flush()
-        cur_g = group
-        files[rel] = [n, len(cur), len(data), mime]
-        cur += data
-    flush()
+        fid = hashlib.md5(key.encode() + b':' + data).hexdigest()[:12]
+        if fid not in bundles:
+            enc = crypt(data, key, fid)
+            open(os.path.join(web, 'pk', f'{fid}.bin'), 'wb').write(enc)
+            bundles[fid] = hashlib.md5(enc).hexdigest()[:10]
+            total += len(enc)
+        files[rel] = [fid, 0, len(data), mime]
     json.dump({'kid': seed_of(key, 'check'), 'files': files, 'bundles': bundles}, open(os.path.join(web, 'pk', 'index.json'), 'w'), separators=(',', ':'))
-    for _, _, src, _, orig in items:
+    for _, src, _, orig in items:
         for f in {src, orig}:
             if os.path.exists(f):
                 os.remove(f)
@@ -90,8 +89,7 @@ def main(web, keyfile):
     if os.path.exists(sw):
         s = open(sw, encoding='utf-8').read().replace('__PK_KEY__', key)
         open(sw, 'w', encoding='utf-8').write(s)
-    total = sum(os.path.getsize(os.path.join(web, 'pk', f'{i}.bin')) for i in range(n))
-    print(f'листы: {len(files)} картинок → {n} зашифрованных листов, {total / 1e6:.1f} МБ')
+    print(f'графика: {len(files)} картинок → {len(bundles)} зашифрованных файлов, {total / 1e6:.1f} МБ')
 
 
 if __name__ == '__main__':
