@@ -1129,6 +1129,29 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     g.db.alliances[999999] = { id: 999999, name: 'Пустой', tag: 'ZZ', leader: 123456789, members: [123456789] }; g.allyCleanup(); assert.ok(!g.db.alliances[999999], 'пустой альянс убран');
     console.log('✓ Альянс: передача прав создателя и роспуск пустого альянса');
   }
+  { // новая раскладка замка: 33 места, Складов не больше 5, вместимость и рейтинг сохраняются
+    const C = require('../src/catalog');
+    const u = g.register({ login: 'lay1x', password: '12345', race: 0 }).user, c = g.castleOf(u);
+    const old = new Int8Array(49).fill(-1), ol = new Int8Array(49); old[24] = 0; ol[24] = 10;
+    const types = C.BUILDINGS.filter((b) => b.layer === 'castle' && ![0, 1, 22].includes(b.id)).map((b) => b.id);
+    const cells = [...Array(49).keys()].filter((i) => i !== 24 && ![3, 10, 17, 21, 22, 23].includes(i));
+    types.forEach((b, k) => { old[cells[k]] = b; ol[cells[k]] = 3; });
+    for (let k = types.length; k < cells.length; k++) { old[cells[k]] = 1; ol[cells[k]] = 1 + (k % 10); }
+    c.grid[0] = old; c.levels[0] = ol; delete c.layoutV; c.storeExtra = 0; c.storeExtraLv = 0; c.queue = [];
+    const cap0 = g.capacity(c).wood, r0 = g.rating(c), n0 = [...old].filter((b) => b >= 0).length;
+    g.castleLayoutFix(c);
+    const st = [...c.grid[0]].filter((b) => b === 1).length;
+    assert.strictEqual(st, 5, 'Складов 5');
+    assert.strictEqual(g.capacity(c).wood, cap0, 'вместимость та же');
+    assert.strictEqual(g.rating(c), r0, 'рейтинг тот же');
+    assert.ok(types.every((b) => c.grid[0].includes(b)) && c.grid[0][24] === 0, 'все здания на месте, Ратуша в центре');
+    assert.ok([...c.grid[0]].every((b, i) => b < 0 || C.CASTLE_OK.includes(i)), 'только на площадках');
+    assert.ok(n0 > 33 && [...c.grid[0]].filter((b) => b >= 0).length === 33);
+    c.res = { wood: 1e6, stone: 1e6, iron: 1e6, food: 1e6, people: 1e5 };
+    const free = C.CASTLE_OK.find((i) => c.grid[0][i] < 0);
+    assert.ok(free === undefined || /не больше 5/.test(g.startBuild(c, 0, free, 1).error || 'не больше 5'), 'шестой Склад нельзя');
+    console.log('✓ Замок на новом фоне: 33 места, 5 Складов, вместимость и рейтинг сохранены');
+  }
   try { fs.unlinkSync(DB); } catch {}
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });

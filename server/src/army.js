@@ -1631,13 +1631,13 @@ function install(Game, helpers) {
     const race = this.raceOf(castle);
     const castleBuildings = C.BUILDINGS.filter((b) => b.layer === 'castle' && b.id !== 0 && b.id !== 1 && b.id !== B.FENCE);
     castle.wall = (C.BY_ID[B.FENCE] || {}).max || 20; // стена — без клетки
-    const cells = [...Array(49).keys()].filter((i) => i !== 24 && !C.CASTLE_PATH.includes(i)); // тропинка — пустая
+    const cells = C.CASTLE_OK.filter((i) => i !== 24); castle.layoutV = 2; castle.storeExtra = 0; castle.storeExtraLv = 0;
     castle.grid[0] = new Int8Array(49).fill(-1); castle.levels[0] = new Int8Array(49);
     castle.grid[0][24] = 0; castle.levels[0][24] = C.BY_ID[0].max;
     let k = 0;
     for (const b of castleBuildings) { const i = cells[k++]; castle.grid[0][i] = b.id; castle.levels[0][i] = b.max; }
 
-    while (k < cells.length) { const i = cells[k++]; castle.grid[0][i] = 1; castle.levels[0][i] = C.BY_ID[1].max; } // оставшиеся клетки — тоже склады (повторяться может только Склад)
+    while (k < cells.length) { const i = cells[k++]; castle.grid[0][i] = 1; castle.levels[0][i] = C.BY_ID[1].max; } // оставшиеся площадки — Склады (их не больше 5)
     const LN = C.LANDS_N; castle.grid[1] = new Int8Array(LN * LN).fill(-1); castle.levels[1] = new Int8Array(LN * LN);
     for (let i = 0; i < LN * LN; i++) {
       const opts = helpers.landOptions(i % LN, Math.floor(i / LN));

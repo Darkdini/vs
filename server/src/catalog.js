@@ -13,7 +13,7 @@ const B = (id, name, desc, layer, extra = {}) => ({ id, name, desc, layer, ...ex
 
 const BUILDINGS = [
   B(0, 'Ратуша', 'Главное здание Вашего королевства. Уровень развития здания влияет на скорость возведения новых зданий.', 'castle', { max: 20, unique: true }),
-  B(1, 'Склад', 'Служит для хранения добытых в замке ресурсов.', 'castle', { max: 10, hp: 589, req: { 0: 1 }, base: { wood: 25, stone: 18, iron: 20, food: 17, people: 1 }, time: 60,
+  B(1, 'Склад', 'Служит для хранения добытых в замке ресурсов.', 'castle', { max: 20, hp: 589, req: { 0: 1 }, base: { wood: 25, stone: 18, iron: 20, food: 17, people: 1 }, time: 60,
     about: 'Хранилище ресурсов, добытых в Вашем замке (за исключением ресурса «население», которое живет там же, где производится, то есть в «хибарах», «коттеджах», «усадьбах»). Уровень развития напрямую влияет на вместимость склада:' }),
   B(2, 'Военный штаб', 'Производит управления всеми военными операциями.', 'castle', { max: 20, unique: true, req: { 0: 3 } }),
   B(3, 'Казарма', 'Позволяет тренеровать легких воинов.', 'castle', { max: 20, unique: true, req: { 0: 3 } }),
@@ -162,9 +162,12 @@ const BY_ID_MAX_STORE = BUILDINGS.find((b) => b.id === 1).max;
 const durability = (b, level0) => { const level = b.layer === 'lands' ? landEff(level0) : level0; return durability0(b, level); };
 const durability0 = (b, level) => (b.hp ? b.hp * level : 0) || Math.round((b.base ? ['wood', 'stone', 'iron', 'food'].reduce((s, r) => s + b.base[r], 0) : b.layer === 'lands' ? 180 : 370) * 7.3625) * level;
 const CASTLE_TYPES = BUILDINGS.filter((b) => b.layer === 'castle');
-// тропинка от ворот к Ратуше (как в оригинале) — на ней строить нельзя: клетки x=3,y=0..2 и y=3,x=0..2 сетки 7×7
-const CASTLE_PATH = [3, 10, 17, 21, 22, 23];
-const CASTLE_CELLS = 49 - CASTLE_PATH.length;
+// замок на картинке-фоне: 33 места — площадь Ратуши (клетка 24) и 32 площадки (CASTLE_OK); остальные клетки сетки 7×7 — не застраиваются.
+// Складов — не больше STORE_MAX (повторяться может только Склад).
+const CASTLE_OK = [...Array(49).keys()].filter((i) => { const x = i % 7, y = Math.floor(i / 7); return (x < 6 && y < 6 && ![3, 10, 17, 21, 22, 23].includes(i)) || i === 42 || i === 43 || i === 44; });
+const CASTLE_PATH = [...Array(49).keys()].filter((i) => !CASTLE_OK.includes(i)); // не застраиваются
+const STORE_MAX = 5;
+const CASTLE_CELLS = 43; // для рейтинга — прежняя застройка (рейтинг игроков не меняется)
 const CASTLE_FULL_LEVELS = CASTLE_TYPES.reduce((s, b) => s + (b.max || 20), 0) + (CASTLE_CELLS - CASTLE_TYPES.length) * BY_ID_MAX_STORE;
 const LANDS_FULL_LEVELS = LANDS_N * LANDS_N * LAND_EFF_MAX; // все клетки земель застраиваемые (в прежних уровнях: рейтинг считает landEff)
 const RATING = { max: 2300, castleMax: 1300, landsMax: 1000, castle: 1300 / CASTLE_FULL_LEVELS, lands: 1000 / LANDS_FULL_LEVELS };
@@ -177,4 +180,4 @@ function displayId(b, level) {
   return e >= 10 ? b.tiers[2] : e >= 5 ? b.tiers[1] : b.tiers[0];
 }
 
-module.exports = { LAND_YIELD, LAND_TARGET, LAND_TIME, LAND_COST_K, LAND_EFF, LAND_EFF_MAX, landEff, landFromOld, LAND_MULT_BY_SIZE, LANDS_N, LANDS_MAX, LAND_MULT, HUT_CAP_MULT, LAND_CELLS, TIME, RATING, RES, RES_ICON, TIME_ICON, BUILDINGS, BY_ID, UNITS, RACES, RACE_NAMES, PROD, PROD_K, CASTLE_PATH, durability, levelCost, levelTimeSec, displayId };
+module.exports = { LAND_YIELD, LAND_TARGET, LAND_TIME, LAND_COST_K, LAND_EFF, LAND_EFF_MAX, landEff, landFromOld, LAND_MULT_BY_SIZE, LANDS_N, LANDS_MAX, LAND_MULT, HUT_CAP_MULT, LAND_CELLS, TIME, RATING, RES, RES_ICON, TIME_ICON, BUILDINGS, BY_ID, UNITS, RACES, RACE_NAMES, PROD, PROD_K, CASTLE_PATH, CASTLE_OK, STORE_MAX, durability, levelCost, levelTimeSec, displayId };

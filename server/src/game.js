@@ -103,8 +103,8 @@ function landOptions(x, y) {
 // вместимость: база 1500 + каждый Склад 1000×1.25^ур.; люди: 60 + 20 за уровень каждой Хибары
 // склад как в оригинале: вместимость каждого Склада по уровням (1–10 ур.), склады суммируются + 200 базово
 // → 20 складов 10 ур. = 100 200; места для людей: 35 + 4.728 за уровень Хибары → полный замок 5 425
-const STORE = { base: 200, levels: [0, 100, 300, 500, 800, 1000, 1500, 2000, 3000, 4000, 5000], people: 35, peoplePerHut: 4.728 };
-const storeBonus = (level) => STORE.levels[Math.max(0, Math.min(10, level))];
+const STORE = { base: 200, levels: [0, 100, 300, 500, 800, 1000, 1500, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 13000, 14000, 15000], people: 35, peoplePerHut: 4.728 };
+const storeBonus = (level) => STORE.levels[Math.max(0, Math.min(20, level))];
 // добыча ресурсов не ускоряется скоростью мира (числа как в оригинале); RES_SPEED — отдельный множитель для тестов
 const RES_SPEED = Number(process.env.RES_SPEED || 1);
 const PEOPLE_SCI = (1400 / 1303 - 1) / 20; // прирост людей за уровень Экономики: на 20 ур. — 1400 в час при полных землях, как в оригинале
@@ -263,6 +263,7 @@ class Game {
       this.db.accts[u.acct] = k;
     }
     this.cache = {};
+    for (const c of Object.values(this.db.castles)) this.castleLayoutFix(c);
     this.provEdgeFix();
     if (this.allyCleanup) this.allyCleanup(); // пустые альянсы (участники удалены) — убрать отовсюду
   }
@@ -425,7 +426,7 @@ class Game {
       levels: { 0: new Int8Array(49), 1: new Int8Array(LANDS_N * LANDS_N) },
       res: { wood: 500, stone: 500, iron: 500, food: 500, people: 40 }, // старт: склад 2 ур. полон (вмещает 500)
       resAt: Date.now(),
-      queue: [],
+      queue: [], layoutV: 2,
     };
     castleGrid[3 * 7 + 3] = 0; castle.levels[0][3 * 7 + 3] = 1; // Ратуша 1 ур. в центре
     castleGrid[2 * 7 + 1] = 1; castle.levels[0][2 * 7 + 1] = 2; // Склад 2 ур.
@@ -462,7 +463,7 @@ class Game {
   rating(castle) {
     const sum = (a) => a.reduce((x, y) => x + y, 0);
     const R = C.RATING;
-    return Math.min(R.max, Math.min(R.castleMax, Math.round((sum(castle.levels[0]) + (castle.wall || 0)) * R.castle)) + Math.min(R.landsMax, Math.round(castle.levels[1].reduce((x, y) => x + C.landEff(y), 0) * R.lands)));
+    return Math.min(R.max, Math.min(R.castleMax, Math.round((sum(castle.levels[0]) + (castle.wall || 0) + (castle.storeExtraLv || 0)) * R.castle)) + Math.min(R.landsMax, Math.round(castle.levels[1].reduce((x, y) => x + C.landEff(y), 0) * R.lands)));
   }
 
   buildingLevel(castle, buildingId) {
@@ -472,8 +473,39 @@ class Game {
     return best;
   }
 
+  // замок на картинке-фоне (раскладка v2): Ратуша — на площади (клетка 24), остальные здания — на 32 площадках (C.CASTLE_OK).
+  // Складов — не больше 5: остаются самые высокие (и те, что сейчас строятся); вместимость и уровни остальных переходят в
+  // castle.storeExtra / storeExtraLv (вместимость и рейтинг игрока не меняются), их стройки — отменяются, ресурсы — в Кладовую.
+  castleLayoutFix(castle) {
+    if (castle.layoutV === 2) return;
+    const g = castle.grid[0], l = castle.levels[0], OK = new Set(C.CASTLE_OK), q0 = castle.queue || [];
+    const items = [];
+    for (let i = 0; i < 49; i++) if (g[i] >= 0) items.push({ b: g[i], lv: l[i], i, q: q0.filter((q) => q.view === VIEW.CASTLE && q.cell === i) });
+    for (const q of q0) if (q.view === VIEW.CASTLE && !q.wall && q.cell >= 0 && g[q.cell] < 0 && !items.some((t) => t.i === q.cell)) items.push({ b: q.building, lv: 0, i: q.cell, q: q0.filter((x) => x.view === VIEW.CASTLE && x.cell === q.cell) });
+    const stores = items.filter((t) => t.b === 1).sort((a, b) => (b.q.length - a.q.length) || b.lv - a.lv);
+    const drop = stores.slice(C.STORE_MAX), dropSet = new Set(drop);
+    const refund = { wood: 0, stone: 0, iron: 0, food: 0 };
+    for (const t of drop) {
+      castle.storeExtra = (castle.storeExtra || 0) + storeBonus(t.lv); castle.storeExtraLv = (castle.storeExtraLv || 0) + t.lv;
+      for (const q of t.q) { for (const r of Object.keys(refund)) refund[r] += (q.cost && q.cost[r]) || 0; castle.queue = castle.queue.filter((x) => x !== q); }
+    }
+    const keep = items.filter((t) => !dropSet.has(t));
+    const ng = new Int8Array(49).fill(-1), nl = new Int8Array(49), taken = new Set(), moved = [];
+    const hall = keep.find((t) => t.b === 0);
+    if (hall) { ng[24] = 0; nl[24] = hall.lv; taken.add(24); if (hall.i !== 24) moved.push([hall, 24]); }
+    const rest = keep.filter((t) => t !== hall);
+    for (const t of rest) if (OK.has(t.i) && t.i !== 24 && !taken.has(t.i)) { taken.add(t.i); t.to = t.i; }
+    const free = C.CASTLE_OK.filter((i) => i !== 24 && !taken.has(i));
+    for (const t of rest) if (t.to === undefined) { const k = free.shift(); if (k === undefined) { castle.storeExtra = (castle.storeExtra || 0) + (t.b === 1 ? storeBonus(t.lv) : 0); continue; } t.to = k; taken.add(k); }
+    for (const t of rest) if (t.to !== undefined) { if (t.lv > 0) { ng[t.to] = t.b; nl[t.to] = t.lv; } if (t.to !== t.i) moved.push([t, t.to]); }
+    for (const [t, to] of moved) for (const q of t.q) q.cell = to;
+    castle.grid[0] = ng; castle.levels[0] = nl; castle.layoutV = 2;
+    if (Object.values(refund).some((v) => v > 0)) { const u = this.userById(castle.owner); if (u && this.stashAdd) this.stashAdd(u, refund); }
+    if (drop.length && this.event) this.event(castle.owner, `Замок «${castle.name}» перестроен: Складов теперь не больше ${C.STORE_MAX}, вместимость лишних Складов (${drop.length}) сохранена в оставшихся.`);
+  }
+
   capacity(castle) {
-    let store = STORE.base;
+    let store = STORE.base + (castle.storeExtra || 0); // + вместимость Складов, объединённых при переходе на 5 Складов
     castle.grid[0].forEach((b, i) => { if (b === 1) store += storeBonus(castle.levels[0][i]); });
     let huts = 0;
     castle.grid[1].forEach((b, i) => { if (b === 6) huts += C.landEff(castle.levels[1][i]); }); // места — как у прежнего уровня
@@ -499,7 +531,7 @@ class Game {
   // довести ресурсы и очередь до момента now (ленивый расчёт)
   tick(castle, now = Date.now()) {
     if (castle.grid[1].length !== LANDS_N * LANDS_N) migrateLands(castle);
-    fixPlaza(castle); fixWall(castle);
+    fixPlaza(castle); fixWall(castle); this.castleLayoutFix(castle);
     const done = [];
     castle.queue.sort((a, b) => a.end - b.end);
     while (castle.queue.length && castle.queue[0].end <= now) {
@@ -544,7 +576,8 @@ class Game {
         const x = cell % LANDS_N, y = Math.floor(cell / LANDS_N);
         if (!landOptions(x, y).includes(buildingId)) return { error: 'На этой клетке такое здание не построить.' };
       }
-      if (view === VIEW.CASTLE && C.CASTLE_PATH.includes(cell)) return { error: 'На тропинке строить нельзя.' };
+      if (view === VIEW.CASTLE && C.CASTLE_PATH.includes(cell)) return { error: 'Здесь строить нельзя.' };
+      if (buildingId === 1 && castle.grid[0].filter((b) => b === 1).length + castle.queue.filter((q) => q.view === VIEW.CASTLE && q.building === 1 && q.level === 1).length >= C.STORE_MAX) return { error: `Складов может быть не больше ${C.STORE_MAX}. Улучшайте построенные.` };
       if (def.unique && (this.buildingLevel(castle, buildingId) > 0 || castle.queue.some((q) => q.building === buildingId))) return { error: 'Такое здание уже есть в замке.' };
       level = 1;
     } else {
