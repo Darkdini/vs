@@ -154,6 +154,34 @@ function roundSel(P, part = 'back') {
   x.restore();
 }
 
+// неподвижный слой земель не меняется — рисуется один раз в свой холст (в точках экрана, с запасом на приближение),
+// дальше каждый кадр — одна картинка вместо сотен (225 тропинок, участков и воды тормозили прокрутку на телефоне)
+const LGROUND = { cv: null, base: null, k: 0, N: 0 };
+function landsGroundDraw(N, L, at) {
+  // 1) озеро — сплошная вода (участки воды растянуты на шаг, без тропинок между ними)
+  for (let y = 0; y < N; y++) for (let xx = N - 1; xx >= 0; xx--) if (isWater(xx, y)) plotImage('ground/water.png', at(plotXY(xx, y)), SP * 1.02);
+  // 2) тропинки: кольцо вокруг каждого сухого участка; соседние кольца сходятся в дорожку с камушками
+  for (let y = 0; y < N; y++) for (let xx = N - 1; xx >= 0; xx--) if (!isWater(xx, y)) { const P = plotXY(xx, y); pathTile(P.cx - TW * SP / 2, P.cy - TH * SP / 2, SP); }
+  // 3) сам участок — круглый (в изометрии — овал) с каменным бортиком: пашня, камень или трава
+  for (let y = 0; y < N; y++) for (let xx = N - 1; xx >= 0; xx--) if (!isWater(xx, y)) roundPlot(plotXY(xx, y), GROUND[L.base[y][xx]]);
+}
+function landsGround(N, L, at) {
+  if (!pic('ground/water.png')) return landsGroundDraw(N, L, at); // вода ещё грузится — пока рисуем напрямую
+  const ps = [plotXY(0, 0), plotXY(N - 1, 0), plotXY(0, N - 1), plotXY(N - 1, N - 1)], pw = TW * SP, ph = TH * SP * 2;
+  const x0 = Math.min(...ps.map((p) => p.cx)) - pw, x1 = Math.max(...ps.map((p) => p.cx)) + pw, y0 = Math.min(...ps.map((p) => p.cy)) - ph, y1 = Math.max(...ps.map((p) => p.cy)) + ph;
+  const t = ictx.getTransform(), scr = Math.max(Math.hypot(t.a, t.b), Math.hypot(t.c, t.d)); // точек экрана на единицу сейчас
+  const kmax = 3000 / Math.max(x1 - x0, y1 - y0), need = Math.min(kmax, Math.max(1, scr * 1.15));
+  if (!LGROUND.cv || LGROUND.base !== L.base || LGROUND.N !== N || (need > LGROUND.k * 1.15 && LGROUND.k < kmax)) {
+    const k = Math.min(kmax, need * 1.3), cv = LGROUND.cv || document.createElement('canvas'); // приблизили сильнее — перерисовать чётче
+    cv.width = Math.ceil((x1 - x0) * k); cv.height = Math.ceil((y1 - y0) * k);
+    const g = cv.getContext('2d'), keep = ictx; g.setTransform(k, 0, 0, k, -x0 * k, -y0 * k); g.imageSmoothingEnabled = true;
+    ictx = g; try { landsGroundDraw(N, L, at); } finally { ictx = keep; }
+    Object.assign(LGROUND, { cv, base: L.base, k, N, x0, y0, w: x1 - x0, h: y1 - y0 });
+  }
+  const sm = ictx.imageSmoothingEnabled, q = ictx.imageSmoothingQuality; ictx.imageSmoothingEnabled = true; ictx.imageSmoothingQuality = 'low'; // слой уже в точках экрана — простого сглаживания хватает
+  ictx.drawImage(LGROUND.cv, LGROUND.x0, LGROUND.y0, LGROUND.w, LGROUND.h); ictx.imageSmoothingEnabled = sm; ictx.imageSmoothingQuality = q;
+}
+
 // ---------- вся сцена земель ----------
 function landsScene(c, dpr) {
   const N = LN(), L = S.cat.lands, st = S.st.castle, now = Date.now(), x = ictx;
@@ -162,12 +190,7 @@ function landsScene(c, dpr) {
   if (flowOn() && !flowTimer) flowTimer = setTimeout(flowTick, ANIM_MS);
   const at = (P, k) => ({ sx: P.cx - TW / 2, sy: P.cy - TH / 2 });
   const sm = x.imageSmoothingEnabled; x.imageSmoothingEnabled = true;
-  // 1) озеро — сплошная вода (участки воды растянуты на шаг, без тропинок между ними)
-  for (let y = 0; y < N; y++) for (let xx = N - 1; xx >= 0; xx--) if (isWater(xx, y)) plotImage('ground/water.png', at(plotXY(xx, y)), SP * 1.02);
-  // 2) тропинки: кольцо вокруг каждого сухого участка; соседние кольца сходятся в дорожку с камушками
-  for (let y = 0; y < N; y++) for (let xx = N - 1; xx >= 0; xx--) if (!isWater(xx, y)) { const P = plotXY(xx, y); pathTile(P.cx - TW * SP / 2, P.cy - TH * SP / 2, SP); }
-  // 3) сам участок — круглый (в изометрии — овал) с каменным бортиком: пашня, камень или трава
-  for (let y = 0; y < N; y++) for (let xx = N - 1; xx >= 0; xx--) if (!isWater(xx, y)) roundPlot(plotXY(xx, y), GROUND[L.base[y][xx]]);
+  landsGround(N, L, at); // 1–3) вода, тропинки, круглые участки — готовой картинкой
   x.imageSmoothingEnabled = sm;
   if (Iso.sel && Iso.sel.tab === 'lands') roundSel(plotXY(Iso.sel.x, Iso.sel.y)); // выбранный участок — золотое кольцо по форме круга
   // 4) объекты по глубине (ниже на экране — рисуется позже): здания, украшения, жители, строители, мельница

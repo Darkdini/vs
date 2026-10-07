@@ -89,7 +89,7 @@ function toast(msg, cls = '') {
   if (statusQ.length > 4) statusQ.shift();
 }
 function statusTick() { // сообщения — плавающей строкой над картой, часы — над строкой чата
-  const el = $('#status'), t = Date.now();
+  const el = $('#status'), t = Date.now(); if (!el || !$('#clock')) return; // страница ещё не собрана (медленная сеть)
   if (statusQ.length && statusQ[0].until && statusQ[0].until < t) statusQ.shift();
   const m = statusQ[0];
   if (m) { if (!m.until) m.until = t + 2600; el.textContent = m.msg; el.className = `show ${m.cls || 'msg'}`; }
@@ -874,8 +874,23 @@ function pic(path) {
 // нарисовать картинку в её (логическом) размере; HD-картинки — со сглаживанием
 function drawPic(im, x, y, w = im.width, h = im.height) {
   if (!im.hd) return ictx.drawImage(im, x, y, w, h);
+  const t = ictx.getTransform(), src = mipOf(im, w * Math.hypot(t.a, t.b));
   const sm = ictx.imageSmoothingEnabled; ictx.imageSmoothingEnabled = true; ictx.imageSmoothingQuality = 'high';
-  ictx.drawImage(im, x, y, w, h); ictx.imageSmoothingEnabled = sm;
+  ictx.drawImage(src, x, y, w, h); ictx.imageSmoothingEnabled = sm;
+}
+// заранее уменьшенные копии большой картинки (половина, четверть…): каждый кадр уменьшать 512-точечное здание
+// до 60 точек дорого — берём копию не больше чем вдвое крупнее нужного (на земле 225 участков — иначе кадр тормозит)
+const MIPS = new WeakMap();
+function mipOf(im, dw) {
+  let src = im, sw = im.naturalWidth || im.width, sh = im.naturalHeight || im.height;
+  if (!(dw > 0) || sw <= dw * 2 || sw < 64) return im;
+  let L = MIPS.get(im); if (!L) MIPS.set(im, (L = []));
+  for (let i = 0; sw > dw * 2 && sw >= 64; i++) {
+    sw = Math.ceil(sw / 2); sh = Math.ceil(sh / 2);
+    if (!L[i]) { const c = document.createElement('canvas'); c.width = sw; c.height = sh; const g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(src, 0, 0, sw, sh); L[i] = c; }
+    src = L[i];
+  }
+  return src;
 }
 const tileScreen = (x, y) => ({ sx: x * TW / 2 + y * TW / 2, sy: y * TH / 2 - x * TH / 2 });
 function screenToTile(px, py) {
