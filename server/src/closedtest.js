@@ -18,6 +18,17 @@ function install(Game) {
       online: !!u.online, created: u.created, lastSeen: u.lastSeen || 0, note: u.testerNote || '' })).sort((a, b) => b.created - a.created);
     return { on: this.closedOn(), list };
   };
+  // новый тестер: логин test_xxxx (или свой), ник — свой или как логин, пароль — случайный (возвращается один раз, в базе — хэш)
+  P.testerCreate = function testerCreate({ acct, nick, race, note } = {}) {
+    nick = String(nick || '').trim(); note = String(note || '').replace(/[<>]/g, '').trim().slice(0, 60);
+    acct = String(acct || '').trim().toLowerCase();
+    if (!acct) { do acct = `test_${gen(4)}`; while (this.db.accts[acct]); }
+    const pass = gen(10);
+    const r = this.register({ login: acct, nick: nick || acct.replace(/[^a-zа-яё0-9_]/gi, '').slice(0, 10), password: pass, race: Number(race) || 0 });
+    if (r.error) return r;
+    r.user.tester = true; r.user.testerNote = note; this.store.save();
+    return { acct, nick: r.user.login, pass };
+  };
   const findTester = (g, login) => { const l = String(login || '').trim().toLowerCase(); return Object.values(g.db.users).find((u) => u.tester && (u.login.toLowerCase() === l || u.acct === l)); };
   // команды админ-панели: test… (остальное — admin.js)
   const prev = P.adminOp;
@@ -29,16 +40,7 @@ function install(Game) {
       case 'testview': return { data: this.closedView() };
       case 'testmode': db.closedTest = !!arg.on; this.store.save();
         return { data: { ...this.closedView(), msg: db.closedTest ? 'Закрытый тест включён: входят только тестеры и админ, регистрация закрыта.' : 'Закрытый тест выключен: игра открыта для всех.' } };
-      case 'testadd': { // новый тестер: логин test_xxxx (или свой), ник — свой или как логин, пароль — случайный
-        const nick = String(arg.nick || '').trim(), note = String(arg.note || '').replace(/[<>]/g, '').trim().slice(0, 60);
-        let acct = String(arg.acct || '').trim().toLowerCase();
-        if (!acct) { do acct = `test_${gen(4)}`; while (db.accts[acct]); }
-        const pass = gen(10);
-        const r = this.register({ login: acct, nick: nick || acct.replace(/[^a-zа-яё0-9_]/gi, '').slice(0, 10), password: pass, race: Number(arg.race) || 0 });
-        if (r.error) return r;
-        r.user.tester = true; r.user.testerNote = note; this.store.save();
-        return { data: { ...this.closedView(), created: { acct, nick: r.user.login, pass }, msg: `Тестер создан: ${r.user.login}` } };
-      }
+      case 'testadd': { const r = this.testerCreate(arg); if (r.error) return r; return { data: { ...this.closedView(), created: r, msg: `Тестер создан: ${r.nick}` } }; }
       case 'testpass': { // новый пароль тестеру (старый перестаёт работать, все его входы завершаются)
         const u = findTester(this, arg.login); if (!u) return { error: 'Тестер не найден.' };
         const pass = gen(10); this.setPasswordReset(u, pass, arg.ip || '');
