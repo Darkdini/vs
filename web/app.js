@@ -1140,7 +1140,8 @@ function drawCellBuilding(view, cell, b, lvl, p, k = 1, sel = false) {
       const im = pic(path); if (im) { const kk = TW * (path.includes('/lands/') ? 0.78 : 0.62) / im.width, w = im.width * kk, h = im.height * kk; // новые картинки — со своим круглым участком; старые — поменьше клетки
         top = p.sy + TH / 2 + w / 4 - h; if (S.showLvl && view === 1 && b >= 0 && lvl > 0 && !(q && q.level === 1)) landLvlRing(p, lvl); drawPic(im, p.sx + TW / 2 - w / 2, top, w, h);
         if (S.showLvl && view === 1 && b >= 0 && lvl > 0) LANDLV.push([p.sx + TW / 2, p.sy + TH / 2 + TH * 0.3, lvl]); } }
-    else { const im = pic(path); if (im) { const w = im.width * k, h = im.height * k; top = im.ay !== undefined ? p.sy + TH / 2 - im.ay * k : im.base ? p.sy + TH / 2 + im.base * k / 4 - h : p.sy + TH / 2 + TH * PLOT / 2 - h + 2; drawPic(im, im.ax !== undefined ? p.sx + TW / 2 - im.ax * k : p.sx + TW / 2 - w / 2, top, w, h); } } // новые здания: центр основания (ромб шириной base) — в центре клетки
+    else { const im = pic(path); if (im) { const w = im.width * k, h = im.height * k; top = im.ay !== undefined ? p.sy + TH / 2 - im.ay * k : im.base ? p.sy + TH / 2 + im.base * k / 4 - h : p.sy + TH / 2 + TH * PLOT / 2 - h + 2; const bx = im.ax !== undefined ? p.sx + TW / 2 - im.ax * k : p.sx + TW / 2 - w / 2; drawPic(im, bx, top, w, h);
+      if (view === 0) CB_REC.push({ im, x: bx, y: top, w, h, d: p.sy + TH / 2 }); } } // здания замка — для «Жизни в замке»: жителей за зданием прячет его же картинка // новые здания: центр основания (ромб шириной base) — в центре клетки
     if (sel) ictx.restore();
   }
   if (q) { const f = (now() - q.start) / (q.end - q.start); LANDBARS.push([p.sx + TW / 2, p.sy + TH / 2, f, TW * (view === 1 ? 0.6 : 0.42)]); } // в центре своей клетки — клетки не пересекаются, полосы тоже // полоса над зданием — поверх всех зданий (landBarsFlush)
@@ -1178,6 +1179,7 @@ function flowTick() { // перерисовка только пока откры
 const CB_K = 0.5; // точек мира на точку картинки
 const CASTLE_BG = { src: 'ground/bg/castle2.webp?v=1', iw: 1672, ih: 940, pad: 0, x: 0, y: 0, w: 1672 * CB_K, h: 940 * CB_K };
 // клетка сетки замка → центр площадки на картинке (сервер: C.CASTLE_OK); 24 — площадь Ратуши
+const CB_REC = []; // нарисованные здания замка (картинка, место, глубина) — castlelife.js прячет за ними жителей
 const CASTLE_XY = {24: [822, 186], 0: [994, 264], 1: [1098, 322], 2: [1198, 380], 4: [1302, 440], 5: [832, 290], 7: [926, 338], 8: [1020, 386], 9: [1120, 444], 11: [1216, 495], 12: [661, 268], 14: [738, 336], 15: [832, 392], 16: [930, 440], 18: [1025, 498], 19: [1126, 552], 25: [566, 317], 26: [648, 386], 28: [738, 444], 29: [836, 496], 30: [932, 551], 31: [1030, 606], 32: [466, 374], 33: [552, 440], 35: [644, 494], 36: [739, 554], 37: [836, 610], 38: [938, 662], 39: [361, 433], 40: [454, 491], 42: [545, 554], 43: [641, 610], 44: [736, 663]};
 const CB_PLOT = 93 * CB_K, CB_PLOTH = 59.5 * CB_K, CB_HALL = 228 * CB_K; // ширина площадки и площади (в точках мира)
 const CASTLE_ORDER2 = Object.keys(CASTLE_XY).map(Number).sort((a, b) => CASTLE_XY[a][1] - CASTLE_XY[b][1]); // от дальних к ближним
@@ -1447,6 +1449,7 @@ function isoDrawNow() {
     castleBackdrop();
     const kOf = (cell) => (cell === 24 ? CB_HALL * 0.62 : CB_PLOT) / 48; // плита здания — 48 точек при k = 1
     for (const cell of CASTLE_ORDER2) if (isSel(cell % 7, Math.floor(cell / 7))) glow(cellAt(cell % 7, Math.floor(cell / 7)), (cell === 24 ? CB_HALL * 0.75 : CB_PLOT * 0.98) / TW);
+    CB_REC.length = 0;
     for (const cell of CASTLE_ORDER2) drawCellBuilding(0, cell, st.grid[0][cell], st.levels[0][cell], cellAt(cell % 7, Math.floor(cell / 7)), kOf(cell), isSel(cell % 7, Math.floor(cell / 7)));
     if (Iso.sel && Iso.sel.tab === 'castle' && st.grid[0][Iso.sel.y * 7 + Iso.sel.x] >= 0) { const cell = Iso.sel.y * 7 + Iso.sel.x; const n0 = LANDBARS.length, l0 = LVLQ.length; // выбранное здание — поверх соседей
       drawCellBuilding(0, cell, st.grid[0][cell], st.levels[0][cell], cellAt(Iso.sel.x, Iso.sel.y), kOf(cell), true); LANDBARS.length = n0; LVLQ.length = l0; }
@@ -1482,6 +1485,7 @@ function isoDrawNow() {
       x.restore();
     }
   }
+  if (typeof castleLife === "function") castleLife(c, dpr); // «Жизнь в замке» (castlelife.js): свой слой поверх замка, на других вкладках прячется
 }
 
 // табличка «Попробуйте через 3 минуты» после 3 неверных входов (сервер закрывает вход сам, здесь — только отсчёт)

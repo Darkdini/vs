@@ -2236,3 +2236,6 @@ body.menuopen #advbar, body.menuopen #advhand { display: none; } /* открыт
 .trow small { display: block; }
 .trow.off { opacity: 0.6; }
 .tbtns { display: flex; gap: 4px; flex-wrap: wrap; }
+
+/* «Жизнь в замке» (castlelife.js): слой анимации поверх замка — нажатия проходят сквозь него к карте */
+.iso.isolife { pointer-events: none; }
