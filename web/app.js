@@ -237,6 +237,7 @@ function onMsg(m) {
       if (S.creds) { S.creds.login = m.login; S.creds.show = m.login; if (store.get('tw.creds')) store.set('tw.creds', S.creds); }
       break;
     case 'auth':
+      preloadMain(); // фоны замка, земель и мира, замки на карте — грузятся сразу, пока игрок смотрит доклад советника
       // браузер хранит только токен сессии, не пароль
       // show — то, что игрок вводил в поле «Логин» (у админа это секретный логин, а в игре он «admin»)
       S.creds = { login: m.login, token: m.token, show: (S.pendingCreds && S.pendingCreds.login) || (S.creds && S.creds.show) || m.login }; S.pendingCreds = null;
@@ -1250,6 +1251,11 @@ function scaledPic(path, w, k = isoDpr() * Math.max(1, cam().z)) { // k — во
   return cv;
 }
 // объекты карты мира — новая графика (старые плитки с зелёными ромбами не используются)
+// главные картинки — заранее, сразу после входа: открыв карту или земли, игрок видит их сразу, а не пустое место
+function preloadMain() {
+  if (preloadMain.done) return; preloadMain.done = true;
+  setTimeout(() => { [CASTLE_BG.src, 'ground/world_bg.jpg?v=3', 'lands/bg.jpg?v=3', ...[0, 1, 2, 3].map((i) => `world/castle${i}.png?v=1`), ...Object.values(WORLD_OBJ_IMG)].forEach((p) => pic(p)); }, 50);
+}
 const WORLD_OBJ_IMG = { 24: 'world/ruins.png', 25: 'world/savage.png', 26: 'world/lumber.png', 27: 'world/troll_mine.png', 30: 'world/bandit_s.png', 31: 'world/bandit_m.png', 32: 'quest/lair_orc.png' };
 // поляна: мягкое пятно травы, закрывающее деревья и камни фона под объектом
 let CLEARING = null;
@@ -1299,7 +1305,7 @@ function worldObj(o, p, sel, k, noDome) {
   if (cimg) { const dw = TW * (o.kind === 'castle' ? [0.78, 0.84, 0.92, 1.0][castleStage(o.rating)] : 0.8), sc = scaledPic(path, dw, k || undefined) || cimg, dh = dw * cimg.height / cimg.width;
     ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(o.prem ? goldPic(sc) : sc, p.sx + TW / 2 - dw / 2, p.sy + TH * 0.85 - dh, dw, dh); ictx.restore(); }
   else if (o.qimg && pic(o.qimg)) { const im = pic(o.qimg), q = TW * 1.25 / im.width; ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(im, p.sx + TW / 2 - im.width * q / 2, p.sy + TH * 0.85 - im.height * q, im.width * q, im.height * q); ictx.restore(); } // логово похода
-  else ground(WORLD_NAME_IMG(o), p.sx, p.sy);
+  else if (!path && !o.qimg) ground(WORLD_NAME_IMG(o), p.sx, p.sy); // старый спрайт — только если новой картинки нет вовсе; пока новая грузится — пусто (раньше мелькала старая графика)
   if (sel) ictx.restore();
   if (o.shield && !noDome) shieldDome(p); else if (o.newbie && !noDome) newbieDome(p); // купол: купленная защита — золотой, защита новичка — голубой
 }
