@@ -8,7 +8,7 @@ const aNum = (name, value, ph) => `<input class="anum" type="number" inputmode="
 
 // Разделы: Игрок (поиск, карточка, пароли, наказания) · Выдать (монеты, ресурсы, замки, армия) · Модерация (модераторы, мульты, жалобы) · Мир (новости, рассылки, события).
 // У каждого действия — короткое описание; одно действие — в одном месте.
-const ADM_TABS = [['player', '👤 Игрок'], ['give', '🎁 Выдать'], ['mod', '🛡 Модерация'], ['world', '🌍 Мир'], ['stats', '📊 Статистика'], ['alerts', '🚨 Тревоги'], ['sec', '🔒 Защита']];
+const ADM_TABS = [['player', '👤 Игрок'], ['give', '🎁 Выдать'], ['mod', '🛡 Модерация'], ['world', '🌍 Мир'], ['stats', '📊 Статистика'], ['alerts', '🚨 Тревоги'], ['sec', '🔒 Защита'], ['test', '🧪 Тест']];
 // строка действия: название и пояснение слева, поле и кнопка справа
 const aAct = (title, desc, controls, wide = false) => `<div class="aact ${wide ? 'wide' : ''}"><div class="aact-t"><b>${title}</b><small>${desc}</small></div><div class="aact-c">${controls}</div></div>`;
 const aBtn2 = (op, text, extra = '', cls = '') => `<button class="btn small ${cls}" data-adm="${op}" ${extra}>${text}</button>`;
@@ -70,6 +70,7 @@ function adminHtml() {
     stats: () => admStatsHtml(a.stats),
     alerts: () => admAlertsHtml(a.alerts),
     sec: () => admSecHtml(a.sec),
+    test: () => admTestHtml(a.test),
   };
   return head + T[tab]();
 }
@@ -169,7 +170,7 @@ $('#sheetBody').addEventListener('change', (e) => {
 $('#sheetBody').addEventListener('click', (e) => {
   const gf = e.target.closest('[data-gafill]'); if (gf) { $$('.gaunit input').forEach((i) => { i.value = gf.dataset.gafill; }); return; }
   const md = e.target.closest('[data-amod]'); if (md) { if (!confirm(`Снять ${md.dataset.amod} с модераторов?`)) return; send({ t: 'admin', op: 'mod', login: md.dataset.amod, on: 0 }); return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
-  const tb = e.target.closest('[data-atab]'); if (tb) { S.adm.tab = tb.dataset.atab; if (S.adm.tab === 'mod') { send({ t: 'admin', op: 'mods' }); send({ t: 'admin', op: 'multis' }); } if (S.adm.tab === 'stats') send({ t: 'admin', op: 'stats' }); if (S.adm.tab === 'alerts') send({ t: 'admin', op: 'alerts' }); if (S.adm.tab === 'sec') send({ t: 'admin', op: 'sec' }); return refreshSheet(); }
+  const tb = e.target.closest('[data-atab]'); if (tb) { S.adm.tab = tb.dataset.atab; if (S.adm.tab === 'mod') { send({ t: 'admin', op: 'mods' }); send({ t: 'admin', op: 'multis' }); } if (S.adm.tab === 'stats') send({ t: 'admin', op: 'stats' }); if (S.adm.tab === 'alerts') send({ t: 'admin', op: 'alerts' }); if (S.adm.tab === 'sec') send({ t: 'admin', op: 'sec' }); if (S.adm.tab === 'test') send({ t: 'admin', op: 'testview' }); return refreshSheet(); }
   const mb = e.target.closest('[data-mban],[data-mall],[data-mdev]');
   if (mb) { // решения по мультам — только вручную и с подтверждением
     const d = mb.dataset, on = d.on === '1';
@@ -177,6 +178,15 @@ $('#sheetBody').addEventListener('click', (e) => {
     if (d.mall !== undefined) { if (!confirm(`Заблокировать аккаунты: ${d.mall.split(',').join(', ')}?`)) return; send({ t: 'admin', op: 'banmany', logins: d.mall.split(',') }); }
     if (d.mdev !== undefined) { if (on && !confirm(`Заблокировать устройство? С него нельзя будет войти и зарегистрироваться${d.fp ? ' — даже после очистки данных или из другого браузера' : ''}.`)) return; send({ t: 'admin', op: on ? 'devban' : 'devunban', dev: d.mdev, fp: d.fp || undefined }); }
     return setTimeout(() => (S.adm.tab === 'player' && S.adm.login ? send({ t: 'admin', op: 'player', login: S.adm.login }) : send({ t: 'admin', op: 'multis' })), 200);
+  }
+  const tt = e.target.closest('[data-tmode],[data-top],[data-tcopy]');
+  if (tt) { // 🧪 Тест: режим, пароль, отключить, снять
+    const d = tt.dataset;
+    if (d.tcopy !== undefined) { const t = S.adm.test && S.adm.test.created; if (t) navigator.clipboard.writeText(`Логин: ${t.acct}\nПароль: ${t.pass}`).then(() => toast('Скопировано'), () => toast('Не удалось скопировать — перепишите вручную', 'err')); return; }
+    if (d.tmode !== undefined) { const on = d.tmode === '1'; if (!confirm(on ? 'Включить закрытый тест? Все, кроме тестеров и админа, будут выброшены из игры, регистрация закроется.' : 'Выключить закрытый тест? Игра откроется для всех, регистрация заработает.')) return; return send({ t: 'admin', op: 'testmode', on }); }
+    const ask = { testpass: `Сделать новый пароль тестеру ${d.login}? Старый перестанет работать.`, testoff: `Отключить доступ тестеру ${d.login}?`, testmark: `Снять ${d.login} с тестеров?` }[d.top];
+    if (ask && !confirm(ask)) return;
+    return send({ t: 'admin', op: d.top, login: d.login, on: d.top === 'testmark' ? 0 : undefined });
   }
   const b = e.target.closest('[data-adm],[data-apick],[data-adm-self]'); if (!b) return;
   if (b.dataset.admSelf !== undefined) { S.adm.login = ''; S.adm.player = null; return refreshSheet(); }
@@ -212,6 +222,8 @@ $('#sheetBody').addEventListener('submit', (e) => {
   if (k === 'givecastle') { const l = f.login.value.trim(), n = Math.max(1, Number(f.n.value) || 1); if (!l) return; if (!confirm(`Выдать игроку ${l} полных замков: ${n}?`)) return; return send({ t: 'admin', op: 'castles', login: l, n }); }
   if (k === 'addmod') { const l = f.login.value.trim(); if (!l) return; send({ t: 'admin', op: 'mod', login: l, on: 1 }); f.login.value = ''; return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
   if (k === 'find') { S.adm.players = null; S.adm.q = f.q.value; return send({ t: 'admin', op: 'players', q: f.q.value }); }
+  if (k === 'testadd') return send({ t: 'admin', op: 'testadd', acct: f.acct.value.trim(), nick: f.nick.value.trim(), race: Number(f.race.value), note: f.note.value.trim() });
+  if (k === 'testmark') { const l = f.login.value.trim(); if (!l) return; f.login.value = ''; return send({ t: 'admin', op: 'testmark', login: l, on: 1 }); }
   if (k === 'passcheck') { admSend('passcheck', { password: f.password.value }); f.password.value = ''; return; }
   if (k === 'goldall') { const n = Math.floor(Number(f.n.value)); if (!(n >= 1 && n <= 1000)) return toast('От 1 до 1000 золота.', 'err'); if (!confirm(`Выдать КАЖДОМУ игроку по ${n} золота?`)) return; S.adm.goldAll = { msg: 'Выдаю…', last: (S.adm.goldAll || { last: [] }).last }; refreshSheet(); return send({ t: 'admin', op: 'goldall', n, why: f.why.value }); }
   if (k === 'mailall') send({ t: 'admin', op: 'mailall', subject: f.subject.value, text: f.text.value });
@@ -232,6 +244,7 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
     if (m.op === 'stats') S.adm.stats = m.data;
     if (m.op === 'alerts') S.adm.alerts = m.data;
     if (m.op === 'sec') S.adm.sec = m.data;
+    if (m.op.startsWith('test')) { const keep = S.adm.test && S.adm.test.created; S.adm.test = { ...m.data, created: m.data.created || (m.op === 'testview' ? null : keep) }; }
     if (m.op === 'armyinfo') S.adm.ga = m.data;
     if (m.op === 'passcheck') S.adm.passcheck = m.data;
     if (m.op === 'goldall' || m.op === 'goldallget') S.adm.goldAll = { ...m.data, at: Date.now() };
@@ -331,3 +344,27 @@ $('#sheetBody').addEventListener('submit', (e) => {
   if (!confirm(`Заблокировать ${f.ip.value.trim()}?`)) return;
   send({ t: 'admin', op: 'ipban', target: f.ip.value.trim(), why: 'вручную' }); f.ip.value = ''; setTimeout(() => send({ t: 'admin', op: 'sec' }), 200);
 }, true);
+
+// ---------- 🧪 Закрытый тест (server/src/closedtest.js): пока включён — входят только тестеры и админ, регистрации нет ----------
+function admTestHtml(t) {
+  if (!t) return '<p class="parch-note">Загрузка…</p>';
+  const c = t.created;
+  return `${aSec('🧪 Закрытый тест', `<div class="tmode ${t.on ? 'on' : ''}">${t.on ? '🔒 ВКЛЮЧЁН — входят только тестеры и админ, регистрация закрыта' : '🔓 Выключен — игра открыта для всех'}</div>
+      <button class="btn ${t.on ? '' : 'primary'}" data-tmode="${t.on ? 0 : 1}">${t.on ? 'Выключить (открыть игру всем)' : 'Включить закрытый тест'}</button>
+      ${t.msg ? `<div class="smnote ok">✔ ${esc(t.msg)}</div>` : ''}`)}
+    ${c ? aSec('🔑 Данные для входа', `<p class="small">Передайте тестеру. <b>Пароль показывается только сейчас</b> — на сервере хранится лишь его отпечаток. Забыли — «Новый пароль».</p>
+      <div class="tcreds"><div>Логин: <b>${esc(c.acct)}</b></div><div>Пароль: <b>${esc(c.pass)}</b></div><div class="small">Ник в игре: ${esc(c.nick)}</div></div>
+      <button class="btn small" data-tcopy>📋 Скопировать логин и пароль</button>`) : ''}
+    ${aSec('➕ Новый тестер', `<p class="small">Всё можно оставить пустым: логин будет вида test_xxxx, ник — как логин. Пароль сервер придумает сам.</p>
+      <form class="stack" data-aform="testadd"><input name="acct" placeholder="Логин (необязательно, от 5 символов)" autocapitalize="none" maxlength="40">
+        <input name="nick" placeholder="Ник в игре (необязательно, 3–10 символов)" autocapitalize="none" maxlength="10">
+        <select name="race">${['Люди', 'Эльфы', 'Гномы', 'Орки'].map((r, i) => `<option value="${i}">${r}</option>`).join('')}</select>
+        <input name="note" placeholder="Кому выдан (видно только вам)" maxlength="60"><button class="btn primary">Создать тестера</button></form>`)}
+    ${aSec(`👥 Тестеры — ${t.list.length}`, t.list.length ? t.list.map((u) => `<div class="trow ${u.off ? 'off' : ''}"><div><b>${esc(u.login)}</b> <small>логин ${esc(u.acct)} · ${esc(u.race)}</small>
+        <small>${u.off ? '⛔ доступ отключён' : u.online ? '🟢 в игре' : u.lastSeen ? `был ${fmtDate(u.lastSeen)}` : 'ещё не входил'}${u.note ? ` · ${esc(u.note)}` : ''}</small></div>
+        <div class="tbtns"><button class="btn small" data-top="testpass" data-login="${esc(u.login)}">Новый пароль</button>
+        <button class="btn small" data-top="${u.off ? 'teston' : 'testoff'}" data-login="${esc(u.login)}">${u.off ? 'Включить' : 'Отключить'}</button>
+        <button class="btn small danger" data-top="testmark" data-login="${esc(u.login)}">Снять</button></div></div>`).join('') : '<p class="small">Тестеров пока нет.</p>')}
+    ${aSec('⭐ Сделать тестером игрока', `<p class="small">Уже зарегистрированный игрок (по нику) сможет входить во время теста со своим паролем.</p>
+      <form class="chatform" data-aform="testmark"><input name="login" placeholder="Ник игрока" autocapitalize="none" required><button class="btn primary small">Добавить</button></form>`)}`;
+}

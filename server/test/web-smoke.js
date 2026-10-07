@@ -454,6 +454,29 @@ function client() {
     adm.send({ t: 'send', from: 'castle', mission: 'raid', x: target.x, y: target.y, at: Date.now() + 3600000 });
     await adm.expect('toast', (m) => /Поход запланирован/.test(m.msg));
     console.log('✓ армии в замке: отряд, переименование, подкрепление и отзыв, поход по расписанию');
+    { // 🧪 закрытый тест: входят только тестеры и админ, регистрации нет, обычных игроков выбрасывает
+      adm.send({ t: 'admin', op: 'testmode', on: true }); assert.ok((await adm.expect('admininfo', (m) => m.op === 'testmode')).data.on);
+      await b.expect('error', (m) => /закрытое тестирование/.test(m.msg));
+      const cl = client(); await cl.open(); cl.send({ t: 'hello' }); assert.strictEqual((await cl.expect('catalog')).closed, true, 'экран входа знает о тесте');
+      cl.send({ t: 'register', login: 'newbie1', password: '12345', race: 0 }); await cl.expect('error', (m) => /регистрация временно закрыта/.test(m.msg));
+      cl.send({ t: 'login', login: 'Webby', password: 'pass1' }); await cl.expect('error', (m) => /только для тестеров/.test(m.msg));
+      adm.send({ t: 'admin', op: 'testadd', nick: 'Tester1', note: 'Вася' }); const tc = (await adm.expect('admininfo', (m) => m.op === 'testadd')).data.created;
+      assert.ok(/^test_[a-z0-9]{4}$/.test(tc.acct) && tc.pass.length === 10 && tc.nick === 'Tester1', JSON.stringify(tc));
+      assert.ok(!(() => { try { return require('fs').readFileSync(DB, 'utf8'); } catch { return ''; } })().includes(tc.pass), 'пароль тестера не хранится открытым текстом');
+      const tt = client(); await tt.open(); tt.send({ t: 'login', login: tc.acct, password: tc.pass }); await tt.expect('auth');
+      adm.send({ t: 'admin', op: 'testoff', login: 'Tester1' }); await tt.expect('error', (m) => /только для тестеров/.test(m.msg));
+      const t2 = client(); await t2.open(); t2.send({ t: 'login', login: tc.acct, password: tc.pass }); await t2.expect('error', (m) => /только для тестеров/.test(m.msg));
+      adm.send({ t: 'admin', op: 'teston', login: 'Tester1' }); await adm.expect('admininfo', (m) => m.op === 'teston');
+      adm.send({ t: 'admin', op: 'testpass', login: 'Tester1' }); const np = (await adm.expect('admininfo', (m) => m.op === 'testpass')).data.created.pass;
+      t2.send({ t: 'login', login: tc.acct, password: tc.pass }); await t2.expect('error', (m) => /Неверный/.test(m.msg));
+      t2.send({ t: 'login', login: tc.acct, password: np }); await t2.expect('auth');
+      adm.send({ t: 'admin', op: 'testmark', login: 'Webby', on: 1 }); await adm.expect('admininfo', (m) => m.op === 'testmark');
+      cl.send({ t: 'login', login: 'Webby', password: 'pass1' }); await cl.expect('auth');
+      adm.send({ t: 'admin', op: 'testmode', on: false }); assert.ok(!(await adm.expect('admininfo', (m) => m.op === 'testmode' && !m.data.on)).data.on);
+      const op2 = client(); await op2.open(); op2.send({ t: 'login', login: 'Second', password: 'pass2' }); await op2.expect('auth');
+      [cl, tt, t2, op2].forEach((x) => x.close());
+      console.log('✓ закрытый тест: только тестеры и админ, регистрация закрыта, игроков выбрасывает; тестер — пароль один раз, отключение, новый пароль');
+    }
     adm.close();
     // 3 неверных входа → табличка «попробуйте через 3 минуты», даже правильный пароль не пускает
     const bf = client(); await bf.open();

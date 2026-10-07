@@ -2226,3 +2226,13 @@ body.menuopen #advbar, body.menuopen #advhand { display: none; } /* открыт
 .bxgot { text-align: center; font: 600 17px var(--serif); margin: 2px 0; }
 .amedals { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; margin: 4px 0 2px; } .amedals img { width: 40px; height: 40px; object-fit: contain; }
 #chatmsg .repi img { height: 18px; } #chatmsg .repi { vertical-align: -3px; } /* мечи репутации в строке чата — не выходят за рамку */
+
+/* закрытый тест: пояснение на экране входа (вместо вкладок Вход/Регистрация) */
+.closednote { margin: 6px 0 12px; padding: 10px 12px; border-radius: 10px; background: rgba(60, 30, 5, 0.75); border: 1px solid #c9a24a; color: #ffe6a8; text-align: center; font-size: 14px; line-height: 1.4; }
+.tmode { padding: 8px 10px; margin: 4px 0 8px; border-radius: 8px; background: #e9f3e0; color: #2d5a1a; font-weight: bold; }
+.tmode.on { background: #fbe3d0; color: #8a2d00; }
+.tcreds { padding: 10px; margin: 6px 0; border: 2px dashed #b08a3a; border-radius: 8px; background: #fffaf0; font-size: 16px; line-height: 1.6; user-select: all; }
+.trow { display: flex; flex-wrap: wrap; gap: 6px; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(120, 80, 30, 0.25); }
+.trow small { display: block; }
+.trow.off { opacity: 0.6; }
+.tbtns { display: flex; gap: 4px; flex-wrap: wrap; }

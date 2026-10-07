@@ -222,6 +222,7 @@ function onMsg(m) {
         if (S.ver && S.ver !== m.v && done !== m.v) { try { sessionStorage.setItem('tw.reloadedV', m.v); } catch { /* */ } location.reload(); break; } // защита от перезагрузки по кругу
         S.ver = m.v;
       }
+      closedAuth(!!m.closed); // закрытый тест (server/src/closedtest.js): без регистрации
       if (m.catalog) { setCatalog(m.catalog); break; }
       if (S.cat && S.catH === m.h) break;
       S.catWait = fetch(`catalog.json?h=${m.h}`).then((r) => r.json()).then((c) => { S.catH = m.h; setCatalog(c); })
@@ -348,6 +349,11 @@ function raceInfo(r) {
 }
 // ошибка входа — поля подсвечиваются красной табличкой (form.bad), пока текст ошибки не стёрт
 new MutationObserver(() => $('#authForm').classList.toggle('bad', !!$('#authErr').textContent.trim())).observe($('#authErr'), { childList: true, characterData: true, subtree: true });
+// закрытый тест: вкладки «Регистрация» нет, под заголовком — пояснение; вход — только по выданным логинам
+function closedAuth(on) {
+  S.closed = on; $('#authTabs').classList.toggle('hidden', on); $('#closedNote').classList.toggle('hidden', !on);
+  if (on && S.mode === 'reg') setMode('login');
+}
 function setMode(mode) {
   S.mode = mode;
   $$('#authTabs button').forEach((b) => b.classList.toggle('on', b.dataset.mode === mode));
