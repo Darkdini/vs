@@ -7,8 +7,11 @@
 set -e
 REPO="Darkdini/vs"; BRANCH="claude/third-world-kings-war-analysis-lodxja"
 # ссылка на КОНКРЕТНУЮ версию (по коммиту): GitHub кэширует ссылку на ветку несколько минут и может отдать старый архив
+# закрытый репозиторий: токен GitHub (только чтение) — в ~/game-data/github.token или /etc/war-github.token (права 600)
+TOK=""; for f in "$HOME/game-data/github.token" /etc/war-github.token; do [ -r "$f" ] && TOK=$(tr -d ' \r\n' < "$f") && break; done
+ghget() { if [ -n "$TOK" ]; then curl -fsSL -H "Authorization: Bearer $TOK" "$@"; else curl -fsSL "$@"; fi; }
 if [ -z "$1" ]; then
-  SHA=$(curl -fsSL "https://api.github.com/repos/$REPO/commits/$BRANCH" 2>/dev/null | grep -m1 '"sha"' | sed 's/.*"sha": *"\([0-9a-f]*\)".*/\1/')
+  SHA=$(ghget "https://api.github.com/repos/$REPO/commits/$BRANCH" 2>/dev/null | grep -m1 '"sha"' | sed 's/.*"sha": *"\([0-9a-f]*\)".*/\1/')
   [ -n "$SHA" ] && URL="https://raw.githubusercontent.com/$REPO/$SHA/dist/game.zip" || URL="https://raw.githubusercontent.com/$REPO/$BRANCH/dist/game.zip"
 else URL="$1"; fi
 GAME="$HOME/game"; DATA="$HOME/game-data"; TMP="$HOME/.game-update"
@@ -18,7 +21,7 @@ rm -rf "$TMP"; mkdir -p "$TMP" "$DATA"
 [ ! -f "$DATA/db.json" ] && [ -f "$GAME/server/data/db.json" ] && cp -r "$GAME/server/data/." "$DATA/"
 
 echo "1/6 Скачиваю новую версию… ($URL)"
-case "$URL" in /*) cp "$URL" "$TMP/game.zip" ;; *) curl -fsSL -o "$TMP/game.zip" "$URL" || fail "Не удалось скачать" ;; esac
+case "$URL" in /*) cp "$URL" "$TMP/game.zip" ;; https://raw.githubusercontent.com/*|https://api.github.com/*) ghget -o "$TMP/game.zip" "$URL" || fail "Не удалось скачать (закрытый репозиторий — нужен токен в ~/game-data/github.token)" ;; *) curl -fsSL -o "$TMP/game.zip" "$URL" || fail "Не удалось скачать" ;; esac
 unzip -q "$TMP/game.zip" -d "$TMP" || fail "Архив повреждён"
 [ -f "$TMP/game/server/src/index.js" ] || fail "В архиве нет сервера"
 

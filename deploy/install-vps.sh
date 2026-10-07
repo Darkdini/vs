@@ -1,6 +1,7 @@
 #!/bin/sh
 # Установка игры на VPS (Ubuntu/Debian) одной командой, от root:
-#   curl -fsSL https://raw.githubusercontent.com/Darkdini/vs/claude/third-world-kings-war-analysis-lodxja/deploy/install-vps.sh -o install.sh
+#   curl -fsSL -H "Authorization: Bearer ТОКЕН" https://raw.githubusercontent.com/Darkdini/vs/claude/third-world-kings-war-analysis-lodxja/deploy/install-vps.sh -o install.sh
+#   (репозиторий закрытый: ТОКЕН — fine-grained токен GitHub, только Darkdini/vs, Contents: Read-only; установка спросит его ещё раз)
 #   sh install.sh tmrs.ru www.tmrs.ru 1-2-3-4.sslip.io   (можно несколько адресов через пробел)
 # Что делает: ставит Node.js 20 и Caddy (HTTPS-сертификат сам), скачивает игру в /opt/war/game,
 # база — /opt/war/game-data (обновления её не трогают), служба war автоматически стартует после перезагрузки.
@@ -9,7 +10,6 @@
 set -e
 DOMAIN="$1"
 SITES=$(echo "$@" | sed 's/  */, /g')
-ZIP_URL="${ZIP_URL:-https://raw.githubusercontent.com/Darkdini/vs/claude/third-world-kings-war-analysis-lodxja/dist/game.zip}"
 [ "$(id -u)" = 0 ] || { echo "Запустите от root (sudo sh install.sh адрес)"; exit 1; }
 [ -n "$DOMAIN" ] || { echo "Укажите адрес сайта: sh install.sh моя-игра.duckdns.org"; exit 1; }
 
@@ -33,24 +33,61 @@ echo "== Пользователь и папки"
 id war >/dev/null 2>&1 || useradd -r -m -d /opt/war -s /usr/sbin/nologin war
 mkdir -p /opt/war/game-data && chmod 700 /opt/war/game-data
 
-echo "== Команда обновления war-update"
-cat > /usr/local/bin/war-update <<EOF
+echo "== Команды обновления war-update и war-token (тексты — как deploy/war-update.sh и deploy/war-token.sh)"
+cat > /usr/local/bin/war-update <<'WAREOF'
 #!/bin/sh
-# скачать новую версию игры и перезапустить; база /opt/war/game-data не трогается (перед обновлением — копия)
+# war-update — скачать новую версию игры и перезапустить; база /opt/war/game-data не трогается (перед обновлением — копия).
+#   war-update                 — последняя версия ветки
+#   war-update <SHA>           — версия по коммиту
+#   war-update <ссылка.zip>    — из архива по ссылке (или путь к файлу на сервере)
+# Репозиторий закрытый: токен GitHub «только чтение» лежит в /etc/war-github.token (права 600, только root),
+# задаётся командой war-token. В репозиторий и в папку игры токен не попадает; отправляется только на github.com.
 set -e
-URL="\${1:-$ZIP_URL}"
-TMP=\$(mktemp -d)
-curl -fsSL -o "\$TMP/game.zip" "\$URL"
-unzip -q "\$TMP/game.zip" -d "\$TMP"
-[ -f "\$TMP/game/server/src/index.js" ] || { echo "Архив не похож на игру"; exit 1; }
+REPO="Darkdini/vs"; BRANCH="claude/third-world-kings-war-analysis-lodxja"; TOKF=/etc/war-github.token
+TOK=""; [ -f "$TOKF" ] && TOK=$(tr -d ' \r\n' < "$TOKF")
+ghget() { if [ -n "$TOK" ]; then curl -fsSL -H "Authorization: Bearer $TOK" "$@"; else curl -fsSL "$@"; fi; }
+nokey() { echo "✗ $1. Репозиторий закрытый — нужен токен GitHub: выполните war-token"; exit 1; }
+ARG="${1:-}"
+if [ -z "$ARG" ]; then
+  ARG=$(ghget -H "Accept: application/vnd.github.sha" "https://api.github.com/repos/$REPO/commits/$BRANCH") || nokey "Не удалось узнать последнюю версию"
+fi
+TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
+case "$ARG" in
+  /*) cp "$ARG" "$TMP/game.zip" ;;
+  https://raw.githubusercontent.com/*|https://api.github.com/*) ghget -o "$TMP/game.zip" "$ARG" || nokey "Не удалось скачать" ;;
+  http*) curl -fsSL -o "$TMP/game.zip" "$ARG" || { echo "✗ Не удалось скачать"; exit 1; } ;;
+  *) ghget -o "$TMP/game.zip" "https://raw.githubusercontent.com/$REPO/$ARG/dist/game.zip" || nokey "Не удалось скачать версию $ARG" ;;
+esac
+unzip -q "$TMP/game.zip" -d "$TMP" || { echo "✗ Архив повреждён"; exit 1; }
+[ -f "$TMP/game/server/src/index.js" ] || { echo "✗ Архив не похож на игру"; exit 1; }
 [ -f /opt/war/game-data/db.json ] && cp /opt/war/game-data/db.json "/opt/war/game-data/db.before-update.json"
 rm -rf /opt/war/game.old; [ -d /opt/war/game ] && mv /opt/war/game /opt/war/game.old
-mv "\$TMP/game" /opt/war/game && rm -rf "\$TMP"
+mv "$TMP/game" /opt/war/game
 chown -R war:war /opt/war
 systemctl restart war 2>/dev/null || true
-echo "Готово: версия \$(cat /opt/war/game/VERSION)"
-EOF
-chmod 755 /usr/local/bin/war-update
+# сама команда обновляется вместе с игрой
+for f in war-update war-token; do [ -f "/opt/war/game/$f.sh" ] && ! cmp -s "/opt/war/game/$f.sh" "/usr/local/bin/$f" && install -m 755 "/opt/war/game/$f.sh" "/usr/local/bin/$f"; done
+echo "Готово: версия $(cat /opt/war/game/VERSION)"
+WAREOF
+cat > /usr/local/bin/war-token <<'WAREOF'
+#!/bin/sh
+# war-token — сохранить токен GitHub для war-update (репозиторий закрытый).
+# Токен вводится скрыто (не попадает в историю команд), хранится в /etc/war-github.token с правами 600 (только root).
+# Нужен fine-grained токен: только репозиторий Darkdini/vs, право Contents: Read-only.
+set -e
+[ "$(id -u)" = 0 ] || { echo "Запустите от root"; exit 1; }
+printf 'Вставьте токен GitHub и нажмите Enter (символы не видны): '
+stty -echo 2>/dev/null; read -r T; stty echo 2>/dev/null; echo
+T=$(printf %s "$T" | tr -d ' \r\n'); [ -n "$T" ] || { echo "Пусто — ничего не изменено"; exit 1; }
+if curl -fsS -o /dev/null -H "Authorization: Bearer $T" https://api.github.com/repos/Darkdini/vs; then
+  umask 077; printf %s "$T" > /etc/war-github.token; chmod 600 /etc/war-github.token
+  echo "✓ Токен работает и сохранён. Обновлять как раньше: war-update"
+else echo "✗ GitHub не принял токен (нет доступа к Darkdini/vs или неверный) — ничего не изменено"; exit 1; fi
+WAREOF
+chmod 755 /usr/local/bin/war-update /usr/local/bin/war-token
+# репозиторий закрытый — без токена GitHub игру не скачать
+curl -fsS -o /dev/null https://api.github.com/repos/Darkdini/vs 2>/dev/null || [ -f /etc/war-github.token ] || war-token < /dev/tty
+war-update
 war-update
 
 if [ ! -f /opt/war/game-data/admin.env ]; then
