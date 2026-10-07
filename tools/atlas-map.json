@@ -104,105 +104,6 @@
 "dh": 14
 },
 {
-"path": "gfx/border/info_bg1.png",
-"w": 17,
-"h": 19,
-"x": 1421,
-"y": 7,
-"dw": 102,
-"dh": 114
-},
-{
-"path": "gfx/border/info_bg2.png",
-"w": 5,
-"h": 19,
-"x": 1585,
-"y": 7,
-"dw": 30,
-"dh": 114
-},
-{
-"path": "gfx/border/info_bg3.png",
-"w": 17,
-"h": 19,
-"x": 1677,
-"y": 7,
-"dw": 102,
-"dh": 114
-},
-{
-"path": "gfx/build/alchimia.png",
-"w": 42,
-"h": 45,
-"x": 1814,
-"y": 19,
-"dw": 84,
-"dh": 90
-},
-{
-"path": "gfx/build/arhcamp.png",
-"w": 54,
-"h": 41,
-"x": 1930,
-"y": 23,
-"dw": 108,
-"dh": 82
-},
-{
-"path": "gfx/build/art_tower.png",
-"w": 40,
-"h": 72,
-"x": 2092,
-"y": 28,
-"dw": 40,
-"dh": 72
-},
-{
-"path": "gfx/build/baraks.png",
-"w": 54,
-"h": 53,
-"x": 2186,
-"y": 11,
-"dw": 108,
-"dh": 106
-},
-{
-"path": "gfx/build/beer.png",
-"w": 42,
-"h": 61,
-"x": 2347,
-"y": 33,
-"dw": 42,
-"dh": 61
-},
-{
-"path": "gfx/build/build.png",
-"w": 44,
-"h": 33,
-"x": 2452,
-"y": 31,
-"dw": 88,
-"dh": 66
-},
-{
-"path": "gfx/build/builder.png",
-"w": 52,
-"h": 55,
-"x": 2572,
-"y": 9,
-"dw": 104,
-"dh": 110
-},
-{
-"path": "gfx/build/castle.png",
-"w": 58,
-"h": 87,
-"x": 2723,
-"y": 20,
-"dw": 58,
-"dh": 87
-},
-{
 "path": "gfx/build/chip.png",
 "w": 26,
 "h": 23,
@@ -210,33 +111,6 @@
 "y": 18,
 "dw": 104,
 "dh": 92
-},
-{
-"path": "gfx/build/commerce.png",
-"w": 46,
-"h": 52,
-"x": 2962,
-"y": 12,
-"dw": 92,
-"dh": 104
-},
-{
-"path": "gfx/build/diplomat.png",
-"w": 62,
-"h": 69,
-"x": 3105,
-"y": 29,
-"dw": 62,
-"dh": 69
-},
-{
-"path": "gfx/build/expedition.png",
-"w": 44,
-"h": 54,
-"x": 20,
-"y": 138,
-"dw": 88,
-"dh": 108
 },
 {
 "path": "gfx/build/farm_avg.png",
@@ -264,24 +138,6 @@
 "y": 158,
 "dw": 56,
 "dh": 67
-},
-{
-"path": "gfx/build/gendel.png",
-"w": 42,
-"h": 47,
-"x": 534,
-"y": 145,
-"dw": 84,
-"dh": 94
-},
-{
-"path": "gfx/build/guard_tower.png",
-"w": 32,
-"h": 60,
-"x": 688,
-"y": 162,
-"dw": 32,
-"dh": 60
 },
 {
 "path": "gfx/build/house_avg.png",
@@ -338,42 +194,6 @@
 "dh": 52
 },
 {
-"path": "gfx/build/magscool.png",
-"w": 56,
-"h": 67,
-"x": 1572,
-"y": 158,
-"dw": 56,
-"dh": 67
-},
-{
-"path": "gfx/build/magtower.png",
-"w": 42,
-"h": 80,
-"x": 1707,
-"y": 152,
-"dw": 42,
-"dh": 80
-},
-{
-"path": "gfx/build/market.png",
-"w": 48,
-"h": 36,
-"x": 1808,
-"y": 156,
-"dw": 96,
-"dh": 72
-},
-{
-"path": "gfx/build/mbases.png",
-"w": 62,
-"h": 55,
-"x": 1953,
-"y": 164,
-"dw": 62,
-"dh": 55
-},
-{
 "path": "gfx/build/mount.png",
 "w": 62,
 "h": 52,
@@ -381,33 +201,6 @@
 "y": 166,
 "dw": 62,
 "dh": 52
-},
-{
-"path": "gfx/build/portal.png",
-"w": 32,
-"h": 45,
-"x": 2208,
-"y": 147,
-"dw": 64,
-"dh": 90
-},
-{
-"path": "gfx/build/reasury.png",
-"w": 42,
-"h": 44,
-"x": 2326,
-"y": 148,
-"dw": 84,
-"dh": 88
-},
-{
-"path": "gfx/build/resident.png",
-"w": 50,
-"h": 45,
-"x": 2446,
-"y": 147,
-"dw": 100,
-"dh": 90
 },
 {
 "path": "gfx/build/sawmill_avg.png",
@@ -437,42 +230,6 @@
 "dh": 60
 },
 {
-"path": "gfx/build/secret.png",
-"w": 36,
-"h": 51,
-"x": 2972,
-"y": 141,
-"dw": 72,
-"dh": 102
-},
-{
-"path": "gfx/build/smith.png",
-"w": 52,
-"h": 53,
-"x": 3084,
-"y": 139,
-"dw": 104,
-"dh": 106
-},
-{
-"path": "gfx/build/spycentr.png",
-"w": 56,
-"h": 55,
-"x": 8,
-"y": 265,
-"dw": 112,
-"dh": 110
-},
-{
-"path": "gfx/build/stables.png",
-"w": 50,
-"h": 41,
-"x": 142,
-"y": 279,
-"dw": 100,
-"dh": 82
-},
-{
 "path": "gfx/build/stone_avg.png",
 "w": 62,
 "h": 52,
@@ -500,42 +257,6 @@
 "dh": 52
 },
 {
-"path": "gfx/build/storage.png",
-"w": 46,
-"h": 64,
-"x": 681,
-"y": 288,
-"dw": 46,
-"dh": 64
-},
-{
-"path": "gfx/build/temple.png",
-"w": 40,
-"h": 69,
-"x": 812,
-"y": 285,
-"dw": 40,
-"dh": 69
-},
-{
-"path": "gfx/build/traveler.png",
-"w": 50,
-"h": 56,
-"x": 910,
-"y": 264,
-"dw": 100,
-"dh": 112
-},
-{
-"path": "gfx/build/university.png",
-"w": 48,
-"h": 55,
-"x": 1040,
-"y": 265,
-"dw": 96,
-"dh": 110
-},
-{
 "path": "gfx/build/walun.png",
 "w": 62,
 "h": 52,
@@ -543,24 +264,6 @@
 "y": 294,
 "dw": 62,
 "dh": 52
-},
-{
-"path": "gfx/build/wisdom_house.png",
-"w": 35,
-"h": 39,
-"x": 1309,
-"y": 281,
-"dw": 70,
-"dh": 78
-},
-{
-"path": "gfx/build/workshop.png",
-"w": 52,
-"h": 47,
-"x": 1420,
-"y": 273,
-"dw": 104,
-"dh": 94
 },
 {
 "path": "gfx/coins.png",
@@ -579,33 +282,6 @@
 "y": 277,
 "dw": 96,
 "dh": 86
-},
-{
-"path": "gfx/cursor.png",
-"w": 64,
-"h": 32,
-"x": 1824,
-"y": 304,
-"dw": 64,
-"dh": 32
-},
-{
-"path": "gfx/cursor_wait.png",
-"w": 64,
-"h": 32,
-"x": 1952,
-"y": 304,
-"dw": 64,
-"dh": 32
-},
-{
-"path": "gfx/cursor_web.png",
-"w": 64,
-"h": 32,
-"x": 2080,
-"y": 304,
-"dw": 64,
-"dh": 32
 },
 {
 "path": "gfx/fence/fence0.png",
@@ -759,123 +435,6 @@
 "y": 432,
 "dw": 62,
 "dh": 32
-},
-{
-"path": "gfx/gborder/water/0.png",
-"w": 62,
-"h": 32,
-"x": 1185,
-"y": 432,
-"dw": 62,
-"dh": 32
-},
-{
-"path": "gfx/gborder/water/1.png",
-"w": 62,
-"h": 32,
-"x": 1313,
-"y": 432,
-"dw": 62,
-"dh": 32
-},
-{
-"path": "gfx/gborder/water/2.png",
-"w": 62,
-"h": 32,
-"x": 1441,
-"y": 432,
-"dw": 62,
-"dh": 32
-},
-{
-"path": "gfx/gborder/water/3.png",
-"w": 62,
-"h": 32,
-"x": 1569,
-"y": 432,
-"dw": 62,
-"dh": 32
-},
-{
-"path": "gfx/gborder/water/40.png",
-"w": 62,
-"h": 32,
-"x": 1697,
-"y": 432,
-"dw": 62,
-"dh": 32
-},
-{
-"path": "gfx/gborder/water/41.png",
-"w": 62,
-"h": 32,
-"x": 1825,
-"y": 432,
-"dw": 62,
-"dh": 32
-},
-{
-"path": "gfx/gborder/water/50.png",
-"w": 62,
-"h": 32,
-"x": 1953,
-"y": 432,
-"dw": 62,
-"dh": 32
-},
-{
-"path": "gfx/gborder/water/51.png",
-"w": 62,
-"h": 32,
-"x": 2081,
-"y": 432,
-"dw": 62,
-"dh": 32
-},
-{
-"path": "gfx/gborder/water/60.png",
-"w": 62,
-"h": 32,
-"x": 2209,
-"y": 432,
-"dw": 62,
-"dh": 32
-},
-{
-"path": "gfx/gborder/water/61.png",
-"w": 62,
-"h": 32,
-"x": 2337,
-"y": 432,
-"dw": 62,
-"dh": 32
-},
-{
-"path": "gfx/gborder/water/70.png",
-"w": 62,
-"h": 32,
-"x": 2465,
-"y": 432,
-"dw": 62,
-"dh": 32
-},
-{
-"path": "gfx/gborder/water/71.png",
-"w": 62,
-"h": 32,
-"x": 2593,
-"y": 432,
-"dw": 62,
-"dh": 32
-},
-{
-"path": "gfx/gifts/diamond.jpg",
-"w": 413,
-"h": 375,
-"x": 2694,
-"y": 395,
-"dw": 116,
-"dh": 105
 },
 {
 "path": "gfx/ground/arrowdown.png",
@@ -1191,15 +750,6 @@
 "y": 672,
 "dw": 63,
 "dh": 64
-},
-{
-"path": "gfx/ico.png",
-"w": 24,
-"h": 24,
-"x": 912,
-"y": 656,
-"dw": 96,
-"dh": 96
 },
 {
 "path": "gfx/logo.png",
@@ -2444,15 +1994,6 @@
 "dh": 110
 },
 {
-"path": "gfx/user_search.png",
-"w": 16,
-"h": 16,
-"x": 1416,
-"y": 1800,
-"dw": 112,
-"dh": 112
-},
-{
 "path": "gfx3d/Button/a1.png",
 "w": 120,
 "h": 100,
@@ -2534,15 +2075,6 @@
 "dh": 81
 },
 {
-"path": "gfx3d/Glass.png",
-"w": 256,
-"h": 256,
-"x": 2694,
-"y": 1798,
-"dw": 116,
-"dh": 116
-},
-{
 "path": "gfx3d/ListBox/a1.png",
 "w": 37,
 "h": 37,
@@ -2579,24 +2111,6 @@
 "dh": 116
 },
 {
-"path": "gfx3d/Menu/Bottom.png",
-"w": 30,
-"h": 19,
-"x": 147,
-"y": 1955,
-"dw": 90,
-"dh": 57
-},
-{
-"path": "gfx3d/Menu/BottomX.png",
-"w": 48,
-"h": 17,
-"x": 272,
-"y": 1967,
-"dw": 96,
-"dh": 34
-},
-{
 "path": "gfx3d/Menu/Top.png",
 "w": 120,
 "h": 100,
@@ -2604,15 +2118,6 @@
 "y": 1935,
 "dw": 116,
 "dh": 97
-},
-{
-"path": "gfx3d/Menu/TopX.png",
-"w": 48,
-"h": 17,
-"x": 528,
-"y": 1967,
-"dw": 96,
-"dh": 34
 },
 {
 "path": "gfx3d/ProgressBar2/center.png",
@@ -2633,15 +2138,6 @@
 "dh": 44
 },
 {
-"path": "gfx3d/ProgressBar2/leftI.png",
-"w": 88,
-"h": 44,
-"x": 916,
-"y": 1962,
-"dw": 88,
-"dh": 44
-},
-{
 "path": "gfx3d/ProgressBar2/right.png",
 "w": 88,
 "h": 44,
@@ -2649,24 +2145,6 @@
 "y": 1962,
 "dw": 88,
 "dh": 44
-},
-{
-"path": "gfx3d/ProgressBar2/rightI.png",
-"w": 88,
-"h": 44,
-"x": 1172,
-"y": 1962,
-"dw": 88,
-"dh": 44
-},
-{
-"path": "gfx3d/RunningLine/a0.png",
-"w": 106,
-"h": 80,
-"x": 1291,
-"y": 1944,
-"dw": 106,
-"dh": 80
 },
 {
 "path": "gfx3d/RunningLine/a1.png",
@@ -2822,51 +2300,6 @@
 "dh": 116
 },
 {
-"path": "gfx3d/background_h.png",
-"w": 512,
-"h": 249,
-"x": 390,
-"y": 2084,
-"dw": 116,
-"dh": 56
-},
-{
-"path": "gfx3d/buildings/green_active.png",
-"w": 120,
-"h": 100,
-"x": 518,
-"y": 2063,
-"dw": 116,
-"dh": 97
-},
-{
-"path": "gfx3d/buildings/green_normal.png",
-"w": 120,
-"h": 100,
-"x": 646,
-"y": 2063,
-"dw": 116,
-"dh": 97
-},
-{
-"path": "gfx3d/buildings/orange_active.png",
-"w": 120,
-"h": 100,
-"x": 774,
-"y": 2063,
-"dw": 116,
-"dh": 97
-},
-{
-"path": "gfx3d/buildings/orange_normal.png",
-"w": 120,
-"h": 100,
-"x": 902,
-"y": 2063,
-"dw": 116,
-"dh": 97
-},
-{
 "path": "gfx3d/buildings/red_active.png",
 "w": 120,
 "h": 100,
@@ -2885,28 +2318,10 @@
 "dh": 97
 },
 {
-"path": "gfx3d/chat/bg_chat.png",
-"w": 1080,
-"h": 154,
-"x": 1286,
-"y": 2103,
-"dw": 116,
-"dh": 17
-},
-{
 "path": "gfx3d/chat/close_button.png",
 "w": 103,
 "h": 97,
 "x": 1420,
-"y": 2063,
-"dw": 103,
-"dh": 97
-},
-{
-"path": "gfx3d/chat/close_button_active.png",
-"w": 103,
-"h": 97,
-"x": 1548,
 "y": 2063,
 "dw": 103,
 "dh": 97
@@ -3603,15 +3018,6 @@
 "y": 2571,
 "dw": 116,
 "dh": 106
-},
-{
-"path": "gfx3d/mail/blog.png",
-"w": 90,
-"h": 85,
-"x": 1299,
-"y": 2581,
-"dw": 90,
-"dh": 85
 },
 {
 "path": "gfx3d/mail/chat.png",

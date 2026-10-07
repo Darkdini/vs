@@ -858,19 +858,18 @@ const isoDpr = () => Math.min(2, window.devicePixelRatio || 1);
 let PIC_LOADED = 0; // сколько картинок догрузилось — чтобы обновить готовый слой карты мира
 const IMGS = new Map();
 // перерисованная графика высокого качества: файл в HD[path] во столько раз крупнее, на карте рисуется в прежнем размере
-const HD = { 'build/castle.png': ['build/hd/castle.png', 8], 'build/spycentr.png': ['build/hd/spycentr.png', 8],
-  // все остальные здания — сглаженное увеличение ×8 (Scale2x ×3) старой пиксельной графики
-  ...Object.fromEntries('alchimia arhcamp art_tower baraks beer build builder chip commerce diplomat expedition farm_avg farm_big farm_small gendel guard_tower house_avg house_big house_small iron_avg iron_big iron_small magscool magtower market mbases mount portal reasury resident sawmill_avg sawmill_big sawmill_small secret smith stables stone_avg stone_big stone_small storage temple traveler university walun wisdom_house workshop'.split(' ').map((n) => [`build/${n}.png`, [`build/hd/${n}.png`, 8]])), 'ground/camp1.png': ['ground/hd/camp1.png', 4], 'ground/camp2.png': ['ground/hd/camp2.png', 4], 'ground/camp3.png': ['ground/hd/camp3.png', 4],
+const HD = {
+  // здания Земель и декор — сглаженное увеличение ×8 (Scale2x ×3) старой пиксельной графики
+  ...Object.fromEntries('chip farm_avg farm_big farm_small house_avg house_big house_small iron_avg iron_big iron_small mount sawmill_avg sawmill_big sawmill_small stone_avg stone_big stone_small walun'.split(' ').map((n) => [`build/${n}.png`, [`build/hd/${n}.png`, 8]])), 'ground/camp1.png': ['ground/hd/camp1.png', 4], 'ground/camp2.png': ['ground/hd/camp2.png', 4], 'ground/camp3.png': ['ground/hd/camp3.png', 4],
   // стена замка (Забор) — HD, нарисована по листу с 5 частями
   ...Object.fromEntries([0, 1, 2, 3, 4].map((i) => [`fence/fence${i}.png`, [`fence/hd/fence${i}.png`, 8]])),
   // ров (кольцо из одного нарисованного куска, с течением) и трава в замке — HD
   ...Object.fromEntries(['TL', 'R', 'BR', 'L', 'cL', 'cT', 'cR', 'cB', 'bL', 'bTL'].flatMap((n) => Array.from({ length: 16 }, (_, f) => [`ground/moat_${n}_${f}.png`, [`ground/hd/moat_${n}_${f}.png`, 6]]))),
-  // Караульная башня — новая графика, растёт с уровнем: 1–4, 5–9, 10+ (ширина основания ≈ 50 точек, как у старых зданий)
-  'build/watch1.png': ['watch/tower1.png', 354 / 50], 'build/watch2.png': ['watch/tower2.png', 319 / 46], 'build/watch3.png': ['watch/tower3.png', 323 / 46],
   'ground/grassC.png': ['ground/hd/grassC.png', 8], 'ground/grass1C.png': ['ground/hd/grass1C.png', 8],
-  // здания замка — новая перерисовка (лист по образцу старых): хранятся в 6 раз крупнее, рисуются в прежнем размере
-  // масштаб у каждого свой: основание здания — по ширине травяного участка (центр основания — по центру), но не выше 38 и не шире 40 точек (не закрывают соседей)
-  ...Object.fromEntries(Object.entries({ arhcamp: [4.157, 194], art_tower: [4.263, 148], baraks: [5.336, 249], castle: [4.137, 150], commerce: [5.229, 244], diplomat: [4.393, 205], expedition: [4.521, 211], guard_tower: [4.042, 121], magtower: [3.663, 104], market: [4.543, 212], mbases: [4.307, 201], smith: [4.737, 197], stables: [5.014, 234], storage: [4.479, 209], traveler: [4.414, 206], university: [4.093, 191], wisdom_house: [4.993, 233], workshop: [5.079, 237] }).map(([n, [k, fw]]) => [`build/${n}.png`, [`build/hd2/${n}.png`, k, fw]])) };
+  // здания замка — новая графика «Средневековье»: каждое на своей ромбовидной плите; [масштаб, ширина плиты, y центра плиты, x центра плиты] в точках картинки.
+  // плита — шириной 48 точек на экране, её центр — в центре клетки
+  ...Object.fromEntries(Object.entries({ castle: [5.792, 278, 274.0, 140.0], storage: [5.646, 271, 187.2, 138.5], mbases: [5.875, 282, 244.5, 141.0], baraks: [5.771, 277, 165.0, 139.5], market: [5.812, 279, 158.5, 141.5], smith: [5.708, 274, 238.0, 139.0], stables: [5.875, 282, 175.8, 142.0], diplomat: [5.875, 282, 220.2, 142.0], wisdom_house: [5.479, 263, 243.5, 132.5], university: [5.688, 273, 225.5, 137.5], arhcamp: [5.792, 278, 197.8, 141.0], expedition: [5.812, 279, 217.0, 142.5], art_tower: [5.042, 242, 242.2, 122.0], commerce: [5.875, 282, 211.0, 141.0], magtower: [5.438, 261, 243.0, 131.5], guard_tower: [4.792, 230, 287.2, 117.0], workshop: [5.604, 269, 173.2, 134.5], traveler: [5.458, 262, 211.5, 133.0], temple: [5.812, 279, 247.8, 140.5], secret: [5.417, 260, 178.0, 132.0], portal: [5.417, 260, 223.5, 131.0], magscool: [5.625, 270, 246.2, 136.0], builder: [5.792, 278, 188.5, 139.0], beer: [5.812, 279, 233.0, 140.5], gendel: [5.583, 268, 214.2, 135.0], alchimia: [5.229, 251, 224.5, 127.5], reasury: [5.625, 270, 202.5, 135.0], spycentr: [5.396, 259, 227.5, 129.5], resident: [6.021, 289, 214.0, 144.5], build: [5.646, 271, 177.8, 138.5] }).map(([n, [k, fw, ay, ax]]) => [`build/${n}.png`, [`build/hd3/${n}.png`, k, fw, ay, ax]])),
+  'build/watch1.png': ['build/hd3/guard_tower.png', 4.792, 230, 287.2, 117.0], 'build/watch2.png': ['build/hd3/guard_tower.png', 4.792, 230, 287.2, 117.0], 'build/watch3.png': ['build/hd3/guard_tower.png', 4.792, 230, 287.2, 117.0] };
 
 // в замке трава своя (HD): снаружи стены — светлая (grass1C), внутри — с цветами (grassC); на Землях и в Мире — прежняя
 const CASTLE_GRASS = { 'ground/grass.png': 'ground/grass1C.png', 'ground/grass1.png': 'ground/grass1C.png' };
@@ -883,6 +882,7 @@ function pic(path) {
     e.im.onload = () => {
       if (hd) { const w = e.im.naturalWidth / hd[1], h = e.im.naturalHeight / hd[1]; Object.defineProperty(e.im, 'width', { value: w }); Object.defineProperty(e.im, 'height', { value: h }); e.im.hd = true; }
       if (hd && hd[2]) e.im.base = hd[2] / hd[1]; // ширина основания здания — чтобы ставить его по центру клетки
+      if (hd && hd[3] !== undefined) { e.im.ay = hd[3] / hd[1]; e.im.ax = hd[4] / hd[1]; } // центр плиты здания
       e.ok = true; PIC_LOADED++; isoDraw();
     };
     e.im.src = GFX + (hd ? hd[0] : path); IMGS.set(path, e);
@@ -1139,7 +1139,7 @@ function drawCellBuilding(view, cell, b, lvl, p, k = 1, sel = false) {
       const im = pic(path); if (im) { const kk = TW * (path.includes('/lands/') ? 0.78 : 0.62) / im.width, w = im.width * kk, h = im.height * kk; // новые картинки — со своим круглым участком; старые — поменьше клетки
         top = p.sy + TH / 2 + w / 4 - h; if (S.showLvl && view === 1 && b >= 0 && lvl > 0 && !(q && q.level === 1)) landLvlRing(p, lvl); drawPic(im, p.sx + TW / 2 - w / 2, top, w, h);
         if (S.showLvl && view === 1 && b >= 0 && lvl > 0) LANDLV.push([p.sx + TW / 2, p.sy + TH / 2 + TH * 0.3, lvl]); } }
-    else { const im = pic(path); if (im) { const w = im.width * k, h = im.height * k; top = im.base ? p.sy + TH / 2 + im.base * k / 4 - h : p.sy + TH / 2 + TH * PLOT / 2 - h + 2; drawPic(im, p.sx + TW / 2 - w / 2, top, w, h); } } // новые здания: центр основания (ромб шириной base) — в центре клетки
+    else { const im = pic(path); if (im) { const w = im.width * k, h = im.height * k; top = im.ay !== undefined ? p.sy + TH / 2 - im.ay * k : im.base ? p.sy + TH / 2 + im.base * k / 4 - h : p.sy + TH / 2 + TH * PLOT / 2 - h + 2; drawPic(im, im.ax !== undefined ? p.sx + TW / 2 - im.ax * k : p.sx + TW / 2 - w / 2, top, w, h); } } // новые здания: центр основания (ромб шириной base) — в центре клетки
     if (sel) ictx.restore();
   }
   if (q) { const f = (now() - q.start) / (q.end - q.start); LANDBARS.push([p.sx + TW / 2, p.sy + TH / 2, f, TW * (view === 1 ? 0.6 : 0.42)]); } // в центре своей клетки — клетки не пересекаются, полосы тоже // полоса над зданием — поверх всех зданий (landBarsFlush)
