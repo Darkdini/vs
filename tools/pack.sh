@@ -4,7 +4,10 @@
 set -e
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 TMP=$(mktemp -d)
-trap 'kill $PID 2>/dev/null; rm -rf "$TMP"' EXIT
+# в конце — остановить проверочный сервер, дождаться, пока он допишет базу, и только потом удалить папку
+# (иначе rm -rf не успевал, и в /tmp копились папки по 150 МБ)
+# (set -e действует и внутри trap: каждая команда — с «|| true», иначе первая же ошибка обрывала уборку)
+trap 'pkill -P $PID 2>/dev/null || true; kill $PID 2>/dev/null || true; wait $PID 2>/dev/null || true; rm -rf "$TMP" 2>/dev/null || { sleep 1; rm -rf "$TMP" || true; }' EXIT
 G="$TMP/pkg/game"
 mkdir -p "$G/server"
 cp -r "$ROOT/web" "$ROOT/data" "$G/"
