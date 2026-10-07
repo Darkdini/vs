@@ -202,7 +202,8 @@ function install(Game) {
       case 'tgbackup': { if (!this.tgBackupInfo().on) return { error: 'Копия в Telegram не настроена: на сервере sh /opt/war/game/tgbackup.sh' }; this.tgBackupSend('manual').then((r) => { if (this.event) this.event(user.id, r.error || r.msg); }); msg = 'Отправляю копию в Telegram…'; break; } // tgbackup.js
       case 'secclear': this.db.sec = {}; msg = 'Журнал адресов очищен (блокировки остались).'; break; // статистика (metrics.js); онлайн сейчас — от web.js
       case 'mods': // модераторы форума (общие) и модераторы разделов форума
-        data = { mods: Object.values(this.db.users).filter((u) => u.mod && !u.admin).map((u) => ({ login: u.login, online: !!u.online })),
+        data = { mods: Object.values(this.db.users).filter((u) => u.mod && !u.smod && !u.admin).map((u) => ({ login: u.login, online: !!u.online })),
+          smods: Object.values(this.db.users).filter((u) => u.smod && !u.admin).map((u) => ({ login: u.login, online: !!u.online })), // старшие — отдельным списком
           sections: this.forumDb().sections.filter((s) => s.mods.length).map((s) => ({ name: s.name, mods: s.mods.map((id) => (this.userById(id) || {}).login).filter(Boolean) })) };
         break;
       case 'players': { // первые 100 по рейтингу (+ поиск по части логина)

@@ -49,7 +49,10 @@ function adminHtml() {
         ${aAct('Генерал', 'Генерал нужного уровня (1–500) в активном замке.', `${aNum('general', 100, 'уровень')}${aBtn2('general', 'Выдать', 'data-arg="general:level"')}`)}
         ${aAct('Артефакты', '5 легендарных артефактов в Сокровищницу.', aBtn2('arts', 'Выдать'))}
         ${aAct('Снаряжение генерала', 'Полный набор вещей всех редкостей в Оружейную.', aBtn2('gear', 'Выдать'))}`)}`,
-    mod: () => `${aSec('🛡 Модераторы форума', `<p class="small">Модератор удаляет сообщения и темы на форуме и в чате, может запретить игроку писать.</p>
+    mod: () => `${aSec('⭐ Старшие модераторы', `<p class="small">Старший модератор: панель «Модерация» в Меню — блокировка на 1–7 дней, сброс ника, аватара и замков, альянсы, назначение модераторов. Администратора не видит и не трогает.</p>
+      ${!a.mods ? '<p class="small">Загрузка…</p>' : (a.mods.smods || []).length ? a.mods.smods.map((m) => `<div class="arow"><span><b>${esc(m.login)}</b>${m.online ? ' · в игре' : ''}</span><button class="btn small" data-asmod="${esc(m.login)}">Снять</button></div>`).join('') : '<p class="small">Старших модераторов пока нет.</p>'}
+      <form class="chatform" data-aform="addsmod"><input name="login" placeholder="Ник игрока" autocapitalize="none" required><button class="btn primary small">Назначить</button></form>`)}
+      ${aSec('🛡 Модераторы форума', `<p class="small">Модератор удаляет сообщения и темы на форуме и в чате, может запретить игроку писать.</p>
       ${!a.mods ? '<p class="small">Загрузка…</p>' : a.mods.mods.length ? a.mods.mods.map((m) => `<div class="arow"><span><b>${esc(m.login)}</b>${m.online ? ' · в игре' : ''}</span><button class="btn small" data-amod="${esc(m.login)}">Снять</button></div>`).join('') : '<p class="small">Модераторов пока нет.</p>'}
       ${a.mods && a.mods.sections.length ? `<p class="small">Модераторы разделов (назначаются в Форум → Модераторы): ${a.mods.sections.map((x) => `${esc(x.name)} — ${x.mods.map(esc).join(', ')}`).join('; ')}</p>` : ''}
       <form class="chatform" data-aform="addmod"><input name="login" placeholder="Ник игрока" autocapitalize="none" required><button class="btn primary small">Назначить</button></form>`)}
@@ -169,6 +172,7 @@ $('#sheetBody').addEventListener('change', (e) => {
 });
 $('#sheetBody').addEventListener('click', (e) => {
   const gf = e.target.closest('[data-gafill]'); if (gf) { $$('.gaunit input').forEach((i) => { i.value = gf.dataset.gafill; }); return; }
+  const sm = e.target.closest('[data-asmod]'); if (sm) { if (!confirm(`Снять ${sm.dataset.asmod} со старших модераторов? Обычным модератором он останется.`)) return; send({ t: 'admin', op: 'smod', login: sm.dataset.asmod, on: 0 }); return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
   const md = e.target.closest('[data-amod]'); if (md) { if (!confirm(`Снять ${md.dataset.amod} с модераторов?`)) return; send({ t: 'admin', op: 'mod', login: md.dataset.amod, on: 0 }); return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
   const tb = e.target.closest('[data-atab]'); if (tb) { S.adm.tab = tb.dataset.atab; if (S.adm.tab === 'mod') { send({ t: 'admin', op: 'mods' }); send({ t: 'admin', op: 'multis' }); } if (S.adm.tab === 'stats') send({ t: 'admin', op: 'stats' }); if (S.adm.tab === 'alerts') send({ t: 'admin', op: 'alerts' }); if (S.adm.tab === 'sec') send({ t: 'admin', op: 'sec' }); if (S.adm.tab === 'test') send({ t: 'admin', op: 'testview' }); return refreshSheet(); }
   const mb = e.target.closest('[data-mban],[data-mall],[data-mdev]');
@@ -220,6 +224,7 @@ $('#sheetBody').addEventListener('submit', (e) => {
     return send({ t: 'admin', op: 'givearmy', login: g.login, castle: Number(f.castle.value), units });
   }
   if (k === 'givecastle') { const l = f.login.value.trim(), n = Math.max(1, Number(f.n.value) || 1); if (!l) return; if (!confirm(`Выдать игроку ${l} полных замков: ${n}?`)) return; return send({ t: 'admin', op: 'castles', login: l, n }); }
+  if (k === 'addsmod') { const l = f.login.value.trim(); if (!l || !confirm(`Назначить ${l} старшим модератором?`)) return; send({ t: 'admin', op: 'smod', login: l, on: 1 }); f.login.value = ''; return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
   if (k === 'addmod') { const l = f.login.value.trim(); if (!l) return; send({ t: 'admin', op: 'mod', login: l, on: 1 }); f.login.value = ''; return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
   if (k === 'find') { S.adm.players = null; S.adm.q = f.q.value; return send({ t: 'admin', op: 'players', q: f.q.value }); }
   if (k === 'testadd') return send({ t: 'admin', op: 'testadd', acct: f.acct.value.trim(), nick: f.nick.value.trim(), race: Number(f.race.value), note: f.note.value.trim() });
