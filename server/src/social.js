@@ -50,7 +50,6 @@ const HALLS = {
     desc: 'Показывает время (в минутах), потраченное правителем при управлении и развитии своего королевства.' },
 };
 const HALL_PAGES = [['rule', 'growth', 'loyalty', 'loot', 'archaeology'], ['respect', 'thanks', 'gamble', 'jackpot', 'doom'], ['death', 'ruin', 'wealth', 'boost', 'command'], ['recruit', 'execute', 'waste', 'defense', 'presence']];
-const PLACE_ICON = ['gold', 'silver', 'bronze'];
 
 // подарки в профиле: игроки дарят друг другу за золото
 // обычные — всем; premium: true — уникальный набор, дарить можно только с премиумом

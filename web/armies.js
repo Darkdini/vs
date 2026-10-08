@@ -155,21 +155,6 @@ function campaignSec() {
   if (c.portal) sec = Math.max(5, Math.round(sec / 4));
   return sec;
 }
-// кто тормозит армию: армия идёт со скоростью самого медленного юнита (поля в час), как в оригинале
-function slowestHint(a, c, go) {
-  const list = Object.keys(go).map((id) => unitById(id)).filter((u) => u && u.speed > 0);
-  if (genGoes(a, c)) list.push(unitById(M().generalId));
-  if (list.length < 2) return '';
-  const slow = list.reduce((m, u) => (u.speed < m.speed ? u : m)), fast = list.reduce((m, u) => (u.speed > m.speed ? u : m));
-  if (slow.speed === fast.speed) return '';
-  return `<div class="cinfo small">Армия идёт со скоростью самого медленного: <b>${esc(slow.name)}</b> (${slow.speed} пол./ч). Без медленных юнитов быстрее — ${esc(fast.name)}: ${fast.speed} пол./ч.</div>`;
-}
-// кто именно идёт в поход: значки юнитов с числом (в разведку — только разведчики и Око)
-function goUnits(go, mission) {
-  const list = Object.entries(go).filter(([, n]) => n > 0);
-  if (!list.length) return `<div class="cinfo cbad">${mission === 'scout' ? 'В этой армии нет разведчиков — обучите их в Центре разведки.' : mission === 'expedition' ? 'В этой армии нет археологов.' : 'В этой армии нет подходящих юнитов.'}</div>`;
-  return `<div class="cgo">${list.map(([id, n]) => { const u = unitById(Number(id)); return u ? `<span class="tu" title="${esc(u.name)}"><img src="${unitSrc(u)}" alt="">${fmtFull(n)}</span>` : ''; }).join('')}</div>`;
-}
 function campaignWin() {
   const c = S.cmp, armies = allArmies();
   if (allyCastleAt(c.x, c.y) && ['raid', 'attack', 'scout'].includes(c.mission)) c.mission = 'reinforce'; // союзник — только подкрепление

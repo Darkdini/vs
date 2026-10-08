@@ -1,53 +1,17 @@
 'use strict';
-// «Живые земли»: участки 7×7 разделены тропинками (как в замке), по тропинкам гуляют жители — останавливаются и смотрят на участки;
-// на стройках и у лесопилок стучат строители, из труб идёт дым, над огородами порхают бабочки,
+// «Живые земли»: участки разделены тропинками (как в замке), из труб хибар идёт дым, над огородами порхают бабочки,
 // в озере плещется рыба, в небе пролетают птицы.
 // Координаты: участок (x, y) стоит в точке (x·SP, y·SP) изометрической сетки; тропинки — между участками.
-const LIFE = { walkers: [], last: 0, fish: null, birds: [] };
-const AN = { K: 4, CW: 56, CH: 88, FX: 28, FY: 76, KM: 6, MW: 276, MH: 384, MX: 138, MY: 300 };
+const LIFE = { last: 0, fish: null, birds: [] };
 const SP = 1.3;                       // шаг клеток (1 — вплотную), промежуток — тропинка
-const LIFE_N = 10, WALK_SPEED = 0.7;    // жителей; клеток сетки в секунду
-const DIR_ROW = (dx, dy) => (Math.abs(dx) >= Math.abs(dy) ? (dx < 0 ? 0 : 2) : (dy < 0 ? 1 : 3)); // −x, −y, +x, +y → строка листа
-const HOUSES = new Set([6, 31, 36]), FARMS = new Set([5, 30, 35]), SAWS = new Set([7, 27, 32]);
-const MILL_S = 1.7, MAN_S = 1.3;
+const HOUSES = new Set([6, 31, 36]), FARMS = new Set([5, 30, 35]);
 const inLands = (x, y) => x >= 0 && y >= 0 && x < LN() && y < LN();
 const isWater = (x, y) => inLands(x, y) && S.cat.lands.base[y][x] === 9;
 // экран: участок / точка сетки
 const plotXY = (x, y) => { const p = tileScreen(x * SP, y * SP); return { sx: p.sx, sy: p.sy, cx: p.sx + TW / 2, cy: p.sy + TH / 2 }; };
-const ptXY = (fx, fy) => { const p = tileScreen(fx, fy); return { cx: p.sx + TW / 2, cy: p.sy + TH / 2 }; };
-const MILL_AT = () => [-1.25 * SP, (LN() - 2.4) * SP]; // мельница за левым нижним краем
 
-// ---------- тропинки: узлы — перекрёстки между участками ----------
-// узел (i, j), i,j = 0..N, стоит в точке ((i−½)·SP, (j−½)·SP); ребро есть, если рядом с ним сухой участок
-const nodePos = (i, j) => [(i - 0.5) * SP, (j - 0.5) * SP];
-function edgeOk(i, j, i2, j2) {
-  const N = LN(); if (i2 < 0 || j2 < 0 || i2 > N || j2 > N) return false;
-  const sides = i === i2 ? [[i - 1, Math.min(j, j2)], [i, Math.min(j, j2)]] : [[Math.min(i, i2), j - 1], [Math.min(i, i2), j]];
-  return sides.some(([x, y]) => inLands(x, y) && !isWater(x, y));
-}
-const nodeNext = (i, j) => [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([a, b]) => [i + a, j + b]).filter(([a, b]) => edgeOk(i, j, a, b));
-function lifeSpawn() {
-  const N = LN(), nodes = [];
-  for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) if (nodeNext(i, j).length) nodes.push([i, j]);
-  LIFE.walkers = Array.from({ length: LIFE_N }, (_, k) => { const [i, j] = nodes[Math.floor(Math.random() * nodes.length)] || [0, 0];
-    const [fx, fy] = nodePos(i, j); return { i, j, ti: i, tj: j, pi: i, pj: j, fx, fy, t: 1, skin: k % 4, frame: 0, wait: Math.random() * 2, look: 3 }; });
-}
+// рыба в озере и птицы в небе
 function lifeStep(dt) {
-  if (!LIFE.walkers.length) lifeSpawn();
-  for (const w of LIFE.walkers) {
-    if (w.wait > 0) { w.wait -= dt; continue; }
-    if (w.t >= 1) {
-      w.i = w.ti; w.j = w.tj;
-      if (Math.random() < 0.25) { w.look = Math.floor(Math.random() * 4); w.wait = 1.2 + Math.random() * 2.5; w.frame = 0; continue; } // постоять, посмотреть на участки
-      let nb = nodeNext(w.i, w.j); if (nb.length > 1) nb = nb.filter(([a, b]) => a !== w.pi || b !== w.pj);
-      if (!nb.length) { w.wait = 1; continue; }
-      const [a, b] = nb[Math.floor(Math.random() * nb.length)];
-      w.pi = w.i; w.pj = w.j; w.ti = a; w.tj = b; w.t = 0;
-    }
-    w.t = Math.min(1, w.t + dt * WALK_SPEED / SP); w.frame = (w.frame + dt * 9) % 8;
-    const [x0, y0] = nodePos(w.i, w.j), [x1, y1] = nodePos(w.ti, w.tj);
-    w.fx = x0 + (x1 - x0) * w.t; w.fy = y0 + (y1 - y0) * w.t;
-  }
   if (LIFE.fish) { LIFE.fish.t += dt; if (LIFE.fish.t > 1.6) LIFE.fish = null; }
   else if (Math.random() < dt / 4) {
     const N = LN(), water = [];
@@ -57,14 +21,6 @@ function lifeStep(dt) {
   LIFE.birds = LIFE.birds.filter((b) => b.t < b.dur);
   for (const b of LIFE.birds) b.t += dt;
   if (!LIFE.birds.length && Math.random() < dt / 25) LIFE.birds.push({ t: 0, dur: 14, y0: Math.random() * 0.6, dir: Math.random() < 0.5 ? 1 : -1, n: 3 + Math.floor(Math.random() * 4) });
-}
-const lifeSheet = () => null; // фигурки жителей, строителя и мельницы — будут своей графикой (старые кадры удалены)
-function lifePerson(sheet, row, f, fx, fy, cols) {
-  const im = lifeSheet(sheet); if (!im) return;
-  const { cx, cy } = ptXY(fx, fy), k = AN.K / MAN_S, x = ictx, sm = x.imageSmoothingEnabled; x.imageSmoothingEnabled = true;
-  x.fillStyle = 'rgba(0,0,0,0.25)'; x.beginPath(); x.ellipse(cx, cy, 5, 2.2, 0, 0, Math.PI * 2); x.fill();
-  x.drawImage(im, (Math.floor(f) % cols) * AN.CW, row * AN.CH, AN.CW, AN.CH, cx - AN.FX / k, cy - AN.FY / k, AN.CW / k, AN.CH / k);
-  x.imageSmoothingEnabled = sm;
 }
 // украшения участка: дым из трубы, бабочки над огородом
 function plotFx(x, y, b, cell, now) {
@@ -83,11 +39,6 @@ function plotFx(x, y, b, cell, now) {
     c.beginPath(); c.ellipse(bx - flap * 0.6, by, flap, 1.6, 0, 0, Math.PI * 2); c.ellipse(bx + flap * 0.6, by, flap, 1.6, 0, 0, Math.PI * 2); c.fill();
   }
 }
-function lifeMill(now) {
-  const im = lifeSheet('mill'); if (!im) return;
-  const [mx, my] = MILL_AT(), { cx, cy } = ptXY(mx, my), k = AN.KM / MILL_S, f = Math.floor(now / 140) % 12, x = ictx, sm = x.imageSmoothingEnabled;
-  x.imageSmoothingEnabled = true; x.drawImage(im, f * AN.MW, 0, AN.MW, AN.MH, cx - AN.MX / k, cy - AN.MY / k, AN.MW / k, AN.MH / k); x.imageSmoothingEnabled = sm;
-}
 function lifeFish() {
   const F = LIFE.fish; if (!F) return;
   const { cx, cy } = plotXY(F.c[0], F.c[1]), x = ictx, t = Math.min(1, F.t / 0.9);
@@ -98,10 +49,10 @@ function lifeFish() {
   for (const s of [0, 0.9]) { const q = (F.t - s) / 0.7; if (q < 0 || q > 1) continue;
     x.strokeStyle = `rgba(255,255,255,${0.7 * (1 - q)})`; x.lineWidth = 1; x.beginPath(); x.ellipse(cx + F.dx * (s ? 7 : -7), cy, 2 + q * 8, 1 + q * 4, 0, 0, Math.PI * 2); x.stroke(); }
 }
-function lifeBirds(dpr) {
+function lifeBirds(dpr, k = dpr) { // k — точек слоя на точку экрана
   if (!LIFE.birds.length) return;
   const x = ictx, W = Iso.cv.width / dpr, H = Iso.cv.height / dpr;
-  x.save(); x.setTransform(dpr, 0, 0, dpr, 0, 0); x.strokeStyle = 'rgba(30,30,30,0.75)'; x.lineWidth = 1.4;
+  x.save(); x.setTransform(k, 0, 0, k, 0, 0); x.strokeStyle = 'rgba(30,30,30,0.75)'; x.lineWidth = 1.4;
   for (const b of LIFE.birds) {
     const q = b.t / b.dur, bx0 = b.dir > 0 ? -40 + q * (W + 80) : W + 40 - q * (W + 80);
     for (let i = 0; i < b.n; i++) {
@@ -133,18 +84,21 @@ function roundPlot(P, kind) {
 }
 
 // подсветка выбранного участка (хорошо видна на траве, пашне и камне):
-// back — под зданием: яркое свечение, толстое золотое кольцо с тёмной обводкой и расходящаяся волна;
-// front — после всех зданий: передняя половина кольца поверх основания здания
+// back — под зданием: яркое свечение и толстое золотое кольцо; front — передняя половина кольца поверх основания здания.
+// Кольцо неподвижно (основной слой земель рисуется только при изменениях); расходящаяся волна — в слое оживления (roundSelWave)
+const SEL_K = 0.8;
+function roundSelWave(P) {
+  const x = ictx, rx = TW * SEL_K / 2, ry = TH * SEL_K / 2, q = (Date.now() % 1400) / 1400;
+  x.lineWidth = 3; x.strokeStyle = `rgba(255, 230, 120, ${0.8 * (1 - q)})`; x.beginPath(); x.ellipse(P.cx, P.cy + 1, rx * (1 + q * 0.55), ry * (1 + q * 0.55), 0, 0, Math.PI * 2); x.stroke();
+}
 function roundSel(P, part = 'back') {
-  const x = ictx, k = 0.8, rx = TW * k / 2, ry = TH * k / 2, cy = P.cy + 1, anim = flowOn(), t = Date.now();
-  const a = anim ? 0.8 + 0.2 * Math.sin(t / 240) : 1;
+  const x = ictx, k = SEL_K, rx = TW * k / 2, ry = TH * k / 2, cy = P.cy + 1, a = 1;
   const ring = (from, to, sc = 1) => { x.beginPath(); x.ellipse(P.cx, cy, rx * sc, ry * sc, 0, from, to); };
   x.save();
   if (part === 'back') {
     const g = x.createRadialGradient(P.cx, cy, rx * 0.1, P.cx, cy, rx * 1.45);
     g.addColorStop(0, `rgba(255, 245, 170, ${0.55 * a})`); g.addColorStop(0.6, `rgba(255, 215, 70, ${0.4 * a})`); g.addColorStop(1, 'rgba(255, 190, 30, 0)');
     x.fillStyle = g; ring(0, Math.PI * 2, 1.45); x.fill();
-    if (anim) { const q = (t % 1400) / 1400; x.lineWidth = 3; x.strokeStyle = `rgba(255, 230, 120, ${0.8 * (1 - q)})`; ring(0, Math.PI * 2, 1 + q * 0.55); x.stroke(); } // волна
   }
   const from = part === 'back' ? 0 : 0, to = part === 'back' ? Math.PI * 2 : Math.PI; // спереди — нижняя (ближняя) половина
   x.lineCap = 'round';
@@ -182,37 +136,30 @@ function landsGround(N, L, at) {
   ictx.drawImage(LGROUND.cv, LGROUND.x0, LGROUND.y0, LGROUND.w, LGROUND.h); ictx.imageSmoothingEnabled = sm; ictx.imageSmoothingQuality = q;
 }
 
-// ---------- вся сцена земель ----------
-function landsScene(c, dpr) {
-  const N = LN(), L = S.cat.lands, st = S.st.castle, now = Date.now(), x = ictx;
-  const dt = Math.min(0.25, (now - (LIFE.last || now)) / 1000); LIFE.last = now;
-  if (flowOn()) lifeStep(dt);
-  if (flowOn() && !flowTimer) flowTimer = setTimeout(flowTick, ANIM_MS);
+// ---------- вся сцена земель (неподвижная часть; движение — слоем оживления, landsLife) ----------
+function landsScene() {
+  const N = LN(), L = S.cat.lands, st = S.st.castle, x = ictx;
+  LF.mLands = x.getTransform(); // точки земель → точки экрана: по ним слой оживления рисует дым, бабочек и рыбу
   const at = (P, k) => ({ sx: P.cx - TW / 2, sy: P.cy - TH / 2 });
   const sm = x.imageSmoothingEnabled; x.imageSmoothingEnabled = true;
   landsGround(N, L, at); // 1–3) вода, тропинки, круглые участки — готовой картинкой
   x.imageSmoothingEnabled = sm;
   if (Iso.sel && Iso.sel.tab === 'lands') roundSel(plotXY(Iso.sel.x, Iso.sel.y)); // выбранный участок — золотое кольцо по форме круга
-  // 4) объекты по глубине (ниже на экране — рисуется позже): здания, украшения, жители, строители, мельница
+  // 4) объекты по глубине (ниже на экране — рисуется позже): здания и украшения
   const items = [];
   for (let y = 0; y < N; y++) for (let xx = 0; xx < N; xx++) {
     const cell = y * N + xx, b = st.grid[1][cell], d = L.decor[y][xx], P = plotXY(xx, y);
     items.push([P.cy, () => {
       if (b < 0 && !queueAt(1, cell) && d >= 0) sprite(`ground/${DECOR[d]}.png`, P.sx, P.sy, d === 1 ? 3 : d === 2 ? -2 : 0);
       else drawCellBuilding(1, cell, b, st.levels[1][cell], { sx: P.sx, sy: P.sy }, 'fit', isSel(xx, y)); // постройка на всю клетку
-      plotFx(xx, y, b, cell, now);
     }]);
-    // строитель: на стройке и у лесопилки — на тропинке перед участком, лицом к нему
-    if (queueAt(1, cell) || SAWS.has(b)) { const fx = (xx - 0.5) * SP, fy = y * SP + 0.1; items.push([ptXY(fx, fy).cy + 0.1, () => lifePerson('builder', 2, (now / 110 + cell * 3) % 7, fx, fy, 7)]); }
   }
-  for (const w of LIFE.walkers) items.push([ptXY(w.fx, w.fy).cy, () => lifePerson(`villager${w.skin}`, w.wait > 0 ? w.look : DIR_ROW(w.ti - w.i, w.tj - w.j), w.wait > 0 ? 0 : w.frame, w.fx, w.fy, 8)]);
   items.sort((a, b) => a[0] - b[0]);
   for (const [, f] of items) f();
   if (Iso.sel && Iso.sel.tab === 'lands') roundSel(plotXY(Iso.sel.x, Iso.sel.y), 'front'); // передняя половина кольца — поверх здания
   landLvlFlush(); // цифры уровней — поверх зданий
   landBarsFlush(); // полосы стройки — поверх всех зданий
   LVLQ.length = 0; // уровни на землях не показываем — только в замке
-  lifeFish(); lifeBirds(dpr);
 }
 
 // ---------- земли на нарисованном фоне: оригинальные земли 15×15 целиком ложатся на луг-ромб картинки ----------
@@ -231,12 +178,65 @@ function landsXf() { // мир плиток → картинка: углы зе�
 function landsPicBegin() {
   const L = LANDS_LAYOUT, bg = pic('lands/bg.jpg?v=3'), x = ictx, sm = x.imageSmoothingEnabled; x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
   if (bg) x.drawImage(bg, 0, 0, L.w, L.h);
-  const now = Date.now();
-  for (const [i, p] of [...L.river, ...L.lake].entries()) { const ph = (now / 1700 + i * 0.37) % 1; if (ph > 0.5) continue; // блики на воде
-    x.fillStyle = `rgba(255,255,255,${0.7 * Math.sin(ph * 2 * Math.PI)})`; x.beginPath(); x.ellipse(p[0] + ph * 8, p[1], 3 + ph * 4, 1.1, 0, 0, Math.PI * 2); x.fill(); }
+  LF.mPic = x.getTransform(); // точки картинки → экран: блики на воде (слой оживления)
   x.imageSmoothingEnabled = sm;
   const t = landsXf(); x.save(); x.transform(t.a, t.b, t.c, t.d, t.e, t.f);
 }
 function landsPicEnd() { ictx.restore(); }
 // нажатие по картинке → клетка земель
 function landsPicTile(wx, wy) { const t = landsXf(), det = t.a * t.d - t.b * t.c, X = wx - t.e, Y = wy - t.f, f = screenToTileF((t.d * X - t.c * Y) / det, (-t.b * X + t.a * Y) / det); return { x: Math.round(f.x / SP), y: Math.round(f.y / SP) }; }
+
+// ---------- оживление земель — свой прозрачный слой поверх (как «Жизнь в замке», castlelife.js) ----------
+// Блики на воде, дым из труб хибар, бабочки над огородами, рыба, птицы, волна вокруг выбранного участка — 7 раз в секунду,
+// в пониженном разрешении. Сами земли (фон, участки, 225 построек) — в основном слое, только при изменениях:
+// раньше вся картинка перерисовывалась 7 раз в секунду и каждый кадр целиком уходил в видеокарту — на телефоне это и грело
+const LF = { cv: null, g: null, timer: 0, mPic: null, mLands: null, dpr: 1, spark: null, sparkFor: null };
+const LF_RES = Math.min(1, 1.25 / Math.min(2, window.devicePixelRatio || 1)), LF_MS = 140; // разрешение слоя (доля от экрана) и шаг кадра
+function lfLayer() {
+  if (!LF.cv) { LF.cv = document.createElement('canvas'); LF.cv.className = 'iso isolife'; LF.g = LF.cv.getContext('2d'); }
+  if (Iso.cv.parentNode && LF.cv.previousSibling !== Iso.cv) Iso.cv.after(LF.cv);
+  const w = Math.max(1, Math.round(Iso.cv.width * LF_RES)), h = Math.max(1, Math.round(Iso.cv.height * LF_RES));
+  if (LF.cv.width !== w || LF.cv.height !== h) { LF.cv.width = w; LF.cv.height = h; }
+}
+// вызывается из isoDrawNow после кадра: на землях — рисует слой и заводит таймер, на других вкладках — прячет
+function landsLife(dpr) {
+  const on = S.tab === 'lands' && flowOn() && !!LF.mLands && !!S.st;
+  if (!on) { if (LF.cv) LF.cv.style.display = 'none'; clearTimeout(LF.timer); LF.timer = 0; return; }
+  lfLayer(); LF.cv.style.display = ''; LF.dpr = dpr;
+  lfDraw();
+  if (!LF.timer) LF.timer = setTimeout(lfTick, LF_MS);
+}
+function lfTick() {
+  LF.timer = 0;
+  if (S.tab !== 'lands' || document.hidden || !Iso.cv.isConnected || !flowOn()) { if (LF.cv) LF.cv.style.display = 'none'; return; }
+  lfDraw(); LF.timer = setTimeout(lfTick, typeof animIdle === 'function' && animIdle() ? IDLE_ANIM_MS : LF_MS); // давно не касались — реже
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden && S.tab === 'lands' && LF.cv && !LF.timer) lfTick(); });
+// блики на воде: точки реки и озера с картинки; под постройкой (рыболовная заводь на воде) — не видны
+function lfSparkles(g, now) {
+  if (!hasPic() || !LF.mPic) return;
+  const L = LANDS_LAYOUT, N = LN(), grid = S.st.castle.grid[1];
+  if (LF.sparkFor !== L) { LF.spark = [...L.river, ...L.lake].map((p) => { const t = landsPicTile(p[0], p[1]); return t.x >= 0 && t.y >= 0 && t.x < N && t.y < N ? t.y * N + t.x : -1; }); LF.sparkFor = L; }
+  [...L.river, ...L.lake].forEach((p, i) => {
+    const cell = LF.spark[i]; if (cell >= 0 && grid[cell] >= 0) return;
+    const ph = (now / 1700 + i * 0.37) % 1; if (ph > 0.5) return;
+    g.fillStyle = `rgba(255,255,255,${0.7 * Math.sin(ph * 2 * Math.PI)})`; g.beginPath(); g.ellipse(p[0] + ph * 8, p[1], 3 + ph * 4, 1.1, 0, 0, Math.PI * 2); g.fill();
+  });
+}
+function lfDraw() {
+  const g = LF.g, r = LF_RES, now = Date.now(), st = S.st.castle, N = LN();
+  const dt = Math.min(0.25, (now - (LIFE.last || now)) / 1000); LIFE.last = now;
+  lifeStep(dt);
+  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, LF.cv.width, LF.cv.height);
+  const put = (m) => g.setTransform(m.a * r, m.b * r, m.c * r, m.d * r, m.e * r, m.f * r);
+  const keep = ictx; ictx = g; // функции украшений рисуют в ictx
+  try {
+    g.imageSmoothingEnabled = true;
+    if (LF.mPic) { put(LF.mPic); lfSparkles(g, now); }
+    put(LF.mLands);
+    for (let y = 0; y < N; y++) for (let xx = 0; xx < N; xx++) { const cell = y * N + xx, b = st.grid[1][cell]; if (HOUSES.has(b) || FARMS.has(b)) plotFx(xx, y, b, cell, now); }
+    if (Iso.sel && Iso.sel.tab === 'lands') roundSelWave(plotXY(Iso.sel.x, Iso.sel.y));
+    lifeFish();
+    lifeBirds(LF.dpr, LF.dpr * r);
+  } finally { ictx = keep; }
+}

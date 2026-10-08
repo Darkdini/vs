@@ -30,9 +30,9 @@ function threatBtn() {
     b.innerHTML = `<img src="${GFX}watch/ic_alarm.png" alt=""><span class="tt">На вас идёт армия</span><span class="tc"></span><b></b>`; $('#game').appendChild(b);
   }
   const a = list[0];
-  b.querySelector('.tc').textContent = fmtT((a.arrive - now()) / 1000);
-  b.querySelector('.tt').textContent = `${a.mission === 'raid' ? 'Набег' : 'Нападение'} на «${a.to}»`;
-  b.querySelector('b').textContent = list.length > 1 ? String(list.length) : '';
+  setTxt(b.querySelector('.tc'), fmtT((a.arrive - now()) / 1000));
+  setTxt(b.querySelector('.tt'), `${a.mission === 'raid' ? 'Набег' : 'Нападение'} на «${a.to}»`);
+  setTxt(b.querySelector('b'), list.length > 1 ? String(list.length) : '');
   b.classList.toggle('soon', a.arrive - now() < 60000);
 }
 document.addEventListener('click', (e) => {

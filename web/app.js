@@ -5,6 +5,10 @@
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+// запись в страницу только при изменении: одинаковый текст или класс, записанный заново, всё равно заставляет браузер
+// пересобрать кадр (часы и таймеры обновляются 4 раза в секунду — на карте мира это была главная нагрузка)
+const setTxt = (el, t) => { if (el && el.textContent !== t) el.textContent = t; };
+const setCls = (el, c) => { if (el && el.className !== c) el.className = c; };
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const RES = ['wood', 'stone', 'iron', 'food', 'people'];
@@ -14,7 +18,6 @@ const GROUND = ['grass', 'stone', 'roadS0', 'roadS1', 'roadS2', 'roadG0', 'roadG
   'arrowup', 'arrowright', 'arrowdown', 'arrowleft', 'rov0', 'rov5', 'rov4', 'rov1', 'rov7', 'rov3', 'rov2', 'rov6',
   'castle_old', 'dikari', 'lumber', 'troll_rudnik', 'castle_small', 'castle_big', 'camp1', 'camp2', 'camp3'];
 const DECOR = ['wood', 'walun', 'mount'];
-const EDGE = ['0', '1', '2', '3', '40', '41', '50', '51', '60', '61', '70', '71'];
 // id здания → build/<имя>.png (порядок картинок клиента: id = номер картинки − 100)
 const BUILD_IMG = ['castle', 'storage', 'mbases', 'baraks', 'market', 'lands/farm1', 'lands/house1', 'lands/wood1', 'lands/stone1', 'lands/iron1',
   'build', 'smith', 'stables', 'diplomat', 'wisdom_house', 'university', 'arhcamp', 'expedition', 'art_tower', 'commerce', 'magtower',
@@ -23,11 +26,6 @@ const BUILD_IMG = ['castle', 'storage', 'mbases', 'baraks', 'market', 'lands/far
   'alchimia', 'reasury', 'spycentr', 'resident'];
 // здания земель — своя картинка на каждый из 5 уровней (номера 100–129: Огород, Хибара, Дровосек, Каменьщик, Рудник, Рыболовная заводь)
 ['farm', 'house', 'wood', 'stone', 'iron', 'fish'].forEach((k, i) => { for (let l = 1; l <= 5; l++) BUILD_IMG[100 + i * 5 + l - 1] = `lands/${k}${l}`; });
-const UNIT_IMG = {
-  200: 'human/hd/swordman', 201: 'human/hd/javelineer', 202: 'human/hd/scout', 203: 'human/hd/mage', 204: 'human/hd/knight', 205: 'human/hd/paladin', 206: 'human/jin', 259: 'human/hd/nuruh', 260: 'human/hd/colossus', 261: 'human/hd/cuirassier',
-  207: 'elf/hd/archer', 208: 'elf/hd/fighter', 209: 'elf/hd/scout', 210: 'elf/hd/create', 211: 'elf/hd/kenaur', 212: 'elf/hd/edinorog', 213: 'elf/hd/ent', 257: 'elf/hd/chimera', 258: 'elf/hd/beast',
-  214: 'dwarv/hd/fighter', 215: 'dwarv/hd/arbalet', 216: 'dwarv/hd/elder', 217: 'dwarv/hd/gryphon', 218: 'dwarv/hd/defender', 219: 'dwarv/hd/revolver', 220: 'dwarv/hd/yeti', 255: 'dwarv/hd/giant', 256: 'dwarv/hd/centurion',
-};
 const RACE_IMG = { humans: 'units/human/hd/knight.png', elves: 'units/elf/hd/archer.png', dwarves: 'units/dwarv/hd/fighter.png', orcs: 'units/orc/hd/marauder.png' };
 // здания земель: 5 уровней, каждый — как прежний уровень из lands.eff (1, 5, 10, 15, 20): добыча, места, прочность
 const landEff = (def, level) => (def && def.layer === 'lands' && S.cat && S.cat.lands && S.cat.lands.eff ? S.cat.lands.eff[Math.max(0, Math.min(5, level))] || 0 : level);
@@ -92,11 +90,11 @@ function statusTick() { // сообщения — плавающей строк�
   const el = $('#status'), t = Date.now(); if (!el || !$('#clock')) return; // страница ещё не собрана (медленная сеть)
   if (statusQ.length && statusQ[0].until && statusQ[0].until < t) statusQ.shift();
   const m = statusQ[0];
-  if (m) { if (!m.until) m.until = t + 2600; el.textContent = m.msg; el.className = `show ${m.cls || 'msg'}`; }
-  else el.className = '';
+  if (m) { if (!m.until) m.until = t + 2600; setTxt(el, m.msg); setCls(el, `show ${m.cls || 'msg'}`); }
+  else setCls(el, '');
   if (typeof threatBtn === 'function') threatBtn(); // ⚔ на вас идёт армия (watch.js)
   const d = new Date(now());
-  $('#clock').textContent = [d.getHours(), d.getMinutes(), d.getSeconds()].map((v) => String(v).padStart(2, '0')).join(':');
+  setTxt($('#clock'), [d.getHours(), d.getMinutes(), d.getSeconds()].map((v) => String(v).padStart(2, '0')).join(':'));
 }
 setInterval(statusTick, 250);
 const send = (m) => { if (S.ws && S.ws.readyState === 1) S.ws.send(JSON.stringify(m)); };
@@ -223,6 +221,8 @@ function onMsg(m) {
         S.ver = m.v;
       }
       closedAuth(!!m.closed); // закрытый тест (server/src/closedtest.js): без регистрации
+      // фон замка (самый большой файл, ~650 КБ) — качается, пока игрок вводит логин и пароль: после «Войти» замок открывается сразу
+      if (!S.bgEarly) { S.bgEarly = true; setTimeout(() => pic(CASTLE_BG.src), 1500); }
       if (m.catalog) { setCatalog(m.catalog); break; }
       if (S.cat && S.catH === m.h) break;
       S.catWait = fetch(`catalog.json?h=${m.h}`).then((r) => r.json()).then((c) => { S.catH = m.h; setCatalog(c); })
@@ -237,7 +237,7 @@ function onMsg(m) {
       if (S.creds) { S.creds.login = m.login; S.creds.show = m.login; if (store.get('tw.creds')) store.set('tw.creds', S.creds); }
       break;
     case 'auth':
-      preloadMain(); // фоны замка, земель и мира, замки на карте — грузятся сразу, пока игрок смотрит доклад советника
+      preloadMain(); // фон замка — сразу (пока игрок смотрит доклад советника), фоны земель и мира, замки на карте — когда замок открыт
       // браузер хранит только токен сессии, не пароль
       // show — то, что игрок вводил в поле «Логин» (у админа это секретный логин, а в игре он «admin»)
       S.creds = { login: m.login, token: m.token, show: (S.pendingCreds && S.pendingCreds.login) || (S.creds && S.creds.show) || m.login }; S.pendingCreds = null;
@@ -340,9 +340,9 @@ const RACE_DESC = {
   orcs: 'Воинственная раса, особенно за крепкой стеной замка. Преимущество расы: Большой запас жизни у боевых юнитов.',
 };
 function renderRaces() {
-  // портреты рас (gfx/auth/race_*.webp): выбранная — золотая рамка и свечение
+  // портреты рас (gfx/auth/race_*.webp): выбранная — золотая рамка и свечение; качаются, только когда открыта регистрация (lazy)
   $('#races').innerHTML = `<div class="rgrid2">${S.cat.raceOrder.map((r, i) => `<button type="button" class="rcard ${i === S.race ? 'on' : ''}" data-race="${i}" aria-label="${esc(S.cat.races[r])}">
-      <span class="rpic"><img src="gfx/auth/race_${r}.webp" alt=""></span><b>${esc(S.cat.races[r])}</b></button>`).join('')}</div>`;
+      <span class="rpic"><img loading="lazy" src="gfx/auth/race_${r}.webp" alt=""></span><b>${esc(S.cat.races[r])}</b></button>`).join('')}</div>`;
 }
 function raceInfo(r) {
   const d = document.createElement('div'); d.className = 'rinfo';
@@ -438,10 +438,10 @@ function tick() {
   topRes();
   $$('[data-e]').forEach((el) => {
     const e = Number(el.dataset.e);
-    if (el.dataset.s) el.style.width = `${Math.min(100, Math.max(0, ((t - Number(el.dataset.s)) / (e - Number(el.dataset.s))) * 100))}%`;
-    else el.textContent = e > t ? fmtT((e - t) / 1000) : 'готово';
+    if (el.dataset.s) { const w = `${Math.min(100, Math.max(0, ((t - Number(el.dataset.s)) / (e - Number(el.dataset.s))) * 100))}%`; if (el.style.width !== w) el.style.width = w; }
+    else setTxt(el, e > t ? fmtT((e - t) / 1000) : 'готово');
   });
-  if (Iso.cv.isConnected && c.queue.length) isoDraw(); // полосы строек на карте
+  if (Iso.cv.isConnected && c.queue.length && Math.abs(t - (S.barsAt || 0)) >= 950) { S.barsAt = t; isoDraw(); } // полосы строек на карте — раз в секунду (tick — дважды)
   $$('[data-need]').forEach((el) => { // цены в шторке: красным то, чего не хватает
     const [r, n] = el.dataset.need.split(':');
     el.classList.toggle('lack', r !== 'people' && resNow(r) < Number(n));
@@ -866,12 +866,12 @@ const HD = {
   ...Object.fromEntries(Object.entries({ castle: [5.792, 278, 274.0, 140.0], storage: [5.646, 271, 187.2, 138.5], mbases: [5.875, 282, 244.5, 141.0], baraks: [5.771, 277, 165.0, 139.5], market: [5.812, 279, 158.5, 141.5], smith: [5.708, 274, 238.0, 139.0], stables: [5.875, 282, 175.8, 142.0], diplomat: [5.875, 282, 220.2, 142.0], wisdom_house: [5.479, 263, 243.5, 132.5], university: [5.688, 273, 225.5, 137.5], arhcamp: [5.792, 278, 197.8, 141.0], expedition: [5.812, 279, 217.0, 142.5], art_tower: [5.042, 242, 242.2, 122.0], commerce: [5.875, 282, 211.0, 141.0], magtower: [5.438, 261, 243.0, 131.5], guard_tower: [4.792, 230, 287.2, 117.0], workshop: [5.604, 269, 173.2, 134.5], traveler: [5.458, 262, 211.5, 133.0], temple: [5.812, 279, 247.8, 140.5], secret: [5.417, 260, 178.0, 132.0], portal: [5.417, 260, 223.5, 131.0], magscool: [5.625, 270, 246.2, 136.0], builder: [5.792, 278, 188.5, 139.0], beer: [5.812, 279, 233.0, 140.5], gendel: [5.583, 268, 214.2, 135.0], alchimia: [5.229, 251, 224.5, 127.5], reasury: [5.625, 270, 202.5, 135.0], spycentr: [5.396, 259, 227.5, 129.5], resident: [6.021, 289, 214.0, 144.5], build: [5.646, 271, 177.8, 138.5] }).map(([n, [k, fw, ay, ax]]) => [`build/${n}.png`, [`build/hd3/${n}.png`, k, fw, ay, ax]])),
   'build/watch1.png': ['build/hd3/guard_tower.png', 4.792, 230, 287.2, 117.0], 'build/watch2.png': ['build/hd3/guard_tower.png', 4.792, 230, 287.2, 117.0], 'build/watch3.png': ['build/hd3/guard_tower.png', 4.792, 230, 287.2, 117.0] };
 
-const gpath = (path) => path;
 function pic(path) {
   let e = IMGS.get(path);
   if (!e) {
     e = { im: new Image(), ok: false };
     const hd = HD[path];
+    if (path === CASTLE_BG.src) e.im.fetchPriority = 'high'; // фон замка — вперёд иконок интерфейса
     e.im.onload = () => {
       if (hd) { const w = e.im.naturalWidth / hd[1], h = e.im.naturalHeight / hd[1]; Object.defineProperty(e.im, 'width', { value: w }); Object.defineProperty(e.im, 'height', { value: h }); e.im.hd = true; }
       if (hd && hd[2]) e.im.base = hd[2] / hd[1]; // ширина основания здания — чтобы ставить его по центру клетки
@@ -1081,11 +1081,10 @@ function diamond(sx, sy, fill, stroke) {
   if (fill) { x.fillStyle = fill; x.fill(); }
   if (stroke) { x.strokeStyle = stroke; x.lineWidth = 2.5; x.stroke(); }
 }
-function ground(path, sx, sy) { const im = pic(gpath(path)); if (im) drawPic(im, sx, sy - (im.height - TH)); else diamond(sx, sy, '#3f7d2c'); }
+function ground(path, sx, sy) { const im = pic(path); if (im) drawPic(im, sx, sy - (im.height - TH)); else diamond(sx, sy, '#3f7d2c'); }
 function sprite(path, sx, sy, dy = 0) { const im = pic(path); if (im) drawPic(im, sx + TW / 2 - im.width / 2, sy - (im.height - TH) + dy); }
 // картинка без смещения (как graphics.drawImage(img, x, y, 0) в клиенте)
 function raw(path, x, y) { const im = pic(path); if (im) drawPic(im, x, y); return im; }
-const imH = (path) => { const im = pic(path); return im ? im.height : 0; };
 function label(text, sx, sy, color = '#ffd27a') {
   const x = ictx; x.font = 'bold 11px system-ui, sans-serif'; x.textAlign = 'center';
   const w = x.measureText(text).width + 8;
@@ -1168,14 +1167,16 @@ function lvlFlush() {
   LVLQ.length = 0;
 }
 
-// ров: кольцо клеток вокруг замка (прямые стороны, закруглённые углы, мосты у ворот); вода течёт по часовой стрелке
-const FLOW_N = 16, FLOW_MS = 165, ANIM_MS = 90, LANDS_ANIM_MS = 140; // земли перерисовываются целиком — реже (≈7 кадров в секунду), чтобы телефон не грелся // кадр течения рва / частота перерисовки (плавнее для мельниц)
+const ANIM_MS = 90; // первый кадр анимации карты мира
 const flowOn = () => typeof SND === 'undefined' || SND.anim !== false;
 let flowTimer = null;
-function flowTick() { // перерисовка только пока открыт замок и вкладка видна
+// весь экран перерисовывается по таймеру только на карте мира, пока армии в пути (значки сдвигаются раз в секунду).
+// Замок и земли неподвижны: движение в них — своими лёгкими слоями (castlelife.js, landsLife в life.js), полосы строек обновляет tick
+// раз в секунду. Раньше таймер, запущенный землями, крутился и в замке, и на карте: весь экран перерисовывался 7–11 раз в секунду впустую
+function flowTick() {
   flowTimer = null;
-  if (!['castle', 'lands', 'world'].includes(S.tab) || document.hidden || !flowOn() || !Iso.cv.isConnected) return;
-  isoDraw(); flowTimer = setTimeout(flowTick, animIdle() ? IDLE_ANIM_MS : S.tab === 'lands' ? LANDS_ANIM_MS : ANIM_MS);
+  if (document.hidden || !flowOn() || !Iso.cv.isConnected || S.tab !== 'world' || typeof worldMovesBusy !== 'function' || !worldMovesBusy()) return;
+  isoDraw(); flowTimer = setTimeout(flowTick, 1000);
 }
 // к игре полминуты не прикасались (телефон лежит) — анимация реже: меньше нагрев и расход батареи; первое касание — снова как обычно
 const IDLE_AFTER = 30000, IDLE_ANIM_MS = 400; let touchAt = Date.now();
@@ -1201,7 +1202,7 @@ function castleBackdrop() {
 // бесшовная трава на весь экран: узор 62×32 из ромба-тайла и четырёх соседей (как сетка изометрии)
 const GRASS_PAT = {};
 function grassBackdrop(path, c, dpr) {
-  path = gpath(path); const im = pic(path); if (!im) return;
+  const im = pic(path); if (!im) return;
   const k = im.hd ? 4 : 1; // HD-трава: узор в 4 раза чётче
   if (!GRASS_PAT[path]) {
     const cv = document.createElement('canvas'); cv.width = TW * k; cv.height = TH * k; const g = cv.getContext('2d');
@@ -1261,10 +1262,14 @@ function scaledPic(path, w, k = isoDpr() * Math.max(1, cam().z)) { // k — во
   return cv;
 }
 // объекты карты мира — новая графика (старые плитки с зелёными ромбами не используются)
-// главные картинки — заранее, сразу после входа: открыв карту или земли, игрок видит их сразу, а не пустое место
+// главные картинки — заранее: фон замка сразу после входа, земли и карта мира — когда замок уже открыт (раньше всё качалось
+// одновременно, и на медленной сети замок ждал, пока докачаются фон земель и картинки карты); открыв карту или земли, игрок видит их сразу
 function preloadMain() {
   if (preloadMain.done) return; preloadMain.done = true;
-  setTimeout(() => { [CASTLE_BG.src, 'ground/world_bg.jpg?v=3', 'lands/bg.jpg?v=3', ...[0, 1, 2, 3].map((i) => `world/castle${i}.png?v=1`), ...Object.values(WORLD_OBJ_IMG)].forEach((p) => pic(p)); }, 50);
+  setTimeout(() => pic(CASTLE_BG.src), 50);
+  const rest = () => { if (!S.gloadDone) return setTimeout(rest, 500);
+    setTimeout(() => ['ground/world_bg.jpg?v=3', 'lands/bg.jpg?v=3', ...[0, 1, 2, 3].map((i) => `world/castle${i}.png?v=1`), ...Object.values(WORLD_OBJ_IMG)].forEach((p) => pic(p)), 800); };
+  rest();
 }
 const WORLD_OBJ_IMG = { 24: 'world/ruins.png', 25: 'world/savage.png', 26: 'world/lumber.png', 27: 'world/troll_mine.png', 30: 'world/bandit_s.png', 31: 'world/bandit_m.png', 32: 'quest/lair_orc.png' };
 // поляна: мягкое пятно травы, закрывающее деревья и камни фона под объектом
@@ -1294,13 +1299,12 @@ function worldRing(o, p, c, dpr) {
   Object.assign(cv.style, { left: `${bx}px`, top: `${by}px`, width: `${bw}px`, height: `${bh}px` });
   const g = cv.getContext('2d'), keep = ictx; g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H); g.setTransform(s, 0, 0, s, -bx * s, -by * s); g.imageSmoothingEnabled = false;
   ictx = g;
-  try { myCastleRing(p, true, -1, true); worldObj(o, p, false, 0, true); myCastleRing(p, true, 1, true); } // задняя половина кольца — под замком, передняя — поверх
+  try { myCastleRing(p, true, -1); worldObj(o, p, false, 0, true); myCastleRing(p, true, 1); } // задняя половина кольца — под замком, передняя — поверх
   finally { ictx = keep; }
 }
 // кольцо под своим замком на карте мира: свечение и вращающиеся золотые черты; активный замок — ярче
-function myCastleRing(p, active, half, still) { // half: −1 — задняя (верхняя) половина, 1 — передняя (нижняя); still — без бегущих бликов (рисуется один раз)
-  const x = ictx, cx = p.sx + TW / 2, cy = p.sy + TH * 0.3, t = still ? 0.3 : Date.now() / 1000, rx = TW * 0.74, ry = TH * 0.74;
-  if (!still && flowOn() && !flowTimer) flowTimer = setTimeout(flowTick, ANIM_MS);
+function myCastleRing(p, active, half) { // half: −1 — задняя (верхняя) половина, 1 — передняя (нижняя); рисуется один раз, без бегущих бликов
+  const x = ictx, cx = p.sx + TW / 2, cy = p.sy + TH * 0.3, t = 0.3, rx = TW * 0.74, ry = TH * 0.74;
   x.save(); x.beginPath(); if (half < 0) x.rect(cx - rx - 20, cy - ry - 20, 2 * rx + 40, ry + 20); else x.rect(cx - rx - 20, cy, 2 * rx + 40, ry + 20); x.clip();
   const g = x.createRadialGradient(cx, cy, 2, cx, cy, rx); g.addColorStop(0, `rgba(255,220,90,${active ? 0.45 : 0.25})`); g.addColorStop(1, 'rgba(255,200,60,0)');
   x.fillStyle = g; x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); x.fill();
@@ -1477,13 +1481,6 @@ function pathRing(band = 0.17) { // band — доля ширины ромба п
   return (PATH_RING[band] = cv);
 }
 function pathTile(sx, sy, k = 1, band) { ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(pathRing(band), sx, sy, TW * k, TH * k); ictx.restore(); }
-const GRASSY = (img) => /\/(grass|grass1|ground)\.png$/.test(img);
-function groundField(n, at, m = 5) { // m — сколько клеток травы вокруг
-  for (let y = -m; y < n + m; y++) for (let x = n + m - 1; x >= -m; x--) {
-    const p = tileScreen(x, y);
-    ground(x >= 0 && x < n && y >= 0 && y < n ? at(x, y) : 'ground/grass1.png', p.sx, p.sy);
-  }
-}
 
 function isoDrawNow() {
   if (!Iso.cv.isConnected || !S.st || !S.cat) return;
@@ -1496,7 +1493,7 @@ function isoDrawNow() {
   let wMain = true;
   if (wv) {
     const key = `${c.x}|${c.y}|${c.z}|${S.world.lv || 0}|${Iso.cv.width}|${Iso.cv.height}`, busy = typeof worldMovesBusy === 'function' && worldMovesBusy();
-    wMain = key !== WMAIN.key || (busy && Date.now() - WMAIN.at >= 1000) || (!busy && WMAIN.drew);
+    wMain = key !== WMAIN.key || (busy && Date.now() - WMAIN.at >= 900) || (!busy && WMAIN.drew);
     if (wMain) { WMAIN.key = key; WMAIN.at = Date.now(); WMAIN.drew = busy; x.clearRect(0, 0, Iso.cv.width, Iso.cv.height); }
   }
   else { x.fillStyle = '#16240f'; x.fillRect(0, 0, Iso.cv.width, Iso.cv.height); }
@@ -1513,12 +1510,10 @@ function isoDrawNow() {
     if (Iso.sel && Iso.sel.tab === 'castle' && st.grid[0][Iso.sel.y * 7 + Iso.sel.x] >= 0) { const cell = Iso.sel.y * 7 + Iso.sel.x; const n0 = LANDBARS.length, l0 = LVLQ.length; // выбранное здание — поверх соседей
       drawCellBuilding(0, cell, st.grid[0][cell], st.levels[0][cell], cellAt(Iso.sel.x, Iso.sel.y), kOf(cell), true); LANDBARS.length = n0; LVLQ.length = l0; }
     landBarsFlush(); lvlFlush();
-    if (typeof advMarker === 'function') advMarker(VIEW.CASTLE, cellAt); // советник показывает нужную клетку
   } else if (S.tab === 'lands') {
     const onPic = hasPic();
     if (onPic) landsPicBegin(); // фон-картинка; земли — на центральном лугу картинки (life.js)
-    landsScene(c, dpr); // клетки с тропинками между ними, жизнь (life.js)
-    if (typeof advMarker === 'function') advMarker(VIEW.LANDS, (xx, y) => { const P = plotXY(xx, y); return { sx: P.cx - TW / 2, sy: P.cy - TH / 2 }; });
+    landsScene(); // участки с тропинками между ними и постройки (life.js)
     if (onPic) landsPicEnd();
   } else if (S.world) {
     const w = S.world, R0 = w.radius;
@@ -1539,6 +1534,7 @@ function isoDrawNow() {
     if (!pm && wMain && typeof worldMoves === 'function') worldMoves(w); // армии в пути (watch.js) — на большом холсте
   }
   if (typeof castleLife === "function") castleLife(c, dpr); // «Жизнь в замке» (castlelife.js): свой слой поверх замка, на других вкладках прячется
+  if (typeof landsLife === 'function') landsLife(dpr); // оживление земель (life.js): свой слой, на других вкладках прячется
 }
 
 // табличка «Попробуйте через 3 минуты» после 3 неверных входов (сервер закрывает вход сам, здесь — только отсчёт)

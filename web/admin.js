@@ -3,7 +3,6 @@
 // Цель команд — игрок из поля «Игрок» (пусто — вы сами); галочка «все замки» — над всеми его замками.
 
 S.adm = { login: '', all: true, players: null, player: null, bugs: null, tab: 'player' };
-const aBtn = (op, text, icon, extra = '') => `<button class="ptile" data-adm="${op}" ${extra}><img src="${GFX}${icon}" alt=""><span>${text}</span></button>`;
 const aNum = (name, value, ph) => `<input class="anum" type="number" inputmode="numeric" data-an="${name}" value="${value}" placeholder="${ph}">`;
 
 // Разделы: Игрок (поиск, карточка, пароли, наказания) · Выдать (монеты, ресурсы, замки, армия) · Модерация (модераторы, мульты, жалобы) · Мир (новости, рассылки, события).

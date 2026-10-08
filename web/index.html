@@ -58,16 +58,16 @@
   </div>
 </section>
 
-<!-- игра: раскладка как в Android-клиенте «Третий Мир 3D» -->
+<!-- игра: раскладка как в Android-клиенте «Третий Мир 3D»; картинки — loading="lazy": до входа экран игры скрыт и они не качаются -->
 <section id="game" class="screen hidden">
   <header id="top">
     <button id="btnMail" class="env" aria-label="Сообщения"><b id="unread" class="dot hidden"></b></button>
     <button id="btnRep" class="env" aria-label="Отчёты"><b id="unrep" class="dot hidden"></b></button>
     <button id="btnNews" class="env hidden" aria-label="Новость от администрации"><b id="unnews" class="dot hidden"></b></button>
-    <button id="mvReinf" class="env mv hidden" data-moves aria-label="Подкрепления"><img src="gfx3d/top/reinf.png" alt=""><b></b></button>
-    <button id="mvAtt" class="env mv hidden" data-moves aria-label="Наши нападения"><img src="gfx3d/top/att.png" alt=""><b></b></button>
-    <button id="mvInc" class="env mv hidden" data-moves aria-label="Нападения на нас"><img src="gfx3d/top/inc.png" alt=""><b></b></button>
-    <button id="mvHome" class="env mv hidden" data-moves aria-label="Армии возвращаются домой"><img src="gfx3d/top/home.png" alt=""><b></b></button>
+    <button id="mvReinf" class="env mv hidden" data-moves aria-label="Подкрепления"><img loading="lazy" src="gfx3d/top/reinf.png" alt=""><b></b></button>
+    <button id="mvAtt" class="env mv hidden" data-moves aria-label="Наши нападения"><img loading="lazy" src="gfx3d/top/att.png" alt=""><b></b></button>
+    <button id="mvInc" class="env mv hidden" data-moves aria-label="Нападения на нас"><img loading="lazy" src="gfx3d/top/inc.png" alt=""><b></b></button>
+    <button id="mvHome" class="env mv hidden" data-moves aria-label="Армии возвращаются домой"><img loading="lazy" src="gfx3d/top/home.png" alt=""><b></b></button>
     <button id="resBar" class="topres" aria-label="Ресурсы"><span data-tr="wood"></span><span data-tr="stone"></span><span data-tr="iron"></span><span data-tr="food"></span></button>
   </header>
   <div id="stage">
@@ -76,16 +76,16 @@
     <aside id="locs">
       <button id="locsTab" aria-label="Панель локаций"></button>
       <div class="lbtns">
-        <button data-loc="castle" class="on" aria-label="Замок"><img src="gfx3d/locs2/castle.png" alt=""></button>
-        <button data-loc="lands" aria-label="Земли"><img src="gfx3d/locs2/lands.png" alt=""></button>
-        <button data-loc="world" aria-label="Мир"><img src="gfx3d/locs2/world.png" alt=""></button>
-        <button data-loc="castles" aria-label="Мои замки"><img src="gfx3d/locs2/castles.png" alt=""></button>
-        <button data-loc="res" aria-label="Ресурсы"><img src="gfx3d/locs2/res.png" alt=""></button>
+        <button data-loc="castle" class="on" aria-label="Замок"><img loading="lazy" src="gfx3d/locs2/castle.png" alt=""></button>
+        <button data-loc="lands" aria-label="Земли"><img loading="lazy" src="gfx3d/locs2/lands.png" alt=""></button>
+        <button data-loc="world" aria-label="Мир"><img loading="lazy" src="gfx3d/locs2/world.png" alt=""></button>
+        <button data-loc="castles" aria-label="Мои замки"><img loading="lazy" src="gfx3d/locs2/castles.png" alt=""></button>
+        <button data-loc="res" aria-label="Ресурсы"><img loading="lazy" src="gfx3d/locs2/res.png" alt=""></button>
       </div>
     </aside>
   </div>
   <footer id="bottom">
-    <button id="btnMenu"><img src="gfx/smallicon/softmenu.png" alt=""><span>Меню</span></button>
+    <button id="btnMenu"><img loading="lazy" src="gfx/smallicon/softmenu.png" alt=""><span>Меню</span></button>
     <button id="chatline"><span id="clock"></span><span id="chatmsg"></span></button>
     <button id="btnGear" aria-label="Настройки"></button>
   </footer>

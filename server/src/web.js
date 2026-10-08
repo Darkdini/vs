@@ -65,16 +65,6 @@ class WsReader {
 }
 
 // ---------- каталог для клиента ----------
-// Справочник войск (баланс из дизайн-документа, data/units.json) — пока только для просмотра, тренировки на сервере нет
-function armyJson() {
-  try {
-    const dir = path.join(__dirname, '..', '..', 'data');
-    const units = JSON.parse(fs.readFileSync(path.join(dir, 'units.json'), 'utf8'));
-    const blds = JSON.parse(fs.readFileSync(path.join(dir, 'buildings.json'), 'utf8')).buildings;
-    return { races: units.races, units: units.units, buildingNames: Object.fromEntries(blds.map((b) => [b.id, b.name])) };
-  } catch (e) { return null; }
-}
-
 // Всё, что нужно клиенту для таблиц по уровням: стоимость, время, добыча, вместимость, рейтинг.
 // Время в таблицах клиент считает сам по тем же формулам (зависит от уровня Ратуши): rules.time + speed.
 // версия сборки (файл VERSION кладётся в архив при сборке) — видна на экране входа и в консоли
@@ -98,11 +88,9 @@ function catalogJson() {
     castlePath: C.CASTLE_PATH, prod: C.PROD, prodK: C.PROD_K, resSpeed: G.RES_SPEED,
     races: C.RACE_NAMES,
     raceOrder: C.RACES,
-    units: C.UNITS,
-    army: armyJson(),
     premiumPlans: require('./premium').PLANS, gifts: require('./social').GIFTS, giftCats: require('./social').GIFT_CATS, repPerGold: require('./social').REP_PER_GOLD,
     mil: ARMY.catalogJson(), // юниты игры, науки, религии, артефакты, NPC-лагеря
-    lands: { eff: C.LAND_EFF, time: C.LAND_TIME, base: G.LANDS_BASE, decor: G.LANDS_DECOR, edge: G.LANDS_EDGE, n: G.LANDS_N, mult: C.LAND_YIELD, hutCap: C.HUT_CAP_MULT },
+    lands: { eff: C.LAND_EFF, time: C.LAND_TIME, base: G.LANDS_BASE, decor: G.LANDS_DECOR, n: G.LANDS_N, mult: C.LAND_YIELD, hutCap: C.HUT_CAP_MULT },
     landOptions: G.LANDS_BASE.map((row, y) => row.map((_, x) => G.landOptions(x, y))),
   };
 }
@@ -530,9 +518,8 @@ const API = {
   // чьи места показывать: свой зал или игрока, из профиля которого открыт Зал славы
   allyinfo(m) { const al = Object.prototype.hasOwnProperty.call(this.game.db.alliances || {}, String(m.id)) ? this.game.db.alliances[m.id] : null; if (!al) return this.error('Альянс не найден.'); this.send({ t: 'allyinfo', ally: this.game.allyPublic(al), mine: this.user.alliance === al.id }); },
   devinfo(m) { this.fp = String(m.fp || ''); if (this.game.devInfo(this.user, this.ip, m) === 'banned') { this.error('Это устройство заблокировано администрацией.'); this.user.online = false; setTimeout(() => this.socket.destroy(), 300); } },
-  hallWho(m) { const u = m.who !== undefined && this.game.userById(Number(m.who)); return u || this.user; },
-  hall(m) { const r = this.game.hallPage(API.hallWho.call(this, m), String(m.id || ''), m.page); if (r.error) return this.error(r.error); this.send({ t: 'hall', hall: r }); },
-  halls(m = {}) { const who = API.hallWho.call(this, m), me = who.id, list = this.game.halls().map(({ all, ...h }) => ({ ...h, pos: h.pos[me] || 0, mine: this.game.hallValue(who, h.id), top: h.top })), s = this.game.season(); this.send({ t: 'halls', who: { id: who.id, login: who.login, self: who.id === this.user.id, admin: !!who.admin }, list, pages: SOC.HALL_PAGES, season: { key: s.key, end: s.end }, last: (this.game.db.hallHistory || []).slice(-1)[0] || null }); },
+  hall(m) { const r = this.game.hallPage(hallWho(this, m), String(m.id || ''), m.page); if (r.error) return this.error(r.error); this.send({ t: 'hall', hall: r }); },
+  halls(m = {}) { const who = hallWho(this, m), me = who.id, list = this.game.halls().map(({ all, ...h }) => ({ ...h, pos: h.pos[me] || 0, mine: this.game.hallValue(who, h.id), top: h.top })), s = this.game.season(); this.send({ t: 'halls', who: { id: who.id, login: who.login, self: who.id === this.user.id, admin: !!who.admin }, list, pages: SOC.HALL_PAGES, season: { key: s.key, end: s.end }, last: (this.game.db.hallHistory || []).slice(-1)[0] || null }); },
   rating() {
     const rows = this.game.leaderboard().slice(0, 500).map(({ u, r }) => ({ id: u.id, login: u.login, race: C.RACE_NAMES[u.race], raceId: u.race, rating: r }));
     this.send({ t: 'rating', rows });
@@ -703,6 +690,9 @@ const API = {
     this.toast('Спасибо! Сообщение сохранено.');
   },
 };
+
+// Зал Славы: чьи места показывать — указанного игрока или свои (раньше функция лежала среди команд и её можно было вызвать запросом)
+const hallWho = (s, m) => (m.who !== undefined && s.game.userById(Number(m.who))) || s.user;
 
 // заголовки безопасности: скрипты только свои (внедрённый <img onerror> или <script> не выполнится), страницу нельзя встроить в чужой сайт
 const SEC_HEADERS = {

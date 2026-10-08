@@ -3,7 +3,6 @@
 // окно босса (здоровье, время, таблица урона, «Нападение»/«Набег»), кнопка-медальон на экране, пока босс жив.
 // Графика gfx/boss: <вид>.png — фигура, m_<вид> — медальон, o_<вид> — орден убийцы, banner, chest, swords.
 
-const BOSS_FB = { dragon: 'boss/m_dragon.png', troll: 'boss/m_troll.png', lich: 'boss/m_lich.png' };
 const bossPic = (kind) => pic(`boss/${kind}.png`);
 // на карте: босс крупнее замка (на 2 клетки), под ним — красное зарево, над ним — полоска здоровья
 function bossOnMap(o, p, sel) {

@@ -35,8 +35,6 @@ function upJobsHtml(bld) {
   const w = Object.values(UPK).find((x) => x.bld === bld), jobs = Object.values(MY().upJobs || {}).filter((j) => w.kinds.includes(j.kind));
   return jobs.length ? `${ribbon('Юниты:')}${jobs.map((j) => { const u = unitById(j.unit); return `<div class="upjob"><img src="${unitSrc(u)}" alt=""> ${esc(u.name)} улучшение на <img class="fi" src="${FI[j.kind]}" alt=""> ${j.level + 1}<br>Осталось: <span class="cd" data-e="${j.end}"></span></div>`; }).join('')}` : '';
 }
-function forgeWin() { S.upw = 'forge'; return upListWin(); }
-function magicWin() { S.upw = 'magic'; return upListWin(); }
 $('#sheetBody').addEventListener('click', (e) => {
   const t = e.target.closest('[data-forge],[data-magic],[data-upunit],[data-updo]'); if (!t) return;
   const d = t.dataset;

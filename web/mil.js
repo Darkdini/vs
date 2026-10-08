@@ -9,7 +9,6 @@ const HQ = 2;
 let UNIT_BY = null;
 const unitById = (id) => { if (!UNIT_BY) UNIT_BY = Object.fromEntries(M().units.map((u) => [u.id, u])); return UNIT_BY[id]; };
 // портреты юнитов: units/<раса>/hd/*.png, у каждой расы свои
-const DW_HD = ['torg', 'traveler', 'buntar', 'arheolog', 'wisdom', 'general']; // у всех рас — новые картинки (оригинал); у людей нет нового Путешественника — прежний
 const HD_DIR = { dwarves: 'dwarv/hd', orcs: 'orc/hd', elves: 'elf/hd', humans: 'human/hd' };
 const unitSrc = (u, race = S.st.user.race) => `${GFX}units/${u.race === 'all' && !u.img.includes('/') ? `${HD_DIR[race] || 'human/hd'}/${u.img}` : u.img}.png`;
 const uimg = (u, cls = 'ui') => `<img class="${cls}" src="${unitSrc(u)}" alt="">`;
@@ -144,10 +143,6 @@ function trainCard(u) {
     <button class="pbar tbtn" data-train="${u.id}" ${max ? '' : 'disabled'}>Тренировать</button>`}</div>`;
 }
 
-function unitsListHtml(units, empty = 'нет') {
-  const rows = Object.entries(units || {}).filter(([, n]) => n > 0).map(([id, n]) => { const u = unitById(id); return u ? `<span class="uc">${uimg(u, 'ui xs')} ${esc(u.name)} <b>${fmtFull(n)}</b></span>` : ''; });
-  return rows.length ? `<div class="ulist">${rows.join('')}</div>` : `<p class="muted small">${empty}</p>`;
-}
 
 // Военный штаб — как в оригинале (видео): кнопки Армии, Симулятор, Генерал, Расписание походов, Обзор армий, Учения
 function hqHtml() {
@@ -244,11 +239,6 @@ function universityHtml(id) {
       ${n > uni ? `<p class="reasons">Нужен Университет ${n} ур.</p>` : `<button class="btn primary small" data-sci="${k}" ${can ? '' : 'disabled'}>Изучить ${n} ур.</button>`}`}</div>`; }).join('')}`;
 }
 
-function loyaltyHtml() {
-  const bunt = Math.max(0, 100 - S.st.castle.loyalty);
-  return `<div class="section">Бунт в замке</div><div class="card"><div class="bloy"><div class="bar"><i style="width:${bunt}%"></i></div><b>${bunt}%</b></div>
-      <p class="small muted">${S.st.castle.capital ? 'Столицу захватить нельзя.' : 'Победное нападение врага с Бунтарями поднимает бунт на 15%, при 100% замок захватят.'} Сам бунт не утихает — снизить его можно в Храме за ресурсы.</p></div>`;
-}
 // Храм как в оригинале: «Бонус лояльности +N%» с полоской, кнопки «Бунт» и «Ритуалы» (temple.js)
 function templeHtml() {
   const r = MY().royal, pct = r ? Math.round(r.bonus * 100) : 0, cap = r ? Math.round(r.bonusCap * 100) : 0;

@@ -203,16 +203,3 @@ function advHighlight() {
 }
 new MutationObserver(() => { if (S.advHL) advHighlight(); }).observe($('#sheetBody'), { childList: true, subtree: true });
 document.addEventListener('click', (e) => { if (e.target.closest('[data-build],[data-pick],[data-sttake]')) setTimeout(() => { S.advHL = null; }, 0); }, true);
-// на карте замка/земель метка над нужной клеткой убрана (мешала строить соседние здания) — ведёт только «Выполнить»
-const ADV_MARKER = false;
-function advMarker(view, at, big = view === VIEW.LANDS ? 2 : 1) { // на Землях вид издалека — метка крупнее
-  if (!ADV_MARKER) return;
-  const t = advTarget(); if (!t || t.view !== view) return;
-  const p = at(t.x, t.y), cx = p.sx + TW / 2, cy = p.sy + TH / 2, k = Date.now() / 260;
-  const ring = pic('tut/ring.png'), arr = pic('tut/arrow_down.png'), x = ictx;
-  x.save(); const sm = x.imageSmoothingEnabled; x.imageSmoothingEnabled = true;
-  if (ring) { const w = TW * (1.05 + 0.08 * Math.sin(k)) * (big > 1 ? 1.3 : 1); x.globalAlpha = 0.85; x.drawImage(ring, cx - w / 2, cy - w / 4, w, w / 2); x.globalAlpha = 1; }
-  if (arr) { const w = TW * 0.42 * big, h = w * arr.height / arr.width, top = cy - TH * 1.2 - h - Math.abs(Math.sin(k)) * 10 * big; x.drawImage(arr, cx - w / 2, top, w, h); }
-  x.imageSmoothingEnabled = sm; x.restore();
-  if (!S.advAnim) S.advAnim = setTimeout(() => { S.advAnim = null; isoDraw(); }, 60);
-}

@@ -76,14 +76,6 @@ const BUILDINGS = [
 ];
 const BY_ID = Object.fromEntries(BUILDINGS.map((b) => [b.id, b]));
 
-// Юниты — ID картинок клиента (200..244) и названия из texts/strings.txt
-const UNITS = {
-  humans: [[200, 'Мечник'], [201, 'Копейщик'], [202, 'Разведчик'], [203, 'Чародей'], [204, 'Рыцарь'], [205, 'Паладин'], [206, 'Джин']],
-  elves: [[207, 'Эльф лучник'], [208, 'Танцующий'], [209, 'Скаут'], [210, 'Созидающая'], [211, 'Кентавр'], [212, 'Единорог'], [213, 'Энт']],
-  dwarves: [[214, 'Топорщик'], [215, 'Арбалетчик'], [216, 'Жрец рун'], [217, 'Грифон'], [218, 'Защитник гор'], [219, 'Револьверщик'], [220, 'Йетти']],
-  special: [[221, 'Торговец'], [224, 'Путешественник'], [227, 'Ученый'], [230, 'Археолог'], [233, 'Бунтарь'], [236, 'Генерал']],
-  unique: [[239, 'Великан'], [240, 'Катапульта'], [241, 'Око'], [242, 'Тень'], [243, 'Таран'], [244, 'Валькирия']],
-};
 const RACES = ['humans', 'elves', 'dwarves', 'orcs']; // порядок в форме регистрации: Люди, Эльфы, Гномы, Орки
 const RACE_NAMES = { humans: 'Люди', elves: 'Эльфы', dwarves: 'Гномы', orcs: 'Орки' };
 
@@ -180,4 +172,4 @@ function displayId(b, level) {
   return e >= 10 ? b.tiers[2] : e >= 5 ? b.tiers[1] : b.tiers[0];
 }
 
-module.exports = { LAND_YIELD, LAND_TARGET, LAND_TIME, LAND_COST_K, LAND_EFF, LAND_EFF_MAX, landEff, landFromOld, LAND_MULT_BY_SIZE, LANDS_N, LANDS_MAX, LAND_MULT, HUT_CAP_MULT, LAND_CELLS, TIME, RATING, RES, RES_ICON, TIME_ICON, BUILDINGS, BY_ID, UNITS, RACES, RACE_NAMES, PROD, PROD_K, CASTLE_PATH, CASTLE_OK, STORE_MAX, durability, levelCost, levelTimeSec, displayId };
+module.exports = { LAND_YIELD, LAND_TARGET, LAND_TIME, LAND_COST_K, LAND_EFF, LAND_EFF_MAX, landEff, landFromOld, LAND_MULT_BY_SIZE, LANDS_N, LANDS_MAX, LAND_MULT, HUT_CAP_MULT, LAND_CELLS, TIME, RATING, RES, RES_ICON, TIME_ICON, BUILDINGS, BY_ID, RACES, RACE_NAMES, PROD, PROD_K, CASTLE_PATH, CASTLE_OK, STORE_MAX, durability, levelCost, levelTimeSec, displayId };

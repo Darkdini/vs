@@ -119,6 +119,7 @@ const GRID = { [VIEW.CASTLE]: 7, [VIEW.LANDS]: LANDS_N };
 // сетки замков (здания и уровни) — байтовые массивы Int8Array: в памяти в ~8 раз меньше обычных массивов,
 // в файле — строка «~base64»
 const pack = (a) => `~${Buffer.from(a.buffer, a.byteOffset, a.byteLength).toString('base64')}`;
+function PACK_THIS() { return pack(this); }
 const unpack = (s) => { const b = Buffer.from(s.slice(1), 'base64'); return new Int8Array(b.buffer, b.byteOffset, b.length).slice(); };
 const packCastle = (c) => { for (const v of [0, 1]) { if (!ArrayBuffer.isView(c.grid[v])) c.grid[v] = Int8Array.from(c.grid[v]); if (!ArrayBuffer.isView(c.levels[v])) c.levels[v] = Int8Array.from(c.levels[v]); } return c; };
 
@@ -165,7 +166,9 @@ class Store {
     clearTimeout(this.timer); this.timer = null;
     fs.mkdirSync(path.dirname(this.file), { recursive: true });
     const tmp = this.file + '.tmp', fd = fs.openSync(tmp, 'w');
-    try { fs.writeSync(fd, JSON.stringify(this.data, (k, v) => (ArrayBuffer.isView(v) ? pack(v) : v))); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
+    // клетки замков (Int8Array) — строкой base64; через toJSON, а не функцию-фильтр: та вызывалась на каждое значение базы, запись была вдвое дольше
+    Int8Array.prototype.toJSON = PACK_THIS;
+    try { fs.writeSync(fd, JSON.stringify(this.data)); fs.fsyncSync(fd); } finally { delete Int8Array.prototype.toJSON; fs.closeSync(fd); }
     fs.renameSync(tmp, this.file);
   }
 }
@@ -688,12 +691,6 @@ class Game {
   mailList(userId, folder) {
     const all = this.db.messages || [];
     return all.filter((m) => (folder === 1 ? m.from === userId : m.to === userId)).slice(-30).reverse();
-  }
-
-  nextEventAt() {
-    let t = Infinity;
-    for (const c of Object.values(this.db.castles)) for (const q of c.queue) t = Math.min(t, q.end);
-    return t;
   }
 }
 
