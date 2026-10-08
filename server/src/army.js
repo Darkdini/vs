@@ -1223,11 +1223,11 @@ function install(Game, helpers) {
     if (siegeN) this.addStat(c.owner, 'ruins', siegeN);
     const defUser = target && this.ownerOf(target);
     const tname = target ? `${target.name} (${captured ? captured.prevLogin : defUser.login})` : `${npc.name} ${where}`;
-    const side = (units, lost) => Object.fromEntries(Object.entries(units).map(([id, n]) => [id, { was: n + (lost[id] || 0), lost: lost[id] || 0 }]).filter(([, v]) => v.was > 0));
+    const side = (units, lost) => Object.fromEntries([...new Set([...Object.keys(units), ...Object.keys(lost)])].map((id) => [id, { was: (units[id] || 0) + (lost[id] || 0), lost: lost[id] || 0 }]).filter(([, v]) => v.was > 0)); // и погибшие целиком (тараны одноразовые)
     const genDied = !!(c.general && c.general.dead && a.general === false && aLoss >= 1);
     const data = {
       type: 'battle', mission: a.mission, win, x: a.x, y: a.y, luck, calc,
-      att: { id: att.id, login: att.login, race: att.race, castle: c.name, cx: c.x, cy: c.y, rating: this.rating(c), lossRes: lossRes(aLost), units: side(a.units, aLost), general: a.general || genDied ? (c.general ? c.general.level : 0) : 0, generalDied: genDied, genExp: genExpA },
+      att: { id: att.id, login: att.login, race: att.race, castle: c.name, army: a.squad ? a.squad.name : 'Замковая армия', cx: c.x, cy: c.y, rating: this.rating(c), lossRes: lossRes(aLost), units: side(a.units, aLost), general: a.general || genDied ? (c.general ? c.general.level : 0) : 0, generalDied: genDied, genExp: genExpA },
       def: target ? { id: captured ? captured.prevOwner : defUser.id, login: captured ? captured.prevLogin : defUser.login, race: captured ? captured.prevRace : defUser.race, castle: target.name, rating: this.rating(target), lossRes: lossRes(dLost), units: side(dAll, dLost), wall: this.bonus(target).wall, general: target.general && !target.general.away ? target.general.level : 0, generalDied: genDiedD, genExp: genExpD }
         : { npc: npc.name, img: obj.img, lossPct: Math.round(dLoss * 100), garrison: R.garrison },
       loot, siege, loyalty, capitalBlocked, royalBlocked, captured: captured ? { name: captured.name, x: a.x, y: a.y } : null,
@@ -1251,10 +1251,10 @@ function install(Game, helpers) {
     lines.push(...genA.filter((x) => !genDied || !/пал в бою/.test(x)));
     if (calc.saved) lines.push(`Полевой лекарь спас ${calc.saved} воинов.`);
     if (gearLine) { lines.push(gearLine); data.gear = gearLine; }
-    const title = captured ? `Захват: ${captured.name} ${where} — замок ваш!` : `${MISSIONS[a.mission]}: ${tname} — ${win ? 'победа' : 'поражение'}`;
+    const title = `Атака на ${target ? (captured ? captured.prevLogin : defUser.login) : npc.name}`; // как в оригинале: «Атака на <игрок>» / «Оборона от <игрок>»
     this.report(c.owner, title, lines, 'battle', { ...data, side: 'att' });
     if (target) {
-      this.report(captured ? captured.prevOwner : target.owner, captured ? `Ваш замок ${target.name} захвачен игроком ${att.login}!` : `На ваш замок напал ${att.login}: ${win ? 'поражение' : 'отбились'}`, [
+      this.report(captured ? captured.prevOwner : target.owner, `Оборона от ${att.login}`, [
         `${MISSIONS[a.mission]} от ${att.login} (${c.name}).`,
         `Атакующие: ${unitsLine(a.units, aLost)}`,
         `Ваши войска: ${unitsLine(dAll, dLost)}`,

@@ -152,11 +152,11 @@ function client() {
     adm.send({ t: 'send', units: { 200: 50, 202: 5 }, general: true, x: target.x, y: target.y, mission: 'raid' });
     await adm.expect('toast', (m) => /Армия выступила/.test(m.msg));
     adm.send({ t: 'admin', op: 'finish' });
-    await adm.expect('toast', (m) => /Набег: Замок webby/i.test(m.msg));
-    await a.expect('toast', (m) => /напал Советник/.test(m.msg));
+    await adm.expect('toast', (m) => /Атака на Webby/i.test(m.msg));
+    await a.expect('toast', (m) => /Оборона от Советник/.test(m.msg));
     adm.send({ t: 'reports' });
     const reps = (await adm.expect('reports')).list;
-    adm.send({ t: 'report', id: reps.find((x) => /Набег/.test(x.title)).id });
+    adm.send({ t: 'report', id: reps.find((x) => /Атака на Webby/.test(x.title)).id });
     const rep = (await adm.expect('report')).report;
     assert.ok(rep.lines.some((l) => /Добыча/.test(l)));
     console.log('✓ набег на игрока с генералом, отчёты у обеих сторон:', rep.lines[4]);
@@ -242,7 +242,7 @@ function client() {
     const mv = (await a.expect('moves')).data;
     assert.ok(mv.incoming.some((x) => x.mission === 'raid' && x.from === 'Советник'));
     adm.send({ t: 'admin', op: 'finish' });
-    await adm.expect('toast', (m) => /Набег: /.test(m.msg));
+    await adm.expect('toast', (m) => /Атака на /.test(m.msg));
     console.log('✓ Караульная башня: оповещение о набеге, передвижения армий королевства');
 
     // ---- склад как в оригинале, «Разрушить» ----

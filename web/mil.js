@@ -318,7 +318,7 @@ function reportHtml(r) {
   const head = `${ribbon('Отчет')}<div class="rp">От: ${esc(r.from || 'Советник')}<br>Тема: <b>${esc(r.title)}</b><br>${repDate(r.at)}</div><hr class="rhr">`;
   const foot = `<hr class="rhr"><div class="rtiles"><button class="rtile" data-repfwd="${r.id}"><img src="${REPG}fwd.png" alt="Переслать"></button>
     ${r.owner === S.st.user.id ? `<button class="rtile" data-repdel="${r.id}"><img src="${REPG}del.png" alt="Удалить"></button>` : ''}</div>`;
-  const sideBlock = (s, rating, x, y, lossLine) => `<div class="rp">Игрок: ${plink(s.id, s.login)}<br>Замок: ${esc(s.castle || '')}<br>(Рейтинг: ${rating ?? '-'}, X: ${x}, Y: ${y})${lossLine ? `<br>${lossLine}` : ''}</div>`;
+  const sideBlock = (s, rating, x, y, lossLine) => `<div class="rp">Игрок: ${plink(s.id, s.login)}<br>Замок: ${x !== '-' && x != null ? `<button class="rlink" data-goworld="${x},${y}">${esc(s.castle || '')}</button>` : esc(s.castle || '')}<br>(Рейтинг: ${rating ?? '-'}, X: ${x}, Y: ${y})${lossLine ? `<br>${lossLine}` : ''}</div>`;
   if (d.type === 'invite') { // приглашение в альянс: вступить прямо из отчёта
     const a = d.ally || {}, live = (MY().invites || []).find((x) => x.id === a.id), inAl = MY().alliance;
     return `${head}<div class="invcard"><div class="invh">Вас пригласили в альянс</div>
@@ -355,37 +355,37 @@ function reportHtml(r) {
   const attV = d.side === 'att';
   const tot = (u) => Object.values(u || {}).reduce((q, v) => q + v.was, 0), lostN = (u) => Object.values(u || {}).reduce((q, v) => q + v.lost, 0);
   const aW = tot(d.att.units), aL = lostN(d.att.units), dW = tot(d.def.units), dL = lostN(d.def.units);
-  const what = d.def.npc ? 'Объект' : 'Замок';
-  const result = d.captured ? (attV ? ['rgood', `${what} захвачен!`] : ['rbad', 'Ваш замок захвачен врагом!'])
-    : d.royalBlocked ? [attV ? 'rbad' : 'rgood', `${what} не захвачен! ${d.royalBlocked.wait ? `Захват возможен через ${d.royalBlocked.wait} дн. игры.` : 'Не хватает лояльности населения.'}`]
-    : d.capitalBlocked ? [attV ? 'rbad' : 'rgood', 'Столицу захватить нельзя!']
-    : d.mission === 'raid'
-      ? (attV ? (d.win ? ['rgood', 'Набег удался!'] : ['rbad', `Набег отбит${d.loot ? ', но выжившие кое-что унесли' : ' — армия погибла'}.`])
-        : (d.win ? ['rbad', 'Набег не отбит — замок разграблен.'] : ['rgood', 'Набег отбит!']))
-    : attV ? (d.win ? ['rgood', 'Победа! Защита разбита.'] : ['rbad', 'Поражение! Армия разбита.'])
-    : (d.win ? ['rbad', 'Оборона прорвана, замок разграблен.'] : ['rgood', 'Нападение отбито!']);
-  const resRow = (o, keys = ['wood', 'stone', 'iron', 'food', 'people']) => `<div class="rres">${keys.map((k) => `<span>${RES_IC[k]} ${fmtFull((o && o[k]) || 0)}</span>`).join('')}</div>`;
-  // армия: по юниту — было, погибло, выжило; итог одной строкой; генерал — уровень и опыт
-  const unitRows = (units, race) => Object.entries(units || {}).map(([id, v]) => { const u = unitById(id); return u ? `<div class="runit"><img src="${unitSrc(u, race)}" alt=""><span>${esc(u.name)}</span><b>${fmtFull(v.was)}</b>${v.lost ? `<em class="rbad">−${fmtFull(v.lost)}</em>` : '<em></em>'}</div>` : ''; }).join('');
-  const genRow = (s, mine) => (s.general ? `<div class="rp rgen">${gimg(`units/${HD_DIR[s.race] || 'human/hd'}/general.png`, 'ric')} Генерал ${s.general} ур.: ${s.generalDied ? '<span class="rbad">пал в бою</span>' : s.genExp ? `<b class="rgood">+${fmtFull(s.genExp)} опыта</b>` : mine ? 'опыта нет' : 'в строю'}</div>` : '');
-  const army = (s, W, L, mine) => `<div class="rp"><div class="rtot">${ic('skull')} Погибло <b>${fmtFull(L)}</b> из ${fmtFull(W)}</div>${unitRows(s.units, s.race)}</div>${genRow(s, mine)}`;
-  const resLossBox = d.def.npc ? `<div class="rp"><b>Нападение:</b>${resRow(d.att.lossRes)}</div>`
-    : `<div class="rp"><b>Нападение${attV ? ' (вы)' : ''}:</b>${resRow(d.att.lossRes)}<b>Защита${attV ? '' : ' (вы)'}:</b>${resRow(d.def.lossRes)}</div>`;
-  const wallLine = (d.siege || []).length ? `<div class="rp">${d.siege.map(esc).join('<br>')}</div>` : '';
-  return `${head}
-    <div class="rp">Тип похода: ${esc(M().missions[d.mission] || 'Нападение')}<br>${ic('star')} <span class="${result[0]}">${result[1]}</span></div>
-    ${band('kingatt', 'Нападение')}<div class="rp">${plink(d.att.id, d.att.login)} · ${esc(d.att.castle || '')} (${d.att.cx ?? '-'}:${d.att.cy ?? '-'})</div>
-    ${army(d.att, aW, aL, attV)}
+  // как в оригинале: «Победа атаки.» / «Поражение атаки.» — с точки зрения нападения
+  const result = d.win ? ['rgood', 'Победа атаки.'] : ['rbad', 'Поражение атаки.'];
+  const resRow = (o, keys = ['wood', 'stone', 'iron', 'food', 'people']) => `<div class="rres">${keys.map((k) => `<span>${RES_IC[k]} ${fmtFull(Math.round((o && o[k]) || 0))}</span>`).join('')}</div>`;
+  const reb = d.att.units && d.att.units[233], rebLeft = reb ? reb.was - reb.lost : 0, rebU = unitById(233);
+  const top = `<div class="rp">Тип похода: ${esc(M().missions[d.mission] || 'Нападение')}<br>
+      ${d.luck !== undefined ? `${ic('horse')} Удача атаки ${d.luck} %<br>` : ''}
+      ${ic('star')} Результат атаки: <span class="${result[0]}">${result[1]}</span>
+      ${d.loot && RES4.some((k) => d.loot[k] > 0) ? `<br>Было украдено ресурсов${d.att.army ? ` армией ${esc(d.att.army)}` : ''}:${resRow(d.loot, RES4)}` : ''}
+      ${d.loyalty ? `<br>Бунт в замке после нападения: ${100 - d.loyalty.to}% ${d.captured ? `<span class="rgood">${d.def.npc ? 'Руины захвачены!' : 'Замок захвачен!'}</span>`
+        : d.royalBlocked ? `<span class="rbad">Замок не захвачен: ${d.royalBlocked.wait ? `захват возможен через ${d.royalBlocked.wait} дн. игры` : 'не хватает лояльности населения'}.</span>` : ''}` : ''}
+      ${d.capitalBlocked ? '<br><span class="rbad">Столицу захватить нельзя.</span>' : ''}
+      ${d.captured && rebLeft && rebU ? `<br><img class="ric" src="${unitSrc(rebU, d.att.race)}" alt=""> ${rebLeft} ${plural(rebLeft, 'Бунтарь остался', 'Бунтаря остались', 'Бунтарей остались')} в замке.` : ''}
+      ${(d.siege || []).length ? `<br>${d.siege.map(esc).join('<br>')}` : ''}
+      ${d.gear ? `<br>${esc(d.gear)}` : ''}</div>`;
+  const lossLine = (L, W) => `${ic('skull')} Общие потери: ${fmtFull(L)} из ${fmtFull(W)} ( ${pct(L, W)}% )`;
+  // «Армия атаки» / «Армия защиты» — раскрываются нажатием: потери, потери в ресурсах, по юнитам «погибло из было», генерал
+  const unitRows = (units, race) => Object.entries(units || {}).map(([id, v]) => { const u = unitById(id); return u ? `<div class="rul"><img class="ric" src="${unitSrc(u, race)}" alt=""> ${esc(u.name)}: ${fmtFull(v.lost)} из ${fmtFull(v.was)}</div>` : ''; }).join('');
+  const genRow = (s) => (s.general ? `<div class="rul">${gimg(`units/${HD_DIR[s.race] || 'human/hd'}/general.png`, 'ric')} Генерал ${s.general} ур.: ${s.generalDied ? '<span class="rbad">пал в бою</span>' : s.genExp ? `+${fmtFull(s.genExp)} опыта` : 'в строю'}</div>` : '');
+  const armyBox = (icon, title, sub, body) => `<details class="rarmy"><summary class="rbar"><img src="${REPG}${icon}.png" alt=""> ${title}</summary>${ribbon(sub)}${body}</details>`;
+  const attBox = armyBox('swords', 'Армия атаки', `Армия атаки${d.att.army ? `: ${esc(d.att.army)}` : ''}`,
+    `<div class="rp">${ic('skull')} Потери: ${fmtFull(aL)} из ${fmtFull(aW)} ( ${pct(aL, aW)}% )<br>Потери в ресурсах:${resRow(d.att.lossRes)}${unitRows(d.att.units, d.att.race)}${genRow(d.att)}</div>`);
+  const defBox = armyBox('shield', 'Армия защиты', 'Армия защиты', d.def.npc
+    ? `<div class="rp">${ic('skull')} Охрана потеряла ${d.def.lossPct}%${(d.def.garrison || []).map((g) => `<div class="rul">${esc(g.name)}: ${fmtFull(g.lost || 0)} из ${fmtFull(g.n)}</div>`).join('')}</div>`
+    : dW || d.def.general ? `<div class="rp">${ic('skull')} Потери: ${fmtFull(dL)} из ${fmtFull(dW)} ( ${pct(dL, dW)}% )<br>Потери в ресурсах:${resRow(d.def.lossRes)}${unitRows(d.def.units, d.def.race)}${genRow(d.def)}${d.def.wall ? `<div class="rul">${gimg('fence/fence1.png', 'ric')} Забор ${d.def.wall} ур.</div>` : ''}</div>`
+    : '<div class="rp">В замке не было защитников.</div>');
+  return `${head}${top}
+    ${band('kingatt', 'Нападение')}${sideBlock(d.att, d.att.rating, d.att.cx ?? '-', d.att.cy ?? '-', lossLine(aL, aW))}
     ${band('kingdef', 'Защита')}
-    ${d.def.npc ? `<div class="rp">${esc(d.def.npc)} (${d.x}:${d.y})</div><div class="rp">${(d.def.garrison || []).map((g) => `<div class="runit"><span>${esc(g.name)}</span><b>${fmtFull(g.n)}</b>${g.lost ? `<em class="rbad">−${fmtFull(g.lost)}</em>` : '<em></em>'}</div>`).join('') || `Охрана потеряла ${d.def.lossPct}%`}</div>`
-      : `<div class="rp">${plink(d.def.id, d.def.login)} · ${esc(d.def.castle || '')} (${d.x}:${d.y})${d.def.wall ? ` · забор ${d.def.wall} ур.` : ''}</div>
-        ${dW ? army(d.def, dW, dL, !attV) : `<div class="rp">${ic('skull')} В замке не было защитников</div>${genRow(d.def, !attV)}`}`}
-    ${wallLine}
-    ${d.loot ? `${bar('star', attV ? 'Добыча' : 'Унесено врагом')}<div class="rp">${resRow(d.loot, RES4)}</div>` : ''}
-    ${d.loyalty ? `<div class="rp">Лояльность: <b>${d.loyalty.from} → ${d.loyalty.to}</b></div>` : ''}
-    ${d.captured ? `<div class="rp"><span class="rgood">${esc(d.captured.name)} (${d.captured.x}:${d.captured.y}) ${attV ? 'теперь ваш' : 'перешёл к врагу'}.</span></div>` : ''}
-    ${d.gear ? `<div class="rp">${esc(d.gear)}</div>` : ''}
-    <details class="rmore"><summary>Потери ресурсов</summary>${resLossBox}</details>
+    ${d.def.npc ? `<div class="rp">Игрок: Неизвестный игрок<br>Объект: ${esc(d.def.npc)}<br>(Рейтинг: -, X: ${d.x}, Y: ${d.y})<br>${ic('skull')} Охрана потеряла ${d.def.lossPct}%</div>`
+      : sideBlock(d.def, d.def.rating, d.x, d.y, dW ? lossLine(dL, dW) : `${ic('skull')} В замке не было защитников!`)}
+    ${attBox}${defBox}
     ${foot}`;
 }
 
