@@ -167,6 +167,7 @@ function install(Game) {
       case 'ad': { const e = need('invite'); if (e) return e; al.ad = clean(m.text, 300); return done(al.ad ? 'Реклама размещена.' : 'Реклама снята.'); }
       case 'mail': {
         const e = need('mail'); if (e) return e;
+        const lim = this.tooOften(user, 'allymail'); if (lim) return { error: lim }; // письмо каждому участнику — не чаще раза в минуту
         const text = clean(m.text, 2000); if (!text) return { error: 'Введите текст.' };
         for (const id of al.members) { const u = this.userById(id); if (u && u.id !== user.id) { this.sendMail(user, u.login, `Рассылка альянса [${al.tag}]`, text); this.event(u.id, `Рассылка альянса [${al.tag}] от ${user.login}.`); } }
         return done('Рассылка отправлена всем участникам.');
@@ -227,14 +228,16 @@ function install(Game) {
       }
       case 'topic': {
         const title = clean(m.title, 60), text = clean(m.text, 2000); if (!title || !text) return { error: 'Введите тему и текст.' };
+        const lim = this.tooOften(user, 'allypost'); if (lim) return { error: lim };
         const t = { id: this.db.nextId++, title, by: user.login, byId: user.id, at: now, posts: [{ by: user.login, byId: user.id, at: now, text }] };
-        (al.forum = al.forum || []).push(t);
+        (al.forum = al.forum || []).push(t); if (al.forum.length > 300) al.forum.shift(); // тем не больше 300 — самые старые уходят
         return { ...done('Тема создана.'), topic: t.id };
       }
       case 'post': {
         const t = (al.forum || []).find((x) => x.id === Number(m.topic)); if (!t || t.deleted) return { error: 'Тема не найдена.' };
         if (t.closed && !can('news')) return { error: 'Тема закрыта.' };
         const text = clean(m.text, 2000); if (!text) return { error: 'Введите текст.' };
+        const lim = this.tooOften(user, 'allypost'); if (lim) return { error: lim };
         t.posts.push({ by: user.login, byId: user.id, at: now, text }); if (t.posts.length > 500) t.posts.shift();
         return done('Сообщение добавлено.');
       }
@@ -259,6 +262,7 @@ function install(Game) {
         const e = need('news'); if (e) return e;
         if (m.del) { al.news = (al.news || []).filter((x) => x.id !== Number(m.del)); return done('Новость удалена.'); }
         const title = clean(m.title, 80), text = clean(m.text, 2000); if (!title || !text) return { error: 'Введите тему и текст новости.' };
+        const lim = this.tooOften(user, 'allypost'); if (lim) return { error: lim };
         (al.news = al.news || []).push({ id: this.db.nextId++, title, text, by: user.login, at: now }); if (al.news.length > 100) al.news.shift();
         for (const id of al.members) if (id !== user.id) this.event(id, `Новость альянса [${al.tag}]: ${title}`);
         return done('Новость добавлена.');

@@ -14,6 +14,8 @@ const NOTIFY = [['attack', 'Нападение на замок', 'видит К�
   ['build', 'Стройка завершена', ''], ['mail', 'Новое письмо', '']];
 const NOTIFY_HOUR = 20;
 const LINK_MS = 15 * 60000, CODE_MS = 15 * 60000, CODE_TRIES = 5, REQ_PER_HOUR = 3, HOUR = 3600000;
+// неверных кодов «Забыли пароль?» на аккаунт за сутки: без этого перебор 6-значного кода (5 попыток × 3 кода в час) за год угадывал с шансом ~15%
+const FAILS_PER_DAY = 10;
 const sha = (t) => crypto.createHash('sha256').update(String(t)).digest('hex');
 const token = () => process.env.TG_AUTH_TOKEN || '';
 const enabled = () => !!token();
@@ -141,9 +143,11 @@ function install(Game) {
     const k = this.db.accts[String(login || '').trim().toLowerCase()], u = k && this.db.users[k], r = u && u.tgReset;
     const bad = { error: 'Неверный или устаревший код.' };
     if (!u || !r || r.exp < now) return bad;
+    u.tgResetFails = (u.tgResetFails || []).filter((t) => t > now - 24 * HOUR);
+    if (u.tgResetFails.length >= FAILS_PER_DAY) { delete u.tgReset; this.store.save(); return { error: 'Слишком много неверных кодов за сутки — попробуйте завтра.' }; }
     if (r.tries >= CODE_TRIES) { delete u.tgReset; this.store.save(); return { error: 'Слишком много неверных попыток — запросите новый код.' }; }
     const a = Buffer.from(sha(`${u.id}:${String(code || '').trim()}`)), b = Buffer.from(r.h);
-    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) { r.tries++; this.store.save(); return bad; }
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) { r.tries++; u.tgResetFails.push(now); this.store.save(); return bad; }
     const p = String(newPass || '').toLowerCase();
     if (p.length < 5) return { error: 'Новый пароль слишком короткий (минимум 5 символов).' };
     if (p.length > 40) return { error: 'Новый пароль слишком длинный.' };

@@ -27,6 +27,7 @@ function client() {
   const ws = new WebSocket(`ws://127.0.0.1:${WEB_PORT}/ws`);
   const inbox = []; const waiters = [];
   const opened = new Promise((r) => { ws.onopen = r; }); // подписываемся сразу, иначе событие можно пропустить
+  let isClosed = false; ws.onclose = () => { isClosed = true; };
   ws.onmessage = (e) => { const m = JSON.parse(e.data); if (process.env.DBG && (m.t === 'toast' || m.t === 'error')) console.log('  <', m.t, m.msg); inbox.push(m); flush(); };
   function flush() {
     for (const w of [...waiters]) {
@@ -42,6 +43,7 @@ function client() {
       setTimeout(() => reject(new Error(`timeout waiting ${t}`)), 5000);
     }),
     close: () => ws.close(),
+    closed: () => isClosed,
   };
 }
 
@@ -133,10 +135,15 @@ function client() {
       const html2 = await (await fetch(`http://127.0.0.1:${WEB_PORT}/`)).text();
       assert.ok(/id="authBtn" disabled/.test(html2), 'кнопка «Войти» до загрузки скрипта выключена'); console.log('✓ пароль не остаётся в адресе'); }
     assert.equal((await fetch(`http://127.0.0.1:${WEB_PORT}/admin.js`)).status, 404);
-    assert.equal((await fetch(`http://127.0.0.1:${WEB_PORT}/admin.js?l=admin&t=${'0'.repeat(48)}`)).status, 404);
-    assert.ok(/function adminHtml/.test(await (await fetch(`http://127.0.0.1:${WEB_PORT}/admin.js?l=admin&t=${admAuth.token}`)).text()));
+    assert.equal((await fetch(`http://127.0.0.1:${WEB_PORT}/admin.js?k=${'0'.repeat(32)}`)).status, 404);
+    assert.equal((await fetch(`http://127.0.0.1:${WEB_PORT}/admin.js?l=admin&t=${admAuth.token}`)).status, 404, 'токен входа в адресе больше не принимается');
+    assert.ok(admAuth.mkey && /function adminHtml/.test(await (await fetch(`http://127.0.0.1:${WEB_PORT}/admin.js?k=${admAuth.mkey}`)).text()));
+    { // обход по пути: //admin.js, /./admin.js, /x/../admin.js, /%2e/admin.js — раньше отдавали код панели без входа
+      const raw = (p) => new Promise((ok) => require('http').get({ host: '127.0.0.1', port: WEB_PORT, path: p }, (r) => { r.resume(); ok(r.statusCode); }).on('error', () => ok(0)));
+      for (const p of ['//admin.js', '/./admin.js', '/x/../admin.js', '/%2e/admin.js', '/%2E%2E/web/admin.js']) assert.equal(await raw(p), 404, `${p} без входа`);
+    }
     assert.ok(!/admin\.js/.test(html), 'admin.js не подключён в странице');
-    console.log('✓ admin.js — только админу по токену сессии');
+    console.log('✓ admin.js — только админу по ключу соединения (и в обход по пути — нет)');
     let as = await adm.expect('state');
     assert.ok(as.castle.mil.admin && as.castle.mil.general.level === 100 && as.castle.mil.units[200] >= 1000);
     assert.equal(as.castle.levels[0][24], 20);
@@ -402,6 +409,16 @@ function client() {
     const hr = await fetch(`http://127.0.0.1:${WEB_PORT}/`);
     assert.ok(/script-src 'self'/.test(hr.headers.get('content-security-policy')) && hr.headers.get('x-frame-options') === 'DENY');
     for (const bad of ['/../server/src/game.js', '/%2e%2e/server/package.json', '/..%2f..%2fetc/passwd']) assert.strictEqual((await fetch(`http://127.0.0.1:${WEB_PORT}${bad}`)).status, 404, bad);
+    { // смена пароля: подбор старого — не больше 5 ошибок за 10 минут; после смены другие устройства выходят сразу
+      const p0 = client(); await p0.open(); p0.send({ t: 'register', login: 'Pwtest', password: 'oldpw1', race: 0 }); await p0.expect('registered'); p0.close();
+      const p1 = client(); await p1.open(); p1.send({ t: 'login', login: 'Pwtest', password: 'oldpw1' }); await p1.expect('state');
+      const p2 = client(); await p2.open(); p2.send({ t: 'login', login: 'Pwtest', password: 'oldpw1' }); await p2.expect('state');
+      p1.send({ t: 'passwd', old: 'oldpw1', new: 'newpw1' }); await p1.expect('auth');
+      await new Promise((ok) => setTimeout(ok, 300)); assert.ok(p2.closed() && !p1.closed(), 'другое устройство вышло, своё осталось');
+      for (let i = 0; i < 5; i++) { p1.send({ t: 'passwd', old: `wrong${i}`, new: 'pass9x' }); await p1.expect('error', (m) => /Старый пароль/.test(m.msg)); }
+      p1.send({ t: 'passwd', old: 'newpw1', new: 'pass9x' }); await p1.expect('error', (m) => /Слишком много попыток/.test(m.msg)); p1.close();
+      console.log('✓ смена пароля: другие устройства выходят сразу, подбор старого пароля ограничен');
+    }
     console.log('✓ безопасность: токен вместо пароля, выход завершает сессию, __proto__ отвергается, CSP, файлы сервера не отдаются');
 
     // ---- премиум: покупка за монеты, звание VIP ----
@@ -491,9 +508,10 @@ function client() {
         const withPic = (await t2.expect('staff', (m) => m.view === 'topic' && m.data.msgs.some((x) => x.pic))).data.msgs.find((x) => x.pic);
         assert.ok(withPic.picExp - Date.now() > 23.9 * 3600000, 'фото живёт 24 часа');
         assert.strictEqual((await fetch(`http://127.0.0.1:${WEB_PORT}/staffpic/${withPic.pic}.png`)).status, 404, 'фото без сессии не отдаётся');
-        const tok = (await (async () => { t2.send({ t: 'login', login: tc.acct, password: np }); return (await t2.expect('auth')).token; })());
-        const pr = await fetch(`http://127.0.0.1:${WEB_PORT}/staffpic/${withPic.pic}.png?l=Tester1&t=${tok}`); assert.ok(pr.status === 200 && pr.headers.get('content-type') === 'image/png', 'участнику фото отдаётся');
-        const dl = await fetch(`http://127.0.0.1:${WEB_PORT}/staffpic/${withPic.pic}.png?l=Tester1&t=${tok}&dl=1`); assert.ok(dl.status === 200 && /^attachment; filename="mastera-\d{12}-[0-9a-f]{6}\.png"$/.test(dl.headers.get('content-disposition') || ''), 'кнопка «Скачать» — файлом');
+        const au2 = (await (async () => { t2.send({ t: 'login', login: tc.acct, password: np }); return t2.expect('auth'); })()), tok = au2.token, mk = au2.mkey;
+        assert.strictEqual((await fetch(`http://127.0.0.1:${WEB_PORT}/staffpic/${withPic.pic}.png?l=Tester1&t=${tok}`)).status, 404, 'токен входа в адресе не принимается');
+        const pr = await fetch(`http://127.0.0.1:${WEB_PORT}/staffpic/${withPic.pic}.png?k=${mk}`); assert.ok(pr.status === 200 && pr.headers.get('content-type') === 'image/png', 'участнику фото отдаётся');
+        const dl = await fetch(`http://127.0.0.1:${WEB_PORT}/staffpic/${withPic.pic}.png?k=${mk}&dl=1`); assert.ok(dl.status === 200 && /^attachment; filename="mastera-\d{12}-[0-9a-f]{6}\.png"$/.test(dl.headers.get('content-disposition') || ''), 'кнопка «Скачать» — файлом');
         op2.send({ t: 'staff', op: 'view' }); await op2.expect('error', (m) => /только для мастеров/.test(m.msg));
         adm.send({ t: 'staff', op: 'topicdel', topic: tp.topic.id }); await adm.expect('staff', (m) => m.view === 'list' && !m.data.topics.length);
         console.log('✓ МАСТЕРА: темы, сообщения вживую, непрочитанное, опрос, фото на 24 часа только участникам; обычный игрок не видит');

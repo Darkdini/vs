@@ -10,7 +10,31 @@ const crypto = require('crypto');
 const LIM = { regHour: 3, regDay: 10, regMinuteAll: 30, failWindow: 600000, failMax: 3, failLoginMax: 10, lockMs: 180000 };
 const locks = new Map(); // ключ → время, до которого вход закрыт
 const hits = new Map(); // ключ → массив времени событий
-function hit(key, now = Date.now()) { const a = (hits.get(key) || []).filter((t) => t > now - 86400000); a.push(now); hits.set(key, a); }
+let hitN = 0;
+function hit(key, now = Date.now()) {
+  const a = (hits.get(key) || []).filter((t) => t > now - 86400000); a.push(now); hits.set(key, a);
+  if (++hitN % 2000 === 0) for (const [k, v] of hits) if (!v.some((t) => t > now - 86400000)) hits.delete(k); // старые адреса не копятся в памяти
+}
+// частота действий игрока (письма, чат, пересылка отчётов, рассылка и форум альянса, баг-репорты):
+// без этого один игрок мог слать по 25 писем в секунду — база росла на сотни мегабайт в час, получатель тонул в письмах.
+// limits — [[сколько, за сколько мс], ...]; админ не ограничен
+const acts = new Map();
+function tooOften(user, key, limits, now = Date.now()) {
+  if (!user || user.admin) return null;
+  const k = `${key}:${user.id}`, span = Math.max(...limits.map((l) => l[1])), a = (acts.get(k) || []).filter((t) => t > now - span);
+  for (const [n, ms] of limits) if (a.filter((t) => t > now - ms).length >= n) { acts.set(k, a); return ms >= 3600000 ? 'Лимит на сегодня исчерпан — попробуйте позже.' : 'Не так часто — подождите немного.'; }
+  a.push(now); acts.set(k, a);
+  if (acts.size > 20000) for (const [kk, v] of acts) if (!v.some((t) => t > now - 86400000)) acts.delete(kk);
+  return null;
+}
+const RATE = { // [сколько, за сколько мс]
+  mail: [[1, 2000], [40, 3600000], [300, 86400000]],
+  chat: [[1, 1500], [15, 60000]],
+  bug: [[1, 20000], [20, 86400000]],
+  repfwd: [[1, 3000], [50, 86400000]],
+  allymail: [[1, 60000], [20, 86400000]],
+  allypost: [[1, 5000], [200, 86400000]],
+};
 function count(key, ms, now = Date.now()) { return (hits.get(key) || []).filter((t) => t > now - ms).length; }
 
 function captcha() {
@@ -112,6 +136,7 @@ function install(Game) {
       ...(user.devs || []).filter((x) => !known.has(x.dev)).map((x) => ({ dev: x.dev, last: x.at, old: true, banned: !!(this.db.devBans && this.db.devBans[x.dev]), sameDev: byDev(x.dev), sameFp: [] }))];
     return { devices, ips: (user.ips || []).slice().reverse(), regIp: user.regIp || '', sameIp: byIp.slice(0, 50) };
   };
+  P.tooOften = function tooOftenP(user, kind) { return tooOften(user, kind, RATE[kind]); };
   P.devBanned = function devBanned(dev) { dev = cleanDev(dev); return !!(dev && this.db.devBans && this.db.devBans[dev]); };
   // токены сессий: в базе хранится только SHA-256 токена, живёт 30 дней (каждый вход продлевает до 90), у игрока не больше 5 устройств
   const sha = (t) => crypto.createHash('sha256').update(String(t)).digest('hex');
@@ -168,4 +193,4 @@ function install(Game) {
   };
 }
 
-module.exports = { install, captcha, LIM };
+module.exports = { install, captcha, LIM, tooOften, RATE };

@@ -197,12 +197,12 @@ window.addEventListener('online', wake);
 window.addEventListener('pageshow', wake);
 setInterval(() => { if (!document.hidden) wake(); }, 30000); // раз в 30 с — держать соединение живым
 
-// админ-панель грузится отдельно и только для админа (сервер отдаёт admin.js лишь по токену админа)
+// админ-панель грузится отдельно и только для админа (сервер отдаёт admin.js лишь по ключу соединения админа, S.mkey)
 function loadAdmin() {
-  if (S.admLoaded || !S.creds || !S.creds.token) return;
+  if (S.admLoaded || !S.mkey) return;
   S.admLoaded = true;
   const s = document.createElement('script');
-  s.src = `admin.js?l=${encodeURIComponent(S.creds.login)}&t=${encodeURIComponent(S.creds.token)}`;
+  s.src = `admin.js?k=${S.mkey}`;
   s.onerror = () => { S.admLoaded = false; };
   document.body.appendChild(s);
 }
@@ -241,6 +241,7 @@ function onMsg(m) {
       // браузер хранит только токен сессии, не пароль
       // show — то, что игрок вводил в поле «Логин» (у админа это секретный логин, а в игре он «admin»)
       S.creds = { login: m.login, token: m.token, show: (S.pendingCreds && S.pendingCreds.login) || (S.creds && S.creds.show) || m.login }; S.pendingCreds = null;
+      S.mkey = m.mkey; // ключ для адресов файлов (админ-панель, фото «МАСТЕРОВ») — только на время соединения, токен входа в адрес не попадает
       store.set('tw.creds', S.remember ? S.creds : null);
       S.auto = false; S.entered = true; savedLoginUi();
       setTimeout(() => { if (typeof musicOn === 'function') musicOn(); }, 0);

@@ -2003,7 +2003,9 @@ function install(Game, helpers) {
     const to = Object.prototype.hasOwnProperty.call(this.db.users, String(login || '').trim()) ? this.db.users[String(login || '').trim()] : null;
     if (!to) return { error: 'Игрок не найден.' };
     if (to.id === user.id) return { error: 'Нельзя переслать самому себе.' };
+    const lim = this.tooOften(user, 'repfwd'); if (lim) return { error: lim }; // не чаще раза в 3 с и 50 в сутки
     this.db.reports.push({ ...JSON.parse(JSON.stringify(r)), id: this.db.nextId++, owner: to.id, at: Date.now(), read: false, from: user.login, title: `${r.title} (от ${user.login})` });
+    if (this.db.reports.length > 2000) this.db.reports.splice(0, this.db.reports.length - 2000); // как у обычных отчётов: пересылкой база больше не растёт без конца
     this.event(to.id, `${user.login} переслал вам отчёт`);
     this.store.save();
     return { msg: `Отчёт переслан игроку ${to.login}.` };

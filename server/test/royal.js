@@ -562,8 +562,9 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const u = g.register({ login: 'colorchat', password: '12345', race: 0 }).user; u.premium = Date.now() + 86400000;
   assert.ok(g.setMsgColor ? g.setMsgColor(u, 2).ok : (u.msgColor = 2));
   const m = g.chatPost(u, 'привет').msg; assert.strictEqual(m.color, require('../src/premium').MSG_COLORS[2], 'цвет премиума в чате');
-  u.premium = 0; assert.strictEqual(g.chatPost(u, 'ещё').msg.color, '', 'без премиума — обычный');
-  console.log('✓ Премиум: цвет сообщений в общем чате');
+  const u2 = g.register({ login: 'colorchat2', password: '12345', race: 0 }).user; assert.strictEqual(g.chatPost(u2, 'ещё').msg.color, '', 'без премиума — обычный');
+  assert.ok(/Не так часто/.test(g.chatPost(u, 'и ещё').error || ''), 'чат — не чаще раза в 1,5 с');
+  console.log('✓ Премиум: цвет сообщений в общем чате; чат не чаще раза в 1,5 с');
 }
 { // стена без клетки: старый Забор с клетки переносится, развивается из Ратуши, на сетке не строится
   const u = g.register({ login: 'wallmove', password: '12345', race: 0 }).user, c = g.castleOf(u);
@@ -673,6 +674,11 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(/попыток/.test(g.tgResetConfirm('tgplayer', c2, 'xxxxx1').error || ''), 'после 5 ошибок — новый код');
   // не чаще 3 кодов в час на аккаунт
   const n0 = said.length; for (let i = 0; i < 3; i++) g.tgResetRequest('tgplayer', `9.9.8.${i}`); assert.strictEqual(said.length, n0 + 1, 'лимит 3 кода в час (2 уже были)');
+  // неверных кодов — не больше 10 за сутки на аккаунт (иначе перебор кода за год угадывал с шансом ~15%)
+  tu.tgSent = []; g.tgResetRequest('tgplayer', '9.9.7.1'); const c3 = (/(\d{6})/.exec(said.pop().text) || [])[1];
+  while ((tu.tgResetFails || []).length < 10) g.tgResetConfirm('tgplayer', c3 === '222222' ? '333333' : '222222', 'xxxxx1');
+  assert.ok(/за сутки/.test(g.tgResetConfirm('tgplayer', c3, 'xxxxx1').error || '') && g.login('tgplayer', 'newpass1'), '10 неверных кодов за сутки — даже верный не принимается');
+  tu.tgResetFails = [];
   // отвязка — только кодом из Telegram
   assert.ok(g.tgUnlink(tu, '123456').error && tu.tg, 'без запроса кода — не отвязать');
   tu.tgSent = []; assert.ok(g.tgUnlinkStart(tu).msg); const uc = (/(\d{6})/.exec(said.pop().text) || [])[1];

@@ -15,7 +15,10 @@ const G = require('./game');
 const ARMY = require('./army');
 
 const WEB_ROOT = path.join(__dirname, '..', '..', 'web');
+const ADMIN_FILE = path.join(WEB_ROOT, 'admin.js');
 const WS_MAX = 512 * 1024; // аватар 256×256 (сжатые точки) — до ~400 КБ
+const WS_MAX_ANON = 16 * 1024; // до входа — только вход, регистрация, капча: большие сообщения не нужны (раньше и до входа принималось по 512 КБ)
+const WS_ANON_ALL = Number(process.env.WS_ANON_ALL) || 3000; // соединений без входа на весь сервер (защита памяти от наплыва с разных адресов)
 const MIME = { '.webmanifest': 'application/manifest+json', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.apk': 'application/vnd.android.package-archive', '.ogg': 'audio/ogg', '.mp3': 'audio/mpeg' };
 
 // ---------- WebSocket ----------
@@ -35,11 +38,11 @@ function wsFrame(opcode, payload) {
 }
 
 class WsReader {
-  constructor() { this.buf = Buffer.alloc(0); this.parts = []; }
+  constructor() { this.buf = Buffer.alloc(0); this.parts = []; this.partsLen = 0; this.max = WS_MAX_ANON; }
   push(chunk) {
     this.buf = Buffer.concat([this.buf, chunk]);
-    // защита от переполнения памяти: сообщение больше WS_MAX (аватар ~49 КБ) — соединение рвётся
-    if (this.buf.length > WS_MAX || this.parts.reduce((s, p) => s + p.length, 0) > WS_MAX) throw new Error('frame too big');
+    // защита от переполнения памяти: кадр или сообщение из частей больше max (до входа 16 КБ, после — 512 КБ для аватара) — соединение рвётся;
+    // длина кадра проверяется по заголовку ниже, поэтому в буфере не копится больше одного недочитанного кадра
     const out = [];
     for (;;) {
       if (this.buf.length < 2) break;
@@ -47,17 +50,18 @@ class WsReader {
       let len = this.buf[1] & 0x7f, off = 2;
       if (len === 126) { if (this.buf.length < 4) break; len = this.buf.readUInt16BE(2); off = 4; }
       else if (len === 127) { if (this.buf.length < 10) break; len = Number(this.buf.readBigUInt64BE(2)); off = 10; }
-      const need = off + (masked ? 4 : 0) + len;
+      // кадр от браузера всегда замаскирован (RFC 6455); управляющий кадр (close, ping, pong) — не длиннее 125 байт
+      if (!masked || (opcode >= 8 && len > 125) || len > this.max) throw new Error('bad frame');
+      const need = off + 4 + len;
       if (this.buf.length < need) break;
-      let data = this.buf.subarray(off + (masked ? 4 : 0), need);
-      if (masked) {
-        const mask = this.buf.subarray(off, off + 4);
-        data = Buffer.from(data.map((b, i) => b ^ mask[i & 3]));
-      }
+      const mask = this.buf.subarray(off, off + 4), src = this.buf.subarray(off + 4, need), data = Buffer.allocUnsafe(len);
+      for (let i = 0; i < len; i++) data[i] = src[i] ^ mask[i & 3]; // простым циклом: прежний data.map вызывал функцию на каждый байт
       this.buf = this.buf.subarray(need);
       if (opcode === 0 || opcode === 1) {
-        this.parts.push(data);
-        if (fin) { out.push({ opcode: 1, data: Buffer.concat(this.parts) }); this.parts = []; }
+        this.parts.push(data); this.partsLen += len;
+        // сообщение из частей: в сумме не больше max и не больше 4096 частей (иначе тысячи кадров по 1 байту съедали бы память)
+        if (this.partsLen > this.max || this.parts.length > 4096) throw new Error('frame too big');
+        if (fin) { out.push({ opcode: 1, data: Buffer.concat(this.parts) }); this.parts = []; this.partsLen = 0; }
       } else out.push({ opcode, data });
     }
     return out;
@@ -187,6 +191,11 @@ function staffNotify(g, topic) {
   }
 }
 const RATE_OFF = process.env.RATE_OFF === '1'; // только для автотестов
+const PW_FAILS = new Map(); // игрок → время неверных попыток старого пароля при смене (passwd)
+// ключ для адресов файлов (код админ-панели, фото «МАСТЕРОВ»): живёт, только пока открыта игра (соединение), и не даёт войти.
+// Раньше в адрес шёл токен «Запомнить меня» (90 дней) — он оставался в загрузках телефона и в журналах
+const MEDIA = new Map(); // ключ → сессия
+const mediaUser = (q) => { const s = MEDIA.get(String(q.get('k') || '')); return s && s.user && !s.socket.destroyed ? s.user : null; };
 const PROTO_NAMES = new Set([...Object.getOwnPropertyNames(Object.prototype), 'prototype']);
 function hasEvil(v, depth) {
   if (depth > 8) return true;
@@ -249,14 +258,16 @@ const API = {
     this.user = u; u.online = true; u.lastSeen = Date.now(); this.game.markActive(u);
     this.log(`web login ${u.login}`);
     this.token = m.token ? String(m.token) : this.game.issueToken(u);
-    this.send({ t: 'auth', login: u.login, token: this.token });
+    if (this.mkey) MEDIA.delete(this.mkey);
+    this.mkey = crypto.randomBytes(16).toString('hex'); MEDIA.set(this.mkey, this);
+    this.send({ t: 'auth', login: u.login, token: this.token, mkey: this.mkey });
     if (u.admin && !m.token && String(m.password || '').toLowerCase() === 'admin') this.toast('⚠ У админа стандартный пароль «admin» — смените его: Админ-панель → Цель → Сменить пароль.');
     this.pushState();
     // советник встречает при входе: сколько игроков, что случилось за время отсутствия.
     // Сервер шлёт доклад при каждом входе; клиент показывает его один раз за открытие игры (после обрыва связи — не повторяет)
     this.send({ t: 'welcome', ...this.game.welcomeInfo(u, prevSeen), players: onlineCount() }); // сколько сейчас в игре — как «Игроки (N)» в чате
   },
-  logout() { this.game.dropToken(this.user, this.token); this.user.online = false; this.user = null; this.send({ t: 'loggedout' }); },
+  logout() { this.game.dropToken(this.user, this.token); MEDIA.delete(this.mkey); this.mkey = null; this.user.online = false; this.user = null; this.send({ t: 'loggedout' }); },
   sync() { this.pushState(); },
   ping() { this.send({ t: 'pong' }); }, // проверка живости соединения (клиент после сворачивания приложения)
   switch(m) { const r = this.game.switchCastle(this.user, m.id); if (r.error) return this.error(r.error); if (!m.quiet) this.toast(`Замок: ${this.castle.name}`); this.pushState(); }, // quiet — возврат в последний замок при входе
@@ -370,9 +381,14 @@ const API = {
     this.send({ t: 'profile', acct: !!profile.acct, refresh: !!m.refresh, profile });
   },
   passwd(m) {
-    const r = this.game.changePassword(this.user, m.old, m.new, this.ip, this.dev); if (r.error) return this.error(r.error);
+    const t = Date.now(), u = this.user; PW_FAILS.set(u.id, (PW_FAILS.get(u.id) || []).filter((x) => x > t - 600000));
+    if (PW_FAILS.get(u.id).length >= 5) return this.error('Слишком много попыток со старым паролем. Попробуйте через 10 минут.');
+    const r = this.game.changePassword(u, m.old, m.new, this.ip, this.dev);
+    if (r.error) { if (/Старый пароль/.test(r.error)) { PW_FAILS.get(u.id).push(t); this.game.secEvent(this.ip, 'login', `смена пароля ${u.login}: неверный старый`); } return this.error(r.error); }
+    PW_FAILS.delete(u.id);
+    for (const s of WebSession.all || []) if (s !== this && s.user === u) s.socket.destroy(); // пароль сменили — другие устройства выходят сразу, а не при следующем входе
     this.token = this.game.issueToken(this.user);
-    this.send({ t: 'auth', login: this.user.login, token: this.token }); // новый токен «Запомнить меня»
+    this.send({ t: 'auth', login: this.user.login, token: this.token, mkey: this.mkey }); // новый токен «Запомнить меня»
     this.toast('Пароль изменён. На других устройствах нужно войти заново.');
   },
   // задания: окно «Задания» и награды
@@ -621,6 +637,7 @@ const API = {
   sendmail(m) {
     if (!String(m.text || '').trim()) return this.error('Пустое сообщение.');
     const tu = this.game.db.users[String(m.to || '').trim()], deny = tu && this.game.canReach(this.user, tu, 'msg'); if (deny) return this.error(deny);
+    if (tu) { const lim = this.game.tooOften(this.user, 'mail'); if (lim) return this.error(lim); } // не чаще раза в 2 с, 40 в час, 300 в сутки
     const res = this.game.sendMail(this.user, m.to, m.subject, m.text);
     if (res.error) return this.error(res.error);
     if (m.dialog) API.dialog.call(this, { id: res.to.id, keep: 1 }); else this.toast('Сообщение отправлено.');
@@ -684,9 +701,11 @@ const API = {
   },
   bug(m) {
     const db = this.game.db; db.bugs = db.bugs || [];
-    db.bugs.push({ from: this.user.login, text: String(m.text || ''), at: Date.now(), via: 'web' });
+    const lim = this.game.tooOften(this.user, 'bug'); if (lim) return this.error(lim);
+    db.bugs.push({ from: this.user.login, text: String(m.text || '').slice(0, 2000), at: Date.now(), via: 'web' });
+    if (db.bugs.length > 500) db.bugs.splice(0, db.bugs.length - 500);
     this.game.store.save();
-    this.log(`BUG REPORT (web): ${m.text}`);
+    this.log(`BUG REPORT (web): ${String(m.text || '').slice(0, 300)}`);
     this.toast('Спасибо! Сообщение сохранено.');
   },
 };
@@ -783,7 +802,7 @@ function startWeb(game, sessions, { port, host, log }) {
     }
     const sp = /^\/staffpic\/([0-9a-f]{32})\.png$/.exec(url); // фото «МАСТЕРОВ» (staff.js): только участнику раздела по его сессии, 24 часа
     if (sp) {
-      const q = new URLSearchParams(req.url.split('?')[1] || ''), su = game.tokenLogin(q.get('l'), q.get('t')), body = su && game.staffPicGet(su, sp[1]);
+      const q = new URLSearchParams(req.url.split('?')[1] || ''), su = mediaUser(q), body = su && game.staffPicGet(su, sp[1]);
       if (!body) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('no pic'); }
       const head = { 'Content-Type': 'image/png', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'", 'Cache-Control': 'private, max-age=3600', 'Referrer-Policy': 'no-referrer' };
       if (q.get('dl')) head['Content-Disposition'] = `attachment; filename="mastera-${new Date(Date.now() + 3 * 3600000).toISOString().slice(0, 16).replace(/[-:T]/g, '')}-${sp[1].slice(0, 6)}.png"`; // кнопка «Скачать»: сохранить файлом
@@ -802,9 +821,11 @@ function startWeb(game, sessions, { port, host, log }) {
       res.writeHead(200, { 'Content-Type': 'image/png', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'", 'Cache-Control': 'public, max-age=86400' });
       return res.end(body);
     }
-    // админ-панель (admin.js) получает только админ с действующей сессией: остальным её код не виден даже в F12
-    if (url === '/admin.js') {
-      const q = new URLSearchParams(req.url.split('?')[1] || ''), au = game.tokenLogin(q.get('l'), q.get('t'));
+    // админ-панель (admin.js) получает только админ с действующей сессией: остальным её код не виден даже в F12.
+    // Сверяется настоящий путь файла, а не текст адреса: раньше //admin.js, /./admin.js, /x/../admin.js отдавали её кому угодно
+    const file = path.normalize(path.join(WEB_ROOT, url === '/' ? 'index.html' : url));
+    if (file === ADMIN_FILE) {
+      const q = new URLSearchParams(req.url.split('?')[1] || ''), au = mediaUser(q);
       if (!au || !au.admin) { game.secEvent(ip, 'admin', 'запрос кода админ-панели без входа'); res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('not found'); }
       const f = staticFile(path.join(WEB_ROOT, 'admin.js'));
       if (!f) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('not found'); }
@@ -815,7 +836,6 @@ function startWeb(game, sessions, { port, host, log }) {
       const cf = catalogFile(), h = new URLSearchParams(req.url.split('?')[1] || '').get('h');
       return sendText(req, res, cf, 'application/json; charset=utf-8', h === cf.hash ? 'public, max-age=31536000, immutable' : 'no-cache');
     }
-    const file = path.normalize(path.join(WEB_ROOT, url === '/' ? 'index.html' : url));
     const f = (file === WEB_ROOT || file.startsWith(WEB_ROOT + path.sep)) && staticFile(file);
     if (!f) { if (game.secProbe(req.url)) game.secEvent(ip, 'probe', String(req.url).slice(0, 80)); res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('not found'); }
     // кэш: адрес с отпечатком (?h=, его подставляет sw.js) — навсегда; без отпечатка — браузер сверяет по ETag (304 без тела),
@@ -840,8 +860,9 @@ function startWeb(game, sessions, { port, host, log }) {
     if (game.ipBanned(wip)) return socket.destroy();
     if (origin) { let oh = ''; try { oh = new URL(origin).host; } catch { /* мусор */ } if (oh !== req.headers.host) { game.secEvent(wip, 'origin', String(origin).slice(0, 60)); return socket.destroy(); } }
     const ip = clientIp(req, socket);
-    let same = 0; for (const s of sessions) if (s.ip === ip) same++;
+    let same = 0, anon = 0; for (const s of sessions) { if (s.ip === ip) same++; if (!s.user) anon++; }
     if (same >= WS_PER_IP) { log(`слишком много соединений с ${ip}`); game.secEvent(ip, 'conns', `${same}+ соединений`); return socket.destroy(); }
+    if (anon >= WS_ANON_ALL) { game.secEvent(ip, 'conns', `${anon} соединений без входа на сервере`); return socket.destroy(); }
     wsAccept(req, socket);
     const tag = `web ${socket.remoteAddress}:${socket.remotePort}`;
     const slog = (m) => log(`${tag} ${m}`);
@@ -852,10 +873,12 @@ function startWeb(game, sessions, { port, host, log }) {
     const reader = new WsReader();
     socket.on('data', (chunk) => {
       let frames;
-      try { frames = reader.push(chunk); } catch { slog('слишком большое сообщение — соединение закрыто'); return socket.destroy(); }
+      reader.max = session.user ? WS_MAX : WS_MAX_ANON;
+      try { frames = reader.push(chunk); } catch { slog('слишком большое или неверное сообщение — соединение закрыто'); return socket.destroy(); }
       for (const f of frames) {
         if (f.opcode === 8) { socket.end(wsFrame(8, Buffer.alloc(0))); return; }
-        if (f.opcode === 9) { socket.write(wsFrame(10, f.data)); continue; }
+        // ping: не больше 10 в секунду, иначе соединение рвётся (раньше ответ шёл на каждый, без ограничений)
+        if (f.opcode === 9) { const t = Date.now(); session.pings = (session.pings || []).filter((x) => x > t - 1000); session.pings.push(t); if (session.pings.length > 10) return socket.destroy(); socket.write(wsFrame(10, f.data)); continue; }
         if (f.opcode !== 1) continue;
         let msg;
         try { msg = JSON.parse(f.data.toString('utf8')); } catch (e) { session.error('bad json'); continue; }
@@ -863,7 +886,7 @@ function startWeb(game, sessions, { port, host, log }) {
       }
     });
     socket.on('error', () => {});
-    socket.on('close', () => { sessions.delete(session); if (session.user) { session.user.online = [...sessions].some((s) => s.user === session.user); session.user.lastSeen = Date.now(); } });
+    socket.on('close', () => { sessions.delete(session); if (session.mkey) MEDIA.delete(session.mkey); if (session.user) { session.user.online = [...sessions].some((s) => s.user === session.user); session.user.lastSeen = Date.now(); } });
   });
 
   server.on('error', (e) => {

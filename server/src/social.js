@@ -292,6 +292,7 @@ function install(Game) {
     if (user.chatBan > Date.now()) return { error: `Вам запрещено писать в чат ещё ${Math.ceil((user.chatBan - Date.now()) / 60000)} мин.` };
     text = String(text || '').trim().slice(0, 300);
     if (!text) return { error: 'Пустое сообщение.' };
+    const lim = this.tooOften(user, 'chat'); if (lim) return { error: lim }; // не чаще раза в 1,5 с и 15 в минуту
     this.db.chat = this.db.chat || [];
     const m = { id: this.db.nextId++, from: user.login, fromId: user.id, text, at: Date.now(), rep: user.reputation ?? START_REP, role: user.admin ? 'admin' : user.smod ? 'smod' : user.mod ? 'mod' : '', color: this.msgColor ? this.msgColor(user) : '' }; // цвет текста — премиум
     this.db.chat.push(m);

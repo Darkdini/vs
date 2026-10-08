@@ -6,7 +6,7 @@ S.sf = { list: null, topic: null, compose: null, poll: null, picBusy: null };
 function openStaff() { S.sf = { list: null, topic: null, compose: null, poll: null, picBusy: null }; send({ t: 'staff', op: 'view' }); openSheet(staffWin); }
 const sfOpen = () => S.sheets.length && S.sheets[S.sheets.length - 1] === staffWin;
 const sfTime = (t) => { const d = new Date(t), n = new Date(); return d.toDateString() === n.toDateString() ? d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : fmtDate(t); };
-const sfPicUrl = (id) => `staffpic/${id}.png?l=${encodeURIComponent((S.creds && S.creds.login) || '')}&t=${encodeURIComponent((S.creds && S.creds.token) || '')}`;
+const sfPicUrl = (id) => `staffpic/${id}.png?k=${S.mkey || ''}`; // ключ соединения, не токен входа (server/src/web.js, MEDIA)
 // «⬇ Скачать»: сервер отдаёт фото файлом (dl=1); в приложении для Android файл сохраняет само приложение в «Загрузки»
 const sfDl = (id) => `<a class="btn small sfdl" href="${sfPicUrl(id)}&dl=1" download="mastera-${id.slice(0, 6)}.png">⬇ Скачать</a>`;
 const sfLeft = (exp) => { const m = Math.max(1, Math.ceil((exp - now()) / 60000)), h = Math.floor(m / 60); return h ? `${h} ч ${m % 60} мин` : `${m} мин`; };

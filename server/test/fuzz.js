@@ -36,11 +36,21 @@ const EVIL = [-1, -1e9, 1e300, 0.5, '-5', '1e400', 'Infinity', 'NaN', null, true
     research: { sci: 'eco' }, religion: { id: 'war' }, artifact: { id: 1, on: true }, alliance: { op: 'request', id: 1, login: 'victim' }, report: { id: 1 }, admin: { op: 'gold', login: 'hacker', n: 1000 },
     ally: { op: 'gold', n: 5, to: 'victim', res: { wood: 1 }, login: 'victim', rights: {}, text: 't', title: 't', topic: 1, idx: 0, act: 'delete', name: 'n', tag: 't', status: 'war', desc: 'd' },
     avatar: { op: 'set', px: 'x' }, bug: { text: 'b' },
+    // новые разделы: Защита, Лавка, Биржа замков, Орёл-решка, сундуки, ЗАГС, Кладовая, задания, бунт, генерал за золото, походы
+    shield: { op: 'buy', kind: 'castle', days: 1 }, shop: { op: 'chest', id: 'chest_s', key: 'x', mode: 'hour', x: 500, y: 500 },
+    marketsell: { id: 1, price: 100 }, marketcancel: { id: 1 }, marketbuy: { id: 1 },
+    coinbet: { res: 'wood', amount: 100, side: 'eagle', to: 'victim' }, coinaccept: { id: 1 }, coincancel: { id: 1 },
+    chestopen: { pick: 0, golden: false }, stash: { op: 'take', kind: 'res', key: 'wood', n: 1 }, qclaim: { kind: 'daily', id: 'd_train' },
+    zpropose: { to: 'victim', text: 't', role: 'king' }, zanswer: { id: 1, op: 'yes' }, zvote: { id: 1, coins: 1 }, zgift: { id: 1, gift: 'rose' },
+    calm: { pct: 1, cid: 0 }, festival: { id: 1 }, magic: { unit: 200, kind: 'm' }, exped: { kind: 'near', n: 1 }, hero: { op: 'equip', id: 1, item: 1, slot: 'weapon' },
+    chatvote: { id: 1, v: 1 }, avalike: { id: 2 }, repfwd: { id: 1, to: 'victim' }, repdel: { ids: [1] }, privacy: { op: 'add', who: 'victim', id: 1 }, bday: { day: 1, month: 1 },
+    pic: { op: 'begin', to: 'victim', w: 100, h: 100, n: 1, i: 0, data: 'eJw=' }, kingdom: {}, moves: {}, boss: {}, chests: {}, coin: {}, market: {},
   };
   const allyOps = ['gold', 'store', 'transfer', 'rank', 'diplo', 'mail', 'news', 'post', 'postdel', 'topic', 'topicop', 'ad', 'charter', 'desc', 'rights', 'kick', 'leave', 'give'];
   const squadOps = ['create', 'move', 'rename', 'delete', 'split', 'merge', 'back', 'recall'];
   const genOps = ['dist', 'reset', 'rename', 'revive', 'kill'];
-  const missions = ['attack', 'raid', 'scout', 'trade', 'expedition', 'reinforce', '__proto__', 'constructor'];
+  const shopOps = ['speed', 'chest', 'frame', 'frameuse', 'move'];
+  const missions = ['attack', 'raid', 'scout', 'trade', 'expedition', 'reinforce', 'settle', '__proto__', 'constructor'];
   const msgs = [];
   for (const [t, b] of Object.entries(base)) {
     msgs.push({ t, ...b });
@@ -49,6 +59,9 @@ const EVIL = [-1, -1e9, 1e300, 0.5, '-5', '1e400', 'Infinity', 'NaN', null, true
   for (const op of allyOps) for (const e of EVIL) msgs.push({ t: 'ally', ...base.ally, op, n: e }, { t: 'ally', ...base.ally, op, res: { wood: e, stone: e } });
   for (const op of squadOps) for (const e of EVIL) msgs.push({ t: 'squad', ...base.squad, op, units: { 200: e, __proto__: e } });
   for (const op of genOps) for (const e of EVIL) msgs.push({ t: 'general', op, pts: { atk: e, def: e } });
+  for (const e of EVIL) msgs.push({ t: 'general', op: 'revive', idx: e, gold: true }, { t: 'general', op: 'revive', idx: 0, gold: e });
+  for (const op of shopOps) for (const e of EVIL) msgs.push({ t: 'shop', op, id: e, key: e, mode: e, x: e, y: e });
+  for (const e of EVIL) msgs.push({ t: 'shield', op: 'buy', kind: e, days: e }, { t: 'coinbet', res: 'wood', amount: e, side: 'tails', to: '' }, { t: 'calm', pct: e }, { t: 'marketsell', id: e, price: e });
   for (const m of missions) for (const e of EVIL) msgs.push({ t: 'send', ...base.send, mission: m, units: { 200: e, 233: e }, res: { wood: e, food: e } }, { t: 'send', ...base.send, mission: m, from: e });
   for (const e of EVIL) msgs.push({ t: 'exchange', from: 'wood', to: 'stone', amount: e }, { t: e }, { t: 'train', unit: 200, count: e }, { t: 'rep', id: 1, coins: e }, { t: 'gift', to: 1, gift: e });
   const bad = [];
