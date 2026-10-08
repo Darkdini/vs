@@ -474,6 +474,29 @@ function client() {
       cl.send({ t: 'login', login: 'Webby', password: 'pass1' }); await cl.expect('auth');
       adm.send({ t: 'admin', op: 'testmode', on: false }); assert.ok(!(await adm.expect('admininfo', (m) => m.op === 'testmode' && !m.data.on)).data.on);
       const op2 = client(); await op2.open(); op2.send({ t: 'login', login: 'Second', password: 'pass2' }); await op2.expect('auth');
+      { // «МАСТЕРА»: темы, сообщения, непрочитанное, опрос, фото на 24 часа; чужим — нельзя
+        adm.send({ t: 'staff', op: 'newtopic', title: 'Ошибки карты', text: 'Пишите сюда' }); const tp = (await adm.expect('staff', (m) => m.view === 'topic')).data;
+        assert.ok(tp.topic.title === 'Ошибки карты' && tp.msgs.length === 1);
+        await t2.expect('staffnew', (m) => m.n === 1);
+        t2.send({ t: 'staff', op: 'view' }); const lv = (await t2.expect('staff', (m) => m.view === 'list')).data; assert.ok(lv.topics[0].unread === 1, 'тестер видит непрочитанное');
+        t2.send({ t: 'staff', op: 'open', topic: tp.topic.id }); await t2.expect('staff', (m) => m.view === 'topic');
+        t2.send({ t: 'staff', op: 'post', topic: tp.topic.id, text: 'Нашёл баг' }); await adm.expect('staff', (m) => m.view === 'topic' && m.live && m.data.msgs.some((x) => x.text === 'Нашёл баг'));
+        adm.send({ t: 'staff', op: 'poll', topic: tp.topic.id, q: 'Чинить сегодня?', opts: ['Да', 'Нет'] });
+        const pm = (await t2.expect('staff', (m) => m.view === 'topic' && m.data.msgs.some((x) => x.poll))).data.msgs.find((x) => x.poll);
+        t2.send({ t: 'staff', op: 'vote', msg: pm.id, opt: 0 }); const vd = (await t2.expect('staff', (m) => m.view === 'topic' && m.data.msgs.some((x) => x.poll && x.poll.total === 1))).data.msgs.find((x) => x.poll);
+        assert.ok(vd.poll.opts[0].mine && vd.poll.opts[0].who[0] === 'Tester1', 'голос учтён, видно кто');
+        const zlib = require('zlib'), z = zlib.deflateSync(Buffer.alloc(16 * 16 * 3, 200));
+        t2.send({ t: 'staffpic', op: 'begin', topic: tp.topic.id, w: 16, h: 16, n: 1, text: 'скрин' }); await t2.expect('staffpicok', (m) => m.i === 0);
+        t2.send({ t: 'staffpic', op: 'part', i: 0, data: z.toString('base64') }); await t2.expect('staffpicok', (m) => m.done);
+        const withPic = (await t2.expect('staff', (m) => m.view === 'topic' && m.data.msgs.some((x) => x.pic))).data.msgs.find((x) => x.pic);
+        assert.ok(withPic.picExp - Date.now() > 23.9 * 3600000, 'фото живёт 24 часа');
+        assert.strictEqual((await fetch(`http://127.0.0.1:${WEB_PORT}/staffpic/${withPic.pic}.png`)).status, 404, 'фото без сессии не отдаётся');
+        const tok = (await (async () => { t2.send({ t: 'login', login: tc.acct, password: np }); return (await t2.expect('auth')).token; })());
+        const pr = await fetch(`http://127.0.0.1:${WEB_PORT}/staffpic/${withPic.pic}.png?l=Tester1&t=${tok}`); assert.ok(pr.status === 200 && pr.headers.get('content-type') === 'image/png', 'участнику фото отдаётся');
+        op2.send({ t: 'staff', op: 'view' }); await op2.expect('error', (m) => /только для мастеров/.test(m.msg));
+        adm.send({ t: 'staff', op: 'topicdel', topic: tp.topic.id }); await adm.expect('staff', (m) => m.view === 'list' && !m.data.topics.length);
+        console.log('✓ МАСТЕРА: темы, сообщения вживую, непрочитанное, опрос, фото на 24 часа только участникам; обычный игрок не видит');
+      }
       [cl, tt, t2, op2].forEach((x) => x.close());
       console.log('✓ закрытый тест: только тестеры и админ, регистрация закрыта, игроков выбрасывает; тестер — пароль один раз, отключение, новый пароль');
     }

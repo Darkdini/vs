@@ -16,6 +16,7 @@ const MENUS = {
   cabinet: { label: 'Кабинет', icon: 'menu2/cabinet.png', items: () => [
     ...(S.st.user.admin ? [['Админка', 'admin_badge_s.png', () => openSheet(adminHtml)]] : []),
     ...(S.st.user.smod || S.st.user.admin ? [['Модерация', 'smod_badge_s.png', () => openSmod()]] : []),
+    ...(S.st.user.staff ? [[S.st.user.staffNew ? `МАСТЕРА (${S.st.user.staffNew})` : 'МАСТЕРА', M3('blogs'), () => openStaff()]] : []), // общение админа и тестеров (staff.js)
     ['Задания', M3('quests'), () => openQuests()],
     ['Профиль', M3('profile'), () => openAccount()],
     ['Советник', `units/${S.cat.mil.raceDir[S.st.user.race]}/wisdom.png`, () => openSheet(advisorWin)],

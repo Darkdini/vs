@@ -2239,3 +2239,36 @@ body.menuopen #advbar, body.menuopen #advhand { display: none; } /* открыт
 
 /* «Жизнь в замке» (castlelife.js): слой анимации поверх замка — нажатия проходят сквозь него к карте */
 .iso.isolife { pointer-events: none; }
+
+/* «МАСТЕРА» (staff.js): темы, переписка, фото на 24 часа, опросы */
+.sfwho { margin: 2px 0 8px; }
+.sftopics { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.sftopic { display: block; width: 100%; text-align: left; padding: 9px 11px; border-radius: 10px; border: 1px solid rgba(120, 80, 30, 0.35); background: rgba(255, 248, 230, 0.75); color: #3a2410; }
+.sftopic.new { border-color: #c27a14; background: #fff1cf; }
+.sftopic .sft1 { display: flex; justify-content: space-between; gap: 8px; }
+.sftopic .sft2 { display: flex; justify-content: space-between; gap: 8px; margin-top: 3px; font-size: 13px; color: #6b4a24; }
+.sftopic i { font-style: normal; font-weight: bold; }
+.sftopic .sfprev { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sfbadge { flex: none; min-width: 20px; padding: 0 6px; border-radius: 10px; background: #c0281c; color: #fff; text-align: center; font-size: 12px; line-height: 20px; }
+.sftools { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.sfmsgs { display: flex; flex-direction: column; gap: 7px; margin-bottom: 10px; }
+.sfmsg { padding: 7px 10px; border-radius: 10px; background: rgba(255, 250, 238, 0.85); border: 1px solid rgba(120, 80, 30, 0.25); color: #2e1c0a; max-width: 92%; }
+.sfmsg.mine { align-self: flex-end; background: #eef6dd; }
+.sfhead { display: flex; align-items: baseline; gap: 8px; font-size: 13px; }
+.sfhead small { color: #8a6a44; }
+.sfdel { margin-left: auto; border: 0; background: none; color: #a33; font-size: 14px; }
+.sftext { white-space: pre-wrap; word-break: break-word; margin-top: 3px; }
+.sfpic { display: block; border: 0; padding: 0; margin-top: 5px; background: none; }
+.sfpic img { display: block; max-width: 100%; max-height: 260px; border-radius: 8px; }
+.sfexp { display: block; color: #8a6a44; font-size: 11px; margin-top: 2px; }
+.sfgone { margin-top: 4px; color: #8a6a44; font-style: italic; font-size: 13px; }
+.sfpoll { margin-top: 4px; display: flex; flex-direction: column; gap: 4px; }
+.sfq { font-weight: bold; }
+.sfopt { position: relative; display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; padding: 7px 10px; border-radius: 8px; border: 1px solid #b08a3a; background: #fffaf0; color: #2e1c0a; text-align: left; overflow: hidden; }
+.sfopt.mine { border-color: #3a7a1a; font-weight: bold; }
+.sfopt .sfbar { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(214, 170, 60, 0.35); }
+.sfopt .sfot, .sfopt b { position: relative; }
+.sfwho2 { color: #6b4a24; font-size: 11px; margin: -2px 0 2px 6px; }
+.sfsend textarea, .sfnew textarea { width: 100%; box-sizing: border-box; }
+.sfbtns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; justify-content: flex-end; }
+.sfpollform { padding: 8px; margin-bottom: 8px; border: 1px dashed #b08a3a; border-radius: 10px; }

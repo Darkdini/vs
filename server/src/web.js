@@ -136,7 +136,7 @@ class WebSession {
       t: 'state',
       now: Date.now(),
       quests: this.questsLite(),
-      user: { id: u.id, login: u.login, ally: u.alliance || null, race: u.race, raceName: C.RACE_NAMES[u.race], premium: u.premium || 0, gold: u.gold || 0, goldLog: (u.goldLog || []).slice(-50).reverse(), admin: !!u.admin, mod: !!u.mod, smod: !!u.smod, alertsNew: u.admin ? this.game.alertsNew() : 0, secNew: u.admin ? this.game.secNew() : 0, zagsNew: this.game.zagsNew(u), friendsNew: this.game.friendsNew(u), brank: (({ idx, icon, stars, title }) => ({ idx, icon, stars, title }))(require('./battlerank').rankInfo(this.game.brRank(u))), black: this.game.privacyOf(u).black, multiNew: u.admin ? (this.game.db.multiLog || []).filter((x) => x.at > (u.multiSeen || 0)).length : 0 },
+      user: { id: u.id, login: u.login, ally: u.alliance || null, race: u.race, raceName: C.RACE_NAMES[u.race], premium: u.premium || 0, gold: u.gold || 0, goldLog: (u.goldLog || []).slice(-50).reverse(), admin: !!u.admin, mod: !!u.mod, smod: !!u.smod, alertsNew: u.admin ? this.game.alertsNew() : 0, secNew: u.admin ? this.game.secNew() : 0, zagsNew: this.game.zagsNew(u), friendsNew: this.game.friendsNew(u), staff: this.game.staffOk(u), staffNew: this.game.staffUnread(u), brank: (({ idx, icon, stars, title }) => ({ idx, icon, stars, title }))(require('./battlerank').rankInfo(this.game.brRank(u))), black: this.game.privacyOf(u).black, multiNew: u.admin ? (this.game.db.multiLog || []).filter((x) => x.at > (u.multiSeen || 0)).length : 0 },
       castle: {
         id: c.id, name: c.name, x: c.x, y: c.y, grid: { 0: Array.from(c.grid[0]), 1: Array.from(c.grid[1]) }, levels: { 0: Array.from(c.levels[0]), 1: Array.from(c.levels[1]) },
         res: c.res, rate: this.game.rates(c), cap: this.game.capacity(c),
@@ -186,6 +186,15 @@ class WebSession {
     if (this.user) this.game.markActive(this.user); // день активности — для статистики «вернулся ли новичок»
     if (this.user) { const t = Date.now(), last = this.actAt || t; this.actAt = t; this.presMs = (this.presMs || 0) + Math.min(t - last, 300000);
       if (this.presMs >= 60000) { const m = Math.floor(this.presMs / 60000); this.presMs -= m * 60000; this.game.addStat(this.user.id, 'presence', m); } }
+  }
+}
+// «МАСТЕРА»: тем, кто открыл эту тему, — свежие сообщения; в списке тем — свежий список; остальным мастерам — счётчик непрочитанного
+function staffNotify(g, topic) {
+  for (const s of WebSession.all || []) {
+    if (!s.user || !g.staffOk(s.user)) continue;
+    if (topic && s.staffTopic === topic) { const o = g.staffOpen(s.user, topic); if (!o.error) s.send({ t: 'staff', view: 'topic', data: o, live: 1 }); else { s.staffTopic = 0; s.send({ t: 'staff', view: 'list', data: g.staffView(s.user) }); } }
+    else if (s.staffTopic === 0) s.send({ t: 'staff', view: 'list', data: g.staffView(s.user), live: 1 });
+    s.send({ t: 'staffnew', n: g.staffUnread(s.user) });
   }
 }
 const RATE_OFF = process.env.RATE_OFF === '1'; // только для автотестов
@@ -590,6 +599,27 @@ const API = {
     if (r.more) return this.send({ t: 'newspicok', i: this.npUp.parts.length });
     this.npUp = null; this.send({ t: 'newspicok', done: true, id: r.id });
   },
+  // «МАСТЕРА» (staff.js): view — темы; open — сообщения темы; остальное — действия. Изменение темы сразу видят все её участники
+  staff(m) {
+    const g = this.game, op = String(m.op || '');
+    if (!g.staffOk(this.user)) return this.error('Раздел только для мастеров.');
+    if (op === 'leave') { this.staffTopic = undefined; return; } // окно раздела закрыто — живые обновления не нужны
+    if (op === 'view') { this.staffTopic = 0; return this.send({ t: 'staff', view: 'list', data: g.staffView(this.user) }); }
+    if (op === 'open') { const r = g.staffOpen(this.user, m.topic); if (r.error) return this.error(r.error); this.staffTopic = r.topic.id; this.send({ t: 'staff', view: 'topic', data: r }); return this.pushState(); }
+    const r = g.staffOp(this.user, m); if (r.error) return this.error(r.error);
+    if (r.msg) this.toast(r.msg);
+    if (op === 'newtopic') { const o = g.staffOpen(this.user, r.topic); this.staffTopic = r.topic; this.send({ t: 'staff', view: 'topic', data: o }); }
+    if (r.gone) { this.staffTopic = 0; this.send({ t: 'staff', view: 'list', data: g.staffView(this.user) }); }
+    staffNotify(g, r.topic || r.gone);
+  },
+  async staffpic(m) {
+    if (m.op === 'begin') { const r = this.game.staffPicBegin(this.user, m.topic, m.w, m.h, m.n, m.text); if (r.error) return this.error(r.error); this.spUp = r.up; return this.send({ t: 'staffpicok', i: 0 }); }
+    if (m.op !== 'part' || !this.spUp) return this.error('Фото: начните отправку заново.');
+    const r = await this.game.staffPicPart(this.user, this.spUp, m.i, m.data);
+    if (r.error) { this.spUp = null; return this.error(r.error); }
+    if (r.more) return this.send({ t: 'staffpicok', i: this.spUp.parts.length });
+    this.spUp = null; this.send({ t: 'staffpicok', done: true }); staffNotify(this.game, r.topic);
+  },
   async pic(m) {
     if (m.op === 'begin') { const r = this.game.picBegin(this.user, m.to, m.w, m.h, m.n); if (r.error) return this.error(r.error); this.picUp = r.up; return this.send({ t: 'picok', i: 0 }); }
     if (m.op !== 'part' || !this.picUp) return this.error('Фото: начните отправку заново.');
@@ -759,6 +789,13 @@ function startWeb(game, sessions, { port, host, log }) {
       if (!p) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('expired'); }
       res.writeHead(200, { 'Content-Type': 'image/png', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'", 'Cache-Control': 'private, max-age=10800', 'Referrer-Policy': 'no-referrer' });
       return res.end(p.png);
+    }
+    const sp = /^\/staffpic\/([0-9a-f]{32})\.png$/.exec(url); // фото «МАСТЕРОВ» (staff.js): только участнику раздела по его сессии, 24 часа
+    if (sp) {
+      const q = new URLSearchParams(req.url.split('?')[1] || ''), su = game.tokenLogin(q.get('l'), q.get('t')), body = su && game.staffPicGet(su, sp[1]);
+      if (!body) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('no pic'); }
+      res.writeHead(200, { 'Content-Type': 'image/png', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'", 'Cache-Control': 'private, max-age=3600', 'Referrer-Policy': 'no-referrer' });
+      return res.end(body);
     }
     const np = /^\/newspic\/([0-9a-f]{32})\.png$/.exec(url); // скриншоты новостей (news.js): PNG собран сервером, имя случайное
     if (np) {
