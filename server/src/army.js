@@ -203,8 +203,17 @@ const ORDER_MAX = { 224: 3, 233: 3 }; // Путешественник, Бунт�
 const raceUnit = (u, race) => (u && u.raceOvr && u.raceOvr[race] ? { ...u, ...u.raceOvr[race] } : u);
 const unitsForRace = (race) => UNITS.filter((u) => u.race === race || u.race === 'all');
 // генерал как в оригинале: за уровень — очки опыта, игрок распределяет их в окне «Генерал».
-// Личная атака/защита — +1 за очко; командование атакой/защитой — +0,3% к армии; восстановление — быстрее воскрешение; карьера — больше опыта.
-const GEN = { battleCap: 0.15, dayLevels: 1, perLevel: 2, maxLevel: 500, revive: 0.5, cmd: 0.003, heal: 0.02, career: 0.005, resetGold: 100 };
+// Личная атака/защита — +1 за очко; командование атакой/защитой — к армии, с убывающей отдачей (cmdBonus); восстановление — быстрее воскрешение; карьера — больше опыта.
+const GEN = { battleCap: 0.15, dayLevels: 1, perLevel: 2, maxLevel: 500, revive: 0.5, cmd: 0.003, cmdMax: 1, cmdK: 300, heal: 0.02, career: 0.005, resetGold: 100 };
+// командование генерала (атакой/защитой): первые очки — почти по +0,33% (как раньше +0,3%), дальше отдача убывает:
+// 100 очков — +25%, 300 — +50%, 1000 (500 ур.) — +77%, не больше +100%. Раньше росло без предела (+299% на 500 ур.) и решало любой бой.
+const cmdBonus = (pts) => (pts > 0 ? GEN.cmdMax * pts / (pts + GEN.cmdK) : 0);
+// артефакты одного вида складываются с убывающей отдачей: самый сильный — полностью, второй — наполовину, третий — на четверть…
+// (раньше 7 легендарных давали +245%, а «ускорение обучения» уводило время обучения ниже нуля)
+const artEffects = (arts) => { const eff = new Map(), by = {};
+  for (const a of arts || []) if (a.active && RARITY[a.rarity]) (by[a.type] = by[a.type] || []).push(a);
+  for (const list of Object.values(by)) list.sort((x, y) => RARITY[y.rarity].bonus - RARITY[x.rarity].bonus).forEach((a, i) => eff.set(a.id, RARITY[a.rarity].bonus / 2 ** i));
+  return eff; };
 const GEN_STATS = ['atk', 'def', 'catk', 'cdef', 'heal', 'career'];
 // звание генерала в скобках — сильнейший боевой юнит расы (у орков «Бугай» и т. п.)
 const genKind = (race) => { const l = UNITS.filter((u) => u.race === race && !u.quest && ['infantry', 'cavalry'].includes(u.type)).sort((a, b) => b.attack - a.attack); return l[0] ? l[0].name : 'Генерал'; };
@@ -401,7 +410,7 @@ function install(Game, helpers) {
     const L = (id) => this.buildingLevel(castle, id);
     const sci = this.sciOf(castle), templeL = L(B.TEMPLE), rel = castle.religion;
     const art = { atk: 0, def: 0, prod: 0, speed: 0, train: 0 };
-    for (const a of castle.artifacts) if (a.active) art[a.type] += RARITY[a.rarity].bonus;
+    const eff = artEffects(castle.artifacts); for (const a of castle.artifacts) if (a.active && eff.has(a.id)) art[a.type] += eff.get(a.id);
     const gen = castle.general && !castle.general.dead && !castle.general.away && castle.general.pts ? castle.general.pts.cdef : 0;
     const race = this.raceOf(castle);
     const wallPer = { humans: 0.03, elves: 0.035, dwarves: 0.02, orcs: 0.025 }[race] || 0.03;
@@ -409,7 +418,7 @@ function install(Game, helpers) {
     const br = this.brBonus ? this.brBonus(this.ownerOf(castle)) : { atk: 0, prod: 0 }; // боевой ранг
     return {
       atk: (1 + SCIENCES.war.per * sci.war) * (1 + 0.01 * L(B.BREWERY)) * (1 + (rel === 'war' ? 0.01 * templeL : 0)) * (1 + art.atk) * (1 + ms.atk) * (1 + br.atk),
-      def: (1 + SCIENCES.war.per * sci.war) * (1 + (rel === 'light' ? 0.01 * templeL : 0)) * (1 + art.def) * (1 + GEN.cmd * gen) * (1 + ms.def) * (1 + br.atk),
+      def: (1 + SCIENCES.war.per * sci.war) * (1 + (rel === 'light' ? 0.01 * templeL : 0)) * (1 + art.def) * (1 + cmdBonus(gen)) * (1 + ms.def) * (1 + br.atk),
       magic: 1 + 0.02 * L(B.MAGIC_SCHOOL),
       prod: (1 + SCIENCES.eco.per * sci.eco) * (1 + (rel === 'nature' ? 0.01 * templeL : 0)) * (1 + art.prod) * (1 + ms.prod) * (1 + br.prod),
       speed: (1 + SCIENCES.fhi.per * sci.fhi) * (1 + art.speed) * (1 + ms.speed),
@@ -577,7 +586,7 @@ function install(Game, helpers) {
   };
   P.genStats = function genStats(g) {
     const base = UNIT[GENERAL_ID];
-    return { atk: base.attack + g.pts.atk, def: base.def.inf + g.pts.def, catk: GEN.cmd * g.pts.catk, cdef: GEN.cmd * g.pts.cdef,
+    return { atk: base.attack + g.pts.atk, def: base.def.inf + g.pts.def, catk: cmdBonus(g.pts.catk), cdef: cmdBonus(g.pts.cdef),
       heal: GEN.heal * g.pts.heal, career: GEN.career * g.pts.career };
   };
   // опыт генерала за бой. Чтобы генерал не качался «за пару секунд», действуют ограничения:
@@ -974,10 +983,12 @@ function install(Game, helpers) {
     const defUser = target && this.ownerOf(target);
     if (defUser && att && defUser.id !== att.id) { const aR = this.userRating(att), dR = Math.max(1, this.userRating(defUser)); if (aR > dR) morale = Math.max(0.5, (dR / aR) ** 0.3); }
     const stack = (m, id, n, own, castle, extra) => { const u = UNIT[id]; if (!u || !n) return null; const f = (k) => (castle ? this.forgeLvl(castle, id, k) : 0);
-      return { m, id, n, own, hp: u.hp || 50, atk: u.attack ? u.attack + f('a') : 0, mag: u.magic ? u.magic + f('m') : 0, def: (u.def ? u.def.inf : 0) + f('d'), mdef: (u.def ? u.def.mag : 0) + f('md'), row: ROW[u.type] || 1, ...extra }; };
+      return { m, id, n, own, hp: u.hp || 50, atk: u.attack ? u.attack + f('a') : 0, cav: u.type === 'cavalry', mag: u.magic ? u.magic + f('m') : 0, def: (u.def ? u.def.inf : 0) + f('d'), defC: (u.def ? u.def.cav : 0) + f('d'), mdef: (u.def ? u.def.mag : 0) + f('md'), row: ROW[u.type] || 1, ...extra }; };
+    // генерал в строю: принимает часть удара своей личной защитой и здоровьем (гибель генерала решается отдельно — после боя)
+    const genStack = (g) => { const gs = this.genStats(g), u = UNIT[GENERAL_ID]; return { m: null, gen: true, id: GENERAL_ID, n: 1, own: false, hp: u.hp, atk: 0, mag: 0, def: gs.def, defC: gs.def, mdef: u.def.mag, row: 1 }; };
     // нападающие
-    const A = Object.entries(a.units).map(([id, n]) => stack(a.units, id, n, false, c)).filter(Boolean);
-    let genA = 0, cmd = 0; if (a.general && c.general && !c.general.dead) { const gs = this.genStats(c.general); genA = gs.atk; cmd = gs.catk; }
+    let A = Object.entries(a.units).map(([id, n]) => stack(a.units, id, n, false, c)).filter(Boolean);
+    let genA = 0, cmd = 0; if (a.general && c.general && !c.general.dead) { const gs = this.genStats(c.general); genA = gs.atk; cmd = gs.catk; A.push(genStack(c.general)); }
     // умения и снаряжение генерала (hero.js): у нападающего — если генерал в этой армии, у защитника — если генерал дома
     const hA = a.general && c.general && !c.general.dead ? this.heroBonus(c.general) : null;
     const hD = target && target.general && !target.general.dead && !target.general.away ? this.heroBonus(target.general) : null;
@@ -995,7 +1006,7 @@ function install(Game, helpers) {
       if (wallL < wall0) { this.setBuildingLevel(target, B.FENCE, wallL); siege.push(`Забор: ${wall0} → ${wallL} ур. (тараны)`); siegeN += wall0 - wallL; }
       for (const m of [target.units, ...target.squads.map((q) => q.units)]) for (const [id, n] of Object.entries(m)) { const s = stack(m, id, n, true, target); if (s) D.push(s); }
       for (const g of this.guestsOf(target)) for (const [id, n] of Object.entries(g.a.units)) { const s = stack(g.a.units, id, n, false, g.c); if (s) D.push(s); }
-      if (target.general && !target.general.dead && !target.general.away) genD = this.genStats(target.general).atk + (target.general.pts.def || 0);
+      if (target.general && !target.general.dead && !target.general.away) { genD = this.genStats(target.general).atk; D.push(genStack(target.general)); } // личная защита генерала — защита, а не урон (раньше прибавлялась к атаке)
     } else for (const g of npcGarrison(npc)) D.push({ m: null, id: g.key, n: g.n, own: false, npc: g, hp: g.hp, atk: g.atk, mag: g.mag, def: g.def, mdef: g.mdef, row: ROW[g.type] || 1 });
     const wallK = bD ? 1 + bD.wallPer * (hD ? 1 + hD.wall : 1) * wallL : 1, hDd = hD ? 1 + hD.def : 1;
     const kD = bD ? bD.atk : 1, kmD = bD ? bD.magic * bD.atk : 1, dK = bD ? bD.def * wallK * hDd : 1, mdK = bD ? bD.def * bD.magic * hDd : 1;
@@ -1023,12 +1034,17 @@ function install(Game, helpers) {
       return kill;
     };
     const wallFlat = bD ? 0.5 * wallL : 0;
-    const killD = hit(PA, PA / nA / DMG / RK || 1, D, (s) => (s.def + wallFlat) * dK, true), killDm = hit(MA, MA / nAm / DMG / RK || 1, D, (s) => s.mdef * mdK, false);
-    const killA = hit(PD, PD / nD / DMG / RK || 1, A, (s) => s.def * aDK, true), killAm = hit(MD, MD / nDm / DMG / RK || 1, A, (s) => s.mdef * aMdK, false);
+    // защита от рода атаки противника: доля урона кавалерии бьёт по защите от кавалерии, остальное — по защите от пехоты
+    const cavShare = (L, gen) => { const all = sum(L, (s) => s.n * s.atk) + gen; return all > 0 ? sum(L, (s) => (s.cav ? s.n * s.atk : 0)) / all : 0; };
+    const pcA = cavShare(A, genA), pcD = cavShare(D, genD), arm = (s, pc) => s.def * (1 - pc) + (s.defC ?? s.def) * pc; // у охраны лагерей нет отдельной защиты от кавалерии — обычная
+    const killD = hit(PA, PA / nA / DMG / RK || 1, D, (s) => (arm(s, pcA) + wallFlat) * dK, true), killDm = hit(MA, MA / nAm / DMG / RK || 1, D, (s) => s.mdef * mdK, false);
+    const killA = hit(PD, PD / nD / DMG / RK || 1, A, (s) => arm(s, pcD) * aDK, true), killAm = hit(MD, MD / nDm / DMG / RK || 1, A, (s) => s.mdef * aMdK, false);
     const roll = (x) => { let l = Math.floor(x); if (process.env.LUCK !== '0' ? Math.random() < x - l : x - l >= 0.5) l++; return l; };
     const lostOf = (s, k1, k2) => Math.min(s.n, roll(k1.get(s) + k2.get(s)));
-    const hpOf = (L) => sum(L, (s) => s.n * s.hp) || 1;
+    const hpOf = (L) => sum(L.filter((s) => !s.gen), (s) => s.n * s.hp) || 1; // генерал в долю потерь не входит
     const aLostN = new Map(A.map((s) => [s, lostOf(s, killA, killAm)])), dLostN = new Map(D.map((s) => [s, lostOf(s, killD, killDm)]));
+    for (const s of [...A, ...D]) if (s.gen) { aLostN.delete(s); dLostN.delete(s); }
+    A = A.filter((s) => !s.gen); D = D.filter((s) => !s.gen); // дальше — только войска
     const aShare = sum(A, (s) => aLostN.get(s) * s.hp) / hpOf(A), dShare = D.length ? sum(D, (s) => dLostN.get(s) * s.hp) / hpOf(D) : 1;
     const win = !D.length || aShare < dShare || (aShare >= 1 ? false : dShare >= 1);
     // нападение отбито у защитника — бегство: из уцелевших защитников гибнет ещё ROUT
@@ -1724,7 +1740,7 @@ function install(Game, helpers) {
       squads: castle.squads, merchants: this.merchants(castle),
       guests: this.guestsOf(castle).map((g) => ({ id: g.a.id, from: this.ownerOf(g.c).login, castle: g.c.name, units: g.a.units })),
       incoming: this.incoming(castle), sciences: castle.sciences, sciCapital: this.isCapital(castle), research: castle.research, religion: castle.religion,
-      hero: this.heroView(castle), artifacts: castle.artifacts, expeds: castle.expeds, expedInfo: this.expedInfo(castle), upkeep: Math.round(this.upkeep(castle) * SPEED),
+      hero: this.heroView(castle), artifacts: (() => { const eff = artEffects(castle.artifacts); return castle.artifacts.map((a) => (a.active && eff.has(a.id) ? { ...a, eff: eff.get(a.id) } : a)); })(), expeds: castle.expeds, expedInfo: this.expedInfo(castle), upkeep: Math.round(this.upkeep(castle) * SPEED),
       bonus: { atk: b.atk, def: b.def, magic: b.magic, prod: b.prod, speed: b.speed, train: b.train, build: b.build, wall: b.wall, wallPer: b.wallPer, hidden: b.hidden, marketRate: b.marketRate, artSlots: b.artSlots, artStore: b.artStore, tradeCarry: b.tradeCarry },
       alliance: al ? { id: al.id, name: al.name, tag: al.tag, leader: al.leader, leaderLogin: (this.userById(al.leader) || {}).login, lead: al.leader === user.id, slots: this.allianceSlots(al),
         members: al.members.map((id) => { const m = this.userById(id); return m ? m.login : '?'; }),

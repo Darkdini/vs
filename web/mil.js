@@ -280,9 +280,9 @@ function expedHtml() {
 const ART_HOURS = [12, 24, 48];
 function artifactsHtml() {
   const my = MY(), active = my.artifacts.filter((a) => a.active).length;
-  return `<div class="section">Артефакты</div><p class="small muted">Пробуждено ${active} из ${my.bonus.artSlots} (Башня артефактов), хранится ${my.artifacts.length} из ${my.bonus.artStore} (Сокровищница).</p>
+  return `<div class="section">Артефакты</div><p class="small muted">Пробуждено ${active} из ${my.bonus.artSlots} (Башня артефактов), хранится ${my.artifacts.length} из ${my.bonus.artStore} (Сокровищница). Одинаковые артефакты складываются с убыванием: второй даёт половину, третий — четверть.</p>
     ${my.artifacts.map((a) => { const t = M().artifacts[a.type], r = M().rarity[a.rarity]; return `<div class="card unit"><div class="top">${gimg(ART_ICON[a.type] || 'smallicon/magattack.png', 'ui s')}
-      <div class="grow"><b>${esc(t.name)}</b><span class="muted small">${r.name}: +${Math.round(r.bonus * 100)}% — ${esc(t.desc)}${a.active ? ' · <b class="good">пробуждён</b>' : ''}</span></div>
+      <div class="grow"><b>${esc(t.name)}</b><span class="muted small">${r.name}: +${Math.round(r.bonus * 100)}% — ${esc(t.desc)}${a.active ? ` · <b class="good">пробуждён${a.eff !== undefined && a.eff < r.bonus - 1e-9 ? `, действует +${Math.round(a.eff * 100)}%` : ''}</b>` : ''}</span></div>
       ${a.active ? '' : `<button class="btn small primary" data-art="${a.id}" data-on="1" data-hours="${ART_HOURS[a.rarity]}">Пробудить</button>`}</div>
       ${a.active && a.until ? `<div class="artlife"><div class="bar"><i data-s="${a.until - ART_HOURS[a.rarity] * 3600000 / S.cat.speed}" data-e="${a.until}"></i></div><span>иссякнет через <span class="cd" data-e="${a.until}"></span></span></div>` : `<p class="small muted">Пробуждённый действует ${ART_HOURS[a.rarity]} ч, затем рассыпается.</p>`}</div>`; }).join('') || '<p class="muted small">Артефактов нет — их приносят экспедиции археологов (здание «Экспедиция»).</p>'}`;
 }

@@ -420,7 +420,7 @@ function client() {
     assert.equal(gs.free, 98); assert.ok(gs.stats && gs.where.includes('Замковая армия'));
     adm.send({ t: 'general', op: 'dist', pts: { catk: 60, def: 10 } });
     gs = (await adm.expect('state', (m) => m.castle.mil.general.free === 28)).castle.mil.general;
-    assert.ok(Math.abs(gs.stats.catk - 0.18) < 1e-9 && gs.pts.def === 10);
+    assert.ok(Math.abs(gs.stats.catk - 60 / 360) < 1e-9 && gs.pts.def === 10);
     adm.send({ t: 'general', op: 'dist', pts: { atk: 999 } });
     await adm.expect('error', (m) => /Свободных очков только 28/.test(m.msg));
     adm.send({ t: 'general', op: 'reset' });

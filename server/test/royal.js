@@ -1152,6 +1152,22 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.ok(free === undefined || /не больше 5/.test(g.startBuild(c, 0, free, 1).error || 'не больше 5'), 'шестой Склад нельзя');
     console.log('✓ Замок на новом фоне: 33 места, 5 Складов, вместимость и рейтинг сохранены');
   }
+  { // баланс боя: командование генерала с убывающей отдачей, одинаковые артефакты с убыванием, защита от кавалерии в бою
+    const u = g.register({ login: 'balance1', password: '12345', race: 0 }).user, c = g.castleOf(u); g.mil(c);
+    c.general = g.newGeneral(c, 500); c.general.pts.catk = 998;
+    const k = g.genStats(c.general).catk; assert.ok(k > 0.7 && k < 1, `командование 500 ур. не больше +100% (${k})`);
+    c.general.pts.catk = 10; assert.ok(Math.abs(g.genStats(c.general).catk - 10 / 310) < 1e-9, 'первые очки — около +0,3%');
+    const b0 = g.bonus(c).train; c.artifacts = [0, 1, 2, 3, 4, 5, 6].map((i) => ({ id: 70000 + i, type: 'train', rarity: 2, active: true }));
+    const tr = g.bonus(c).train; assert.ok(tr > 0.25 && tr < b0, `обучение ускоряется, но время не уходит в ноль (${tr})`);
+    c.artifacts = [0, 1].map((i) => ({ id: 70100 + i, type: 'atk', rarity: 2, active: true })); const at = g.bonus(c).atk / g.bonus(Object.assign({}, c, { artifacts: [] })).atk;
+    assert.ok(Math.abs(at - 1.525) < 1e-6, `два легендарных артефакта атаки: +35% и +17,5% (${at})`);
+    c.artifacts = []; delete c.general;
+    const d = g.castleOf(g.register({ login: 'balance2', password: '12345', race: 0 }).user); g.mil(d);
+    process.env.LUCK = '0'; c.units = {}; c.squads = []; c.armies = []; d.units = { 240: 100 }; d.squads = []; d.armies = [];
+    const r = g.clash(c, { units: { 204: 100 }, general: false, mission: 'attack' }, d, null, Date.now()); delete process.env.LUCK;
+    assert.ok(r.win, 'рыцари бьют катапульты: у катапульты слабая защита от кавалерии');
+    console.log('✓ Баланс боя: командование генерала до +100%, одинаковые артефакты с убыванием, защита от кавалерии в бою');
+  }
   try { fs.unlinkSync(DB); } catch {}
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });
