@@ -436,7 +436,7 @@ function castleWin(o, x, y) {
     <div class="ptiles">
       ${mine ? tile(`data-switchxy="${x},${y}"`, 'build/hd3/castle.png', 'Войти в замок') : tile(`data-write="${esc(o.owner)}"`, 'smallicon/unmes.png', 'Сообщение')}
       ${tile(`data-armyopen="trade" data-ax="${x}" data-ay="${y}"`, 'build/hd3/storage.png', 'Торговля')}
-      ${mine ? '' : tile(`data-armyopen="attack" data-ax="${x}" data-ay="${y}"`, 'smallicon/swordred.png', 'Война')}
+      ${mine ? '' : tile(`data-warpick data-ax="${x}" data-ay="${y}"`, 'smallicon/swordred.png', 'Война')}
     </div>
     <button class="pbar cwsave" data-saveplace="${x},${y}">${saved ? 'Место запомнено' : 'Запомнить место'}</button>`;
 }

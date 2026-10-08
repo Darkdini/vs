@@ -749,7 +749,7 @@ function install(Game, helpers) {
   };
   // отправка: from = 'castle' (вся Замковая армия) или id отряда (весь отряд), как в оригинале; либо units — выборочно.
   // portal — через Портал (в 4 раза быстрее), at — расписание отправки (время, мс)
-  P.sendArmy = function sendArmy(castle, { units = {}, general = false, x, y, mission, res = null, from = null, portal = false, at = 0 }) {
+  P.sendArmy = function sendArmy(castle, { units = {}, general = false, x, y, mission, res = null, from = null, portal = false, at = 0, pick = null, pickGen = false }) {
     // до списания войск: без премиума расписание недоступно
     if (at && Number(at) > Date.now() + 3000 && !this.isPremium(this.userById(castle.owner))) return { error: 'Расписание отправки доступно с премиумом.' };
     if (mission === 'trade') return this.sendTrade(castle, { x, y, res });
@@ -766,6 +766,10 @@ function install(Game, helpers) {
       const fits = { scout: (r) => ['scout', 'eye'].includes(r), expedition: (r) => r === 'archaeologist', trade: (r) => r === 'merchant' }[mission]
         || ((r) => !['merchant', 'archaeologist', 'sage', 'settler'].includes(r));
       units = Object.fromEntries(Object.entries(units).filter(([u]) => UNIT[u] && fits(UNIT[u].role)));
+      if (pick && typeof pick === 'object') { // игрок выбрал, сколько каких юнитов взять (остальные остаются в замке)
+        units = Object.fromEntries(Object.entries(units).map(([u, n]) => [u, Math.min(n, Math.max(0, Math.floor(Number(pick[u]) || 0)))]).filter(([, n]) => n > 0));
+        general = general && !!pickGen;
+      }
       if (!['attack', 'raid', 'reinforce'].includes(mission)) general = false;
     }
     x = Math.round(Number(x)); y = Math.round(Number(y));
@@ -782,7 +786,7 @@ function install(Game, helpers) {
     const roles = Object.keys(clean).map((id) => UNIT[id].role);
     const g = castle.general;
     if (general && (!g || g.dead || g.away)) return { error: 'Генерал недоступен.' };
-    if (!roles.length && !general) return { error: from ? 'В этой армии нет войск.' : 'Выберите войска.' };
+    if (!roles.length && !general) return { error: pick ? 'Выберите, каких и сколько войск отправить.' : from ? 'В этой армии нет войск.' : 'Выберите войска.' };
     if (portal && !this.buildingLevel(castle, B.PORTAL)) return { error: 'Нужен Портал.' };
     const target = this.castleAt(x, y);
     const obj = target ? null : this.worldObjects(x, y, 1, 1)[0];
@@ -1442,7 +1446,7 @@ function install(Game, helpers) {
         const friendly = a.mission === 'trade' || a.mission === 'reinforce';
         if (!friendly && !watch) continue;
         const n = Object.values(a.units).reduce((q, k) => q + k, 0);
-        out.push({ id: a.id, from: this.ownerOf(c).login, castle: c.name, to: castle.name, tx: castle.x, ty: castle.y, mission: a.mission, arrive: a.arrive, units: friendly || wl >= 10 ? a.units : null,
+        out.push({ id: a.id, from: this.ownerOf(c).login, castle: c.name, to: castle.name, tx: castle.x, ty: castle.y, fx: c.x, fy: c.y, mission: a.mission, depart: a.depart, arrive: a.arrive, units: friendly || wl >= 10 ? a.units : null,
           size: friendly || wl >= 6 ? n : wl >= 3 ? roughly(n) : null, exact: friendly || wl >= 6, general: friendly || wl >= 10 ? !!a.general : null });
       }
     }

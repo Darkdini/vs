@@ -2289,3 +2289,12 @@ body.menuopen #advbar, body.menuopen #advhand { display: none; } /* открыт
 .rmore > summary::before { content: '▸ '; display: inline-block; transition: transform 0.15s; }
 .rmore[open] > summary::before { transform: rotate(90deg); }
 .rmore > summary::-webkit-details-marker { display: none; }
+/* «Война» на чужом замке: выбор нападение / набег / разведка */
+.wpick { display: flex; align-items: center; gap: 12px; width: 100%; margin: 8px 0; padding: 10px 12px; border: 2px solid #c8963e; border-radius: 12px; background: linear-gradient(#fff6dc, #ecd6a4); color: #3a2410; text-align: left; box-shadow: 0 2px 4px #0004; }
+.wpick:active { filter: brightness(.92); }
+.wpick img { width: 52px; height: 52px; object-fit: contain; flex: none; filter: drop-shadow(0 2px 2px #0006); }
+.wpick span { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.wpick b { font: 700 20px var(--serif); }
+.wpick small { font-size: 13px; line-height: 1.3; color: #5a4024; }
+.wpick i { font-style: normal; font-size: 28px; color: #a0702a; }
+.cpbtns { justify-content: center; margin: 4px 0 10px; }

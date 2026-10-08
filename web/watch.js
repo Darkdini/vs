@@ -41,7 +41,7 @@ document.addEventListener('click', (e) => {
 });
 const prevMilW = milMsg;
 milMsg = function (m) { // eslint-disable-line no-global-assign
-  if (m.t === 'moves') { S.moves = m.data; return refreshSheet(); }
+  if (m.t === 'moves') { S.wm = m.data; if (S.wmQuiet) { S.wmQuiet = false; return; } S.moves = m.data; return refreshSheet(); } // тихий запрос карты мира — окно не трогать
   if (m.t === 'kingdom') { S.kingdom = m.list; return refreshSheet(); }
   prevMilW(m);
 };
@@ -66,3 +66,40 @@ $('#sheetBody').addEventListener('click', (e) => {
   const r = e.target.closest('[data-mvid]'); if (r) { S.moveId = Number(r.dataset.mvid); return openSheet(moveWin); }
   const m = e.target.closest('[data-mvmap]'); if (m) { const [x, y] = m.dataset.mvmap.split(':').map(Number); closeAllSheets(); S.wGoto = { x, y }; setTab('world'); }
 });
+
+// ---------- армии в пути на карте мира: линия от замка к цели, значок армии движется по ней, под ним — сколько осталось ----------
+// свои: нападение/набег/разведка — зелёные мечи, подкрепление — щит, возвращаются домой — синие; на нас (видит Караульная башня) — красные
+const WM_COL = { attack: '#e8402a', raid: '#f08a20', scout: '#4a9ae8', reinforce: '#3cbc4a', trade: '#e8c030', expedition: '#b07ae8', home: '#5aa8e0', inc: '#ff2a1a' };
+const WM_IMG = {};
+function wmIcon(k) { let i = WM_IMG[k]; if (!i) { i = WM_IMG[k] = new Image(); i.src = `${G3}top/${k}.png`; } return i.complete && i.naturalWidth ? i : null; }
+function worldMoves(w) {
+  if (!S.st) return;
+  const key = JSON.stringify(S.st.moves || {}), t = now();
+  if ((key !== S.wmKey || Date.now() - (S.wmAt || 0) > 30000) && Date.now() - (S.wmAt || 0) > 2000) { S.wmKey = key; S.wmAt = Date.now(); S.wmQuiet = true; send({ t: 'moves' }); }
+  const m = S.wm; if (!m) return;
+  const ox = w.cx - w.radius, oy = w.cy - w.radius;
+  const P = (x, y) => { const p = tileScreen(x - ox, y - oy); return [p.sx + TW / 2, p.sy + TH / 2]; };
+  const list = [];
+  for (const a of m.mine || []) {
+    if (a.state === 'go') list.push({ f: [a.cx, a.cy], to: [a.x, a.y], t0: a.depart, t1: a.arrive, col: WM_COL[a.mission] || '#fff', ic: a.mission === 'reinforce' || a.mission === 'trade' ? 'reinf' : 'att' });
+    else if (a.state === 'back') list.push({ f: [a.x, a.y], to: [a.cx, a.cy], t0: a.back - (a.arrive - a.depart), t1: a.back, col: WM_COL.home, ic: 'home' });
+  }
+  for (const a of m.incoming || []) if (a.fx != null && a.depart) { const hostile = ['attack', 'raid'].includes(a.mission); list.push({ f: [a.fx, a.fy], to: [a.tx, a.ty], t0: a.depart, t1: a.arrive, col: hostile ? WM_COL.inc : WM_COL.reinforce, ic: hostile ? 'inc' : 'reinf' }); }
+  if (!list.length) return;
+  const g = ictx; g.save(); g.imageSmoothingEnabled = true; g.lineCap = 'round';
+  for (const a of list) { // линии — под значками
+    const A = P(...a.f), B = P(...a.to);
+    g.setLineDash([]); g.lineWidth = 5; g.strokeStyle = 'rgba(0,0,0,0.35)'; g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.stroke();
+    g.setLineDash([7, 6]); g.lineDashOffset = -(Date.now() / 60) % 13; g.lineWidth = 2.5; g.strokeStyle = a.col; g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.stroke();
+    g.setLineDash([]); g.fillStyle = a.col; g.strokeStyle = 'rgba(0,0,0,0.6)'; g.lineWidth = 1.5; g.beginPath(); g.ellipse(B[0], B[1], 7, 3.5, 0, 0, Math.PI * 2); g.fill(); g.stroke(); // точка цели
+  }
+  for (const a of list) {
+    const A = P(...a.f), B = P(...a.to), k = Math.max(0, Math.min(1, (t - a.t0) / Math.max(1, a.t1 - a.t0)));
+    const x = A[0] + (B[0] - A[0]) * k, y = A[1] + (B[1] - A[1]) * k - 6, R = 13;
+    g.fillStyle = 'rgba(30,18,8,0.85)'; g.strokeStyle = a.col; g.lineWidth = 2.5; g.beginPath(); g.arc(x, y, R, 0, Math.PI * 2); g.fill(); g.stroke();
+    const im = wmIcon(a.ic); if (im) g.drawImage(im, x - R * 0.8, y - R * 0.8, R * 1.6, R * 1.6);
+    const left = fmtT(Math.max(0, (a.t1 - t) / 1000));
+    g.font = 'bold 10px system-ui, sans-serif'; g.textAlign = 'center'; g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,0.85)'; g.strokeText(left, x, y + R + 11); g.fillStyle = '#fff'; g.fillText(left, x, y + R + 11);
+  }
+  g.restore();
+}

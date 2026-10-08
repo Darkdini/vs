@@ -105,9 +105,22 @@ function regroupWin(k) {
 // ---------- Военный поход ----------
 const CAMPAIGN_MISSIONS = [['raid', 'Набег'], ['attack', 'Нападение'], ['reinforce', 'Подкрепление'], ['scout', 'Разведка'], ['expedition', 'Экспедиция']];
 function openArmySheet(pre = {}) {
-  S.cmp = { army: pre.army !== undefined ? String(pre.army) : 'castle', mission: pre.mission && pre.mission !== 'undefined' ? pre.mission : 'raid', x: pre.x ?? '', y: pre.y ?? '', portal: false, sched: false, at: '', res: {} };
+  S.cmp = { army: pre.army !== undefined ? String(pre.army) : 'castle', mission: pre.mission && pre.mission !== 'undefined' ? pre.mission : 'raid', x: pre.x ?? '', y: pre.y ?? '', portal: false, sched: false, at: '', res: {}, pick: {}, gen: false };
   openSheet(campaignWin);
 };
+// «Война» на чужом замке: сначала выбрать, что делать — нападение, набег или разведка; потом — войска (campaignWin)
+const WAR_KINDS = [['attack', 'Нападение', 'Бой до конца: разбить защитников, разрушать забор и здания (тараны, катапульты), вынести ресурсы. Генерал идёт с армией.'],
+  ['raid', 'Набег', 'Быстрый грабёж: бой слабее (потери вдвое меньше у обеих сторон), главное — унести ресурсы.'],
+  ['scout', 'Разведка', 'Идут только разведчики: узнать войска, ресурсы и постройки замка, без боя.'],
+  ['reinforce', 'Подкрепление', 'Войска встанут в этот замок и будут защищать его вместе с хозяином. Вернуть их можно в «Передвижениях армий».']];
+function warWin(x, y) {
+  const scout = M().units.find((u) => u.role === 'scout');
+  const ic = { attack: `${GFX}watch/ic_attack.png`, raid: `${GFX}watch/ic_raid.png`, scout: scout ? unitSrc(scout) : `${GFX}watch/ic_watch.png`, reinforce: `${G3}top/reinf.png` };
+  const ally = allyCastleAt(x, y); // союзник по альянсу — только подкрепление
+  return `${ribbon('Война')}<div class="clabel">Цель: X ${esc(x)} · Y ${esc(y)}. Что делаем?</div>
+    ${ally ? '<div class="cinfo small">Это замок вашего альянса — ему можно только помочь подкреплением.</div>' : ''}
+    ${WAR_KINDS.filter(([k]) => !ally || k === 'reinforce').map(([k, t, d]) => `<button class="wpick" data-warkind="${k}" data-ax="${esc(x)}" data-ay="${esc(y)}"><img src="${ic[k]}" alt=""><span><b>${t}</b><small>${d}</small></span><i>›</i></button>`).join('')}`;
+}
 function campaignFit(mission, units) {
   const fits = { scout: (r) => ['scout', 'eye'].includes(r), expedition: (r) => r === 'archaeologist', trade: (r) => r === 'merchant' }[mission]
     || ((r) => !['merchant', 'archaeologist', 'sage', 'settler'].includes(r));
@@ -118,10 +131,17 @@ function campaignFit(mission, units) {
 const allyCastleAt = (x, y) => { const me = S.st.user.ally, o = me && S.world && (S.world.objects || []).find((q) => q.kind === 'castle' && q.x === Number(x) && q.y === Number(y)); return !!(o && o.allyId === me && o.ownerId !== S.st.user.id); };
 const ownCastleAt = (x, y) => (S.st.castles || []).some((k) => k.x === Number(x) && k.y === Number(y) && !k.active);
 const genGoes = (a, c) => genHere(a) && (['attack', 'raid'].includes(c.mission) || (c.mission === 'reinforce' && ownCastleAt(c.x, c.y)));
+// сколько каких юнитов игрок выбрал в поход (не больше, чем есть в армии и подходит для похода)
+const genOn = (a, c) => genGoes(a, c) && !!c.gen;
+function campaignPick(a, c) {
+  const fit = campaignFit(c.mission, a.units), out = {};
+  for (const [id, n] of Object.entries(c.pick || {})) { const k = Math.min(fit[id] || 0, Math.max(0, Math.floor(Number(n) || 0))); if (k > 0) out[id] = k; }
+  return out;
+}
 function campaignSec() {
-  const c = S.cmp, a = armyByKey(c.army); if (!a || c.x === '' || c.y === '') return null;
-  const units = campaignFit(c.mission, a.units), speeds = Object.keys(units).map((id) => unitById(id).speed);
-  if (genGoes(a, c)) speeds.push(unitById(M().generalId).speed);
+  const c = S.cmp, a = armyByKey(c.army) || allArmies()[0]; if (!a || c.x === '' || c.y === '') return null;
+  const units = campaignPick(a, c), speeds = Object.keys(units).map((id) => unitById(id).speed);
+  if (genOn(a, c)) speeds.push(unitById(M().generalId).speed);
   if (!speeds.length) return null;
   const b = MY().bonus, st = S.st.castle;
   let sec = Math.max(5, Math.round(Math.hypot(Number(c.x) - st.x, Number(c.y) - st.y) / (Math.min(...speeds) * b.speed) * 3600 / S.cat.speed));
@@ -133,7 +153,7 @@ function campaignSec() {
 // кто тормозит армию: армия идёт со скоростью самого медленного юнита (поля в час), как в оригинале
 function slowestHint(a, c, go) {
   const list = Object.keys(go).map((id) => unitById(id)).filter((u) => u && u.speed > 0);
-  if (genGoes(a, c)) list.push(unitById(M().generalId));
+  if (genOn(a, c)) list.push(unitById(M().generalId));
   if (list.length < 2) return '';
   const slow = list.reduce((m, u) => (u.speed < m.speed ? u : m)), fast = list.reduce((m, u) => (u.speed > m.speed ? u : m));
   if (slow.speed === fast.speed) return '';
@@ -149,9 +169,14 @@ function campaignWin() {
   const c = S.cmp, armies = allArmies();
   if (allyCastleAt(c.x, c.y) && ['raid', 'attack', 'scout'].includes(c.mission)) c.mission = 'reinforce'; // союзник — только подкрепление
   const a = armyByKey(c.army) || armies[0];
-  const go = campaignFit(c.mission, a.units), n = armyTotal(go), sec = campaignSec();
-  const portal = buildingLevel(38) > 0;
+  const fit = campaignFit(c.mission, a.units), go = campaignPick(a, c), n = armyTotal(go), sec = campaignSec();
+  const portal = buildingLevel(38) > 0, gOk = genGoes(a, c);
   const chk = (key, on, icon, text, dis) => `<label class="cchk ${dis ? 'off' : ''}"><input type="checkbox" data-cchk="${key}" ${on ? 'checked' : ''} ${dis ? 'disabled' : ''}><i></i><img src="${icon}" alt=""> ${text}</label>`;
+  // войска: у каждого юнита поле «сколько взять» и плашка со шлемом (сколько есть, нажатие — все)
+  const rows = Object.entries(fit).map(([id, have]) => { const u = unitById(id); return u ? `<div class="rgrow">
+      <div class="rgname"><img src="${unitSrc(u)}" alt=""> ${esc(u.name)}</div>
+      <div class="rgline"><input class="rgin" type="number" inputmode="numeric" min="0" max="${have}" placeholder="0" value="${go[id] || ''}" data-cpick="${id}">
+      <button class="rghave" data-cpall="${id}" data-cpmax="${have}"><img src="${G3}hq/helmet.png" alt=""> ${fmtFull(have)}</button></div></div>` : ''; }).join('');
   return `${ribbon('Военный поход')}
     <div class="clabel">Выберите армию из замка:</div>
     <div class="combo"><select data-cmp="army">${armies.map((x) => `<option value="${x.key}" ${String(x.key) === String(a.key) ? 'selected' : ''}>${esc(x.name)} (🪖 ${fmtFull(armyTotal(campaignFit(c.mission, x.units)))}${c.mission === 'scout' ? ' разведчиков' : ''})</option>`).join('')}</select></div>
@@ -159,22 +184,37 @@ function campaignWin() {
     <div class="combo"><select data-cmp="mission">${CAMPAIGN_MISSIONS.filter(([k]) => !allyCastleAt(c.x, c.y) || !['raid', 'attack', 'scout'].includes(k)).map(([k, t]) => `<option value="${k}" ${k === c.mission ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
     <div class="row2 cxy"><label>X<input type="number" inputmode="numeric" data-cmp="x" value="${esc(c.x)}"></label><label>Y<input type="number" inputmode="numeric" data-cmp="y" value="${esc(c.y)}"></label></div>
     ${c.mission === 'trade' ? `<div class="row2">${RES4.map((r) => `<label>${RES_IC[r]}<input type="number" inputmode="numeric" min="0" data-cres="${r}" value="${c.res[r] || ''}" placeholder="0"></label>`).join('')}</div>` : ''}
+    <div class="clabel">Кого отправить${c.mission === 'scout' ? ' (только разведчики)' : ''}:</div>
+    ${rows ? `${gOk ? chk('gen', c.gen, unitSrc(unitById(M().generalId)), `${esc(MY().general.name)} (${fmtFull(MY().general.level)} ур.)`) : ''}${rows}
+      <div class="btns cpbtns"><button class="btn small" data-cpevery>Все войска</button><button class="btn small" data-cpnone>Сбросить</button></div>` : goUnits(fit, c.mission)}
     ${chk('portal', c.portal, `${GFX}build/hd3/portal.png`, 'Через портал', !portal)}
     ${chk('sched', c.sched && isPrem(), `${GFX}res/time.png`, isPrem() ? 'Расписание отправки' : 'Расписание отправки 🔒 премиум', !isPrem())}
     ${c.sched && isPrem() ? `<input type="datetime-local" data-cmp="at" value="${esc(c.at)}">` : ''}
-    <div class="cinfo">В поход идут: <b>${fmtFull(n)}</b> ${genGoes(a, c) ? '+ генерал' : ''} · в пути: <b id="cmpTime">${sec ? fmtT(sec) : '—'}</b></div>
-    ${n ? '' : goUnits(go, c.mission)}
-    ${slowestHint(a, c, go)}
-    ${n < armyTotal(a.units) ? `<div class="cinfo small">${c.mission === 'scout' ? 'В разведку идут только разведчики — остальные' : 'Неподходящие для этого похода юниты'} останутся в замке.</div>` : ''}
+    <div class="cinfo">В поход идут: <b id="cmpN">${fmtFull(n)}</b><span id="cmpG">${genOn(a, c) ? ' + генерал' : ''}</span> · в пути: <b id="cmpTime">${sec ? fmtT(sec) : '—'}</b></div>
+    <div id="cmpSlow">${slowestHint(a, c, go)}</div>
     <button class="pbar" data-cmpgo>Отправить</button>`;
+}
+// после ввода числа — пересчитать «В поход идут», время и подсказку о самом медленном (без перерисовки окна, чтобы не терять поле ввода)
+function campaignTotals() {
+  const c = S.cmp, a = armyByKey(c.army) || allArmies()[0]; if (!a) return;
+  const go = campaignPick(a, c), s = campaignSec();
+  const set = (id, v, html) => { const el = $(id); if (el) el[html ? 'innerHTML' : 'textContent'] = v; };
+  set('#cmpN', fmtFull(armyTotal(go))); set('#cmpG', genOn(a, c) ? ' + генерал' : ''); set('#cmpTime', s ? fmtT(s) : '—'); set('#cmpSlow', slowestHint(a, c, go), true);
 }
 
 // ---------- события ----------
 $('#sheetBody').addEventListener('click', (e) => {
-  const t = e.target.closest('[data-asec],[data-army],[data-apage],[data-campaign],[data-regroup],[data-genhere],[data-rename],[data-disband],[data-recall],[data-rgall],[data-rgdo],[data-cmpgo],[data-armies]');
+  const t = e.target.closest('[data-asec],[data-army],[data-apage],[data-campaign],[data-regroup],[data-genhere],[data-rename],[data-disband],[data-recall],[data-rgall],[data-rgdo],[data-cmpgo],[data-armies],[data-warpick],[data-warkind],[data-cpall],[data-cpevery],[data-cpnone]');
   if (!t) return;
   const d = t.dataset;
   if (d.armies !== undefined) return openSheet(armiesWin);
+  if (d.warpick !== undefined) return openSheet(() => warWin(d.ax, d.ay));
+  if (d.warkind) return openArmySheet({ mission: d.warkind, x: Number(d.ax), y: Number(d.ay) });
+  if (d.cpall) { S.cmp.pick[d.cpall] = Number(d.cpmax); const i = $(`[data-cpick="${d.cpall}"]`); if (i) i.value = d.cpmax; return campaignTotals(); }
+  if (d.cpevery !== undefined || d.cpnone !== undefined) {
+    const a = armyByKey(S.cmp.army) || allArmies()[0];
+    S.cmp.pick = d.cpnone !== undefined || !a ? {} : { ...campaignFit(S.cmp.mission, a.units) }; S.cmp.gen = d.cpevery !== undefined && !!a && genGoes(a, S.cmp); return refreshSheet();
+  }
   if (d.asec) return openSheet(() => armSectionWin(d.asec));
   if (d.army !== undefined) return openSheet(() => armyWin(armyKey(d.army)));
   if (d.apage) { const pages = Math.ceil(allArmies().length / ARM_PER); S.armPage = { first: 0, prev: S.armPage - 1, next: S.armPage + 1, last: pages - 1 }[d.apage]; S.armPage = Math.max(0, Math.min(pages - 1, S.armPage)); return refreshSheet(); }
@@ -187,8 +227,10 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.rgall) { S.rg.units[d.rgall] = Number(d.rgmax); const i = $(`[data-rgu="${d.rgall}"]`); if (i) i.value = d.rgmax; return; }
   if (d.rgdo !== undefined) { send({ t: 'squad', op: 'regroup', from: S.rg.from, to: S.rg.to, units: S.rg.units, general: !!S.rg.gen, name: S.rg.to === 'new' ? S.rg.name : undefined }); return; }
   if (d.cmpgo !== undefined) {
-    const c = S.cmp, at = c.sched && c.at ? new Date(c.at).getTime() : 0;
-    return send({ t: 'send', from: c.army, mission: c.mission, x: Number(c.x), y: Number(c.y), portal: c.portal, at, res: c.res });
+    const c = S.cmp, at = c.sched && c.at ? new Date(c.at).getTime() : 0, a = armyByKey(c.army) || allArmies()[0];
+    const pick = a ? campaignPick(a, c) : {};
+    if (!armyTotal(pick) && !(a && genOn(a, c))) return toast('Выберите, каких и сколько войск отправить: впишите число или нажмите на шлем (все такие).', 'err');
+    return send({ t: 'send', from: c.army, mission: c.mission, x: Number(c.x), y: Number(c.y), portal: c.portal, at, res: c.res, pick, pickGen: !!(a && genOn(a, c)) });
   }
 });
 $('#sheetBody').addEventListener('input', (e) => {
@@ -196,6 +238,7 @@ $('#sheetBody').addEventListener('input', (e) => {
   if (d.rgu && S.rg) S.rg.units[d.rgu] = Math.max(0, Math.floor(Number(v)) || 0);
   if (d.rgname !== undefined && S.rg) S.rg.name = v;
   if (!S.cmp) return;
+  if (d.cpick) { S.cmp.pick[d.cpick] = Math.max(0, Math.floor(Number(v)) || 0); return campaignTotals(); }
   if (d.cmp === 'x' || d.cmp === 'y') { S.cmp[d.cmp] = v === '' ? '' : Number(v); const s = campaignSec(); const el = $('#cmpTime'); if (el) el.textContent = s ? fmtT(s) : '—'; }
   if (d.cmp === 'at') S.cmp.at = v;
   if (d.cres) S.cmp.res[d.cres] = Math.max(0, Math.floor(Number(v)) || 0);
@@ -205,6 +248,6 @@ $('#sheetBody').addEventListener('change', (e) => {
   if (d.rggen !== undefined && S.rg) S.rg.gen = e.target.checked;
   if (d.rgto !== undefined && S.rg) { S.rg.to = e.target.value === 'new' || e.target.value === 'castle' ? e.target.value : Number(e.target.value); e.target.blur(); refreshSheet(); }
   if (!S.cmp) return;
-  if (d.cmp === 'army' || d.cmp === 'mission') { e.target.blur(); S.cmp[d.cmp] = e.target.value; refreshSheet(); }
+  if (d.cmp === 'army' || d.cmp === 'mission') { e.target.blur(); S.cmp[d.cmp] = e.target.value; if (d.cmp === 'army') { S.cmp.pick = {}; S.cmp.gen = false; } refreshSheet(); }
   if (d.cchk) { e.target.blur(); S.cmp[d.cchk] = e.target.checked; if (d.cchk === 'sched' && e.target.checked && !S.cmp.at) { const t = new Date(Date.now() + 3600000 - new Date().getTimezoneOffset() * 60000); S.cmp.at = t.toISOString().slice(0, 16); } refreshSheet(); }
 });

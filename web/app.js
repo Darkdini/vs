@@ -1478,6 +1478,7 @@ function isoDrawNow() {
     const myRings = pm ? [] : w.objects.filter((o) => o.kind === 'castle' && S.st && o.castleId === S.st.castle.id).map((o) => [tileScreen(o.x - (w.cx - R0), o.y - (w.cy - R0)), true, o]);
     for (const [p, , o] of myRings) { myCastleRing(p, true, -1); worldObj(o, p, false, 0, true); } // задняя половина кольца — под своим замком (замок поверх)
     for (const [p, a] of myRings) myCastleRing(p, a, 1); // передняя половина кольца — поверх замка и соседей
+    if (!pm && typeof worldMoves === 'function') worldMoves(w); // армии в пути (watch.js)
     for (const [p, a] of myRings) if (a) { // текущий замок: прыгающая золотая стрелка над ним и подпись «Вы здесь»
       const x = ictx, cx = p.sx + TW / 2, top = p.sy - TH * 0.8 - Math.abs(Math.sin(Date.now() / 300)) * 8;
       x.save(); x.fillStyle = '#ffd84a'; x.strokeStyle = '#7a4a00'; x.lineWidth = 1.5;
