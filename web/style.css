@@ -2298,3 +2298,6 @@ body.menuopen #advbar, body.menuopen #advhand { display: none; } /* открыт
 .wpick small { font-size: 13px; line-height: 1.3; color: #5a4024; }
 .wpick i { font-style: normal; font-size: 28px; color: #a0702a; }
 .cpbtns { justify-content: center; margin: 4px 0 10px; }
+/* «Вернуть армию в замок» — первые 4 минуты похода */
+.recallbtn { margin: 4px 0 10px; font-size: 17px; }
+.recallbtn small { font-size: 14px; opacity: .9; }

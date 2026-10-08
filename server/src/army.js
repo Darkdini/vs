@@ -179,6 +179,7 @@ const GENERAL_ID = 236;
 const TRADE_MAX = Math.max(5, Math.round(600 / SPEED)); // торговцы идут не дольше 10 минут куда угодно
 const OWN_TRADE = 3; // торговцы между своими замками — втрое быстрее (180 полей/час)
 const CAMP_FAST = 3; // набеги и нападения на лагеря разбойников (и логово «Тёмных земель») — втрое быстрее, туда и обратно
+const RECALL_MS = 4 * 60 * 1000; // армию, отправленную по ошибке, можно вернуть в первые 4 минуты (реальные, не зависят от скорости мира)
 // уникальные воины — только награда заданий и походов (в Кладовой), не тренируются. На 20% сильнее своего прообраза расы
 // (здоровье, атака, магия, защита), скорость, груз, население и содержание — как у прообраза. Картинка — gfx/units/uniq/<key>.png,
 // пока её нет — картинка прообраза. slot: inf / cav / mag — так задания выдают их любой расе.
@@ -1464,7 +1465,8 @@ function install(Game, helpers) {
     for (const c of this.castlesOf(user)) {
       for (const a of c.armies || []) mine.push({ id: a.id, castle: c.name, cx: c.x, cy: c.y, mission: a.mission, x: a.x, y: a.y, state: a.state, depart: a.depart, arrive: a.arrive, back: a.back, sec: a.sec,
         stayName: a.state === 'stay' && this.db.castles[a.stayAt] ? this.db.castles[a.stayAt].name : null, n: Object.values(a.units).reduce((s, k) => s + k, 0),
-        units: a.units, general: !!a.general, army: a.squad ? a.squad.name : 'Армия', to: this.placeName(a.x, a.y) });
+        units: a.units, general: !!a.general, army: a.squad ? a.squad.name : 'Армия', to: this.placeName(a.x, a.y),
+        recalled: a.recalled ?? null, recallUntil: (a.state === 'go' || a.state === 'wait') && a.mission !== 'expedition' ? a.depart + RECALL_MS : 0 });
       inc.push(...this.incoming(c).filter((a) => a.from !== user.login)); // свои армии между своими замками — уже в списке «свои»
     }
     return { mine, incoming: inc.sort((p, q) => p.arrive - q.arrive) };
@@ -1718,6 +1720,16 @@ function install(Game, helpers) {
     if (op === 'general') { // генерал переходит в армию id ('castle' — в Замковую)
       const g = castle.general; if (!g || g.dead || g.away) return { error: 'Генерал недоступен.' };
       if (id === 'castle') delete g.squad; else { const q = pick(id); if (!q || q.castle) return { error: 'Армия не найдена.' }; g.squad = q.id; }
+      this.store.save(); return { ok: true };
+    }
+    if (op === 'recall' && castle.armies.some((x) => x.id === Number(id) && (x.state === 'go' || x.state === 'wait'))) { // ошибся с походом: первые 4 минуты армию можно вернуть
+      const a = castle.armies.find((x) => x.id === Number(id)), now = Date.now();
+      if (a.mission === 'expedition') return { error: 'Экспедицию отозвать нельзя.' };
+      if (a.cargo) { for (const r of RES4) castle.res[r] += a.cargo[r] || 0; a.cargo = null; } // торговцы везут груз обратно — сразу на склад
+      if (a.state === 'wait') { this.returnHome(castle, a); this.store.save(); return { ok: true }; } // по расписанию ещё не вышла — сразу дома
+      if (now - a.depart > RECALL_MS) return { error: 'Отозвать можно только в первые 4 минуты похода.' };
+      const k = Math.max(0, Math.min(1, (now - a.depart) / Math.max(1, a.arrive - a.depart)));
+      Object.assign(a, { state: 'back', recalled: k, arrive: now, back: now + (now - a.depart) }); // идёт назад столько же, сколько успела пройти
       this.store.save(); return { ok: true };
     }
     if (op === 'recall') { // отозвать подкрепление домой

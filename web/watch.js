@@ -5,7 +5,7 @@ function movesWin() {
   const m = S.moves; if (!m) return `${ribbon('Передвижения армий')}<p class="parch-note">Загрузка…</p>`;
   const st = (a) => (a.state === 'wait' ? `выйдет через <span class="cd" data-e="${a.depart}"></span>` : a.state === 'go' ? `прибудет через <span class="cd" data-e="${a.arrive}"></span>` : a.state === 'back' ? `вернётся через <span class="cd" data-e="${a.back}"></span>` : `стоит в «${esc(a.stayName || '')}»`);
   return `${ribbon('Передвижения армий')}
-    ${(() => { const row = (a) => `<button type="button" class="mrow mrowbtn" data-mvid="${a.id}"><span><b>${esc(a.castle)}</b> → <b>${esc(a.to || `${a.x}:${a.y}`)}</b> (${a.x}:${a.y})<br><span class="mvtype mv-${a.mission}">${M().missions[a.mission]}</span>${a.state === 'back' ? ' <span class="mvtype mv-home">↩ Домой</span>' : ''}<br><small>🪖 ${esc(a.army || 'Армия')} · ${fmtFull(a.n)}${a.general ? ' + генерал' : ''} · ${st(a)}</small></span><i class="mvgo">›</i></button>`; const out = m.mine.filter((a) => a.state !== 'back'), home = m.mine.filter((a) => a.state === 'back');
+    ${(() => { const row = (a) => `<button type="button" class="mrow mrowbtn" data-mvid="${a.id}"><span><b>${esc(a.castle)}</b> → <b>${esc(a.to || `${a.x}:${a.y}`)}</b> (${a.x}:${a.y})<br><span class="mvtype mv-${a.mission}">${M().missions[a.mission]}</span>${a.state === 'back' ? ' <span class="mvtype mv-home">↩ Домой</span>' : ''}<br><small>🪖 ${esc(a.army || 'Армия')} · ${fmtFull(a.n)}${a.general ? ' + генерал' : ''} · ${st(a)}</small></span><i class="mvgo">›</i></button>${recallBtn(a)}`; const out = m.mine.filter((a) => a.state !== 'back'), home = m.mine.filter((a) => a.state === 'back');
       return `${ribbon('Армии королевства')}${out.length ? out.map(row).join('') : (home.length ? '<p class="parch-note">В походе никого нет.</p>' : '<p class="parch-note">Все армии дома.</p>')}${home.length ? `${ribbon('↩ Возвращаются домой')}${home.map(row).join('')}` : ''}`; })()}
     ${ribbon('Надвигающиеся атаки')}${m.incoming.length ? m.incoming.map((a) => `<div class="mrow ${['attack', 'raid'].includes(a.mission) ? 'danger' : ''}">${['attack', 'raid'].includes(a.mission) ? `<img class="wic" src="${GFX}watch/ic_${a.mission}.png" alt="">` : ''}<span><b>${M().missions[a.mission]}</b> на «${esc(a.to)}» от ${esc(a.from)}<br><small>из «${esc(a.castle)}» · прибудет через <span class="cd" data-e="${a.arrive}"></span></small>${threatInfo(a)}</span></div>`).join('') : '<p class="parch-note">Никто не идёт на Ваши замки.</p>'}
     <p class="small muted whint"><img src="${GFX}watch/ic_watch.png" alt="">${watchHint()} Разведку, направленную в Ваши замки, башня не показывает.</p>`;
@@ -60,8 +60,21 @@ function moveWin() {
     ${a.depart ? row('Вышла', t(a.depart)) : ''}${a.sec ? row('Время в пути', fmtT(a.sec)) : ''}${row('Армия', `${esc(a.army || 'Армия')} · ${fmtFull(a.n)}${a.general ? ' + генерал' : ''}`)}${slow ? row('Скорость', `${slow.speed} кл./час — по самому медленному: ${esc(slow.name)}`) : ''}
 </div>
     <button class="pbar" data-mvmap="${a.x}:${a.y}">🗺 Показать цель на карте</button>
+    ${recallBtn(a)}
     ${a.state === 'stay' ? `<button class="pbar" data-recall="${a.id}">Отозвать домой</button>` : ''}`;
 }
+// ошиблись с походом — первые 4 минуты армию можно развернуть домой (сервер: squadOp recall)
+const recallUntil = (a) => a.recallUntil ?? ((a.state === 'go' || a.state === 'wait') && a.mission !== 'expedition' && a.depart ? a.depart + 240000 : 0);
+function recallBtn(a) {
+  const until = recallUntil(a); if (!(until > now())) return '';
+  return `<button type="button" class="pbar recallbtn" data-recallgo="${a.id}">↩ Вернуть армию в замок <small>(ещё <span class="cd" data-e="${until}"></span>)</small></button>`;
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-recallgo]'); if (!b) return;
+  if (!confirm('Вернуть армию в замок? Она развернётся и пойдёт домой.')) return;
+  send({ t: 'squad', op: 'recall', id: Number(b.dataset.recallgo) });
+  S.wmAt = 0; setTimeout(() => send({ t: 'moves' }), 300); // обновить «Передвижения армий» и карту
+});
 $('#sheetBody').addEventListener('click', (e) => {
   const r = e.target.closest('[data-mvid]'); if (r) { S.moveId = Number(r.dataset.mvid); return openSheet(moveWin); }
   const m = e.target.closest('[data-mvmap]'); if (m) { const [x, y] = m.dataset.mvmap.split(':').map(Number); closeAllSheets(); S.wGoto = { x, y }; setTab('world'); }
@@ -82,6 +95,7 @@ function worldMoves(w) {
   const list = [];
   for (const a of m.mine || []) {
     if (a.state === 'go') list.push({ f: [a.cx, a.cy], to: [a.x, a.y], t0: a.depart, t1: a.arrive, col: WM_COL[a.mission] || '#fff', ic: a.mission === 'reinforce' || a.mission === 'trade' ? 'reinf' : 'att' });
+    else if (a.state === 'back' && a.recalled != null) list.push({ f: [a.cx + (a.x - a.cx) * a.recalled, a.cy + (a.y - a.cy) * a.recalled], to: [a.cx, a.cy], t0: a.arrive, t1: a.back, col: WM_COL.home, ic: 'home' }); // отозвана — назад с того места, где развернулась
     else if (a.state === 'back') list.push({ f: [a.x, a.y], to: [a.cx, a.cy], t0: a.back - (a.arrive - a.depart), t1: a.back, col: WM_COL.home, ic: 'home' });
   }
   for (const a of m.incoming || []) if (a.fx != null && a.depart) { const hostile = ['attack', 'raid'].includes(a.mission); list.push({ f: [a.fx, a.fy], to: [a.tx, a.ty], t0: a.depart, t1: a.arrive, col: hostile ? WM_COL.inc : WM_COL.reinforce, ic: hostile ? 'inc' : 'reinf' }); }

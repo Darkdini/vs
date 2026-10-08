@@ -55,7 +55,7 @@ function armSectionWin(k) {
   const own = (a) => `<div class="arow2"><div class="aicon"><img class="aswords" src="${ICO('swords')}" alt=""></div><div class="ainfo">
       <div class="aname">${esc(a.squad ? (a.squad.id ? `Армия: ${a.squad.name}` : a.squad.name) : 'Армия')} — ${M().missions[a.mission]}${a.general ? ` <img class="rico" src="${unitSrc(unitById(M().generalId))}" alt="">` : ''}</div>
       <div class="acount"><img src="${ICO('helmet')}" alt=""> ${fmtFull(armyTotal(a.units))} · ${armWhen(a)}</div>
-      ${a.state === 'stay' ? `<button class="pbar amanage" data-recall="${a.id}">Отозвать домой</button>` : ''}</div></div>`;
+      ${typeof recallBtn === 'function' ? recallBtn(a) : ''}${a.state === 'stay' ? `<button class="pbar amanage" data-recall="${a.id}">Отозвать домой</button>` : ''}</div></div>`;
   let body;
   if (k === 'inc') body = n.inc.map((a) => `<div class="arow2 danger"><div class="aicon"><img class="aswords" src="${TOP}inc.png" alt=""></div><div class="ainfo">
       <div class="aname">${M().missions[a.mission]} от ${esc(a.from)}</div><div class="acount">из «${esc(a.castle)}» · прибудет через <span class="cd" data-e="${a.arrive}"></span></div></div></div>`).join('')

@@ -1173,6 +1173,19 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.strictEqual(near, 0, 'замки не вплотную к лагерям');
     console.log('✓ Карта мира: замки не встают вплотную к лагерям, руинам и рудникам');
   }
+  { // ошибся с походом: первые 4 минуты армию можно развернуть домой, потом — нельзя
+    const U = g.register({ login: 'recall1', password: '12345', race: 0 }).user; g.adminAddCastles(U, 1);
+    const [c1, c2] = g.castlesOf(U); g.mil(c1); g.maxOut(c1); c1.units = { 200: 40 }; c1.squads = []; c1.armies = []; c1.general = null;
+    const s = g.sendArmy(c1, { from: 'castle', mission: 'reinforce', x: c2.x, y: c2.y }); assert.ok(!s.error, s.error);
+    assert.ok(!c1.units[200], 'армия ушла');
+    s.army.depart -= 60000; s.army.arrive -= 60000; // прошла минута
+    const r = g.squadOp(c1, { op: 'recall', id: s.army.id }); assert.ok(r.ok, JSON.stringify(r));
+    assert.strictEqual(s.army.state, 'back'); assert.ok(Math.abs(s.army.back - Date.now() - 60000) < 2000, 'назад столько же, сколько шла');
+    g.tickWorld(Date.now() + 61000); assert.strictEqual(c1.units[200], 40, 'вернулась домой целиком');
+    const s2 = g.sendArmy(c1, { from: 'castle', mission: 'reinforce', x: c2.x, y: c2.y }); s2.army.depart -= 5 * 60000;
+    assert.ok(/4 минуты/.test(g.squadOp(c1, { op: 'recall', id: s2.army.id }).error || ''), 'через 5 минут отозвать нельзя');
+    console.log('✓ Поход по ошибке: первые 4 минуты армию можно вернуть в замок (идёт назад столько же), потом — нельзя');
+  }
   try { fs.unlinkSync(DB); } catch {}
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });

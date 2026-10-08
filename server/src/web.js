@@ -647,7 +647,7 @@ const API = {
     else if (!r.error) this.toast(r.army.state === 'wait' ? `Поход запланирован: ${ARMY.MISSIONS[m.mission]} ${m.x}:${m.y}` : `Армия выступила: ${ARMY.MISSIONS[m.mission]} ${m.x}:${m.y}`);
     this.result(r);
   },
-  squad(m) { const r = this.game.squadOp(this.castle, m); if (m.op === 'regroup' && r && r.ok) this.toast('Армия переформирована!'); this.result(r); },
+  squad(m) { const r = this.game.squadOp(this.castle, m); if (m.op === 'regroup' && r && r.ok) this.toast('Армия переформирована!'); if (m.op === 'recall' && r && r.ok) this.toast('Армия развернулась и идёт домой.'); this.result(r); },
   boss() { this.send({ t: 'boss', data: this.game.bossView(this.user) }); },
   // Кладовая игрока (stash.js): список наград и «Извлечь» в текущий замок
   stash(m) {
