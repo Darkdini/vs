@@ -163,7 +163,6 @@ function campaignWin() {
   const c = S.cmp, armies = allArmies();
   if (allyCastleAt(c.x, c.y) && ['raid', 'attack', 'scout'].includes(c.mission)) c.mission = 'reinforce'; // союзник — только подкрепление
   const a = c.army === '' ? null : armyByKey(c.army);
-  const go = a ? campaignFit(c.mission, a.units) : {}, n = armyTotal(go), sec = campaignSec();
   const portal = buildingLevel(38) > 0;
   const chk = (key, on, icon, text, dis) => `<label class="cchk ${dis ? 'off' : ''}"><input type="checkbox" data-cchk="${key}" ${on ? 'checked' : ''} ${dis ? 'disabled' : ''}><i></i><img src="${icon}" alt=""> ${text}</label>`;
   const nm = (x) => x.name.replace(/^Армия: /, '');
@@ -177,11 +176,7 @@ function campaignWin() {
     ${chk('portal', c.portal, `${GFX}build/hd3/portal.png`, 'Через портал', !portal)}
     ${chk('sched', c.sched && isPrem(), `${GFX}res/time.png`, isPrem() ? 'Расписание отправки' : 'Расписание отправки 🔒 премиум', !isPrem())}
     ${c.sched && isPrem() ? `<input type="datetime-local" data-cmp="at" value="${esc(c.at)}">` : ''}
-    ${!a ? '<div class="cinfo">Армию собирают заранее: Военный штаб → «Армии в замке» → «Переформировать».</div>' : `
-    <div class="cinfo">В поход идёт «${esc(nm(a))}»: <b>${fmtFull(n)}</b> ${genGoes(a, c) ? '+ генерал' : ''} · в пути: <b id="cmpTime">${sec ? fmtT(sec) : '—'}</b></div>
-    ${goUnits(go, c.mission)}
-    ${slowestHint(a, c, go)}
-    ${n < armyTotal(a.units) ? `<div class="cinfo small">${c.mission === 'scout' ? 'В разведку идут только разведчики — остальные' : 'Неподходящие для этого похода юниты'} останутся в замке.</div>` : ''}`}
+    ${!a ? '<div class="cinfo">Армию собирают заранее: Военный штаб → «Армии в замке» → «Переформировать».</div>' : ''}
     <button class="pbar" data-cmpgo>Отправить</button>`;
 }
 
