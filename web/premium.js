@@ -62,7 +62,7 @@ function kingdomWin() {
       ${c.training.length ? `<div class="small">Тренируются: ${c.training.map((t) => `${esc(t.unit)} ×${t.left} <span class="cd" data-e="${t.end}"></span>`).join(', ')}</div>` : '<div class="small muted">Тренировок нет.</div>'}
       ${c.units.length ? `<div class="arow"><select data-kunit="${c.id}">${c.units.map((u) => `<option value="${u.id}">${esc(u.name)}</option>`).join('')}</select>
         <input type="number" min="1" value="10" inputmode="numeric" data-kcount="${c.id}" style="max-width:80px"><button class="btn primary small" data-ktrain="${c.id}">Обучить</button></div>` : '<div class="small muted">Нет казарм для тренировки.</div>'}
-      ${c.loyalty < 100 && c.temple ? `<button class="btn small" data-kcalm="${c.id}">Снять весь бунт (${100 - c.loyalty}%)</button>` : ''}</div>`).join('')}
+      ${c.calmEnd ? `<div class="small">Бунт снижается: ещё <span class="cd" data-e="${c.calmEnd}"></span></div>` : c.loyalty < 100 && c.temple ? `<button class="btn small" data-kcalm="${c.id}">Снять весь бунт (${100 - c.loyalty}%)</button>` : ''}</div>`).join('')}
     ${rit}`;
 }
 $('#sheetBody').addEventListener('click', (e) => {

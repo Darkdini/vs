@@ -1220,12 +1220,16 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.ok(/Недостаточно/.test(g.calmRiot(A, tgt, 'all').error || ''), 'без ресурсов не снизить');
     const per = g.calmPer(tgt); assert.strictEqual(per.wood, Math.round(400 * (1 - 0.025 * T)));
     Object.assign(tgt.res, { wood: per.wood * 10, stone: per.stone * 10, iron: per.iron * 10, food: per.food * 10 });
-    assert.ok(g.calmRiot(A, tgt, 10).ok && riot(tgt) === 85 && tgt.res.wood < per.wood, 'на 10% — ровно за 10 долей');
+    assert.ok(g.calmRiot(A, tgt, 10).ok && riot(tgt) === 95 && tgt.res.wood < per.wood && tgt.calmJob, 'на 10% — ровно за 10 долей, бунт падает постепенно');
+    assert.ok(/уже снижается/.test(g.calmRiot(A, tgt, 5).error || ''), 'одно снижение за раз');
+    const J = tgt.calmJob, sec1 = g.calmSec(tgt); assert.strictEqual(J.end - J.start, 10 * sec1 * 1000, 'время: 10 × время на 1%');
+    g.tick(tgt, J.start + (J.end - J.start) / 2); assert.strictEqual(riot(tgt), 90, 'на середине — половина');
+    g.tick(tgt, J.end + 1000); assert.ok(riot(tgt) === 85 && !tgt.calmJob, 'к концу — весь');
     // свежий захват уязвим: B одной победной атакой с бунтарём забирает замок (85% + 15% = 100%)
     tgt.units = {}; cb.units = { 200: 3000, 233: 1 }; cb.armies = []; const rB = g.sendArmy(cb, { units: { 200: 3000, 233: 1 }, mission: 'attack', x: tgt.x, y: tgt.y }); assert.ok(!rB.error, rB.error); g.tickWorld(Date.now() + 1e10);
     assert.ok(tgt.owner === B2.id && riot(tgt) === 95, 'замок отбит одной атакой');
     Object.assign(tgt.res, { wood: 1e6, stone: 1e6, iron: 1e6, food: 1e6 });
-    assert.ok(g.calmRiot(B2, tgt, 'all').ok && riot(tgt) === 0, 'весь бунт снят');
+    assert.ok(g.calmRiot(B2, tgt, 'all').ok); g.tick(tgt, tgt.calmJob.end + 1000); assert.ok(riot(tgt) === 0, 'весь бунт снят');
     assert.ok(/Бунта нет/.test(g.calmRiot(B2, tgt, 5).error || ''));
     // 7 армий с бунтарями сразу, одна за другой — каждая по 15%, замок переходит
     const C2 = mk('capC1'); g.adminAddCastles(C2, 1); const t2 = g.castlesOf(C2)[1]; g.mil(t2); t2.units = {}; t2.squads = []; t2.loyalty = 100;
@@ -1235,7 +1239,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     g.tickWorld(Date.now() + 1e10);
     assert.ok(t2.owner === A.id && riot(t2) === 95, `7 армий подряд — замок захвачен (${t2.owner === A.id}, ${riot(t2)}%)`);
     assert.ok(g.reportsOf(A.id).some((r) => /Замок уже ваш/.test((r.lines || []).join(' '))) && t2.units[200] === undefined, 'восьмая армия пришла в уже свой замок — без боя домой');
-    console.log(`✓ Захват: +15% бунта за победу с бунтарями, 7 атак — замок ваш (бунт 95%, бунтарь остался), бунт сам не утихает, Храм ${T} ур.: 1% = ${per.wood} каждого ресурса`);
+    console.log(`✓ Захват: +15% бунта за победу с бунтарями, 7 атак — замок ваш (бунт 95%, бунтарь остался), бунт сам не утихает, Храм ${T} ур.: 1% = ${per.wood} каждого ресурса и ${Math.round(g.calmSec(tgt) / 60 * 10) / 10} мин`);
     if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
   }
   { // цены, которые раньше не влезали в Склад (75 200): науки 15–20, улучшения Кузницы/Школы магии; воскрешение генерала — по частям

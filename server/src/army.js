@@ -500,7 +500,8 @@ function install(Game, helpers) {
   };
   P.tickTraining = function tickTraining(castle, now) {
     this.mil(castle);
-    // бунт (100 − лояльность) сам не утихает — снизить его можно только в Храме за ресурсы (royal.js calmRiot)
+    // бунт (100 − лояльность) сам не утихает — снизить его можно только в Храме за ресурсы, он падает постепенно (royal.js calmRiot)
+    if (castle.calmJob && this.calmTick) this.calmTick(castle, now);
     castle.loyAt = now;
     const owner = castle.owner;
     castle.training = castle.training.filter((t) => {
@@ -1374,7 +1375,7 @@ function install(Game, helpers) {
     castle.owner = att.id;
     for (const g of this.guestsOf(castle)) this.goBack(g.c, g.a, Date.now()); // чужие подкрепления уходят домой
     castle.units = {}; castle.squads = []; castle.training = []; castle.armies = []; castle.general = null; castle.research = null;
-    castle.loyalty = 100 - RIOT_CAPTURED; castle.loyAt = Date.now(); // после захвата в замке бунт 95%: хозяин снижает его в Храме за ресурсы
+    delete castle.calmJob; castle.loyalty = 100 - RIOT_CAPTURED; castle.loyAt = Date.now(); // после захвата в замке бунт 95%: хозяин снижает его в Храме за ресурсы
     att.castleIds = [...this.castlesOf(att).map((k) => k.id), castle.id];
     this.addStat(att.id, 'capRating', this.rating(castle)); // Развитие не учитывает рейтинг захваченных замков
     this.store.save();

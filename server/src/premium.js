@@ -23,7 +23,7 @@ function install(Game) {
     return this.castlesOf(user).map((c) => {
       this.tick(c); this.mil(c);
       const units = unitsForRace(this.raceOf(c)).filter((u) => u.id !== GENERAL_ID && !u.notrain && !this.unitLock(c, u)).map((u) => ({ id: u.id, name: u.name }));
-      return { id: c.id, name: c.name, x: c.x, y: c.y, loyalty: Math.round(c.loyalty ?? 100), temple: this.buildingLevel(c, 25),
+      return { id: c.id, name: c.name, x: c.x, y: c.y, loyalty: Math.round(c.loyalty ?? 100), temple: this.buildingLevel(c, 25), calmEnd: c.calmJob ? c.calmJob.end : 0,
         res: { wood: Math.floor(c.res.wood), stone: Math.floor(c.res.stone), iron: Math.floor(c.res.iron), food: Math.floor(c.res.food), people: Math.floor(c.res.people) },
         training: c.training.map((t) => ({ unit: (UNIT[t.unit] || {}).name || '?', left: t.count - t.done, end: t.start + t.each * t.count })), units };
     });

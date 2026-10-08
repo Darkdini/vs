@@ -27,6 +27,8 @@ const RITUALS = {
 };
 // Храм: снизить бунт в замке за ресурсы — за каждый 1% бунта; каждый уровень Храма удешевляет на 2,5% (20 ур. — вдвое)
 const CALM_PER = { wood: 400, stone: 400, iron: 400, food: 400 }, CALM_TEMPLE_OFF = 0.025;
+// время: 1% бунта снимается за 6 минут (÷ скорость мира), каждый уровень Храма — на 2,5% быстрее; бунт падает постепенно
+const CALM_MIN = 6, SPEED = Number(process.env.SPEED || 1);
 const dayKey = (t) => Math.floor(t / DAY);
 
 function install(Game) {
@@ -88,7 +90,7 @@ function install(Game) {
       perDay: ROYAL.passive + this.templeRoyal(user), temples: this.templeRoyal(user), wait: this.royalWaitDays(user, now),
       bonus: this.ritualBonus(user, now), bonusCap: this.ritualCap(user),
       rituals: Object.entries(RITUALS).map(([id, r]) => { const act = (user.rituals || []).find((x) => x.id === id && x.until > now); return { id, ...r, until: act ? act.until : 0 }; }),
-      calmPer: this.calmPer(castle),
+      calmPer: this.calmPer(castle), calmSec: this.calmSec(castle), calmJob: castle.calmJob ? { left: Math.max(0, Math.round((castle.calmJob.n - castle.calmJob.done) * 10) / 10), end: castle.calmJob.end, n: castle.calmJob.n } : null,
       today: user.royalDay === dayKey(now) ? user.royalToday : 0, dayCap: ROYAL.dayCap, rules: ROYAL,
       festivals: Object.entries(FESTIVALS).map(([id, f]) => ({ id, ...f, ready: !((user.festAt || {})[id] > now - DAY), readyAt: ((user.festAt || {})[id] || 0) + DAY })),
     };
@@ -113,11 +115,22 @@ function install(Game) {
     const k = 1 - CALM_TEMPLE_OFF * this.buildingLevel(castle, 25);
     return Object.fromEntries(Object.entries(CALM_PER).map(([r, v]) => [r, Math.round(v * k)]));
   };
+  // секунд на снижение 1% бунта в этом замке
+  P.calmSec = function calmSec(castle) { return Math.max(1, Math.round(CALM_MIN * 60 * (1 - CALM_TEMPLE_OFF * this.buildingLevel(castle, 25)) / SPEED)); };
+  // идёт снижение: бунт падает равномерно от начала до конца (вызывается из tick замка — army.js tickTraining)
+  P.calmTick = function calmTick(castle, now = Date.now()) {
+    const j = castle.calmJob; if (!j) return;
+    const k = Math.max(0, Math.min(1, (now - j.start) / Math.max(1, j.end - j.start))), want = j.n * k;
+    castle.loyalty = Math.min(100, castle.loyalty + (want - j.done)); j.done = want;
+    if (now >= j.end) delete castle.calmJob;
+  };
   // «Бунт»: снизить бунт в замке за ресурсы на pct процентов ('all' — весь бунт). Бунт сам не утихает: после захвата он 95%,
-  // каждая победная атака врага с бунтарями добавляет 15%, при 100% замок переходит к нападающему (army.js)
+  // каждая победная атака врага с бунтарями добавляет 15%, при 100% замок переходит к нападающему (army.js).
+  // Ресурсы списываются сразу, бунт падает постепенно (calmSec на 1%); одно снижение за раз
   P.calmRiot = function calmRiot(user, castle, pct = 'all') {
     if (!this.buildingLevel(castle, 25)) return { error: 'Нужен Храм.' };
     this.tick(castle); this.mil(castle);
+    if (castle.calmJob) return { error: 'Бунт уже снижается — дождитесь окончания.' };
     const riot = Math.max(0, Math.ceil(100 - castle.loyalty - 1e-9));
     if (riot <= 0) return { error: 'Бунта нет.' };
     const n = pct === 'all' ? riot : Math.max(1, Math.min(riot, Math.floor(Number(pct)) || 0));
@@ -125,9 +138,11 @@ function install(Game) {
     const per = this.calmPer(castle), cost = Object.fromEntries(Object.entries(per).map(([r, v]) => [r, v * n]));
     for (const k of Object.keys(cost)) if (castle.res[k] < cost[k]) return { error: `Недостаточно ресурсов: снизить бунт на ${n}% стоит ${Object.values(cost).map((v) => v.toLocaleString('ru-RU')).join(' / ')}.` };
     for (const k of Object.keys(cost)) castle.res[k] -= cost[k];
-    castle.loyalty = Math.min(100, castle.loyalty + n);
+    const now = Date.now(), sec = n * this.calmSec(castle);
+    castle.calmJob = { n, done: 0, start: now, end: now + sec * 1000 };
     this.store.save();
-    return { ok: true, msg: `Бунт в замке снижен на ${n}%: теперь ${Math.max(0, Math.round(100 - castle.loyalty))}%.` };
+    const h = Math.floor(sec / 3600), m = Math.round((sec % 3600) / 60);
+    return { ok: true, msg: `Бунт снижается на ${n}%: ${h ? `${h} ч ` : ''}${m} мин.` };
   };
 
   P.festival = function festival(user, castle, id) {
