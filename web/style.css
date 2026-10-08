@@ -2307,3 +2307,4 @@ details.rarmy > summary { list-style: none; cursor: pointer; }
 details.rarmy > summary::-webkit-details-marker { display: none; }
 details.rarmy[open] > summary { filter: brightness(1.12); }
 .rul { margin: 4px 0; }
+.cinfo.ctime { font-size: 20px; margin: 8px 0; }

@@ -80,7 +80,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   const m = e.target.closest('[data-mvmap]'); if (m) { const [x, y] = m.dataset.mvmap.split(':').map(Number); closeAllSheets(); S.wGoto = { x, y }; setTab('world'); }
 });
 
-// ---------- армии в пути на карте мира: линия от замка к цели, значок армии движется по ней, под ним — сколько осталось ----------
+// ---------- армии в пути на карте мира: линия от замка к цели, значок армии движется по ней ----------
 // свои: нападение/набег/разведка — зелёные мечи, подкрепление — щит, возвращаются домой — синие; на нас (видит Караульная башня) — красные
 const WM_COL = { attack: '#e8402a', raid: '#f08a20', scout: '#4a9ae8', reinforce: '#3cbc4a', trade: '#e8c030', expedition: '#b07ae8', home: '#5aa8e0', inc: '#ff2a1a' };
 const WM_IMG = {};
@@ -113,8 +113,6 @@ function worldMoves(w) {
     const x = A[0] + (B[0] - A[0]) * k, y = A[1] + (B[1] - A[1]) * k - 6, R = 13;
     g.fillStyle = 'rgba(30,18,8,0.85)'; g.strokeStyle = a.col; g.lineWidth = 2.5; g.beginPath(); g.arc(x, y, R, 0, Math.PI * 2); g.fill(); g.stroke();
     const im = wmIcon(a.ic); if (im) g.drawImage(im, x - R * 0.8, y - R * 0.8, R * 1.6, R * 1.6);
-    const left = fmtT(Math.max(0, (a.t1 - t) / 1000));
-    g.font = 'bold 10px system-ui, sans-serif'; g.textAlign = 'center'; g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,0.85)'; g.strokeText(left, x, y + R + 11); g.fillStyle = '#fff'; g.fillText(left, x, y + R + 11);
   }
   g.restore();
 }

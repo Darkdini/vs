@@ -176,7 +176,8 @@ function campaignWin() {
     ${chk('portal', c.portal, `${GFX}build/hd3/portal.png`, 'Через портал', !portal)}
     ${chk('sched', c.sched && isPrem(), `${GFX}res/time.png`, isPrem() ? 'Расписание отправки' : 'Расписание отправки 🔒 премиум', !isPrem())}
     ${c.sched && isPrem() ? `<input type="datetime-local" data-cmp="at" value="${esc(c.at)}">` : ''}
-    ${!a ? '<div class="cinfo">Армию собирают заранее: Военный штаб → «Армии в замке» → «Переформировать».</div>' : ''}
+    ${!a ? '<div class="cinfo">Армию собирают заранее: Военный штаб → «Армии в замке» → «Переформировать».</div>'
+      : `<div class="cinfo ctime">${gimg('res/time.png', 'ric')} Время в пути: <b id="cmpTime">${(() => { const t = campaignSec(); return t ? fmtT(t) : '—'; })()}</b></div>`}
     <button class="pbar" data-cmpgo>Отправить</button>`;
 }
 
