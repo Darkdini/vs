@@ -288,16 +288,14 @@ const EXPED_MAXN = 20; // больше 20 археологов в одну эк�
 // img — тайл клиента; def — сила охраны против пехоты/кавалерии/магии; loot — запас ресурсов (восстанавливается)
 const NPC = {
   // охрана — в том же масштабе, что и юниты (×0.42 от прежних значений)
-  25: { name: 'Дикари', def: { inf: 250, cav: 210, mag: 105 }, loot: { wood: 600, stone: 600, iron: 400, food: 900 } },
-  26: { name: 'Лесорубы', def: { inf: 150, cav: 170, mag: 65 }, loot: { wood: 2500, stone: 200, iron: 100, food: 400 } },
-  27: { name: 'Рудник троллей', def: { inf: 1050, cav: 925, mag: 380 }, loot: { wood: 300, stone: 2500, iron: 4000, food: 500 } },
-  // лагеря разбойников — боты трёх уровней сложности; добыча скромная (не заменяет свою экономику)
+  // лагеря разбойников — боты трёх уровней сложности, в каждой провинции по одному (game.js PROV_NPC); добыча скромная (не заменяет свою экономику)
   30: { name: 'Лагерь разбойников (лёгкий)', level: 'Лёгкий', def: { inf: 90, cav: 80, mag: 40 }, loot: { wood: 250, stone: 250, iron: 150, food: 300 } },
   31: { name: 'Лагерь разбойников (средний)', level: 'Средний', def: { inf: 450, cav: 400, mag: 180 }, loot: { wood: 500, stone: 500, iron: 350, food: 600 } },
   32: { name: 'Лагерь разбойников (тяжёлый)', level: 'Тяжёлый', def: { inf: 1500, cav: 1350, mag: 600 }, loot: { wood: 900, stone: 900, iron: 700, food: 1000 } },
   24: { name: 'Заброшенный замок', def: { inf: 2520, cav: 2310, mag: 1050 }, loot: { wood: 4000, stone: 4000, iron: 4000, food: 4000 }, ruins: true },
 };
 const NPC_REGEN_SEC = 3600;
+const CAMPS = [30, 31, 32]; // лагеря разбойников: лёгкий, средний, тяжёлый
 // бой (как в Travian): сила атаки против защиты, смешанной по составу нападающих; лечение раненых дома
 const HEAL_HOME = 0.25; // раненые защитники в своём замке: четверть павших выздоравливает
 const ROW = { infantry: 3, cavalry: 2, magic: 1, siege: 1, special: 1 }, DMG = 2, ROUT = 0.3; // бой с боссом (clashHp): ряды строя, множитель урона, бегство
@@ -863,7 +861,7 @@ function install(Game, helpers) {
       castle.squads = castle.squads.filter((q) => q !== squad);
     }
     let sec = this.travelSec(castle, clean, general, x, y, mission === 'trade');
-    if ((lair || (obj && [30, 31, 32].includes(obj.img))) && ['attack', 'raid'].includes(mission)) sec = Math.max(5, Math.round(sec / CAMP_FAST));
+    if ((lair || (obj && CAMPS.includes(obj.img))) && ['attack', 'raid'].includes(mission)) sec = Math.max(5, Math.round(sec / CAMP_FAST));
     if (boss) sec = Math.max(20, Math.min(Math.round(sec / 4), Math.round(900 / SPEED))); // к мировому боссу — быстрый марш: вчетверо быстрее и не дольше 15 минут (и обратно так же)
     if (portal) sec = Math.max(5, Math.round(sec / 4));
     const now = Date.now(), start = at && Number(at) > now + 3000 ? Number(at) : now;
@@ -1286,7 +1284,7 @@ function install(Game, helpers) {
         left = left.filter((r) => avail[r] > 0);
       }
       if (target) for (const r of RES4) target.res[r] -= loot[r];
-      else if (RES4.some((r) => loot[r] > 0)) this.db.npc[where] = { until: t + NPC_REGEN_SEC / SPEED * 1000 };
+      else if (npc.ruins && RES4.some((r) => loot[r] > 0)) this.db.npc[where] = { ...this.db.npc[where], until: t + NPC_REGEN_SEC / SPEED * 1000 }; // запас руин восстанавливается за час; бунт в руинах при этом не сбрасывается (раньше сбрасывался)
     }
     // осада: стена и тараны — до боя (в clash), здания ломают после победы Йетти, Энт, Нурух, Кулак Ярости (урон по зданиям) и катапульты
     const siege = [...R.siege]; let siegeN = R.siegeN;
@@ -1327,12 +1325,14 @@ function install(Game, helpers) {
         const from = Math.round(st.loyalty ?? 100); st.loyalty = Math.max(0, from - drop);
         loyalty = { from, to: st.loyalty };
         if (st.loyalty <= 0) {
-          if (this.royalCanCapture(att)) { this.royalSpend(att); delete this.db.npc[where]; captured = this.foundCaptured(att, a.x, a.y); captured.rebel = 1; rebelStay = this.castleAt(a.x, a.y); }
+          if (this.royalCanCapture(att)) { this.royalSpend(att); this.npcGone(a.x, a.y, t); captured = this.foundCaptured(att, a.x, a.y); captured.rebel = 1; rebelStay = this.castleAt(a.x, a.y); } // новые руины появятся в провинции через час
           else { st.loyalty = 1; royalBlocked = { have: Math.floor(att.royal), need: this.royalNeed(att), wait: this.royalWaitDays(att) }; }
         }
       }
     }
     a.loot = loot;
+    // лагерь разбойников побеждён — исчезает с карты и через час появляется на новом месте той же провинции (game.js npcGone)
+    const npcBack = win && !target && !lair && obj && CAMPS.includes(obj.img) ? this.npcGone(a.x, a.y, t) : null;
     // статистика для Зала Славы (social.js)
     if (loot) this.addStat(c.owner, 'loot', RES4.reduce((q, k) => q + loot[k], 0));
     this.addStat(c.owner, 'kills', target ? popOf(dLost) : (npc ? Math.round(npc.def.inf / 20 * dLoss) : 0));
@@ -1352,6 +1352,7 @@ function install(Game, helpers) {
         : { npc: npc.name, img: obj.img, lossPct: Math.round(dLoss * 100), garrison: R.garrison },
       site: target && target.site ? { end: target.site.end } : null, siteTaken: siteTaken ? (took ? { x: a.x, y: a.y } : { blocked: siteTaken.blocked }) : null,
       loot, siege, loyalty, capitalBlocked, royalBlocked, captured: captured ? { name: captured.name, x: a.x, y: a.y, rebel: captured.rebel || 0 } : null,
+      npcBack: npcBack ? Math.max(1, Math.round(npcBack / 60)) : null, // через сколько минут в провинции появится новый лагерь
     };
     const lines = [
       `${MISSIONS[a.mission]} на ${tname}. ${win ? 'Победа!' : 'Поражение.'}`,
@@ -1361,6 +1362,7 @@ function install(Game, helpers) {
       ...siege,
     ];
     if (loyalty) lines.push(`Бунт в замке: ${100 - loyalty.from}% → ${100 - loyalty.to}%`);
+    if (npcBack) lines.push(`Лагерь разбит и исчез с карты — новый появится в этой провинции через ${data.npcBack} мин.`);
     if (took) lines.push(`Недострой захвачен! Ваши путешественники (${SETTLE_TAKE}) продолжают стройку — замок будет готов через ${Math.max(1, Math.round((target.site.end - t) / 3600000))} ч.`);
     else if (siteTaken && siteTaken.blocked) lines.push(`Недострой не захвачен: ${siteTaken.blocked}`);
     else if (target && target.site && a.mission === 'attack' && win) lines.push(`Охрана недостроя разбита, но стройка продолжается: чтобы забрать её, нужно, чтобы в победном нападении выжили ${SETTLE_TAKE} путешественника.`);
@@ -1405,7 +1407,7 @@ function install(Game, helpers) {
     const block = this.settleBlock(user); if (block) return block;
     if (this.castlesOf(user).some((c) => (c.armies || []).some((a) => a !== self && a.mission === 'settle' && a.state !== 'back'))) return 'Путешественники уже идут осваивать место.';
     const pe = this.placeError(x, y); if (pe) return pe;
-    if (this.worldObjects(x, y, 1, 1).length || this.objNear(x, y)) return 'Место занято лагерем, руинами или рудником (или рядом с ними) — выберите пустую клетку.';
+    if (this.worldObjects(x, y, 1, 1).length || this.objNear(x, y)) return 'Место занято лагерем или руинами (или рядом с ними) — выберите пустую клетку.';
     if (this.lairAt && this.lairAt(user.id, x, y)) return 'Здесь логово — выберите пустую клетку.';
     return null;
   };

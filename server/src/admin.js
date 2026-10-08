@@ -332,7 +332,7 @@ function install(Game) {
         for (const l of [].concat(arg.logins || []).slice(0, 100)) { const u = findUser(this, l); if (u && !u.admin && !u.banned) { u.banned = true; u.online = false; n++; } }
         msg = `Заблокировано аккаунтов: ${n}.`; break;
       }
-      case 'npc': this.db.npc = {}; msg = 'Лагеря и руины восстановлены.'; break;
+      case 'npc': this.db.npc = {}; this.db.pnpc = {}; msg = 'Лагеря и руины восстановлены.'; break;
       case 'reports': this.db.reports = (this.db.reports || []).filter((r) => r.owner !== target.id); msg = 'Отчёты очищены.'; break;
       case 'bugs': data = (this.db.bugs || []).slice(-50).reverse(); break;
       case 'bugsclear': this.db.bugs = []; msg = 'Список ошибок очищен.'; break;

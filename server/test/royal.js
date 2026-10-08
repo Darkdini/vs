@@ -869,7 +869,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
 }
 { // лагеря разбойников: набег втрое быстрее (туда и обратно), на игроков — как было
   const R = g.register({ login: 'campRunner', password: '12345', race: 0 }).user, rc = g.castleOf(R); g.mil(rc);
-  const camp = g.worldObjects(rc.x - 12, rc.y - 12, 25, 25).find((o) => o.kind === 'object' && [30, 31, 32].includes(o.img));
+  const camp = g.provNpc(require('../src/game').provinceOf(rc.x, rc.y).n).find((o) => [30, 31, 32].includes(o.img)); // лагеря своей провинции
   if (camp) {
     rc.grid[0][3] = 2; rc.levels[0][3] = 1; rc.units = { 201: 50 }; const full = g.travelSec(rc, { 201: 50 }, false, camp.x, camp.y);
     const r = g.sendArmy(rc, { units: { 201: 50 }, x: camp.x, y: camp.y, mission: 'raid' });
@@ -1179,10 +1179,10 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.ok(r.win, 'рыцари бьют катапульты: у катапульты слабая защита от кавалерии');
     console.log('✓ Баланс боя: командование генерала до +100%, одинаковые артефакты с убыванием, защита от кавалерии в бою');
   }
-  { // карта мира: новый замок не встаёт вплотную к лагерю, руинам или руднику (картинки налезали)
+  { // карта мира: новый замок не встаёт вплотную к лагерю или руинам (картинки налезали)
     let near = 0; for (let i = 0; i < 60; i++) { const c = g.castleOf(g.register({ login: `mapnear${i}`, password: '12345', race: i % 4 }).user); if (g.worldObjects(c.x - 1, c.y - 1, 3, 3).some((o) => o.kind === 'object')) near++; }
     assert.strictEqual(near, 0, 'замки не вплотную к лагерям');
-    console.log('✓ Карта мира: замки не встают вплотную к лагерям, руинам и рудникам');
+    console.log('✓ Карта мира: замки не встают вплотную к лагерям и руинам');
   }
   { // ошибся с походом: первые 4 минуты армию можно развернуть домой, потом — нельзя
     const U = g.register({ login: 'recall1', password: '12345', race: 0 }).user; g.adminAddCastles(U, 1);
@@ -1293,6 +1293,49 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.ok(!site.site && g.castlesOf(Cc).includes(site) && Cc.royal === before - need, `замок достроен и в списке, лояльность списана (${need})`);
     console.log(`✓ Освоение: 10 путешественников, 3 дня стройки, без путешественников недострой не взять, с 3 — переходит; при достройке −${need} лояльности`);
     if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
+  }
+  { // провинции 25×25: в каждой — руины и 3 лагеря (лёгкий, средний, тяжёлый); побеждённый лагерь исчезает и через час встаёт на новом месте провинции
+    const { PROV, provinceOf, onProvEdge } = require('../src/game'), SP = Number(process.env.SPEED) || 1, HOUR = 3600000 / SP;
+    assert.strictEqual(PROV, 25, 'провинция 25×25');
+    for (const n of [1, 777, 1600]) {
+      const L = g.provNpc(n); assert.deepStrictEqual(L.map((o) => o.img).sort(), [24, 30, 31, 32], `провинция ${n}: руины и 3 лагеря — ${L.map((o) => o.img)}`);
+      assert.ok(L.every((o) => provinceOf(o.x, o.y).n === n && !onProvEdge(o.x, o.y)), 'объекты внутри своей провинции, не у границы');
+      assert.ok(L.every((o) => L.every((q) => q === o || Math.max(Math.abs(q.x - o.x), Math.abs(q.y - o.y)) > 1)), 'объекты не вплотную друг к другу');
+    }
+    const W = g.register({ login: 'campWin1', password: '12345', race: 0 }).user, wc = g.castleOf(W); g.mil(wc); g.maxOut(wc);
+    const pn = provinceOf(wc.x, wc.y).n, camp = g.provNpc(pn).find((o) => o.img === 30);
+    wc.units = { 204: 3000 }; wc.squads = []; wc.armies = []; wc.general = null;
+    const r = g.sendArmy(wc, { units: { 204: 3000 }, x: camp.x, y: camp.y, mission: 'attack' }); assert.ok(!r.error, r.error);
+    const t1 = r.army.arrive + 1000; g.tickWorld(t1);
+    const rep = g.reportsOf(W.id).find((x) => x.data && x.data.type === 'battle' && x.data.x === camp.x && x.data.y === camp.y);
+    assert.ok(rep && rep.data.win && rep.data.npcBack === Math.round(HOUR / 60000) && /новый появится/.test(rep.lines.join(' ')), 'победа: в отчёте — когда появится новый лагерь');
+    assert.ok(!g.provNpc(pn, t1).some((o) => o.img === 30) && !g.worldObjects(camp.x, camp.y, 1, 1).length, 'побеждённый лагерь исчез с карты');
+    assert.ok(!g.provNpc(pn, t1 + HOUR - 60000).some((o) => o.img === 30), 'за минуту до срока его ещё нет');
+    const back = g.provNpc(pn, t1 + HOUR + 1000).find((o) => o.img === 30);
+    assert.ok(back && (back.x !== camp.x || back.y !== camp.y) && provinceOf(back.x, back.y).n === pn && !onProvEdge(back.x, back.y) && !g.npcCrowded(back.x, back.y),
+      'через час — снова в своей провинции, на новом месте, не у границы и не вплотную к замкам');
+    assert.deepStrictEqual(g.provNpc(pn, t1 + HOUR + 2000).find((o) => o.img === 30), back, 'новое место запомнено');
+    // замок вплотную к руинам (поставлен до новых правил) — переезжают руины, замок остаётся
+    const ruins = g.provNpc(pn).find((o) => o.img === 24), V = g.register({ login: 'campNear1', password: '12345', race: 0 }).user, vc = g.castleOf(V);
+    let cell = null; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1]]) if (!cell && !g.castleAt(ruins.x + dx, ruins.y + dy) && !onProvEdge(ruins.x + dx, ruins.y + dy)) cell = { x: ruins.x + dx, y: ruins.y + dy };
+    g.moveCastle(vc, cell.x, cell.y);
+    const moved = g.provNpc(pn).find((o) => o.img === 24);
+    assert.ok(vc.x === cell.x && vc.y === cell.y && (moved.x !== ruins.x || moved.y !== ruins.y) && !g.npcCrowded(moved.x, moved.y), 'руины переехали, замок на месте');
+    // руины: набег забирает запас, но бунт в руинах не сбрасывается (раньше сбрасывался вместе с запасом)
+    const where = `${moved.x}:${moved.y}`; g.db.npc = g.db.npc || {}; g.db.npc[where] = { loyalty: 70 };
+    wc.units = { 204: 20000 }; wc.armies = [];
+    const r2 = g.sendArmy(wc, { units: { 204: 20000 }, x: moved.x, y: moved.y, mission: 'attack' }); assert.ok(!r2.error, r2.error); g.tickWorld(r2.army.arrive + 1000);
+    const rr = g.reportsOf(W.id).find((x) => x.data && x.data.type === 'battle' && x.data.x === moved.x && x.data.y === moved.y);
+    assert.ok(rr && rr.data.win && rr.data.loot && rr.data.loot.wood > 0 && !rr.data.npcBack, 'руины разграблены и остались на карте');
+    assert.ok(g.db.npc[where].loyalty === 70 && g.db.npc[where].until > Date.now(), 'запас руин восстанавливается, бунт в руинах сохранён');
+    // захваченные руины (на их месте — замок) появляются через час на новом месте
+    const tg = Date.now(); assert.strictEqual(g.npcGone(moved.x, moved.y, tg), Math.round(HOUR / 1000)); g.moveCastle(vc, moved.x, moved.y);
+    assert.ok(!g.provNpc(pn, tg + 1000).some((o) => o.img === 24), 'руин нет, пока не прошёл час');
+    const nr = g.provNpc(pn, tg + HOUR + 1000).find((o) => o.img === 24); assert.ok(nr && (nr.x !== moved.x || nr.y !== moved.y) && !g.npcCrowded(nr.x, nr.y), 'новые руины — на новом месте');
+    // замок на границе провинции (стоял до увеличения провинций) переезжает внутрь той же провинции
+    const p0 = provinceOf(vc.x, vc.y); g.moveCastle(vc, p0.px * PROV, vc.y); assert.ok(onProvEdge(vc.x, vc.y));
+    g.provEdgeFix(); assert.ok(!onProvEdge(vc.x, vc.y) && provinceOf(vc.x, vc.y).n === p0.n, 'замок с границы переехал внутрь своей провинции');
+    console.log(`✓ Провинции ${PROV}×${PROV}: руины и 3 лагеря (лёгкий, средний, тяжёлый); побеждённый лагерь исчезает и через ${Math.round(HOUR / 60000)} мин встаёт на новом месте; замки не двигаются — переезжают лагеря; бунт в руинах не сбрасывается`);
   }
   try { fs.unlinkSync(DB); } catch {}
   process.exit(0);

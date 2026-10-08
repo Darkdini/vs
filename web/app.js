@@ -824,7 +824,7 @@ $('#view').addEventListener('click', (e) => {
 // переход к провинции по номеру: в её середину
 $('#view').addEventListener('submit', (e) => {
   const f = e.target.closest('[data-wprovgo]'); if (!f) return; e.preventDefault(); document.activeElement && document.activeElement.blur();
-  const N = (S.cat.rules && S.cat.rules.provN) || 50, n = Math.round(Number(f.n.value));
+  const N = (S.cat.rules && S.cat.rules.provN) || 40, n = Math.round(Number(f.n.value));
   if (!(n >= 1 && n <= N * N)) return toast(`Номер провинции — от 1 до ${N * N}.`, 'err');
   const P = PROV(), px = (n - 1) % N, py = Math.floor((n - 1) / N);
   S.wJump = true; S.wPanel = false; send({ t: 'world', cx: px * P + Math.floor(P / 2), cy: py * P + Math.floor(P / 2) });
@@ -1272,7 +1272,7 @@ function preloadMain() {
     setTimeout(() => ['ground/world_bg.jpg?v=3', 'lands/bg.jpg?v=3', ...[0, 1, 2, 3].map((i) => `world/castle${i}.png?v=1`), ...Object.values(WORLD_OBJ_IMG)].forEach((p) => pic(p)), 800); };
   rest();
 }
-const WORLD_OBJ_IMG = { 24: 'world/ruins.png', 25: 'world/savage.png', 26: 'world/lumber.png', 27: 'world/troll_mine.png', 30: 'world/bandit_s.png', 31: 'world/bandit_m.png', 32: 'quest/lair_orc.png' };
+const WORLD_OBJ_IMG = { 24: 'world/ruins.png', 30: 'world/bandit_s.png', 31: 'world/bandit_m.png', 32: 'quest/lair_orc.png' };
 // поляна: мягкое пятно травы, закрывающее деревья и камни фона под объектом
 let CLEARING = null;
 function worldClearing(p) {
@@ -1395,13 +1395,13 @@ function worldLayer(w, c, dpr) {
 }
 // границы провинций (как в оригинале): у каждой провинции PROV×PROV клеток — своя тонкая светлая рамка со скруглёнными углами,
 // как плитки: между соседями — две отдельные линии, на перекрёстках — скруглённые углы, линии не соединяются
-const PROV = () => (S.cat && S.cat.rules && S.cat.rules.prov) || 20;
-const provNum = (x, y) => Math.floor(y / PROV()) * ((S.cat && S.cat.rules && S.cat.rules.provN) || 50) + Math.floor(x / PROV()) + 1;
+const PROV = () => (S.cat && S.cat.rules && S.cat.rules.prov) || 25;
+const provNum = (x, y) => Math.floor(y / PROV()) * ((S.cat && S.cat.rules && S.cat.rules.provN) || 40) + Math.floor(x / PROV()) + 1;
 const PROV_SPR = { k: '' };
 function provBorders(g, w, ax, bx, ay, by, pz, vr) { // ax..bx, ay..by — клетки относительно загруженного участка; pz — масштаб в режиме секций
   const P = PROV(), X0 = w.cx - w.radius, Y0 = w.cy - w.radius, E = pz ? 0.6 : 0.12, k = pz ? 1.1 / pz : 1, RAD = 18 * k;
   const pt = (x, y) => { const p = tileScreen(x - X0, y - Y0); return [p.sx, p.sy + TH / 2]; }; // угол сетки (x, y) — левый угол клетки
-  const boxes = [], N = (S.cat && S.cat.rules && S.cat.rules.provN) || 50, home = S.st && S.st.castle ? provNum(S.st.castle.x, S.st.castle.y) : 0;
+  const boxes = [], N = (S.cat && S.cat.rules && S.cat.rules.provN) || 40, home = S.st && S.st.castle ? provNum(S.st.castle.x, S.st.castle.y) : 0;
   for (let py = Math.max(0, Math.floor((Y0 + ay) / P)); py * P <= Y0 + by && py < N; py++) for (let px = Math.max(0, Math.floor((X0 + ax) / P)); px * P <= X0 + bx && px < N; px++) {
     const x0 = px * P + E, y0 = py * P + E, x1 = (px + 1) * P - E, y1 = (py + 1) * P - E, b = [pt(x0, y0), pt(x1, y0), pt(x1, y1), pt(x0, y1)];
     if (vr && (Math.max(...b.map((q) => q[0])) < vr[0] || Math.min(...b.map((q) => q[0])) > vr[0] + vr[2] || Math.max(...b.map((q) => q[1])) < vr[1] || Math.min(...b.map((q) => q[1])) > vr[1] + vr[3])) continue; // за краем фона

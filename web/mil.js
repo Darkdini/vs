@@ -357,6 +357,7 @@ function reportHtml(r) {
       ${d.loyalty ? `<div>Бунт в замке после нападения: ${100 - d.loyalty.to}% ${d.captured ? `<span class="rgood">${d.def.npc ? 'Руины захвачены!' : 'Замок захвачен!'}</span>`
         : d.royalBlocked ? `<span class="rbad">Замок не захвачен: ${d.royalBlocked.wait ? `захват возможен через ${d.royalBlocked.wait} дн. игры` : 'не хватает лояльности населения'}.</span>` : ''}</div>` : ''}
       ${d.capitalBlocked ? '<div><span class="rbad">Столицу захватить нельзя.</span></div>' : ''}
+      ${d.npcBack ? `<div><span class="rgood">Лагерь разбит и исчез с карты.</span> Новый появится в этой провинции через ${d.npcBack} мин.</div>` : ''}
       ${d.siteTaken && !d.siteTaken.blocked ? `<div><span class="${attV ? 'rgood' : 'rbad'}">${attV ? 'Недострой захвачен! Ваши путешественники продолжают стройку.' : 'Ваш недострой захвачен врагом.'}</span></div>` : ''}
       ${d.siteTaken && d.siteTaken.blocked ? `<div><span class="rbad">Недострой не захвачен: ${esc(d.siteTaken.blocked)}</span></div>` : ''}
       ${d.site && d.win && !d.siteTaken && d.mission === 'attack' ? `<div>Охрана недостроя разбита, но стройка продолжается — забрать её может нападение, в котором выживут ${M().settleTake || 3} путешественника.</div>` : ''}
