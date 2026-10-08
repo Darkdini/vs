@@ -104,7 +104,7 @@ function install(Game) {
     const { UNIT } = require('./army'), raw = Object.entries(a.units).reduce((q, [id, n]) => q + ((UNIT[id] && UNIT[id].attack) || 0) * n, 0) || 1;
     const npc = { name: b.name, boss: true, garrison: [{ key: 'boss', name: b.name, n: segs, hp: SEG, atk: raw * K.bite / segs, mag: 0, def: K.def, mdef: K.mdef, type: 'infantry' }] };
     const before = Object.values(a.units).reduce((q, n) => q + n, 0);
-    const R = this.clash(c, a, null, npc, t);
+    const R = this.clashHp(c, a, null, npc, t);
     const lost = Math.min(segs, (R.garrison[0] || {}).lost || 0), cap = Math.round(b.maxHp * HIT_MAX), dmg = Math.min(b.hp, lost * SEG, cap);
     // потери не меньше доли kill: босс выкашивает часть армии при любом её размере
     const rage = b.hp / b.maxHp < RAGE, need = Math.round(before * K.kill * (a.mission === 'raid' ? 0.5 : 1) * (rage ? RAGE_K : 1));

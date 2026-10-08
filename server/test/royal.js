@@ -390,22 +390,27 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   g.adminOp(ad, 'reset', {}); assert.ok(g.castlesOf(ad).length === 1 && ad.admin, 'админ сбрасывает себя');
   console.log('✓ Админ: смена расы игрока, сброс игрока и себя к началу');
 }
-{ // бой в один удар: стена, Кузница, тараны, лечение раненых, бегство, урон по зданиям
+{ // бой как в Travian: сильный побеждает с малыми потерями, проигравший при нападении гибнет весь; стена, Кузница, тараны, набег
   const luck0 = process.env.LUCK; process.env.LUCK = '0';
   const A = g.register({ login: 'btlAA', password: '12345', race: 3 }).user, Dd = g.register({ login: 'btlDD', password: '12345', race: 3 }).user;
   const ca = g.castleOf(A), cd = g.castleOf(Dd); g.mil(ca); g.mil(cd);
   const fence = (L) => { cd.wall = L; }; // стена — уровень замка, без клетки
   const fight = (au, du, opt = {}) => { cd.units = { ...du }; cd.squads = []; ca.forge = opt.fa || {}; cd.forge = {}; fence(opt.wall || 0); return g.clash(ca, { units: { ...au }, mission: opt.m || 'attack' }, cd, null, Date.now()); };
-  const even = fight({ 247: 100 }, { 247: 100 });
-  assert.ok(!even.win && even.calc.aLossPct > 30 && even.calc.aLossPct < 60, 'равный бой: ничья в пользу защиты, потери около половины');
-  assert.ok(fight({ 247: 100 }, { 247: 100 }, { fa: { 247: { a: 10 } } }).win, 'Кузница решает исход');
-  const w = fight({ 247: 100 }, { 247: 100 }, { wall: 10 }); assert.ok(w.calc.dLossPct < even.calc.dLossPct, 'стена бережёт защитников');
-  const r = fight({ 243: 20, 247: 150 }, { 247: 100 }, { wall: 10 });
+  const big = fight({ 247: 300 }, { 247: 100 });
+  assert.ok(big.win && big.calc.aLossPct < 35 && big.calc.dLossPct === 100, `втрое больше — победа малой кровью (${big.calc.aLossPct}%)`);
+  const x10 = fight({ 247: 1000 }, { 247: 100 });
+  assert.ok(x10.win && x10.calc.aLossPct < big.calc.aLossPct && x10.calc.aLossPct < 10, `вдесятеро больше — почти без потерь (${x10.calc.aLossPct}%)`);
+  const small = fight({ 247: 100 }, { 247: 300 });
+  assert.ok(!small.win && small.calc.aLossPct === 100 && small.calc.dLossPct < 50, 'слабый нападающий гибнет весь, защита теряет немного');
+  const f0 = fight({ 247: 100 }, { 247: 100 }), f1 = fight({ 247: 100 }, { 247: 100 }, { fa: { 247: { a: 10 } } });
+  assert.ok(f1.calc.att.total > f0.calc.att.total, 'Кузница усиливает атаку');
+  const w = fight({ 247: 300 }, { 247: 100 }, { wall: 10 }); assert.ok(w.calc.def.total > big.calc.def.total && w.calc.aLossPct > big.calc.aLossPct, 'стена усиливает защиту');
+  const r = fight({ 243: 20, 247: 300 }, { 247: 100 }, { wall: 10 });
   assert.ok(r.siege.some((x) => /Забор: 10 → \d/.test(x)) && r.aLost[243] === 20, 'тараны ломают стену до боя и исчезают');
-  assert.ok(r.calc.healed > 0 && r.calc.routed > 0, 'раненые выздоравливают, разбитые бегут');
-  const raid = fight({ 247: 200 }, { 247: 200 }, { m: 'raid' }), att = fight({ 247: 200 }, { 247: 200 });
-  assert.ok(raid.calc.aLossPct < att.calc.aLossPct, 'набег легче нападения');
-  console.log('✓ Бой в один удар: стена, Кузница, тараны, раненые, бегство, набег');
+  assert.ok(r.calc.healed > 0, 'раненые защитники дома выздоравливают');
+  const raid = fight({ 247: 200 }, { 247: 200 }, { m: 'raid' });
+  assert.ok(raid.calc.aLossPct < 100 && raid.calc.dLossPct < 100, 'набег: никто не гибнет целиком');
+  console.log('✓ Бой как в Travian: втрое больше — потери', big.calc.aLossPct + '%, вдесятеро —', x10.calc.aLossPct + '%; стена, Кузница, тараны, набег');
   if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
 }
 { // задания: обучение, ежедневные, поход в логово
@@ -511,7 +516,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const hb = g.heroBonus(ca.general); assert.ok(Math.abs(hb.atk - (0.10 + 0.15 * 1.15)) < 1e-9 && Math.abs(hb.mag - 0.15) < 1e-9, JSON.stringify(hb));
   const fight = (gen) => { cd.units = { 247: 100 }; cd.squads = []; ca.forge = {}; cd.forge = {}; return g.clash(ca, { units: { 247: 100 }, mission: 'attack', general: gen }, cd, null, Date.now()); };
   const plain = fight(false), hero = fight(true);
-  assert.ok(hero.calc.att.total > plain.calc.att.total * 1.15 && hero.calc.aLossPct <= plain.calc.aLossPct && hero.calc.dLossPct > plain.calc.dLossPct, 'генерал с умениями и мечом бьёт сильнее');
+  assert.ok(hero.calc.att.total > plain.calc.att.total * 1.15 && hero.calc.aLossPct <= plain.calc.aLossPct && hero.calc.dLossPct >= plain.calc.dLossPct, 'генерал с умениями и мечом бьёт сильнее');
   ca.general.dead = true; g.heroStrip(ca, ca.general); assert.ok(ca.gear.includes(it) && !ca.general.eq.weapon, 'павший генерал оставляет снаряжение в Оружейной');
   ca.res.wood = 0; const w0 = 0; assert.ok(g.heroOp(ca, A, { op: 'sell', item: it.id }).ok && ca.res.wood > w0 && !ca.gear.length);
   ca.general.dead = false; assert.ok(g.heroOp(ca, A, { op: 'talreset' }).ok && !Object.keys(ca.general.tal).length && ca.general.talResets === 0);
