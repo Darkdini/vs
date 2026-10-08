@@ -264,6 +264,7 @@ function onMsg(m) {
       const jump = S.wJump; S.wJump = false;
       // прыжок (вход в мир, «Домой», поиск) — камера всегда заново по центру
       if (jump || !old || old.cx !== m.cx || old.cy !== m.cy) { delete Iso.cams.world; if (Iso.sel && Iso.sel.tab === 'world') Iso.sel = null; }
+      if (S.wMark) { const k = S.wMark; S.wMark = null; Iso.sel = { tab: 'world', x: k.x - (m.cx - m.radius), y: k.y - (m.cy - m.radius) }; } // замок из профиля, рейтинга, поиска — подсвечен
       S.world = m; if (S.tab === 'world') renderView(); break;
     }
     case 'rating': S.ratingRows = m.rows; refreshSheet(); break;
@@ -652,7 +653,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.profile) return send({ t: 'profile', id: Number(d.profile) });
   if (d.write !== undefined) return d.write ? openDialog(d.write) : openCompose('', d.subj || '');
   if (d.close !== undefined) return closeSheet();
-  if (d.goworld) { closeAllSheets(); const [x, y] = d.goworld.split(',').map(Number); S.world = null; setTab('world'); send({ t: 'world', cx: x, cy: y }); }
+  if (d.goworld) { closeAllSheets(); const [x, y] = d.goworld.split(',').map(Number); S.wGoto = { x, y }; S.wMark = { x, y }; setTab('world'); } // карта мира — сразу на этой клетке, клетка выделена
 });
 $('#sheetBody').addEventListener('submit', (e) => {
   e.preventDefault();

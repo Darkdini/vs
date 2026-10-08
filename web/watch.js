@@ -41,7 +41,7 @@ document.addEventListener('click', (e) => {
 });
 const prevMilW = milMsg;
 milMsg = function (m) { // eslint-disable-line no-global-assign
-  if (m.t === 'moves') { S.wm = m.data; if (S.wmQuiet) { S.wmQuiet = false; return; } S.moves = m.data; return refreshSheet(); } // тихий запрос карты мира — окно не трогать
+  if (m.t === 'moves') { S.wm = m.data; if (S.wmQuiet) { S.wmQuiet = false; if (S.tab === 'world') isoDraw(); return; } S.moves = m.data; return refreshSheet(); } // тихий запрос карты мира — окно не трогать
   if (m.t === 'kingdom') { S.kingdom = m.list; return refreshSheet(); }
   prevMilW(m);
 };
@@ -100,6 +100,7 @@ function worldMoves(w) {
   }
   for (const a of m.incoming || []) if (a.fx != null && a.depart) { const hostile = ['attack', 'raid'].includes(a.mission); list.push({ f: [a.fx, a.fy], to: [a.tx, a.ty], t0: a.depart, t1: a.arrive, col: hostile ? WM_COL.inc : WM_COL.reinforce, ic: hostile ? 'inc' : 'reinf' }); }
   if (!list.length) return;
+  if (flowOn() && !flowTimer) flowTimer = setTimeout(flowTick, ANIM_MS); // значки армий движутся — перерисовка карты идёт и когда своего замка не видно
   const g = ictx; g.save(); g.imageSmoothingEnabled = true; g.lineCap = 'round';
   for (const a of list) { // линии — под значками
     const A = P(...a.f), B = P(...a.to);
