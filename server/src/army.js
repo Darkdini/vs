@@ -332,7 +332,7 @@ const SPY_OPEN = {
   reinf: { name: 'Подкреплений', level: 16, survive: 0.9, cond: 'выжило больше 90% разведчиков' },
 };
 const HOSTILE = ['attack', 'raid', 'scout']; // враждебные походы — не на союзников по альянсу
-const MISSIONS = { raid: 'Набег', attack: 'Нападение', reinforce: 'Подкрепление', scout: 'Разведка', expedition: 'Экспедиция', trade: 'Торговля', settle: 'Освоение' };
+const MISSIONS = { raid: 'Набег', attack: 'Нападение', reinforce: 'Подкрепление', scout: 'Разведка', expedition: 'Экспедиция', trade: 'Торговля', settle: 'Освоение', rally: 'Созыв' };
 // «Освоение»: 10 путешественников идут на пустую клетку и строят там замок 3 дня (недострой виден на карте, его можно атаковать
 // и подкреплять; победное нападение, в котором выжили 3 путешественника, забирает недострой). Лояльность населения (Резиденция)
 // должна позволять новый замок; списывается она, когда замок достроен, — у того, чей он в этот момент
@@ -794,10 +794,13 @@ function install(Game, helpers) {
         units = Object.fromEntries(Object.entries(units).map(([u, n]) => [u, Math.min(n, Math.max(0, Math.floor(Number(pick[u]) || 0)))]).filter(([, n]) => n > 0));
         general = general && !!pickGen;
       }
-      if (!['attack', 'raid', 'reinforce'].includes(mission)) general = false;
+      if (!['attack', 'raid', 'reinforce', 'rally'].includes(mission)) general = false;
     }
     x = Math.round(Number(x)); y = Math.round(Number(y));
     if (!MISSIONS[mission]) return { error: 'Неизвестная миссия.' };
+    // созыв на мирового босса (boss.js): войска идут в общую армию альянса и бьют вместе, когда созыв закончится
+    const rally = mission === 'rally' ? this.rallyOf && this.rallyOf(this.ownerOf(castle)) : null;
+    if (mission === 'rally') { if (!rally) return { error: 'Созыва нет: его объявляет руководство альянса в окне мирового босса.' }; x = rally.b.x; y = rally.b.y; at = 0; portal = false; }
     if (!Number.isFinite(x) || !Number.isFinite(y)) return { error: 'Укажите координаты цели.' };
     if (x === castle.x && y === castle.y) return { error: 'Это ваш замок.' };
     if (!this.buildingLevel(castle, B.HQ) && mission !== 'trade') return { error: 'Нужен Военный штаб.' };
@@ -847,13 +850,13 @@ function install(Game, helpers) {
     const me = this.ownerOf(castle);
     if (mission === 'settle') { const e = this.settleError(me, x, y, clean[TRAVELER_ID] || 0); if (e) return { error: e }; }
     if (target && target.site && mission === 'raid') return { error: 'Набег на недострой ничего не даст — там нечего грабить. Нападение или подкрепление.' };
-    if (['attack', 'raid', 'scout'].includes(mission) && this.userShielded(me)) return { error: 'У Вас включена защита замка или королевства — армии не ведут боевых действий, пока она действует.' };
+    if (['attack', 'raid', 'scout', 'rally'].includes(mission) && this.userShielded(me)) return { error: 'У Вас включена защита замка или королевства — армии не ведут боевых действий, пока она действует.' };
     if (target && target.owner !== castle.owner && this.castleShield(target)) return { error: mission === 'reinforce' ? 'Замок под защитой — подкрепление в него отправить нельзя.' : 'Замок под защитой — нападать и разведывать его нельзя.' };
     if (target && ['attack', 'raid', 'scout'].includes(mission) && !me.admin && this.isNewbie(this.ownerOf(target))) return { error: `Игрок под защитой новичка ещё ${this.newbieLeftText(this.ownerOf(target))}.` };
     if (target && ['attack', 'raid'].includes(mission) && this.isNewbie(me)) { me.newbieOff = true; this.cache = {}; } // новичок напал сам — его защита снимается
     const lair = !target && !obj && ['attack', 'raid'].includes(mission) ? this.lairAt(castle.owner, x, y) : null; // логово похода «Тёмные земли»
-    const boss = !target && !obj && !lair && ['attack', 'raid'].includes(mission) ? this.bossAt(x, y) : null; // мировой босс (boss.js)
-    if (mission !== 'settle' && !target && !lair && !boss && (!obj || (!NPC[obj.img] && mission !== 'scout'))) return { error: 'Здесь некого атаковать.' };
+    if (!target && !obj && !lair && ['attack', 'raid'].includes(mission) && this.bossAt(x, y)) return { error: 'Мирового босса бьют созывом альянса: руководство объявляет созыв в окне босса, участники отправляют туда войска.' };
+    if (!['settle', 'rally'].includes(mission) && !target && !lair && (!obj || (!NPC[obj.img] && mission !== 'scout'))) return { error: 'Здесь некого атаковать.' };
     const src = squad ? squad.units : castle.units;
     for (const [id, n] of Object.entries(clean)) { src[id] -= n; if (!src[id]) delete src[id]; }
     if (squad) { // то, что не пошло в поход, остаётся в Замковой армии
@@ -862,11 +865,14 @@ function install(Game, helpers) {
     }
     let sec = this.travelSec(castle, clean, general, x, y, mission === 'trade');
     if ((lair || (obj && CAMPS.includes(obj.img))) && ['attack', 'raid'].includes(mission)) sec = Math.max(5, Math.round(sec / CAMP_FAST));
-    if (boss) sec = Math.max(20, Math.min(Math.round(sec / 4), Math.round(900 / SPEED))); // к мировому боссу — быстрый марш: вчетверо быстрее и не дольше 15 минут (и обратно так же)
+    // созыв: армия встаёт в созыв и бьёт, когда он закончится; домой — быстрым маршем: вчетверо быстрее и не дольше 15 минут
+    const ret = rally ? Math.max(20, Math.min(Math.round(sec / 4), Math.round(900 / SPEED))) : 0;
+    if (rally) sec = Math.max(1, Math.ceil((rally.r.end - Date.now()) / 1000));
     if (portal) sec = Math.max(5, Math.round(sec / 4));
     const now = Date.now(), start = at && Number(at) > now + 3000 ? Number(at) : now;
     const army = { id: this.db.nextId++, units: clean, general: !!general, mission, x, y, depart: start, arrive: start + sec * 1000, sec, state: start > now ? 'wait' : 'go', loot: null, cargo,
       squad: squad ? { id: squad.id, name: squad.name } : from === 'castle' ? { id: 0, name: 'Замковая армия' } : null, portal: !!portal };
+    if (rally) Object.assign(army, { arrive: rally.r.end, rally: rally.r.id, ret }); // ударит вместе со всем созывом, домой — быстрым маршем (ret, с)
     if (general) { g.away = army.id; delete g.squad; }
     castle.armies.push(army);
     if (mission === 'expedition') this.addStat(castle.owner, 'expeds', 1);
@@ -878,6 +884,7 @@ function install(Game, helpers) {
   // ----- мир: армии прибывают и возвращаются (вызывается раз в секунду для всех замков) -----
   P.tickWorld = function tickWorld(now = Date.now()) {
     this.sitesTick(now); // недострои: достроены?
+    if (this.rallyTick) this.rallyTick(now); // созывы на мирового босса: время вышло — армии складываются и бьют (boss.js), до прибытия остальных армий
     const due = [];
     for (const c of Object.values(this.db.castles)) {
       if (!c.armies || !c.armies.length) continue; // замки без армий в пути 
@@ -1227,7 +1234,10 @@ function install(Game, helpers) {
     if (a.mission === 'scout') return this.scout(c, a, t, target);
 
     // бой: атака или набег
-    if (!target) { const boss = this.bossAt(a.x, a.y); if (boss) return this.bossFight(c, a, t, boss); } // мировой босс (boss.js)
+    if (a.mission === 'rally' || (!target && this.bossAt(a.x, a.y))) { // созыв уже ударил или распущен; одиночный поход на босса (отправлен до созывов) — домой
+      this.report(c.owner, 'Поход на мирового босса', [a.mission === 'rally' ? 'Созыв не состоялся — армия возвращается домой.' : 'Мирового босса бьют созывом альянса — армия возвращается домой.'], 'battle');
+      return this.goBack(c, a, t);
+    }
     const lair = target ? null : this.lairAt(c.owner, a.x, a.y);
     const obj = target ? null : lair ? { img: 32 } : this.worldObjects(a.x, a.y, 1, 1)[0];
     const npc = lair ? lair.npc : obj && NPC[obj.img];
@@ -1964,7 +1974,7 @@ function install(Game, helpers) {
       upNext: Object.fromEntries([...new Set([...this.forgeUnits(castle), ...this.magicUnits(castle)])].map((u) => [u.id, Object.fromEntries(['a', 'd', 'm', 'md'].map((k) => [k, this.forgeCost(u, k, this.forgeLvl(castle, u.id, k) + 2)]))])),
       admin: !!user.admin, royal: this.royalView(user, castle), watch: this.hasWatch(user), watchLevel: this.watchLevel(user),
       stash: this.stashCount(user), // значок «Кладовая»: сколько видов наград ждёт
-      worldBoss: (() => { const b = this.bossNow(); return b ? { kind: b.kind, name: b.name, x: b.x, y: b.y, end: b.end, hp: b.hp, maxHp: b.maxHp } : null; })(), // кнопка мирового босса
+      worldBoss: (() => { const b = this.bossNow(), ro = b && this.rallyOf(user); return b ? { kind: b.kind, name: b.name, x: b.x, y: b.y, end: b.end, hp: b.hp, maxHp: b.maxHp, rally: ro ? ro.r.end : 0 } : null; })(), // кнопка мирового босса
       threats: this.castlesOf(user).flatMap((c) => this.incoming(c)).filter((a) => a.mission === 'attack' || a.mission === 'raid').sort((p, q) => p.arrive - q.arrive), // значок «на вас идёт армия»
       unreadReports: (this.db.reports || []).filter((r) => r.owner === user.id && !r.read).length,
     };

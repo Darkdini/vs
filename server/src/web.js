@@ -649,11 +649,19 @@ const API = {
   send(m) {
     const r = this.game.sendArmy(this.castle, { units: m.units || {}, general: !!m.general, x: m.x, y: m.y, mission: m.mission, res: m.res, from: m.from, portal: !!m.portal, at: Number(m.at) || 0, pick: m.pick && typeof m.pick === 'object' && !Array.isArray(m.pick) ? m.pick : null, pickGen: !!m.pickGen });
     if (!r.error && m.mission === 'trade') this.toast(`Торговцы (${r.need}) отправились к ${m.x}:${m.y} — доставка через ${Math.floor(r.sec / 3600)}:${String(Math.floor(r.sec / 60) % 60).padStart(2, '0')}:${String(r.sec % 60).padStart(2, '0')}`);
+    else if (!r.error && r.army.rally) this.toast(`Армия встала в созыв — ударит по боссу через ${Math.ceil(r.sec / 60)} мин.`);
     else if (!r.error) this.toast(r.army.state === 'wait' ? `Поход запланирован: ${ARMY.MISSIONS[m.mission]} ${m.x}:${m.y}` : `Армия выступила: ${ARMY.MISSIONS[m.mission]} ${m.x}:${m.y}`);
     this.result(r);
+    if (!r.error && r.army.rally) rallyShow(this); // всем в альянсе — новый состав созыва в окне босса
   },
   squad(m) { const r = this.game.squadOp(this.castle, m); if (m.op === 'regroup' && r && r.ok) this.toast('Армия переформирована!'); if (m.op === 'recall' && r && r.ok) this.toast('Армия развернулась и идёт домой.'); this.result(r); },
   boss() { this.send({ t: 'boss', data: this.game.bossView(this.user) }); },
+  // созыв альянса на мирового босса (boss.js): объявить — у всех в альянсе обновляется окно босса
+  rally() {
+    const r = this.game.rallyStart(this.user); if (r.error) return this.error(r.error);
+    this.toast('Созыв объявлен — альянсу отправлено оповещение.');
+    rallyShow(this);
+  },
   // Кладовая игрока (stash.js): список наград и «Извлечь» в текущий замок
   stash(m) {
     if (m && m.op === 'take') { const r = this.game.stashTake(this.user, this.castle, String(m.kind || ''), m.key, m.n); if (r.error) return this.error(r.error); this.toast(r.msg); this.game.store.save(); this.pushState(); }
@@ -710,6 +718,8 @@ const API = {
   },
 };
 
+// созыв на мирового босса: всем в альянсе игрока — новое окно босса и состояние (не команда клиента — её нельзя вызвать запросом)
+const rallyShow = (ses) => { const al = ses.game.allianceOf(ses.user); if (al) for (const s of WebSession.all || []) if (s.user && al.members.includes(s.user.id)) { s.pushState(); s.send({ t: 'boss', data: ses.game.bossView(s.user) }); } };
 // Зал Славы: чьи места показывать — указанного игрока или свои (раньше функция лежала среди команд и её можно было вызвать запросом)
 const hallWho = (s, m) => (m.who !== undefined && s.game.userById(Number(m.who))) || s.user;
 

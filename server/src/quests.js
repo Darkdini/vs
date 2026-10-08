@@ -73,7 +73,7 @@ const DAILY = [
   { id: 'd_win', title: 'Слава оружия', text: (n) => `Одержите ${n} побед в боях.`, icon: 'gfx3d/rep/swords.png', stat: 'wins', n: () => 3 },
   { id: 'd_kills', title: 'Жатва битвы', text: (n) => `Уничтожьте в боях ${n} вражеских воинов.`, icon: 'gfx3d/rep/swords.png', stat: 'kills', n: (g, c) => 30 + 10 * Math.min(10, th(g, c)) },
   { id: 'd_online', title: 'Дозор', text: (n) => `Проведите в игре ${n} минут.`, icon: 'quest/scroll.png', stat: 'presence', n: () => 20 },
-  { id: 'd_boss', title: 'Удар по чудовищу', text: () => 'Атакуйте мирового босса.', icon: 'boss/m_dragon.png', stat: 'bossDmg', n: () => 1, ok: (g) => !!g.bossNow() },
+  { id: 'd_boss', title: 'Удар по чудовищу', text: () => 'Нанесите урон мировому боссу в созыве альянса.', icon: 'boss/m_dragon.png', stat: 'bossDmg', n: () => 1, ok: (g, c) => !!g.bossNow() && !!(c && g.allianceOf(g.ownerOf(c))) },
 ];
 
 // ---------- еженедельные ----------

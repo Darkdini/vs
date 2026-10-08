@@ -537,26 +537,56 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(g.milState(cd, Dd).threats.length === 1 && g.milState(cd, Dd).watchLevel === 10, 'значок видит нападение');
   console.log('✓ Караульная башня: 1 ур. — кто и когда, 3 — примерно, 6 — точно, 10 — состав и генерал');
 }
-{ // мировой босс: появление, удары армиями, итог с наградами по месту
-  const { nextSaturday } = require('../src/boss');
+{ // мировой босс: созыв альянса — армии складываются и бьют одним ударом; награды всем по урону (1-е место — 20 000 / 10 / 100, повержен — ×4)
+  const { nextSaturday, REWARD, KILL_X, HIT_MAX } = require('../src/boss');
   const sat = new Date(nextSaturday(Date.UTC(2026, 9, 1, 12))); assert.ok(sat.getUTCDay() === 6 && sat.getUTCHours() === 15, 'суббота 18:00 МСК');
-  const P1 = g.register({ login: 'bossA1', password: '12345', race: 3 }).user, P2 = g.register({ login: 'bossA2', password: '12345', race: 0 }).user;
+  const P1 = g.register({ login: 'bossA1', password: '12345', race: 3 }).user, P2 = g.register({ login: 'bossA2', password: '12345', race: 0 }).user, P3 = g.register({ login: 'bossA3', password: '12345', race: 0 }).user;
+  g.db.alliances = g.db.alliances || {}; const aid = g.db.nextId++; g.db.alliances[aid] = { id: aid, name: 'Охотники', tag: 'OXT', leader: P1.id, members: [P1.id, P2.id], created: Date.now() }; P1.alliance = aid; P2.alliance = aid;
   const b = g.bossSpawn(Date.now(), 1); assert.ok(g.bossAt(b.x, b.y) && b.hp === b.maxHp);
-  const c1 = g.castleOf(P1), c2 = g.castleOf(P2); g.mil(c1); g.mil(c2); g.maxOut(c1); g.maxOut(c2);
-  c1.units = { 247: 3000 }; c2.units = { 247: 500 };
-  const sa = g.sendArmy(c1, { units: { 247: 3000 }, x: b.x, y: b.y, mission: 'attack' }); assert.ok(sa.army && sa.sec <= 900, 'на босса можно напасть, марш не дольше 15 минут');
-  assert.ok(g.sendArmy(c2, { units: { 247: 500 }, x: b.x, y: b.y, mission: 'raid' }).army, 'и набегом');
-  for (const c of [c1, c2]) { const a = c.armies[c.armies.length - 1]; g.arrive(c, a, Date.now()); }
-  assert.ok(b.dmg[P1.id] > b.dmg[P2.id] && b.dmg[P2.id] > 0 && b.hp < b.maxHp, 'урон записан');
-  const rep0 = P1.reputation ?? 10, rep2 = P2.reputation ?? 10, gear0 = (c1.gear || []).length; b.hp = 0; b.killer = P1.id; g.bossFinish(Date.now());
-  assert.ok(P1.reputation === rep0 + 200 && P1.stash.royal === 1000 && P2.reputation === rep2 + 150 && P2.stash.royal === 750, '1 место: 150 реп. и 700 лояльности, 2: 100 и 500');
-  assert.ok(P1.bossBadges.some((x) => x.place === 1) && P2.bossBadges.some((x) => x.place === 2) && (c1.gear || []).length === gear0, 'медали первым трём, снаряжения нет');
-  assert.strictEqual(require('../src/boss').PRIZE.length, 12, 'награды — 12 мест');
-  const roy0 = g.royalTick(P1); assert.ok(g.stashTake(P1, c1, 'royal', 'royal', 1000).ok && P1.royal === roy0 + 1000 && !P1.stash.royal, 'лояльность из Кладовой');
-  assert.ok(!g.bossNow() && g.db.boss.last.killed);
-  { const b2 = g.bossSpawn(Date.now(), 0); b2.dmg[P1.id] = 1000; const r1 = P1.reputation; b2.end = Date.now() - 1; g.bossFinish(Date.now()); assert.ok(P1.reputation === r1 && !P1.stash.royal, 'ушёл непобеждённым — наград нет'); }
+  const c1 = g.castleOf(P1), c2 = g.castleOf(P2), c3 = g.castleOf(P3); for (const c of [c1, c2, c3]) { g.mil(c); g.maxOut(c); c.squads = []; c.armies = []; }
+  c1.units = { 247: 3000 }; c2.units = { 247: 500 }; c3.units = { 247: 500 }; c1.general = g.newGeneral(c1, 10); c2.general = null;
+  assert.ok(/созывом альянса/.test(g.sendArmy(c3, { units: { 247: 100 }, x: b.x, y: b.y, mission: 'attack' }).error || ''), 'в одиночку на босса — нельзя, только созывом');
+  assert.ok(/Созыва нет/.test(g.sendArmy(c2, { units: { 247: 10 }, mission: 'rally' }).error || ''), 'без созыва войска не отправить');
+  assert.ok(/вступите в альянс/.test(g.rallyStart(P3).error || ''), 'без альянса созыв не объявить');
+  assert.ok(/руководство/.test(g.rallyStart(P2).error || ''), 'созыв объявляет руководство (право «Созыв»)');
+  const rs = g.rallyStart(P1); assert.ok(rs.ok && rs.rally.end - Date.now() > 899000 / (Number(process.env.SPEED) || 1) - 2000, 'созыв на 15 минут');
+  assert.ok(/уже идёт/.test(g.rallyStart(P1).error || ''), 'один созыв на альянс');
+  assert.ok(g.db.users.bossA2 && (g.db.events || []).length >= 0, 'оповещение альянсу');
+  const j1 = g.sendArmy(c1, { from: 'castle', mission: 'rally', x: 1, y: 1 }), j2 = g.sendArmy(c2, { from: 'castle', mission: 'rally' });
+  assert.ok(!j1.error && !j2.error, j1.error || j2.error);
+  assert.ok(j1.army.x === b.x && j1.army.y === b.y && j1.army.arrive === rs.rally.end && j1.army.general && j2.army.arrive === rs.rally.end, 'войска встали в созыв: к боссу, удар — в конце созыва, генерал тоже');
+  const v = g.bossView(P2); assert.ok(v.rally && v.rally.total === 3500 && v.rally.players === 2 && v.rally.parts.some((p) => p.gen), 'в окне босса — состав созыва');
+  assert.ok(!g.bossView(P3).rally && !g.bossView(P3).ally, 'чужой созыв не виден');
+  g.tickWorld(rs.rally.end - 1000); assert.ok(b.hp === b.maxHp, 'до конца созыва удара нет');
+  g.tickWorld(rs.rally.end + 10);
+  const d1 = b.dmg[P1.id], d2 = b.dmg[P2.id], cap = Math.round(b.maxHp * HIT_MAX * 2);
+  assert.ok(d1 > d2 && d2 > 0 && d1 + d2 === b.maxHp - b.hp && d1 + d2 <= cap, `урон созыва ${d1 + d2} (предел ${cap}) делится по вкладу: ${d1} / ${d2}`);
+  assert.ok(d1 / d2 > 4, `вклад по силе войск (3000 с генералом против 500): ${(d1 / d2).toFixed(2)}`);
+  const rp = g.reportsOf(P2.id).find((r) => /Созыв на мирового босса/.test(r.title));
+  assert.ok(rp && /Армия созыва: bossA1 — 3\D000 и генерал, bossA2 — 500/.test(rp.lines.join(' ')) && /Ваш вклад/.test(rp.lines.join(' ')), 'один отчёт: армия созыва целиком и свой вклад');
+  assert.ok(c1.armies.length === 1 && c1.armies[0].state === 'back' && c1.armies[0].back - (rs.rally.end) <= 900000 && c2.armies[0].state === 'back', 'армии созыва идут домой быстрым маршем');
+  assert.ok(g.stats(P2).bossDmg === d2, 'урон засчитан для задания сразу');
+  // итог: ушёл непобеждённым — награды всем по урону; 1-е место — полная награда
+  const rep1 = P1.reputation ?? 10, rep2 = P2.reputation ?? 10; b.end = Date.now() - 1; g.bossCheck(Date.now());
+  const sh = d2 / d1;
+  assert.ok(P1.stash.res.wood === REWARD.res && P1.stash.res.food === REWARD.res && P1.stash.royal === REWARD.royal && P1.reputation === rep1 + REWARD.rep, '1-е место: 20 000 каждого ресурса, 100 лояльности, +10 репутации');
+  assert.ok(P2.stash.res.wood === Math.round(REWARD.res * sh) && P2.stash.res.wood < REWARD.res && P2.stash.royal === Math.round(REWARD.royal * sh) && P2.reputation === rep2 + Math.round(REWARD.rep * sh), `2-е место — меньше, по доле урона (${Math.round(sh * 100)}%)`);
+  assert.ok(!(P1.bossBadges || []).length, 'ушёл — медалей нет');
+  // повержен — вчетверо больше
+  { const w1 = P1.stash.res.wood, w2 = P2.stash.res.wood, ro1 = P1.stash.royal, r1 = P1.reputation;
+    const b2 = g.bossSpawn(Date.now(), 0); b2.dmg[P1.id] = 1000; b2.dmg[P2.id] = 250; b2.hp = 0; g.bossFinish(Date.now());
+    assert.ok(P1.stash.res.wood - w1 === REWARD.res * KILL_X && P1.stash.royal - ro1 === REWARD.royal * KILL_X && P1.reputation - r1 === REWARD.rep * KILL_X, 'повержен: 80 000 каждого ресурса, 400 лояльности, +40 репутации');
+    assert.ok(P2.stash.res.wood - w2 === REWARD.res * KILL_X / 4, '2-е место с четвертью урона — четверть награды');
+    assert.ok(P1.bossBadges.some((x) => x.place === 1) && P2.bossBadges.some((x) => x.place === 2), 'медали первым трём'); }
+  // созыв, который не успел ударить, распускается, когда босс уходит
+  { const b3 = g.bossSpawn(Date.now(), 2); c2.units = { 247: 300 }; c2.armies = [];
+    const r3 = g.rallyStart(P1); assert.ok(r3.ok); assert.ok(!g.sendArmy(c2, { from: 'castle', mission: 'rally' }).error);
+    b3.end = Date.now() - 1; g.bossCheck(Date.now());
+    assert.ok(c2.armies[0].state === 'back' && c2.armies[0].units[247] === 300 && g.reportsOf(P2.id).some((r) => /не состоялся/.test(r.title)), 'босс ушёл — армия созыва вернулась без боя');
+    assert.ok(/вступите в альянс|нет/.test(g.rallyStart(P3).error || ''), 'после ухода босса созыва нет'); }
+  const roy0 = g.royalTick(P1), have = P1.stash.royal; assert.ok(g.stashTake(P1, c1, 'royal', 'royal', have).ok && P1.royal === roy0 + have && !P1.stash.royal, 'лояльность из Кладовой');
   assert.ok(g.reportsOf(P2.id).some((r) => /2-е место/.test(r.title)), 'отчёт с местом');
-  console.log('✓ Мировой босс: награды 12 местам и только за победу, медали первым трём');
+  console.log(`✓ Мировой босс: созыв альянса 15 мин — армии складываются (урон ${d1 + d2}, вклад ${d1}/${d2}), в одиночку нельзя; награды всем по урону: 1-е место 20 000/10/100, повержен ×4, остальным — по доле`);
 }
 { // премиум: цвет сообщений и в общем чате
   const u = g.register({ login: 'colorchat', password: '12345', race: 0 }).user; u.premium = Date.now() + 86400000;

@@ -44,13 +44,13 @@ const EVIL = [-1, -1e9, 1e300, 0.5, '-5', '1e400', 'Infinity', 'NaN', null, true
     zpropose: { to: 'victim', text: 't', role: 'king' }, zanswer: { id: 1, op: 'yes' }, zvote: { id: 1, coins: 1 }, zgift: { id: 1, gift: 'rose' },
     calm: { pct: 1, cid: 0 }, festival: { id: 1 }, magic: { unit: 200, kind: 'm' }, exped: { kind: 'near', n: 1 }, hero: { op: 'equip', id: 1, item: 1, slot: 'weapon' },
     chatvote: { id: 1, v: 1 }, avalike: { id: 2 }, repfwd: { id: 1, to: 'victim' }, repdel: { ids: [1] }, privacy: { op: 'add', who: 'victim', id: 1 }, bday: { day: 1, month: 1 },
-    pic: { op: 'begin', to: 'victim', w: 100, h: 100, n: 1, i: 0, data: 'eJw=' }, kingdom: {}, moves: {}, boss: {}, chests: {}, coin: {}, market: {},
+    pic: { op: 'begin', to: 'victim', w: 100, h: 100, n: 1, i: 0, data: 'eJw=' }, kingdom: {}, moves: {}, boss: {}, rally: {}, chests: {}, coin: {}, market: {},
   };
   const allyOps = ['gold', 'store', 'transfer', 'rank', 'diplo', 'mail', 'news', 'post', 'postdel', 'topic', 'topicop', 'ad', 'charter', 'desc', 'rights', 'kick', 'leave', 'give'];
   const squadOps = ['create', 'move', 'rename', 'delete', 'split', 'merge', 'back', 'recall'];
   const genOps = ['dist', 'reset', 'rename', 'revive', 'kill'];
   const shopOps = ['speed', 'chest', 'frame', 'frameuse', 'move'];
-  const missions = ['attack', 'raid', 'scout', 'trade', 'expedition', 'reinforce', 'settle', '__proto__', 'constructor'];
+  const missions = ['attack', 'raid', 'scout', 'trade', 'expedition', 'reinforce', 'settle', 'rally', '__proto__', 'constructor'];
   const msgs = [];
   for (const [t, b] of Object.entries(base)) {
     msgs.push({ t, ...b });

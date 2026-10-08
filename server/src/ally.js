@@ -6,7 +6,8 @@
 const START_REP = 10;
 // права (окно «Назначение прав»)
 const RIGHTS = { mail: 'Рассылка уведомлений', invite: 'Приглашение в альянс', kick: 'Исключение из альянса', rights: 'Назначение прав',
-  desc: 'Изменение описания', news: 'Новости и форум', diplo: 'Дипломатия', treasury: 'Казначейство', logs: 'Чтение логов', albums: 'Альбомы' };
+  desc: 'Изменение описания', news: 'Новости и форум', diplo: 'Дипломатия', treasury: 'Казначейство', logs: 'Чтение логов', albums: 'Альбомы',
+  rally: 'Созыв на мирового босса' };
 const DIPLO = { ally: 'Союз', nap: 'Пакт о ненападении', war: 'Война' };
 const RES4 = ['wood', 'stone', 'iron', 'food'];
 const clean = (s, n) => String(s || '').trim().slice(0, n);

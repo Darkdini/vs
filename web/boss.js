@@ -1,6 +1,6 @@
 'use strict';
 // Мировой босс (сервер: server/src/boss.js; вызывает админ): на карте мира — крупный спрайт с полоской здоровья,
-// окно босса (здоровье, время, таблица урона, «Нападение»/«Набег»), кнопка-медальон на экране, пока босс жив.
+// окно босса (здоровье, время, таблица урона, созыв альянса), кнопка-медальон на экране, пока босс жив.
 // Графика gfx/boss: <вид>.png — фигура, m_<вид> — медальон, o_<вид> — орден убийцы, banner, chest, swords.
 
 const bossPic = (kind) => pic(`boss/${kind}.png`);
@@ -26,15 +26,25 @@ function bossWin() {
       <p>Мировой босс появляется по призыву администрации и держится 48 часов — следите за оповещениями.</p></div>
       ${L ? `${ribbon('Прошлый босс')}<p class="center"><b>${esc(L.name)}</b> — ${L.killed ? 'повержен' : 'ушёл непобеждённым'}</p>${bossTop(L.top)}` : ''}`;
   }
-  const f = Math.max(0, b.hp / b.maxHp);
+  const f = Math.max(0, b.hp / b.maxHp), R = d.rules || {}, r = d.rally, pct = (k) => Math.round(k * 100);
+  // созыв альянса: идёт — состав и «В созыв»; нет — объявить (руководство) или ждать оповещения
+  const rally = !d.ally ? '<p class="parch-note">Мирового босса бьют альянсами: вступите в альянс — руководство объявит созыв, и Ваши войска пойдут вместе со всеми.</p>'
+    : r ? `<div class="bs-rally"><b>Созыв [${esc(d.ally.tag)}] — удар через <span class="cd" data-e="${r.end}"></span></b>
+        <small>Объявил ${esc(r.by)} · игроков: ${r.players} · воинов: ${fmtFull(r.total)}</small>
+        ${r.parts.length ? `<div class="bs-parts">${r.parts.map((p) => `<div class="${p.mine ? 'me' : ''}"><span>${esc(p.login)}</span><em>${fmtFull(p.n)}${p.gen ? ' + генерал' : ''}</em></div>`).join('')}</div>` : '<small>Пока никто не прислал войска — будьте первым.</small>'}</div>
+      <div class="qbtns bs-go"><button class="pbar" data-bgo="rally"><img src="${GFX}boss/swords.png" alt="">В созыв</button></div>`
+    : d.ally.can ? `<div class="qbtns bs-go"><button class="pbar" data-brally><img src="${GFX}boss/swords.png" alt="">Объявить созыв (${R.min || 15} мин)</button></div>`
+    : '<p class="parch-note">Созыв объявляет руководство альянса — когда он начнётся, придёт оповещение.</p>';
+  const allies = b.allies && b.allies.length ? `${ribbon('Альянсы по урону')}<div class="bs-top">${b.allies.map((a, i) => `<div><b>${i + 1}</b><span>[${esc(a.tag)}]</span><em>${fmtFull(a.d)}</em></div>`).join('')}</div>` : '';
   return `${ribbon(esc(b.name))}
     <div class="bs-head"><img src="${GFX}boss/${b.kind}.png" alt=""><div><p>${esc(b.desc || '')}</p><p class="small">Логово: <b>X ${b.x}, Y ${b.y}</b> · уйдёт через <b><span class="cd" data-e="${b.end}"></span></b></p></div></div>
     <div class="bs-hp"><i style="width:${f * 100}%"></i><span>${fmtFull(b.hp)} / ${fmtFull(b.maxHp)}</span></div>
     <p class="center">Ваш урон: <b>${fmtFull(b.mine)}</b> · участников: ${b.players}</p>
-    <div class="qbtns bs-go"><button class="pbar" data-bgo="attack"><img src="${GFX}boss/swords.png" alt="">Нападение</button><button class="pbar" data-bgo="raid"><img src="${GFX}boss/swords.png" alt="">Набег</button></div>
+    ${rally}
     <button class="btn" data-goworld="${b.x},${b.y}">Показать на карте</button>
-    ${ribbon('Лучший урон')}${bossTop(b.top)}
-    <p class="small muted bs-rw"><img src="${GFX}boss/chest.png" alt="">Армии идут к боссу быстрым маршем — вчетверо быстрее обычного и не дольше 15 минут в одну сторону. Босс силён: за каждый удар он уносит не меньше 12–15% армии (набег — вдвое меньше урона и потерь), а когда у него остаётся меньше 30% здоровья, впадает в ярость и бьёт в полтора раза сильнее. Один удар снимает не больше 5% его здоровья — одному не справиться, бейте всем сервером. Генерал в армии получает опыт за урон. Награды — только если босс повержен, 12 лучшим по урону (репутация сразу, лояльность населения — в Кладовую): 1 место — +200 репутации, 1000 лояльности и золотая медаль; 2 — +150, 750 и серебряная; 3 — +100, 500 и бронзовая; 4–6 — +60 и 350; 7–9 — +40 и 250; 10–12 — +25 и 150. Если босс уйдёт непобеждённым, наград нет.</p>`;
+    ${allies}${ribbon('Лучший урон')}${bossTop(b.top)}
+    <p class="small muted bs-rw"><img src="${GFX}boss/chest.png" alt="">Босса бьют созывом альянса: руководство объявляет созыв на ${R.min || 15} минут, участники отправляют войска и генерала. Когда время выходит, армии складываются и бьют одним ударом, урон делится по силе войск. Каждый игрок в созыве прибавляет ${pct(R.hit || 0.05)}% к пределу урона за удар (всего до ${pct(R.cap || 0.25)}%). Босс уносит не меньше 12–15% каждой армии, а в ярости (меньше 30% здоровья) — в полтора раза больше. Генерал получает опыт за урон.
+      Награды — в Кладовую всем по урону: 1-е место — ${fmtFull(R.res || 20000)} каждого ресурса, ${R.rep || 10} репутации и ${R.royal || 100} лояльности населения; если босс повержен — в ${R.killX || 4} раза больше, а первым трём — медаль. Остальным — меньше, по доле урона от 1-го места.</p>`;
 }
 const bossTop = (top) => (top && top.length ? `<div class="bs-top">${top.map((r, i) => `<div><b>${i + 1}</b><span>${esc(r.login)}</span><em>${fmtFull(r.d)}</em></div>`).join('')}</div>` : '<p class="parch-note">Пока никто не нанёс урона.</p>');
 // кнопка на экране, пока босс жив
@@ -44,9 +54,11 @@ function bossBtn() {
   if (!b || b.end < now()) { if (el) el.remove(); return; }
   if (!el) { el = document.createElement('button'); el.id = 'bbtn'; el.type = 'button'; el.addEventListener('click', () => openBoss()); $('#game').appendChild(el); }
   if (el.dataset.k !== b.kind) { el.dataset.k = b.kind; el.innerHTML = `<img src="${GFX}boss/m_${b.kind}.png" alt=""><i><b style="width:${b.hp / b.maxHp * 100}%"></b></i>`; }
+  el.classList.toggle('rally', b.rally > now()); // идёт созыв альянса — значок с мечами
   el.querySelector('i b').style.width = `${Math.max(0, b.hp / b.maxHp) * 100}%`;
 }
 $('#sheetBody').addEventListener('click', (e) => {
+  if (e.target.closest('[data-brally]')) return send({ t: 'rally' });
   const t = e.target.closest('[data-bgo]'); if (!t || !S.boss || !S.boss.boss) return;
   openArmySheet({ mission: t.dataset.bgo, x: S.boss.boss.x, y: S.boss.boss.y });
 });

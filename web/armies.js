@@ -142,9 +142,10 @@ function campaignFit(mission, units) {
 // замок союзника по альянсу: на него только подкрепление (нападать, грабить и разведывать нельзя)
 const allyCastleAt = (x, y) => { const me = S.st.user.ally, o = me && S.world && (S.world.objects || []).find((q) => q.kind === 'castle' && q.x === Number(x) && q.y === Number(y)); return !!(o && o.allyId === me && o.ownerId !== S.st.user.id); };
 const ownCastleAt = (x, y) => (S.st.castles || []).some((k) => k.x === Number(x) && k.y === Number(y) && !k.active);
-const genGoes = (a, c) => genHere(a) && (['attack', 'raid'].includes(c.mission) || (c.mission === 'reinforce' && ownCastleAt(c.x, c.y)));
+const genGoes = (a, c) => genHere(a) && (['attack', 'raid', 'rally'].includes(c.mission) || (c.mission === 'reinforce' && ownCastleAt(c.x, c.y)));
 function campaignSec() {
   const c = S.cmp, a = c.army === '' ? null : armyByKey(c.army); if (!a || c.x === '' || c.y === '') return null;
+  if (c.mission === 'rally') return S.boss && S.boss.rally ? Math.max(0, Math.ceil((S.boss.rally.end - now()) / 1000)) : null; // созыв: удар — когда он закончится
   const units = campaignFit(c.mission, a.units), speeds = Object.keys(units).map((id) => unitById(id).speed);
   if (genGoes(a, c)) speeds.push(unitById(M().generalId).speed);
   if (!speeds.length) return null;
@@ -166,14 +167,15 @@ function campaignWin() {
     <div class="clabel">Выберите армию из замка:</div>
     <div class="combo"><select data-cmp="army">${a ? '' : '<option value="" selected disabled>— выберите армию —</option>'}${armies.map((x) => { const k = armyTotal(campaignFit(c.mission, x.units)); return `<option value="${x.key}" ${a && String(x.key) === String(a.key) ? 'selected' : ''}>${esc(nm(x))} — ${fmtFull(k)} ${c.mission === 'scout' ? 'разведч.' : 'юн.'}${genHere(x) ? ' + генерал' : ''}</option>`; }).join('')}</select></div>
     <div class="clabel">Цель похода:</div>
-    <div class="combo"><select data-cmp="mission">${CAMPAIGN_MISSIONS.filter(([k]) => !allyCastleAt(c.x, c.y) || !['raid', 'attack', 'scout'].includes(k)).map(([k, t]) => `<option value="${k}" ${k === c.mission ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
-    <div class="row2 cxy"><label>X<input type="number" inputmode="numeric" data-cmp="x" value="${esc(c.x)}"></label><label>Y<input type="number" inputmode="numeric" data-cmp="y" value="${esc(c.y)}"></label></div>
+    <div class="combo"><select data-cmp="mission">${(c.mission === 'rally' ? [['rally', 'Созыв на мирового босса']] : CAMPAIGN_MISSIONS.filter(([k]) => !allyCastleAt(c.x, c.y) || !['raid', 'attack', 'scout'].includes(k))).map(([k, t]) => `<option value="${k}" ${k === c.mission ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+    ${c.mission === 'rally' ? '<div class="cinfo small">Армия встанет в общую армию альянса и ударит по боссу вместе со всеми, когда созыв закончится. Домой вернётся быстрым маршем.</div>'
+      : `<div class="row2 cxy"><label>X<input type="number" inputmode="numeric" data-cmp="x" value="${esc(c.x)}"></label><label>Y<input type="number" inputmode="numeric" data-cmp="y" value="${esc(c.y)}"></label></div>`}
     ${c.mission === 'trade' ? `<div class="row2">${RES4.map((r) => `<label>${RES_IC[r]}<input type="number" inputmode="numeric" min="0" data-cres="${r}" value="${c.res[r] || ''}" placeholder="0"></label>`).join('')}</div>` : ''}
-    ${chk('portal', c.portal, `${GFX}build/hd3/portal.png`, 'Через портал', !portal)}
+    ${c.mission === 'rally' ? '' : `${chk('portal', c.portal, `${GFX}build/hd3/portal.png`, 'Через портал', !portal)}
     ${chk('sched', c.sched && isPrem(), `${GFX}res/time.png`, isPrem() ? 'Расписание отправки' : 'Расписание отправки 🔒 премиум', !isPrem())}
-    ${c.sched && isPrem() ? `<input type="datetime-local" data-cmp="at" value="${esc(c.at)}">` : ''}
+    ${c.sched && isPrem() ? `<input type="datetime-local" data-cmp="at" value="${esc(c.at)}">` : ''}`}
     ${!a ? '<div class="cinfo">Армию собирают заранее: Военный штаб → «Армии в замке» → «Переформировать».</div>'
-      : `<div class="cinfo ctime">${gimg('res/time.png', 'ric')} Время в пути: <b id="cmpTime">${(() => { const t = campaignSec(); return t ? fmtT(t) : '—'; })()}</b></div>`}
+      : `<div class="cinfo ctime">${gimg('res/time.png', 'ric')} ${c.mission === 'rally' ? 'Удар созыва через' : 'Время в пути'}: <b id="cmpTime">${(() => { const t = campaignSec(); return t ? fmtT(t) : '—'; })()}</b></div>`}
     <button class="pbar" data-cmpgo>Отправить</button>`;
 }
 

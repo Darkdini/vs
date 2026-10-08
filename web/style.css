@@ -2192,3 +2192,9 @@ details.rarmy[open] > summary { filter: brightness(1.12); }
 @keyframes wyou { from { transform: translateY(0); } to { transform: translateY(-8px); } }
 /* недострой (Освоение): картинка в окне — в цвет дерева */
 .cwimg.site { filter: sepia(.85) saturate(.7); opacity: .8; }
+/* созыв альянса на мирового босса (boss.js) */
+.bs-rally { margin: 8px 0; padding: 8px 10px; border: 2px solid #8a5a20; border-radius: 10px; background: #fff3; }
+.bs-rally > b { display: block; color: #7a1a0a; } .bs-rally > small { display: block; margin: 2px 0 6px; }
+.bs-parts div { display: flex; gap: 10px; padding: 3px 6px; border-bottom: 1px solid #0002; } .bs-parts span { flex: 1; } .bs-parts em { font-style: normal; font-weight: 700; }
+.bs-parts .me { background: #ffd2402e; }
+#bbtn.rally::after { content: '⚔'; position: absolute; right: -2px; top: -4px; width: 22px; height: 22px; border-radius: 50%; background: #b3141c; color: #fff; font: 700 13px/22px system-ui; text-align: center; box-shadow: 0 0 0 2px #ffd240; }
