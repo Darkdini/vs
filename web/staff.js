@@ -7,6 +7,8 @@ function openStaff() { S.sf = { list: null, topic: null, compose: null, poll: nu
 const sfOpen = () => S.sheets.length && S.sheets[S.sheets.length - 1] === staffWin;
 const sfTime = (t) => { const d = new Date(t), n = new Date(); return d.toDateString() === n.toDateString() ? d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : fmtDate(t); };
 const sfPicUrl = (id) => `staffpic/${id}.png?l=${encodeURIComponent((S.creds && S.creds.login) || '')}&t=${encodeURIComponent((S.creds && S.creds.token) || '')}`;
+// «⬇ Скачать»: сервер отдаёт фото файлом (dl=1); в приложении для Android файл сохраняет само приложение в «Загрузки»
+const sfDl = (id) => `<a class="btn small sfdl" href="${sfPicUrl(id)}&dl=1" download="mastera-${id.slice(0, 6)}.png">⬇ Скачать</a>`;
 const sfLeft = (exp) => { const m = Math.max(1, Math.ceil((exp - now()) / 60000)), h = Math.floor(m / 60); return h ? `${h} ч ${m % 60} мин` : `${m} мин`; };
 
 function staffWin() {
@@ -25,7 +27,7 @@ function staffWin() {
       || '<p class="parch-note">Тем пока нет. Создайте первую — например, «Ошибки на карте мира».</p>'}</div>`;
 }
 function sfMsgHtml(m) {
-  const pic = m.pic ? `<button class="sfpic" data-sfpic="${m.pic}"><img src="${sfPicUrl(m.pic)}" alt="фото" loading="lazy"></button><small class="sfexp">Фото удалится через ${sfLeft(m.picExp)}</small>`
+  const pic = m.pic ? `<button class="sfpic" data-sfpic="${m.pic}"><img src="${sfPicUrl(m.pic)}" alt="фото" loading="lazy"></button><div class="sfpicbar"><small class="sfexp">Фото удалится через ${sfLeft(m.picExp)}</small>${sfDl(m.pic)}</div>`
     : m.picGone ? '<div class="sfgone">📷 Фото удалено — прошло 24 часа</div>' : '';
   let poll = '';
   if (m.poll) {
@@ -101,7 +103,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.sfdel) { if (confirm('Удалить сообщение?')) send({ t: 'staff', op: 'del', msg: Number(d.sfdel) }); return; }
   if (d.sfpollnew !== undefined) { f.poll = { q: '', opts: ['', ''], multi: false }; refreshSheet(); return setTimeout(() => { const q = $('[data-sfform=poll] input[name=q]'); if (q) q.focus(); }, 30); }
   if (d.sfaddopt !== undefined) { const fm = t.form; sfPollKeep(fm); f.poll.opts.push(''); return refreshSheet(); }
-  if (d.sfpic) { const v = document.createElement('div'); v.className = 'nshotfull'; v.innerHTML = `<img src="${sfPicUrl(d.sfpic)}" alt="">`; v.addEventListener('click', () => v.remove()); return document.body.appendChild(v); }
+  if (d.sfpic) { const v = document.createElement('div'); v.className = 'nshotfull'; v.innerHTML = `<img src="${sfPicUrl(d.sfpic)}" alt=""><div class="sffullbar">${sfDl(d.sfpic)}</div>`; v.addEventListener('click', (ev) => { if (!ev.target.closest('.sfdl')) v.remove(); }); return document.body.appendChild(v); }
   if (d.sfphoto !== undefined && !f.picBusy) {
     if (!sfInput) { sfInput = document.createElement('input'); sfInput.type = 'file'; sfInput.accept = 'image/*'; sfInput.style.display = 'none'; document.body.appendChild(sfInput);
       sfInput.addEventListener('change', () => { const file = sfInput.files && sfInput.files[0]; sfInput.value = ''; const ta = $('[data-sfform=post] textarea'); const text = ta ? ta.value.trim() : ''; if (ta) ta.value = ''; if (file) sfPicSend(file, text); }); }

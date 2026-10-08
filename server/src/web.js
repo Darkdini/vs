@@ -794,7 +794,9 @@ function startWeb(game, sessions, { port, host, log }) {
     if (sp) {
       const q = new URLSearchParams(req.url.split('?')[1] || ''), su = game.tokenLogin(q.get('l'), q.get('t')), body = su && game.staffPicGet(su, sp[1]);
       if (!body) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('no pic'); }
-      res.writeHead(200, { 'Content-Type': 'image/png', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'", 'Cache-Control': 'private, max-age=3600', 'Referrer-Policy': 'no-referrer' });
+      const head = { 'Content-Type': 'image/png', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'", 'Cache-Control': 'private, max-age=3600', 'Referrer-Policy': 'no-referrer' };
+      if (q.get('dl')) head['Content-Disposition'] = `attachment; filename="mastera-${new Date(Date.now() + 3 * 3600000).toISOString().slice(0, 16).replace(/[-:T]/g, '')}-${sp[1].slice(0, 6)}.png"`; // кнопка «Скачать»: сохранить файлом
+      res.writeHead(200, head);
       return res.end(body);
     }
     const np = /^\/newspic\/([0-9a-f]{32})\.png$/.exec(url); // скриншоты новостей (news.js): PNG собран сервером, имя случайное

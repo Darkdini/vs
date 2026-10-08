@@ -493,6 +493,7 @@ function client() {
         assert.strictEqual((await fetch(`http://127.0.0.1:${WEB_PORT}/staffpic/${withPic.pic}.png`)).status, 404, 'фото без сессии не отдаётся');
         const tok = (await (async () => { t2.send({ t: 'login', login: tc.acct, password: np }); return (await t2.expect('auth')).token; })());
         const pr = await fetch(`http://127.0.0.1:${WEB_PORT}/staffpic/${withPic.pic}.png?l=Tester1&t=${tok}`); assert.ok(pr.status === 200 && pr.headers.get('content-type') === 'image/png', 'участнику фото отдаётся');
+        const dl = await fetch(`http://127.0.0.1:${WEB_PORT}/staffpic/${withPic.pic}.png?l=Tester1&t=${tok}&dl=1`); assert.ok(dl.status === 200 && /^attachment; filename="mastera-\d{12}-[0-9a-f]{6}\.png"$/.test(dl.headers.get('content-disposition') || ''), 'кнопка «Скачать» — файлом');
         op2.send({ t: 'staff', op: 'view' }); await op2.expect('error', (m) => /только для мастеров/.test(m.msg));
         adm.send({ t: 'staff', op: 'topicdel', topic: tp.topic.id }); await adm.expect('staff', (m) => m.view === 'list' && !m.data.topics.length);
         console.log('✓ МАСТЕРА: темы, сообщения вживую, непрочитанное, опрос, фото на 24 часа только участникам; обычный игрок не видит');

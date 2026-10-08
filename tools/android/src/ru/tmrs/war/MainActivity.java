@@ -1,6 +1,12 @@
 package ru.tmrs.war;
 
 import android.app.Activity;
+import android.app.DownloadManager;
+import android.os.Build;
+import android.os.Environment;
+import android.webkit.DownloadListener;
+import android.webkit.URLUtil;
+import android.widget.Toast;
 import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
@@ -114,6 +120,12 @@ public class MainActivity extends Activity {
             }
         });
 
+        // скачивание файлов (кнопка «⬇ Скачать» у фото в «МАСТЕРАХ»): файл со своего сервера — в «Загрузки» телефона с уведомлением
+        web.setDownloadListener(new DownloadListener() {
+            @Override
+            public void onDownloadStart(String url, String ua, String cd, String mime, long len) { saveFile(url, ua, cd, mime); }
+        });
+
         setContentView(web);
         // историю WebView не сохраняем: игра кладёт каждое окно в history, и большой Bundle ронял приложение при сворачивании.
         // После возврата страница просто открывается заново, вход — по сохранённой сессии «Запомнить меня».
@@ -184,6 +196,44 @@ public class MainActivity extends Activity {
             java.util.Arrays.sort(l, new java.util.Comparator<File>() { public int compare(File a, File b) { return a.lastModified() < b.lastModified() ? -1 : a.lastModified() > b.lastModified() ? 1 : 0; } });
             for (File x : l) { if (sum <= CACHE_MAX / 2) break; sum -= x.length(); x.delete(); }
         } catch (Exception e) { /* не страшно */ }
+    }
+
+    private String[] pendingDl; // ждёт разрешения на запись (Android 7–9)
+
+    private void saveFile(String url, String ua, String cd, String mime) {
+        if (url == null || !url.startsWith(home + "/")) return; // только свой сервер
+        // Android 7–9: для папки «Загрузки» нужно разрешение на запись — спросить один раз (вызов через reflection: android.jar сборки старее)
+        if (Build.VERSION.SDK_INT < 29) {
+            try {
+                int ok = (Integer) Activity.class.getMethod("checkSelfPermission", String.class).invoke(this, "android.permission.WRITE_EXTERNAL_STORAGE");
+                if (ok != 0) {
+                    pendingDl = new String[] { url, ua, cd, mime };
+                    Activity.class.getMethod("requestPermissions", String[].class, int.class).invoke(this, new String[] { "android.permission.WRITE_EXTERNAL_STORAGE" }, 2);
+                    return;
+                }
+            } catch (Exception e) { /* старый Android — разрешение дано при установке */ }
+        }
+        try {
+            String name = URLUtil.guessFileName(url, cd, mime);
+            DownloadManager.Request r = new DownloadManager.Request(Uri.parse(url));
+            if (mime != null) r.setMimeType(mime);
+            if (ua != null) r.addRequestHeader("User-Agent", ua);
+            r.setTitle(name);
+            r.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            r.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, name);
+            ((DownloadManager) getSystemService(DOWNLOAD_SERVICE)).enqueue(r);
+            Toast.makeText(this, "Сохраняю в «Загрузки»: " + name, Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            Toast.makeText(this, "Не удалось сохранить файл", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    // ответ на запрос разрешения (Android 7–9): разрешили — сохранить файл, который ждал
+    public void onRequestPermissionsResult(int code, String[] perms, int[] res) {
+        if (code != 2 || pendingDl == null) return;
+        String[] d = pendingDl; pendingDl = null;
+        if (res != null && res.length > 0 && res[0] == 0) saveFile(d[0], d[1], d[2], d[3]);
+        else Toast.makeText(this, "Без разрешения файл не сохранить", Toast.LENGTH_SHORT).show();
     }
 
     private String offlinePage() {

@@ -2261,6 +2261,10 @@ body.menuopen #advbar, body.menuopen #advhand { display: none; } /* открыт
 .sfpic { display: block; border: 0; padding: 0; margin-top: 5px; background: none; }
 .sfpic img { display: block; max-width: 100%; max-height: 260px; border-radius: 8px; }
 .sfexp { display: block; color: #8a6a44; font-size: 11px; margin-top: 2px; }
+.sfpicbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; }
+.sfdl { text-decoration: none; white-space: nowrap; }
+.sffullbar { position: absolute; left: 0; right: 0; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); text-align: center; }
+.sffullbar .sfdl { font-size: 18px; padding: 10px 22px; }
 .sfgone { margin-top: 4px; color: #8a6a44; font-style: italic; font-size: 13px; }
 .sfpoll { margin-top: 4px; display: flex; flex-direction: column; gap: 4px; }
 .sfq { font-weight: bold; }
