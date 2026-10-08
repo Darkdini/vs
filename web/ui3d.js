@@ -423,6 +423,7 @@ function playersWin() {
 
 // ---------- окно «Замок» на карте мира (как в клиенте: имя, координаты, рейтинг, игрок, раса, 3 плитки) ----------
 function castleWin(o, x, y) {
+  if (o.site) return siteWin(o, x, y); // недострой (Освоение)
   const mine = o.ownerId === me();
   const tile = (attr, icon, text) => `<button class="ptile" ${attr}><img src="${GFX}${icon}" alt=""><span>${text}</span></button>`;
   const saved = (S.places || []).some((p) => p.x === x && p.y === y);
@@ -440,6 +441,24 @@ function castleWin(o, x, y) {
     : S.st.castle.x === x && S.st.castle.y === y ? '' : `<button class="ptile" data-armyopen="reinforce" data-ax="${x}" data-ay="${y}"><img src="${G3}top/reinf.png" alt=""><span>Подкрепление</span></button>`}
     </div>
     <button class="pbar cwsave" data-saveplace="${x},${y}">${saved ? 'Место запомнено' : 'Запомнить место'}</button>`;
+}
+
+// ---------- недострой на карте: чья стройка, когда будет готова; подкрепить (свой или союзника) или Война ----------
+function siteWin(o, x, y) {
+  const mine = o.ownerId === me(), ally = !mine && S.st.user.ally && o.allyId === S.st.user.ally, k = Math.max(0, Math.min(1, (now() - o.site.start) / Math.max(1, o.site.end - o.site.start)));
+  const tile = (attr, icon, text) => `<button class="ptile" ${attr}><img src="${icon}" alt=""><span>${text}</span></button>`;
+  return `${ribbon('Недострой')}
+    <div class="cwin"><img class="cwimg site" src="${GFX}world/castle0.png" alt=""><div>
+      <div class="cwname">${esc(o.name)}</div><div>X: ${x} Y: ${y}</div><div>Готово: <b>${Math.floor(k * 100)}%</b></div></div></div>
+    <div class="tbar"><i style="width:${k * 100}%"></i></div>
+    <div class="cwrow"><span>Строит:</span><button class="pbar cwplayer" data-cprof="${o.ownerId}">${esc(o.owner)}</button></div>
+    ${o.alliance ? `<div class="cwrow"><span>Альянс:</span><span>[${esc(o.alliance)}]</span></div>` : ''}
+    <div class="bwline">Замок будет готов через <span class="cd" data-e="${o.site.end}"></span>. ${mine ? 'Охраняйте стройку: её можно атаковать, а победное нападение, в котором выживут 3 путешественника, заберёт её себе.' : 'Победное нападение, в котором выживут 3 путешественника, заберёт стройку вам (если лояльности населения хватает на новый замок).'}</div>
+    <hr class="cwhr">
+    <div class="ptiles">
+      ${mine ? '' : tile(`data-write="${esc(o.owner)}"`, `${GFX}smallicon/unmes.png`, 'Сообщение')}
+      ${mine || ally ? tile(`data-armyopen="reinforce" data-ax="${x}" data-ay="${y}"`, `${G3}top/reinf.png`, 'Подкрепление') : tile(`data-warpick data-ax="${x}" data-ay="${y}"`, `${GFX}smallicon/swordred.png`, 'Война')}
+    </div>`;
 }
 
 // ---------- Казна: золото игрока ----------
@@ -570,6 +589,10 @@ const prevOnState = onState;
 onState = function (m) {
   const first = !S.st; prevOnState(m);
   if (first) { S.places = store.get('tw.places') || []; send({ t: 'chatlog' }); chatLine(); }
+  // последний замок, в котором игрок был на этом устройстве: при входе открывается он, а не столица
+  const lc = store.get('tw.castle'), cid = S.st.castle.id, login = S.st.user.login;
+  if (first && lc && lc.login === login && lc.id !== cid && (S.st.castles || []).some((k) => k.id === lc.id)) send({ t: 'switch', id: lc.id, quiet: 1 });
+  else if (!lc || lc.login !== login || lc.id !== cid) store.set('tw.castle', { login, id: cid });
   if (S.switchTo) { S.switchTo = false; setTab('castle'); } // переход в другой замок — показать его
 }; // eslint-disable-line no-global-assign
 

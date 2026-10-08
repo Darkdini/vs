@@ -2324,3 +2324,5 @@ details.rarmy[open] > summary { filter: brightness(1.12); }
 .wview-in .wyou b { position: absolute; left: -40px; width: 80px; top: -27px; text-align: center; font: bold 10px/12px system-ui, sans-serif; color: #fff3b0;
   text-shadow: 0 0 2px #000, 0 0 2px #000, 1px 1px 1px #000, -1px -1px 1px #000; animation: wyou .6s ease-in-out infinite alternate; }
 @keyframes wyou { from { transform: translateY(0); } to { transform: translateY(-8px); } }
+/* недострой (Освоение): картинка в окне — в цвет дерева */
+.cwimg.site { filter: sepia(.85) saturate(.7); opacity: .8; }

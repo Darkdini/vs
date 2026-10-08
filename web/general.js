@@ -93,10 +93,12 @@ const reviveFund = (d) => (d.fund ? `<div class="upbody center">Уже внес�
 const gico = (id) => (id ? `<img class="fi" src="${unitSrc(unitById(id))}" alt="">` : '');
 function noGeneralWin() {
   const my = MY(), dead = my.deadGenerals || [], tr = my.genTrain;
-  const deadHtml = dead.map((d, i) => `<div class="upbody center">Мертвый ${gico(d.kindId)} Генерал (${esc(d.kind || '')})<br>${esc(d.name)}</div>
+  const deadHtml = dead.map((d, i) => `<div class="upbody center">Мертвый ${gico(d.kindId)} Генерал (${esc(d.kind || '')})<br>${esc(d.name)}, ${fmtFull(d.level)} ур.</div>
     ${d.reviveAt ? `<div class="upbody center">Воскрешение. Осталось: <span class="cd" data-e="${d.reviveAt}"></span></div>`
+    : d.coinsOnly ? `<div class="upbody center">Генерала выше 100 уровня воскрешают только за монеты.</div><div class="upbody center">Стоимость воскрешения: ${fmtFull(d.gold)} ${gimg('coins_s.png', 'ri')}</div>
+      <button class="pbar" data-genrevg="${i}">Воскресить за монеты</button>`
     : `<div class="upbody center">Стоимость воскрешения:</div>${genCost(d)}${reviveFund(d)}<div class="upbody center">или ${fmtFull(d.gold)} ${gimg('coins_s.png', 'ri')}</div>
-      <button class="pbar" data-genrev="${i}">${reviveAll(d) ? 'Воскресить' : 'Внести ресурсы'}</button><button class="pbar" data-genrevg="${i}">Воскресить за золото</button>`}
+      <button class="pbar" data-genrev="${i}">${reviveAll(d) ? 'Воскресить' : 'Внести ресурсы'}</button><button class="pbar" data-genrevg="${i}">Воскресить за монеты</button>`}
     <div class="upbody">Удалить генерала ${esc(d.kind || '')}.</div><button class="pbar" data-gendel="${i}">Удалить</button><hr class="cwhr">`).join('');
   const train = tr ? `<div class="upbody center">Тренировка ${gico(tr.kindId)} Генерала (${esc(tr.kind)})<br>Осталось: <span class="cd" data-e="${tr.end}"></span></div>`
     : `${ribbon('Тренировка')}<div class="upbody center">Выберите юнита из замковой армии для тренировки:</div>

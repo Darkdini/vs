@@ -358,8 +358,8 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   const u = g.register({ login: 'gentest', password: '12345', nick: 'GenTest', race: 3 }).user, c = g.castleOf(u); g.mil(c);
   const tc = g.genTrainCost(UNIT[245]); assert.deepStrictEqual([tc.cost.wood, tc.cost.stone, tc.cost.iron, tc.cost.food, tc.people, tc.sec], [1700, 1600, 1800, 3600, 120, 14400], 'Мародер → генерал: как на скрине');
   const rc = g.reviveCostOf({ kindId: 247, level: 716, exp: g.generalNeed(715) + 1 });
-  assert.deepStrictEqual([rc.cost.wood, rc.cost.stone, rc.cost.iron, rc.cost.food, rc.people, rc.sec, rc.gold], [537000, 572800, 608600, 1181400, 8592, 1403360, 29].map((v, i) => (i < 4 ? rc.cost[['wood', 'stone', 'iron', 'food'][i]] : v)), 'Бугай 716');
-  assert.ok(Math.abs(rc.cost.wood - 537060) / 537060 < 0.002 && rc.people === 8592 && rc.sec === 1403360 && rc.gold === 29, `Бугай 716: ${JSON.stringify(rc)}`);
+  assert.deepStrictEqual([rc.cost.wood, rc.cost.stone, rc.cost.iron, rc.cost.food, rc.people, rc.sec, rc.gold], [537000, 572800, 608600, 1181400, 8592, 1403360, 87].map((v, i) => (i < 4 ? rc.cost[['wood', 'stone', 'iron', 'food'][i]] : v)), 'Бугай 716');
+  assert.ok(Math.abs(rc.cost.wood - 537060) / 537060 < 0.002 && rc.people === 8592 && rc.sec === 1403360 && rc.gold === 87 && rc.coinsOnly, `Бугай 716 (выше 100 ур. — только за монеты, 3 монеты за каждые 25 ур.): ${JSON.stringify(rc)}`);
   g.maxOut(c); c.units = { 245: 5 }; c.general = null; Object.assign(c.res, { wood: 5e4, stone: 5e4, iron: 5e4, food: 5e4, people: 5000 });
   c.units[252] = 3; c.units[233] = 3; c.units[243] = 3;
   for (const id of [252, 233, 243]) assert.ok(g.trainGeneral(c, id).error, `${UNIT[id].name} — не генерал`);
@@ -368,7 +368,7 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   c.training.find((t) => t.unit === 236).start = 0; g.tick(c);
   assert.ok(c.general && c.general.kind === 'Мародер');
   c.general.dead = true; u.gold = 10;
-  assert.ok(g.reviveGeneral(c, u, 0, true).ok && !c.general.dead && u.gold === 9, 'воскрешение за 1 золото');
+  assert.ok(g.reviveGeneral(c, u, 0, true).ok && !c.general.dead && u.gold === 7, 'воскрешение за 3 монеты');
   c.general.dead = true; c.units[245] = 2; assert.ok(g.trainGeneral(c, 245).ok); assert.strictEqual(c.deadGenerals.length, 1, 'павший остаётся в списке');
   assert.ok(g.deleteDeadGeneral(c, 0).ok && !c.deadGenerals.length);
   console.log('✓ Генерал: тренировка из юнита (цены по скрину), воскрешение за ресурсы/золото, павшие списком, удаление');
@@ -707,22 +707,22 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
 }
 { // Ратуша → Защита (shield.js): купол на замок/королевство, контрразведка
   const a = g.register({ login: 'shldatt', password: '12345', race: 0 }).user, d = g.register({ login: 'shlddef', password: '12345', race: 0 }).user;
-  g.adminAddCastles(a, 1); g.adminAddCastles(d, 1); const ac = g.castlesOf(a)[1], dc = g.castlesOf(d)[1]; g.mil(ac); g.mil(dc); d.gold = 200; a.gold = 0; a.created = d.created = 0;
+  g.adminAddCastles(a, 1); g.adminAddCastles(d, 1); const ac = g.castlesOf(a)[1], dc = g.castlesOf(d)[1]; g.mil(ac); g.mil(dc); d.gold = 1000; a.gold = 0; a.created = d.created = 0;
   assert.ok(/монет/.test(g.shieldBuy(d, dc, 'castle', 1).error || '') === false, 'хватает монет');
-  assert.ok(g.castleShield(dc) && d.gold === 195, 'защита замка за 5');
-  const r1 = g.shieldBuy(d, dc, 'castle', 3); assert.ok(r1.msg && dc.shieldUntil - Date.now() > 3.9 * 86400000 && d.gold === 182, 'продление: 1 + 3 дня');
+  assert.ok(g.castleShield(dc) && d.gold === 985, 'защита замка за 15');
+  const r1 = g.shieldBuy(d, dc, 'castle', 3); assert.ok(r1.msg && dc.shieldUntil - Date.now() > 3.9 * 86400000 && d.gold === 946, 'продление: 1 + 3 дня');
   assert.ok(g.worldObjects(dc.x, dc.y, 1, 1)[0].shield, 'купол на карте');
   ac.units = { 200: 50 }; const old = require('../src/army').NEWBIE_RATING;
   const e1 = g.sendArmy(ac, { units: { 200: 10 }, mission: 'attack', x: dc.x, y: dc.y });
   assert.ok(/защит/.test(e1.error || ''), 'на защищённый замок не напасть: ' + JSON.stringify(e1).slice(0, 120));
   assert.ok(/защит/.test(g.sendArmy(ac, { units: { 200: 10 }, mission: 'reinforce', x: dc.x, y: dc.y }).error || ''), 'и подкрепление не отправить');
   dc.units = { 200: 20 }; assert.ok(/защита/.test(g.sendArmy(dc, { units: { 200: 5 }, mission: 'attack', x: ac.x, y: ac.y }).error || ''), 'под защитой сам не воюет');
-  assert.ok(g.shieldBuy(d, dc, 'kingdom', 7).msg && d.gold === 74 && d.shieldKingdom > Date.now(), 'королевство за 108');
-  assert.ok(g.shieldBuy(d, dc, 'castle', 5).error && g.shieldBuy(d, dc, 'spy', 1).msg && g.spyShield(d), 'нет 5 дней; контрразведка за 5');
+  assert.ok(g.shieldBuy(d, dc, 'kingdom', 7).msg && d.gold === 622 && d.shieldKingdom > Date.now(), 'королевство за 324');
+  assert.ok(g.shieldBuy(d, dc, 'castle', 5).error && g.shieldBuy(d, dc, 'spy', 1).msg && g.spyShield(d) && d.gold === 607, 'нет 5 дней; контрразведка за 15');
   a.gold = 50; ac.armies = [{ mission: 'attack', state: 'go', x: 1, y: 1, units: {} }];
   assert.ok(/походе/.test(g.shieldBuy(a, ac, 'castle', 1).error || '') && a.gold === 50, 'армии в походе — защиту не включить');
   ac.armies = [];
-  console.log('✓ Защита: замок (5/13/27), королевство (20/52/108), контрразведка; купол, продление, запреты атак и подкреплений');
+  console.log('✓ Защита: замок (15/39/81), королевство (60/156/324), контрразведка (15/39/81); купол, продление, запреты атак и подкреплений');
 }
 { // «Лавка Короля» (shop.js): ускорения стройки и сундуки ресурсов
   const su = g.register({ login: 'shopper', password: '12345', race: 0 }).user, sc = g.castlesOf(su)[0], now = Date.now();
@@ -1242,17 +1242,51 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     console.log(`✓ Захват: +15% бунта за победу с бунтарями, 7 атак — замок ваш (бунт 95%, бунтарь остался), бунт сам не утихает, Храм ${T} ур.: 1% = ${per.wood} каждого ресурса и ${Math.round(g.calmSec(tgt) / 60 * 10) / 10} мин`);
     if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
   }
-  { // цены, которые раньше не влезали в Склад (75 200): науки 15–20, улучшения Кузницы/Школы магии; воскрешение генерала — по частям
+  { // цены, которые раньше не влезали в Склад (75 200): науки 15–20, улучшения Кузницы/Школы магии; воскрешение генерала — до 100 ур. не дороже Склада, выше — за монеты
     const cat = require('../src/army').catalogJson();
     const sci = (cat.scienceCost || []).filter(Boolean); assert.ok(sci.length === 20 && sci.every((c, i) => c.wood <= 75200 && (i === 0 || c.wood > sci[i - 1].wood)), 'науки 1–20 дорожают и влезают в Склад');
     const { UNIT } = require('../src/army'); const big = Object.values(UNIT).find((x) => x.name === 'Изувер');
     for (const k of ['a', 'd', 'm', 'md']) assert.ok(Object.values(g.forgeCost(big, k, 20).cost).every((v) => v <= 72000), `Изувер ${k} 20 ур. влезает в Склад`);
     const u = g.register({ login: 'revfund', password: '12345', race: 3 }).user, c = g.castleOf(u); g.mil(c); g.maxOut(c);
     c.general = { ...g.newGeneral(c, 60), dead: true }; c.deadGenerals = [];
-    const rc = g.reviveCostOf(c.general); assert.ok(rc.cost.wood > 75200, 'цена больше Склада');
-    let rounds = 0; while (!c.general.reviveAt && rounds < 20) { Object.assign(c.res, { wood: 70000, stone: 70000, iron: 70000, food: 70000, people: 6000 }); const r = g.reviveGeneral(c, u, 0, false); assert.ok(r.ok, r.error); rounds++; }
-    assert.ok(c.general.reviveAt && !c.general.fund, `воскрешение началось после ${rounds} взносов`);
-    console.log(`✓ Цены в пределах Склада: науки до 20 ур., Кузница; генерал 60 ур. (${rc.cost.wood.toLocaleString('ru-RU')} дерева) воскрешён за ${rounds} взносов`);
+    const cap = g.capacity(c), full = g.reviveCostOf(c.general), rc = g.reviveCostOf(c.general, c);
+    assert.ok(full.cost.wood > cap.wood && rc.cost.wood === cap.wood && !rc.coinsOnly && rc.gold === 9, `60 ур.: цена урезана до Склада (${full.cost.wood} → ${rc.cost.wood}), монет — 9`);
+    Object.assign(c.res, { ...cap }); assert.ok(g.reviveGeneral(c, u, 0, false).ok && c.general.reviveAt && !c.general.fund, 'полный Склад — воскрешение сразу');
+    // выше 100 уровня — только за монеты; ресурсы, внесённые частями раньше, возвращаются
+    c.general = { ...g.newGeneral(c, 101), dead: true, fund: { wood: 500, stone: 0, iron: 0, food: 0, people: 0 } }; c.res.wood = 0; u.gold = 20;
+    const r101 = g.reviveCostOf(c.general, c); assert.ok(r101.coinsOnly && r101.gold === 15, '101 ур.: только монеты, 15 шт.');
+    assert.ok(/только за монеты/.test(g.reviveGeneral(c, u, 0, false).error || '') && c.res.wood >= 500 && c.res.wood < 600 && !c.general.fund, `за ресурсы нельзя, внесённое вернулось (${Math.round(c.res.wood)})`);
+    assert.ok(g.reviveGeneral(c, u, 0, true).ok && !c.general.dead && u.gold === 5, 'воскрешён за 15 монет');
+    console.log(`✓ Цены в пределах Склада: науки до 20 ур., Кузница; генерал 60 ур. — ресурсы не больше Склада (${rc.cost.wood.toLocaleString('ru-RU')} дерева) или 9 монет, 101 ур. — только 15 монет`);
+  }
+  { // Освоение: 10 путешественников строят замок 3 дня, недострой атакуют и подкрепляют, 3 выживших путешественника забирают его
+    const luck0 = process.env.LUCK; process.env.LUCK = '0';
+    const mk = (login) => { const u = g.register({ login, password: '12345', race: 0 }).user; u.created = Date.now() - 60 * DAY; u.royal = 1e6; u.royalAt = Date.now(); u.lastSeen = Date.now(); return u; };
+    const U = mk('setlA1'), B = mk('setlB1'), Cc = mk('setlC1'), c = g.castleOf(U), cb = g.castleOf(B), cc = g.castleOf(Cc); for (const k of [c, cb, cc]) { g.mil(k); g.maxOut(k); }
+    let spot = null; for (let r = 4; r < 14 && !spot; r++) for (let dx = -r; dx <= r && !spot; dx++) for (const dy of [-r, r]) if (!spot && !g.settleError(U, c.x + dx, c.y + dy, 10)) spot = { x: c.x + dx, y: c.y + dy };
+    assert.ok(spot, 'есть пустое место');
+    c.units = { 200: 500, 224: 9 }; c.squads = []; c.armies = [];
+    assert.ok(/10 путешественников/.test(g.sendArmy(c, { units: { 200: 500, 224: 9 }, mission: 'settle', ...spot }).error || ''), '9 путешественников — мало');
+    c.units[224] = 10; const r1 = g.sendArmy(c, { units: { 200: 500, 224: 10 }, mission: 'settle', ...spot }); assert.ok(!r1.error, r1.error);
+    g.tickWorld(r1.army.arrive + 1000);
+    const site = g.castleAt(spot.x, spot.y); assert.ok(site && site.site && site.owner === U.id && !g.castlesOf(U).includes(site) && site.units[200] === 500 && !site.units[224], 'недострой заложен, охрана стоит, путешественники в стройке');
+    assert.ok(Math.abs(site.site.end - site.site.start - 3 * 86400000 / (Number(process.env.SPEED) || 1)) < 2000, 'строится 3 дня');
+    assert.ok(g.worldObjects(spot.x, spot.y, 1, 1)[0].site, 'на карте видно, что строится');
+    c.units[224] = 10; assert.ok(/уже строится/.test(g.sendArmy(c, { units: { 224: 10 }, mission: 'settle', x: spot.x + 6, y: spot.y }).error || ''), 'одна стройка за раз');
+    // нападение без путешественников: охрана разбита, стройка идёт дальше
+    cb.units = { 200: 4000 }; cb.squads = []; cb.armies = [];
+    const r2 = g.sendArmy(cb, { units: { 200: 4000 }, mission: 'attack', ...spot }); assert.ok(!r2.error, r2.error); g.tickWorld(r2.army.arrive + 1000);
+    assert.ok(site.site && site.owner === U.id && !site.units[200], 'без путешественников — стройка продолжается');
+    // нападение с 3 путешественниками: недострой переходит
+    cc.units = { 200: 4000, 224: 3 }; cc.squads = []; cc.armies = [];
+    const r3 = g.sendArmy(cc, { units: { 200: 4000, 224: 3 }, mission: 'attack', ...spot }); assert.ok(!r3.error, r3.error); g.tickWorld(r3.army.arrive + 1000);
+    assert.ok(site.site && site.owner === Cc.id && !(r3.army.units[224] > 0), 'с 3 путешественниками — недострой ваш, путешественники остались строить');
+    assert.ok(g.reportsOf(U.id).some((r) => /захвачен игроком setlC1/.test((r.lines || []).join(' '))), 'прежний хозяин получил отчёт');
+    // достройка: лояльность списывается у того, чей недострой сейчас
+    const need = g.royalNeed(Cc), before = Cc.royal; g.tickWorld(site.site.end + 1000);
+    assert.ok(!site.site && g.castlesOf(Cc).includes(site) && Cc.royal === before - need, `замок достроен и в списке, лояльность списана (${need})`);
+    console.log(`✓ Освоение: 10 путешественников, 3 дня стройки, без путешественников недострой не взять, с 3 — переходит; при достройке −${need} лояльности`);
+    if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
   }
   try { fs.unlinkSync(DB); } catch {}
   process.exit(0);

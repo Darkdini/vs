@@ -208,6 +208,7 @@ const unitsForRace = (race) => UNITS.filter((u) => u.race === race || u.race ===
 // генерал как в оригинале: за уровень — очки опыта, игрок распределяет их в окне «Генерал».
 // Личная атака/защита — +1 за очко; командование атакой/защитой — к армии, с убывающей отдачей (cmdBonus); восстановление — быстрее воскрешение; карьера — больше опыта.
 const GEN = { battleCap: 0.15, dayLevels: 1, perLevel: 2, maxLevel: 500, revive: 0.5, cmd: 0.003, cmdMax: 1, cmdK: 300, heal: 0.02, career: 0.005, resetGold: 100 };
+const REVIVE_GOLD = 3, REVIVE_RES_MAX = 100; // воскрешение генерала: монет за каждые 25 уровней; выше этого уровня — только за монеты
 // командование генерала (атакой/защитой): первые очки — почти по +0,33% (как раньше +0,3%), дальше отдача убывает:
 // 100 очков — +25%, 300 — +50%, 1000 (500 ур.) — +77%, не больше +100%. Раньше росло без предела (+299% на 500 ур.) и решало любой бой.
 const cmdBonus = (pts) => (pts > 0 ? GEN.cmdMax * pts / (pts + GEN.cmdK) : 0);
@@ -333,7 +334,11 @@ const SPY_OPEN = {
   reinf: { name: 'Подкреплений', level: 16, survive: 0.9, cond: 'выжило больше 90% разведчиков' },
 };
 const HOSTILE = ['attack', 'raid', 'scout']; // враждебные походы — не на союзников по альянсу
-const MISSIONS = { raid: 'Набег', attack: 'Нападение', reinforce: 'Подкрепление', scout: 'Разведка', expedition: 'Экспедиция', trade: 'Торговля' };
+const MISSIONS = { raid: 'Набег', attack: 'Нападение', reinforce: 'Подкрепление', scout: 'Разведка', expedition: 'Экспедиция', trade: 'Торговля', settle: 'Освоение' };
+// «Освоение»: 10 путешественников идут на пустую клетку и строят там замок 3 дня (недострой виден на карте, его можно атаковать
+// и подкреплять; победное нападение, в котором выжили 3 путешественника, забирает недострой). Лояльность населения (Резиденция)
+// должна позволять новый замок; списывается она, когда замок достроен, — у того, чей он в этот момент
+const SETTLE_N = 10, SETTLE_TAKE = 3, SETTLE_SEC = Math.round(3 * 86400 / SPEED), TRAVELER_ID = 224;
 
 function install(Game, helpers) {
   const P = Game.prototype;
@@ -683,10 +688,14 @@ function install(Game, helpers) {
     const need = this.generalNeed(g.level), prev = g.level > 1 ? this.generalNeed(g.level - 1) : 0;
     return g.level + Math.max(0, Math.min(0.999, (g.exp - prev) / Math.max(1, need - prev)));
   };
-  P.reviveCostOf = function reviveCostOf(g) {
-    const u = genUnit(g), L = this.genLevelF(g);
-    return { cost: Object.fromEntries(RES4.map((r) => [r, Math.round(u.cost[r] * 10 * L)])), people: Math.round(u.pop * L), sec: Math.round(u.time * g.level), gold: Math.max(1, Math.ceil(L / 25)) };
+  // воскрешение: до REVIVE_RES_MAX уровня — за ресурсы (не больше вместимости Склада замка) или монеты, выше — только за монеты; монеты — по REVIVE_GOLD за каждые 25 уровней
+  P.reviveCostOf = function reviveCostOf(g, castle) {
+    const u = genUnit(g), L = this.genLevelF(g), cap = castle ? this.capacity(castle) : null, lim = (k, v) => (cap ? Math.min(v, cap[k]) : v);
+    return { cost: Object.fromEntries(RES4.map((r) => [r, lim(r, Math.round(u.cost[r] * 10 * L))])), people: lim('people', Math.round(u.pop * L)), sec: Math.round(u.time * g.level),
+      gold: REVIVE_GOLD * Math.max(1, Math.ceil(g.level / 25)), coinsOnly: g.level > REVIVE_RES_MAX };
   };
+  // ресурсы, внесённые частями до новых правил, возвращаются в замок
+  const refundFund = (castle, g) => { if (!g.fund) return; for (const k of Object.keys(g.fund)) castle.res[k] = (castle.res[k] || 0) + (g.fund[k] || 0); delete g.fund; };
   P.deadList = function deadList(castle) { return [...(castle.general && castle.general.dead ? [castle.general] : []), ...(castle.deadGenerals || [])]; };
   P.genTrainUnits = function genTrainUnits(castle) {
     const race = this.raceOf(castle);
@@ -702,15 +711,17 @@ function install(Game, helpers) {
     if (g !== castle.general && castle.general) return { error: 'В замке уже есть генерал.' };
     if (list.some((x) => x.reviveAt)) return { error: 'Уже воскрешается другой генерал.' };
     if (castle.training.some((t) => t.unit === GENERAL_ID)) return { error: 'Идёт тренировка генерала.' };
-    const c = this.reviveCostOf(g);
+    const c = this.reviveCostOf(g, castle);
     if (gold) {
-      if ((user.gold || 0) < c.gold) return { error: `Нужно ${c.gold} золота.` };
+      if ((user.gold || 0) < c.gold) return { error: `Нужно ${c.gold} монет.` };
       this.goldChange(user, -c.gold, `Воскрешение генерала (${g.kind})`);
+      refundFund(castle, g);
       if (g !== castle.general) { castle.deadGenerals = castle.deadGenerals.filter((x) => x !== g); castle.general = g; }
       g.dead = false; delete g.reviveAt; delete g.reviveStart; delete g.away; this.store.save();
       return { ok: true, msg: 'Генерал воскрешён!' };
     }
-    // цена воскрешения у прокачанных генералов больше Склада — ресурсы вносятся частями (g.fund), когда собрано всё — воскрешение начинается
+    if (c.coinsOnly) { refundFund(castle, g); this.store.save(); return { error: `Генерала выше ${REVIVE_RES_MAX} уровня можно воскресить только за монеты.` }; }
+    // ресурсы можно вносить частями (g.fund), когда собрано всё — воскрешение начинается
     const fund = g.fund = g.fund || { wood: 0, stone: 0, iron: 0, food: 0, people: 0 }, need = { ...Object.fromEntries(RES4.map((r) => [r, c.cost[r]])), people: c.people };
     const keys = [...RES4, 'people'], left = (k) => Math.max(0, need[k] - (fund[k] || 0));
     if (!keys.every((k) => castle.res[k] >= left(k))) {
@@ -778,7 +789,7 @@ function install(Game, helpers) {
         units = { ...squad.units }; general = !!(castle.general && castle.general.squad === squad.id && !castle.general.dead);
       }
       // армия идёт целиком, но в поход берутся только подходящие юниты — остальные остаются в замке
-      const fits = { scout: (r) => ['scout', 'eye'].includes(r), expedition: (r) => r === 'archaeologist', trade: (r) => r === 'merchant' }[mission]
+      const fits = { scout: (r) => ['scout', 'eye'].includes(r), expedition: (r) => r === 'archaeologist', trade: (r) => r === 'merchant', settle: (r) => !['merchant', 'archaeologist', 'sage'].includes(r), attack: (r) => !['merchant', 'archaeologist', 'sage'].includes(r) }[mission]
         || ((r) => !['merchant', 'archaeologist', 'sage', 'settler'].includes(r));
       units = Object.fromEntries(Object.entries(units).filter(([u]) => UNIT[u] && fits(UNIT[u].role)));
       if (pick && typeof pick === 'object') { // игрок выбрал, сколько каких юнитов взять (остальные остаются в замке)
@@ -836,13 +847,15 @@ function install(Game, helpers) {
       }
     }
     const me = this.ownerOf(castle);
+    if (mission === 'settle') { const e = this.settleError(me, x, y, clean[TRAVELER_ID] || 0); if (e) return { error: e }; }
+    if (target && target.site && mission === 'raid') return { error: 'Набег на недострой ничего не даст — там нечего грабить. Нападение или подкрепление.' };
     if (['attack', 'raid', 'scout'].includes(mission) && this.userShielded(me)) return { error: 'У Вас включена защита замка или королевства — армии не ведут боевых действий, пока она действует.' };
     if (target && target.owner !== castle.owner && this.castleShield(target)) return { error: mission === 'reinforce' ? 'Замок под защитой — подкрепление в него отправить нельзя.' : 'Замок под защитой — нападать и разведывать его нельзя.' };
     if (target && ['attack', 'raid', 'scout'].includes(mission) && !me.admin && this.isNewbie(this.ownerOf(target))) return { error: `Игрок под защитой новичка ещё ${this.newbieLeftText(this.ownerOf(target))}.` };
     if (target && ['attack', 'raid'].includes(mission) && this.isNewbie(me)) { me.newbieOff = true; this.cache = {}; } // новичок напал сам — его защита снимается
     const lair = !target && !obj && ['attack', 'raid'].includes(mission) ? this.lairAt(castle.owner, x, y) : null; // логово похода «Тёмные земли»
     const boss = !target && !obj && !lair && ['attack', 'raid'].includes(mission) ? this.bossAt(x, y) : null; // мировой босс (boss.js)
-    if (!target && !lair && !boss && (!obj || (!NPC[obj.img] && mission !== 'scout'))) return { error: 'Здесь некого атаковать.' };
+    if (mission !== 'settle' && !target && !lair && !boss && (!obj || (!NPC[obj.img] && mission !== 'scout'))) return { error: 'Здесь некого атаковать.' };
     const src = squad ? squad.units : castle.units;
     for (const [id, n] of Object.entries(clean)) { src[id] -= n; if (!src[id]) delete src[id]; }
     if (squad) { // то, что не пошло в поход, остаётся в Замковой армии
@@ -866,6 +879,7 @@ function install(Game, helpers) {
 
   // ----- мир: армии прибывают и возвращаются (вызывается раз в секунду для всех замков) -----
   P.tickWorld = function tickWorld(now = Date.now()) {
+    this.sitesTick(now); // недострои: достроены?
     const due = [];
     for (const c of Object.values(this.db.castles)) {
       if (!c.armies || !c.armies.length) continue; // замки без армий в пути 
@@ -1026,7 +1040,8 @@ function install(Game, helpers) {
       for (const g of this.guestsOf(target)) for (const [id, n] of Object.entries(g.a.units)) { const s = stack(g.a.units, id, n, false, g.c); if (s) D.push(s); }
     } else for (const g of npcGarrison(npc)) D.push({ m: null, id: g.key, n: g.n, own: false, npc: g, hp: g.hp, atk: g.atk, mag: g.mag, def: g.def, mdef: g.mdef });
     const wallK = bD ? 1 + bD.wallPer * (hD ? 1 + hD.wall : 1) * wallL : 1, hDd = hD ? 1 + hD.def : 1;
-    const dK = bD ? bD.def * wallK * hDd * DEF_HOME : 1, mdK = bD ? bD.def * bD.magic * wallK * hDd * DEF_HOME : 1;
+    const home = target && !target.site ? DEF_HOME : 1; // недострой — ещё не крепость
+    const dK = bD ? bD.def * wallK * hDd * home : 1, mdK = bD ? bD.def * bD.magic * wallK * hDd * home : 1;
     // ---- бой как в Travian: сила атаки против защиты, смешанной по составу нападающих ----
     const sum = (L, f) => L.reduce((q, s) => q + f(s), 0);
     const raidK = a.mission === 'raid' && hA ? 1 + hA.raid : 1;
@@ -1057,7 +1072,7 @@ function install(Game, helpers) {
     let healed = 0;
     for (const s of D) {
       let l = dLostN.get(s); if (!l) { if (s.m) dAll[s.id] = (dAll[s.id] || 0) + s.n; continue; }
-      if (s.own) { const h = Math.floor(l * HEAL_HOME); l -= h; healed += h; }
+      if (s.own && !target.site) { const h = Math.floor(l * HEAL_HOME); l -= h; healed += h; }
       if (s.m) { s.m[s.id] -= l; if (!s.m[s.id]) delete s.m[s.id]; }
       dLost[s.id] = (dLost[s.id] || 0) + l;
       if (s.m && s.m[s.id]) dAll[s.id] = (dAll[s.id] || 0) + s.m[s.id];
@@ -1189,6 +1204,7 @@ function install(Game, helpers) {
       a.cargo = null; return this.goBack(c, a, t);
     }
     if (a.mission === 'expedition') return this.expedition(c, a, t);
+    if (a.mission === 'settle') return this.settleArrive(c, a, t);
     if (target && HOSTILE.includes(a.mission) && target.owner === c.owner) { // пока шли, замок уже захватили (предыдущие армии) — без боя домой
       this.report(c.owner, `Поход на ${target.name} отменён`, ['Замок уже ваш — армия вернулась домой без боя.'], 'battle');
       return this.goBack(c, a, t);
@@ -1274,7 +1290,7 @@ function install(Game, helpers) {
     }
     // осада: стена и тараны — до боя (в clash), здания ломают после победы Йетти, Энт, Нурух, Кулак Ярости (урон по зданиям) и катапульты
     const siege = [...R.siege]; let siegeN = R.siegeN;
-    if (target && a.mission === 'attack' && win) {
+    if (target && !target.site && a.mission === 'attack' && win) {
       const bD = this.bonus(target), bA = this.bonus(c);
       let dmg = Object.entries(a.units).reduce((q, [id, n]) => q + ((UNIT[id] && UNIT[id].bldDmg) || 0) * n, 0) * bA.atk;
       dmg += (a.units[240] || 0) * (UNIT[240] ? UNIT[240].attack : 0) * 4;
@@ -1292,7 +1308,10 @@ function install(Game, helpers) {
     // бунтари: каждое победное нападение, в котором выжил хоть один бунтарь, поднимает бунт в замке на 15% (сколько бы бунтарей ни было
     // в этой армии); несколько армий подряд — каждая по 15%; бунт 100% — замок переходит к нападающему, один бунтарь остаётся в нём
     let loyalty = null, captured = null, capitalBlocked = false, royalBlocked = null, rebelStay = null;
-    const rebels = a.mission === 'attack' && win ? (a.units[233] || 0) : 0;
+    const rebels = a.mission === 'attack' && win && !(target && target.site) ? (a.units[233] || 0) : 0; // у недостроя бунта нет
+    // недострой: победа и 3 выживших путешественника — стройка переходит к нападающему
+    let siteTaken = null;
+    if (target && target.site && a.mission === 'attack' && win && (a.units[TRAVELER_ID] || 0) >= SETTLE_TAKE) siteTaken = this.siteTakeover(att, target, a);
     if (rebels) {
       const drop = RIOT_STEP;
       if (target && this.isCapital(target)) capitalBlocked = true;
@@ -1321,15 +1340,17 @@ function install(Game, helpers) {
     this.addStat(c.owner, 'attLost', popOf(aLost)); // Зал Гибели: все потери — нападения на замки и NPC, защита своего замка (выше), бой с боссом (boss.js)
     if (this.brAdd) { if (target) { this.brAdd(c.owner, popOf(dLost), target.owner); this.brAdd(target.owner, popOf(aLost), c.owner); } else if (npc) this.brAdd(c.owner, Math.round(npc.def.inf / 20 * dLoss), null); } // боевой ранг (battlerank.js)
     if (siegeN) this.addStat(c.owner, 'ruins', siegeN);
-    const defUser = target && this.ownerOf(target);
-    const tname = target ? `${target.name} (${captured ? captured.prevLogin : defUser.login})` : `${npc.name} ${where}`;
+    const took = siteTaken && siteTaken.taken ? siteTaken : null;
+    const defUser = target && (took ? this.userById(took.prevOwner) : this.ownerOf(target));
+    const tname = target ? `${took ? took.prevName : target.name} (${captured ? captured.prevLogin : defUser.login})` : `${npc.name} ${where}`;
     const side = (units, lost) => Object.fromEntries([...new Set([...Object.keys(units), ...Object.keys(lost)])].map((id) => [id, { was: (units[id] || 0) + (lost[id] || 0), lost: lost[id] || 0 }]).filter(([, v]) => v.was > 0)); // и погибшие целиком (тараны одноразовые)
     const genDied = !!(c.general && c.general.dead && a.general === false && aLoss >= 1);
     const data = {
       type: 'battle', mission: a.mission, win, x: a.x, y: a.y, luck, calc,
       att: { id: att.id, login: att.login, race: att.race, castle: c.name, army: a.squad ? a.squad.name : 'Замковая армия', cx: c.x, cy: c.y, rating: this.rating(c), lossRes: lossRes(aLost), units: side(a.units, aLost), general: a.general || genDied ? (c.general ? c.general.level : 0) : 0, generalDied: genDied, genExp: genExpA },
-      def: target ? { id: captured ? captured.prevOwner : defUser.id, login: captured ? captured.prevLogin : defUser.login, race: captured ? captured.prevRace : defUser.race, castle: target.name, rating: this.rating(target), lossRes: lossRes(dLost), units: side(dAll, dLost), wall: this.bonus(target).wall, general: target.general && !target.general.away ? target.general.level : 0, generalDied: genDiedD, genExp: genExpD }
+      def: target ? { id: captured ? captured.prevOwner : defUser.id, login: captured ? captured.prevLogin : defUser.login, race: captured ? captured.prevRace : defUser.race, castle: took ? took.prevName : target.name, rating: this.rating(target), lossRes: lossRes(dLost), units: side(dAll, dLost), wall: this.bonus(target).wall, general: target.general && !target.general.away ? target.general.level : 0, generalDied: genDiedD, genExp: genExpD }
         : { npc: npc.name, img: obj.img, lossPct: Math.round(dLoss * 100), garrison: R.garrison },
+      site: target && target.site ? { end: target.site.end } : null, siteTaken: siteTaken ? (took ? { x: a.x, y: a.y } : { blocked: siteTaken.blocked }) : null,
       loot, siege, loyalty, capitalBlocked, royalBlocked, captured: captured ? { name: captured.name, x: a.x, y: a.y, rebel: captured.rebel || 0 } : null,
     };
     const lines = [
@@ -1340,6 +1361,9 @@ function install(Game, helpers) {
       ...siege,
     ];
     if (loyalty) lines.push(`Бунт в замке: ${100 - loyalty.from}% → ${100 - loyalty.to}%`);
+    if (took) lines.push(`Недострой захвачен! Ваши путешественники (${SETTLE_TAKE}) продолжают стройку — замок будет готов через ${Math.max(1, Math.round((target.site.end - t) / 3600000))} ч.`);
+    else if (siteTaken && siteTaken.blocked) lines.push(`Недострой не захвачен: ${siteTaken.blocked}`);
+    else if (target && target.site && a.mission === 'attack' && win) lines.push(`Охрана недостроя разбита, но стройка продолжается: чтобы забрать её, нужно, чтобы в победном нападении выжили ${SETTLE_TAKE} путешественника.`);
     if (royalBlocked) lines.push(royalBlocked.wait ? `Захват не удался: первый замок можно захватить только через ${royalBlocked.wait} дн. игры.` : `Захват не удался: не хватает лояльности населения (есть ${royalBlocked.have}, нужно ${royalBlocked.need}) — см. Резиденцию.`);
     if (capitalBlocked) lines.push('Столицу захватить нельзя — бунтари бессильны.');
     if (captured) lines.push(`Замок захвачен! Теперь это ваш замок «${captured.name}».`);
@@ -1354,16 +1378,83 @@ function install(Game, helpers) {
     const title = `Атака на ${target ? (captured ? captured.prevLogin : defUser.login) : npc.name}`; // как в оригинале: «Атака на <игрок>» / «Оборона от <игрок>»
     this.report(c.owner, title, lines, 'battle', { ...data, side: 'att' });
     if (target) {
-      this.report(captured ? captured.prevOwner : target.owner, `Оборона от ${att.login}`, [
+      this.report(captured ? captured.prevOwner : took ? took.prevOwner : target.owner, `Оборона от ${att.login}`, [
         `${MISSIONS[a.mission]} от ${att.login} (${c.name}).`,
         `Атакующие: ${unitsLine(a.units, aLost)}`,
         `Ваши войска: ${unitsLine(dAll, dLost)}`,
         loot ? `Унесено: дерево ${loot.wood}, камень ${loot.stone}, железо ${loot.iron}, еда ${loot.food}` : 'Враг разбит, ничего не унесено.',
-        ...siege, ...(loyalty ? [`Бунт в замке: ${100 - loyalty.from}% → ${100 - loyalty.to}%`] : []), ...genD,
+        ...siege, ...(loyalty ? [`Бунт в замке: ${100 - loyalty.from}% → ${100 - loyalty.to}%`] : []), ...(took ? [`Ваш недострой ${a.x}:${a.y} захвачен игроком ${att.login}.`] : []), ...genD,
       ], 'battle', { ...data, side: 'def' });
     }
+    if (took) { a.units[TRAVELER_ID] -= SETTLE_TAKE; if (!a.units[TRAVELER_ID]) delete a.units[TRAVELER_ID]; } // путешественники остаются строить
     if (rebelStay) { a.units[233]--; if (!a.units[233]) delete a.units[233]; rebelStay.units[233] = (rebelStay.units[233] || 0) + 1; } // один бунтарь остаётся в захваченном замке
     this.goBack(c, a, t);
+  };
+
+  // ----- Освоение: недострой (замок с пометкой site), в список замков владельца попадает, только когда достроен -----
+  P.siteOf = function siteOf(user) { return (this.db.siteIds || []).map((id) => this.db.castles[id]).find((k) => k && k.site && k.owner === user.id) || null; };
+  // может ли игрок начать / забрать стройку: лояльность населения позволяет новый замок, своей стройки ещё нет
+  P.settleBlock = function settleBlock(user) {
+    if (this.siteOf(user)) return 'У вас уже строится замок — сначала достройте его.';
+    const wait = this.royalWaitDays(user); if (wait) return `Новый замок — не раньше ${wait} дн. игры (лояльность населения, Резиденция).`;
+    if (this.royalTick(user) < this.royalNeed(user)) return `Не хватает лояльности населения для нового замка: есть ${Math.floor(user.royal)}, нужно ${this.royalNeed(user)} (Резиденция).`;
+    return null;
+  };
+  P.settleError = function settleError(user, x, y, travelers, self = null) { // self — сама пришедшая армия (её не считать «уже идущей»)
+    if (travelers < SETTLE_N) return `Для освоения в армии должно быть ${SETTLE_N} путешественников (сейчас ${travelers}).`;
+    const block = this.settleBlock(user); if (block) return block;
+    if (this.castlesOf(user).some((c) => (c.armies || []).some((a) => a !== self && a.mission === 'settle' && a.state !== 'back'))) return 'Путешественники уже идут осваивать место.';
+    const pe = this.placeError(x, y); if (pe) return pe;
+    if (this.worldObjects(x, y, 1, 1).length || this.objNear(x, y)) return 'Место занято лагерем, руинами или рудником (или рядом с ними) — выберите пустую клетку.';
+    if (this.lairAt && this.lairAt(user.id, x, y)) return 'Здесь логово — выберите пустую клетку.';
+    return null;
+  };
+  // путешественники пришли: закладка замка; остальная армия остаётся охранять стройку
+  P.settleArrive = function settleArrive(c, a, t) {
+    const att = this.ownerOf(c), err = this.settleError(att, a.x, a.y, a.units[TRAVELER_ID] || 0, a);
+    if (err) { this.report(c.owner, `Освоение ${a.x}:${a.y} не удалось`, [err, 'Армия вернулась домой.'], 'battle'); return this.goBack(c, a, t); }
+    const site = this.createCastle(att, { x: a.x, y: a.y });
+    site.name = `Недострой ${att.login}`; site.res = { wood: 0, stone: 0, iron: 0, food: 0, people: 0 }; site.resAt = t;
+    site.site = { start: t, end: t + SETTLE_SEC * 1000, by: att.id };
+    this.mil(site); site.loyalty = 100;
+    const units = { ...a.units }; units[TRAVELER_ID] -= SETTLE_N; for (const id of Object.keys(units)) if (!(units[id] > 0)) delete units[id];
+    site.units = units;
+    (this.db.siteIds = this.db.siteIds || []).push(site.id);
+    c.armies = c.armies.filter((x) => x !== a);
+    const days = Math.round(SETTLE_SEC / 86400 * 10) / 10;
+    this.report(c.owner, `Освоение: стройка замка ${a.x}:${a.y}`, [`Путешественники (${SETTLE_N}) начали строить замок на ${a.x}:${a.y}. Он будет готов через ${days < 1 ? `${Math.round(SETTLE_SEC / 3600)} ч` : `${days} дн.`}.`,
+      Object.keys(units).length ? `Стройку охраняют: ${unitsLine(units)}.` : 'Стройку никто не охраняет — пришлите подкрепление.', 'Недострой видно на карте: его можно атаковать. Победное нападение, в котором выживут 3 путешественника, заберёт стройку себе.'], 'reinforce', { type: 'settle', x: a.x, y: a.y, end: site.site.end });
+    this.store.save();
+  };
+  // время вышло: замок достроен — переходит в список замков того, чей он сейчас (с него списывается лояльность населения)
+  P.sitesTick = function sitesTick(now = Date.now()) {
+    const ids = this.db.siteIds; if (!ids || !ids.length) return;
+    for (const id of [...ids]) {
+      const k = this.db.castles[id];
+      if (!k || !k.site) { this.db.siteIds = this.db.siteIds.filter((v) => v !== id); continue; }
+      if (k.site.end > now) continue;
+      const u = this.ownerOf(k);
+      if (!u || !this.royalCanCapture(u)) {
+        if (u && !k.site.waitNote) { k.site.waitNote = 1; this.report(u.id, `Замок ${k.x}:${k.y} достроен, но не хватает лояльности`, [`Стройка закончена, но лояльности населения (Резиденция) не хватает на новый замок: есть ${Math.floor(u.royal || 0)}, нужно ${this.royalNeed(u)}.`, 'Замок станет вашим, как только лояльности хватит. Пока его можно атаковать.'], 'reinforce'); }
+        continue;
+      }
+      this.royalSpend(u);
+      delete k.site; k.name = `Замок ${u.login} ${this.castlesOf(u).length + 1}`; k.loyalty = 100;
+      u.castleIds = [...this.castlesOf(u).map((x) => x.id), k.id];
+      this.db.siteIds = this.db.siteIds.filter((v) => v !== id);
+      this.report(u.id, `Замок построен: ${k.name}`, [`Путешественники достроили замок на ${k.x}:${k.y}. Теперь это ваш замок «${k.name}» — он в списке «Замки».`], 'reinforce', { type: 'settled', x: k.x, y: k.y });
+      if (this.friendFeed) this.friendFeed(u.id, `${u.login} основал(а) новый замок «${k.name}» (X:${k.x}, Y:${k.y})`, now);
+      this.store.save();
+    }
+  };
+  // нападение на недострой выиграно и выжили 3 путешественника — стройка переходит к нападающему (если ему позволяет лояльность)
+  P.siteTakeover = function siteTakeover(att, site, a) {
+    const block = this.settleBlock(att); if (block) return { blocked: block };
+    const prev = this.ownerOf(site);
+    for (const g of this.guestsOf(site)) this.goBack(g.c, g.a, Date.now()); // чужие подкрепления уходят домой
+    const prevName = site.name;
+    site.owner = att.id; site.units = {}; site.squads = []; site.general = null; site.name = `Недострой ${att.login}`; delete site.site.waitNote;
+    return { taken: true, prevOwner: prev ? prev.id : 0, prevLogin: prev ? prev.login : '', prevRace: prev ? prev.race : 'humans', prevName }; // 3 путешественника остаются строить (снимаются с армии после отчёта)
   };
 
   // захват чужого (не столичного) замка: переходит к нападающему, войска и очереди прежнего хозяина пропадают
@@ -1578,7 +1669,7 @@ function install(Game, helpers) {
     for (const c of this.castlesOf(user)) {
       for (const a of c.armies || []) if (a.state === 'back') home++; // возвращаются домой после нападения, набега, разведки, торговли
       for (const a of c.armies || []) if (a.state === 'go' || a.state === 'wait') {
-        if (a.mission === 'reinforce') reinf++; else if (['attack', 'raid', 'scout'].includes(a.mission)) att++;
+        if (a.mission === 'reinforce' || a.mission === 'settle') reinf++; else if (['attack', 'raid', 'scout'].includes(a.mission)) att++; // settle — путешественники идут строить замок
       }
       for (const a of this.incoming(c)) if (a.from === user.login) continue; else if (a.mission === 'reinforce') reinf++; else if (['attack', 'raid'].includes(a.mission)) inc++;
     }
@@ -1849,7 +1940,7 @@ function install(Game, helpers) {
       trainDay: { used: this.trainedToday(castle), max: TRAIN_DAY, next: (castle.trainLog || [])[0] ? castle.trainLog[0].at + 86400000 : 0 },
       units: castle.units, training: castle.training.map((t) => ({ id: t.id, unit: t.unit, building: t.building, count: t.count, done: t.done, each: t.each, start: t.start })),
       general: castle.general && !castle.general.dead && this.generalView(castle),
-      deadGenerals: this.deadList(castle).map((g) => ({ name: g.name, kind: g.kind, kindId: g.kindId, level: g.level, reviveAt: g.reviveAt || 0, ...this.reviveCostOf(g), fund: g.fund || null })),
+      deadGenerals: this.deadList(castle).map((g) => ({ name: g.name, kind: g.kind, kindId: g.kindId, level: g.level, reviveAt: g.reviveAt || 0, ...this.reviveCostOf(g, castle), fund: g.fund || null })),
       genTrain: (() => { const t = castle.training.find((x) => x.unit === GENERAL_ID); return t ? { kind: (UNIT[t.kindId] || {}).name || 'Генерал', kindId: t.kindId, end: t.start + t.each } : null; })(),
       genUnits: this.genTrainUnits(castle).map((u) => ({ id: u.id, ...this.genTrainCost(u) })), armies: castle.armies.map((a) => ({ id: a.id, units: a.units, general: a.general, mission: a.mission, x: a.x, y: a.y, depart: a.depart, arrive: a.arrive, back: a.back, state: a.state, loot: a.loot, cargo: a.cargo, squad: a.squad, portal: a.portal,
         stayName: a.state === 'stay' && this.db.castles[a.stayAt] ? this.db.castles[a.stayAt].name : null })),
@@ -1924,7 +2015,7 @@ function install(Game, helpers) {
 
 const catalogJson = () => ({
   units: UNITS, generalId: GENERAL_ID, sciences: SCIENCES, religions: RELIGIONS, artifacts: ART_TYPES, rarity: RARITY,
-  npc: NPC, missions: MISSIONS, raceDir: RACE_DIR, spyOpen: SPY_OPEN, scienceCost: Array.from({ length: 21 }, (_, l) => (l ? scienceCost(l) : null)),
+  npc: NPC, missions: MISSIONS, settleN: SETTLE_N, settleTake: SETTLE_TAKE, settleDays: Math.round(SETTLE_SEC / 86400 * 10) / 10, raceDir: RACE_DIR, spyOpen: SPY_OPEN, scienceCost: Array.from({ length: 21 }, (_, l) => (l ? scienceCost(l) : null)),
   scienceTime: Array.from({ length: 21 }, (_, l) => (l ? scienceTime(l) : 0)),
   hero: require('./hero').heroCatalog(),
 });

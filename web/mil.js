@@ -104,7 +104,7 @@ function buildingFunctions(def, lvl) {
   if (def.id === 17) h += expedHtml();
   if (def.id === 18 || def.id === 44) h += artifactsHtml();
   if (def.id === 24) h += `<div class="section">Бунтари</div><div class="card small">Количество доступных бунтарей является общим для всего Королевства, и зависит от количества лояльности для захвата последующих замков.</div>
-    <div class="card small">Бунтарей и путешественников — не больше 3 за один заказ. «Освоение» (основание нового замка путешественниками) — в разработке.</div>`;
+    <div class="card small">Бунтарей и путешественников — не больше 3 за один заказ. «Освоение»: армия, в которой 10 путешественников, строит новый замок на пустой клетке карты 3 дня (нажмите на пустую клетку → «Основать замок»).</div>`;
   const units = myUnitList().filter((u) => u.building === def.id);
   // как в оригинале: кнопка «Тренировать» открывает окно «Постройка юнитов», ниже — «Юниты:» с идущими партиями
   if (units.length && def.id !== HQ) h += // генерал — через «Генерал» (general.js), как в оригинале
@@ -367,6 +367,9 @@ function reportHtml(r) {
       ${d.loyalty ? `<div>Бунт в замке после нападения: ${100 - d.loyalty.to}% ${d.captured ? `<span class="rgood">${d.def.npc ? 'Руины захвачены!' : 'Замок захвачен!'}</span>`
         : d.royalBlocked ? `<span class="rbad">Замок не захвачен: ${d.royalBlocked.wait ? `захват возможен через ${d.royalBlocked.wait} дн. игры` : 'не хватает лояльности населения'}.</span>` : ''}</div>` : ''}
       ${d.capitalBlocked ? '<div><span class="rbad">Столицу захватить нельзя.</span></div>' : ''}
+      ${d.siteTaken && !d.siteTaken.blocked ? `<div><span class="${attV ? 'rgood' : 'rbad'}">${attV ? 'Недострой захвачен! Ваши путешественники продолжают стройку.' : 'Ваш недострой захвачен врагом.'}</span></div>` : ''}
+      ${d.siteTaken && d.siteTaken.blocked ? `<div><span class="rbad">Недострой не захвачен: ${esc(d.siteTaken.blocked)}</span></div>` : ''}
+      ${d.site && d.win && !d.siteTaken && d.mission === 'attack' ? `<div>Охрана недостроя разбита, но стройка продолжается — забрать её может нападение, в котором выживут ${M().settleTake || 3} путешественника.</div>` : ''}
       ${d.captured && rebU && (d.captured.rebel || rebLeft) ? `<div><img class="ric" src="${unitSrc(rebU, d.att.race)}" alt=""> ${d.captured.rebel || rebLeft} ${plural(d.captured.rebel || rebLeft, 'Бунтарь остался', 'Бунтаря остались', 'Бунтарей остались')} в замке.</div>` : ''}
       ${(d.siege || []).map((x) => `<div>${esc(x)}</div>`).join('')}
       ${d.gear ? `<div>${esc(d.gear)}</div>` : ''}</div>`;

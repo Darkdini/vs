@@ -318,8 +318,8 @@ function install(Game) {
 
   // рейтинги по разделам «Рейтинг»
   P.ratingCastles = function ratingCastles() { return this.cached('rc', 15000, () => this.ratingCastlesCalc()); };
-  P.ratingCastlesCalc = function ratingCastlesCalc() {
-    return Object.values(this.db.castles).map((c) => { const u = this.userById(c.owner); return { id: u.id, login: u.login, name: c.name, x: c.x, y: c.y, rating: this.rating(c) }; })
+  P.ratingCastlesCalc = function ratingCastlesCalc() { // недострои (Освоение) — не замки рейтинга
+    return Object.values(this.db.castles).filter((c) => !c.site).map((c) => { const u = this.userById(c.owner); return { id: u.id, login: u.login, name: c.name, x: c.x, y: c.y, rating: this.rating(c) }; })
       .sort((a, b) => b.rating - a.rating).slice(0, 500);
   };
   // очки альянса = сумма (рейтинг + репутация) всех участников

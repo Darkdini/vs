@@ -832,7 +832,7 @@ $('#view').addEventListener('click', (e) => { const b = e.target.closest('.infob
 
 function openWorldCell(x, y) {
   const o = S.world.objects.find((v) => v.x === x && v.y === y);
-  if (!o) return toast(`Пустая земля ${x}:${y}. Основание новых замков — позже.`);
+  if (!o) return openSheet(() => emptyWin(x, y)); // пустая клетка: «Освоение» — основать замок путешественниками (armies.js)
   if (o.kind === 'castle') return openSheet(() => castleWin(o, x, y)); // окно «Замок» как в клиенте (ui3d.js)
   if (o.boss) return openBoss(); // мировой босс (boss.js)
   openSheet(() => `<div class="sh-head"><div class="big">${gimg(WORLD_NAME_IMG(o))}</div><div><h3>${esc(o.name)}</h3><div class="muted small">${x}:${y}</div></div></div>
@@ -1332,6 +1332,7 @@ function goldPic(src) {
 }
 function worldObj(o, p, sel, k, noDome) {
   if (o.boss) return bossOnMap(o, p, sel);
+  if (o.site) return siteOnMap(o, p, sel, k); // недострой (Освоение)
   if (sel) { ictx.save(); ictx.filter = 'drop-shadow(0 0 3px #fff3a0) drop-shadow(0 0 3px #ffe030) drop-shadow(0 0 4px #ffc400) drop-shadow(0 0 7px #ff9d00) brightness(1.18)'; }
   const path = o.kind === 'castle' ? `world/castle${castleStage(o.rating)}.png?v=1` : !o.qimg && WORLD_OBJ_IMG[o.img] ? WORLD_OBJ_IMG[o.img] : null, cimg = path && pic(path);
   if (cimg) { const dw = TW * (o.kind === 'castle' ? [0.72, 0.74, 0.76, 0.70][castleStage(o.rating)] : 0.76), /* высота картинки ≤ 0,75 клетки: соседи через клетку не налезают */ sc = scaledPic(path, dw, k || undefined) || cimg, dh = dw * cimg.height / cimg.width;
@@ -1341,6 +1342,26 @@ function worldObj(o, p, sel, k, noDome) {
   if (sel) ictx.restore();
   if (o.shield && !noDome) shieldDome(p); else if (o.newbie && !noDome) newbieDome(p); // купол: купленная защита — золотой, защита новичка — голубой
 }
+// недострой на карте: маленький замок полупрозрачный, в цвет дерева, со строительными лесами; под ним — полоска готовности
+function siteOnMap(o, p, sel, k) {
+  const path = 'world/castle0.png?v=1', im = pic(path), x = ictx, cx = p.sx + TW / 2, base = p.sy + TH * 0.85;
+  const dw = TW * 0.66, dh = im ? dw * im.height / im.width : TW * 0.6;
+  x.save();
+  if (sel) x.filter = 'drop-shadow(0 0 3px #fff3a0) drop-shadow(0 0 4px #ffc400)';
+  if (im) { x.globalAlpha = 0.62; x.imageSmoothingEnabled = true; x.filter = `${sel ? x.filter + ' ' : ''}sepia(0.85) saturate(0.7) brightness(1.05)`; x.drawImage(scaledPic(path, dw, k || undefined) || im, cx - dw / 2, base - dh, dw, dh); x.filter = 'none'; x.globalAlpha = 1; }
+  // леса: столбы и перекладины
+  x.strokeStyle = '#7a4a1c'; x.lineWidth = 1.6; x.lineCap = 'round';
+  const L = cx - dw * 0.42, R = cx + dw * 0.42, T = base - dh * 0.78;
+  x.beginPath(); for (const xx of [L, cx - dw * 0.14, cx + dw * 0.14, R]) { x.moveTo(xx, base - 2); x.lineTo(xx, T); }
+  for (const yy of [base - dh * 0.22, base - dh * 0.5, T + 2]) { x.moveTo(L - 2, yy); x.lineTo(R + 2, yy); } x.stroke();
+  x.strokeStyle = '#a8763c'; x.lineWidth = 1; x.beginPath(); x.moveTo(L, base - dh * 0.22); x.lineTo(cx - dw * 0.14, base - dh * 0.5); x.moveTo(cx + dw * 0.14, base - dh * 0.22); x.lineTo(R, base - dh * 0.5); x.stroke();
+  // полоска готовности
+  const k0 = Math.max(0, Math.min(1, (now() - o.site.start) / Math.max(1, o.site.end - o.site.start))), bw = TW * 0.6, by = base + 3;
+  x.fillStyle = 'rgba(30,18,8,0.8)'; x.fillRect(cx - bw / 2 - 1, by - 1, bw + 2, 6); x.fillStyle = '#e8b030'; x.fillRect(cx - bw / 2, by, bw * k0, 4);
+  x.font = 'bold 8px system-ui, sans-serif'; x.textAlign = 'center'; x.lineWidth = 2.5; x.strokeStyle = 'rgba(0,0,0,0.8)'; x.fillStyle = '#ffe9a8';
+  x.strokeText('Строится', cx, by + 14); x.fillText('Строится', cx, by + 14);
+  x.restore();
+}
 // статичный слой карты мира: рисуется заново только когда пришёл новый участок, сменилось выделение,
 // догрузилась картинка или заметно изменился масштаб; иначе — одна готовая картинка на кадр
 const WLAYER = { cv: null, key: '', base: '', s: 1, x0: 0, y0: 0, seq: 0 };
@@ -1348,7 +1369,7 @@ function worldLayer(w, c, dpr) {
   const R0 = w.radius, n = 2 * R0 + 1, x0 = -TW, y0 = -(n - 1) * TH / 2 - 120, W = (n - 1) * TW + 3 * TW, H = (n - 1) * TH + TH + 170;
   const s = Math.min(Math.ceil(c.z * dpr * 4) / 4, 2.5, Math.sqrt(8e6 / (W * H))); // ступенями по 0,25
   if (!w.lv) w.lv = ++WLAYER.seq;
-  const sel = Iso.sel && Iso.sel.tab === 'world' ? `${Iso.sel.x}:${Iso.sel.y}` : '', base = `${w.lv}|${sel}|${PIC_LOADED}|${S.st && S.st.castle.id}`, key = `${base}|${s}`;
+  const sel = Iso.sel && Iso.sel.tab === 'world' ? `${Iso.sel.x}:${Iso.sel.y}` : '', base = `${w.lv}|${sel}|${PIC_LOADED}|${S.st && S.st.castle.id}|${w.objects.some((o) => o.site) ? Math.floor(Date.now() / 60000) : 0}`, key = `${base}|${s}`; // недострой — полоска готовности обновляется раз в минуту
   if (WLAYER.key === key && WLAYER.cv) return WLAYER;
   if (WLAYER.cv && WLAYER.base === base && Date.now() - (Iso.zt || 0) < 300) { setTimeout(isoDraw, 320); return WLAYER; } // во время щипка — старый слой (его масштабирует видеокарта)
   const cv = WLAYER.cv || document.createElement('canvas'), Wp = Math.ceil(W * s), Hp = Math.ceil(H * s);

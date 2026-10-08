@@ -103,7 +103,7 @@ function regroupWin(k) {
 }
 
 // ---------- Военный поход ----------
-const CAMPAIGN_MISSIONS = [['raid', 'Набег'], ['attack', 'Нападение'], ['reinforce', 'Подкрепление'], ['scout', 'Разведка'], ['expedition', 'Экспедиция']];
+const CAMPAIGN_MISSIONS = [['raid', 'Набег'], ['attack', 'Нападение'], ['reinforce', 'Подкрепление'], ['scout', 'Разведка'], ['expedition', 'Экспедиция'], ['settle', 'Освоение']];
 function openArmySheet(pre = {}) {
   // армию игрок выбирает сам (из «В поход» у армии — уже выбрана); армия идёт целиком
   S.cmp = { army: pre.army !== undefined ? String(pre.army) : '', mission: pre.mission && pre.mission !== 'undefined' ? pre.mission : 'raid', x: pre.x ?? '', y: pre.y ?? '', portal: false, sched: false, at: '', res: {} };
@@ -115,15 +115,26 @@ const WAR_KINDS = [['attack', 'Нападение', 'Бой до конца: п�
   ['scout', 'Разведка', 'Идут только разведчики: узнать войска, ресурсы и постройки замка, без боя.'],
   ['reinforce', 'Подкрепление', 'Войска встанут в этот замок и будут защищать его вместе с хозяином. Вернуть их можно в «Передвижениях армий».']];
 function warWin(x, y) {
-  const scout = M().units.find((u) => u.role === 'scout');
+  const scout = M().units.find((u) => u.role === 'scout'), site = S.world && (S.world.objects || []).find((o) => o.x === Number(x) && o.y === Number(y) && o.site);
   const ic = { attack: `${GFX}watch/ic_attack.png`, raid: `${GFX}watch/ic_raid.png`, scout: scout ? unitSrc(scout) : `${GFX}watch/ic_watch.png`, reinforce: `${G3}top/reinf.png` };
   const ally = allyCastleAt(x, y); // союзник по альянсу — только подкрепление
   return `${ribbon('Война')}<div class="clabel">Цель: X ${esc(x)} · Y ${esc(y)}. Что делаем?</div>
     ${ally ? '<div class="cinfo small">Это замок вашего альянса — ему можно только помочь подкреплением.</div>' : ''}
-    ${WAR_KINDS.filter(([k]) => !ally || k === 'reinforce').map(([k, t, d]) => `<button class="wpick" data-warkind="${k}" data-ax="${esc(x)}" data-ay="${esc(y)}"><img src="${ic[k]}" alt=""><span><b>${t}</b><small>${d}</small></span><i>›</i></button>`).join('')}`;
+    ${site ? '<div class="cinfo small">Это недострой: набег ничего не даст. Победное нападение, в котором выживут 3 путешественника, заберёт стройку вам.</div>' : ''}
+    ${WAR_KINDS.filter(([k]) => (!ally || k === 'reinforce') && !(site && k === 'raid')).map(([k, t, d]) => `<button class="wpick" data-warkind="${k}" data-ax="${esc(x)}" data-ay="${esc(y)}"><img src="${ic[k]}" alt=""><span><b>${t}</b><small>${d}</small></span><i>›</i></button>`).join('')}`;
+}
+// пустая клетка на карте мира: «Освоение» — основать замок путешественниками
+function emptyWin(x, y) {
+  const r = MY().royal || {}, tv = unitById(224), have = (MY().units || {})[224] || 0;
+  return `${ribbon('Пустая земля')}
+    <div class="cwin"><img class="cwimg" src="${unitSrc(tv)}" alt=""><div><div class="cwname">X: ${x} Y: ${y}</div><div>Здесь можно основать новый замок.</div></div></div>
+    <div class="bwline"><b>Освоение:</b> армия, в которой ${M().settleN || 10} путешественников, идёт сюда и строит замок ${M().settleDays || 3} дня. Стройку видно на карте — её можно атаковать и подкреплять; победное нападение, в котором выживут 3 путешественника, заберёт её.</div>
+    <div class="bwline">Лояльность населения (Резиденция) должна позволять новый замок: нужно ${fmtFull(r.need || 0)}, у вас ${fmtFull(r.royal || 0)}. Списывается она, когда замок достроен.</div>
+    <div class="bwline">Путешественников в Замковой армии: <b>${fmtFull(have)}</b> (тренируются в здании «Путешественник»).</div>
+    <button class="pbar" data-armyopen="settle" data-ax="${x}" data-ay="${y}">Основать замок</button>`;
 }
 function campaignFit(mission, units) {
-  const fits = { scout: (r) => ['scout', 'eye'].includes(r), expedition: (r) => r === 'archaeologist', trade: (r) => r === 'merchant' }[mission]
+  const fits = { scout: (r) => ['scout', 'eye'].includes(r), expedition: (r) => r === 'archaeologist', trade: (r) => r === 'merchant', settle: (r) => !['merchant', 'archaeologist', 'sage'].includes(r), attack: (r) => !['merchant', 'archaeologist', 'sage'].includes(r) }[mission]
     || ((r) => !['merchant', 'archaeologist', 'sage', 'settler'].includes(r));
   return Object.fromEntries(Object.entries(units || {}).filter(([id, n]) => n > 0 && unitById(id) && fits(unitById(id).role)));
 }

@@ -271,7 +271,7 @@ const API = {
   logout() { this.game.dropToken(this.user, this.token); this.user.online = false; this.user = null; this.send({ t: 'loggedout' }); },
   sync() { this.pushState(); },
   ping() { this.send({ t: 'pong' }); }, // проверка живости соединения (клиент после сворачивания приложения)
-  switch(m) { const r = this.game.switchCastle(this.user, m.id); if (r.error) return this.error(r.error); this.toast(`Замок: ${this.castle.name}`); this.pushState(); },
+  switch(m) { const r = this.game.switchCastle(this.user, m.id); if (r.error) return this.error(r.error); if (!m.quiet) this.toast(`Замок: ${this.castle.name}`); this.pushState(); }, // quiet — возврат в последний замок при входе
   build(m) {
     const res = this.game.startBuild(this.castle, Number(m.view), Number(m.cell), Number(m.building));
     if (res.error) return this.error(res.error);

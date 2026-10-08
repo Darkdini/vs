@@ -82,7 +82,7 @@ $('#sheetBody').addEventListener('click', (e) => {
 
 // ---------- армии в пути на карте мира: линия от замка к цели, значок армии движется по ней ----------
 // свои: нападение/набег/разведка — зелёные мечи, подкрепление — щит, возвращаются домой — синие; на нас (видит Караульная башня) — красные
-const WM_COL = { attack: '#e8402a', raid: '#f08a20', scout: '#4a9ae8', reinforce: '#3cbc4a', trade: '#e8c030', expedition: '#b07ae8', home: '#5aa8e0', inc: '#ff2a1a' };
+const WM_COL = { attack: '#e8402a', raid: '#f08a20', scout: '#4a9ae8', reinforce: '#3cbc4a', trade: '#e8c030', expedition: '#b07ae8', settle: '#d8a040', home: '#5aa8e0', inc: '#ff2a1a' };
 const WM_IMG = {};
 function wmIcon(k) { let i = WM_IMG[k]; if (!i) { i = WM_IMG[k] = new Image(); i.src = `${G3}top/${k}.png`; } return i.complete && i.naturalWidth ? i : null; }
 // данные о походах для карты: при смене счётчиков в шапке и раз в 30 с (не чаще раза в 2 с)
