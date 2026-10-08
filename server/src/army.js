@@ -1127,21 +1127,21 @@ function install(Game, helpers) {
       else if (Math.random() < 0.06 + hb.find) gearLine = this.giveGear(c, this.rollGear(hb.find * 3));
     }
     // генералы
-    const genA = [], genD = [];
+    const genA = [], genD = []; let genExpA = 0, genExpD = 0, genDiedD = false; // опыт генералов — в отчёт числом
     if (a.general && c.general) {
       const hb = this.heroBonus(c.general);
       if (!aliveAfter && aLoss >= 1 && Math.random() < hb.survive) genA.push('Армия разбита, но генерал чудом уцелел и вернулся домой (умения и снаряжение).');
       else if (!aliveAfter && aLoss >= 1) { c.general.dead = true; delete c.general.away; a.general = false; this.heroStrip(c, c.general); genA.push('Генерал пал в бою — опыт не получен. Его снаряжение вернулось в Оружейную.'); }
       else {
         const e = this.battleExp({ killedPop: popOf(dLost), win, mission: a.mission, npc: target ? null : npc, dLoss, mine: c, enemy: target });
-        const l = genLine('Генерал', this.addGeneralExp(c, e.exp), e); if (l) genA.push(l);
+        const ge = this.addGeneralExp(c, e.exp); genExpA = ge ? ge.got : 0; const l = genLine('Генерал', ge, e); if (l) genA.push(l);
       }
     }
     if (target && target.general && !target.general.dead && !target.general.away) {
-      if (dLoss >= 1 && !Object.keys(dAll).length && Math.random() >= this.heroBonus(target.general).survive) { target.general.dead = true; this.heroStrip(target, target.general); genD.push('Ваш генерал пал, защищая замок.'); }
+      if (dLoss >= 1 && !Object.keys(dAll).length && Math.random() >= this.heroBonus(target.general).survive) { target.general.dead = true; this.heroStrip(target, target.general); genD.push('Ваш генерал пал, защищая замок.'); genDiedD = true; }
       else {
         const e = this.battleExp({ killedPop: popOf(aLost), win: !win, mission: 'attack', mine: target, enemy: c });
-        const l = genLine('Ваш генерал', this.addGeneralExp(target, e.exp), e); if (l) genD.push(l);
+        const ge = this.addGeneralExp(target, e.exp); genExpD = ge ? ge.got : 0; const l = genLine('Ваш генерал', ge, e); if (l) genD.push(l);
       }
     }
     // добыча
@@ -1221,15 +1221,14 @@ function install(Game, helpers) {
     const side = (units, lost) => Object.fromEntries(Object.entries(units).map(([id, n]) => [id, { was: n + (lost[id] || 0), lost: lost[id] || 0 }]).filter(([, v]) => v.was > 0));
     const genDied = !!(c.general && c.general.dead && a.general === false && aLoss >= 1);
     const data = {
-      type: 'battle', mission: a.mission, win, x: a.x, y: a.y, luck, calc, power: { att: Math.round(aSum), def: Math.round(Dsum) },
-      att: { id: att.id, login: att.login, race: att.race, castle: c.name, cx: c.x, cy: c.y, rating: this.rating(c), lossRes: lossRes(aLost), units: side(a.units, aLost), general: a.general || genDied ? (c.general ? c.general.level : 0) : 0, generalDied: genDied },
-      def: target ? { id: captured ? captured.prevOwner : defUser.id, login: captured ? captured.prevLogin : defUser.login, race: captured ? captured.prevRace : defUser.race, castle: target.name, rating: this.rating(target), lossRes: lossRes(dLost), units: side(dAll, dLost), wall: this.bonus(target).wall }
+      type: 'battle', mission: a.mission, win, x: a.x, y: a.y, luck, calc,
+      att: { id: att.id, login: att.login, race: att.race, castle: c.name, cx: c.x, cy: c.y, rating: this.rating(c), lossRes: lossRes(aLost), units: side(a.units, aLost), general: a.general || genDied ? (c.general ? c.general.level : 0) : 0, generalDied: genDied, genExp: genExpA },
+      def: target ? { id: captured ? captured.prevOwner : defUser.id, login: captured ? captured.prevLogin : defUser.login, race: captured ? captured.prevRace : defUser.race, castle: target.name, rating: this.rating(target), lossRes: lossRes(dLost), units: side(dAll, dLost), wall: this.bonus(target).wall, general: target.general && !target.general.away ? target.general.level : 0, generalDied: genDiedD, genExp: genExpD }
         : { npc: npc.name, img: obj.img, lossPct: Math.round(dLoss * 100), garrison: R.garrison },
       loot, siege, loyalty, capitalBlocked, royalBlocked, captured: captured ? { name: captured.name, x: a.x, y: a.y } : null,
     };
     const lines = [
       `${MISSIONS[a.mission]} на ${tname}. ${win ? 'Победа!' : 'Поражение.'}`,
-      `Сила: атака ${Math.round(aSum)} против обороны ${Math.round(Dsum)}`,
       `Ваши войска: ${unitsLine(a.units, aLost)}${a.general ? ` + генерал ${c.general ? c.general.level : ''} ур.` : ''}`,
       target ? `Защитники: ${unitsLine(dAll, dLost)}` : `Охрана лагеря потеряла ${Math.round(dLoss * 100)}%`,
       loot ? `Добыча: дерево ${loot.wood}, камень ${loot.stone}, железо ${loot.iron}, еда ${loot.food}` : 'Добычи нет — армия погибла.',

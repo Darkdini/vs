@@ -2276,3 +2276,16 @@ body.menuopen #advbar, body.menuopen #advhand { display: none; } /* открыт
 .sfsend textarea, .sfnew textarea { width: 100%; box-sizing: border-box; }
 .sfbtns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; justify-content: flex-end; }
 .sfpollform { padding: 8px; margin-bottom: 8px; border: 1px dashed #b08a3a; border-radius: 10px; }
+
+/* отчёт о бое — коротко: юниты (было / погибло), генерал, потери ресурсов под стрелкой */
+.runit { display: grid; grid-template-columns: 26px 1fr auto 56px; align-items: center; gap: 6px; padding: 2px 0; }
+.runit img { width: 26px; height: 26px; object-fit: contain; }
+.runit:not(:has(img)) { grid-template-columns: 1fr auto 56px; }
+.runit em { font-style: normal; text-align: right; }
+.rtot { margin-bottom: 4px; }
+.rgen { padding-top: 0; }
+.rmore { margin: 8px 10px; border: 1px solid rgba(120, 80, 30, 0.35); border-radius: 8px; background: rgba(255, 248, 230, 0.5); }
+.rmore > summary { cursor: pointer; padding: 10px 12px; font-weight: bold; font-size: 17px; list-style: none; }
+.rmore > summary::before { content: '▸ '; display: inline-block; transition: transform 0.15s; }
+.rmore[open] > summary::before { transform: rotate(90deg); }
+.rmore > summary::-webkit-details-marker { display: none; }

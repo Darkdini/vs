@@ -1305,9 +1305,9 @@ function worldObj(o, p, sel, k, noDome) {
   if (o.boss) return bossOnMap(o, p, sel);
   if (sel) { ictx.save(); ictx.filter = 'drop-shadow(0 0 3px #fff3a0) drop-shadow(0 0 3px #ffe030) drop-shadow(0 0 4px #ffc400) drop-shadow(0 0 7px #ff9d00) brightness(1.18)'; }
   const path = o.kind === 'castle' ? `world/castle${castleStage(o.rating)}.png?v=1` : !o.qimg && WORLD_OBJ_IMG[o.img] ? WORLD_OBJ_IMG[o.img] : null, cimg = path && pic(path);
-  if (cimg) { const dw = TW * (o.kind === 'castle' ? [0.78, 0.84, 0.92, 1.0][castleStage(o.rating)] : 0.8), sc = scaledPic(path, dw, k || undefined) || cimg, dh = dw * cimg.height / cimg.width;
+  if (cimg) { const dw = TW * (o.kind === 'castle' ? [0.72, 0.74, 0.76, 0.70][castleStage(o.rating)] : 0.76), /* высота картинки ≤ 0,75 клетки: соседи через клетку не налезают */ sc = scaledPic(path, dw, k || undefined) || cimg, dh = dw * cimg.height / cimg.width;
     ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(o.prem ? goldPic(sc) : sc, p.sx + TW / 2 - dw / 2, p.sy + TH * 0.85 - dh, dw, dh); ictx.restore(); }
-  else if (o.qimg && pic(o.qimg)) { const im = pic(o.qimg), q = TW * 1.25 / im.width; ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(im, p.sx + TW / 2 - im.width * q / 2, p.sy + TH * 0.85 - im.height * q, im.width * q, im.height * q); ictx.restore(); } // логово похода
+  else if (o.qimg && pic(o.qimg)) { const im = pic(o.qimg), q = TW * 0.78 / im.width; ictx.save(); ictx.imageSmoothingEnabled = true; ictx.drawImage(im, p.sx + TW / 2 - im.width * q / 2, p.sy + TH * 0.85 - im.height * q, im.width * q, im.height * q); ictx.restore(); } // логово похода
   else if (!path && !o.qimg) ground(WORLD_NAME_IMG(o), p.sx, p.sy); // старый спрайт — только если новой картинки нет вовсе; пока новая грузится — пусто (раньше мелькала старая графика)
   if (sel) ictx.restore();
   if (o.shield && !noDome) shieldDome(p); else if (o.newbie && !noDome) newbieDome(p); // купол: купленная защита — золотой, защита новичка — голубой

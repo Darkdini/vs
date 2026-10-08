@@ -1168,6 +1168,11 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.ok(r.win, 'рыцари бьют катапульты: у катапульты слабая защита от кавалерии');
     console.log('✓ Баланс боя: командование генерала до +100%, одинаковые артефакты с убыванием, защита от кавалерии в бою');
   }
+  { // карта мира: новый замок не встаёт вплотную к лагерю, руинам или руднику (картинки налезали)
+    let near = 0; for (let i = 0; i < 60; i++) { const c = g.castleOf(g.register({ login: `mapnear${i}`, password: '12345', race: i % 4 }).user); if (g.worldObjects(c.x - 1, c.y - 1, 3, 3).some((o) => o.kind === 'object')) near++; }
+    assert.strictEqual(near, 0, 'замки не вплотную к лагерям');
+    console.log('✓ Карта мира: замки не встают вплотную к лагерям, руинам и рудникам');
+  }
   try { fs.unlinkSync(DB); } catch {}
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });

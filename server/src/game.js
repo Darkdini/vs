@@ -28,7 +28,7 @@ const provLayout = (n) => {
   const inner = PROV - 2 * PROV_EDGE, want = PROV_NPC.reduce((a, t) => a + t[2], 0), picked = [];
   for (let k = 0; k < want; k++) { // каждый следующий — дальше всех от уже поставленных (равномерно)
     let best = null, bs = -1;
-    for (let t = 0; t < 40; t++) { const x = Math.floor(rnd() * inner), y = Math.floor(rnd() * inner); if (picked.some((q) => q[0] === x && q[1] === y)) continue;
+    for (let t = 0; t < 40; t++) { const x = Math.floor(rnd() * inner), y = Math.floor(rnd() * inner); if (picked.some((q) => Math.abs(q[0] - x) <= 1 && Math.abs(q[1] - y) <= 1)) continue; // не вплотную: на карте картинки соседей налезали бы
       const sc = picked.length ? Math.min(...picked.map((q) => Math.hypot(q[0] - x, q[1] - y))) : 99; if (sc > bs) { bs = sc; best = [x, y]; } }
     if (best) picked.push(best);
   }
@@ -268,18 +268,20 @@ class Game {
     if (this.allyCleanup) this.allyCleanup(); // пустые альянсы (участники удалены) — убрать отовсюду
   }
   castleAt(x, y) { return this.byXY.get(x * WORLD + y); }
+  // есть ли вплотную (8 соседних клеток) лагерь, руины или рудник — на карте мира их картинки налезали бы на замок
+  objNear(x, y) { for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { if (!dx && !dy) continue; const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= WORLD || Y >= WORLD || onProvEdge(X, Y) || this.castleAt(X, Y)) continue; if (provObjects(X, Y)) return true; } return false; }
   // замки, что стоят у самой границы провинции или на месте её лагеря (поставлены до провинций), — на ближайшую свободную клетку внутри той же провинции;
   // армии, идущие к старому месту, идут к новому
   provEdgeFix() {
     let moved = 0;
     for (const c of [...this.byXY.values()]) {
       const on = provObjects(c.x, c.y); // стоит на месте лагеря провинции (не захваченные руины — те и есть этот замок)
-      if (!onProvEdge(c.x, c.y) && !(on && on[0] !== 24)) continue;
+      if (!onProvEdge(c.x, c.y) && !(on && on[0] !== 24) && !this.objNear(c.x, c.y)) continue; // ещё — вплотную к лагерю/руинам/руднику (картинки налезали)
       const px = Math.floor(c.x / PROV), py = Math.floor(c.y / PROV); let best = null;
-      for (let gap = 1; gap >= 0 && !best; gap--) for (let y = py * PROV + PROV_EDGE; y < (py + 1) * PROV - PROV_EDGE; y++) for (let x = px * PROV + PROV_EDGE; x < (px + 1) * PROV - PROV_EDGE; x++) {
+      for (let gap = SPAWN_GAP; gap >= 0 && !best; gap--) for (let y = py * PROV + PROV_EDGE; y < (py + 1) * PROV - PROV_EDGE; y++) for (let x = px * PROV + PROV_EDGE; x < (px + 1) * PROV - PROV_EDGE; x++) {
         if (x >= WORLD || y >= WORLD || this.byXY.has(x * WORLD + y)) continue;
         let near = false; for (let dx = -gap; dx <= gap && !near; dx++) for (let dy = -gap; dy <= gap; dy++) { const k = this.castleAt(x + dx, y + dy); if (k && k !== c) { near = true; break; } }
-        if (near || this.worldObjects(x, y, 1, 1).length) continue;
+        if (near || this.worldObjects(x, y, 1, 1).length || this.objNear(x, y)) continue;
         const d = Math.hypot(x - c.x, y - c.y); if (!best || d < best.d) best = { x, y, d };
       }
       if (!best) continue;
@@ -297,6 +299,7 @@ class Game {
     if (!meadowAt(x, y)) return 'Там лес — замок не поставить.';
     for (let dx = -SPAWN_GAP; dx <= SPAWN_GAP; dx++) for (let dy = -SPAWN_GAP; dy <= SPAWN_GAP; dy++) { const k = this.castleAt(x + dx, y + dy); if (k && k !== except) return dx || dy ? `Слишком близко к другому замку — между замками нужно ${SPAWN_GAP} пустые клетки.` : 'Клетка занята замком.'; }
     if (this.worldObjects(x, y, 1, 1).some((o) => o.kind === 'object')) return 'Клетка занята (лагерь, руины или рудник).';
+    if (this.objNear(x, y)) return 'Рядом лагерь, руины или рудник — нужна хотя бы одна пустая клетка между ними.';
     const p = provinceOf(x, y); let n = 0; for (const k of this.byXY.values()) if (k !== except && provinceOf(k.x, k.y).n === p.n) n++;
     if (n >= PROV_CAP) return `Провинция ${p.n} заполнена (${PROV_CAP} замков).`;
     return null;
@@ -398,7 +401,7 @@ class Game {
     else { // новые игроки — в первую от центра провинцию, где меньше PROV_CAP замков; внутри — свободная клетка не у самой границы
       const cnt = new Map(); for (const k of this.byXY.values()) { const p = provinceOf(k.x, k.y); cnt.set(p.n, (cnt.get(p.n) || 0) + 1); }
       const free = (X, Y) => { for (let dx = -SPAWN_GAP; dx <= SPAWN_GAP; dx++) for (let dy = -SPAWN_GAP; dy <= SPAWN_GAP; dy++) if (this.byXY.has((X + dx) * WORLD + (Y + dy))) return false;
-        return !this.worldObjects(X, Y, 1, 1).some((o) => o.kind === 'object'); };
+        return !this.worldObjects(X, Y, 1, 1).some((o) => o.kind === 'object') && !this.objNear(X, Y); };
       let spot = null;
       for (const p of provOrder()) {
         if ((cnt.get(p.py * PROV_N + p.px + 1) || 0) >= PROV_CAP) continue;
