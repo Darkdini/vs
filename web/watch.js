@@ -57,7 +57,7 @@ function moveWin() {
   const slow = Object.entries(a.units || {}).filter(([, n]) => n > 0).map(([id]) => unitById(Number(id))).filter((u) => u && u.speed > 0).sort((p, q) => p.speed - q.speed)[0];
   return `${ribbon(M().missions[a.mission] || 'Поход')}<div class="mvcard">
     ${row('Тип похода', `<span class="mvtype mv-${a.mission}">${M().missions[a.mission] || a.mission}</span>`)}${row('Откуда', `${esc(a.castle)} (${a.cx}:${a.cy})`)}${row('Куда', `${esc(a.to)} (${a.x}:${a.y})`)}${row('Сейчас', state)}
-    ${a.depart ? row('Вышла', t(a.depart)) : ''}${a.sec ? row('Время в пути', fmtT(a.sec)) : ''}${row('Армия', `${esc(a.army || 'Армия')} · ${fmtFull(a.n)}${a.general ? ' + генерал' : ''}`)}${slow ? row('Скорость', `${slow.speed} кл./час — по самому медленному: ${esc(slow.name)}`) : ''}
+    ${a.depart ? row('Вышла', t(a.depart)) : ''}${a.sec ? row('Время в пути', fmtT(a.sec)) : ''}${row('Армия', `${esc(a.army || 'Армия')} · ${fmtFull(a.n)}${a.general ? ' + генерал' : ''}`)}${slow ? row('Скорость', `${slow.speed * (S.cat.march || 1)} кл./час — по самому медленному: ${esc(slow.name)}`) : ''}
 </div>
     <button class="pbar" data-mvmap="${a.x}:${a.y}">🗺 Показать цель на карте</button>
     ${recallBtn(a)}

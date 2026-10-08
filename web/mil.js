@@ -175,7 +175,7 @@ function marketHtml() {
   const m = MY().merchants || { total: 0, free: 0, away: 0, carry: 0, speed: 0 };
   return `<div class="bwline">Торговый центр замка.</div>
     <div class="bwline">Количество ресурсов переносимых одним торговцем <img class="fi" src="${G3}menu/basket.svg" alt=""> <b>${fmtFull(m.carry)}</b> ед.</div>
-    <div class="bwline">Скорость торговца ▶▶ <b>${m.speed}</b> полей/час</div>
+    <div class="bwline">Скорость торговца ▶▶ <b>${m.speed * (S.cat.march || 1)}</b> полей/час</div>
     <button class="pbar" data-mkt="give">Передать</button>
     <button class="pbar" data-mkt="barter">Бартер</button>
     <button class="pbar" data-mkt="merch">Торговцы</button>`;
@@ -184,7 +184,7 @@ function marketHtml() {
 function mktSec(g) {
   const m = MY().merchants, c = S.st.castle; if (g.x === '' || g.y === '' || !m.speed) return 0;
   const own = (S.st.castles || []).some((k) => k.x === Number(g.x) && k.y === Number(g.y)) ? 3 : 1; // свои замки — втрое быстрее
-  const d = Math.hypot(Number(g.x) - c.x, Number(g.y) - c.y); return d ? Math.min(Math.max(5, Math.round(600 / S.cat.speed)), Math.max(5, Math.round(d / (m.speed * own) * 3600 / S.cat.speed))) : 0; // не дольше 10 минут
+  const d = Math.hypot(Number(g.x) - c.x, Number(g.y) - c.y); return d ? Math.min(Math.max(5, Math.round(600 / S.cat.speed)), Math.max(5, Math.round(d / (m.speed * own * (S.cat.march || 1)) * 3600 / S.cat.speed))) : 0; // не дольше 10 минут
 }
 const mktTime = (g) => { const s = mktSec(g); return s ? `${fmtT(s)} <small>(обратно столько же)</small>` : '—'; };
 function mktGiveWin() {
@@ -196,14 +196,14 @@ function mktGiveWin() {
     <div class="row2 cxy"><label>X<input type="number" inputmode="numeric" data-mkx="x" value="${esc(g.x)}"></label><label>Y<input type="number" inputmode="numeric" data-mkx="y" value="${esc(g.y)}"></label></div>
     <div class="row2">${RES4.map((r) => `<label>${RES_IC[r]}<input type="number" inputmode="numeric" min="0" data-mkr="${r}" value="${g.res[r] || ''}" placeholder="0"></label>`).join('')}</div>
     <div class="cinfo">Понадобится торговцев: <b id="mkNeed" class="${need > m.free ? 'bad' : ''}">${need}</b></div>
-    <div class="cinfo">Доставка: <b id="mkTime">${mktTime(g)}</b> · скорость ${m.speed} полей/час, в свои замки — ${m.speed * 3}, не дольше 10 минут</div>
+    <div class="cinfo">Доставка: <b id="mkTime">${mktTime(g)}</b> · скорость ${m.speed * (S.cat.march || 1)} полей/час, в свои замки — ${m.speed * 3 * (S.cat.march || 1)}, не дольше 10 минут</div>
     <button class="pbar" data-mkt="send">Отправить</button>`;
 }
 function mktMerchWin() {
   const m = MY().merchants;
   return `${ribbon('Торговцы')}<div class="bwline">Всего торговцев: <b>${m.total}</b></div><div class="bwline">Свободных: <b>${m.free}</b></div>
     <div class="bwline">Зарезервированных: <b>${m.reserved}</b></div><div class="bwline">В пути: <b>${m.away}</b></div>
-    <p class="small muted">Торговцы не тренируются и не участвуют в боях — при Рынке их всегда 20. Груз — 45 ед. за уровень Рынка (20 ур. — 900 ед.), скорость — ${m.speed || 60} полей/час.</p>`;
+    <p class="small muted">Торговцы не тренируются и не участвуют в боях — при Рынке их всегда 20. Груз — 45 ед. за уровень Рынка (20 ур. — 900 ед.), скорость — ${(m.speed || 60) * (S.cat.march || 1)} полей/час.</p>`;
 }
 function mktBarterWin() {
   const opt = (sel) => RES4.map((r) => `<option value="${r}" ${r === sel ? 'selected' : ''}>${RES_NAME[r]}</option>`).join('');

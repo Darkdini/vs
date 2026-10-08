@@ -178,6 +178,7 @@ Object.assign(UNIT[MERCHANT_ID], { speed: 60, notrain: true, carry: 45 }); // т
 const GENERAL_ID = 236;
 const TRADE_MAX = Math.max(5, Math.round(600 / SPEED)); // торговцы идут не дольше 10 минут куда угодно
 const OWN_TRADE = 3; // торговцы между своими замками — втрое быстрее (180 полей/час)
+const MARCH = 2; // все армии и торговцы ходят вдвое быстрее (походы, возврат, подкрепления) — экспедиций не касается
 const CAMP_FAST = 3; // набеги и нападения на лагеря разбойников (и логово «Тёмных земель») — втрое быстрее, туда и обратно
 const RECALL_MS = 4 * 60 * 1000; // армию, отправленную по ошибке, можно вернуть в первые 4 минуты (реальные, не зависят от скорости мира)
 // уникальные воины — только награда заданий и походов (в Кладовой), не тренируются. На 20% сильнее своего прообраза расы
@@ -396,7 +397,7 @@ function install(Game, helpers) {
     if (need > m.free) return { error: `Нужно торговцев: ${need}, свободных: ${m.free} (каждый везёт ${m.carry}).` };
     for (const r of RES4) castle.res[r] -= cargo[r];
     const own = target.owner === castle.owner ? OWN_TRADE : 1; // между своими замками — ещё втрое быстрее
-    const units = { [MERCHANT_ID]: need }, sec = Math.min(TRADE_MAX, Math.max(5, Math.round(Math.hypot(x - castle.x, y - castle.y) / (m.speed * own) * 3600 / SPEED))), now = Date.now(); // не дольше 10 минут в одну сторону
+    const units = { [MERCHANT_ID]: need }, sec = Math.min(TRADE_MAX, Math.max(5, Math.round(Math.hypot(x - castle.x, y - castle.y) / (m.speed * own * MARCH) * 3600 / SPEED))), now = Date.now(); // не дольше 10 минут в одну сторону
     const army = { id: this.db.nextId++, units, general: false, mission: 'trade', x, y, depart: now, arrive: now + sec * 1000, sec, state: 'go', loot: null, cargo, squad: null, portal: false };
     castle.armies.push(army); this.addStat(castle.owner, 'trades', 1); this.store.save();
     return { army, sec, need };
@@ -747,7 +748,7 @@ function install(Game, helpers) {
     if (!speeds.length) speeds.push(5); // у юнитов со скоростью 0 (как в оригинале) — временно 5 полей/час, пока не поправим ходьбу
     const b = this.bonus(castle);
     const v = Math.min(...speeds) * b.speed * (merchants ? b.tradeSpeed : 1) * (general && castle.general ? 1 + this.heroBonus(castle.general).speed : 1);
-    return Math.max(5, Math.round(Math.hypot(x - castle.x, y - castle.y) / v * 3600 / SPEED));
+    return Math.max(5, Math.round(Math.hypot(x - castle.x, y - castle.y) / (v * MARCH) * 3600 / SPEED));
   };
   // отправка: from = 'castle' (вся Замковая армия) или id отряда (весь отряд), как в оригинале; либо units — выборочно.
   // portal — через Портал (в 4 раза быстрее), at — расписание отправки (время, мс)
@@ -1910,4 +1911,4 @@ const catalogJson = () => ({
   hero: require('./hero').heroCatalog(),
 });
 
-module.exports = { CAMP_FAST, uniqueFor, EXPED, ART_HOURS, NEWBIE_RATING, install, UNITS, UNIT, B, GENERAL_ID, GEN, SCIENCES, RELIGIONS, NPC, MISSIONS, unitsForRace, unitImg, catalogJson, ART_TYPES };
+module.exports = { CAMP_FAST, MARCH, uniqueFor, EXPED, ART_HOURS, NEWBIE_RATING, install, UNITS, UNIT, B, GENERAL_ID, GEN, SCIENCES, RELIGIONS, NPC, MISSIONS, unitsForRace, unitImg, catalogJson, ART_TYPES };

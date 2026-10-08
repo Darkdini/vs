@@ -1191,6 +1191,13 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.ok(/4 минуты/.test(g.squadOp(c1, { op: 'recall', id: s2.army.id }).error || ''), 'через 5 минут отозвать нельзя');
     console.log('✓ Поход по ошибке: первые 4 минуты армию можно вернуть в замок (идёт назад столько же), потом — нельзя');
   }
+  { // армии ходят вдвое быстрее (MARCH): время пути — половина от «расстояние / скорость самого медленного»
+    const { UNIT, MARCH } = require('../src/army'); assert.strictEqual(MARCH, 2);
+    const c = g.castleOf(g.register({ login: 'march1', password: '12345', race: 0 }).user); g.mil(c);
+    const v = UNIT[200].speed * g.bonus(c).speed, d = Math.hypot(30, 40), sec = g.travelSec(c, { 200: 10 }, false, c.x + 30, c.y + 40);
+    assert.ok(Math.abs(sec - d / v * 3600 / (Number(process.env.SPEED) || 1) / 2) <= 1, `путь вдвое быстрее: ${sec}`);
+    console.log(`✓ Армии ходят вдвое быстрее: 50 клеток мечниками — ${Math.round(sec / 60)} мин`);
+  }
   try { fs.unlinkSync(DB); } catch {}
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });

@@ -138,7 +138,7 @@ function campaignSec() {
   if (genGoes(a, c)) speeds.push(unitById(M().generalId).speed);
   if (!speeds.length) return null;
   const b = MY().bonus, st = S.st.castle;
-  let sec = Math.max(5, Math.round(Math.hypot(Number(c.x) - st.x, Number(c.y) - st.y) / (Math.min(...speeds) * b.speed) * 3600 / S.cat.speed));
+  let sec = Math.max(5, Math.round(Math.hypot(Number(c.x) - st.x, Number(c.y) - st.y) / (Math.min(...speeds) * b.speed * (S.cat.march || 1)) * 3600 / S.cat.speed));
   const o = ((S.world && S.world.objects) || []).find((w) => w.x === Number(c.x) && w.y === Number(c.y)); // лагерь разбойников — втрое быстрее
   if (o && (o.lair || [30, 31, 32].includes(o.img)) && ['attack', 'raid'].includes(c.mission)) sec = Math.max(5, Math.round(sec / (S.cat.campFast || 3)));
   if (c.portal) sec = Math.max(5, Math.round(sec / 4));

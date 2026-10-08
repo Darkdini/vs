@@ -85,6 +85,7 @@ function catalogJson() {
     speed: G.SPEED,
     shopOpen: process.env.SHOP_OPEN === '1', // «Лавка Короля» для всех (иначе — только администратор)
     campFast: require('./army').CAMP_FAST,
+    march: require('./army').MARCH, // армии ходят быстрее во столько раз
     maxQueue: G.MAX_QUEUE,
     rules: {
       prov: G.PROV, provN: G.PROV_N, time: C.TIME, rating: C.RATING, store: G.STORE, baseRate: G.BASE_RATE, peopleFactor: G.PEOPLE_FACTOR, minBuildSec: 3,
