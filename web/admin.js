@@ -41,7 +41,7 @@ function adminHtml() {
         ${aAct('Завершить стройки', 'Мгновенно закончить стройки, тренировки и исследования.', aBtn2('finish', 'Завершить'))}
         ${aAct('Науки', 'Все науки Университета — 20 уровень.', aBtn2('sciences', 'Выдать'))}
         ${aAct('Новые замки', 'Полностью прокачанные замки рядом со столицей.', `${aNum('castles', 1, 'сколько')}${aBtn2('castles', 'Выдать', 'data-arg="castles:n" data-confirm="Выдать полные замки?"')}`)}
-        ${aAct('Лояльность замка', 'Верность жителей активного замка, 0–100%.', `${aNum('loyalty', 100, '0–100')}${aBtn2('loyalty', 'Задать', 'data-arg="loyalty:value"')}`)}`)}
+        ${aAct('Бунт в замке', 'Бунт в активном замке, 0–100% (100% — замок можно захватить).', `${aNum('loyalty', 0, '0–100')}${aBtn2('loyalty', 'Задать', 'data-arg="loyalty:value"')}`)}`)}
       ${aSec('⚔ Армия и генерал', `
         ${aAct('Войска', 'Выбрать замок и сколько каких юнитов (только юниты расы игрока).', `<form class="chatform" data-aform="armyinfo"><input type="hidden" name="login" value="${esc(a.login || S.st.user.login)}"><button class="btn small primary">Открыть список</button></form>`)}
         ${a.ga ? armyForm(a.ga) : ''}
@@ -145,7 +145,7 @@ function playerCard(p) {
     ${aAct('Аватар', 'Удалить картинку игрока (вместо неё — портрет расы).', aBtn2('noavatar', 'Удалить', 'data-confirm="Удалить аватар игрока?"'))}
     ${aAct('Репутация', 'Добавить или убавить (минус) очки репутации.', `${aNum('rep', 10, 'очков')}${aBtn2('rep', 'Изменить', 'data-arg="rep:n"')}`)}</div>
   <div class="acard"><div class="cwname">🏰 Замки игрока</div>
-    <div class="rlist">${p.castlesList.map((c) => `<div class="rrow"><span class="rn"><b>${esc(c.name)}</b><small>X:${c.x} Y:${c.y} · лояльность ${c.loyalty}%</small></span><span class="rv">${fmtFull(c.rating)}</span>
+    <div class="rlist">${p.castlesList.map((c) => `<div class="rrow"><span class="rn"><b>${esc(c.name)}</b><small>X:${c.x} Y:${c.y} · бунт ${100 - c.loyalty}%</small></span><span class="rv">${fmtFull(c.rating)}</span>
       <button class="btn small" data-goworld="${c.x},${c.y}">карта</button></div>
       <div class="acrow"><button class="btn small danger" data-adm="castlereset" data-cid="${c.id}" data-confirm="Сбросить замок «${esc(c.name)}» к стартовому виду? Здания, войска и ресурсы пропадут, место и имя останутся.">Сбросить замок</button>
       ${p.castlesList.length > 1 ? `<button class="btn small danger" data-adm="castledel" data-cid="${c.id}" data-confirm="Удалить замок «${esc(c.name)}» навсегда?">Удалить замок</button>` : ''}</div>`).join('')}</div>

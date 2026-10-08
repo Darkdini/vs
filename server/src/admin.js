@@ -189,7 +189,7 @@ function install(Game) {
       case 'gear': for (const c of castles) { this.mil(c); for (const slot of require('./hero').SLOTS) for (let r = 0; r < 4; r++) { if (this.heroGear(c).length >= 24) break; this.heroGear(c).push({ id: this.db.nextId++, slot, r, plus: 0 }); } } msg = 'Выдано снаряжение генерала (все ячейки, 4 редкости).'; break;
       case 'arts': for (const c of castles) { this.mil(c); for (const type of ['atk', 'def', 'prod', 'speed', 'train']) c.artifacts.push({ id: this.db.nextId++, type, rarity: 2, active: false, found: now }); } msg = 'Выдано 5 легендарных артефактов.'; break;
       case 'sciences': for (const c of castles) { this.mil(c); c.sciences = Object.assign(this.sciOf(c), { eco: 20, eng: 20, fhi: 20, war: 20 }); } msg = 'Все науки 20 ур.'; break;
-      case 'loyalty': for (const c of castles) { this.mil(c); c.loyalty = Math.max(0, Math.min(100, num(arg.value, 100))); c.loyAt = now; } msg = `Лояльность ${num(arg.value, 100)}.`; break;
+      case 'loyalty': for (const c of castles) { this.mil(c); c.loyalty = 100 - Math.max(0, Math.min(100, num(arg.value, 0))); c.loyAt = now; } msg = `Бунт в замке ${Math.max(0, Math.min(100, num(arg.value, 0)))}%.`; break; // значение — бунт, хранится лояльность = 100 − бунт
       // --- игроки ---
       case 'stats': data = this.adminStats(Number(arg.online) || 0); break;
       case 'alerts': { // «Подозрительное»: последние тревоги; открыв список, админ их «видел»

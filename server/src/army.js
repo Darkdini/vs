@@ -178,6 +178,7 @@ Object.assign(UNIT[MERCHANT_ID], { speed: 60, notrain: true, carry: 45 }); // т
 const GENERAL_ID = 236;
 const TRADE_MAX = Math.max(5, Math.round(600 / SPEED)); // торговцы идут не дольше 10 минут куда угодно
 const OWN_TRADE = 3; // торговцы между своими замками — втрое быстрее (180 полей/час)
+const RIOT_STEP = 15, RIOT_CAPTURED = 95, RIOT_GAP = Math.round(3600000 / SPEED); // бунт: +15% за победное нападение с бунтарями (сколько бы их ни было), не чаще раза в час на замок; после захвата в замке бунт 95%
 const MARCH = 2; // все армии и торговцы ходят вдвое быстрее (походы, возврат, подкрепления) — экспедиций не касается
 const CAMP_FAST = 3; // набеги и нападения на лагеря разбойников (и логово «Тёмных земель») — втрое быстрее, туда и обратно
 const RECALL_MS = 4 * 60 * 1000; // армию, отправленную по ошибке, можно вернуть в первые 4 минуты (реальные, не зависят от скорости мира)
@@ -250,7 +251,9 @@ function scienceMiles(sci) {
   for (const [k, s] of Object.entries(SCIENCES)) for (const [l, [fx]] of Object.entries(s.miles)) if ((sci[k] || 0) >= Number(l)) for (const [f, v] of Object.entries(fx)) m[f] += v;
   return m;
 }
-const scienceCost = (lvl) => { const k = Math.round(400 * 1.45 ** lvl / 10) * 10; return { wood: k, stone: k, iron: k, food: k }; };
+// цена науки: до 13 ур. — 400 × 1,45^ур.; с 14 ур. — от 55 000 до 73 000 (+3 000 за уровень), чтобы влезать в Склад (максимум 75 200);
+// дальше дороже становится время (scienceTime)
+const scienceCost = (lvl) => { const k = lvl <= 13 ? Math.round(400 * 1.45 ** lvl / 10) * 10 : 55000 + (lvl - 14) * 3000; return { wood: k, stone: k, iron: k, food: k }; };
 const scienceTime = (lvl) => Math.round(600 * 1.35 ** lvl);
 
 // ---------- религии (Храм) ----------
@@ -297,6 +300,7 @@ const NPC_REGEN_SEC = 3600;
 // бой (как в Travian): сила атаки против защиты, смешанной по составу нападающих; лечение раненых дома
 const HEAL_HOME = 0.25; // раненые защитники в своём замке: четверть павших выздоравливает
 const ROW = { infantry: 3, cavalry: 2, magic: 1, siege: 1, special: 1 }, DMG = 2, ROUT = 0.3; // бой с боссом (clashHp): ряды строя, множитель урона, бегство
+const DEF_HOME = 1.75; // замок помогает своим защитникам (и подкреплениям в нём): защита ×1,75 — иначе на равные ресурсы нападение всегда сильнее (атака у юнитов вдвое дешевле защиты)
 const LOSS_POW = 1.5; // бой как в Travian: потери победителя = (слабая сторона / сильная)^1,5
 const wallHp = (L) => Math.round(40 * 1.2 ** L); // прочность одного уровня Забора (таран — 50 урона)
 const bldHp = (bid, L) => Math.round(((C.BY_ID[bid] && C.BY_ID[bid].hp) || 600) * (0.5 + 0.1 * L)); // прочность уровня здания
@@ -320,6 +324,7 @@ const UP = {
   a: { name: 'атака', bld: B.SMITH, c: 0.88, g: 1.2355 }, d: { name: 'защита', bld: B.SMITH, c: 0.8756, g: 1.2185 },
   m: { name: 'магическая атака', bld: B.MAGIC_SCHOOL, c: 0.86, g: 1.25 }, md: { name: 'магическая защита', bld: B.MAGIC_SCHOOL, c: 1.01, g: 1.209 },
 };
+const UP_CAP = 72000; // улучшение не дороже 72 000 одного ресурса — иначе не влезает в Склад (75 200)
 const SPY_OPEN = {
   armies: { name: 'Армий в замке', level: 1, survive: 0, cond: 'выжил хотя-бы 1 разведчик' },
   res: { name: 'Ресурсов', level: 4, survive: 0.5, cond: 'выжило больше 50% разведчиков' },
@@ -495,8 +500,7 @@ function install(Game, helpers) {
   };
   P.tickTraining = function tickTraining(castle, now) {
     this.mil(castle);
-    // лояльность восстанавливается: (2 + ур. Храма) в час × скорость мира, до 100
-    if (castle.loyalty < 100 && !this.rulerAway(this.ownerOf(castle), now)) castle.loyalty = Math.min(100, castle.loyalty + (2 + this.buildingLevel(castle, B.TEMPLE)) * SPEED * Math.max(0, now - castle.loyAt) / 3600000);
+    // бунт (100 − лояльность) сам не утихает — снизить его можно только в Храме за ресурсы (royal.js calmRiot)
     castle.loyAt = now;
     const owner = castle.owner;
     castle.training = castle.training.filter((t) => {
@@ -544,7 +548,7 @@ function install(Game, helpers) {
   // время (T+2)×30 мин. Коэффициенты подобраны по скринам (Мародер, Шаман — Кузница; Тиран, Урук-хай — Школа магии).
   P.forgeCost = function forgeCost(u, kind, T) {
     const f = UP[kind].c * UP[kind].g ** T;
-    return { cost: Object.fromEntries(RES4.map((r) => [r, Math.round(u.cost[r] * f)])), people: Math.round(u.pop * f * 0.97), sec: Math.max(5, Math.round((T + 2) * 1800 / SPEED)) };
+    return { cost: Object.fromEntries(RES4.map((r) => [r, Math.min(UP_CAP, Math.round(u.cost[r] * f))])), people: Math.round(u.pop * f * 0.97), sec: Math.max(5, Math.round((T + 2) * 1800 / SPEED)) };
   };
   P.magicUnits = function magicUnits(castle) { return unitsForRace(this.raceOf(castle)).filter((u) => u.magic > 0 && u.id !== GENERAL_ID && !u.quest); };
   P.upgradeOp = function upgradeOp(castle, { unit, kind }) {
@@ -705,10 +709,17 @@ function install(Game, helpers) {
       g.dead = false; delete g.reviveAt; delete g.reviveStart; delete g.away; this.store.save();
       return { ok: true, msg: 'Генерал воскрешён!' };
     }
-    for (const r of RES4) if (castle.res[r] < c.cost[r]) return { error: 'Недостаточно ресурсов.' };
-    if (castle.res.people < c.people) return { error: 'Не хватает людей.' };
-    for (const r of RES4) castle.res[r] -= c.cost[r];
-    castle.res.people -= c.people;
+    // цена воскрешения у прокачанных генералов больше Склада — ресурсы вносятся частями (g.fund), когда собрано всё — воскрешение начинается
+    const fund = g.fund = g.fund || { wood: 0, stone: 0, iron: 0, food: 0, people: 0 }, need = { ...Object.fromEntries(RES4.map((r) => [r, c.cost[r]])), people: c.people };
+    const keys = [...RES4, 'people'], left = (k) => Math.max(0, need[k] - (fund[k] || 0));
+    if (!keys.every((k) => castle.res[k] >= left(k))) {
+      let put = 0; for (const k of keys) { const v = Math.floor(Math.min(castle.res[k], left(k))); if (v > 0) { castle.res[k] -= v; fund[k] = (fund[k] || 0) + v; put += v; } }
+      if (!put) return { error: 'Недостаточно ресурсов.' };
+      this.store.save();
+      return { ok: true, msg: `Ресурсы внесены. Осталось собрать: ${keys.map((k) => left(k)).map((v) => v.toLocaleString('ru-RU')).join(' / ')}.` };
+    }
+    for (const k of keys) castle.res[k] -= left(k);
+    delete g.fund;
     g.reviveStart = Date.now();
     g.reviveAt = Date.now() + Math.max(5, Math.round(c.sec / SPEED)) * 1000;
     this.store.save();
@@ -979,7 +990,8 @@ function install(Game, helpers) {
 
   // ===== бой как в Travian =====
   // Сила атаки (атака + Кузница, магия + Школа магии, бонусы, генерал, удача, боевой дух) против защиты: защита каждого воина
-  // от пехоты, от кавалерии и от магии смешивается в той пропорции, в какой у нападающих пехота, кавалерия и маги; забор умножает защиту.
+  // от пехоты, от кавалерии и от магии смешивается в той пропорции, в какой у нападающих пехота, кавалерия и маги; забор умножает защиту,
+  // а сам замок — ещё ×1,75 (DEF_HOME; лагерей и логов не касается).
   // Сильнейший побеждает. Нападение: проигравший гибнет весь, победитель теряет (слабый/сильный)^1,5. Набег: победитель x/(1+x), проигравший 1/(1+x).
   // Тараны бьют забор до боя и после него исчезают.
   P.clash = function clash(c, a, target, npc, t) {
@@ -1013,7 +1025,7 @@ function install(Game, helpers) {
       for (const g of this.guestsOf(target)) for (const [id, n] of Object.entries(g.a.units)) { const s = stack(g.a.units, id, n, false, g.c); if (s) D.push(s); }
     } else for (const g of npcGarrison(npc)) D.push({ m: null, id: g.key, n: g.n, own: false, npc: g, hp: g.hp, atk: g.atk, mag: g.mag, def: g.def, mdef: g.mdef });
     const wallK = bD ? 1 + bD.wallPer * (hD ? 1 + hD.wall : 1) * wallL : 1, hDd = hD ? 1 + hD.def : 1;
-    const dK = bD ? bD.def * wallK * hDd : 1, mdK = bD ? bD.def * bD.magic * wallK * hDd : 1;
+    const dK = bD ? bD.def * wallK * hDd * DEF_HOME : 1, mdK = bD ? bD.def * bD.magic * wallK * hDd * DEF_HOME : 1;
     // ---- бой как в Travian: сила атаки против защиты, смешанной по составу нападающих ----
     const sum = (L, f) => L.reduce((q, s) => q + f(s), 0);
     const raidK = a.mission === 'raid' && hA ? 1 + hA.raid : 1;
@@ -1272,26 +1284,28 @@ function install(Game, helpers) {
         if (L < L0) { target.levels[0][cell] = L; if (!L) target.grid[0][cell] = -1; siege.push(`${C.BY_ID[bid].name}: ${L0} → ${L} ур.`); siegeN += L0 - L; }
       }
     }
-    // бунтари: выжившие в победной атаке снижают лояльность, при 0 — захват (GDD §10–11)
-    let loyalty = null, captured = null, capitalBlocked = false, royalBlocked = null;
+    // бунтари: победное нападение, в котором выжил хоть один бунтарь, поднимает бунт в замке на 15% (сколько бы бунтарей ни было —
+    // у хозяина есть время защититься); бунт 100% — замок переходит к нападающему, один бунтарь остаётся в нём
+    let loyalty = null, captured = null, capitalBlocked = false, royalBlocked = null, rebelStay = null, riotWait = 0;
     const rebels = a.mission === 'attack' && win ? (a.units[233] || 0) : 0;
     if (rebels) {
-      let drop = 0;
-      for (let k = 0; k < Math.min(rebels, 10); k++) drop += 20 + Math.floor(Math.random() * 11);
+      const drop = RIOT_STEP;
       if (target && this.isCapital(target)) capitalBlocked = true;
+      else if (target && t - (target.riotAt || 0) < RIOT_GAP) riotWait = Math.ceil((RIOT_GAP - (t - target.riotAt)) / 60000); // недавно уже поднимали — защитник успевает ответить
       else if (target) {
-        const from = Math.round(target.loyalty); target.loyalty = Math.max(0, target.loyalty - drop); target.loyAt = t;
+        const from = Math.round(target.loyalty); target.loyalty = Math.max(0, target.loyalty - drop); target.loyAt = t; target.riotAt = t;
         loyalty = { from, to: Math.round(target.loyalty) };
         if (target.loyalty <= 0) {
-          if (this.royalCanCapture(att)) { this.royalSpend(att); captured = this.captureCastle(att, target); }
+          if (this.royalCanCapture(att)) { this.royalSpend(att); captured = this.captureCastle(att, target); captured.rebel = 1; rebelStay = target; }
           else { target.loyalty = 1; royalBlocked = { have: Math.floor(att.royal), need: this.royalNeed(att), wait: this.royalWaitDays(att) }; } // не хватает лояльности населения (Резиденция)
         }
-      } else if (npc && npc.ruins) {
+      } else if (npc && npc.ruins && t - ((((this.db.npc || {})[where]) || {}).riotAt || 0) < RIOT_GAP) riotWait = Math.ceil((RIOT_GAP - (t - this.db.npc[where].riotAt)) / 60000);
+      else if (npc && npc.ruins) {
         const st = (this.db.npc = this.db.npc || {})[where] || (this.db.npc[where] = {});
-        const from = Math.round(st.loyalty ?? 100); st.loyalty = Math.max(0, from - drop);
+        const from = Math.round(st.loyalty ?? 100); st.loyalty = Math.max(0, from - drop); st.riotAt = t;
         loyalty = { from, to: st.loyalty };
         if (st.loyalty <= 0) {
-          if (this.royalCanCapture(att)) { this.royalSpend(att); delete this.db.npc[where]; captured = this.foundCaptured(att, a.x, a.y); }
+          if (this.royalCanCapture(att)) { this.royalSpend(att); delete this.db.npc[where]; captured = this.foundCaptured(att, a.x, a.y); captured.rebel = 1; rebelStay = this.castleAt(a.x, a.y); }
           else { st.loyalty = 1; royalBlocked = { have: Math.floor(att.royal), need: this.royalNeed(att), wait: this.royalWaitDays(att) }; }
         }
       }
@@ -1313,7 +1327,7 @@ function install(Game, helpers) {
       att: { id: att.id, login: att.login, race: att.race, castle: c.name, army: a.squad ? a.squad.name : 'Замковая армия', cx: c.x, cy: c.y, rating: this.rating(c), lossRes: lossRes(aLost), units: side(a.units, aLost), general: a.general || genDied ? (c.general ? c.general.level : 0) : 0, generalDied: genDied, genExp: genExpA },
       def: target ? { id: captured ? captured.prevOwner : defUser.id, login: captured ? captured.prevLogin : defUser.login, race: captured ? captured.prevRace : defUser.race, castle: target.name, rating: this.rating(target), lossRes: lossRes(dLost), units: side(dAll, dLost), wall: this.bonus(target).wall, general: target.general && !target.general.away ? target.general.level : 0, generalDied: genDiedD, genExp: genExpD }
         : { npc: npc.name, img: obj.img, lossPct: Math.round(dLoss * 100), garrison: R.garrison },
-      loot, siege, loyalty, capitalBlocked, royalBlocked, captured: captured ? { name: captured.name, x: a.x, y: a.y } : null,
+      loot, siege, loyalty, riotWait, capitalBlocked, royalBlocked, captured: captured ? { name: captured.name, x: a.x, y: a.y, rebel: captured.rebel || 0 } : null,
     };
     const lines = [
       `${MISSIONS[a.mission]} на ${tname}. ${win ? 'Победа!' : 'Поражение.'}`,
@@ -1322,7 +1336,8 @@ function install(Game, helpers) {
       loot ? `Добыча: дерево ${loot.wood}, камень ${loot.stone}, железо ${loot.iron}, еда ${loot.food}` : 'Добычи нет — армия погибла.',
       ...siege,
     ];
-    if (loyalty) lines.push(`Лояльность: ${loyalty.from} → ${loyalty.to}`);
+    if (loyalty) lines.push(`Бунт в замке: ${100 - loyalty.from}% → ${100 - loyalty.to}%`);
+    if (riotWait) lines.push(`Бунт не вырос: в этом замке его уже поднимали меньше часа назад (снова — через ${riotWait} мин).`);
     if (royalBlocked) lines.push(royalBlocked.wait ? `Захват не удался: первый замок можно захватить только через ${royalBlocked.wait} дн. игры.` : `Захват не удался: не хватает лояльности населения (есть ${royalBlocked.have}, нужно ${royalBlocked.need}) — см. Резиденцию.`);
     if (capitalBlocked) lines.push('Столицу захватить нельзя — бунтари бессильны.');
     if (captured) lines.push(`Замок захвачен! Теперь это ваш замок «${captured.name}».`);
@@ -1342,9 +1357,10 @@ function install(Game, helpers) {
         `Атакующие: ${unitsLine(a.units, aLost)}`,
         `Ваши войска: ${unitsLine(dAll, dLost)}`,
         loot ? `Унесено: дерево ${loot.wood}, камень ${loot.stone}, железо ${loot.iron}, еда ${loot.food}` : 'Враг разбит, ничего не унесено.',
-        ...siege, ...(loyalty ? [`Лояльность: ${loyalty.from} → ${loyalty.to}`] : []), ...genD,
+        ...siege, ...(loyalty ? [`Бунт в замке: ${100 - loyalty.from}% → ${100 - loyalty.to}%`] : []), ...genD,
       ], 'battle', { ...data, side: 'def' });
     }
+    if (rebelStay) { a.units[233]--; if (!a.units[233]) delete a.units[233]; rebelStay.units[233] = (rebelStay.units[233] || 0) + 1; } // один бунтарь остаётся в захваченном замке
     this.goBack(c, a, t);
   };
 
@@ -1357,7 +1373,7 @@ function install(Game, helpers) {
     castle.owner = att.id;
     for (const g of this.guestsOf(castle)) this.goBack(g.c, g.a, Date.now()); // чужие подкрепления уходят домой
     castle.units = {}; castle.squads = []; castle.training = []; castle.armies = []; castle.general = null; castle.research = null;
-    castle.loyalty = 30; castle.loyAt = Date.now();
+    castle.loyalty = 100 - RIOT_CAPTURED; castle.loyAt = Date.now(); // после захвата в замке бунт 95%: хозяин снижает его в Храме за ресурсы
     att.castleIds = [...this.castlesOf(att).map((k) => k.id), castle.id];
     this.addStat(att.id, 'capRating', this.rating(castle)); // Развитие не учитывает рейтинг захваченных замков
     this.store.save();
@@ -1368,7 +1384,7 @@ function install(Game, helpers) {
     const n = this.castlesOf(att).length + 1;
     const castle = this.createCastle(att, { x, y });
     castle.name = `Замок ${att.login} ${n}`;
-    this.mil(castle); castle.loyalty = 30;
+    this.mil(castle); castle.loyalty = 100 - RIOT_CAPTURED;
     att.castleIds = [...this.castlesOf(att).map((k) => k.id), castle.id];
     this.store.save();
     return { name: castle.name };
@@ -1415,7 +1431,7 @@ function install(Game, helpers) {
         const list = []; target.grid[0].forEach((id, i) => { if (id >= 0 && target.levels[0][i]) list.push(`${C.BY_ID[id].name} ${target.levels[0][i]}`); });
         lines.push(`Здания: ${list.join(', ') || '—'}. Забор ${b.wall} ур., Тайник прячет ${b.hidden}.`);
       }
-      if (can('riot')) lines.push(`Бунт: лояльность замка ${Math.round(target.loyalty ?? 100)}${this.isCapital(target) ? ' (столица — захватить нельзя)' : ''}`);
+      if (can('riot')) lines.push(`Бунт в замке: ${Math.round(100 - (target.loyalty ?? 100))}%${this.isCapital(target) ? ' (столица — захватить нельзя)' : ''}`);
       if (can('reinf')) { const g = this.guestsOf(target); lines.push(`Подкрепления: ${g.length ? g.map((x) => `${this.ownerOf(x.c).login}: ${unitsLine(x.a.units)}`).join('; ') : 'нет'}`); }
       const hidden = Object.keys(SPY_OPEN).filter((k) => !can(k)).map((k) => SPY_OPEN[k].name);
       if (hidden.length) lines.push(`Не удалось узнать: ${hidden.join(', ')}.`);
@@ -1423,7 +1439,7 @@ function install(Game, helpers) {
       const obj = this.worldObjects(a.x, a.y, 1, 1)[0];
       const npc = obj && NPC[obj.img];
       lines.push(npc ? `${npc.name}: охрана ~${npc.def.inf}, запас ${RES4.map((r) => npc.loot[r]).join('/')}` : 'Здесь пусто.');
-      if (npc && npc.ruins) lines.push(`Лояльность руин: ${Math.round(((this.db.npc || {})[where] || {}).loyalty ?? 100)} — захват атакой с Бунтарями.`);
+      if (npc && npc.ruins) lines.push(`Бунт в руинах: ${Math.round(100 - (((this.db.npc || {})[where] || {}).loyalty ?? 100))}% — захват нападением с Бунтарями (+${RIOT_STEP}% за победу, при 100% руины ваши).`);
     }
     const me = this.ownerOf(c), tu = target && this.ownerOf(target);
     const sdata = { type: 'scout', ok: alive, x: a.x, y: a.y,
@@ -1831,7 +1847,7 @@ function install(Game, helpers) {
       trainDay: { used: this.trainedToday(castle), max: TRAIN_DAY, next: (castle.trainLog || [])[0] ? castle.trainLog[0].at + 86400000 : 0 },
       units: castle.units, training: castle.training.map((t) => ({ id: t.id, unit: t.unit, building: t.building, count: t.count, done: t.done, each: t.each, start: t.start })),
       general: castle.general && !castle.general.dead && this.generalView(castle),
-      deadGenerals: this.deadList(castle).map((g) => ({ name: g.name, kind: g.kind, kindId: g.kindId, level: g.level, reviveAt: g.reviveAt || 0, ...this.reviveCostOf(g) })),
+      deadGenerals: this.deadList(castle).map((g) => ({ name: g.name, kind: g.kind, kindId: g.kindId, level: g.level, reviveAt: g.reviveAt || 0, ...this.reviveCostOf(g), fund: g.fund || null })),
       genTrain: (() => { const t = castle.training.find((x) => x.unit === GENERAL_ID); return t ? { kind: (UNIT[t.kindId] || {}).name || 'Генерал', kindId: t.kindId, end: t.start + t.each } : null; })(),
       genUnits: this.genTrainUnits(castle).map((u) => ({ id: u.id, ...this.genTrainCost(u) })), armies: castle.armies.map((a) => ({ id: a.id, units: a.units, general: a.general, mission: a.mission, x: a.x, y: a.y, depart: a.depart, arrive: a.arrive, back: a.back, state: a.state, loot: a.loot, cargo: a.cargo, squad: a.squad, portal: a.portal,
         stayName: a.state === 'stay' && this.db.castles[a.stayAt] ? this.db.castles[a.stayAt].name : null })),
@@ -1911,4 +1927,4 @@ const catalogJson = () => ({
   hero: require('./hero').heroCatalog(),
 });
 
-module.exports = { CAMP_FAST, MARCH, uniqueFor, EXPED, ART_HOURS, NEWBIE_RATING, install, UNITS, UNIT, B, GENERAL_ID, GEN, SCIENCES, RELIGIONS, NPC, MISSIONS, unitsForRace, unitImg, catalogJson, ART_TYPES };
+module.exports = { CAMP_FAST, MARCH, RIOT_STEP, RIOT_CAPTURED, uniqueFor, EXPED, ART_HOURS, NEWBIE_RATING, install, UNITS, UNIT, B, GENERAL_ID, GEN, SCIENCES, RELIGIONS, NPC, MISSIONS, unitsForRace, unitImg, catalogJson, ART_TYPES };

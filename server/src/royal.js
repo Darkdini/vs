@@ -8,11 +8,11 @@
 //    3 недели — население бунтует: лояльность замков падает на 5% в сутки (до 5%);
 //  • отняли замок — лояльность населения −10%.
 //  • Храм (как в оригинале): +1 ед. в 2 часа = +12 в сутки за каждый замок с Храмом; ритуалы в Храме дают бонус лояльности
-//    +N% ко всему приросту (не больше 5% за уровень лучшего Храма) на сутки; «Бунт» — усмирить бунт в замке за ресурсы;
+//    +N% ко всему приросту (не больше 5% за уровень лучшего Храма) на сутки; «Бунт» — снизить бунт в замке за ресурсы (сам он не утихает);
 //  • первый захват — не раньше 30-го дня игры, даже если лояльности хватает (строгий баланс).
 
 const DAY = 86400000;
-const ROYAL = { templeDaily: 12, ritualPerLevel: 0.05, firstCaptureDays: 30, calmGain: 15, calmHours: 6, perAction: 10, dayCap: 400, passive: 50, cost: 13500, stopDays: 7, decayDays: 14, decayPerDay: 100, riotDays: 21, riotPerDay: 5, riotMin: 5, lossPct: 0.1 };
+const ROYAL = { templeDaily: 12, ritualPerLevel: 0.05, firstCaptureDays: 30, perAction: 10, dayCap: 400, passive: 50, cost: 13500, stopDays: 7, decayDays: 14, decayPerDay: 100, riotDays: 21, riotPerDay: 5, riotMin: 5, lossPct: 0.1 };
 // праздники в Резиденции: ресурсы → лояльность (входит в тот же дневной лимит), каждый — раз в сутки
 const FESTIVALS = {
   fair: { name: 'Ярмарка', desc: 'Народные гуляния на площади.', cost: { wood: 1000, stone: 1000, iron: 1000, food: 2000 }, gain: 60 },
@@ -25,7 +25,8 @@ const RITUALS = {
   sacrifice: { name: 'Жертвоприношение', desc: 'Щедрые дары богам от имени правителя.', cost: { wood: 6000, stone: 6000, iron: 8000, food: 8000 }, pct: 0.1, hours: 24 },
   mystery: { name: 'Великое таинство', desc: 'Торжественная служба для всего королевства.', gold: 100, pct: 0.2, hours: 24 },
 };
-const CALM_COST = { wood: 3000, stone: 3000, iron: 3000, food: 3000 };
+// Храм: снизить бунт в замке за ресурсы — за каждый 1% бунта; каждый уровень Храма удешевляет на 2,5% (20 ур. — вдвое)
+const CALM_PER = { wood: 400, stone: 400, iron: 400, food: 400 }, CALM_TEMPLE_OFF = 0.025;
 const dayKey = (t) => Math.floor(t / DAY);
 
 function install(Game) {
@@ -87,7 +88,7 @@ function install(Game) {
       perDay: ROYAL.passive + this.templeRoyal(user), temples: this.templeRoyal(user), wait: this.royalWaitDays(user, now),
       bonus: this.ritualBonus(user, now), bonusCap: this.ritualCap(user),
       rituals: Object.entries(RITUALS).map(([id, r]) => { const act = (user.rituals || []).find((x) => x.id === id && x.until > now); return { id, ...r, until: act ? act.until : 0 }; }),
-      calmCost: CALM_COST, calmGain: ROYAL.calmGain, calmAt: ((castle.calmAt || 0) + ROYAL.calmHours * 3600000),
+      calmPer: this.calmPer(castle),
       today: user.royalDay === dayKey(now) ? user.royalToday : 0, dayCap: ROYAL.dayCap, rules: ROYAL,
       festivals: Object.entries(FESTIVALS).map(([id, f]) => ({ id, ...f, ready: !((user.festAt || {})[id] > now - DAY), readyAt: ((user.festAt || {})[id] || 0) + DAY })),
     };
@@ -107,18 +108,26 @@ function install(Game) {
     this.store.save();
     return { ok: true, msg: `${r.name}: бонус лояльности +${Math.round(this.ritualBonus(user, now) * 100)}% на сутки.` };
   };
-  // «Бунт»: усмирить население замка за ресурсы (+15 к лояльности замка, раз в 6 часов)
-  P.calmRiot = function calmRiot(user, castle) {
+  // цена снижения бунта на 1% в этом замке (Храм дешевле с уровнем)
+  P.calmPer = function calmPer(castle) {
+    const k = 1 - CALM_TEMPLE_OFF * this.buildingLevel(castle, 25);
+    return Object.fromEntries(Object.entries(CALM_PER).map(([r, v]) => [r, Math.round(v * k)]));
+  };
+  // «Бунт»: снизить бунт в замке за ресурсы на pct процентов ('all' — весь бунт). Бунт сам не утихает: после захвата он 95%,
+  // каждая победная атака врага с бунтарями добавляет 15%, при 100% замок переходит к нападающему (army.js)
+  P.calmRiot = function calmRiot(user, castle, pct = 'all') {
     if (!this.buildingLevel(castle, 25)) return { error: 'Нужен Храм.' };
     this.tick(castle); this.mil(castle);
-    const now = Date.now();
-    if (castle.loyalty >= 100) return { error: 'Бунта нет.' };
-    if ((castle.calmAt || 0) + ROYAL.calmHours * 3600000 > now) return { error: 'Усмирять можно раз в 6 часов.' };
-    for (const k of Object.keys(CALM_COST)) if (castle.res[k] < CALM_COST[k]) return { error: 'Недостаточно ресурсов.' };
-    for (const k of Object.keys(CALM_COST)) castle.res[k] -= CALM_COST[k];
-    castle.loyalty = Math.min(100, castle.loyalty + ROYAL.calmGain); castle.calmAt = now;
+    const riot = Math.max(0, Math.ceil(100 - castle.loyalty - 1e-9));
+    if (riot <= 0) return { error: 'Бунта нет.' };
+    const n = pct === 'all' ? riot : Math.max(1, Math.min(riot, Math.floor(Number(pct)) || 0));
+    if (!(n > 0)) return { error: 'Укажите, на сколько снизить бунт.' };
+    const per = this.calmPer(castle), cost = Object.fromEntries(Object.entries(per).map(([r, v]) => [r, v * n]));
+    for (const k of Object.keys(cost)) if (castle.res[k] < cost[k]) return { error: `Недостаточно ресурсов: снизить бунт на ${n}% стоит ${Object.values(cost).map((v) => v.toLocaleString('ru-RU')).join(' / ')}.` };
+    for (const k of Object.keys(cost)) castle.res[k] -= cost[k];
+    castle.loyalty = Math.min(100, castle.loyalty + n);
     this.store.save();
-    return { ok: true, msg: `Бунт усмирён: лояльность замка ${Math.round(castle.loyalty)}%.` };
+    return { ok: true, msg: `Бунт в замке снижен на ${n}%: теперь ${Math.max(0, Math.round(100 - castle.loyalty))}%.` };
   };
 
   P.festival = function festival(user, castle, id) {

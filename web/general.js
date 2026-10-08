@@ -84,13 +84,19 @@ function genDistWin() {
 // генерала нет (погиб или не нанят) — как в оригинале: павшие генералы (воскресить / за золото / удалить),
 // «Тренировка» — выбор юнита из замковой армии; идёт тренировка — «Тренировка Генерала (Мародер) Осталось»
 const genCost = (c) => `<div class="upcost">${RES4.map((r) => `<span data-need="${r}:${c.cost[r]}">${RES_IC[r]}<b>${fmtFull(c.cost[r])}</b></span>`).join('')}<span>${RES_IC.people}<b>${fmtFull(c.people)}</b></span><span>${TIME_IC}<b>${fmtT(c.sec / S.cat.speed)}</b></span></div>`;
+// воскрешение по частям: сколько уже внесено и хватит ли ресурсов замка на остаток
+const REV_KEYS = ['wood', 'stone', 'iron', 'food', 'people'];
+const revNeed = (d, k) => (k === 'people' ? d.people : d.cost[k]), revLeft = (d, k) => Math.max(0, revNeed(d, k) - ((d.fund && d.fund[k]) || 0));
+const reviveAll = (d) => REV_KEYS.every((k) => (k === 'people' ? S.st.castle.res.people : resNow(k)) >= revLeft(d, k));
+const reviveFund = (d) => (d.fund ? `<div class="upbody center">Уже внесено:</div><div class="upcost">${REV_KEYS.map((k) => `<span>${RES_IC[k]}<b>${fmtFull(d.fund[k] || 0)} / ${fmtFull(revNeed(d, k))}</b></span>`).join('')}</div>`
+  : (reviveAll(d) ? '' : '<div class="upbody center small">Ресурсов в замке не хватает — их можно вносить частями: когда соберётся всё, воскрешение начнётся.</div>'));
 const gico = (id) => (id ? `<img class="fi" src="${unitSrc(unitById(id))}" alt="">` : '');
 function noGeneralWin() {
   const my = MY(), dead = my.deadGenerals || [], tr = my.genTrain;
   const deadHtml = dead.map((d, i) => `<div class="upbody center">Мертвый ${gico(d.kindId)} Генерал (${esc(d.kind || '')})<br>${esc(d.name)}</div>
     ${d.reviveAt ? `<div class="upbody center">Воскрешение. Осталось: <span class="cd" data-e="${d.reviveAt}"></span></div>`
-    : `<div class="upbody center">Стоимость воскрешения:</div>${genCost(d)}<div class="upbody center">или ${fmtFull(d.gold)} ${gimg('coins_s.png', 'ri')}</div>
-      <button class="pbar" data-genrev="${i}">Воскресить</button><button class="pbar" data-genrevg="${i}">Воскресить за золото</button>`}
+    : `<div class="upbody center">Стоимость воскрешения:</div>${genCost(d)}${reviveFund(d)}<div class="upbody center">или ${fmtFull(d.gold)} ${gimg('coins_s.png', 'ri')}</div>
+      <button class="pbar" data-genrev="${i}">${reviveAll(d) ? 'Воскресить' : 'Внести ресурсы'}</button><button class="pbar" data-genrevg="${i}">Воскресить за золото</button>`}
     <div class="upbody">Удалить генерала ${esc(d.kind || '')}.</div><button class="pbar" data-gendel="${i}">Удалить</button><hr class="cwhr">`).join('');
   const train = tr ? `<div class="upbody center">Тренировка ${gico(tr.kindId)} Генерала (${esc(tr.kind)})<br>Осталось: <span class="cd" data-e="${tr.end}"></span></div>`
     : `${ribbon('Тренировка')}<div class="upbody center">Выберите юнита из замковой армии для тренировки:</div>

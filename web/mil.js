@@ -245,9 +245,9 @@ function universityHtml(id) {
 }
 
 function loyaltyHtml() {
-  const loy = S.st.castle.loyalty;
-  return `<div class="section">Лояльность замка</div><div class="card"><div class="bloy"><div class="bar"><i style="width:${loy}%"></i></div><b>${loy} / 100</b></div>
-      <p class="small muted">${S.st.castle.capital ? 'Столицу захватить нельзя.' : 'Если лояльность упадёт до 0 от вражеских Бунтарей — замок захватят.'} Восстанавливается сама, тем быстрее, чем выше уровень Храма.</p></div>`;
+  const bunt = Math.max(0, 100 - S.st.castle.loyalty);
+  return `<div class="section">Бунт в замке</div><div class="card"><div class="bloy"><div class="bar"><i style="width:${bunt}%"></i></div><b>${bunt}%</b></div>
+      <p class="small muted">${S.st.castle.capital ? 'Столицу захватить нельзя.' : 'Победное нападение врага с Бунтарями поднимает бунт на 15%, при 100% замок захватят.'} Сам бунт не утихает — снизить его можно в Храме за ресурсы.</p></div>`;
 }
 // Храм как в оригинале: «Бонус лояльности +N%» с полоской, кнопки «Бунт» и «Ритуалы» (temple.js)
 function templeHtml() {
@@ -366,7 +366,8 @@ function reportHtml(r) {
       ${d.loyalty ? `<br>Бунт в замке после нападения: ${100 - d.loyalty.to}% ${d.captured ? `<span class="rgood">${d.def.npc ? 'Руины захвачены!' : 'Замок захвачен!'}</span>`
         : d.royalBlocked ? `<span class="rbad">Замок не захвачен: ${d.royalBlocked.wait ? `захват возможен через ${d.royalBlocked.wait} дн. игры` : 'не хватает лояльности населения'}.</span>` : ''}` : ''}
       ${d.capitalBlocked ? '<br><span class="rbad">Столицу захватить нельзя.</span>' : ''}
-      ${d.captured && rebLeft && rebU ? `<br><img class="ric" src="${unitSrc(rebU, d.att.race)}" alt=""> ${rebLeft} ${plural(rebLeft, 'Бунтарь остался', 'Бунтаря остались', 'Бунтарей остались')} в замке.` : ''}
+      ${d.riotWait ? `<br>Бунт не вырос: в этом замке его уже поднимали меньше часа назад (снова — через ${d.riotWait} мин).` : ''}
+      ${d.captured && rebU && (d.captured.rebel || rebLeft) ? `<br><img class="ric" src="${unitSrc(rebU, d.att.race)}" alt=""> ${d.captured.rebel || rebLeft} ${plural(d.captured.rebel || rebLeft, 'Бунтарь остался', 'Бунтаря остались', 'Бунтарей остались')} в замке.` : ''}
       ${(d.siege || []).length ? `<br>${d.siege.map(esc).join('<br>')}` : ''}
       ${d.gear ? `<br>${esc(d.gear)}` : ''}</div>`;
   const lossLine = (L, W) => `${ic('skull')} Общие потери: ${fmtFull(L)} из ${fmtFull(W)} ( ${pct(L, W)}% )`;
@@ -405,7 +406,7 @@ function worldActions(o, x, y) {
   if (!npc) return '<p class="muted small">Здесь пусто.</p>';
   return `<dl class="kv">${npc.level ? `<dt>Сложность</dt><dd><b>${esc(npc.level)}</b></dd>` : ''}<dt>Охрана</dt><dd>~${fmtFull(npc.def.inf)}</dd><dt>Запас</dt><dd>${RES4.map((r) => fmtN(npc.loot[r])).join(' / ')}</dd></dl>
     <div class="btns" style="margin-top:8px">${b('attack', 'Атака')}${b('raid', 'Набег')}${b('scout', 'Разведка')}</div>
-    ${npc.ruins ? `<p class="small">Лояльность руин: <b>${o.loyalty ?? 100}</b>. Захват — <b>атака с Бунтарями</b>: каждый выживший бунтарь снижает лояльность на 20–30, при 0 руины станут вашим замком.</p>
+    ${npc.ruins ? `<p class="small">Бунт в руинах: <b>${100 - (o.loyalty ?? 100)}%</b>. Захват — <b>нападение с Бунтарями</b>: каждая победа добавляет 15% бунта, при 100% руины станут вашим замком.</p>
       <div class="btns" style="margin-top:8px">${b('expedition', 'Экспедиция')}</div>` : ''}`;
 }
 

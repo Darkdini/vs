@@ -85,11 +85,17 @@ $('#sheetBody').addEventListener('click', (e) => {
 const WM_COL = { attack: '#e8402a', raid: '#f08a20', scout: '#4a9ae8', reinforce: '#3cbc4a', trade: '#e8c030', expedition: '#b07ae8', home: '#5aa8e0', inc: '#ff2a1a' };
 const WM_IMG = {};
 function wmIcon(k) { let i = WM_IMG[k]; if (!i) { i = WM_IMG[k] = new Image(); i.src = `${G3}top/${k}.png`; } return i.complete && i.naturalWidth ? i : null; }
+// данные о походах для карты: при смене счётчиков в шапке и раз в 30 с (не чаще раза в 2 с)
+function worldMovesFetch() {
+  if (!S.st) return;
+  const key = JSON.stringify(S.st.moves || {});
+  if ((key !== S.wmKey || Date.now() - (S.wmAt || 0) > 30000) && Date.now() - (S.wmAt || 0) > 2000) { S.wmKey = key; S.wmAt = Date.now(); S.wmQuiet = true; send({ t: 'moves' }); }
+}
+// есть ли что рисовать: тогда большой холст карты обновляется раз в секунду (app.js isoDrawNow)
+function worldMovesBusy() { const m = S.wm; return !!m && ((m.mine || []).some((a) => a.state === 'go' || a.state === 'back') || (m.incoming || []).some((a) => a.fx != null && a.depart)); }
 function worldMoves(w) {
   if (!S.st) return;
-  const key = JSON.stringify(S.st.moves || {}), t = now();
-  if ((key !== S.wmKey || Date.now() - (S.wmAt || 0) > 30000) && Date.now() - (S.wmAt || 0) > 2000) { S.wmKey = key; S.wmAt = Date.now(); S.wmQuiet = true; send({ t: 'moves' }); }
-  const m = S.wm; if (!m) return;
+  const t = now(), m = S.wm; if (!m) return;
   const ox = w.cx - w.radius, oy = w.cy - w.radius;
   const P = (x, y) => { const p = tileScreen(x - ox, y - oy); return [p.sx + TW / 2, p.sy + TH / 2]; };
   const list = [];
@@ -100,12 +106,12 @@ function worldMoves(w) {
   }
   for (const a of m.incoming || []) if (a.fx != null && a.depart) { const hostile = ['attack', 'raid'].includes(a.mission); list.push({ f: [a.fx, a.fy], to: [a.tx, a.ty], t0: a.depart, t1: a.arrive, col: hostile ? WM_COL.inc : WM_COL.reinforce, ic: hostile ? 'inc' : 'reinf' }); }
   if (!list.length) return;
-  if (flowOn() && !flowTimer) flowTimer = setTimeout(flowTick, ANIM_MS); // значки армий движутся — перерисовка карты идёт и когда своего замка не видно
+  if (flowOn() && !flowTimer) flowTimer = setTimeout(flowTick, ANIM_MS); // значки армий движутся — перерисовка карты идёт и когда своего замка не видно (большой холст — раз в секунду)
   const g = ictx; g.save(); g.imageSmoothingEnabled = true; g.lineCap = 'round';
   for (const a of list) { // линии — под значками
     const A = P(...a.f), B = P(...a.to);
     g.setLineDash([]); g.lineWidth = 5; g.strokeStyle = 'rgba(0,0,0,0.35)'; g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.stroke();
-    g.setLineDash([7, 6]); g.lineDashOffset = -(Date.now() / 60) % 13; g.lineWidth = 2.5; g.strokeStyle = a.col; g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.stroke();
+    g.setLineDash([7, 6]); g.lineDashOffset = 0; g.lineWidth = 2.5; g.strokeStyle = a.col; g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.stroke();
     g.setLineDash([]); g.fillStyle = a.col; g.strokeStyle = 'rgba(0,0,0,0.6)'; g.lineWidth = 1.5; g.beginPath(); g.ellipse(B[0], B[1], 7, 3.5, 0, 0, Math.PI * 2); g.fill(); g.stroke(); // точка цели
   }
   for (const a of list) {

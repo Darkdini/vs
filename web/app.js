@@ -851,7 +851,9 @@ Iso.cv.className = 'iso';
 window.__iso = { Iso, tileScreen: (x, y) => tileScreen(x, y), cam: () => cam() }; // для автотестов
 let ictx = Iso.cv.getContext('2d'); // let: статичный слой карты мира рисуется теми же функциями в свой холст
 // плотность пикселей холста не больше 2: на телефонах с ×3 рисовать в 2,25 раза меньше точек (на глаз почти не видно)
-const isoDpr = () => Math.min(2, window.devicePixelRatio || 1);
+// земли перерисовываются целиком каждый кадр (жители между зданиями) — там холст чуть мельче: кадр в видеокарту легче
+let LANDS_DPR = 1.5;
+const isoDpr = () => Math.min(S.tab === 'lands' ? LANDS_DPR : 2, window.devicePixelRatio || 1);
 let PIC_LOADED = 0; // сколько картинок догрузилось — чтобы обновить готовый слой карты мира
 const IMGS = new Map();
 // перерисованная графика высокого качества: файл в HD[path] во столько раз крупнее, на карте рисуется в прежнем размере
@@ -1167,14 +1169,18 @@ function lvlFlush() {
 }
 
 // ров: кольцо клеток вокруг замка (прямые стороны, закруглённые углы, мосты у ворот); вода течёт по часовой стрелке
-const FLOW_N = 16, FLOW_MS = 165, ANIM_MS = 90; // кадр течения рва / частота перерисовки (плавнее для мельниц)
+const FLOW_N = 16, FLOW_MS = 165, ANIM_MS = 90, LANDS_ANIM_MS = 140; // земли перерисовываются целиком — реже (≈7 кадров в секунду), чтобы телефон не грелся // кадр течения рва / частота перерисовки (плавнее для мельниц)
 const flowOn = () => typeof SND === 'undefined' || SND.anim !== false;
 let flowTimer = null;
 function flowTick() { // перерисовка только пока открыт замок и вкладка видна
   flowTimer = null;
   if (!['castle', 'lands', 'world'].includes(S.tab) || document.hidden || !flowOn() || !Iso.cv.isConnected) return;
-  isoDraw(); flowTimer = setTimeout(flowTick, ANIM_MS);
+  isoDraw(); flowTimer = setTimeout(flowTick, animIdle() ? IDLE_ANIM_MS : S.tab === 'lands' ? LANDS_ANIM_MS : ANIM_MS);
 }
+// к игре полминуты не прикасались (телефон лежит) — анимация реже: меньше нагрев и расход батареи; первое касание — снова как обычно
+const IDLE_AFTER = 30000, IDLE_ANIM_MS = 400; let touchAt = Date.now();
+const animIdle = () => Date.now() - touchAt > IDLE_AFTER;
+for (const ev of ['pointerdown', 'keydown', 'wheel']) window.addEventListener(ev, () => { const was = animIdle(); touchAt = Date.now(); if (was && flowTimer) { clearTimeout(flowTimer); flowTimer = null; flowTick(); } }, { passive: true, capture: true });
 // фон вокруг королевства: одна цельная картинка (местность с лесом, рекой, скалами) под замком; камера не выходит за картинку.
 // Оживление (кадры воды, мельница, колесо) — если у картинки заданы water / mill / wheel.
 // замок на картинке-фоне: стены, ворота, река и 33 места (площадь Ратуши + 32 площадки) нарисованы на картинке; здания ставятся на площадки
@@ -1269,10 +1275,32 @@ function worldClearing(p) {
     g.scale(1, 0.55); g.fillStyle = gr; g.beginPath(); g.arc(R, cy0 / 0.55, R, 0, Math.PI * 2); g.fill(); CLEARING = cv; }
   const w = TW * 1.6, h = w * CLEARING.height / CLEARING.width; ictx.drawImage(CLEARING, p.sx + TW / 2 - w / 2, p.sy + TH / 2 - h / 2, w, h);
 }
+// свой замок на карте мира — на маленьком холсте прямо в слое карты (двигается вместе с ней): задняя половина кольца,
+// замок, передняя половина и прыгающая стрелка «Вы здесь». Перерисовывается каждый кадр, но он размером с замок — видеокарте легко
+const WMAIN = { key: '', at: 0, drew: false }, WRING = { cv: null, key: '', you: null };
+function worldRing(o, p, c, dpr) {
+  if (!o || !p) { if (WRING.cv) WRING.cv.style.display = 'none'; if (WRING.you) WRING.you.style.display = 'none'; return; }
+  if (!WRING.cv) {
+    WRING.cv = document.createElement('canvas'); WRING.cv.className = 'wring';
+    WRING.you = document.createElement('div'); WRING.you.className = 'wyou'; WRING.you.innerHTML = '<b>Вы здесь</b><svg viewBox="-1 -1 20 26"><path d="M5.5 0h7v10h5.5L9 24 0 10h5.5z" fill="#ffd84a" stroke="#7a4a00" stroke-width="1.5" stroke-linejoin="round"/></svg>';
+  }
+  if (WRING.cv.parentNode !== WV.inner || WRING.you.nextSibling || WRING.cv.nextSibling !== WRING.you) { WV.inner.appendChild(WRING.cv); WV.inner.appendChild(WRING.you); } // поверх слоя замков и лагерей
+  const bx = p.sx - TW * 0.5, by = p.sy - TH * 2.2, bw = TW * 2, bh = TH * 3.8, s = Math.min(4, Math.max(1, Math.ceil(c.z * dpr * 2) / 2));
+  WRING.cv.style.display = ''; Object.assign(WRING.you.style, { display: '', left: `${p.sx + TW / 2}px`, top: `${p.sy - TH * 0.8}px` });
+  const key = `${o.x}:${o.y}:${bx}:${by}:${s}:${PIC_LOADED}`; if (key === WRING.key) return; // кольцо и замок не меняются — холст не трогаем
+  WRING.key = key;
+  const cv = WRING.cv, W = Math.ceil(bw * s), H = Math.ceil(bh * s);
+  if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+  Object.assign(cv.style, { left: `${bx}px`, top: `${by}px`, width: `${bw}px`, height: `${bh}px` });
+  const g = cv.getContext('2d'), keep = ictx; g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H); g.setTransform(s, 0, 0, s, -bx * s, -by * s); g.imageSmoothingEnabled = false;
+  ictx = g;
+  try { myCastleRing(p, true, -1, true); worldObj(o, p, false, 0, true); myCastleRing(p, true, 1, true); } // задняя половина кольца — под замком, передняя — поверх
+  finally { ictx = keep; }
+}
 // кольцо под своим замком на карте мира: свечение и вращающиеся золотые черты; активный замок — ярче
-function myCastleRing(p, active, half) { // half: −1 — задняя (верхняя) половина, 1 — передняя (нижняя)
-  const x = ictx, cx = p.sx + TW / 2, cy = p.sy + TH * 0.3, t = Date.now() / 1000, rx = TW * 0.74, ry = TH * 0.74;
-  if (flowOn() && !flowTimer) flowTimer = setTimeout(flowTick, ANIM_MS);
+function myCastleRing(p, active, half, still) { // half: −1 — задняя (верхняя) половина, 1 — передняя (нижняя); still — без бегущих бликов (рисуется один раз)
+  const x = ictx, cx = p.sx + TW / 2, cy = p.sy + TH * 0.3, t = still ? 0.3 : Date.now() / 1000, rx = TW * 0.74, ry = TH * 0.74;
+  if (!still && flowOn() && !flowTimer) flowTimer = setTimeout(flowTick, ANIM_MS);
   x.save(); x.beginPath(); if (half < 0) x.rect(cx - rx - 20, cy - ry - 20, 2 * rx + 40, ry + 20); else x.rect(cx - rx - 20, cy, 2 * rx + 40, ry + 20); x.clip();
   const g = x.createRadialGradient(cx, cy, 2, cx, cy, rx); g.addColorStop(0, `rgba(255,220,90,${active ? 0.45 : 0.25})`); g.addColorStop(1, 'rgba(255,200,60,0)');
   x.fillStyle = g; x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); x.fill();
@@ -1441,7 +1469,15 @@ function isoDrawNow() {
   const dpr = isoDpr(), c = cam(), x = ictx;
   x.setTransform(1, 0, 0, 1, 0, 0);
   const wv = S.tab === 'world' && S.world; worldView(wv);
-  if (wv) x.clearRect(0, 0, Iso.cv.width, Iso.cv.height); // мир — прозрачный холст поверх слоёв фона и объектов
+  // мир: большой прозрачный холст поверх слоёв нужен только для линий походов — его перерисовываем при сдвиге карты
+  // и раз в секунду, когда армии в пути; кольцо и стрелка «Вы здесь» — на маленьком холсте у замка (WRING). Раньше каждый кадр
+  // (11 раз в секунду) в видеокарту уходил кадр во весь экран — на телефоне это и был главный тормоз карты
+  let wMain = true;
+  if (wv) {
+    const key = `${c.x}|${c.y}|${c.z}|${S.world.lv || 0}|${Iso.cv.width}|${Iso.cv.height}`, busy = typeof worldMovesBusy === 'function' && worldMovesBusy();
+    wMain = key !== WMAIN.key || (busy && Date.now() - WMAIN.at >= 1000) || (!busy && WMAIN.drew);
+    if (wMain) { WMAIN.key = key; WMAIN.at = Date.now(); WMAIN.drew = busy; x.clearRect(0, 0, Iso.cv.width, Iso.cv.height); }
+  }
   else { x.fillStyle = '#16240f'; x.fillRect(0, 0, Iso.cv.width, Iso.cv.height); }
   x.setTransform(c.z * dpr, 0, 0, c.z * dpr, c.x * dpr, c.y * dpr);
   x.imageSmoothingEnabled = false;
@@ -1476,17 +1512,10 @@ function isoDrawNow() {
     if (L.cv.parentNode !== WV.inner) WV.inner.appendChild(L.cv);
     L.cv.style.display = pm ? 'none' : ''; // секции — без замков и лагерей
     WV.inner.style.transform = `translate(${c.x}px, ${c.y}px) scale(${c.z})`;
-    const myRings = pm ? [] : w.objects.filter((o) => o.kind === 'castle' && S.st && o.castleId === S.st.castle.id).map((o) => [tileScreen(o.x - (w.cx - R0), o.y - (w.cy - R0)), true, o]);
-    for (const [p, , o] of myRings) { myCastleRing(p, true, -1); worldObj(o, p, false, 0, true); } // задняя половина кольца — под своим замком (замок поверх)
-    for (const [p, a] of myRings) myCastleRing(p, a, 1); // передняя половина кольца — поверх замка и соседей
-    if (!pm && typeof worldMoves === 'function') worldMoves(w); // армии в пути (watch.js)
-    for (const [p, a] of myRings) if (a) { // текущий замок: прыгающая золотая стрелка над ним и подпись «Вы здесь»
-      const x = ictx, cx = p.sx + TW / 2, top = p.sy - TH * 0.8 - Math.abs(Math.sin(Date.now() / 300)) * 8;
-      x.save(); x.fillStyle = '#ffd84a'; x.strokeStyle = '#7a4a00'; x.lineWidth = 1.5;
-      x.beginPath(); x.moveTo(cx, top + 14); x.lineTo(cx - 9, top); x.lineTo(cx - 3.5, top); x.lineTo(cx - 3.5, top - 10); x.lineTo(cx + 3.5, top - 10); x.lineTo(cx + 3.5, top); x.lineTo(cx + 9, top); x.closePath(); x.fill(); x.stroke();
-      x.font = 'bold 10px system-ui, sans-serif'; x.textAlign = 'center'; x.lineWidth = 3; x.strokeStyle = 'rgba(0,0,0,0.75)'; x.strokeText('Вы здесь', cx, top - 14); x.fillStyle = '#fff3b0'; x.fillText('Вы здесь', cx, top - 14);
-      x.restore();
-    }
+    const me = pm ? null : w.objects.find((o) => o.kind === 'castle' && S.st && o.castleId === S.st.castle.id);
+    worldRing(me, me && tileScreen(me.x - (w.cx - R0), me.y - (w.cy - R0)), c, dpr); // свой замок: кольцо и стрелка — на маленьком холсте
+    if (typeof worldMovesFetch === 'function') worldMovesFetch();
+    if (!pm && wMain && typeof worldMoves === 'function') worldMoves(w); // армии в пути (watch.js) — на большом холсте
   }
   if (typeof castleLife === "function") castleLife(c, dpr); // «Жизнь в замке» (castlelife.js): свой слой поверх замка, на других вкладках прячется
 }

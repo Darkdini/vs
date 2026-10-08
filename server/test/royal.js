@@ -1198,6 +1198,52 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.ok(Math.abs(sec - d / v * 3600 / (Number(process.env.SPEED) || 1) / 2) <= 1, `путь вдвое быстрее: ${sec}`);
     console.log(`✓ Армии ходят вдвое быстрее: 50 клеток мечниками — ${Math.round(sec / 60)} мин`);
   }
+  { // захват: +15% бунта за победное нападение с бунтарями (сколько бы их ни было), 100% — замок переходит, после захвата бунт 95%,
+    // в замке остаётся 1 бунтарь, бунт сам не утихает, в Храме снижается за ресурсы; свежезахваченный замок отбивают одной атакой
+    const luck0 = process.env.LUCK; process.env.LUCK = '0';
+    const mk = (login) => { const u = g.register({ login, password: '12345', race: 0 }).user; u.created = Date.now() - 60 * DAY; u.royal = 1e6; u.royalAt = Date.now(); u.lastSeen = Date.now(); return u; };
+    const A = mk('capA1'), Dd = mk('capD1'), B2 = mk('capB1'); g.adminAddCastles(Dd, 1);
+    const ca = g.castleOf(A), cb = g.castleOf(B2), tgt = g.castlesOf(Dd)[1]; g.mil(ca); g.mil(cb); g.mil(tgt); g.maxOut(ca); g.maxOut(cb); g.maxOut(tgt);
+    tgt.units = {}; tgt.squads = []; tgt.loyalty = 100;
+    const riot = (c) => Math.round(100 - c.loyalty);
+    const hit = (from, n, keep) => { if (!keep) tgt.riotAt = 0; from.units = { 200: 3000, 233: n }; from.squads = []; from.armies = []; const r = g.sendArmy(from, { from: 'castle', mission: 'attack', x: tgt.x, y: tgt.y }); assert.ok(!r.error, r.error); g.tickWorld(Date.now() + 1e10); g.tickWorld(Date.now() + 3e10); };
+    hit(ca, 3); assert.strictEqual(riot(tgt), 15, '3 бунтаря за одну атаку — всё равно +15%');
+    hit(ca, 1, true); assert.strictEqual(riot(tgt), 15, 'вторая атака в тот же час бунт не поднимает');
+    assert.ok(g.reportsOf(A.id).some((r) => r.data && r.data.riotWait > 0), 'в отчёте: бунт не вырос');
+    const L0 = tgt.loyalty; g.tick(tgt, Date.now() + 50 * 3600000); assert.strictEqual(tgt.loyalty, L0, 'бунт сам не утихает');
+    for (let k = 0; k < 5; k++) hit(ca, 1);
+    assert.ok(riot(tgt) === 90 && tgt.owner === Dd.id, `после 6 атак бунт 90%: ${riot(tgt)}`);
+    hit(ca, 2);
+    assert.ok(tgt.owner === A.id && riot(tgt) === 95 && tgt.units[233] === 1, `7-я атака — замок ваш, бунт 95%, 1 бунтарь в замке (${tgt.owner}, ${riot(tgt)}%, ${tgt.units[233]})`);
+    const rep = g.reportsOf(A.id).find((r) => r.data && r.data.captured); assert.ok(rep && rep.data.captured.rebel === 1, 'в отчёте: бунтарь остался в замке');
+    // Храм: снизить бунт за ресурсы (в захваченном замке Храм остался от прежнего хозяина)
+    const T = g.buildingLevel(tgt, 25); assert.ok(T > 0, 'Храм есть');
+    tgt.res = { ...tgt.res, wood: 0, stone: 0, iron: 0, food: 0 };
+    assert.ok(/Недостаточно/.test(g.calmRiot(A, tgt, 'all').error || ''), 'без ресурсов не снизить');
+    const per = g.calmPer(tgt); assert.strictEqual(per.wood, Math.round(400 * (1 - 0.025 * T)));
+    Object.assign(tgt.res, { wood: per.wood * 10, stone: per.stone * 10, iron: per.iron * 10, food: per.food * 10 });
+    assert.ok(g.calmRiot(A, tgt, 10).ok && riot(tgt) === 85 && tgt.res.wood < per.wood, 'на 10% — ровно за 10 долей');
+    // свежий захват уязвим: B одной победной атакой с бунтарём забирает замок (85% + 15% = 100%)
+    tgt.units = {}; tgt.riotAt = 0; cb.units = { 200: 3000, 233: 1 }; cb.armies = []; const rB = g.sendArmy(cb, { units: { 200: 3000, 233: 1 }, mission: 'attack', x: tgt.x, y: tgt.y }); assert.ok(!rB.error, rB.error); g.tickWorld(Date.now() + 1e10);
+    assert.ok(tgt.owner === B2.id && riot(tgt) === 95, 'замок отбит одной атакой');
+    Object.assign(tgt.res, { wood: 1e6, stone: 1e6, iron: 1e6, food: 1e6 });
+    assert.ok(g.calmRiot(B2, tgt, 'all').ok && riot(tgt) === 0, 'весь бунт снят');
+    assert.ok(/Бунта нет/.test(g.calmRiot(B2, tgt, 5).error || ''));
+    console.log(`✓ Захват: +15% бунта за победу с бунтарями, 7 атак — замок ваш (бунт 95%, бунтарь остался), бунт сам не утихает, Храм ${T} ур.: 1% = ${per.wood} каждого ресурса`);
+    if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
+  }
+  { // цены, которые раньше не влезали в Склад (75 200): науки 15–20, улучшения Кузницы/Школы магии; воскрешение генерала — по частям
+    const cat = require('../src/army').catalogJson();
+    const sci = (cat.scienceCost || []).filter(Boolean); assert.ok(sci.length === 20 && sci.every((c, i) => c.wood <= 75200 && (i === 0 || c.wood > sci[i - 1].wood)), 'науки 1–20 дорожают и влезают в Склад');
+    const { UNIT } = require('../src/army'); const big = Object.values(UNIT).find((x) => x.name === 'Изувер');
+    for (const k of ['a', 'd', 'm', 'md']) assert.ok(Object.values(g.forgeCost(big, k, 20).cost).every((v) => v <= 72000), `Изувер ${k} 20 ур. влезает в Склад`);
+    const u = g.register({ login: 'revfund', password: '12345', race: 3 }).user, c = g.castleOf(u); g.mil(c); g.maxOut(c);
+    c.general = { ...g.newGeneral(c, 60), dead: true }; c.deadGenerals = [];
+    const rc = g.reviveCostOf(c.general); assert.ok(rc.cost.wood > 75200, 'цена больше Склада');
+    let rounds = 0; while (!c.general.reviveAt && rounds < 20) { Object.assign(c.res, { wood: 70000, stone: 70000, iron: 70000, food: 70000, people: 6000 }); const r = g.reviveGeneral(c, u, 0, false); assert.ok(r.ok, r.error); rounds++; }
+    assert.ok(c.general.reviveAt && !c.general.fund, `воскрешение началось после ${rounds} взносов`);
+    console.log(`✓ Цены в пределах Склада: науки до 20 ур., Кузница; генерал 60 ур. (${rc.cost.wood.toLocaleString('ru-RU')} дерева) воскрешён за ${rounds} взносов`);
+  }
   try { fs.unlinkSync(DB); } catch {}
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });

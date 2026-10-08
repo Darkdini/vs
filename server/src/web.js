@@ -323,7 +323,7 @@ const API = {
     API.profile.call(this, { id: this.user.id, acct: m.acct, refresh: 1 });
   },
   ritual(m) { const c = pickCastle(this, m); if (!c) return; const r = this.game.ritual(this.user, c, m.id, !!m.cid && this.game.isPremium(this.user)); if (m.cid) API.kingdom.call(this); if (r.msg) this.toast(r.msg); this.result(r); },
-  calm(m) { const c = pickCastle(this, m); if (!c) return; const r = this.game.calmRiot(this.user, c); if (m && m.cid) API.kingdom.call(this); if (r.msg) this.toast(r.msg); this.result(r); },
+  calm(m) { const c = pickCastle(this, m); if (!c) return; const r = this.game.calmRiot(this.user, c, m && m.pct !== undefined ? m.pct : 'all'); if (m && m.cid) API.kingdom.call(this); if (r.msg) this.toast(r.msg); this.result(r); },
   magic(m) { const r = this.game.magicOp(this.castle, { unit: Number(m.unit), kind: m.kind }); if (r.msg) this.toast(r.msg); this.result(r); },
   forge(m) { const r = this.game.forgeOp(this.castle, { unit: Number(m.unit), kind: m.kind }); if (r.msg) this.toast(r.msg); this.result(r); },
   ally(m) {

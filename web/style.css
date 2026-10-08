@@ -938,7 +938,8 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .env.mv img { position: absolute; inset: 5px 9px; width: calc(100% - 18px); height: calc(100% - 10px); object-fit: contain; filter: drop-shadow(0 1px 1px #000a); }
 .env.mv b { position: absolute; inset: 0; display: grid; place-items: center; font: 700 22px var(--serif); color: #fff7d6; text-shadow: 0 0 3px #000, 0 1px 2px #000, 0 0 6px #000; }
 #mvInc { animation: incblink 1.2s ease-in-out infinite; }
-@keyframes incblink { 50% { filter: brightness(1.35) drop-shadow(0 0 6px #ff3a2a); } }
+@keyframes incblink { 50% { opacity: .55; } } /* только прозрачность — без перерисовки страницы */
+#mvInc { filter: drop-shadow(0 0 5px #ff3a2a); }
 /* генерал: как получить опыт */
 .gexp { display: grid; gap: 6px; margin: 6px 0 10px; font: min(17px, 4.2vw)/1.35 var(--serif); color: #3a2410; }
 .gexp > div { padding: 6px 10px; border: 1px solid #b08a5a; border-radius: 8px; background: #fff8e44d; }
@@ -1228,7 +1229,8 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 #top > #btnNews { width: 66px; height: 64px; margin-top: auto; background: url(gfx3d/top/btn_news.png) center / contain no-repeat; filter: drop-shadow(0 2px 2px #0008); animation: newsPulse 1.6s ease-in-out infinite; }
 #top > #btnNews::before { display: none; }
 #top > #btnNews.hidden { display: none; }
-@keyframes newsPulse { 50% { filter: drop-shadow(0 0 7px #d9a0ff) drop-shadow(0 2px 2px #0008); } }
+@keyframes newsPulse { 50% { transform: scale(1.07); } }
+#top > #btnNews { filter: drop-shadow(0 0 6px #d9a0ff) drop-shadow(0 2px 2px #0008); }
 .nlist { display: grid; gap: 8px; padding-bottom: 70px; }
 .ncard { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 8px 12px; border: 0; border-radius: 10px; color: #fff;
   background: linear-gradient(#b8724a, #6a3018); box-shadow: 0 2px 4px #0007, inset 0 1px 0 #fff4; text-shadow: 0 1px 1px #0009; }
@@ -1398,7 +1400,10 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 #qbtn b { position: absolute; top: -2px; right: -2px; min-width: 20px; height: 20px; border-radius: 10px; background: #c62828; color: #fff; font: bold 12px/20px system-ui, sans-serif; box-shadow: 0 0 0 2px #ffd54a; }
 #qbtn b:empty { display: none; }
 #qbtn.glow { animation: qglow 1.4s ease-in-out infinite; }
-@keyframes qglow { 0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(255,215,64,0)); } 50% { transform: scale(1.08); filter: drop-shadow(0 0 10px rgba(255,215,64,.95)); } }
+/* пульс — только размер (видеокарта, без перерисовки страницы); свечение — постоянное. Анимация фильтра раньше заставляла
+   браузер 60 раз в секунду перерисовывать страницу вместе с картой — главный тормоз на телефоне */
+@keyframes qglow { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+#qbtn.glow img, #stbtn.glow img, .qchest.ready > img, .qwin-box > img { filter: drop-shadow(0 0 7px rgba(255,215,64,.9)) drop-shadow(0 2px 3px rgba(0,0,0,.6)); }
 .qtabs { display: flex; gap: 6px; margin: 6px 0 10px; }
 .qtabs button { flex: 1; position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; border: 2px solid #8a5a2b; border-radius: 10px; background: linear-gradient(#5a3519, #3b2110); color: #f3d9a4; font: bold 13px system-ui, sans-serif; }
 .qtabs button img { width: 34px; height: 34px; object-fit: contain; }
@@ -1422,7 +1427,8 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .qrew span { display: inline-flex; align-items: center; gap: 3px; }
 .qrew .ri { width: 18px; height: 18px; }
 .qbtn { display: block; width: 100%; margin-top: 8px; padding: 10px; border: 2px solid #ffd36b; border-radius: 10px; background: linear-gradient(#3fae2a, #1f6e12); color: #fff; font: bold 15px system-ui, sans-serif; text-shadow: 0 1px 1px #000; animation: qpulse 1.2s ease-in-out infinite; }
-@keyframes qpulse { 50% { box-shadow: 0 0 14px rgba(255,214,90,.9); } }
+@keyframes qpulse { 50% { transform: scale(1.03); } }
+.qbtn { box-shadow: 0 0 10px rgba(255,214,90,.8); }
 .qdone-l { margin-top: 6px; text-align: center; color: #2e7d32; font-weight: bold; }
 .qchest { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background: linear-gradient(rgba(120,70,20,.15), rgba(120,70,20,.3)); border: 2px dashed #8a5a2b; border-radius: 12px; padding: 10px; }
 .qchest > img { width: 64px; height: 64px; object-fit: contain; }
@@ -1527,7 +1533,7 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 #tbtn b { min-width: 20px; height: 20px; border-radius: 10px; background: #fff; color: #b3141c; font: 700 12px/20px system-ui; text-align: center; }
 #tbtn b:empty { display: none; }
 #tbtn.soon { animation-duration: .6s; }
-@keyframes tpulse { 0%, 100% { box-shadow: 0 0 0 2px #0006, 0 0 8px #ff2a2a66; } 50% { box-shadow: 0 0 0 2px #0006, 0 0 22px #ff3030; } }
+@keyframes tpulse { 0%, 100% { opacity: 1; } 50% { opacity: .8; } }
 .tinfo { margin-top: 3px; font-size: 12px; } .tunits { display: flex; flex-wrap: wrap; gap: 4px 8px; margin-top: 3px; }
 .tu { display: inline-flex; align-items: center; gap: 2px; } .tu img { width: 22px; height: 22px; object-fit: contain; }
 .mrow .wic { width: 40px; height: 40px; flex: none; margin-right: 8px; align-self: center; }
@@ -1547,7 +1553,8 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .bs-top div { display: flex; gap: 10px; padding: 4px 8px; border-bottom: 1px solid #0002; }
 .bs-top b { width: 24px; color: #8a5a20; } .bs-top span { flex: 1; } .bs-top em { font-style: normal; font-weight: 700; }
 .bs-none { text-align: center; } .bs-none img { width: 140px; opacity: .6; filter: grayscale(.6); }
-@keyframes bglow { 0%, 100% { box-shadow: 0 0 4px #ff6a2a66; } 50% { box-shadow: 0 0 14px #ff4a1a; } }
+@keyframes bglow { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.02); } }
+.wlc-boss { box-shadow: 0 0 10px #ff4a1a99; }
 .wlc-boss { display: flex; align-items: center; gap: 8px; margin: 8px 0 2px; padding: 4px 6px; border: 2px solid #b3401c; border-radius: 12px; background: linear-gradient(#ffd9c0, #f0a070); animation: bglow 1.6s ease-in-out infinite; }
 .wlc-boss img { width: 46px; height: 46px; flex: none; } .wlc-boss span { flex: 1; text-align: left; font: 700 min(15px, 3.8vw)/1.15 var(--serif); color: #5a1408; }
 .wlc-boss button { flex: none; padding: 6px 12px; border: 2px solid #7a1a0a; border-radius: 14px; background: linear-gradient(#e8503a, #a0180c); color: #fff; font: 700 min(15px, 3.8vw) var(--serif); text-shadow: 0 1px 2px #0008; }
@@ -1758,7 +1765,7 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .advdone { text-align: center; padding: 10px; } .advdone img { width: 110px; } .advdone p { font: 600 17px var(--serif); color: #4a2410; }
 /* советник ведёт: пульсирующая кнопка нужного здания и рука над ней */
 .advpulse { position: relative; animation: advpulse 1s ease-in-out infinite; box-shadow: 0 0 0 3px #ffd84a, 0 0 14px 4px #ffc94acc !important; }
-@keyframes advpulse { 0%, 100% { box-shadow: 0 0 0 3px #ffd84a, 0 0 10px 2px #ffc94a99; } 50% { box-shadow: 0 0 0 4px #fff2a8, 0 0 18px 6px #ffc94a; } }
+@keyframes advpulse { 0%, 100% { opacity: 1; } 50% { opacity: .78; } }
 .advhand2 { position: absolute; right: 10%; top: -34px; width: 34px; pointer-events: none; filter: drop-shadow(0 2px 3px #000a); animation: advtap 1s ease-in-out infinite; z-index: 3; }
 #advbar .ab-t { cursor: help; }
 /* окно «Задание выполнено!» (quests.js questDone) */
@@ -1918,7 +1925,8 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .chgold small { font-weight: 400; font-size: 15px; }
 .chgold.won { flex-direction: column; text-align: center; animation: none; background: radial-gradient(#fff8d0, #f0c860); }
 .chgold.won img { width: 150px; animation: chPop .5s ease-out; }
-@keyframes chGlow { 50% { box-shadow: 0 0 16px #ffd84a; } }
+@keyframes chGlow { 50% { transform: scale(1.02); } }
+.chgold { box-shadow: 0 0 10px #ffd84a; }
 .chstreak { margin: 10px 0 6px; text-align: center; font: 16px/1.35 var(--serif); }
 .chdots { display: flex; justify-content: center; gap: 6px; margin-bottom: 4px; }
 .chdots i { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; border: 2px solid #a86a3a; background: #e8d0a8; font: 700 14px system-ui, sans-serif; font-style: normal; color: #8a6a4a; }
@@ -2084,7 +2092,7 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .smnote.ok { border-color: #3a8a1a; background: #e6f6d8; color: #1f5a0a; }
 /* сообщение старшего модератора в чате — светится рамка таблички (фиолетовая с золотом, как его герб), фон обычный */
 #sheetBody .cm.smodmsg, .cm.smodmsg { position: relative; border: 2px solid #e8b84a; outline: 2px solid #9a3ae8; outline-offset: -5px; margin-top: 6px; margin-bottom: 6px; box-shadow: 0 0 8px 1px #b06aff99; animation: smodglow 2.4s ease-in-out infinite; }
-@keyframes smodglow { 50% { box-shadow: 0 0 12px 3px #c88affcc; } }
+@keyframes smodglow { 0%, 100% { opacity: 1; } 50% { opacity: .9; } }
 #sheetBody .cm.smodmsg b, .cm.smodmsg b { color: #6a1aa8; }
 /* скриншоты новостей */
 .npics { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0; }
@@ -2308,3 +2316,11 @@ details.rarmy > summary::-webkit-details-marker { display: none; }
 details.rarmy[open] > summary { filter: brightness(1.12); }
 .rul { margin: 4px 0; }
 .cinfo.ctime { font-size: 20px; margin: 8px 0; }
+/* свой замок на карте (кольцо и стрелка «Вы здесь», app.js worldRing) — отдельный слой: его кадры не пересобирают огромный слой карты */
+.wview-in canvas.wring { will-change: transform; pointer-events: none; }
+/* «Вы здесь» над своим замком на карте — элемент в слое карты: прыгает силами видеокарты, холсты не перерисовываются */
+.wview-in .wyou { position: absolute; width: 0; height: 0; pointer-events: none; }
+.wview-in .wyou svg { position: absolute; left: -10px; top: -11px; width: 20px; height: 26px; overflow: visible; animation: wyou .6s ease-in-out infinite alternate; }
+.wview-in .wyou b { position: absolute; left: -40px; width: 80px; top: -27px; text-align: center; font: bold 10px/12px system-ui, sans-serif; color: #fff3b0;
+  text-shadow: 0 0 2px #000, 0 0 2px #000, 1px 1px 1px #000, -1px -1px 1px #000; animation: wyou .6s ease-in-out infinite alternate; }
+@keyframes wyou { from { transform: translateY(0); } to { transform: translateY(-8px); } }

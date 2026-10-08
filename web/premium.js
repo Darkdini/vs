@@ -57,12 +57,12 @@ function kingdomWin() {
       <div class="chips">${x.cost ? RES4.map((k) => `<span>${RES_IC[k]} ${fmtFull(x.cost[k])}</span>`).join('') : ''}${x.gold ? `<span>${gimg('coins_s.png', 'ri')} ${x.gold}</span>` : ''}</div>
       ${x.until > Date.now() ? `<div class="small muted">Действует ещё <span class="cd" data-e="${x.until}"></span></div>` : `<button class="pbtn" data-kritual="${x.id}">Провести</button>`}</div>`).join('')}` : '';
   return `${ribbon(`Королевство — ${list.length} ${list.length === 1 ? 'замок' : 'замков'}`)}
-    ${list.map((c) => `<div class="kcard"><div class="khead"><b>${esc(c.name)}</b> <small>${c.x}:${c.y} · лояльность ${c.loyalty}%</small></div>
+    ${list.map((c) => `<div class="kcard"><div class="khead"><b>${esc(c.name)}</b> <small>${c.x}:${c.y} · бунт ${100 - c.loyalty}%</small></div>
       <div class="chips">${RES4.map((k) => `<span>${RES_IC[k]} ${fmtN(c.res[k])}</span>`).join('')}<span>👥 ${fmtN(c.res.people)}</span></div>
       ${c.training.length ? `<div class="small">Тренируются: ${c.training.map((t) => `${esc(t.unit)} ×${t.left} <span class="cd" data-e="${t.end}"></span>`).join(', ')}</div>` : '<div class="small muted">Тренировок нет.</div>'}
       ${c.units.length ? `<div class="arow"><select data-kunit="${c.id}">${c.units.map((u) => `<option value="${u.id}">${esc(u.name)}</option>`).join('')}</select>
         <input type="number" min="1" value="10" inputmode="numeric" data-kcount="${c.id}" style="max-width:80px"><button class="btn primary small" data-ktrain="${c.id}">Обучить</button></div>` : '<div class="small muted">Нет казарм для тренировки.</div>'}
-      ${c.loyalty < 100 && c.temple ? `<button class="btn small" data-kcalm="${c.id}">Усмирить бунт</button>` : ''}</div>`).join('')}
+      ${c.loyalty < 100 && c.temple ? `<button class="btn small" data-kcalm="${c.id}">Снять весь бунт (${100 - c.loyalty}%)</button>` : ''}</div>`).join('')}
     ${rit}`;
 }
 $('#sheetBody').addEventListener('click', (e) => {
@@ -70,5 +70,5 @@ $('#sheetBody').addEventListener('click', (e) => {
   const d = t.dataset;
   if (d.ktrain) { const id = d.ktrain; return send({ t: 'train', cid: Number(id), unit: Number($(`[data-kunit="${id}"]`).value), count: Number($(`[data-kcount="${id}"]`).value) || 1 }); }
   if (d.kritual) return send({ t: 'ritual', id: d.kritual, cid: Number($('[data-kpay]').value) });
-  if (d.kcalm) return send({ t: 'calm', cid: Number(d.kcalm) });
+  if (d.kcalm) return send({ t: 'calm', cid: Number(d.kcalm), pct: 'all' });
 });
