@@ -178,7 +178,7 @@ Object.assign(UNIT[MERCHANT_ID], { speed: 60, notrain: true, carry: 45 }); // т
 const GENERAL_ID = 236;
 const TRADE_MAX = Math.max(5, Math.round(600 / SPEED)); // торговцы идут не дольше 10 минут куда угодно
 const OWN_TRADE = 3; // торговцы между своими замками — втрое быстрее (180 полей/час)
-const RIOT_STEP = 15, RIOT_CAPTURED = 95, RIOT_GAP = Math.round(3600000 / SPEED); // бунт: +15% за победное нападение с бунтарями (сколько бы их ни было), не чаще раза в час на замок; после захвата в замке бунт 95%
+const RIOT_STEP = 15, RIOT_CAPTURED = 95; // бунт: +15% за каждое победное нападение с бунтарями (сколько бы их ни было в одной армии; армии подряд — каждая по 15%); после захвата в замке бунт 95%
 const MARCH = 2; // все армии и торговцы ходят вдвое быстрее (походы, возврат, подкрепления) — экспедиций не касается
 const CAMP_FAST = 3; // набеги и нападения на лагеря разбойников (и логово «Тёмных земель») — втрое быстрее, туда и обратно
 const RECALL_MS = 4 * 60 * 1000; // армию, отправленную по ошибке, можно вернуть в первые 4 минуты (реальные, не зависят от скорости мира)
@@ -1188,6 +1188,10 @@ function install(Game, helpers) {
       a.cargo = null; return this.goBack(c, a, t);
     }
     if (a.mission === 'expedition') return this.expedition(c, a, t);
+    if (target && HOSTILE.includes(a.mission) && target.owner === c.owner) { // пока шли, замок уже захватили (предыдущие армии) — без боя домой
+      this.report(c.owner, `Поход на ${target.name} отменён`, ['Замок уже ваш — армия вернулась домой без боя.'], 'battle');
+      return this.goBack(c, a, t);
+    }
     if (target && HOSTILE.includes(a.mission) && this.sameAlliance(c.owner, target.owner)) { // пока шли, стали союзниками — без боя домой
       this.report(c.owner, `Поход на ${target.name} отменён`, [`${(this.ownerOf(target) || {}).login || 'Игрок'} — в Вашем альянсе: нападать на союзников нельзя. Армия вернулась домой.`], 'battle');
       return this.goBack(c, a, t);
@@ -1284,25 +1288,23 @@ function install(Game, helpers) {
         if (L < L0) { target.levels[0][cell] = L; if (!L) target.grid[0][cell] = -1; siege.push(`${C.BY_ID[bid].name}: ${L0} → ${L} ур.`); siegeN += L0 - L; }
       }
     }
-    // бунтари: победное нападение, в котором выжил хоть один бунтарь, поднимает бунт в замке на 15% (сколько бы бунтарей ни было —
-    // у хозяина есть время защититься); бунт 100% — замок переходит к нападающему, один бунтарь остаётся в нём
-    let loyalty = null, captured = null, capitalBlocked = false, royalBlocked = null, rebelStay = null, riotWait = 0;
+    // бунтари: каждое победное нападение, в котором выжил хоть один бунтарь, поднимает бунт в замке на 15% (сколько бы бунтарей ни было
+    // в этой армии); несколько армий подряд — каждая по 15%; бунт 100% — замок переходит к нападающему, один бунтарь остаётся в нём
+    let loyalty = null, captured = null, capitalBlocked = false, royalBlocked = null, rebelStay = null;
     const rebels = a.mission === 'attack' && win ? (a.units[233] || 0) : 0;
     if (rebels) {
       const drop = RIOT_STEP;
       if (target && this.isCapital(target)) capitalBlocked = true;
-      else if (target && t - (target.riotAt || 0) < RIOT_GAP) riotWait = Math.ceil((RIOT_GAP - (t - target.riotAt)) / 60000); // недавно уже поднимали — защитник успевает ответить
       else if (target) {
-        const from = Math.round(target.loyalty); target.loyalty = Math.max(0, target.loyalty - drop); target.loyAt = t; target.riotAt = t;
+        const from = Math.round(target.loyalty); target.loyalty = Math.max(0, target.loyalty - drop); target.loyAt = t;
         loyalty = { from, to: Math.round(target.loyalty) };
         if (target.loyalty <= 0) {
           if (this.royalCanCapture(att)) { this.royalSpend(att); captured = this.captureCastle(att, target); captured.rebel = 1; rebelStay = target; }
           else { target.loyalty = 1; royalBlocked = { have: Math.floor(att.royal), need: this.royalNeed(att), wait: this.royalWaitDays(att) }; } // не хватает лояльности населения (Резиденция)
         }
-      } else if (npc && npc.ruins && t - ((((this.db.npc || {})[where]) || {}).riotAt || 0) < RIOT_GAP) riotWait = Math.ceil((RIOT_GAP - (t - this.db.npc[where].riotAt)) / 60000);
-      else if (npc && npc.ruins) {
+      } else if (npc && npc.ruins) {
         const st = (this.db.npc = this.db.npc || {})[where] || (this.db.npc[where] = {});
-        const from = Math.round(st.loyalty ?? 100); st.loyalty = Math.max(0, from - drop); st.riotAt = t;
+        const from = Math.round(st.loyalty ?? 100); st.loyalty = Math.max(0, from - drop);
         loyalty = { from, to: st.loyalty };
         if (st.loyalty <= 0) {
           if (this.royalCanCapture(att)) { this.royalSpend(att); delete this.db.npc[where]; captured = this.foundCaptured(att, a.x, a.y); captured.rebel = 1; rebelStay = this.castleAt(a.x, a.y); }
@@ -1327,7 +1329,7 @@ function install(Game, helpers) {
       att: { id: att.id, login: att.login, race: att.race, castle: c.name, army: a.squad ? a.squad.name : 'Замковая армия', cx: c.x, cy: c.y, rating: this.rating(c), lossRes: lossRes(aLost), units: side(a.units, aLost), general: a.general || genDied ? (c.general ? c.general.level : 0) : 0, generalDied: genDied, genExp: genExpA },
       def: target ? { id: captured ? captured.prevOwner : defUser.id, login: captured ? captured.prevLogin : defUser.login, race: captured ? captured.prevRace : defUser.race, castle: target.name, rating: this.rating(target), lossRes: lossRes(dLost), units: side(dAll, dLost), wall: this.bonus(target).wall, general: target.general && !target.general.away ? target.general.level : 0, generalDied: genDiedD, genExp: genExpD }
         : { npc: npc.name, img: obj.img, lossPct: Math.round(dLoss * 100), garrison: R.garrison },
-      loot, siege, loyalty, riotWait, capitalBlocked, royalBlocked, captured: captured ? { name: captured.name, x: a.x, y: a.y, rebel: captured.rebel || 0 } : null,
+      loot, siege, loyalty, capitalBlocked, royalBlocked, captured: captured ? { name: captured.name, x: a.x, y: a.y, rebel: captured.rebel || 0 } : null,
     };
     const lines = [
       `${MISSIONS[a.mission]} на ${tname}. ${win ? 'Победа!' : 'Поражение.'}`,
@@ -1337,7 +1339,6 @@ function install(Game, helpers) {
       ...siege,
     ];
     if (loyalty) lines.push(`Бунт в замке: ${100 - loyalty.from}% → ${100 - loyalty.to}%`);
-    if (riotWait) lines.push(`Бунт не вырос: в этом замке его уже поднимали меньше часа назад (снова — через ${riotWait} мин).`);
     if (royalBlocked) lines.push(royalBlocked.wait ? `Захват не удался: первый замок можно захватить только через ${royalBlocked.wait} дн. игры.` : `Захват не удался: не хватает лояльности населения (есть ${royalBlocked.have}, нужно ${royalBlocked.need}) — см. Резиденцию.`);
     if (capitalBlocked) lines.push('Столицу захватить нельзя — бунтари бессильны.');
     if (captured) lines.push(`Замок захвачен! Теперь это ваш замок «${captured.name}».`);

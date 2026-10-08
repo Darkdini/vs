@@ -359,17 +359,17 @@ function reportHtml(r) {
   const result = d.win ? ['rgood', 'Победа атаки.'] : ['rbad', 'Поражение атаки.'];
   const resRow = (o, keys = ['wood', 'stone', 'iron', 'food', 'people']) => `<div class="rres">${keys.map((k) => `<span>${RES_IC[k]} ${fmtFull(Math.round((o && o[k]) || 0))}</span>`).join('')}</div>`;
   const reb = d.att.units && d.att.units[233], rebLeft = reb ? reb.was - reb.lost : 0, rebU = unitById(233);
+  // строки — блоками (без <br> после строки ресурсов, иначе пустая строка)
   const top = `<div class="rp">Тип похода: ${esc(M().missions[d.mission] || 'Нападение')}<br>
       ${d.luck !== undefined ? `${ic('horse')} Удача атаки ${d.luck} %<br>` : ''}
       ${ic('star')} Результат атаки: <span class="${result[0]}">${result[1]}</span>
-      ${d.loot && RES4.some((k) => d.loot[k] > 0) ? `<br>Было украдено ресурсов${d.att.army ? ` армией ${esc(d.att.army)}` : ''}:${resRow(d.loot, RES4)}` : ''}
-      ${d.loyalty ? `<br>Бунт в замке после нападения: ${100 - d.loyalty.to}% ${d.captured ? `<span class="rgood">${d.def.npc ? 'Руины захвачены!' : 'Замок захвачен!'}</span>`
-        : d.royalBlocked ? `<span class="rbad">Замок не захвачен: ${d.royalBlocked.wait ? `захват возможен через ${d.royalBlocked.wait} дн. игры` : 'не хватает лояльности населения'}.</span>` : ''}` : ''}
-      ${d.capitalBlocked ? '<br><span class="rbad">Столицу захватить нельзя.</span>' : ''}
-      ${d.riotWait ? `<br>Бунт не вырос: в этом замке его уже поднимали меньше часа назад (снова — через ${d.riotWait} мин).` : ''}
-      ${d.captured && rebU && (d.captured.rebel || rebLeft) ? `<br><img class="ric" src="${unitSrc(rebU, d.att.race)}" alt=""> ${d.captured.rebel || rebLeft} ${plural(d.captured.rebel || rebLeft, 'Бунтарь остался', 'Бунтаря остались', 'Бунтарей остались')} в замке.` : ''}
-      ${(d.siege || []).length ? `<br>${d.siege.map(esc).join('<br>')}` : ''}
-      ${d.gear ? `<br>${esc(d.gear)}` : ''}</div>`;
+      ${d.loot && RES4.some((k) => d.loot[k] > 0) ? `<div>Было украдено ресурсов${d.att.army ? ` армией ${esc(d.att.army)}` : ''}:</div>${resRow(d.loot, RES4)}` : ''}
+      ${d.loyalty ? `<div>Бунт в замке после нападения: ${100 - d.loyalty.to}% ${d.captured ? `<span class="rgood">${d.def.npc ? 'Руины захвачены!' : 'Замок захвачен!'}</span>`
+        : d.royalBlocked ? `<span class="rbad">Замок не захвачен: ${d.royalBlocked.wait ? `захват возможен через ${d.royalBlocked.wait} дн. игры` : 'не хватает лояльности населения'}.</span>` : ''}</div>` : ''}
+      ${d.capitalBlocked ? '<div><span class="rbad">Столицу захватить нельзя.</span></div>' : ''}
+      ${d.captured && rebU && (d.captured.rebel || rebLeft) ? `<div><img class="ric" src="${unitSrc(rebU, d.att.race)}" alt=""> ${d.captured.rebel || rebLeft} ${plural(d.captured.rebel || rebLeft, 'Бунтарь остался', 'Бунтаря остались', 'Бунтарей остались')} в замке.</div>` : ''}
+      ${(d.siege || []).map((x) => `<div>${esc(x)}</div>`).join('')}
+      ${d.gear ? `<div>${esc(d.gear)}</div>` : ''}</div>`;
   const lossLine = (L, W) => `${ic('skull')} Общие потери: ${fmtFull(L)} из ${fmtFull(W)} ( ${pct(L, W)}% )`;
   // «Армия атаки» / «Армия защиты» — раскрываются нажатием: потери, потери в ресурсах, по юнитам «погибло из было», генерал
   const unitRows = (units, race) => Object.entries(units || {}).map(([id, v]) => { const u = unitById(id); return u ? `<div class="rul"><img class="ric" src="${unitSrc(u, race)}" alt=""> ${esc(u.name)}: ${fmtFull(v.lost)} из ${fmtFull(v.was)}</div>` : ''; }).join('');

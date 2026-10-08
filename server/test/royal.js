@@ -1206,10 +1206,8 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     const ca = g.castleOf(A), cb = g.castleOf(B2), tgt = g.castlesOf(Dd)[1]; g.mil(ca); g.mil(cb); g.mil(tgt); g.maxOut(ca); g.maxOut(cb); g.maxOut(tgt);
     tgt.units = {}; tgt.squads = []; tgt.loyalty = 100;
     const riot = (c) => Math.round(100 - c.loyalty);
-    const hit = (from, n, keep) => { if (!keep) tgt.riotAt = 0; from.units = { 200: 3000, 233: n }; from.squads = []; from.armies = []; const r = g.sendArmy(from, { from: 'castle', mission: 'attack', x: tgt.x, y: tgt.y }); assert.ok(!r.error, r.error); g.tickWorld(Date.now() + 1e10); g.tickWorld(Date.now() + 3e10); };
+    const hit = (from, n) => { from.units = { 200: 3000, 233: n }; from.squads = []; from.armies = []; const r = g.sendArmy(from, { from: 'castle', mission: 'attack', x: tgt.x, y: tgt.y }); assert.ok(!r.error, r.error); g.tickWorld(Date.now() + 1e10); g.tickWorld(Date.now() + 3e10); };
     hit(ca, 3); assert.strictEqual(riot(tgt), 15, '3 бунтаря за одну атаку — всё равно +15%');
-    hit(ca, 1, true); assert.strictEqual(riot(tgt), 15, 'вторая атака в тот же час бунт не поднимает');
-    assert.ok(g.reportsOf(A.id).some((r) => r.data && r.data.riotWait > 0), 'в отчёте: бунт не вырос');
     const L0 = tgt.loyalty; g.tick(tgt, Date.now() + 50 * 3600000); assert.strictEqual(tgt.loyalty, L0, 'бунт сам не утихает');
     for (let k = 0; k < 5; k++) hit(ca, 1);
     assert.ok(riot(tgt) === 90 && tgt.owner === Dd.id, `после 6 атак бунт 90%: ${riot(tgt)}`);
@@ -1224,11 +1222,19 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     Object.assign(tgt.res, { wood: per.wood * 10, stone: per.stone * 10, iron: per.iron * 10, food: per.food * 10 });
     assert.ok(g.calmRiot(A, tgt, 10).ok && riot(tgt) === 85 && tgt.res.wood < per.wood, 'на 10% — ровно за 10 долей');
     // свежий захват уязвим: B одной победной атакой с бунтарём забирает замок (85% + 15% = 100%)
-    tgt.units = {}; tgt.riotAt = 0; cb.units = { 200: 3000, 233: 1 }; cb.armies = []; const rB = g.sendArmy(cb, { units: { 200: 3000, 233: 1 }, mission: 'attack', x: tgt.x, y: tgt.y }); assert.ok(!rB.error, rB.error); g.tickWorld(Date.now() + 1e10);
+    tgt.units = {}; cb.units = { 200: 3000, 233: 1 }; cb.armies = []; const rB = g.sendArmy(cb, { units: { 200: 3000, 233: 1 }, mission: 'attack', x: tgt.x, y: tgt.y }); assert.ok(!rB.error, rB.error); g.tickWorld(Date.now() + 1e10);
     assert.ok(tgt.owner === B2.id && riot(tgt) === 95, 'замок отбит одной атакой');
     Object.assign(tgt.res, { wood: 1e6, stone: 1e6, iron: 1e6, food: 1e6 });
     assert.ok(g.calmRiot(B2, tgt, 'all').ok && riot(tgt) === 0, 'весь бунт снят');
     assert.ok(/Бунта нет/.test(g.calmRiot(B2, tgt, 5).error || ''));
+    // 7 армий с бунтарями сразу, одна за другой — каждая по 15%, замок переходит
+    const C2 = mk('capC1'); g.adminAddCastles(C2, 1); const t2 = g.castlesOf(C2)[1]; g.mil(t2); t2.units = {}; t2.squads = []; t2.loyalty = 100;
+    ca.units = { 200: 21000, 233: 7 }; ca.squads = []; ca.armies = [];
+    ca.units = { 200: 24000, 233: 8 };
+    for (let k = 0; k < 8; k++) assert.ok(!g.sendArmy(ca, { units: { 200: 3000, 233: 1 }, mission: 'attack', x: t2.x, y: t2.y }).error);
+    g.tickWorld(Date.now() + 1e10);
+    assert.ok(t2.owner === A.id && riot(t2) === 95, `7 армий подряд — замок захвачен (${t2.owner === A.id}, ${riot(t2)}%)`);
+    assert.ok(g.reportsOf(A.id).some((r) => /Замок уже ваш/.test((r.lines || []).join(' '))) && t2.units[200] === undefined, 'восьмая армия пришла в уже свой замок — без боя домой');
     console.log(`✓ Захват: +15% бунта за победу с бунтарями, 7 атак — замок ваш (бунт 95%, бунтарь остался), бунт сам не утихает, Храм ${T} ур.: 1% = ${per.wood} каждого ресурса`);
     if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
   }
