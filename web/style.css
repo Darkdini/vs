@@ -2300,7 +2300,8 @@ body.menuopen #advbar, body.menuopen #advhand { display: none; } /* открыт
 .cpbtns { justify-content: center; margin: 4px 0 10px; }
 /* «Вернуть армию в замок» — первые 4 минуты похода */
 .recallbtn { margin: 4px 0 10px; font-size: 17px; }
-.recallbtn small { font-size: 14px; opacity: .9; }
+.recallbtn small { font-size: 14px; opacity: .95; }
+.recallbtn .cd { color: #ffe08a; font-weight: 700; }
 /* отчёт о бое как в оригинале: «Армия атаки» / «Армия защиты» раскрываются нажатием */
 details.rarmy > summary { list-style: none; cursor: pointer; }
 details.rarmy > summary::-webkit-details-marker { display: none; }
