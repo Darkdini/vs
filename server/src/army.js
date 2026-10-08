@@ -1465,7 +1465,7 @@ function install(Game, helpers) {
       for (const a of c.armies || []) mine.push({ id: a.id, castle: c.name, cx: c.x, cy: c.y, mission: a.mission, x: a.x, y: a.y, state: a.state, depart: a.depart, arrive: a.arrive, back: a.back, sec: a.sec,
         stayName: a.state === 'stay' && this.db.castles[a.stayAt] ? this.db.castles[a.stayAt].name : null, n: Object.values(a.units).reduce((s, k) => s + k, 0),
         units: a.units, general: !!a.general, army: a.squad ? a.squad.name : 'Армия', to: this.placeName(a.x, a.y) });
-      inc.push(...this.incoming(c));
+      inc.push(...this.incoming(c).filter((a) => a.from !== user.login)); // свои армии между своими замками — уже в списке «свои»
     }
     return { mine, incoming: inc.sort((p, q) => p.arrive - q.arrive) };
   };
@@ -1477,7 +1477,7 @@ function install(Game, helpers) {
       for (const a of c.armies || []) if (a.state === 'go' || a.state === 'wait') {
         if (a.mission === 'reinforce') reinf++; else if (['attack', 'raid', 'scout'].includes(a.mission)) att++;
       }
-      for (const a of this.incoming(c)) if (a.mission === 'reinforce') reinf++; else if (['attack', 'raid'].includes(a.mission)) inc++;
+      for (const a of this.incoming(c)) if (a.from === user.login) continue; else if (a.mission === 'reinforce') reinf++; else if (['attack', 'raid'].includes(a.mission)) inc++;
     }
     return { reinf, att, inc, home };
   };
