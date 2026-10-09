@@ -9,6 +9,7 @@ const path = require('path');
 const zlib = require('zlib');
 const https = require('https');
 const crypto = require('crypto');
+const { apiTarget } = require('./tgauth'); // Bot API напрямую или через зарубежного посредника (TG_API)
 
 const MAGIC = Buffer.from('WARBK1');
 const TG_MAX = 49 * 1024 * 1024; // бот может отправить файл до 50 МБ
@@ -35,7 +36,8 @@ function tgSend(token, method, fields, file) {
     if (file) parts.push(Buffer.from(`--${b}\r\nContent-Disposition: form-data; name="document"; filename="${file.name}"\r\nContent-Type: application/octet-stream\r\n\r\n`), file.data, Buffer.from('\r\n'));
     parts.push(Buffer.from(`--${b}--\r\n`));
     const body = Buffer.concat(parts);
-    const req = https.request({ host: 'api.telegram.org', path: `/bot${token}/${method}`, method: 'POST', timeout: 120000, headers: { 'Content-Type': `multipart/form-data; boundary=${b}`, 'Content-Length': body.length } }, (res) => {
+    const t = apiTarget();
+    const req = https.request({ host: t.host, port: t.port, path: `${t.prefix}/bot${token}/${method}`, method: 'POST', timeout: 120000, headers: { 'Content-Type': `multipart/form-data; boundary=${b}`, 'Content-Length': body.length } }, (res) => {
       let s = ''; res.setEncoding('utf8'); res.on('data', (d) => { s += d; });
       res.on('end', () => { let j = null; try { j = JSON.parse(s); } catch { /* не JSON */ } if (j && j.ok) resolve(j.result); else reject(new Error((j && j.description) || `HTTP ${res.statusCode}`)); });
     });

@@ -770,6 +770,16 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     nu.tgNotes = []; for (let i = 0; i < 25; i++) g.tgNotify(nu.id, 'battle', 'b'); assert.strictEqual(nu.tgNotes.length, 20, 'не больше 20 в час');
     assert.ok(!g.tgNotify(g.db.users.newsr ? g.db.users.newsr.id : 0, 'battle', 'z'), 'без привязки — нет');
   }
+  { // Telegram через зарубежного посредника (сервер игры в России, где api.telegram.org заблокирован): TG_API — только https
+    const { apiTarget } = require('../src/tgauth'), ce = console.error; console.error = () => {};
+    try {
+      assert.deepStrictEqual(apiTarget(''), { host: 'api.telegram.org', port: 443, prefix: '' }, 'без настройки — напрямую');
+      assert.deepStrictEqual(apiTarget('https://217-194-148-101.sslip.io/'), { host: '217-194-148-101.sslip.io', port: 443, prefix: '' }, 'посредник');
+      assert.deepStrictEqual(apiTarget('https://relay.example:8443/tg/'), { host: 'relay.example', port: 8443, prefix: '/tg' }, 'порт и путь');
+      for (const bad of ['http://relay.example', 'relay.example', 'https://x.example/?a=1', 'javascript:alert(1)']) assert.strictEqual(apiTarget(bad).host, 'api.telegram.org', 'не https — напрямую: ' + bad);
+    } finally { console.error = ce; }
+    console.log('✓ Telegram через посредника (TG_API): только https-адрес, иначе — напрямую');
+  }
   { // покупка монет за звёзды (tgpay.js): счёт в звёздах → проверка перед оплатой → монеты один раз → возврат звёзд уводит в минус
     const calls = []; g.tgApi = async (method, body) => { calls.push([method, body]); return method === 'createInvoiceLink' ? 'https://t.me/$testinv' : {}; };
     const last = (mt) => (calls.filter((c) => c[0] === mt).pop() || [])[1] || {};

@@ -38,6 +38,16 @@ Cloudflare Tunnel в Termux:  pkg install cloudflared
    затем  sh /opt/war/game/tgbackup.sh restore
    Выключить:  sh /opt/war/game/tgbackup.sh off
 
+=== Telegram с сервера в России (через зарубежного посредника) ===
+С 2026 года из России api.telegram.org заблокирован: на сервере в России боты (пополнение казны звёздами,
+«Забыли пароль?», копии базы) не достучатся до Telegram. Решение — второй, ЗАРУБЕЖНЫЙ сервер-посредник
+(самый дешёвый VPS: он только пересылает запросы). Пускает только сервер игры, токены идут внутри HTTPS.
+1) На зарубежном сервере (не на сервере игры!):
+   curl -fsSL https://raw.githubusercontent.com/Darkdini/vs/claude/third-world-kings-war-analysis-lodxja/deploy/tg-relay.sh -o tg-relay.sh && sh tg-relay.sh IP_сервера_игры
+   В конце покажет адрес посредника: https://1-2-3-4.sslip.io
+2) На сервере игры:  sh /opt/war/game/tgapi.sh https://1-2-3-4.sslip.io   (проверит связь, перезапустит игру)
+3) Дальше ботов подключают как обычно: tgauth.sh и tgbackup.sh (ниже). Вернуть напрямую: sh /opt/war/game/tgapi.sh off
+
 === Восстановление пароля через Telegram ===
 1) В Telegram: @BotFather → /newbot — ОТДЕЛЬНЫЙ бот для игроков (не тот, что шлёт копии базы).
 2) На сервере:  sh /opt/war/game/tgauth.sh   (спросит токен)

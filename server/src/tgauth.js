@@ -19,12 +19,22 @@ const FAILS_PER_DAY = 10;
 const sha = (t) => crypto.createHash('sha256').update(String(t)).digest('hex');
 const token = () => process.env.TG_AUTH_TOKEN || '';
 const enabled = () => !!token();
+// куда слать запросы Bot API: обычно api.telegram.org. Сервер игры в стране, где Telegram заблокирован (Россия, 2026), —
+// через зарубежный сервер-посредник (deploy/tg-relay.sh): TG_API=https://<посредник> в game.env (deploy/tgapi.sh). Только https.
+let badApi = '';
+const apiTarget = (base = process.env.TG_API) => {
+  if (base) {
+    try { const u = new URL(base); if (u.protocol === 'https:' && !u.search && !u.hash) return { host: u.hostname, port: Number(u.port) || 443, prefix: u.pathname.replace(/\/+$/, '') }; } catch { /* неверный адрес */ }
+    if (badApi !== base) { badApi = base; console.error(`TG_API: «${base}» — не https-адрес, запросы идут напрямую в api.telegram.org`); }
+  }
+  return { host: 'api.telegram.org', port: 443, prefix: '' };
+};
 
 // запрос к Bot API (JSON); в тестах подменяется через Game.prototype.tgApi
 function api(method, body, timeoutMs = 20000) {
   return new Promise((resolve, reject) => {
-    const data = Buffer.from(JSON.stringify(body || {}));
-    const req = https.request({ host: 'api.telegram.org', path: `/bot${token()}/${method}`, method: 'POST', timeout: timeoutMs, headers: { 'Content-Type': 'application/json', 'Content-Length': data.length } }, (res) => {
+    const data = Buffer.from(JSON.stringify(body || {})), t = apiTarget();
+    const req = https.request({ host: t.host, port: t.port, path: `${t.prefix}/bot${token()}/${method}`, method: 'POST', timeout: timeoutMs, headers: { 'Content-Type': 'application/json', 'Content-Length': data.length } }, (res) => {
       let s = ''; res.setEncoding('utf8'); res.on('data', (d) => { s += d; });
       res.on('end', () => { let j = null; try { j = JSON.parse(s); } catch { /* не JSON */ } if (j && j.ok) resolve(j.result); else reject(new Error((j && j.description) || `HTTP ${res.statusCode}`)); });
     });
@@ -176,4 +186,4 @@ function install(Game) {
   };
 }
 
-module.exports = { install, enabled, sha, CODE_TRIES, NOTIFY };
+module.exports = { install, enabled, sha, CODE_TRIES, NOTIFY, apiTarget };

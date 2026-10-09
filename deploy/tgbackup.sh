@@ -10,6 +10,8 @@ DATA=/opt/war/game-data; [ -d "$DATA" ] || DATA="$HOME/game-data"
 ENV="$DATA/game.env"; mkdir -p "$DATA"; touch "$ENV"
 restart() { if systemctl list-unit-files 2>/dev/null | grep -q '^war\.service'; then chown war:war "$ENV" 2>/dev/null || true; systemctl restart war; echo "Сервер игры перезапущен."; else echo "Перезапустите игру: sh ~/game/start.sh"; fi; }
 clean() { grep -v '^TG_BACKUP_' "$ENV" > "$ENV.new" || true; mv "$ENV.new" "$ENV"; chmod 600 "$ENV"; }
+# Bot API: напрямую или через зарубежного посредника (TG_API в game.env — deploy/tgapi.sh; сервер в России, где Telegram заблокирован)
+API=$(sed -n 's/^TG_API=//p' "$ENV" | tail -n 1); API="${API:-https://api.telegram.org}"; API="${API%/}"
 json() { node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const j=JSON.parse(s);console.log(($1)||'')}catch{console.log('')}})"; }
 
 if [ "$1" = "off" ]; then clean; echo "Копия в Telegram выключена."; restart; exit 0; fi
@@ -19,12 +21,12 @@ if [ "$1" = "restore" ]; then
   TOKEN=$(sed -n 's/^TG_BACKUP_TOKEN=//p' "$ENV"); PASS=$(sed -n "s/^TG_BACKUP_PASS='\(.*\)'$/\1/p" "$ENV")
   [ -n "$TOKEN" ] || { echo "Сначала настройте бота: sh $0"; exit 1; }
   echo "Перешлите (или отправьте) своему боту файл копии db-….json.gz(.enc) из Telegram, затем нажмите Enter."; read -r _ < /dev/tty
-  FILE=$(curl -fsS "https://api.telegram.org/bot$TOKEN/getUpdates" | json "(j.result||[]).map(u=>u.message&&u.message.document).filter(d=>d&&/^db-.*\\.json\\.gz(\\.enc)?$/.test(d.file_name)).map(d=>d.file_id+' '+d.file_name).pop()") || true
+  FILE=$(curl -fsS -m 30 "$API/bot$TOKEN/getUpdates" | json "(j.result||[]).map(u=>u.message&&u.message.document).filter(d=>d&&/^db-.*\\.json\\.gz(\\.enc)?$/.test(d.file_name)).map(d=>d.file_id+' '+d.file_name).pop()") || true
   [ -n "$FILE" ] || { echo "Бот не видит файла копии. Перешлите его боту ещё раз (имя файла db-….json.gz или .enc)."; exit 1; }
   FID=${FILE%% *}; NAME=${FILE#* }; echo "Файл: $NAME"
-  FPATH=$(curl -fsS "https://api.telegram.org/bot$TOKEN/getFile?file_id=$FID" | json "j.ok&&j.result.file_path") || true
+  FPATH=$(curl -fsS -m 30 "$API/bot$TOKEN/getFile?file_id=$FID" | json "j.ok&&j.result.file_path") || true
   [ -n "$FPATH" ] || { echo "Telegram не отдал файл (бот может скачать файл до 20 МБ)."; exit 1; }
-  TMP=$(mktemp -d); curl -fsS -o "$TMP/$NAME" "https://api.telegram.org/file/bot$TOKEN/$FPATH"
+  TMP=$(mktemp -d); curl -fsS -m 300 -o "$TMP/$NAME" "$API/file/bot$TOKEN/$FPATH"
   GZ="$TMP/$NAME"
   case "$NAME" in *.enc)
     if [ -z "$PASS" ]; then stty -echo 2>/dev/null || true; printf "Пароль шифрования копии: "; read -r PASS < /dev/tty; stty echo 2>/dev/null || true; echo; fi
@@ -44,10 +46,10 @@ fi
 
 printf "Токен бота (от @BotFather, вида 123456:ABC…): "; read -r TOKEN < /dev/tty
 echo "$TOKEN" | grep -qE '^[0-9]+:[A-Za-z0-9_-]{30,}$' || { echo "Это не похоже на токен бота."; exit 1; }
-BOT=$(curl -fsS "https://api.telegram.org/bot$TOKEN/getMe" | json "j.ok&&j.result.username") || true
-[ -n "$BOT" ] || { echo "Telegram не принял токен (или сервер не достучался до api.telegram.org)."; exit 1; }
+BOT=$(curl -fsS -m 30 "$API/bot$TOKEN/getMe" | json "j.ok&&j.result.username") || true
+[ -n "$BOT" ] || { echo "Telegram не принял токен (или сервер не достучался до Telegram: если сервер в России — нужен зарубежный посредник, README → «Telegram с сервера в России»)."; exit 1; }
 echo "Бот: @$BOT"
-CHAT=$(curl -fsS "https://api.telegram.org/bot$TOKEN/getUpdates" | json "(j.result||[]).map(u=>(u.message||u.my_chat_member||{}).chat).filter(c=>c&&c.type==='private').map(c=>c.id).pop()") || true
+CHAT=$(curl -fsS -m 30 "$API/bot$TOKEN/getUpdates" | json "(j.result||[]).map(u=>(u.message||u.my_chat_member||{}).chat).filter(c=>c&&c.type==='private').map(c=>c.id).pop()") || true
 [ -n "$CHAT" ] || { echo "Бот пока не видит вашего чата: откройте @$BOT в Telegram, нажмите «Старт» (или напишите ему что-нибудь) и запустите эту команду снова."; exit 1; }
 echo "Чат найден: $CHAT"
 echo "Пароль шифрования копии (рекомендуется; без него файл в Telegram — открытый)."
@@ -62,7 +64,7 @@ case "$PASS" in *"'"*) echo "В пароле не должно быть симв
 clean
 { echo "TG_BACKUP_TOKEN=$TOKEN"; echo "TG_BACKUP_CHAT=$CHAT"; [ -n "$PASS" ] && echo "TG_BACKUP_PASS='$PASS'"; } >> "$ENV"
 chmod 600 "$ENV"
-curl -fsS -o /dev/null "https://api.telegram.org/bot$TOKEN/sendMessage" --data-urlencode "chat_id=$CHAT" --data-urlencode "text=✓ Бот подключён к серверу «Средневековье». Копия базы будет приходить сюда раз в сутки. Первая — через минуту." || true
+curl -fsS -m 30 -o /dev/null "$API/bot$TOKEN/sendMessage" --data-urlencode "chat_id=$CHAT" --data-urlencode "text=✓ Бот подключён к серверу «Средневековье». Копия базы будет приходить сюда раз в сутки. Первая — через минуту." || true
 restart
 echo "✓ Готово. Первая копия придёт в Telegram примерно через минуту, дальше — раз в сутки около 4:00 (время сервера)."
 echo "  Отправить вручную: Админ-панель → 🔒 Защита → «Отправить копию сейчас»."
