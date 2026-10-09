@@ -91,8 +91,19 @@ const reviveAll = (d) => REV_KEYS.every((k) => (k === 'people' ? S.st.castle.res
 const reviveFund = (d) => (d.fund ? `<div class="upbody center">Уже внесено:</div><div class="upcost">${REV_KEYS.map((k) => `<span>${RES_IC[k]}<b>${fmtFull(d.fund[k] || 0)} / ${fmtFull(revNeed(d, k))}</b></span>`).join('')}</div>`
   : (reviveAll(d) ? '' : '<div class="upbody center small">Ресурсов в замке не хватает — их можно вносить частями: когда соберётся всё, воскрешение начнётся.</div>'));
 const gico = (id) => (id ? `<img class="fi" src="${unitSrc(unitById(id))}" alt="">` : '');
+// генерал один на всё королевство: если он в другом замке — где он и как перевести сюда (нанять второго нельзя)
+function genElseWin(ge, dead) {
+  const where = ge.what === 'train' ? 'тренируется в замке' : ge.what === 'revive' ? 'воскрешается в замке' : ge.what === 'away' ? 'в походе из замка' : 'служит в замке';
+  return `${ribbon('Генерал')}<div class="upbody center">Генерал один на всё королевство.</div>
+    <div class="upbody center">${ge.name ? `<b>${esc(ge.name)}</b>, ${fmtFull(ge.level)} ур., ` : 'Ваш генерал '}${where} «${esc(ge.castle)}».</div>
+    <button class="pbar" data-switch="${ge.id}">Перейти в замок «${esc(ge.castle)}»</button>
+    <div class="upbody center small">Чтобы генерал служил здесь, отправьте его из замка «${esc(ge.castle)}»: Поход → Подкрепление с генералом в этот замок.</div>
+    ${dead.length ? `${ribbon('Павшие генералы замка')}${dead.map((d, i) => `<div class="upbody center">${gico(d.kindId)} ${esc(d.name)}, ${fmtFull(d.level)} ур. — воскресить можно, когда живого генерала в королевстве нет.</div>
+      <button class="pbar" data-gendel="${i}">Удалить</button>`).join('')}` : ''}`;
+}
 function noGeneralWin() {
   const my = MY(), dead = my.deadGenerals || [], tr = my.genTrain;
+  if (my.genElse) return genElseWin(my.genElse, dead);
   const deadHtml = dead.map((d, i) => `<div class="upbody center">Мертвый ${gico(d.kindId)} Генерал (${esc(d.kind || '')})<br>${esc(d.name)}, ${fmtFull(d.level)} ур.</div>
     ${d.reviveAt ? `<div class="upbody center">Воскрешение. Осталось: <span class="cd" data-e="${d.reviveAt}"></span></div>`
     : d.coinsOnly ? `<div class="upbody center">Генерала выше 100 уровня воскрешают только за монеты.</div><div class="upbody center">Стоимость воскрешения: ${fmtFull(d.gold)} ${gimg('coins_s.png', 'ri')}</div>

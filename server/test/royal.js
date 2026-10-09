@@ -144,6 +144,26 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(/уже есть генерал/.test(r2.error || ''), JSON.stringify(r2));
   console.log('✓ генерал: переформирование в любую армию, перевод в свой замок подкреплением, в замке только один генерал');
 }
+{ // генерал — один на всё королевство: второго не нанять и не воскресить; переезд старых данных — остаётся сильнейший
+  const U = g.register({ login: 'onegen', password: '12345', race: 0 }).user; g.adminAddCastles(U, 2);
+  const [a, b, c] = g.castlesOf(U); for (const k of [a, b, c]) g.mil(k);
+  a.general = g.newGeneral(a, 5); b.general = g.newGeneral(b, 20); c.general = g.newGeneral(c, 10); a.general.kindId = 245; c.general.kindId = 245;
+  const st0 = JSON.stringify(g.stashOf(U).units);
+  assert.ok(g.generalOneFix() >= 2, 'переезд сработал');
+  assert.ok(!a.general && b.general && b.general.level === 20 && !c.general, 'остался сильнейший (20 ур.)');
+  assert.ok(g.stashOf(U).units[245] === 2 && g.stashOf(U).res.wood > 0 && st0 !== JSON.stringify(g.stashOf(U).units), 'цена найма двух лишних — в Кладовой');
+  assert.strictEqual(g.generalOneFix(), 0, 'повторный запуск ничего не меняет');
+  a.units[245] = 5;
+  assert.ok(/один на всё королевство/.test(g.trainGeneral(a, 245).error || ''), 'второго генерала не нанять');
+  const ms = g.milState(a, U); assert.ok(ms.genElse && ms.genElse.id === b.id && ms.genElse.level === 20, 'окно генерала: где он');
+  g.maxOut(a); assert.ok(!a.general, 'полная прокачка не даёт второго генерала');
+  b.general.dead = true; b.general.reviveAt = Date.now() + 1e7;
+  assert.ok(/воскрешается/.test(g.trainGeneral(a, 245).error || ''), 'пока генерал воскрешается — нового не нанять');
+  delete b.general.reviveAt; a.res = { wood: 1e7, stone: 1e7, iron: 1e7, food: 1e7, people: 1e6 };
+  const gid = g.genTrainUnits(a)[0].id, tg = g.trainGeneral(a, gid); assert.ok(tg.ok, `генерал пал (без воскрешения) — можно нанять нового: ${JSON.stringify(tg)}`);
+  c.units[gid] = 3; assert.ok(/тренируется/.test(g.trainGeneral(c, gid).error || '') && /тренируется/.test(g.reviveGeneral(b, U, 0).error || ''), 'пока идёт тренировка — ни второй тренировки, ни воскрешения');
+  console.log('✓ Генерал один на королевство: второго не нанять и не воскресить, прокачка не создаёт второго; переезд — остаётся сильнейший, цена найма лишних — в Кладовую');
+}
 // торговцы: 20 при Рынке, не тренируются, груз по уровню Рынка, возвращаются на Рынок
 {
   const T = g.register({ login: 'mercht', password: '12345', race: 0 }).user, T2 = g.register({ login: 'mercht2', password: '12345', race: 0 }).user;

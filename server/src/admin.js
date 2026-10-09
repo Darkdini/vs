@@ -182,8 +182,11 @@ function install(Game) {
       case 'noarmy': for (const c of castles) { this.mil(c); c.units = {}; } msg = 'Войска убраны.'; break;
       case 'general': {
         const lvl = Math.max(1, Math.min(GEN.maxLevel, num(arg.level, 100)));
-        for (const c of castles) { this.mil(c); const old = c.general; c.general = this.newGeneral(c, lvl); if (old) { c.general.name = old.name || c.general.name; c.general.squad = old.squad; c.general.away = old.away; } }
-        msg = `Генерал ${lvl} ур.`; break;
+        // генерал один на королевство: уровень — тому, что есть (в любом замке игрока), иначе новый — в первом замке
+        const home = this.generalHome(target.id), c = home && home.g ? home.castle : home ? null : castles[0];
+        if (!c) { msg = `Генерал игрока сейчас ${home.what === 'train' ? 'тренируется' : 'воскрешается'} в замке «${home.castle.name}» — уровень не изменён.`; break; }
+        this.mil(c); const old = c.general; c.general = this.newGeneral(c, lvl); if (old) { c.general.name = old.name || c.general.name; c.general.squad = old.squad; c.general.away = old.away; c.general.eq = old.eq; c.general.kind = old.kind || c.general.kind; c.general.kindId = old.kindId; }
+        msg = `Генерал ${lvl} ур. — в замке «${c.name}».`; break;
       }
       case 'boss': { const b = this.bossSpawn(now, arg.n !== undefined && arg.n !== '' ? num(arg.n, 0) : undefined); msg = `Босс «${b.name}» появился в ${b.x}:${b.y}.`; break; }
       case 'gear': for (const c of castles) { this.mil(c); for (const slot of require('./hero').SLOTS) for (let r = 0; r < 4; r++) { if (this.heroGear(c).length >= 24) break; this.heroGear(c).push({ id: this.db.nextId++, slot, r, plus: 0 }); } } msg = 'Выдано снаряжение генерала (все ячейки, 4 редкости).'; break;

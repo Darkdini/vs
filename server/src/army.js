@@ -695,6 +695,20 @@ function install(Game, helpers) {
   // ресурсы, внесённые частями до новых правил, возвращаются в замок
   const refundFund = (castle, g) => { if (!g.fund) return; for (const k of Object.keys(g.fund)) castle.res[k] = (castle.res[k] || 0) + (g.fund[k] || 0); delete g.fund; };
   P.deadList = function deadList(castle) { return [...(castle.general && castle.general.dead ? [castle.general] : []), ...(castle.deadGenerals || [])]; };
+  // генерал — один на всё королевство: где он сейчас, кроме замка except — живой (дома или в походе), в тренировке или воскрешается
+  P.generalHome = function generalHome(ownerId, except = null) {
+    const u = this.userById(ownerId); if (!u) return null;
+    for (const c of this.castlesOf(u)) {
+      if (c === except) continue;
+      if (c.general && !c.general.dead) return { castle: c, what: c.general.away ? 'away' : 'home', g: c.general };
+      if ((c.training || []).some((t) => t.unit === GENERAL_ID)) return { castle: c, what: 'train' };
+      if (this.deadList(c).some((d) => d.reviveAt)) return { castle: c, what: 'revive' };
+    }
+    return null;
+  };
+  const genElseMsg = (h) => (h.what === 'train' ? `Генерал уже тренируется в замке «${h.castle.name}» — генерал один на всё королевство.`
+    : h.what === 'revive' ? `Генерал воскрешается в замке «${h.castle.name}» — генерал один на всё королевство.`
+      : `Генерал один на всё королевство — он в замке «${h.castle.name}». Перевести его сюда: Поход → Подкрепление с генералом.`);
   P.genTrainUnits = function genTrainUnits(castle) {
     const race = this.raceOf(castle);
     // генералом не может стать разведчик, бунтарь, таран (и прочие особые/осадные), юниты Портала
@@ -709,6 +723,7 @@ function install(Game, helpers) {
     if (g !== castle.general && castle.general) return { error: 'В замке уже есть генерал.' };
     if (list.some((x) => x.reviveAt)) return { error: 'Уже воскрешается другой генерал.' };
     if (castle.training.some((t) => t.unit === GENERAL_ID)) return { error: 'Идёт тренировка генерала.' };
+    const gh = this.generalHome(castle.owner, castle); if (gh) return { error: genElseMsg(gh) };
     const c = this.reviveCostOf(g, castle);
     if (gold) {
       if ((user.gold || 0) < c.gold) return { error: `Нужно ${c.gold} монет.` };
@@ -747,6 +762,7 @@ function install(Game, helpers) {
     if (castle.general && !castle.general.dead) return { error: 'В замке уже есть генерал.' };
     if (castle.training.some((t) => t.unit === GENERAL_ID)) return { error: 'Генерал уже тренируется.' };
     if (this.deadList(castle).some((x) => x.reviveAt)) return { error: 'Идёт воскрешение генерала.' };
+    const gh = this.generalHome(castle.owner, castle); if (gh) return { error: genElseMsg(gh) };
     const u = UNIT[unitId]; if (!u || !this.genTrainUnits(castle).includes(u)) return { error: 'Выберите юнита из замковой армии.' };
     const c = this.genTrainCost(u);
     for (const r of RES4) if (castle.res[r] < c.cost[r]) return { error: 'Недостаточно ресурсов.' };
@@ -843,7 +859,7 @@ function install(Game, helpers) {
     if (general && mission === 'reinforce') {
       if (!target || target.owner !== castle.owner) { if (!from) return { error: 'Генерал идёт подкреплением только в свой замок.' }; general = false; }
       else {
-        if (target.general) return { error: `В замке «${target.name}» уже есть генерал — в замке может быть только один.` };
+        if (target.general && !target.general.dead) return { error: `В замке «${target.name}» уже есть генерал.` };
         if (castle.armies.some((x) => x.general && x.mission === 'reinforce' && x.x === target.x && x.y === target.y)) return { error: 'Генерал уже идёт в этот замок.' };
       }
     }
@@ -928,7 +944,8 @@ function install(Game, helpers) {
     const sid = this.db.nextId++, name = a.squad && a.squad.id ? a.squad.name : `${target.id}.${sid}`;
     if (Object.keys(units).length || a.general) target.squads.push({ id: sid, name, units });
     if (a.general && c.general && c.general.away === a.id) {
-      if (target.general) { delete c.general.away; } // в замке уже появился генерал — наш остаётся дома
+      if (target.general && target.general.dead) { (target.deadGenerals = target.deadGenerals || []).push(target.general); target.general = null; } // павший — в список павших замка
+      if (target.general) { delete c.general.away; } // в замке уже есть живой генерал — наш остаётся дома
       else { const g = c.general; delete g.away; g.squad = sid; target.general = g; c.general = null; gName = g.name; }
     }
     c.armies = c.armies.filter((x) => x !== a);
@@ -1850,6 +1867,49 @@ function install(Game, helpers) {
     return { error: 'Неизвестное действие.' };
   };
 
+  // переезд: генерал — один на королевство. Раньше он был в каждом замке; у кого их несколько — остаётся один: живой сильнейший
+  // (уровень, потом опыт), иначе — идущее воскрешение, иначе — тренировка. Остальные уходят со службы (снаряжение — в Оружейную
+  // их замка), воскрешения и тренировки отменяются; цена найма или воскрешения возвращается в Кладовую. Игроку — отчёт.
+  P.generalOneFix = function generalOneFix() {
+    let n = 0;
+    for (const u of Object.values(this.db.users)) {
+      const cs = this.castlesOf(u); if (cs.length < 2) continue;
+      const alive = cs.filter((c) => c.general && !c.general.dead).sort((a, b) => (b.general.level - a.general.level) || ((b.general.exp || 0) - (a.general.exp || 0)));
+      const revs = [], trains = [];
+      for (const c of cs) { for (const d of this.deadList(c)) if (d.reviveAt) revs.push([c, d]); if ((c.training || []).some((t) => t.unit === GENERAL_ID)) trains.push(c); }
+      if (alive.length + revs.length + trains.length <= 1) continue;
+      const refund = { wood: 0, stone: 0, iron: 0, food: 0, units: {} }, lines = [];
+      const back = (kindId) => { const ku = UNIT[kindId]; if (!ku) return; const tc = this.genTrainCost(ku); for (const r of RES4) refund[r] += tc.cost[r]; refund.units[ku.id] = (refund.units[ku.id] || 0) + 1; };
+      let kept = alive.length ? `генерал «${alive[0].general.name}» (${alive[0].general.level} ур.) в замке «${alive[0].name}»` : '';
+      for (const c of alive.slice(1)) {
+        const g = c.general; this.heroStrip(c, g);
+        for (const a of c.armies || []) if (a.general && g.away === a.id) a.general = false; // армия в пути идёт дальше без генерала
+        back(g.kindId); c.general = null; n++;
+        lines.push(`Генерал «${g.name}» (${g.level} ур.) из замка «${c.name}» ушёл со службы — его снаряжение в Оружейной этого замка.`);
+      }
+      for (const [c, d] of revs) {
+        if (!kept) { kept = `воскрешение генерала «${d.name}» в замке «${c.name}»`; continue; }
+        const rc = this.reviveCostOf(d, c); delete d.reviveAt; delete d.reviveStart; n++;
+        if (rc.coinsOnly) this.goldChange(u, rc.gold, 'Возврат: воскрешение генерала отменено (генерал один на королевство)');
+        else for (const r of RES4) refund[r] += rc.cost[r];
+        lines.push(`Воскрешение генерала «${d.name}» в замке «${c.name}» отменено.`);
+      }
+      for (const c of trains) {
+        c.training = c.training.filter((t) => {
+          if (t.unit !== GENERAL_ID) return true;
+          if (!kept) { kept = `тренировка генерала в замке «${c.name}»`; return true; }
+          back(t.kindId); n++; lines.push(`Тренировка генерала в замке «${c.name}» отменена.`); return false;
+        });
+      }
+      if (!lines.length) continue;
+      const got = this.stashAdd(u, refund);
+      this.report(u.id, 'Генерал — один на всё королевство', [`Остаётся ${kept}. Переводить генерала между замками: Поход → Подкрепление с генералом.`,
+        ...lines, ...(got.length ? [`Цена найма возвращена в Кладовую: ${got.join(', ')}.`] : [])], 'general');
+    }
+    if (n) this.store.save();
+    return n;
+  };
+
   // ----- админ: полная прокачка -----
   P.maxOut = function maxOut(castle) {
     this.mil(castle);
@@ -1872,8 +1932,10 @@ function install(Game, helpers) {
     }
     castle.queue = [];
     for (const u of unitsForRace(race)) if (u.id !== GENERAL_ID) castle.units[u.id] = Math.max(castle.units[u.id] || 0, u.role === 'merchant' ? 200 : u.race === 'all' && !['giant', 'valkyrie', 'ram', 'catapult', 'eye', 'shadow'].includes(u.role) ? 20 : 1000);
-    castle.general = this.newGeneral(castle, 100); // полная прокачка: очки уже распределены
-    Object.assign(castle.general.pts, { atk: 20, def: 20, catk: 80, cdef: 60, heal: 10, career: 8 }); castle.general.free = 0;
+    if (!this.generalHome(castle.owner, castle)) { // генерал один на королевство: если он в другом замке — здесь не появляется
+      castle.general = this.newGeneral(castle, 100); // полная прокачка: очки уже распределены
+      Object.assign(castle.general.pts, { atk: 20, def: 20, catk: 80, cdef: 60, heal: 10, career: 8 }); castle.general.free = 0;
+    }
     castle.sciences = Object.assign(this.sciOf(castle), { eco: 20, eng: 20, fhi: 20, war: 20 });
     for (const u of this.forgeUnits(castle)) castle.forge[u.id] = { a: 19, d: 19, ...(u.magic > 0 ? { m: 19, md: 19 } : {}) }; // Кузница и Школа магии — 20 ур. (уровень показывается с 1)
     castle.religion = castle.religion || 'war';
@@ -1953,6 +2015,7 @@ function install(Game, helpers) {
       units: castle.units, training: castle.training.map((t) => ({ id: t.id, unit: t.unit, building: t.building, count: t.count, done: t.done, each: t.each, start: t.start })),
       general: castle.general && !castle.general.dead && this.generalView(castle),
       deadGenerals: this.deadList(castle).map((g) => ({ name: g.name, kind: g.kind, kindId: g.kindId, level: g.level, reviveAt: g.reviveAt || 0, ...this.reviveCostOf(g, castle), fund: g.fund || null })),
+      genElse: castle.general && !castle.general.dead ? null : (() => { const h = this.generalHome(castle.owner, castle); return h ? { id: h.castle.id, castle: h.castle.name, what: h.what, name: h.g ? h.g.name : '', level: h.g ? h.g.level : 0 } : null; })(),
       genTrain: (() => { const t = castle.training.find((x) => x.unit === GENERAL_ID); return t ? { kind: (UNIT[t.kindId] || {}).name || 'Генерал', kindId: t.kindId, end: t.start + t.each } : null; })(),
       genUnits: this.genTrainUnits(castle).map((u) => ({ id: u.id, ...this.genTrainCost(u) })), armies: castle.armies.map((a) => ({ id: a.id, units: a.units, general: a.general, mission: a.mission, x: a.x, y: a.y, depart: a.depart, arrive: a.arrive, back: a.back, state: a.state, loot: a.loot, cargo: a.cargo, squad: a.squad, portal: a.portal,
         stayName: a.state === 'stay' && this.db.castles[a.stayAt] ? this.db.castles[a.stayAt].name : null })),

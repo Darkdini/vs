@@ -265,6 +265,7 @@ class Game {
     }
     this.cache = {};
     for (const c of Object.values(this.db.castles)) this.castleLayoutFix(c);
+    if (this.generalOneFix) this.generalOneFix(); // генерал — один на королевство (army.js)
     this.provEdgeFix();
     this.npcCleanup();
     if (this.allyCleanup) this.allyCleanup(); // пустые альянсы (участники удалены) — убрать отовсюду
