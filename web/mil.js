@@ -365,6 +365,12 @@ function reportHtml(r) {
       ${(d.siege || []).map((x) => `<div>${esc(x)}</div>`).join('')}
       ${d.gear ? `<div>${esc(d.gear)}</div>` : ''}</div>`;
   const lossLine = (L, W) => `${ic('skull')} Общие потери: ${fmtFull(L)} из ${fmtFull(W)} ( ${pct(L, W)}% )`;
+  // почему потерь 0: защитников не было — боя нет; или перевес огромный — потери победителя (слабый / сильный)^1,5 меньше одного воина
+  const AP = d.calc ? d.calc.att.total : 0, DP = d.calc ? d.calc.def.total : 0, times = (a, b) => (b > 0 ? Math.round(a / b) : 0);
+  const why = (t) => `<div class="rwhy">${t}</div>`, kA = times(AP, DP), kD = times(DP, AP);
+  const aWhy = aL || !aW ? '' : !d.def.npc && !dW && !d.def.general ? why('В замке не было защитников — сражаться было не с кем, поэтому потерь нет.')
+    : d.win && kA >= 2 ? why(`Атака была в ${kA} ${plural(kA, 'раз', 'раза', 'раз')} сильнее ${d.def.npc ? 'охраны' : 'защиты'} — при таком перевесе победитель почти не теряет войск.`) : '';
+  const dWhy = dL || !dW || d.win || kD < 2 ? '' : why(`Защита была в ${kD} ${plural(kD, 'раз', 'раза', 'раз')} сильнее атаки — при таком перевесе защитники почти не теряют войск.`);
   // «Армия атаки» / «Армия защиты» — раскрываются нажатием: потери, потери в ресурсах, по юнитам «погибло из было», генерал
   const unitRows = (units, race) => Object.entries(units || {}).map(([id, v]) => { const u = unitById(id); return u ? `<div class="rul"><img class="ric" src="${unitSrc(u, race)}" alt=""> ${esc(u.name)}: ${fmtFull(v.lost)} из ${fmtFull(v.was)}</div>` : ''; }).join('');
   const genRow = (s) => (s.general ? `<div class="rul">${gimg(`units/${HD_DIR[s.race] || 'human/hd'}/general.png`, 'ric')} Генерал ${s.general} ур.: ${s.generalDied ? '<span class="rbad">пал в бою</span>' : s.genExp ? `+${fmtFull(s.genExp)} опыта` : 'в строю'}</div>` : '');
@@ -376,10 +382,10 @@ function reportHtml(r) {
     : dW || d.def.general ? `<div class="rp">${ic('skull')} Потери: ${fmtFull(dL)} из ${fmtFull(dW)} ( ${pct(dL, dW)}% )<br>Потери в ресурсах:${resRow(d.def.lossRes)}${unitRows(d.def.units, d.def.race)}${genRow(d.def)}${d.def.wall ? `<div class="rul">${gimg('fence/fence1.png', 'ric')} Забор ${d.def.wall} ур.</div>` : ''}</div>`
     : '<div class="rp">В замке не было защитников.</div>');
   return `${head}${top}
-    ${band('kingatt', 'Нападение')}${sideBlock(d.att, d.att.rating, d.att.cx ?? '-', d.att.cy ?? '-', lossLine(aL, aW))}
+    ${band('kingatt', 'Нападение')}${sideBlock(d.att, d.att.rating, d.att.cx ?? '-', d.att.cy ?? '-', lossLine(aL, aW) + aWhy)}
     ${band('kingdef', 'Защита')}
     ${d.def.npc ? `<div class="rp">Игрок: Неизвестный игрок<br>Объект: ${esc(d.def.npc)}<br>(Рейтинг: -, X: ${d.x}, Y: ${d.y})<br>${ic('skull')} Охрана потеряла ${d.def.lossPct}%</div>`
-      : sideBlock(d.def, d.def.rating, d.x, d.y, dW ? lossLine(dL, dW) : `${ic('skull')} В замке не было защитников!`)}
+      : sideBlock(d.def, d.def.rating, d.x, d.y, dW ? lossLine(dL, dW) + dWhy : `${ic('skull')} В замке не было защитников!`)}
     ${attBox}${defBox}
     ${foot}`;
 }

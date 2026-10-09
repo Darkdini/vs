@@ -824,13 +824,39 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const e1 = g.sendArmy(ac, { units: { 200: 10 }, mission: 'attack', x: dc.x, y: dc.y });
   assert.ok(/защит/.test(e1.error || ''), 'на защищённый замок не напасть: ' + JSON.stringify(e1).slice(0, 120));
   assert.ok(/защит/.test(g.sendArmy(ac, { units: { 200: 10 }, mission: 'reinforce', x: dc.x, y: dc.y }).error || ''), 'и подкрепление не отправить');
-  dc.units = { 200: 20 }; assert.ok(/защита/.test(g.sendArmy(dc, { units: { 200: 5 }, mission: 'attack', x: ac.x, y: ac.y }).error || ''), 'под защитой сам не воюет');
+  dc.units = { 200: 20 }; const e2 = g.sendArmy(dc, { units: { 200: 5 }, mission: 'attack', x: ac.x, y: ac.y }).error || '';
+  assert.ok(e2.includes(`купол на замке «${dc.name}»`) && /Снять купол/.test(e2), 'под защитой сам не воюет — и сказано, какой купол и где снять: ' + e2);
   assert.ok(g.shieldBuy(d, dc, 'kingdom', 7).msg && d.gold === 622 && d.shieldKingdom > Date.now(), 'королевство за 324');
   assert.ok(g.shieldBuy(d, dc, 'castle', 5).error && g.shieldBuy(d, dc, 'spy', 1).msg && g.spyShield(d) && d.gold === 607, 'нет 5 дней; контрразведка за 15');
   a.gold = 50; ac.armies = [{ mission: 'attack', state: 'go', x: 1, y: 1, units: {} }];
   assert.ok(/походе/.test(g.shieldBuy(a, ac, 'castle', 1).error || '') && a.gold === 50, 'армии в походе — защиту не включить');
   ac.armies = [];
-  console.log('✓ Защита: замок (15/39/81), королевство (60/156/324), контрразведка (15/39/81); купол, продление, запреты атак и подкреплений');
+  // купол снимает и надевает сам игрок (кто платит, тот и решает): оставшееся время сохраняется
+  const t0 = Date.now(), leftC = dc.shieldUntil - t0, leftK = d.shieldKingdom - t0;
+  const off1 = g.shieldOff(d, dc, 'castle', t0);
+  assert.ok(off1.msg && !dc.shieldUntil && dc.shieldPaused === leftC && /защита королевства/.test(off1.msg), 'купол замка снят, время сохранено; сказано, что ещё действует защита королевства: ' + off1.msg);
+  assert.ok(g.castleShield(dc) && g.userShielded(d), 'защита королевства по-прежнему держит замок');
+  assert.ok(/королевства/.test(g.shieldedMsg(d)) && !/купол на замке/.test(g.shieldedMsg(d)), 'в ошибке похода — только то, что действует');
+  const off2 = g.shieldOff(d, dc, 'kingdom', t0);
+  assert.ok(off2.msg && !d.shieldKingdom && d.shieldKingdomPaused === leftK && /можно атаковать/.test(off2.msg), 'защита королевства снята: ' + off2.msg);
+  assert.ok(!g.castleShield(dc) && !g.userShielded(d) && !g.worldObjects(dc.x, dc.y, 1, 1)[0].shield, 'купола нет: замок открыт, на карте без купола');
+  assert.ok(g.shieldOff(d, dc, 'castle', t0).error && g.shieldOff(d, dc, 'spy', t0).error && g.spyShield(d), 'снимать нечего; контрразведка не снимается');
+  assert.ok(g.shieldOff(a, dc, 'castle', t0).error && g.shieldOn(a, dc, 'castle', t0).error, 'чужой купол не трогать');
+  const info = g.shieldInfo(d, dc, t0); assert.ok(!info.castle && !info.kingdom && info.paused.castle === leftC && info.paused.kingdom === leftK, 'окно видит снятые купола');
+  const sent = g.sendArmy(dc, { units: { 200: 5 }, mission: 'attack', x: ac.x, y: ac.y });
+  assert.ok(sent.army, 'без купола армия воюет: ' + JSON.stringify(sent).slice(0, 120));
+  assert.ok(/походе/.test(g.shieldOn(d, dc, 'castle', t0).error || '') && dc.shieldPaused === leftC, 'своя армия в боевом походе — купол не надеть');
+  dc.armies = []; dc.units = { 200: 20 };
+  ac.armies = [{ mission: 'attack', state: 'go', x: dc.x, y: dc.y, units: {} }];
+  assert.ok(/вражеская/.test(g.shieldOn(d, dc, 'castle', t0).error || '') && /вражеская/.test(g.shieldOn(d, dc, 'kingdom', t0).error || ''), 'враг уже идёт — купол не надеть');
+  ac.armies = [];
+  const on1 = g.shieldOn(d, dc, 'castle', t0 + 3600000);
+  assert.ok(on1.msg && dc.shieldUntil === t0 + 3600000 + leftC && !dc.shieldPaused && g.castleShield(dc), 'купол надет: сохранённое время — с момента надевания');
+  assert.ok(/Снятого купола нет/.test(g.shieldOn(d, dc, 'castle', t0).error || ''), 'второй раз надевать нечего');
+  const gold0 = d.gold; assert.ok(g.shieldBuy(d, dc, 'kingdom', 1, t0).msg && d.shieldKingdom === t0 + 86400000 + leftK && !d.shieldKingdomPaused && d.gold === gold0 - 60, 'покупка надевает и снятый купол');
+  dc.shieldPaused = 5 * 3600000; d.shieldKingdom = 0; dc.shieldUntil = 0; dc.armies = [];
+  g.captureCastle(a, dc); assert.ok(!dc.shieldPaused && !dc.shieldUntil && dc.owner === a.id, 'захваченный замок: снятый купол прежнего хозяина пропал');
+  console.log('✓ Защита: замок (15/39/81), королевство (60/156/324), контрразведка (15/39/81); купол, продление, запреты атак и подкреплений; купол снимают и надевают сами — время сохраняется');
 }
 { // «Лавка Короля» (shop.js): ускорения стройки и сундуки ресурсов
   const su = g.register({ login: 'shopper', password: '12345', race: 0 }).user, sc = g.castlesOf(su)[0], now = Date.now();

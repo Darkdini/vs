@@ -16,7 +16,8 @@ const pct = (v) => `${(v * 100).toFixed(1)}%`;
 function generalWin() {
   const g = MY().general, gu = unitById(M().generalId);
   if (!g) return noGeneralWin();
-  const s = g.stats, span = Math.max(1, g.need - g.prevNeed), done = Math.max(0, Math.min(1, (g.exp - g.prevNeed) / span));
+  // полоса и числа — одно и то же: опыт внутри текущего уровня (100 ур.: от 490 050 до 500 000 — это 9 950 опыта)
+  const s = g.stats, span = Math.max(1, g.need - g.prevNeed), inLvl = Math.max(0, Math.min(span, g.exp - g.prevNeed)), done = inLvl / span;
   const seg = Array.from({ length: 12 }, (_, i) => `<i class="${i < Math.round(done * 12) ? 'on' : ''}"></i>`).join('');
   const line = (icon, label, value) => `<div class="gline"><img src="${GS(icon)}" alt=""><span>${label}:</span><b>${value}</b></div>`;
   const tile = (attr, icon, text, badge) => `<button class="ptile" ${attr}><img src="${icon}" alt="">${badge !== undefined ? `<em class="gbadge">${badge}</em>` : ''}<span>${text}</span></button>`;
@@ -28,7 +29,7 @@ function generalWin() {
     <div class="gname">${esc(g.name)}</div>
     <div class="ghead"><img class="gimg" src="${unitSrc(gu)}" alt="">
       <div class="gright"><div>(${esc(g.kind || gu.name)})</div><div><img src="${GS('status/f_gold')}" alt=""> ${fmtFull(g.level)} ур.</div></div></div>
-    <div class="gnext">До след. уровня:<div class="gseg" title="${fmtFull(g.exp)} / ${fmtFull(g.need)}">${seg}</div><small>${fmtFull(g.exp)} / ${fmtFull(g.need)}</small></div>
+    <div class="gnext">До след. уровня:<div class="gseg">${seg}</div><small>${fmtFull(inLvl)} / ${fmtFull(span)} · ещё ${fmtFull(Math.max(0, g.need - g.exp))} до ${fmtFull(g.level + 1)} ур.</small></div>
     <div class="gtop">
       <div><img src="${GS('health')}" alt=""><b>${g.health}%</b></div>
       <div><img src="${GS('phiattack')}" alt=""><b>${s.atk.toFixed(1)}</b></div>
@@ -66,7 +67,7 @@ function generalWin() {
       <div><b>☠ Армия разбита целиком</b> — генерал погибает и опыта не получает.</div>
       <div><b>⏳ Лимиты</b>: за один бой — не больше <b>${fmtFull(g.lim.battle)}</b> опыта, за сутки — не больше <b>${fmtFull(g.lim.day)}</b> (один уровень). Сегодня получено: <b>${fmtFull(g.lim.dayExp)}</b>.</div>
       <div><b>👑 Премиум «Завоеватель»</b> и <b>карьера</b> увеличивают и опыт, и лимиты.</div>
-      <div>Следующий уровень: ещё <b>${fmtFull(Math.max(0, g.need - g.exp))}</b> опыта.</div>
+      <div>Всего опыта: <b>${fmtFull(g.exp)}</b>. Для ${fmtFull(g.level + 1)} ур. нужно всего ${fmtFull(g.need)} — ещё <b>${fmtFull(Math.max(0, g.need - g.exp))}</b> опыта.</div>
     </div>`;
 }
 

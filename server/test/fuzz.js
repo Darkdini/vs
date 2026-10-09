@@ -62,7 +62,7 @@ const EVIL = [-1, -1e9, 1e300, 0.5, '-5', '1e400', 'Infinity', 'NaN', null, true
   for (const op of genOps) for (const e of EVIL) msgs.push({ t: 'general', op, pts: { atk: e, def: e } });
   for (const e of EVIL) msgs.push({ t: 'general', op: 'revive', idx: e, gold: true }, { t: 'general', op: 'revive', idx: 0, gold: e });
   for (const op of shopOps) for (const e of EVIL) msgs.push({ t: 'shop', op, id: e, key: e, mode: e, x: e, y: e });
-  for (const e of EVIL) msgs.push({ t: 'shield', op: 'buy', kind: e, days: e }, { t: 'coinbet', res: 'wood', amount: e, side: 'tails', to: '' }, { t: 'calm', pct: e }, { t: 'marketsell', id: e, price: e });
+  for (const e of EVIL) msgs.push({ t: 'shield', op: 'buy', kind: e, days: e }, { t: 'shield', op: 'off', kind: e }, { t: 'shield', op: 'on', kind: e }, { t: 'coinbet', res: 'wood', amount: e, side: 'tails', to: '' }, { t: 'calm', pct: e }, { t: 'marketsell', id: e, price: e });
   for (const m of missions) for (const e of EVIL) msgs.push({ t: 'send', ...base.send, mission: m, units: { 200: e, 233: e }, res: { wood: e, food: e } }, { t: 'send', ...base.send, mission: m, from: e });
   for (const e of EVIL) msgs.push({ t: 'exchange', from: 'wood', to: 'stone', amount: e }, { t: e }, { t: 'train', unit: 200, count: e }, { t: 'rep', id: 1, coins: e }, { t: 'gift', to: 1, gift: e });
   const bad = [];

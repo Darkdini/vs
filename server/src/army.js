@@ -882,7 +882,7 @@ function install(Game, helpers) {
     const me = this.ownerOf(castle);
     if (mission === 'settle') { const e = this.settleError(me, x, y, clean[TRAVELER_ID] || 0); if (e) return { error: e }; }
     if (target && target.site && mission === 'raid') return { error: 'Набег на недострой ничего не даст — там нечего грабить. Нападение или подкрепление.' };
-    if (['attack', 'raid', 'scout', 'rally'].includes(mission) && this.userShielded(me)) return { error: 'У Вас включена защита замка или королевства — армии не ведут боевых действий, пока она действует.' };
+    if (['attack', 'raid', 'scout', 'rally'].includes(mission) && this.userShielded(me)) return { error: this.shieldedMsg(me) };
     if (target && target.owner !== castle.owner && this.castleShield(target)) return { error: mission === 'reinforce' ? 'Замок под защитой — подкрепление в него отправить нельзя.' : 'Замок под защитой — нападать и разведывать его нельзя.' };
     if (target && ['attack', 'raid', 'scout'].includes(mission) && !me.admin && this.isNewbie(this.ownerOf(target))) return { error: `Игрок под защитой новичка ещё ${this.newbieLeftText(this.ownerOf(target))}.` };
     if (target && ['attack', 'raid'].includes(mission) && this.isNewbie(me)) { me.newbieOff = true; this.cache = {}; } // новичок напал сам — его защита снимается
@@ -1511,6 +1511,7 @@ function install(Game, helpers) {
     castle.owner = att.id;
     for (const g of this.guestsOf(castle)) this.goBack(g.c, g.a, Date.now()); // чужие подкрепления уходят домой
     castle.units = {}; castle.squads = []; castle.training = []; castle.armies = []; castle.general = null; castle.research = null;
+    castle.shieldUntil = 0; delete castle.shieldPaused; // снятый купол прежнего хозяина захватчику не достаётся
     delete castle.calmJob; castle.loyalty = 100 - RIOT_CAPTURED; castle.loyAt = Date.now(); // после захвата в замке бунт 95%: хозяин снижает его в Храме за ресурсы
     att.castleIds = [...this.castlesOf(att).map((k) => k.id), castle.id];
     this.addStat(att.id, 'capRating', this.rating(castle)); // Развитие не учитывает рейтинг захваченных замков
