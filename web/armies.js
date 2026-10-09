@@ -206,7 +206,8 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.cmpgo !== undefined) {
     const c = S.cmp, at = c.sched && c.at ? new Date(c.at).getTime() : 0;
     if (c.army === '') return toast('Выберите армию, которая пойдёт в поход.', 'err');
-    return send({ t: 'send', from: c.army, mission: c.mission, x: Number(c.x), y: Number(c.y), portal: c.portal, at, res: c.res });
+    S.lastSend = { t: 'send', from: c.army, mission: c.mission, x: Number(c.x), y: Number(c.y), portal: c.portal, at, res: c.res }; // если мешает купол — повтор с согласия игрока
+    return send(S.lastSend);
   }
 });
 $('#sheetBody').addEventListener('input', (e) => {

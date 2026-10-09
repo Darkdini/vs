@@ -313,7 +313,8 @@ function onMsg(m) {
         savedLoginUi();
         $('#auth').classList.remove('hidden'); $('#game').classList.add('hidden');
         $('#authErr').textContent = m.msg;
-      } else toast(m.msg, 'err');
+      } else if (m.domeAsk && typeof domeAsk === 'function') domeAsk(m); // нападение под куполом — спросить, снять ли его насовсем
+      else toast(m.msg, 'err');
       S.pendingBuild = null;
       break;
     default: if (typeof milMsg === 'function') milMsg(m); break;

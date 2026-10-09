@@ -18,7 +18,6 @@ function generalWin() {
   if (!g) return noGeneralWin();
   // полоса и числа — одно и то же: опыт внутри текущего уровня (100 ур.: от 490 050 до 500 000 — это 9 950 опыта)
   const s = g.stats, span = Math.max(1, g.need - g.prevNeed), inLvl = Math.max(0, Math.min(span, g.exp - g.prevNeed)), done = inLvl / span;
-  const seg = Array.from({ length: 12 }, (_, i) => `<i class="${i < Math.round(done * 12) ? 'on' : ''}"></i>`).join('');
   const line = (icon, label, value) => `<div class="gline"><img src="${GS(icon)}" alt=""><span>${label}:</span><b>${value}</b></div>`;
   const tile = (attr, icon, text, badge) => `<button class="ptile" ${attr}><img src="${icon}" alt="">${badge !== undefined ? `<em class="gbadge">${badge}</em>` : ''}<span>${text}</span></button>`;
   const revive = g.dead ? (g.reviveAt
@@ -29,7 +28,7 @@ function generalWin() {
     <div class="gname">${esc(g.name)}</div>
     <div class="ghead"><img class="gimg" src="${unitSrc(gu)}" alt="">
       <div class="gright"><div>(${esc(g.kind || gu.name)})</div><div><img src="${GS('status/f_gold')}" alt=""> ${fmtFull(g.level)} ур.</div></div></div>
-    <div class="gnext">До след. уровня:<div class="gseg">${seg}</div><small>${fmtFull(inLvl)} / ${fmtFull(span)} · ещё ${fmtFull(Math.max(0, g.need - g.exp))} до ${fmtFull(g.level + 1)} ур.</small></div>
+    <div class="gnext">До след. уровня:<div class="gbar"><i style="width:${(done * 100).toFixed(1)}%"></i><b>${Math.floor(done * 100)}%</b></div><small>${fmtFull(inLvl)} / ${fmtFull(span)} опыта · ещё ${fmtFull(Math.max(0, g.need - g.exp))} до ${fmtFull(g.level + 1)} ур.</small></div>
     <div class="gtop">
       <div><img src="${GS('health')}" alt=""><b>${g.health}%</b></div>
       <div><img src="${GS('phiattack')}" alt=""><b>${s.atk.toFixed(1)}</b></div>

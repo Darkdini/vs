@@ -805,7 +805,7 @@ function install(Game, helpers) {
   };
   // отправка: from = 'castle' (вся Замковая армия) или id отряда (весь отряд), как в оригинале; либо units — выборочно.
   // portal — через Портал (в 4 раза быстрее), at — расписание отправки (время, мс)
-  P.sendArmy = function sendArmy(castle, { units = {}, general = false, x, y, mission, res = null, from = null, portal = false, at = 0, pick = null, pickGen = false }) {
+  P.sendArmy = function sendArmy(castle, { units = {}, general = false, x, y, mission, res = null, from = null, portal = false, at = 0, pick = null, pickGen = false, dropShield = false }) {
     // до списания войск: без премиума расписание недоступно
     if (at && Number(at) > Date.now() + 3000 && !this.isPremium(this.userById(castle.owner))) return { error: 'Расписание отправки доступно с премиумом.' };
     if (mission === 'trade') return this.sendTrade(castle, { x, y, res });
@@ -882,13 +882,16 @@ function install(Game, helpers) {
     const me = this.ownerOf(castle);
     if (mission === 'settle') { const e = this.settleError(me, x, y, clean[TRAVELER_ID] || 0); if (e) return { error: e }; }
     if (target && target.site && mission === 'raid') return { error: 'Набег на недострой ничего не даст — там нечего грабить. Нападение или подкрепление.' };
-    if (['attack', 'raid', 'scout', 'rally'].includes(mission) && this.userShielded(me)) return { error: this.shieldedMsg(me) };
+    // под куполом армии не воюют: клиент предупреждает, что купол сгорит, и с согласия игрока (dropShield) купола снимаются — только если поход состоится
+    const domed = ['attack', 'raid', 'scout', 'rally'].includes(mission) && this.userShielded(me);
+    if (domed && !dropShield) return { error: this.shieldedMsg(me), domed: this.domesText(me) };
     if (target && target.owner !== castle.owner && this.castleShield(target)) return { error: mission === 'reinforce' ? 'Замок под защитой — подкрепление в него отправить нельзя.' : 'Замок под защитой — нападать и разведывать его нельзя.' };
     if (target && ['attack', 'raid', 'scout'].includes(mission) && !me.admin && this.isNewbie(this.ownerOf(target))) return { error: `Игрок под защитой новичка ещё ${this.newbieLeftText(this.ownerOf(target))}.` };
     if (target && ['attack', 'raid'].includes(mission) && this.isNewbie(me)) { me.newbieOff = true; this.cache = {}; } // новичок напал сам — его защита снимается
     const lair = !target && !obj && ['attack', 'raid'].includes(mission) ? this.lairAt(castle.owner, x, y) : null; // логово похода «Тёмные земли»
     if (!target && !obj && !lair && ['attack', 'raid'].includes(mission) && this.bossAt(x, y)) return { error: 'Мирового босса бьют созывом альянса: руководство объявляет созыв в окне босса, участники отправляют туда войска.' };
     if (!['settle', 'rally'].includes(mission) && !target && !lair && (!obj || (!NPC[obj.img] && mission !== 'scout'))) return { error: 'Здесь некого атаковать.' };
+    if (domed) this.shieldDropAll(me); // все проверки пройдены — купола сняты насовсем
     const src = squad ? squad.units : castle.units;
     for (const [id, n] of Object.entries(clean)) { src[id] -= n; if (!src[id]) delete src[id]; }
     if (squad) { // то, что не пошло в поход, остаётся в Замковой армии
@@ -910,7 +913,7 @@ function install(Game, helpers) {
     if (mission === 'expedition') this.addStat(castle.owner, 'expeds', 1);
     if (army.state === 'go') this.warnIncoming(castle, army);
     this.store.save();
-    return { army, sec };
+    return { army, sec, dropped: domed || undefined };
   };
 
   // ----- мир: армии прибывают и возвращаются (вызывается раз в секунду для всех замков) -----
@@ -1511,7 +1514,6 @@ function install(Game, helpers) {
     castle.owner = att.id;
     for (const g of this.guestsOf(castle)) this.goBack(g.c, g.a, Date.now()); // чужие подкрепления уходят домой
     castle.units = {}; castle.squads = []; castle.training = []; castle.armies = []; castle.general = null; castle.research = null;
-    castle.shieldUntil = 0; delete castle.shieldPaused; // снятый купол прежнего хозяина захватчику не достаётся
     delete castle.calmJob; castle.loyalty = 100 - RIOT_CAPTURED; castle.loyAt = Date.now(); // после захвата в замке бунт 95%: хозяин снижает его в Храме за ресурсы
     att.castleIds = [...this.castlesOf(att).map((k) => k.id), castle.id];
     this.addStat(att.id, 'capRating', this.rating(castle)); // Развитие не учитывает рейтинг захваченных замков

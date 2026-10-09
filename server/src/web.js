@@ -303,8 +303,8 @@ const API = {
   // Ратуша → «Защита» (shield.js): view — сроки и цены; buy — купить
   shield(m) {
     const g = this.game;
-    if (['buy', 'off', 'on'].includes(m.op)) { // купить; снять купол (время сохраняется); надеть снятый
-      const kind = String(m.kind || ''), r = m.op === 'buy' ? g.shieldBuy(this.user, this.castle, kind, m.days) : m.op === 'off' ? g.shieldOff(this.user, this.castle, kind) : g.shieldOn(this.user, this.castle, kind);
+    if (['buy', 'off'].includes(m.op)) { // купить; снять купол насовсем (время сгорает)
+      const kind = String(m.kind || ''), r = m.op === 'buy' ? g.shieldBuy(this.user, this.castle, kind, m.days) : g.shieldOff(this.user, this.castle, kind);
       this.pushState(); return this.send({ t: 'shield', data: g.shieldInfo(this.user, this.castle), note: { ok: !r.error, msg: r.error || r.msg } });
     }
     this.send({ t: 'shield', data: g.shieldInfo(this.user, this.castle) });
@@ -654,7 +654,9 @@ const API = {
   train(m) { const c = pickCastle(this, m); if (!c) return; const r = this.game.train(c, Number(m.unit), Number(m.count)); if (r && r.job) this.toast('Тренировка начата!'); this.result(r); if (c !== this.castle) API.kingdom.call(this); },
   kingdom() { if (!this.game.isPremium(this.user)) return this.error('Сводка королевства — с премиумом.'); this.send({ t: 'kingdom', list: this.game.kingdom(this.user) }); },
   send(m) {
-    const r = this.game.sendArmy(this.castle, { units: m.units || {}, general: !!m.general, x: m.x, y: m.y, mission: m.mission, res: m.res, from: m.from, portal: !!m.portal, at: Number(m.at) || 0, pick: m.pick && typeof m.pick === 'object' && !Array.isArray(m.pick) ? m.pick : null, pickGen: !!m.pickGen });
+    const r = this.game.sendArmy(this.castle, { units: m.units || {}, general: !!m.general, x: m.x, y: m.y, mission: m.mission, res: m.res, from: m.from, portal: !!m.portal, at: Number(m.at) || 0, pick: m.pick && typeof m.pick === 'object' && !Array.isArray(m.pick) ? m.pick : null, pickGen: !!m.pickGen, dropShield: m.dropShield === true });
+    if (r.domed) { this.failed = true; this.send({ t: 'error', msg: r.error, domeAsk: { what: r.domed } }); return this.pushState(); } // под куполом: клиент предупредит, что купол сгорит, и спросит
+    if (r.dropped) this.toast('Купол снят — оставшееся время сгорело.');
     if (!r.error && m.mission === 'trade') this.toast(`Торговцы (${r.need}) отправились к ${m.x}:${m.y} — доставка через ${Math.floor(r.sec / 3600)}:${String(Math.floor(r.sec / 60) % 60).padStart(2, '0')}:${String(r.sec % 60).padStart(2, '0')}`);
     else if (!r.error && r.army.rally) this.toast(`Армия встала в созыв — ударит по боссу через ${Math.ceil(r.sec / 60)} мин.`);
     else if (!r.error) this.toast(r.army.state === 'wait' ? `Поход запланирован: ${ARMY.MISSIONS[m.mission]} ${m.x}:${m.y}` : `Армия выступила: ${ARMY.MISSIONS[m.mission]} ${m.x}:${m.y}`);
