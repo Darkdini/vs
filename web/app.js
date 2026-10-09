@@ -257,7 +257,7 @@ function onMsg(m) {
       const old = S.world; S.wPending = 0;
       // плавная прокрутка: новый участок мира подгружается без перерисовки экрана — камера сдвигается на разницу центров
       if (old && S.tab === 'world' && Iso.cams.world && $('.mapwrap') && !S.wJump) {
-        const dx = m.cx - old.cx, dy = m.cy - old.cy, c = Iso.cams.world, t = tileScreen(dx, dy);
+        const dx = (m.cx - m.radius) - (old.cx - old.radius), dy = (m.cy - m.radius) - (old.cy - old.radius), c = Iso.cams.world, t = tileScreen(dx, dy);
         c.x += t.sx * c.z; c.y += t.sy * c.z; if (Iso.gestShift) Iso.gestShift(t.sx, t.sy, c.z); // и палец, что тащит карту, — без рывка
         if (Iso.sel && Iso.sel.tab === 'world') { Iso.sel.x -= dx; Iso.sel.y -= dy; }
         S.world = m; const f = $('[data-wsearch]'); if (f && document.activeElement !== f.x && document.activeElement !== f.y) { f.x.value = m.cx; f.y.value = m.cy; } isoDraw(); break;
@@ -289,6 +289,7 @@ function onMsg(m) {
     case 'myfriends': case 'bday': friendsMsg(m); break;
     case 'reset': resetMsg(m); break;
     case 'tg': tgMsg(m); break;
+    case 'eta': if (m.key === S.etaKey) { S.eta = { key: m.key, sec: m.sec }; const el = $('#cmpTime'); if (el && m.sec) el.textContent = fmtT(m.sec); } break; // окно «Поход»: время от сервера
     case 'smod': smodMsg(m); break;
     case 'welcome': welcomeShow(m); break;
     case 'boss': S.boss = m.data; refreshSheet(); break;
@@ -479,7 +480,7 @@ $('#sheetBody').addEventListener('click', (e) => { if (e.target.closest('[data-r
 function setTab(tab) {
   S.tab = tab;
   $$('#locs [data-loc]').forEach((b) => b.classList.toggle('on', b.dataset.loc === tab));
-  if (tab === 'world') { const g = S.wGoto || { x: S.st.castle.x, y: S.st.castle.y }; S.wGoto = null; S.wJump = true; S.world = null; send({ t: 'world', cx: g.x, cy: g.y }); } // выход в мир — к текущему замку (или к цели похода: S.wGoto)
+  if (tab === 'world') { const g = S.wGoto || { x: S.st.castle.x, y: S.st.castle.y }; S.wGoto = null; S.wJump = true; S.world = null; send({ t: 'world', r: worldR(), cx: g.x, cy: g.y }); } // выход в мир — к текущему замку (или к цели похода: S.wGoto)
   renderView(); if (typeof stashBtn === 'function' && S.st) stashBtn(); if (typeof advBar === 'function' && S.st) advBar();
 }
 
@@ -559,7 +560,7 @@ function viewClick(e) {
   const d = t.dataset;
   if (d.cell !== undefined) return openCell(Number(d.view), Number(d.cell));
   if (d.zoom) return isoZoom(Number(d.zoom) > 0 ? 1.25 : 1 / 1.25);
-  if (d.whome !== undefined) return send({ t: 'world' });
+  if (d.whome !== undefined) return send({ t: 'world', r: worldR() });
   if (d.back !== undefined) return closeSheet();
   if (d.folder) { S.mailFolder = Number(d.folder); S.mail = null; refreshSheet(); return send({ t: 'mail', folder: S.mailFolder }); }
   if (d.letter) return send({ t: 'read', id: Number(d.letter) });
@@ -816,10 +817,10 @@ $('#view').addEventListener('submit', (e) => {
   const f = e.target.closest('[data-wsearch]'); if (!f) return; e.preventDefault(); document.activeElement && document.activeElement.blur();
   const x = Math.round(Number(f.x.value)), y = Math.round(Number(f.y.value));
   if (!Number.isFinite(x) || !Number.isFinite(y)) return toast('Введите X и Y.', 'err');
-  S.wJump = true; S.wPanel = false; send({ t: 'world', cx: x, cy: y });
+  S.wJump = true; S.wPanel = false; send({ t: 'world', r: worldR(), cx: x, cy: y });
 });
 $('#view').addEventListener('click', (e) => {
-  if (e.target.closest('[data-whome]')) { S.wJump = true; S.wPanel = false; send({ t: 'world', cx: S.st.castle.x, cy: S.st.castle.y }); }
+  if (e.target.closest('[data-whome]')) { S.wJump = true; S.wPanel = false; send({ t: 'world', r: worldR(), cx: S.st.castle.x, cy: S.st.castle.y }); }
   if (e.target.closest('[data-wpanel]')) { S.wPanel = !S.wPanel; const p = $('.wpanel'); if (p) p.classList.toggle('open', S.wPanel); }
   if (e.target.closest('[data-wzoom]')) { const c = cam(); isoZoom(0.13 / c.z); } // отдалить до секций
 });
@@ -829,7 +830,7 @@ $('#view').addEventListener('submit', (e) => {
   const N = (S.cat.rules && S.cat.rules.provN) || 40, n = Math.round(Number(f.n.value));
   if (!(n >= 1 && n <= N * N)) return toast(`Номер провинции — от 1 до ${N * N}.`, 'err');
   const P = PROV(), px = (n - 1) % N, py = Math.floor((n - 1) / N);
-  S.wJump = true; S.wPanel = false; send({ t: 'world', cx: px * P + Math.floor(P / 2), cy: py * P + Math.floor(P / 2) });
+  S.wJump = true; S.wPanel = false; send({ t: 'world', r: worldR(), cx: px * P + Math.floor(P / 2), cy: py * P + Math.floor(P / 2) });
 });
 $('#view').addEventListener('click', (e) => { const b = e.target.closest('.infobox'); if (b && Iso.sel && S.world) openWorldCell(S.world.cx - S.world.radius + Iso.sel.x, S.world.cy - S.world.radius + Iso.sel.y); });
 
@@ -980,6 +981,15 @@ function clampCam(c) {
   c.x = r.width / 2 - mx * c.z; c.y = r.height / 2 - my * c.z;
   return c;
 }
+// сколько клеток мира видно от центра экрана при текущем масштабе (+ запас) — столько и подгружать: отдалённая карта показывает
+// всех соседей по провинции, а не только ±13 клеток (не меньше 13, не больше 45)
+function worldR() {
+  const c = Iso.cams && Iso.cams.world, cv = Iso.cv; if (!c || !cv || S.tab !== 'world') return 19;
+  const r = cv.getBoundingClientRect(); if (!r.width) return 19;
+  const ctr = screenToTileF((r.width / 2 - c.x) / c.z, (r.height / 2 - c.y) / c.z); let m = 0;
+  for (const [px, py] of [[0, 0], [r.width, 0], [0, r.height], [r.width, r.height]]) { const f = screenToTileF((px - c.x) / c.z, (py - c.y) / c.z); m = Math.max(m, Math.abs(f.x - ctr.x), Math.abs(f.y - ctr.y)); }
+  return Math.max(13, Math.min(45, Math.ceil(m) + 3));
+}
 // карту мира можно отдалить сильнее: тогда видны только провинции-секции с номерами (PROV_ZOOM)
 const PROV_ZOOM = 0.2, zMin = () => (S.tab === 'world' ? 0.1 : 0.3), provMode = (c) => S.tab === 'world' && c.z < PROV_ZOOM;
 function isoZoom(k, mx, my) {
@@ -1065,7 +1075,7 @@ function isoTap(px, py) {
     const R0 = S.world.radius, n = 2 * R0 + 1, w = S.world;
     // стрелки за краем карты: сдвиг мира (вверх — y−, вправо — x+, вниз — y+, влево — x−)
     const arrows = [[R0, -1, 0, -R0], [n, R0, R0, 0], [R0, n, 0, R0], [-1, R0, -R0, 0]];
-    for (const [ax, ay, dx, dy] of arrows) if (t.x === ax && t.y === ay) { Iso.sel = null; return send({ t: 'world', cx: w.cx + dx, cy: w.cy + dy }); }
+    for (const [ax, ay, dx, dy] of arrows) if (t.x === ax && t.y === ay) { Iso.sel = null; return send({ t: 'world', r: worldR(), cx: w.cx + dx, cy: w.cy + dy }); }
     if (t.x < 0 || t.x >= n || t.y < 0 || t.y >= n) return;
     // объект на клетке; если там пусто — соседний объект (картинки замков и лагерей выше своей клетки, палец часто попадает в соседнюю)
     const at = (tx, ty) => w.objects.find((v) => v.x === w.cx - R0 + tx && v.y === w.cy - R0 + ty);
@@ -1525,7 +1535,10 @@ function isoDrawNow() {
     worldBg(w, c, dpr); // нарисованная местность (бесшовная), привязана к координатам мира
     { // центр экрана ушёл к краю загруженного участка — подгрузить новый (без перерисовки, см. case 'world')
       const f = screenToTileF((Iso.cv.width / dpr / 2 - c.x) / c.z, (Iso.cv.height / dpr / 2 - c.y) / c.z), ex = Math.round(f.x) - R0, ey = Math.round(f.y) - R0;
-      if (!provMode(c) && (Math.abs(ex) > R0 - 5 || Math.abs(ey) > R0 - 5) && (!S.wPending || Date.now() - S.wPending > 1500)) { S.wPending = Date.now(); send({ t: 'world', cx: w.cx + ex, cy: w.cy + ey }); }
+      const need = provMode(c) ? 0 : worldR(), far = Math.abs(ex) > R0 - 5 || Math.abs(ey) > R0 - 5 || need > R0;
+      if (!provMode(c) && far && (!S.wPending || Date.now() - S.wPending > 1500)) {
+        if (Date.now() - (Iso.zt || 0) > 400) { S.wPending = Date.now(); send({ t: 'world', r: need, cx: w.cx + ex, cy: w.cy + ey }); } else setTimeout(isoDraw, 450); // щипок ещё идёт — догрузить после
+      }
       const pn = provNum(w.cx + ex, w.cy + ey), pl = $('#wprov'); if (pl && pl.dataset.n !== String(pn)) { pl.dataset.n = pn; pl.textContent = `Провинция №${pn}`; } // в какой провинции центр экрана
     }
     // статичное (поляны, замки, лагеря, купола, выделение) — готовым холстом; каждый кадр рисуется только фон, кольцо и стрелка

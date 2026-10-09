@@ -779,6 +779,22 @@ function install(Game, helpers) {
 
   // ----- марши -----
   // castleAt(x, y) — индекс по координатам в game.js
+  // время пути для окна «Поход» — то же, что при отправке: travelSec (скорость войск, наука, снаряжение генерала, торговцы),
+  // лагерь разбойников и логово похода — втрое быстрее, Портал — вчетверо; армия не создаётся
+  P.marchEta = function marchEta(castle, m) {
+    const x = Math.round(Number(m.x)), y = Math.round(Number(m.y)), mission = String(m.mission || '');
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return { sec: null };
+    const units = {};
+    for (const [id, n] of Object.entries(m.units && typeof m.units === 'object' ? m.units : {})) if (Object.prototype.hasOwnProperty.call(UNIT, id) && Number(n) > 0) units[id] = Math.floor(Number(n));
+    const general = !!m.general && !!castle.general && !castle.general.dead;
+    if (!Object.keys(units).length && !general) return { sec: null };
+    let sec = this.travelSec(castle, units, general, x, y, mission === 'trade');
+    const target = this.castleAt(x, y), obj = target ? null : this.worldObjects(x, y, 1, 1)[0];
+    const lair = !target && !obj && ['attack', 'raid'].includes(mission) ? this.lairAt(castle.owner, x, y) : null;
+    if ((lair || (obj && CAMPS.includes(obj.img))) && ['attack', 'raid'].includes(mission)) sec = Math.max(5, Math.round(sec / CAMP_FAST));
+    if (m.portal && this.buildingLevel(castle, B.PORTAL)) sec = Math.max(5, Math.round(sec / 4));
+    return { sec };
+  };
   P.travelSec = function travelSec(castle, units, general, x, y, merchants = false) {
     const speeds = Object.keys(units).filter((id) => units[id] > 0 && UNIT[id].speed > 0).map((id) => UNIT[id].speed);
     if (general) speeds.push(UNIT[GENERAL_ID].speed);

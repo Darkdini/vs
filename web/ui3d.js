@@ -579,7 +579,7 @@ $('#sheetBody').addEventListener('click', (e) => {
       send({ t: 'friend', op, id }); return send({ t: 'profile', id, refresh: 1 });
     }
     if (d.ptile === 'msg') { if (p.self) { closeAllSheets(); return ACTS.mail(); } return openDialog(p.id); }
-    if (d.ptile === 'map') { closeAllSheets(); S.world = null; setTab('world'); return send({ t: 'world', cx: p.castles[0].x, cy: p.castles[0].y }); }
+    if (d.ptile === 'map') { closeAllSheets(); S.world = null; setTab('world'); return send({ t: 'world', r: worldR(), cx: p.castles[0].x, cy: p.castles[0].y }); }
     if (d.ptile === 'info') return openSheet(() => profileInfoWin(p));
     if (d.ptile === 'attack') return openArmySheet({ mission: 'attack', x: p.castles[0].x, y: p.castles[0].y });
     if (d.ptile === 'hof') return openHalls(p.id);

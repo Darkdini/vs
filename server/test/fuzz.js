@@ -45,7 +45,7 @@ const EVIL = [-1, -1e9, 1e300, 0.5, '-5', '1e400', 'Infinity', 'NaN', null, true
     calm: { pct: 1, cid: 0 }, festival: { id: 1 }, magic: { unit: 200, kind: 'm' }, exped: { kind: 'near', n: 1 }, hero: { op: 'equip', id: 1, item: 1, slot: 'weapon' },
     chatvote: { id: 1, v: 1 }, avalike: { id: 2 }, repfwd: { id: 1, to: 'victim' }, repdel: { ids: [1] }, privacy: { op: 'add', who: 'victim', id: 1 }, bday: { day: 1, month: 1 },
     pic: { op: 'begin', to: 'victim', w: 100, h: 100, n: 1, i: 0, data: 'eJw=' }, kingdom: {}, moves: {}, boss: {}, rally: {}, chests: {}, coin: {}, market: {},
-    tg: { op: 'buy', pack: 1 },
+    tg: { op: 'buy', pack: 1 }, eta: { units: { 200: 5 }, general: true, mission: 'attack', x: 500, y: 500, portal: true, key: 'k' },
   };
   const allyOps = ['gold', 'store', 'transfer', 'rank', 'diplo', 'mail', 'news', 'post', 'postdel', 'topic', 'topicop', 'ad', 'charter', 'desc', 'rights', 'kick', 'leave', 'give'];
   const squadOps = ['create', 'move', 'rename', 'delete', 'split', 'merge', 'back', 'recall'];

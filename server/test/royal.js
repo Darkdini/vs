@@ -164,6 +164,18 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   c.units[gid] = 3; assert.ok(/тренируется/.test(g.trainGeneral(c, gid).error || '') && /тренируется/.test(g.reviveGeneral(b, U, 0).error || ''), 'пока идёт тренировка — ни второй тренировки, ни воскрешения');
   console.log('✓ Генерал один на королевство: второго не нанять и не воскресить, прокачка не создаёт второго; переезд — остаётся сильнейший, цена найма лишних — в Кладовую');
 }
+{ // окно «Поход»: время от сервера (marchEta) — то же, что у армии в пути; лагерь втрое быстрее, даже если не загружен на карте
+  const u = g.register({ login: 'etatest', password: '12345', race: 0 }).user, c = g.castleOf(u); g.mil(c); g.maxOut(c); c.units[200] = 50;
+  const camp = g.worldObjects(c.x - 40, c.y - 40, 80, 80).find((o) => o.kind === 'object' && [30, 31, 32].includes(o.img));
+  assert.ok(camp, 'рядом есть лагерь');
+  const r = g.sendArmy(c, { mission: 'attack', x: camp.x, y: camp.y, from: 'castle' }); // вся Замковая армия с генералом
+  assert.ok(!r.error, JSON.stringify(r.error));
+  const eta = g.marchEta(c, { units: r.army.units, general: r.army.general, mission: 'attack', x: camp.x, y: camp.y }), slow = g.travelSec(c, r.army.units, r.army.general, camp.x, camp.y);
+  assert.strictEqual(eta.sec, r.army.sec, `окно и армия в пути — одно время (${eta.sec} с)`);
+  assert.ok(eta.sec < slow && Math.abs(eta.sec * 3 - slow) <= 3, `лагерь — втрое быстрее (${slow} → ${eta.sec})`);
+  assert.strictEqual(g.marchEta(c, { units: { __proto__: 5 }, x: 'abc' }).sec, null, 'мусор — без ошибки');
+  console.log(`✓ Окно «Поход»: время от сервера совпадает с армией в пути (лагерь ${slow} с → ${eta.sec} с)`);
+}
 { // снаряжение — тоже на всё королевство: одна Оружейная у игрока; старые Оружейные замков сливаются в неё
   const U = g.register({ login: 'onegear', password: '12345', race: 0 }).user; g.adminAddCastles(U, 1);
   const [a, b] = g.castlesOf(U); for (const k of [a, b]) g.mil(k);

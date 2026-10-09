@@ -154,6 +154,11 @@ function campaignSec() {
   const o = ((S.world && S.world.objects) || []).find((w) => w.x === Number(c.x) && w.y === Number(c.y)); // лагерь разбойников — втрое быстрее
   if (o && (o.lair || [30, 31, 32].includes(o.img)) && ['attack', 'raid'].includes(c.mission)) sec = Math.max(5, Math.round(sec / (S.cat.campFast || 3)));
   if (c.portal) sec = Math.max(5, Math.round(sec / 4));
+  // точное время считает сервер — как при отправке (лагерь, даже если он не загружен на карте; снаряжение генерала; торговцы);
+  // пока ответа нет — оценка выше
+  const gen = genGoes(a, c), key = JSON.stringify([c.mission, c.x, c.y, !!c.portal, gen, units]);
+  if (S.eta && S.eta.key === key && S.eta.sec) return S.eta.sec;
+  if (S.etaKey !== key) { S.etaKey = key; clearTimeout(S.etaT); S.etaT = setTimeout(() => send({ t: 'eta', key, units, general: gen, mission: c.mission, x: c.x, y: c.y, portal: !!c.portal }), 200); }
   return sec;
 }
 function campaignWin() {

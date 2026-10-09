@@ -286,6 +286,8 @@ const API = {
     if (r.uid) for (const s of WebSession.all || []) if (s.user && s.user.id === r.uid) s.socket.destroy(); // прежние входы — из игры
     this.send({ t: 'reset', op, ok: true, msg: r.msg, login: r.login });
   },
+  // окно «Поход»: точное время пути (army.js marchEta) — как при отправке армии
+  eta(m) { const r = this.game.marchEta(this.game.castleOf(this.user), m || {}); this.send({ t: 'eta', key: String((m && m.key) || '').slice(0, 400), sec: r.sec }); },
   // привязка Telegram в Профиле
   tg(m) {
     const g = this.game, op = String(m.op || '');
@@ -352,7 +354,7 @@ const API = {
     this.toast(`Здание разрушено: ${r.name}`); this.pushState();
   },
   world(m) {
-    const c = this.castle, R = 13; // окно мира 27×27 — подгрузка при прокрутке реже
+    const c = this.castle, R = Math.max(13, Math.min(45, Math.round(Number(m.r)) || 13)); // участок мира: ±13…±45 клеток — сколько видно на экране клиента (отдалённая карта — вся провинция и соседи)
     const lim = (v) => Math.max(R, Math.min(G.WORLD - 1 - R, Math.round(v))); // не за край карты
     const cx = lim(Number.isFinite(m.cx) ? m.cx : c.x), cy = lim(Number.isFinite(m.cy) ? m.cy : c.y);
     const objects = this.game.worldObjects(cx - R, cy - R, 2 * R + 1, 2 * R + 1);
