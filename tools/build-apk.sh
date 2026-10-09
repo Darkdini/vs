@@ -1,12 +1,12 @@
 #!/bin/sh
 # Сборка Android-приложения «Средневековье» (WebView с игрой во весь экран) без Android Studio и SDK:
-#   sh tools/build-apk.sh [адрес игры]      по умолчанию https://193-176-78-254.sslip.io
+#   sh tools/build-apk.sh [адрес игры]      по умолчанию https://81-85-78-243.sslip.io
 # Результат: dist/war-kings.apk (подписан v2, minSdk 24, Android 7+, targetSdk 34).
 # Инструменты берутся с Maven Central (кэш ~/.cache/war-apk): android.jar (API 16 + ресурсы), dx (dex),
 # apktool (из него aapt2), apksig (подпись). Нужны java/javac 17+, curl, unzip, zip, python3.
 # Ключ подписи: tools/android/release.p12 — для обновлений приложения поверх старого ключ должен быть тот же!
 set -e
-URL="${1:-${GAME_URL:-https://193-176-78-254.sslip.io}}"
+URL="${1:-${GAME_URL:-https://81-85-78-243.sslip.io}}"
 URL="${URL%/}"
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 A="$ROOT/tools/android"
