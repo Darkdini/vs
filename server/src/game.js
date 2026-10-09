@@ -517,7 +517,7 @@ class Game {
   // золото (монеты) игрока: все изменения — через goldChange, с историей для окна «Казна»
   goldChange(user, delta, reason) {
     delta = Math.round(delta); if (!delta) return;
-    user.gold = Math.max(0, (user.gold || 0) + delta);
+    const before = user.gold || 0; user.gold = before < 0 ? before + delta : Math.max(0, before + delta); // минус (возврат звёзд, tgpay.js) закрывается новыми монетами
     if (this.addStat) this.addStat(user.id, delta > 0 ? 'goldIn' : 'goldOut', Math.abs(delta)); // Зал Славы: Богатство / Расточительство
     (user.goldLog = user.goldLog || []).push({ at: Date.now(), delta, reason, left: user.gold });
     if (user.goldLog.length > 200) user.goldLog.splice(0, user.goldLog.length - 200);
@@ -785,6 +785,7 @@ require('./secwatch').install(Game);
 require('./tgbackup').install(Game);
 require('./shop').install(Game);
 require('./tgauth').install(Game);
+require('./tgpay').install(Game);
 require('./shield').install(Game);
 require('./friends').install(Game);
 require('./pics').install(Game);

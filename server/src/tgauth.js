@@ -108,6 +108,9 @@ function install(Game) {
   P.tgOnMessage = function tgOnMessage(msg, now = Date.now()) {
     if (!msg || !msg.chat || msg.chat.type !== 'private') return;
     const chat = msg.chat.id, text = String(msg.text || '').trim(), from = msg.from || {};
+    if (msg.successful_payment) return this.payDone(msg, now); // оплата звёздами (tgpay.js)
+    if (msg.refunded_payment) return this.payRefund(msg, now);
+    if (/^\/paysupport(@\w+)?$/.test(text)) return this.paySupport(chat);
     const name = from.username ? `@${from.username}` : [from.first_name, from.last_name].filter(Boolean).join(' ').slice(0, 40) || 'Telegram';
     const m = /^\/start\s+([0-9a-f]{24})$/.exec(text);
     if (m) {
@@ -163,9 +166,9 @@ function install(Game) {
     this.tgApi('getMe', {}).then((me) => { this.tgBot = me.username; }).catch((e) => console.error('бот Telegram (getMe):', e.message));
     const loop = () => {
       if (!enabled()) { this.tgPolling = false; return; }
-      this.tgApi('getUpdates', { offset, timeout: 50, allowed_updates: ['message'] }, 60000).then((ups) => {
+      this.tgApi('getUpdates', { offset, timeout: 50, allowed_updates: ['message', 'pre_checkout_query'] }, 60000).then((ups) => {
         wait = 1000;
-        for (const up of ups || []) { offset = Math.max(offset, up.update_id + 1); try { this.tgOnMessage(up.message); } catch (e) { console.error(e); } }
+        for (const up of ups || []) { offset = Math.max(offset, up.update_id + 1); try { if (up.pre_checkout_query) this.payPreCheckout(up.pre_checkout_query); else this.tgOnMessage(up.message); } catch (e) { console.error(e); } }
         setImmediate(loop);
       }).catch((e) => { console.error('бот Telegram:', e.message); wait = Math.min(wait * 2, 60000); setTimeout(loop, wait).unref(); });
     };

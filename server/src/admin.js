@@ -191,7 +191,7 @@ function install(Game) {
       case 'sciences': for (const c of castles) { this.mil(c); c.sciences = Object.assign(this.sciOf(c), { eco: 20, eng: 20, fhi: 20, war: 20 }); } msg = 'Все науки 20 ур.'; break;
       case 'loyalty': for (const c of castles) { this.mil(c); c.loyalty = 100 - Math.max(0, Math.min(100, num(arg.value, 0))); c.loyAt = now; } msg = `Бунт в замке ${Math.max(0, Math.min(100, num(arg.value, 0)))}%.`; break; // значение — бунт, хранится лояльность = 100 − бунт
       // --- игроки ---
-      case 'stats': data = this.adminStats(Number(arg.online) || 0); break;
+      case 'stats': data = { ...this.adminStats(Number(arg.online) || 0), pay: this.payList(50) }; break; // + покупки за звёзды (tgpay.js)
       case 'alerts': { // «Подозрительное»: последние тревоги; открыв список, админ их «видел»
         const l = (this.db.alerts || []).slice(-150).reverse(); data = l.map((x) => ({ ...x })); for (const x of this.db.alerts || []) x.seen = true; break;
       }

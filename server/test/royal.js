@@ -725,9 +725,35 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     nu.tgNotes = []; for (let i = 0; i < 25; i++) g.tgNotify(nu.id, 'battle', 'b'); assert.strictEqual(nu.tgNotes.length, 20, 'не больше 20 в час');
     assert.ok(!g.tgNotify(g.db.users.newsr ? g.db.users.newsr.id : 0, 'battle', 'z'), 'без привязки — нет');
   }
+  { // покупка монет за звёзды (tgpay.js): счёт в звёздах → проверка перед оплатой → монеты один раз → возврат звёзд уводит в минус
+    const calls = []; g.tgApi = async (method, body) => { calls.push([method, body]); return method === 'createInvoiceLink' ? 'https://t.me/$testinv' : {}; };
+    const last = (mt) => (calls.filter((c) => c[0] === mt).pop() || [])[1] || {};
+    const pu = g.register({ login: 'payer1', password: '12345', race: 0 }).user; pu.gold = 0;
+    g.payStart(pu, 99).then((r) => assert.ok(r.error, 'нет такого пакета'));
+    g.payStart(pu, 1).then((r) => assert.strictEqual(r.url, 'https://t.me/$testinv', 'ссылка на оплату'));
+    const inv = last('createInvoiceLink');
+    assert.ok(inv.currency === 'XTR' && inv.prices[0].amount === 75 && /^g:[0-9a-f]{32}$/.test(inv.payload), 'счёт в звёздах: 25 монет = 75 ⭐');
+    g.payPreCheckout({ id: 'q1', currency: 'XTR', total_amount: 75, invoice_payload: inv.payload }); assert.strictEqual(last('answerPreCheckoutQuery').ok, true, 'проверка перед оплатой — да');
+    g.payPreCheckout({ id: 'q2', currency: 'XTR', total_amount: 3, invoice_payload: inv.payload }); assert.strictEqual(last('answerPreCheckoutQuery').ok, false, 'другая сумма — нет');
+    g.payPreCheckout({ id: 'q3', currency: 'XTR', total_amount: 75, invoice_payload: `g:${'0'.repeat(32)}` }); assert.strictEqual(last('answerPreCheckoutQuery').ok, false, 'поддельный счёт — нет');
+    const paid = { chat: { id: 555, type: 'private' }, from: { id: 555 }, successful_payment: { currency: 'XTR', total_amount: 75, invoice_payload: inv.payload, telegram_payment_charge_id: 'ch1' } };
+    g.tgOnMessage(paid); assert.strictEqual(pu.gold, 25, 'оплачено — 25 монет');
+    assert.ok(/зачислено/.test(last('sendMessage').text) && /звёзды Telegram/.test(pu.goldLog.slice(-1)[0].reason), 'бот подтвердил, в Казне — запись');
+    g.tgOnMessage(paid); assert.strictEqual(pu.gold, 25, 'повтор того же платежа — монеты не второй раз');
+    g.payPreCheckout({ id: 'q4', currency: 'XTR', total_amount: 75, invoice_payload: inv.payload }); assert.strictEqual(last('answerPreCheckoutQuery').ok, false, 'оплаченный счёт второй раз не оплатить');
+    pu.gold = 10; // 15 монет уже потрачено
+    g.tgOnMessage({ chat: { id: 555, type: 'private' }, refunded_payment: { currency: 'XTR', total_amount: 75, invoice_payload: inv.payload, telegram_payment_charge_id: 'ch1' } });
+    assert.strictEqual(pu.gold, -15, 'возврат звёзд — монеты назад, баланс в минус');
+    assert.ok(/Смена ника стоит/.test(g.changeNick(pu, 'payer2').error || ''), 'в минусе тратить нельзя');
+    g.goldChange(pu, 5, 'Пополнение казны администрацией'); assert.strictEqual(pu.gold, -10, 'новые монеты закрывают минус, а не стирают его');
+    g.tgOnMessage({ chat: { id: 555, type: 'private' }, refunded_payment: { currency: 'XTR', total_amount: 75, telegram_payment_charge_id: 'ch1' } }); assert.strictEqual(pu.gold, -10, 'второй возврат того же платежа — ничего');
+    g.tgOnMessage({ chat: { id: 555, type: 'private' }, from: {}, text: '/paysupport' }); assert.ok(/Поддержка/.test(last('sendMessage').text), '/paysupport — куда писать');
+    const pl = g.payList(); assert.ok(pl.count === 0 && pl.refunds === 1 && pl.list[0].refunded, 'в админке: покупка с возвратом');
+    for (let i = 0; i < 9; i++) g.payStart(pu, 0); g.payStart(pu, 0).then((r) => assert.ok(/Слишком много/.test(r.error || ''), 'не больше 10 счетов в час'));
+  }
   g.tgApi = realApi; delete process.env.TG_AUTH_TOKEN; delete process.env.TG_AUTH_BOT;
   assert.ok(g.tgResetRequest('tgplayer').error, 'без бота — подсказка написать администрации');
-  console.log('✓ Telegram: привязка по одноразовой ссылке, код сброса (хеш, 15 мин, 5 попыток, 3 в час), пароль не пересылается, отвязка — по коду, уведомления');
+  console.log('✓ Telegram: покупка монет за звёзды (3 ⭐ = 1, один раз, возврат — в минус), привязка по одноразовой ссылке, код сброса (хеш, 15 мин, 5 попыток, 3 в час), пароль не пересылается, отвязка — по коду, уведомления');
 }
 { // защита новичка: ровно 3 дня с регистрации; уже зарегистрированные — по своей дате; напал сам — снимается
   process.env.NEWBIE_DAYS = '3';

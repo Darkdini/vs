@@ -2202,3 +2202,10 @@ details.rarmy[open] > summary { filter: brightness(1.12); }
 
 /* своя графика высокого разрешения (иконки меню, значок замка, лес, валуны и горы земель) — сглаживать при уменьшении, а не «пиксельно» */
 img[src*="gfx/menu/"], img[src*="castle_small"], img[src$="ground/wood.png"], img[src$="ground/walun.png"], img[src$="ground/mount.png"] { image-rendering: auto; }
+/* Казна → «Купить монеты» за звёзды Telegram: пакеты в две колонки, справа — цена в звёздах */
+.paypacks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; margin: 0 2px 6px; }
+.pbar.paypack { width: auto; margin: 0; display: flex; align-items: center; gap: 6px; padding: 8px 10px; font: 16px var(--serif); text-align: left; }
+.pbar.paypack img { width: 22px; height: 22px; image-rendering: auto; }
+.pbar.paypack b { font-size: 19px; }
+.pbar.paypack span { margin-left: auto; font-weight: 700; color: #ffe08a; white-space: nowrap; }
+.parch-note.bad { color: #a01c10; font-weight: 700; }

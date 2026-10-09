@@ -6,7 +6,7 @@
 
 const ALERT_MAX = 300;
 const ROYAL_10MIN = 600, ROYAL_DAY = 1500; // законно — не больше ~700 в сутки (400 за действия + 50 + Храмы + ритуалы)
-const GOLD_OK = /администрац|казн. альянса/i; // поступления золота, которые не тревожат
+const GOLD_OK = /администрац|казн. альянса|звёзды Telegram/i; // поступления золота, которые не тревожат
 
 function install(Game) {
   const P = Game.prototype;

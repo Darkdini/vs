@@ -78,6 +78,7 @@ function catalogJson() {
     version: VERSION,
     speed: G.SPEED,
     shopOpen: process.env.SHOP_OPEN === '1', // «Лавка Короля» для всех (иначе — только администратор)
+    pay: require('./tgpay').payInfo(), // покупка монет за звёзды Telegram: курс и пакеты
     campFast: require('./army').CAMP_FAST,
     march: require('./army').MARCH, // армии ходят быстрее во столько раз
     maxQueue: G.MAX_QUEUE,
@@ -289,6 +290,7 @@ const API = {
   tg(m) {
     const g = this.game, op = String(m.op || '');
     if (op === 'link') { const r = g.tgLinkStart(this.user); if (r.error) return this.error(r.error); return this.send({ t: 'tg', url: r.url, info: g.tgAuthInfo(this.user) }); }
+    if (op === 'buy') return g.payStart(this.user, m.pack).then((r) => this.send(r.error ? { t: 'tg', buyErr: r.error } : { t: 'tg', url: r.url, buy: 1 })); // Казна: счёт в звёздах (tgpay.js)
     if (op === 'notify') { const r = g.tgNotifySet(this.user, String(m.kind || ''), !!m.on); if (r.error) return this.error(r.error); return this.send({ t: 'tg', info: g.tgAuthInfo(this.user) }); }
     if (op === 'unlink' || op === 'unlinkok') { // отвязка: unlink — код в Telegram, unlinkok — ввод кода
       const r = op === 'unlink' ? g.tgUnlinkStart(this.user) : g.tgUnlink(this.user, m.code);

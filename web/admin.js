@@ -289,7 +289,10 @@ function admStatsHtml(st) {
       <div class="ssub">Откуда пришло</div>
       ${g.got.length ? g.got.map((x) => `<div class="srow"><span>${esc(x.k)}</span><b>${fmtFull(x.sum)}</b></div>`).join('') : '<p class="small">Поступлений не было.</p>'}
       <div class="stwo"><div><div class="ssub">Больше всех потратили</div>${g.spenders.map((x) => `<div class="srow"><span>${esc(x.login)}</span><b>${fmtFull(x.sum)}</b></div>`).join('') || '<p class="small">—</p>'}</div>
-      <div><div class="ssub">Больше всех получили</div>${g.buyers.map((x) => `<div class="srow"><span>${esc(x.login)}</span><b>${fmtFull(x.sum)}</b></div>`).join('') || '<p class="small">—</p>'}</div></div>`)}`;
+      <div><div class="ssub">Больше всех получили</div>${g.buyers.map((x) => `<div class="srow"><span>${esc(x.login)}</span><b>${fmtFull(x.sum)}</b></div>`).join('') || '<p class="small">—</p>'}</div></div>`)}
+    ${st.pay ? aSec('⭐ Покупки за звёзды Telegram', `<div class="stiles">${tile(st.pay.stars, 'звёзд получено')}${tile(st.pay.gold, 'монет продано')}${tile(st.pay.count, 'покупок')}${tile(st.pay.refunds, 'возвратов')}</div>
+      <p class="small">Звёзды копятся на балансе бота игроков; вывод — через Fragment, примерно через 3 недели после покупки.</p>
+      ${st.pay.list.map((x) => `<div class="srow"><span>${esc(x.login || '?')} · ${fmtDate(x.at)}${x.refunded ? ' · <b class="bad">возврат</b>' : ''}${x.lost ? ' · <b class="bad">без счёта — начислить вручную</b>' : ''}</span><b>${fmtFull(x.gold)} 🪙 · ${fmtFull(x.stars)} ⭐</b></div>`).join('') || '<p class="small">Покупок пока не было.</p>'}`) : ''}`;
 }
 $('#sheetBody').addEventListener('click', (e) => {
   const b = e.target.closest('[data-ssel],[data-astats]'); if (!b) return;

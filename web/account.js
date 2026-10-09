@@ -71,6 +71,8 @@ $('#sheetBody').addEventListener('submit', (e) => {
 }, true);
 // привязка Telegram: сервер выдаёт одноразовую ссылку t.me/<бот>?start=<код>, игрок жмёт «Старт» в боте
 $('#sheetBody').addEventListener('click', (e) => {
+  const bg = e.target.closest('[data-buygold]'); // Казна → купить монеты за звёзды: счёт открывается в Telegram
+  if (bg) { S.tgWin = window.open('about:blank', '_blank'); return send({ t: 'tg', op: 'buy', pack: Number(bg.dataset.buygold) }); }
   const b = e.target.closest('[data-tg]'); if (!b) return;
   if (b.dataset.tg === 'unlink') return send({ t: 'tg', op: 'unlink' }); // бот пришлёт код — отвязка только с ним
   S.tgWin = window.open('about:blank', '_blank'); send({ t: 'tg', op: 'link' }); // окно открывается сразу (иначе телефон заблокирует всплывающее)
@@ -81,7 +83,8 @@ $('#sheetBody').addEventListener('submit', (e) => {
 });
 function tgMsg(m) {
   if (m.note) S.tgNote = m.note;
-  if (m.url) { if (S.tgWin && !S.tgWin.closed) S.tgWin.location.href = m.url; else location.href = m.url; S.tgWin = null; toast('Нажмите «Старт» в боте — и вернитесь в игру.'); return; }
+  if (m.buyErr) { if (S.tgWin && !S.tgWin.closed) S.tgWin.close(); S.tgWin = null; toast(m.buyErr); return; }
+  if (m.url) { if (S.tgWin && !S.tgWin.closed) S.tgWin.location.href = m.url; else location.href = m.url; S.tgWin = null; toast(m.buy ? 'Оплатите счёт в Telegram — монеты придут сразу после оплаты.' : 'Нажмите «Старт» в боте — и вернитесь в игру.'); return; }
   if (S.acctView) send({ t: 'profile', id: S.st.user.id, acct: 1 }); // обновить блок в Профиле
 }
 $('#sheetBody').addEventListener('change', (e) => { const c = e.target.closest('[data-tgn]'); if (c) send({ t: 'tg', op: 'notify', kind: c.dataset.tgn, on: c.checked }); });

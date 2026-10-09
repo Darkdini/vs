@@ -464,8 +464,12 @@ function siteWin(o, x, y) {
 // ---------- Казна: золото игрока ----------
 const treasuryWin = () => {
   const log = S.st.user.goldLog || [];
-  return `${ribbon('Казна')}<div class="cwin"><img class="cwimg" src="${GFX}coins.png" alt=""><div><div class="cwname">Монеты</div><b>${fmtFull(S.st.user.gold)}</b></div></div>
-  <p class="parch-note">Монеты выдаёт администрация. Тратятся${shopVisible() ? ' в «Лавке Короля» (ускорения, ресурсы, рамки),' : ''} на премиум, подарки, репутацию, праздники, ритуалы и казну альянса.</p>${shopVisible() ? '<button class="pbar" data-shopopen>🏪 Лавка Короля</button>' : ''}
+  const pay = S.cat.pay && S.cat.pay.on ? S.cat.pay : null, gold = S.st.user.gold || 0;
+  return `${ribbon('Казна')}<div class="cwin"><img class="cwimg" src="${GFX}coins.png" alt=""><div><div class="cwname">Монеты</div><b>${fmtFull(gold)}</b></div></div>
+  ${gold < 0 ? '<p class="parch-note bad">Минус после возврата звёзд Telegram: пока он не закрыт, тратить монеты нельзя.</p>' : ''}
+  ${pay ? `${ribbon('Купить монеты')}<p class="parch-note">Оплата звёздами Telegram: ${pay.rate} ⭐ = 1 монета. Монеты придут сразу после оплаты.</p>
+  <div class="paypacks">${pay.packs.map((p, i) => `<button class="pbar paypack" data-buygold="${i}"><img src="${GFX}coins_s.png" alt=""><b>${fmtFull(p.gold)}</b> монет<span>${fmtFull(p.stars)} ⭐</span></button>`).join('')}</div>` : ''}
+  <p class="parch-note">${pay ? 'Монеты можно купить за звёзды или получить от администрации.' : 'Монеты выдаёт администрация.'} Тратятся${shopVisible() ? ' в «Лавке Короля» (ускорения, ресурсы, рамки),' : ''} на премиум, подарки, репутацию, праздники, ритуалы и казну альянса.</p>${shopVisible() ? '<button class="pbar" data-shopopen>🏪 Лавка Короля</button>' : ''}
   ${ribbon('История')}${log.map((x) => `<div class="glog"><span class="${x.delta > 0 ? 'plus' : 'minus'}">${x.delta > 0 ? '+' : ''}${fmtFull(x.delta)}</span><span>${esc(x.reason)}<br><small>${new Date(x.at).toLocaleString('ru-RU')} · осталось ${fmtFull(x.left)}</small></span></div>`).join('') || '<p class="parch-note">Операций пока не было.</p>'}`;
 };
 
