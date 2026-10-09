@@ -2201,4 +2201,4 @@ details.rarmy[open] > summary { filter: brightness(1.12); }
 #bbtn.rally::after { content: '⚔'; position: absolute; right: -2px; top: -4px; width: 22px; height: 22px; border-radius: 50%; background: #b3141c; color: #fff; font: 700 13px/22px system-ui; text-align: center; box-shadow: 0 0 0 2px #ffd240; }
 
 /* своя графика высокого разрешения (иконки меню, значок замка, лес, валуны и горы земель) — сглаживать при уменьшении, а не «пиксельно» */
-img[src*="gfx/menu/"], img[src*="castle_small"], img[src$="ground/wood.png"], img[src$="ground/walun.png"], img[src$="ground/mount.png"] { image-rendering: auto; }
+img[src*="gfx/menu/"], img[src*="castle_small"], img[src$="ground/wood.png"], img[src$="ground/walun.png"] { image-rendering: auto; }
