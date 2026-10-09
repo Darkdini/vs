@@ -252,7 +252,7 @@ function scienceMiles(sci) {
   for (const [k, s] of Object.entries(SCIENCES)) for (const [l, [fx]] of Object.entries(s.miles)) if ((sci[k] || 0) >= Number(l)) for (const [f, v] of Object.entries(fx)) m[f] += v;
   return m;
 }
-// цена науки: до 13 ур. — 400 × 1,45^ур.; с 14 ур. — от 55 000 до 73 000 (+3 000 за уровень), чтобы влезать в Склад (максимум 75 200);
+// цена науки: до 13 ур. — 400 × 1,45^ур.; с 14 ур. — от 55 000 до 73 000 (+3 000 за уровень), чтобы влезать в Склад (полный — 95 000);
 // дальше дороже становится время (scienceTime)
 const scienceCost = (lvl) => { const k = lvl <= 13 ? Math.round(400 * 1.45 ** lvl / 10) * 10 : 55000 + (lvl - 14) * 3000; return { wood: k, stone: k, iron: k, food: k }; };
 const scienceTime = (lvl) => Math.round(600 * 1.35 ** lvl);
@@ -323,7 +323,7 @@ const UP = {
   a: { name: 'атака', bld: B.SMITH, c: 0.88, g: 1.2355 }, d: { name: 'защита', bld: B.SMITH, c: 0.8756, g: 1.2185 },
   m: { name: 'магическая атака', bld: B.MAGIC_SCHOOL, c: 0.86, g: 1.25 }, md: { name: 'магическая защита', bld: B.MAGIC_SCHOOL, c: 1.01, g: 1.209 },
 };
-const UP_CAP = 72000; // улучшение не дороже 72 000 одного ресурса — иначе не влезает в Склад (75 200)
+const UP_CAP = 72000; // улучшение не дороже 72 000 одного ресурса — влезает в Склад (полный — 95 000)
 const SPY_OPEN = {
   armies: { name: 'Армий в замке', level: 1, survive: 0, cond: 'выжил хотя-бы 1 разведчик' },
   res: { name: 'Ресурсов', level: 4, survive: 0.5, cond: 'выжило больше 50% разведчиков' },

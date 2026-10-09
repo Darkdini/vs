@@ -134,7 +134,7 @@ class WebSession {
         id: c.id, name: c.name, x: c.x, y: c.y, grid: { 0: Array.from(c.grid[0]), 1: Array.from(c.grid[1]) }, levels: { 0: Array.from(c.levels[0]), 1: Array.from(c.levels[1]) },
         res: c.res, rate: this.game.rates(c), cap: this.game.capacity(c),
         queue: c.queue.map((q) => ({ view: q.view, cell: q.cell, building: q.building, level: q.level, start: q.start, end: q.end, wall: !!q.wall })), wall: c.wall || 0,
-        rating: this.game.rating(c), townhall: this.game.buildingLevel(c, 0),
+        rating: this.game.rating(c), ratingParts: this.game.ratingParts(c), townhall: this.game.buildingLevel(c, 0),
         mil: this.game.milState(c, u),
         loyalty: Math.round(c.loyalty ?? 100), capital: this.game.isCapital(c),
       },

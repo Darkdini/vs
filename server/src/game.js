@@ -98,10 +98,10 @@ function landOptions(x, y) {
   }
 }
 
-// вместимость: база 1500 + каждый Склад 1000×1.25^ур.; люди: 60 + 20 за уровень каждой Хибары
-// склад как в оригинале: вместимость каждого Склада по уровням (1–10 ур.), склады суммируются + 200 базово
-// → 20 складов 10 ур. = 100 200; места для людей: 35 + 4.728 за уровень Хибары → полный замок 5 425
-const STORE = { base: 200, levels: [0, 100, 300, 500, 800, 1000, 1500, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 13000, 14000, 15000], people: 35, peoplePerHut: 4.728 };
+// вместимость: 200 базово + вместимость каждого Склада по уровню (1–20 ур.), Склады суммируются;
+// 1–8 ур. — как в оригинале (старт: Склад 2 ур. вмещает 500), с 9-го — +1 330 за уровень
+// → 5 Складов 20 ур. = 200 + 5 × 18 960 = 95 000; места для людей: 35 + 4.728 за уровень Хибары → полный замок 5 425
+const STORE = { base: 200, levels: [0, 100, 300, 500, 800, 1000, 1500, 2000, 3000, 4330, 5660, 6990, 8320, 9650, 10980, 12310, 13640, 14970, 16300, 17630, 18960], people: 35, peoplePerHut: 4.728 };
 const storeBonus = (level) => STORE.levels[Math.max(0, Math.min(20, level))];
 // добыча ресурсов не ускоряется скоростью мира (числа как в оригинале); RES_SPEED — отдельный множитель для тестов
 const RES_SPEED = Number(process.env.RES_SPEED || 1);
@@ -532,12 +532,23 @@ class Game {
     return { ok: true };
   }
 
-  // рейтинг замка: до 2300 при полной застройке (C.RATING)
-  rating(castle) {
+  // рейтинг замка: постройки замка + развитие Складов + земли; полный замок — 2200 (C.RATING)
+  ratingParts(castle) {
     const sum = (a) => a.reduce((x, y) => x + y, 0);
-    const R = C.RATING;
-    return Math.min(R.max, Math.min(R.castleMax, Math.round((sum(castle.levels[0]) + (castle.wall || 0) + (castle.storeExtraLv || 0)) * R.castle)) + Math.min(R.landsMax, Math.round(castle.levels[1].reduce((x, y) => x + C.landEff(y), 0) * R.lands)));
+    const R = C.RATING, extra = castle.storeExtraLv || 0; // уровни Складов, объединённых при переходе на 5 Складов
+    let storeLv = extra;
+    castle.grid[0].forEach((b, i) => { if (b === 1) storeLv += castle.levels[0][i]; });
+    const p = {
+      castle: Math.min(R.castleMax, Math.round((sum(castle.levels[0]) + (castle.wall || 0) + extra) * R.castle)),
+      store: Math.min(R.storeMax, Math.round(storeLv * R.store)),
+      lands: Math.min(R.landsMax, Math.round(castle.levels[1].reduce((x, y) => x + C.landEff(y), 0) * R.lands)),
+      storeLv,
+    };
+    p.total = Math.min(R.max, p.castle + p.store + p.lands);
+    return p;
   }
+
+  rating(castle) { return this.ratingParts(castle).total; }
 
   buildingLevel(castle, buildingId) {
     if (buildingId === WALL_ID) return castle.wall || 0;

@@ -146,9 +146,10 @@ function levelTimeSec0(b, level, townhallLevel) {
   return Math.max(TIME.min, Math.round(t.base * t.growth ** (Math.min(level, 20) - 1) * 1.03 ** Math.max(0, level - 20) * TIME.townhallFactor ** townhallLevel));
 }
 
-// рейтинг: полностью отстроенный замок = 2300 (замок до 1300 + земли до 1000).
-// Полный замок: 49 клеток — все виды зданий замка на максимуме, остальные клетки — Склады 10 ур.;
-// полные земли: 225 клеток × 20 ур. Очки за уровень — доля от этих максимумов.
+// рейтинг: полностью отстроенный замок = 2200 — постройки замка 971 + развитие Складов 229 + земли 1000.
+// Очки за уровень здания замка — прежние (1300 на старую застройку из 43 клеток, рейтинг игроков не меняется);
+// полный замок на 33 местах (все здания на максимуме + 5 Складов 20 ур. + стена = 532 ур.) даёт за постройки 971,
+// остальное до 2200 — за уровни Складов (5 × 20 ур., ещё +2,29 за уровень). Полные земли: все клетки на максимуме.
 const BY_ID_MAX_STORE = BUILDINGS.find((b) => b.id === 1).max;
 // прочность здания (как в оригинале: Склад — 589 на 1 ур., растёт линейно с уровнем)
 const durability = (b, level0) => { const level = b.layer === 'lands' ? landEff(level0) : level0; return durability0(b, level); };
@@ -162,7 +163,11 @@ const STORE_MAX = 5;
 const CASTLE_CELLS = 43; // для рейтинга — прежняя застройка (рейтинг игроков не меняется)
 const CASTLE_FULL_LEVELS = CASTLE_TYPES.reduce((s, b) => s + (b.max || 20), 0) + (CASTLE_CELLS - CASTLE_TYPES.length) * BY_ID_MAX_STORE;
 const LANDS_FULL_LEVELS = LANDS_N * LANDS_N * LAND_EFF_MAX; // все клетки земель застраиваемые (в прежних уровнях: рейтинг считает landEff)
-const RATING = { max: 2300, castleMax: 1300, landsMax: 1000, castle: 1300 / CASTLE_FULL_LEVELS, lands: 1000 / LANDS_FULL_LEVELS };
+const RATING_FULL = 2200, RATING_LANDS = 1000, RATING_K = 1300 / CASTLE_FULL_LEVELS;
+const CASTLE_NOW_LEVELS = CASTLE_TYPES.reduce((s, b) => s + (b.max || 20), 0) + (STORE_MAX - 1) * BY_ID_MAX_STORE; // полный замок сейчас: 532 ур.
+const RATING_CASTLE = Math.round(CASTLE_NOW_LEVELS * RATING_K), RATING_STORE = RATING_FULL - RATING_CASTLE - RATING_LANDS; // 971 и 229
+const RATING = { max: RATING_FULL, castleMax: RATING_CASTLE, storeMax: RATING_STORE, landsMax: RATING_LANDS,
+  castle: RATING_K, store: RATING_STORE / (STORE_MAX * BY_ID_MAX_STORE), lands: RATING_LANDS / LANDS_FULL_LEVELS };
 
 // Какую картинку показывать для уровня (земли «растут»: маленькое → среднее → большое здание)
 function displayId(b, level) {

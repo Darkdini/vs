@@ -111,7 +111,7 @@ function buildSec(def, level, townhall) {
   const raw = def.layer === 'lands' && !def.time && L && L.time ? Math.max(T.min, Math.round(L.time[Math.max(1, Math.min(5, level))] * T.townhallFactor ** Math.max(0, townhall - 1))) : buildSecRaw(def, level, townhall);
   return Math.max(R().minBuildSec, Math.round(raw / S.cat.speed));
 }
-const ratingPer = (def) => (def.layer === 'lands' ? R().rating.lands : R().rating.castle);
+const ratingPer = (def) => (def.layer === 'lands' ? R().rating.lands : R().rating.castle + (def.id === 1 ? R().rating.store || 0 : 0)); // Склад: ещё очки за развитие Складов
 const fr = (v) => (Math.round(v * 100) / 100).toLocaleString('ru-RU'); // дробные очки рейтинга
 // что даёт здание на уровне level: {text, short}
 function effect(def, level) {
@@ -544,7 +544,7 @@ const SUBPAGES = {
       <div class="section">Время стройки</div>
       <div class="formula">Замок: ${T.castle.base} с × ${T.castle.growth}^(ур−1)<br>Земли: ${T.lands.base} с × ${T.lands.growth}^(ур−1)<br>× ${T.townhallFactor}^(ур. Ратуши) ÷ скорость мира (×${S.cat.speed})</div>
       <div class="section">Рейтинг</div>
-      <div class="formula">Полностью отстроенный замок — ★ ${R().rating.max}: постройки замка до ${R().rating.castleMax}, земли до ${R().rating.landsMax}.<br>Уровень здания в замке: ★ ${fr(R().rating.castle)}<br>Уровень на землях: ★ ${fr(R().rating.lands)}</div>
+      <div class="formula">Полностью отстроенный замок — ★ ${R().rating.max}: постройки замка до ${R().rating.castleMax}, развитие Складов до ${R().rating.storeMax}, земли до ${R().rating.landsMax}.<br>Уровень здания в замке: ★ ${fr(R().rating.castle)}<br>Уровень Склада: ещё ★ ${fr(R().rating.store)}<br>Уровень на землях: ★ ${fr(R().rating.lands)}</div>
       <div class="section">Добыча и склад</div>
       <div class="formula">Базово ${R().baseRate.wood}/ч дерева, камня и железа + добыча зданий земель по таблице (еда ×${S.cat.prodK.food}, люди ×${S.cat.prodK.people})<br>
       Склад: ${st.base} + сумма всех Складов (по уровням: ${st.levels.slice(1).join(', ')})<br>Люди: ${st.people} + ${st.peoplePerHut} мест за уровень Хибары</div>
@@ -763,11 +763,13 @@ function emptySheet(view, cell) {
 }
 
 function ratingInfoSheet() {
-  const c = S.st.castle, sum = (a) => a.reduce((x, y) => x + y, 0);
-  const lc = sum(c.levels[0]), ll = sum(c.levels[1]), le = c.levels[1].reduce((x, y) => x + ((S.cat.lands && S.cat.lands.eff) ? S.cat.lands.eff[y] || 0 : y), 0), rc = R().rating.castle, rl = R().rating.lands;
+  const c = S.st.castle, sum = (a) => a.reduce((x, y) => x + y, 0), RT = R().rating, P = c.ratingParts || {};
+  const lc = sum(c.levels[0]) + (c.wall || 0), ll = sum(c.levels[1]), le = c.levels[1].reduce((x, y) => x + ((S.cat.lands && S.cat.lands.eff) ? S.cat.lands.eff[y] || 0 : y), 0), rc = RT.castle, rl = RT.lands;
+  const sl = P.storeLv ?? c.grid[0].reduce((s, b, i) => s + (b === 1 ? c.levels[0][i] : 0), 0); // уровни Складов
+  const pc = P.castle ?? Math.min(RT.castleMax, Math.round(lc * rc)), ps = P.store ?? Math.min(RT.storeMax, Math.round(sl * RT.store)), pl = P.lands ?? Math.min(RT.landsMax, Math.round(le * rl));
   return `${ribbon(`Рейтинг замка: ${fmtFull(c.rating)}`)}
-    <dl class="kv"><dt>Замок: ${lc} ур.</dt><dd>★ ${Math.min(R().rating.castleMax, Math.round(lc * rc))} из ${R().rating.castleMax}</dd><dt>Земли: ${ll} ур.</dt><dd>★ ${Math.min(R().rating.landsMax, Math.round(le * rl))} из ${R().rating.landsMax}</dd><dt><b>Итого</b></dt><dd><b>★ ${c.rating} из ${R().rating.max}</b></dd></dl>
-    <p class="muted small">Полностью отстроенный замок даёт ${R().rating.max}. Уровень здания в замке: +${fr(rc)}, на землях: 1-й ур. +${fr(rl)}, каждый следующий — как 5 прежних (+${fr(rl * 5)}).</p>`;
+    <dl class="kv"><dt>Постройки замка: ${lc} ур.</dt><dd>★ ${pc} из ${RT.castleMax}</dd><dt>Развитие Складов: ${sl} ур.</dt><dd>★ ${ps} из ${RT.storeMax}</dd><dt>Земли: ${ll} ур.</dt><dd>★ ${pl} из ${RT.landsMax}</dd><dt><b>Итого</b></dt><dd><b>★ ${c.rating} из ${RT.max}</b></dd></dl>
+    <p class="muted small">Полностью отстроенный замок даёт ${RT.max}. Уровень здания в замке: +${fr(rc)}, уровень Склада — ещё +${fr(RT.store)}, на землях: 1-й ур. +${fr(rl)}, каждый следующий — как 5 прежних (+${fr(rl * 5)}).</p>`;
 }
 
 function profileSheet(p) {
