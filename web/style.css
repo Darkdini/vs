@@ -2218,3 +2218,5 @@ img[src*="gfx/menu/"], img[src*="castle_small"], img[src$="ground/wood.png"], im
 .payrow .payamt { text-align: right; font-weight: 700; color: #2f6b12; }
 .payrow em { grid-column: 1 / -1; font-style: normal; font-size: 12px; color: #2f6b12; }
 .payrow.bad .payamt, .payrow.bad em { color: #a01c10; }
+/* Оружейная генерала — одна на королевство: подпись под заголовком */
+p.ghint.center { margin: 2px 8px 6px; text-align: center; font: 14px var(--serif); color: var(--ink2); }

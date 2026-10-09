@@ -43,7 +43,7 @@ function heroGearWin() {
     ${g ? `<div class="gdoll"><div class="gcol">${GEAR_L.map(slot).join('')}</div><div class="gmid">${portrait}<b>${esc(g.name)}</b><small>${fmtFull(g.level)} ур.</small></div><div class="gcol">${GEAR_R.map(slot).join('')}</div></div>
     <div class="gbon">${bonus || '<span class="ghint">Наденьте снаряжение и изучите умения — бонусы появятся здесь.</span>'}</div>` : '<p class="parch-note">Генерала нет — снаряжение ждёт в Оружейной.</p>'}
     ${h.job ? (() => { const all = [...h.gear, ...Object.values(eq)], it = all.find((x) => x && x.id === h.job.item); return `<div class="upbody center gjob">⚒ Кузнец усиливает${it ? ` «${esc(gearNm(it))}»` : ''} до +${h.job.plus}: <b><span class="cd" data-e="${h.job.end}"></span></b></div>`; })() : ''}
-    ${ribbon(`Оружейная ${h.gear.length}/${h.bagMax}`)}
+    ${ribbon(`Оружейная ${h.gear.length}/${h.bagMax}`)}<p class="ghint center">Одна на всё королевство — вещи видны из любого замка.</p>
     <div class="gbag">${h.gear.length ? h.gear.map((it) => `<button class="gitem" data-gitem="${it.id}" style="--rc:${RR[it.r].color}">${gearIcon(it)}${it.plus ? `<em>+${it.plus}</em>` : ''}</button>`).join('')
       : '<p class="parch-note">Пусто. Снаряжение добывает генерал: в логовах похода «Тёмные земли» — всегда, в лагерях — иногда (умение «Охотник за трофеями» повышает шанс). Бывает и в Сундуке дня.</p>'}</div>`;
 }

@@ -265,6 +265,7 @@ class Game {
     }
     this.cache = {};
     for (const c of Object.values(this.db.castles)) this.castleLayoutFix(c);
+    if (this.heroGearMerge) this.heroGearMerge(); // Оружейная — одна на королевство (hero.js)
     if (this.generalOneFix) this.generalOneFix(); // генерал — один на королевство (army.js)
     this.provEdgeFix();
     this.npcCleanup();

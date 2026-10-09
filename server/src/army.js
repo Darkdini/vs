@@ -1885,7 +1885,7 @@ function install(Game, helpers) {
         const g = c.general; this.heroStrip(c, g);
         for (const a of c.armies || []) if (a.general && g.away === a.id) a.general = false; // армия в пути идёт дальше без генерала
         back(g.kindId); c.general = null; n++;
-        lines.push(`Генерал «${g.name}» (${g.level} ур.) из замка «${c.name}» ушёл со службы — его снаряжение в Оружейной этого замка.`);
+        lines.push(`Генерал «${g.name}» (${g.level} ур.) из замка «${c.name}» ушёл со службы — его снаряжение в Оружейной.`);
       }
       for (const [c, d] of revs) {
         if (!kept) { kept = `воскрешение генерала «${d.name}» в замке «${c.name}»`; continue; }

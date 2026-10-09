@@ -164,6 +164,19 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   c.units[gid] = 3; assert.ok(/тренируется/.test(g.trainGeneral(c, gid).error || '') && /тренируется/.test(g.reviveGeneral(b, U, 0).error || ''), 'пока идёт тренировка — ни второй тренировки, ни воскрешения');
   console.log('✓ Генерал один на королевство: второго не нанять и не воскресить, прокачка не создаёт второго; переезд — остаётся сильнейший, цена найма лишних — в Кладовую');
 }
+{ // снаряжение — тоже на всё королевство: одна Оружейная у игрока; старые Оружейные замков сливаются в неё
+  const U = g.register({ login: 'onegear', password: '12345', race: 0 }).user; g.adminAddCastles(U, 1);
+  const [a, b] = g.castlesOf(U); for (const k of [a, b]) g.mil(k);
+  a.gear = [g.rollGear(0, 0), g.rollGear(0, 1)]; b.gear = [g.rollGear(0, 2)]; delete U.gear;
+  assert.ok(g.heroGearMerge() === 3 && !a.gear && !b.gear && U.gear.length === 3, 'Оружейные замков слились в одну');
+  assert.ok(g.heroGear(a) === g.heroGear(b), 'из любого замка — та же Оружейная');
+  b.general = g.newGeneral(b, 10); const it = U.gear[0];
+  assert.ok(g.heroOp(b, U, { op: 'equip', item: it.id }).ok && b.general.eq[it.slot] === it && !U.gear.includes(it), 'надел во втором замке — вещь ушла из общей Оружейной');
+  a.buildingsOk = true; a.grid[0][a.grid[0].indexOf(-1) >= 0 ? a.grid[0].indexOf(-1) : 0] = 11; a.res = { wood: 1e7, stone: 1e7, iron: 1e7, food: 1e7, people: 1e6 };
+  const it2 = U.gear[0], en = g.heroOp(a, U, { op: 'enhance', item: it2.id });
+  if (en.ok) assert.ok(/у Кузнеца/.test(g.heroOp(b, U, { op: 'sell', item: it2.id }).error || ''), 'вещь у Кузнеца первого замка не продать из второго');
+  console.log('✓ Снаряжение на всё королевство: одна Оружейная у игрока, старые Оружейные замков слиты, вещь у Кузнеца защищена из любого замка');
+}
 // торговцы: 20 при Рынке, не тренируются, груз по уровню Рынка, возвращаются на Рынок
 {
   const T = g.register({ login: 'mercht', password: '12345', race: 0 }).user, T2 = g.register({ login: 'mercht2', password: '12345', race: 0 }).user;
@@ -528,7 +541,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   for (let k = 0; k < 5; k++) assert.ok(g.heroOp(ca, A, { op: 'talent', id: 'a2' }).ok);
   assert.ok(g.heroOp(ca, A, { op: 'talent', id: 'a4' }).error, 'очки кончились');
   const it = g.rollGear(0, 3); it.slot = 'weapon'; g.giveGear(ca, it);
-  assert.ok(g.heroOp(ca, A, { op: 'equip', item: it.id }).ok && ca.general.eq.weapon === it && !ca.gear.length);
+  assert.ok(g.heroOp(ca, A, { op: 'equip', item: it.id }).ok && ca.general.eq.weapon === it && !g.heroGear(ca).length);
   Object.assign(ca.res, { wood: 1e6, stone: 1e6, iron: 1e6, food: 1e6 });
   assert.ok(g.heroOp(ca, A, { op: 'enhance', item: it.id }).ok && it.plus === 0 && ca.gearJob && ca.gearJob.end - ca.gearJob.start >= 9 * 60000, 'усиление — по времени');
   assert.ok(/уже усиливает/.test(g.heroOp(ca, A, { op: 'enhance', item: it.id }).error), 'одна вещь за раз');
@@ -537,8 +550,8 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const fight = (gen) => { cd.units = { 247: 100 }; cd.squads = []; ca.forge = {}; cd.forge = {}; return g.clash(ca, { units: { 247: 100 }, mission: 'attack', general: gen }, cd, null, Date.now()); };
   const plain = fight(false), hero = fight(true);
   assert.ok(hero.calc.att.total > plain.calc.att.total * 1.15 && hero.calc.aLossPct <= plain.calc.aLossPct && hero.calc.dLossPct >= plain.calc.dLossPct, 'генерал с умениями и мечом бьёт сильнее');
-  ca.general.dead = true; g.heroStrip(ca, ca.general); assert.ok(ca.gear.includes(it) && !ca.general.eq.weapon, 'павший генерал оставляет снаряжение в Оружейной');
-  ca.res.wood = 0; const w0 = 0; assert.ok(g.heroOp(ca, A, { op: 'sell', item: it.id }).ok && ca.res.wood > w0 && !ca.gear.length);
+  ca.general.dead = true; g.heroStrip(ca, ca.general); assert.ok(g.heroGear(ca).includes(it) && !ca.general.eq.weapon, 'павший генерал оставляет снаряжение в Оружейной');
+  ca.res.wood = 0; const w0 = 0; assert.ok(g.heroOp(ca, A, { op: 'sell', item: it.id }).ok && ca.res.wood > w0 && !g.heroGear(ca).length);
   ca.general.dead = false; assert.ok(g.heroOp(ca, A, { op: 'talreset' }).ok && !Object.keys(ca.general.tal).length && ca.general.talResets === 0);
   console.log('✓ Герой-генерал: ветки умений, снаряжение (надеть, усилить, разобрать), бонусы в бою');
   if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;

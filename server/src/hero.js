@@ -1,7 +1,7 @@
 'use strict';
 // Герой-генерал: ветки умений (Завоеватель, Страж, Мародёр) и снаряжение (6 ячеек, 4 редкости, усиление в Кузнице).
 // Очки умений — за уровни генерала (1 + каждые 3 уровня). Снаряжение падает в лагерях и логовах (только если генерал в походе),
-// изредка — из Сундука дня. Вещи лежат в Оружейной замка (castle.gear), надетые — у генерала (g.eq).
+// изредка — из Сундука дня. Вещи лежат в Оружейной — одна на всё королевство, как и генерал (u.gear); надетые — у генерала (g.eq).
 // Бонусы героя (heroBonus) учитываются в бою (army.js clash/arrive), в скорости марша и в опыте генерала.
 
 const RES4 = ['wood', 'stone', 'iron', 'food'];
@@ -71,7 +71,25 @@ function install(Game) {
     h.survive = Math.min(SURVIVE_MAX, h.survive);
     return h;
   };
-  P.heroGear = function heroGear(castle) { if (!castle.gear) castle.gear = []; return castle.gear; };
+  // Оружейная — одна на королевство (у игрока): видна из любого замка, при захвате замка не теряется
+  P.heroGear = function heroGear(castle) {
+    const u = this.userById(castle.owner); if (!u) { if (!castle.gear) castle.gear = []; return castle.gear; }
+    if (!u.gear) u.gear = [];
+    return u.gear;
+  };
+  // переезд: Оружейные замков (castle.gear) — в общую Оружейную королевства
+  P.heroGearMerge = function heroGearMerge() {
+    let n = 0;
+    for (const c of Object.values(this.db.castles)) {
+      if (!Array.isArray(c.gear) || !c.gear.length) { delete c.gear; continue; }
+      const u = this.userById(c.owner); if (!u) continue;
+      (u.gear = u.gear || []).push(...c.gear); n += c.gear.length; delete c.gear;
+    }
+    if (n) this.store.save();
+    return n;
+  };
+  // вещь сейчас у Кузнеца в каком-то замке королевства
+  const atSmith = (g, castle, id) => g.castlesOf(g.userById(castle.owner) || { castleIds: [castle.id] }).find((c) => c.gearJob && c.gearJob.item === id);
 
   // новая вещь: rarity — фиксированная или случайная (сдвиг bias повышает шанс редких)
   P.rollGear = function rollGear(bias = 0, rarity) {
@@ -99,9 +117,9 @@ function install(Game) {
     const findBag = (id) => bag.find((x) => x.id === Number(id));
     if (m.op === 'sell') {
       const it = findBag(m.item); if (!it) return { error: 'Вещь не найдена.' };
-      if (castle.gearJob && castle.gearJob.item === it.id) return { error: 'Вещь сейчас у Кузнеца — дождитесь конца усиления.' };
+      if (atSmith(this, castle, it.id)) return { error: 'Вещь сейчас у Кузнеца — дождитесь конца усиления.' };
       const p = sellPrice(it), cap = this.capacity(castle);
-      castle.gear = bag.filter((x) => x !== it);
+      bag.splice(bag.indexOf(it), 1);
       for (const r of RES4) castle.res[r] = Math.max(castle.res[r], Math.min(cap[r], castle.res[r] + p[r]));
       this.store.save(); return { ok: true, msg: `«${gearName(it)}» разобрано на ресурсы.` };
     }
@@ -121,8 +139,8 @@ function install(Game) {
       g.tal = {};
     } else if (m.op === 'equip') {
       const it = findBag(m.item); if (!it) return { error: 'Вещь не найдена.' };
-      castle.gear = bag.filter((x) => x !== it);
-      if (g.eq[it.slot]) castle.gear.push(g.eq[it.slot]);
+      bag.splice(bag.indexOf(it), 1);
+      if (g.eq[it.slot]) bag.push(g.eq[it.slot]);
       g.eq[it.slot] = it;
     } else if (m.op === 'unequip') {
       const it = g.eq[m.slot]; if (!it) return { error: 'Ячейка пуста.' };
@@ -133,6 +151,7 @@ function install(Game) {
       if ((it.plus || 0) >= GEAR_MAX_PLUS) return { error: 'Вещь усилена до предела.' };
       if (!this.buildingLevel(castle, 11)) return { error: 'Нужна Кузница.' };
       if (castle.gearJob) return { error: 'Кузнец уже усиливает другую вещь — дождитесь конца.' };
+      const busy = atSmith(this, castle, it.id); if (busy) return { error: `Эта вещь уже у Кузнеца в замке «${busy.name}».` };
       const c = enhanceCost(it);
       for (const r of RES4) if (castle.res[r] < c[r]) return { error: 'Недостаточно ресурсов.' };
       for (const r of RES4) castle.res[r] -= c[r];
@@ -146,7 +165,8 @@ function install(Game) {
   // усиление у Кузнеца закончилось: вещь (в Оружейной, на генерале или у павшего) получает +1
   P.heroGearTick = function heroGearTick(castle, now = Date.now()) {
     const j = castle.gearJob; if (!j || j.end > now) return;
-    const all = [...this.heroGear(castle), ...Object.values((castle.general && castle.general.eq) || {}), ...(castle.deadGenerals || []).flatMap((d) => Object.values(d.eq || {}))];
+    const u = this.userById(castle.owner), cs = u ? this.castlesOf(u) : [castle];
+    const all = [...this.heroGear(castle), ...cs.flatMap((c) => [...Object.values((c.general && c.general.eq) || {}), ...(c.deadGenerals || []).flatMap((d) => Object.values(d.eq || {}))])];
     const it = all.find((x) => x && x.id === j.item);
     if (it) { it.plus = Math.max(it.plus || 0, j.plus); this.event(castle.owner, `Кузнец усилил: «${gearName(it)}».`); }
     castle.gearJob = null;
