@@ -28,7 +28,9 @@ srv.stdout.on('data', async (d) => {
       const head = len < 126 ? [b0, (mask ? 0x80 : 0) | len] : len < 65536 ? [b0, (mask ? 0x80 : 0) | 126, len >> 8, len & 255] : null;
       return Buffer.concat([Buffer.from(head), mask ? m : Buffer.alloc(0), mask ? Buffer.from(payload.map((x, i) => x ^ m[i & 3])) : payload]); };
     const conn = async (ip) => { const r = await up({ 'X-Forwarded-For': ip }); const st = { closed: false, data: Buffer.alloc(0), socket: r.socket };
-      r.socket.on('close', () => { st.closed = true; }); r.socket.on('data', (d) => { st.data = Buffer.concat([st.data, d]); }); return st; };
+      r.socket.on('close', () => { st.closed = true; }); r.socket.on('data', (d) => { st.data = Buffer.concat([st.data, d]); });
+      r.socket.on('error', () => { st.closed = true; }); // сервер рвёт соединение, пока мы ещё пишем, — приходит сброс (ECONNRESET): это тоже «закрыто»
+      return st; };
     const wait = (ms) => new Promise((ok) => setTimeout(ok, ms));
     const okc = await conn('10.1.0.1'); okc.socket.write(frame(1, Buffer.from('{"t":"hello"}'))); await wait(300);
     assert.ok(!okc.closed && /"t":"catalog"/.test(okc.data.toString()), 'обычный кадр — ответ приходит');

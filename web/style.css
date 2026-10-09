@@ -381,7 +381,7 @@ input.num { width: 76px; padding: 7px; text-align: center; }
 
 /* окна: пергамент во весь экран, внизу ◀ и ✕ */
 #backdrop { background: #0008; }
-#sheet { inset: 0; max-height: none; max-width: 640px; border-radius: 0; padding: 0; border: 0; box-shadow: none; transform: translateY(100%);
+#sheet { inset: 0; max-height: none; max-width: none; border-radius: 0; padding: 0; border: 0; box-shadow: none; transform: translateY(100%);
   background: url(gfx/ui/parchment.jpg) 0 0 / 100% 100%; color: var(--ink); font-family: var(--serif); }
 #sheet.show { transform: none; }
 #sheetBody { position: absolute; inset: 0 0 0 0; padding: env(safe-area-inset-top, 0px) 10px calc(80px + var(--safe-b)); }
@@ -1526,6 +1526,11 @@ img[src*="/hd/"] { image-rendering: auto !important; }
   body { background: transparent !important; }
   #game { max-width: 560px !important; border-left: 2px solid #c9a15a !important; border-right: 2px solid #c9a15a !important; box-shadow: 0 0 0 1px #5a3a14, 0 0 40px #000; }
   #sheet { max-width: 556px !important; }
+  /* всё, что «приклеено» к краям экрана, — к краям колонки игры (556 точек внутри рамки), а не монитора:
+     меню с нижней панелью, кнопки «Очистить отчёты» и «Новое письмо», сообщения, полоса «Нет связи» */
+  #menu, #offline { left: calc(50% - 278px); right: calc(50% - 278px); }
+  #toast { left: calc(50% - 266px); right: calc(50% - 266px); }
+  .repclean, .dnew { left: calc(50% - 272px); }
   #auth { background-attachment: scroll; }
   #auth .auth-box { max-width: 440px; }
 }
