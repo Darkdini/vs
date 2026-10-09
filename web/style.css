@@ -306,9 +306,8 @@ input.num { width: 76px; padding: 7px; text-align: center; }
 .card + .card { margin-top: 8px; }
 
 /* ======================================================================
-   Раскладка и окна как в Android-клиенте «Третий Мир 3D» (картинки web/gfx3d из APK):
-   кожаные полосы, красные кнопки локаций, пергамент Window.png, ленты delim.png,
-   окна меню Menu.png, кожаные кнопки Button/a*.png, плитки TextBox/a*.png, крестик chat/close_button.png.
+   Раскладка и окна как в Android-клиенте «Третий Мир 3D»: кожаные полосы, красные кнопки локаций, ленты delim.png, крестик chat/close_button.png.
+   Своя графика «Средневековья» (web/gfx/ui): пергамент окон parchment.jpg, плитки tile*.png, кнопки-строки button*.png, рамка окна меню frame_window.png.
    ====================================================================== */
 :root { --serif: Georgia, "Times New Roman", "DejaVu Serif", serif; --ink: #3a1a0a; --ink2: #6b4523; --cream: #f6e7c1; }
 #game { background: #16240f; }
@@ -345,11 +344,13 @@ input.num { width: 76px; padding: 7px; text-align: center; }
 /* нижняя полоса: Меню — чат с часами — шестерёнка */
 #bottom { position: relative; display: flex; align-items: stretch; gap: 6px; height: calc(62px + var(--safe-b)); padding: 4px 4px var(--safe-b);
   background: url(gfx3d/Menu/Top.png) 0 0 / 100% 100%; border-top: 2px solid #c8963e; z-index: 5; }
-#btnMenu, #btnGear { width: 54px; height: 54px; align-self: center; border: 0; border-radius: 9px; padding: 0; overflow: hidden;
-  background: #4a230c center / 104% 104% no-repeat; box-shadow: 0 1px 3px #000a; }
-#btnMenu { background-image: url(gfx3d/ui/btn_menu.jpg); }
-#btnGear { background-image: url(gfx3d/ui/btn_gear.jpg); }
-#btnMenu img, #btnMenu span { display: none; }
+#btnMenu, #btnGear { position: relative; width: 54px; height: 54px; align-self: center; border: 0; border-radius: 10px; padding: 0;
+  background: transparent center / 100% 100% no-repeat; filter: drop-shadow(0 1px 2px #000a); }
+#btnMenu { background-image: url(gfx/ui/btn_menu.png); }
+#btnGear { background-image: url(gfx/ui/btn_gear.png); }
+/* подпись «Меню» — шрифтом игры поверх нижней трети кнопки (на картинке букв нет) */
+#btnMenu span { position: absolute; left: 0; right: 0; bottom: 5px; font: 700 12px/1 var(--serif); color: #f8e2a8; letter-spacing: .02em;
+  text-shadow: 0 1px 1px #000, 0 0 3px #000, 0 0 5px #000c; pointer-events: none; }
 #btnMenu:active, #btnGear:active { filter: brightness(1.2); transform: translateY(1px); }
 #chatline { flex: 1; min-width: 0; position: relative; border: 2px solid #c8963e; border-radius: 12px; background: #3b1a0bcc; text-align: left; padding: 4px 10px; color: var(--cream); font: 15px var(--serif); }
 #chatmsg { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; margin-top: 16px; }
@@ -373,15 +374,15 @@ input.num { width: 76px; padding: 7px; text-align: center; }
 .mitems { display: grid; gap: 6px; padding: 4px 2px; }
 .mitems hr { border: 0; border-top: 1px solid #c8963e88; margin: 2px 0; }
 .mitem { display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 0 12px; text-align: left; color: var(--cream); font: 400 23px var(--serif);
-  border: 10px solid transparent; border-image: url(gfx3d/Button/a1.png) 26 fill stretch; background: none; text-shadow: 0 1px 1px #000; }
-.mitem:active { border-image-source: url(gfx3d/Button/a3.png); }
+  border: 10px solid transparent; border-image: url(gfx/ui/button.png) 24 fill stretch; background: none; text-shadow: 0 1px 1px #000; }
+.mitem:active { border-image-source: url(gfx/ui/button_on.png); }
 .mitem img { width: 40px; height: 40px; object-fit: contain; image-rendering: pixelated; flex: none; }
-.mitem.close { border-image-source: url(gfx3d/Button/a2.png); color: #fff; }
+.mitem.close { border-image-source: url(gfx/ui/button_red.png); color: #fff; }
 
 /* окна: пергамент во весь экран, внизу ◀ и ✕ */
 #backdrop { background: #0008; }
 #sheet { inset: 0; max-height: none; max-width: 640px; border-radius: 0; padding: 0; border: 0; box-shadow: none; transform: translateY(100%);
-  background: url(gfx3d/Window.png) 0 0 / 100% 100%; color: var(--ink); font-family: var(--serif); }
+  background: url(gfx/ui/parchment.jpg) 0 0 / 100% 100%; color: var(--ink); font-family: var(--serif); }
 #sheet.show { transform: none; }
 #sheetBody { position: absolute; inset: 0 0 0 0; padding: env(safe-area-inset-top, 0px) 10px calc(80px + var(--safe-b)); }
 #sheetBack, #sheetClose { position: absolute; bottom: calc(8px + var(--safe-b)); width: 64px; height: 60px; border: 0; z-index: 3; }
@@ -432,11 +433,11 @@ input.num { width: 76px; padding: 7px; text-align: center; }
 .medal { height: 30px; width: auto; vertical-align: middle; margin-right: 4px; image-rendering: pixelated; }
 .ptitle { margin: 6px -4px; padding: 8px 12px; border: 2px solid #c8963e; border-radius: 6px; background: linear-gradient(#e9b24a, #b07a20); font: 22px var(--serif); color: var(--ink); }
 .ptiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 12px 0; }
-.ptile { aspect-ratio: 1; border: 0; background: url(gfx3d/TextBox/a1.png) 0 0 / 100% 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 10px; }
+.ptile { aspect-ratio: 1; border: 0; background: url(gfx/ui/tile.png) 0 0 / 100% 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 10px; }
 .ptile img { width: 46px; height: 46px; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(0 2px 2px #0008); }
 .ptile span { font: 700 13px/1.1 system-ui, sans-serif; color: #fff; text-shadow: 0 0 2px #000, 0 1px 2px #000; text-align: center; }
 .ptile.off { filter: grayscale(.8) brightness(.8); }
-.ptile:active { background-image: url(gfx3d/TextBox/a2.png); }
+.ptile:active { background-image: url(gfx/ui/tile_on.png); }
 .pstats b { color: #8a1a0a; }
 .pcastle { display: block; width: calc(100% + 8px); margin: 6px -4px; border: 2px solid #c8963e; border-radius: 8px; background: linear-gradient(#b87a4a, #8a4a22); color: var(--cream);
   font: 22px/1.3 var(--serif); padding: 8px; text-shadow: 0 1px 1px #000; }
@@ -854,8 +855,8 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .ptile, .mitem, #menubar button, .pbar, .rbar, .fbar, #btnMenu, #btnGear, #locs .lbtns button { transition: transform .08s ease-out, filter .08s ease-out; -webkit-tap-highlight-color: transparent; }
 .ptile.pressed, .mitem.pressed, #menubar button.pressed, .pbar.pressed, .rbar.pressed, .fbar.pressed, #btnMenu.pressed, #btnGear.pressed, #locs .lbtns button.pressed,
 .ptile:active, .pbar:active, .rbar:active, .fbar:active, #locs .lbtns button:active { transform: scale(.92) translateY(2px); filter: brightness(.78) saturate(1.1); }
-.ptile.pressed { background-image: url(gfx3d/TextBox/a2.png); }
-.mitem.pressed { border-image-source: url(gfx3d/Button/a3.png); }
+.ptile.pressed { background-image: url(gfx/ui/tile_on.png); }
+.mitem.pressed { border-image-source: url(gfx/ui/button_on.png); }
 /* верхняя панель: армии в пути — щит (подкрепления), зелёные мечи (наши нападения), красные мечи (нападают на нас) */
 #top { gap: 12px; }
 .env.mv::before { display: none; }
@@ -1157,8 +1158,8 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 #menu { background: #0004; }
 #menuWin { left: calc(8% + 28px); right: calc(8% + 28px); top: calc(146px + env(safe-area-inset-top, 0px)); bottom: calc(164px + var(--safe-b)); overflow: visible;
   border: 0; border-image: none; background: none; filter: drop-shadow(0 6px 10px #0009); padding: 0; }
-#menuWin::after { content: ""; position: absolute; inset: -36px; border: 36px solid transparent; border-image: url(gfx3d/menu3/frame.png) 80 / 36px round; pointer-events: none; z-index: 1; }
-#menuWin::before { content: ""; position: absolute; inset: -28px; z-index: -1; background: url(gfx3d/menu3/parch.jpg) 50% 0 / cover; box-shadow: inset 0 0 18px #6b3a1466; }
+#menuWin::after { content: ""; position: absolute; inset: -36px; border: 16px solid transparent; border-image: url(gfx/ui/frame_window.png) 50 / 16px stretch; pointer-events: none; z-index: 1; } /* резная рамка — снаружи прокрутки плиток (она шире окна на 20 точек), чтобы не закрывать крайние плитки */
+#menuWin::before { content: ""; position: absolute; inset: -28px; z-index: -1; background: url(gfx/ui/parchment.jpg) 50% 0 / cover; box-shadow: inset 0 0 18px #6b3a1466; }
 #menuWin .mscroll { position: absolute; inset: -20px; overflow-y: auto; overscroll-behavior: contain; }
 #menuWin .mclosex { position: absolute; top: -31px; right: 8%; width: 52px; height: 56px; border: 0; z-index: 2; background: url(gfx3d/menu3/close.png) 50% 0 / contain no-repeat; filter: drop-shadow(0 2px 2px #0006); }
 #menuWin .mclosex:active { transform: translateY(2px) scale(.95); }
@@ -2198,3 +2199,6 @@ details.rarmy[open] > summary { filter: brightness(1.12); }
 .bs-parts div { display: flex; gap: 10px; padding: 3px 6px; border-bottom: 1px solid #0002; } .bs-parts span { flex: 1; } .bs-parts em { font-style: normal; font-weight: 700; }
 .bs-parts .me { background: #ffd2402e; }
 #bbtn.rally::after { content: '⚔'; position: absolute; right: -2px; top: -4px; width: 22px; height: 22px; border-radius: 50%; background: #b3141c; color: #fff; font: 700 13px/22px system-ui; text-align: center; box-shadow: 0 0 0 2px #ffd240; }
+
+/* своя графика высокого разрешения (иконки меню, значок замка, лес, валуны и горы земель) — сглаживать при уменьшении, а не «пиксельно» */
+img[src*="gfx/menu/"], img[src*="castle_small"], img[src$="ground/wood.png"], img[src$="ground/walun.png"], img[src$="ground/mount.png"] { image-rendering: auto; }

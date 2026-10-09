@@ -13,7 +13,7 @@ function friendsWin() {
   const f = S.fr, tab = S.frTab;
   const tile = (k, icon, text, badge) => `<button class="ptile frtile ${tab === k ? 'on' : ''}" data-frtab="${k}"><img src="${icon}" alt=""><span>${text}</span>${badge ? `<b class="frbadge">${badge}</b>` : ''}</button>`;
   const head = `${ribbon('Мои друзья')}<div class="ptiles pbig myfrt">
-    ${tile('feed', 'gfx3d/mail/events.png', 'Лента')}
+    ${tile('feed', M3('events'), 'Лента')}
     ${tile('list', M3('friends'), 'Друзья', f ? f.incoming.length : S.st.user.friendsNew)}
     ${tile('bday', 'gfx3d/prof/gift.png', 'Дни Рождения', f && f.today)}</div>`;
   if (!f) return `${head}<p class="parch-note">Загрузка…</p>`;

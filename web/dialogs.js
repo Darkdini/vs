@@ -10,8 +10,8 @@ const dlgCut = (t, n = 22) => { const s = String(t || '').replace(/\s+/g, ' ').t
 
 function dialogsWin() {
   const d = S.dlg, L = d.list;
-  const head = `${ribbon('Сообщения')}<div class="rkbar"><span><img src="gfx3d/mail/msgs.png" alt=""> ${d.filter === 'unread' ? 'Непрочитанные' : 'Все'}</span><button data-dlgmenu>≡</button></div>
-    ${d.menu ? `<div class="rkmenu"><button data-dlgf="all" class="${d.filter === 'all' ? 'on' : ''}"><img src="gfx3d/mail/msgs.png" alt=""> Все</button><button data-dlgf="unread" class="${d.filter === 'unread' ? 'on' : ''}"><img src="gfx3d/mail/new.png" alt=""> Непрочитанные</button></div>` : ''}`;
+  const head = `${ribbon('Сообщения')}<div class="rkbar"><span><img src="${M3('msgs')}" alt=""> ${d.filter === 'unread' ? 'Непрочитанные' : 'Все'}</span><button data-dlgmenu>≡</button></div>
+    ${d.menu ? `<div class="rkmenu"><button data-dlgf="all" class="${d.filter === 'all' ? 'on' : ''}"><img src="${M3('msgs')}" alt=""> Все</button><button data-dlgf="unread" class="${d.filter === 'unread' ? 'on' : ''}"><img src="${M3('new')}" alt=""> Непрочитанные</button></div>` : ''}`;
   if (!L) return `${head}<p class="parch-note">Загрузка…</p>`;
   const nav = `<div class="hnav"><button data-dlgpg="0" ${L.page ? '' : 'disabled'}>◀◀</button><button data-dlgpg="${L.page - 1}" ${L.page ? '' : 'disabled'}>◀</button>
     <span>${L.page + 1}</span><button data-dlgpg="${L.page + 1}" ${L.page < L.pages - 1 ? '' : 'disabled'}>▶</button><button data-dlgpg="${L.pages - 1}" ${L.page < L.pages - 1 ? '' : 'disabled'}>▶▶</button></div>`;
@@ -45,7 +45,7 @@ function dialogWin() {
     ${S.dlg.picBusy ? `<div class="dpicst">📷 ${esc(S.dlg.picBusy)}</div>` : ''}
     ${d.smile ? `<div class="smilebox">${SMILES.map((k) => `<button data-dlgsm="${k}"><img src="${smileSrc(k)}" alt=""></button>`).join('')}</div>` : ''}
     <button class="pbar dsend" data-dlgsend><img src="gfx3d/chat/tosend_button.png" alt=""> Отправить</button>
-    <div class="two2"><button class="pbar" data-cprof="${w.id}"><img src="gfx3d/prof/king.png" alt=""> Профиль</button><button class="pbar" data-dlglist><img src="gfx3d/mail/msgs.png" alt=""> Все диалоги</button></div>`;
+    <div class="two2"><button class="pbar" data-cprof="${w.id}"><img src="gfx3d/prof/king.png" alt=""> Профиль</button><button class="pbar" data-dlglist><img src="${M3('msgs')}" alt=""> Все диалоги</button></div>`;
 }
 
 function dialogsMsg(m) {
