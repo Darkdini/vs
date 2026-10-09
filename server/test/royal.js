@@ -739,6 +739,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     const paid = { chat: { id: 555, type: 'private' }, from: { id: 555 }, successful_payment: { currency: 'XTR', total_amount: 75, invoice_payload: inv.payload, telegram_payment_charge_id: 'ch1' } };
     g.tgOnMessage(paid); assert.strictEqual(pu.gold, 25, 'оплачено — 25 монет');
     assert.ok(/зачислено/.test(last('sendMessage').text) && /звёзды Telegram/.test(pu.goldLog.slice(-1)[0].reason), 'бот подтвердил, в Казне — запись');
+    assert.ok(g.payNew() >= 1, 'админу — отметка нового зачисления'); g.paySeen(); assert.strictEqual(g.payNew(), 0, 'открыл «Платежи» — отметка снята');
     g.tgOnMessage(paid); assert.strictEqual(pu.gold, 25, 'повтор того же платежа — монеты не второй раз');
     g.payPreCheckout({ id: 'q4', currency: 'XTR', total_amount: 75, invoice_payload: inv.payload }); assert.strictEqual(last('answerPreCheckoutQuery').ok, false, 'оплаченный счёт второй раз не оплатить');
     pu.gold = 10; // 15 монет уже потрачено

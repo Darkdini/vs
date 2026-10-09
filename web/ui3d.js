@@ -466,11 +466,19 @@ const treasuryWin = () => {
   const log = S.st.user.goldLog || [];
   const pay = S.cat.pay && S.cat.pay.on ? S.cat.pay : null, gold = S.st.user.gold || 0;
   return `${ribbon('Казна')}<div class="cwin"><img class="cwimg" src="${GFX}coins.png" alt=""><div><div class="cwname">Монеты</div><b>${fmtFull(gold)}</b></div></div>
-  ${gold < 0 ? '<p class="parch-note bad">Минус после возврата звёзд Telegram: пока он не закрыт, тратить монеты нельзя.</p>' : ''}
-  ${pay ? `${ribbon('Купить монеты')}<p class="parch-note">Оплата звёздами Telegram: ${pay.rate} ⭐ = 1 монета. Монеты придут сразу после оплаты.</p>
-  <div class="paypacks">${pay.packs.map((p, i) => `<button class="pbar paypack" data-buygold="${i}"><img src="${GFX}coins_s.png" alt=""><b>${fmtFull(p.gold)}</b> монет<span>${fmtFull(p.stars)} ⭐</span></button>`).join('')}</div>` : ''}
-  <p class="parch-note">${pay ? 'Монеты можно купить за звёзды или получить от администрации.' : 'Монеты выдаёт администрация.'} Тратятся${shopVisible() ? ' в «Лавке Короля» (ускорения, ресурсы, рамки),' : ''} на премиум, подарки, репутацию, праздники, ритуалы и казну альянса.</p>${shopVisible() ? '<button class="pbar" data-shopopen>🏪 Лавка Короля</button>' : ''}
+  ${pay ? '<button class="pbar big paytop" data-payopen>💰 Пополнить</button>' : ''}
+  <p class="parch-note">${pay ? 'Монеты можно купить за звёзды Telegram или получить от администрации.' : 'Монеты выдаёт администрация.'} Тратятся${shopVisible() ? ' в «Лавке Короля» (ускорения, ресурсы, рамки),' : ''} на премиум, подарки, репутацию, праздники, ритуалы и казну альянса.</p>${shopVisible() ? '<button class="pbar" data-shopopen>🏪 Лавка Короля</button>' : ''}
   ${ribbon('История')}${log.map((x) => `<div class="glog"><span class="${x.delta > 0 ? 'plus' : 'minus'}">${x.delta > 0 ? '+' : ''}${fmtFull(x.delta)}</span><span>${esc(x.reason)}<br><small>${new Date(x.at).toLocaleString('ru-RU')} · осталось ${fmtFull(x.left)}</small></span></div>`).join('') || '<p class="parch-note">Операций пока не было.</p>'}`;
+};
+
+// ---------- Пополнение казны: пакеты монет за звёзды Telegram (server/src/tgpay.js) ----------
+const payWin = () => {
+  const pay = S.cat.pay;
+  if (!pay || !pay.on) return `${ribbon('Пополнение казны')}<p class="parch-note">Оплата звёздами пока не подключена.</p>`;
+  return `${ribbon('Пополнение казны')}<div class="cwin"><img class="cwimg" src="${GFX}coins.png" alt=""><div><div class="cwname">Монеты</div><b>${fmtFull(S.st.user.gold || 0)}</b></div></div>
+  <div class="paysteps"><div><b>1</b>Выберите пакет</div><div><b>2</b>Оплатите звёздами в Telegram</div><div><b>3</b>Монеты сразу придут в Казну</div></div>
+  <div class="paypacks">${pay.packs.map((p, i) => `<button class="pbar paypack" data-buygold="${i}"><img src="${GFX}coins_s.png" alt=""><b>${fmtFull(p.gold)}</b> монет<span>${fmtFull(p.stars)} ⭐</span></button>`).join('')}</div>
+  <p class="parch-note">${pay.rate} ⭐ = 1 монета. Звёзды покупаются прямо в Telegram. Вопросы по оплате — команда /paysupport в боте игры.</p>`;
 };
 
 // ---------- прочие окна ----------
@@ -560,7 +568,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.ptile) {
     if (t.classList.contains('off')) return;
     const p = S.lastProfile, id = Number(d.pid);
-    if (d.ptile === 'treasury') return openSheet(treasuryWin);
+    if (d.ptile === 'treasury') return openSheet(S.cat.pay && S.cat.pay.on ? payWin : treasuryWin);
     if (d.ptile === 'premium') return openPremium(p.self ? null : p.login);
     if (d.ptile === 'rep') { S.repTo = p; S.repCoins = 1; return openSheet(repWin); }
     if (d.ptile === 'gift') { S.giftTo = p; S.giftCat = 'all'; S.giftNew = false; S.giftPage = 0; return openSheet(giftsWin); }

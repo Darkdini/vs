@@ -71,7 +71,8 @@ $('#sheetBody').addEventListener('submit', (e) => {
 }, true);
 // привязка Telegram: сервер выдаёт одноразовую ссылку t.me/<бот>?start=<код>, игрок жмёт «Старт» в боте
 $('#sheetBody').addEventListener('click', (e) => {
-  const bg = e.target.closest('[data-buygold]'); // Казна → купить монеты за звёзды: счёт открывается в Telegram
+  if (e.target.closest('[data-payopen]')) return openSheet(payWin); // Казна → «Пополнить»
+  const bg = e.target.closest('[data-buygold]'); // пакет монет за звёзды: счёт открывается в Telegram
   if (bg) { S.tgWin = window.open('about:blank', '_blank'); return send({ t: 'tg', op: 'buy', pack: Number(bg.dataset.buygold) }); }
   const b = e.target.closest('[data-tg]'); if (!b) return;
   if (b.dataset.tg === 'unlink') return send({ t: 'tg', op: 'unlink' }); // бот пришлёт код — отвязка только с ним

@@ -7,7 +7,7 @@ const aNum = (name, value, ph) => `<input class="anum" type="number" inputmode="
 
 // Разделы: Игрок (поиск, карточка, пароли, наказания) · Выдать (монеты, ресурсы, замки, армия) · Модерация (модераторы, мульты, жалобы) · Мир (новости, рассылки, события).
 // У каждого действия — короткое описание; одно действие — в одном месте.
-const ADM_TABS = [['player', '👤 Игрок'], ['give', '🎁 Выдать'], ['mod', '🛡 Модерация'], ['world', '🌍 Мир'], ['stats', '📊 Статистика'], ['alerts', '🚨 Тревоги'], ['sec', '🔒 Защита'], ['test', '🧪 Тест']];
+const ADM_TABS = [['player', '👤 Игрок'], ['give', '🎁 Выдать'], ['mod', '🛡 Модерация'], ['world', '🌍 Мир'], ['stats', '📊 Статистика'], ['pay', '⭐ Платежи'], ['alerts', '🚨 Тревоги'], ['sec', '🔒 Защита'], ['test', '🧪 Тест']];
 // строка действия: название и пояснение слева, поле и кнопка справа
 const aAct = (title, desc, controls, wide = false) => `<div class="aact ${wide ? 'wide' : ''}"><div class="aact-t"><b>${title}</b><small>${desc}</small></div><div class="aact-c">${controls}</div></div>`;
 const aBtn2 = (op, text, extra = '', cls = '') => `<button class="btn small ${cls}" data-adm="${op}" ${extra}>${text}</button>`;
@@ -20,7 +20,7 @@ function adminHtml() {
   const a = S.adm, tab = ADM_TABS.some(([k]) => k === a.tab) ? a.tab : 'player';
   const who = a.login ? `игрок <b>${esc(a.login)}</b> <button class="btn small" data-adm-self>× сбросить</button>` : '<b>вы (Советник)</b>';
   const head = `${ribbon('Админ-панель')}
-    <div class="atabs">${ADM_TABS.map(([k, t]) => `<button class="${k === tab ? 'on' : ''}" data-atab="${k}">${t}${k === 'mod' && S.st.user.multiNew ? ` <b class="abadge">${S.st.user.multiNew}</b>` : ''}${k === 'alerts' && S.st.user.alertsNew ? ` <b class="abadge">${S.st.user.alertsNew}</b>` : ''}${k === 'sec' && S.st.user.secNew ? ` <b class="abadge">${S.st.user.secNew}</b>` : ''}</button>`).join('')}</div>`;
+    <div class="atabs">${ADM_TABS.map(([k, t]) => `<button class="${k === tab ? 'on' : ''}" data-atab="${k}">${t}${k === 'mod' && S.st.user.multiNew ? ` <b class="abadge">${S.st.user.multiNew}</b>` : ''}${k === 'alerts' && S.st.user.alertsNew ? ` <b class="abadge">${S.st.user.alertsNew}</b>` : ''}${k === 'pay' && S.st.user.payNew ? ` <b class="abadge">${S.st.user.payNew}</b>` : ''}${k === 'sec' && S.st.user.secNew ? ` <b class="abadge">${S.st.user.secNew}</b>` : ''}</button>`).join('')}</div>`;
   const target = `<div class="atarget">Кому: ${who}<label class="check"><input type="checkbox" data-an="all" ${a.all ? 'checked' : ''}> во все замки игрока</label></div>`;
   const T = {
     player: () => `${aSec('Найти игрока', `<p class="small">Введите ник (можно часть) или нажмите «Топ-100». Нажмите на игрока — откроется его карточка.</p>
@@ -70,6 +70,7 @@ function adminHtml() {
         ${aAct('Отчёты', 'Удалить все боевые отчёты на сервере.', aBtn2('reports', 'Очистить', 'data-confirm="Удалить все отчёты всех игроков?"', 'danger'))}
         ${aAct('Боты', 'Заселить карту замками-ботами (для проверки нагрузки).', `${aNum('bots', 100, 'сколько')}${aBtn2('bots', 'Заселить', 'data-arg="bots:n" data-confirm="Заселить карту ботами?"')}`)}`)}`,
     stats: () => admStatsHtml(a.stats),
+    pay: () => admPayHtml(a.pay),
     alerts: () => admAlertsHtml(a.alerts),
     sec: () => admSecHtml(a.sec),
     test: () => admTestHtml(a.test),
@@ -173,7 +174,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   const gf = e.target.closest('[data-gafill]'); if (gf) { $$('.gaunit input').forEach((i) => { i.value = gf.dataset.gafill; }); return; }
   const sm = e.target.closest('[data-asmod]'); if (sm) { if (!confirm(`Снять ${sm.dataset.asmod} со старших модераторов? Обычным модератором он останется.`)) return; send({ t: 'admin', op: 'smod', login: sm.dataset.asmod, on: 0 }); return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
   const md = e.target.closest('[data-amod]'); if (md) { if (!confirm(`Снять ${md.dataset.amod} с модераторов?`)) return; send({ t: 'admin', op: 'mod', login: md.dataset.amod, on: 0 }); return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
-  const tb = e.target.closest('[data-atab]'); if (tb) { S.adm.tab = tb.dataset.atab; if (S.adm.tab === 'mod') { send({ t: 'admin', op: 'mods' }); send({ t: 'admin', op: 'multis' }); } if (S.adm.tab === 'stats') send({ t: 'admin', op: 'stats' }); if (S.adm.tab === 'alerts') send({ t: 'admin', op: 'alerts' }); if (S.adm.tab === 'sec') send({ t: 'admin', op: 'sec' }); if (S.adm.tab === 'test') send({ t: 'admin', op: 'testview' }); return refreshSheet(); }
+  const tb = e.target.closest('[data-atab]'); if (tb) { S.adm.tab = tb.dataset.atab; if (S.adm.tab === 'mod') { send({ t: 'admin', op: 'mods' }); send({ t: 'admin', op: 'multis' }); } if (S.adm.tab === 'stats') send({ t: 'admin', op: 'stats' }); if (S.adm.tab === 'alerts') send({ t: 'admin', op: 'alerts' }); if (S.adm.tab === 'pay') send({ t: 'admin', op: 'payments' }); if (S.adm.tab === 'sec') send({ t: 'admin', op: 'sec' }); if (S.adm.tab === 'test') send({ t: 'admin', op: 'testview' }); return refreshSheet(); }
   const mb = e.target.closest('[data-mban],[data-mall],[data-mdev]');
   if (mb) { // решения по мультам — только вручную и с подтверждением
     const d = mb.dataset, on = d.on === '1';
@@ -247,6 +248,7 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
     if (m.op === 'mods') S.adm.mods = m.data;
     if (m.op === 'stats') S.adm.stats = m.data;
     if (m.op === 'alerts') S.adm.alerts = m.data;
+    if (m.op === 'payments') S.adm.pay = m.data;
     if (m.op === 'sec') S.adm.sec = m.data;
     if (m.op.startsWith('test')) { const keep = S.adm.test && S.adm.test.created; S.adm.test = { ...m.data, created: m.data.created || (m.op === 'testview' ? null : keep) }; }
     if (m.op === 'armyinfo') S.adm.ga = m.data;
@@ -289,10 +291,20 @@ function admStatsHtml(st) {
       <div class="ssub">Откуда пришло</div>
       ${g.got.length ? g.got.map((x) => `<div class="srow"><span>${esc(x.k)}</span><b>${fmtFull(x.sum)}</b></div>`).join('') : '<p class="small">Поступлений не было.</p>'}
       <div class="stwo"><div><div class="ssub">Больше всех потратили</div>${g.spenders.map((x) => `<div class="srow"><span>${esc(x.login)}</span><b>${fmtFull(x.sum)}</b></div>`).join('') || '<p class="small">—</p>'}</div>
-      <div><div class="ssub">Больше всех получили</div>${g.buyers.map((x) => `<div class="srow"><span>${esc(x.login)}</span><b>${fmtFull(x.sum)}</b></div>`).join('') || '<p class="small">—</p>'}</div></div>`)}
-    ${st.pay ? aSec('⭐ Покупки за звёзды Telegram', `<div class="stiles">${tile(st.pay.stars, 'звёзд получено')}${tile(st.pay.gold, 'монет продано')}${tile(st.pay.count, 'покупок')}${tile(st.pay.refunds, 'возвратов')}</div>
-      <p class="small">Звёзды копятся на балансе бота игроков; вывод — через Fragment, примерно через 3 недели после покупки.</p>
-      ${st.pay.list.map((x) => `<div class="srow"><span>${esc(x.login || '?')} · ${fmtDate(x.at)}${x.refunded ? ' · <b class="bad">возврат</b>' : ''}${x.lost ? ' · <b class="bad">без счёта — начислить вручную</b>' : ''}</span><b>${fmtFull(x.gold)} 🪙 · ${fmtFull(x.stars)} ⭐</b></div>`).join('') || '<p class="small">Покупок пока не было.</p>'}`) : ''}`;
+      <div><div class="ssub">Больше всех получили</div>${g.buyers.map((x) => `<div class="srow"><span>${esc(x.login)}</span><b>${fmtFull(x.sum)}</b></div>`).join('') || '<p class="small">—</p>'}</div></div>`)}`;
+}
+// ---------- ⭐ Платежи (server/src/tgpay.js): покупки монет за звёзды Telegram, итоги, возвраты ----------
+$('#sheetBody').addEventListener('click', (e) => { if (e.target.closest('[data-apayref]')) send({ t: 'admin', op: 'payments' }); });
+function admPayHtml(p) {
+  if (!p) return aSec('⭐ Платежи', '<p class="small">Загрузка…</p>');
+  const tile = (v, t) => `<div class="stile"><b>${fmtFull(v)}</b><span>${t}</span></div>`;
+  const row = (x) => `<div class="payrow${x.refunded || x.lost ? ' bad' : ''}"><span><b>${esc(x.login || '?')}</b><small>${fmtDate(x.at)}${x.tg ? ` · Telegram id ${x.tg}` : ''}</small></span>
+    <span class="payamt">+${fmtFull(x.gold)} 🪙<small>${fmtFull(x.stars)} ⭐</small></span>
+    <em>${x.lost ? 'без счёта — начислить вручную' : x.refunded ? `возврат ${fmtDate(x.refunded)} — монеты списаны` : 'зачислено'}</em></div>`;
+  return `${aSec('⭐ Итого', `<div class="stiles">${tile(p.stars, 'звёзд получено')}${tile(p.gold, 'монет зачислено')}${tile(p.count, 'покупок')}${tile(p.refunds, 'возвратов')}</div>
+      <p class="small">Звёзды копятся на балансе бота игроков${S.cat.pay && S.cat.pay.bot ? ` @${esc(S.cat.pay.bot)}` : ''}. Вывести их можно через Fragment, примерно через 3 недели после покупки.</p>
+      <button class="btn small" data-apayref>↻ Обновить</button>`)}
+    ${aSec('🧾 Зачисления', p.list.length ? p.list.map(row).join('') : '<p class="small">Покупок пока не было.</p>')}`;
 }
 $('#sheetBody').addEventListener('click', (e) => {
   const b = e.target.closest('[data-ssel],[data-astats]'); if (!b) return;

@@ -17,7 +17,7 @@ const SUPPORT = 'Оплата звёздами: монеты приходят н
   + 'Если монеты не пришли — напишите в игре: Меню → Инфо → Поддержка (время оплаты и сколько звёзд).\n'
   + 'Покупки за звёзды не возвращаются. Если Telegram или магазин приложений вернули вам деньги за звёзды — купленные монеты списываются.';
 
-const payInfo = () => ({ on: enabled(), rate: STARS_PER_GOLD, packs: PACKS });
+const payInfo = () => ({ on: enabled(), rate: STARS_PER_GOLD, packs: PACKS, bot: process.env.TG_AUTH_BOT || '' });
 
 function install(Game) {
   const P = Game.prototype;
@@ -94,6 +94,9 @@ function install(Game) {
 
   P.paySupport = function paySupport(chat) { return this.tgSay(chat, SUPPORT); };
 
+  // для админ-панели: сколько новых зачислений с прошлого просмотра раздела «Платежи»
+  P.payNew = function payNew() { const S = this.db.pay; return S ? S.list.filter((x) => !x.lost && x.at > (S.seenAt || 0)).length : 0; };
+  P.paySeen = function paySeen() { st(this).seenAt = Date.now(); this.store.save(); };
   // для админ-панели: последние платежи и итоги
   P.payList = function payList(n = 100) {
     const L = st(this).list, ok = L.filter((x) => !x.lost && !x.refunded);
