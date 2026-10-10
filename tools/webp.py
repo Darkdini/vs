@@ -11,6 +11,8 @@ n = saved = 0
 for dp, _, fs in os.walk(root):
     for name in fs:
         if not name.lower().endswith(('.png', '.jpg', '.jpeg')): continue
+        # значки сайта (manifest, apple-touch-icon, favicon) — настоящим PNG: их забирают телефон и Chrome для ярлыка
+        if dp == root and name.startswith(('icon-', 'apple-touch-icon', 'favicon')): continue
         f = os.path.join(dp, name); data = open(f, 'rb').read()
         if len(data) < 8000: continue
         key = hashlib.md5(data + b'v2').hexdigest(); cf = os.path.join(cache, key + '.webp')
