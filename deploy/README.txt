@@ -1,0 +1,97 @@
+Средневековье — сервер игры (VPS: Ubuntu/Debian). Все команды — на сервере, от root.
+
+Где что лежит
+  /opt/war/game        игра (заменяется при каждом обновлении)
+  /opt/war/game-data   база игроков db.json, копии базы backups/, настройки game.env, логин админа admin.env —
+                       обновления их не трогают
+  Служба war — сервер игры (сама запускается после перезагрузки), Caddy — HTTPS для адресов сайта.
+  Логи: journalctl -u war -f     Перезапуск: systemctl restart war     Состояние: systemctl status war
+
+=== Обновление игры ===
+  war-update <ссылка на game.zip>   нужная версия: https://raw.githubusercontent.com/Darkdini/vs/<версия>/dist/game.zip
+  war-update                        последняя версия ветки
+  Перед заменой база копируется в /opt/war/game-data/db.before-update.json, прежняя версия игры — в /opt/war/game.old
+  (после проверки её можно удалить: rm -rf /opt/war/game.old).
+  Репозиторий закрытый: скачивание идёт с токеном GitHub (сохранить: war-token; токен fine-grained, только Darkdini/vs,
+  Contents: Read-only) или пока репозиторий открыт (Public).
+
+=== Установка на новый сервер ===
+  curl -fsSL -H "Authorization: Bearer ТОКЕН" https://raw.githubusercontent.com/Darkdini/vs/claude/third-world-kings-war-analysis-lodxja/deploy/install-vps.sh -o install.sh
+  sh install.sh middle-ages.ru www.middle-ages.ru
+  Поставит Node.js и Caddy, скачает игру, спросит логин и пароль админа, включит HTTPS и службу war.
+  Перенос игроков со старого сервера: копия базы в Telegram (ниже) или файл из /opt/war/game-data/backups + restore.sh.
+
+=== Логин и пароль админа ===
+  sh /opt/war/game/admin.sh     задать или сменить (пароль от 12 символов); игра перезапустится сама
+  В игре админ виден как «admin», войти можно только под секретным логином. Забыли пароль — выполните команду ещё раз.
+  Логин и пароль хранятся только на сервере (admin.env, права 600) — в репозитории их нет.
+
+=== Резервные копии базы ===
+  Сервер делает их сам: при каждом запуске и раз в час (/opt/war/game-data/backups).
+  sh /opt/war/game/restore.sh            список копий (новые внизу)
+  sh /opt/war/game/restore.sh <файл>     восстановить: текущая база сохранится как …-before-restore, игра перезапустится
+  Копия в Telegram раз в сутки — раздел «Копия базы в Telegram».
+
+=== Свой домен (например middle-ages.ru) ===
+1) В панели домена (Reg.ru: Домены → домен → «DNS-серверы и управление зоной»):
+   DNS-серверы — ns1.reg.ru и ns2.reg.ru; A-записи: @ → IP сервера игры, www → IP сервера игры.
+   Другие A-записи для @ и www (например, адрес хостинга) удалите.
+2) Через 15 минут — несколько часов, на сервере игры:  sh /opt/war/game/domain.sh middle-ages.ru www.middle-ages.ru
+   Проверит, что адреса уже ведут на этот сервер (если нет — ничего не меняет, повторите позже), включит HTTPS.
+   Прежние адреса (например 1-2-3-4.sslip.io) продолжают работать. Показать адреса игры:  sh /opt/war/game/domain.sh
+3) Приложение для Android собирается на домен (sh tools/build-apk.sh https://middle-ages.ru). При переезде на другой
+   сервер достаточно поменять A-записи и выполнить domain.sh там — приложение пересобирать не нужно.
+
+=== Защита сервера ===
+1) fail2ban + фаервол:   sh /opt/war/game/harden.sh
+   • 5 неверных паролей SSH за 10 минут — IP в бан на сутки (кто попадается снова — до недели);
+   • фаервол: открыты только SSH, 80 и 443, всё остальное закрыто.
+   Проверка: sh /opt/war/game/harden.sh status
+
+2) Вход по ключу (пароль SSH больше не подобрать):
+   Termius (телефон): Keychain → «+» → Generate Key (тип ED25519) → открыть ключ → Export to host → выбрать сервер.
+   Termux (Android):  pkg install openssh;  ssh-keygen -t ed25519  (Enter на все вопросы);  ssh-copy-id root@IP_сервера
+   Компьютер:         ssh-keygen -t ed25519;  ssh-copy-id root@IP_сервера
+   Проверьте в НОВОМ окне, что вход идёт без пароля. Только потом:  sh /opt/war/game/harden.sh nopass
+   Старое окно не закрывайте, пока не убедитесь. Ключ берегите: потеряли телефон — вход через консоль в панели хостинга
+   (там выполнить: rm /etc/ssh/sshd_config.d/00-war.conf && systemctl reload ssh — пароль снова заработает).
+
+=== Telegram с сервера в России (через посредника) ===
+С 2026 года из России api.telegram.org заблокирован: боты игры (звёзды, «Забыли пароль?», копии базы) не достучатся
+до Telegram напрямую. Нужен посредник — он только пересылает запросы, токены идут внутри HTTPS и нигде не сохраняются.
+Вариант 1 — бесплатно, Cloudflare Worker (код: deploy/tg-worker.js):
+  1) dash.cloudflare.com → Workers & Pages → Create → Start with Hello World! → имя tg-relay → Deploy.
+  2) Edit code → вставить tg-worker.js целиком, в KEY вписать свой ключ (16+ латинских букв и цифр) → Deploy.
+     Проверка: адрес https://tg-relay.СЛОВО.workers.dev в браузере отвечает «Forbidden».
+  3) На сервере игры:  sh /opt/war/game/tgapi.sh https://tg-relay.СЛОВО.workers.dev/КЛЮЧ
+Вариант 2 — второй, зарубежный сервер (самый дешёвый VPS):
+  1) На зарубежном сервере (не на сервере игры!):
+     curl -fsSL https://raw.githubusercontent.com/Darkdini/vs/claude/third-world-kings-war-analysis-lodxja/deploy/tg-relay.sh -o tg-relay.sh && sh tg-relay.sh IP_сервера_игры
+     В конце покажет адрес посредника: https://1-2-3-4.sslip.io
+  2) На сервере игры:  sh /opt/war/game/tgapi.sh https://1-2-3-4.sslip.io
+tgapi.sh проверит связь и перезапустит игру. Дальше ботов подключают как обычно: tgauth.sh и tgbackup.sh (ниже).
+Вернуть напрямую: sh /opt/war/game/tgapi.sh off
+
+=== Копия базы в Telegram ===
+1) В Telegram: @BotFather → /newbot → получите токен. Откройте своего бота → «Старт».
+2) На сервере:  sh /opt/war/game/tgbackup.sh   (спросит токен и пароль шифрования — пароль ЗАПИШИТЕ отдельно)
+   Раз в сутки (около 4:00 по времени сервера) база приходит файлом в чат с ботом. Вручную: Админ-панель → 🔒 Защита.
+   Восстановить (в т. ч. на новом сервере после install-vps.sh и tgbackup.sh): перешлите файл копии боту,
+   затем  sh /opt/war/game/tgbackup.sh restore
+   Выключить:  sh /opt/war/game/tgbackup.sh off
+
+=== Восстановление пароля через Telegram ===
+1) В Telegram: @BotFather → /newbot — ОТДЕЛЬНЫЙ бот для игроков (не тот, что шлёт копии базы).
+2) На сервере:  sh /opt/war/game/tgauth.sh   (спросит токен)
+   Игроки: Кабинет → Профиль → «Привязать Telegram» → в боте «Старт».
+   Забыли пароль: в окне входа «Забыли пароль?» → логин → бот присылает код (15 минут) → код + новый пароль.
+   Сам пароль бот не присылает — его нигде нет в открытом виде. Все прежние входы после смены завершаются.
+   Этот же бот принимает оплату звёздами (пополнение казны). Выключить:  sh /opt/war/game/tgauth.sh off
+
+=== Свои настройки сервера ===
+  Строки ИМЯ=значение в /opt/war/game-data/game.env, потом systemctl restart war. Список настроек — в README.md проекта.
+  Например SHOP_OPEN=1 — «Лавка Короля» для всех игроков, NEWBIE_DAYS=3 — дней защиты новичка.
+
+=== Чистый старт для закрытого теста ===
+  sh /opt/war/game/fresh-test.sh 5   удаляет ВСЕХ игроков (старое — в архив /root/war-old), создаёт 5 тестеров;
+                                     логины и пароли тестеров покажет один раз. Логин админа и токены ботов сохраняются.

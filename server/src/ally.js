@@ -1,0 +1,276 @@
+'use strict';
+// Альянс как в оригинале: карточка (название, ранг, рейтинг, состав, верховенство), управление с правами,
+// звания и погоны, устав, описание, дипломатия, казна и кладовая, рассылки, реклама, форум, новости, логи.
+// Основные операции (создать, пригласить, заявки, исключить, покинуть) — P.alliance в army.js.
+
+const START_REP = 10;
+// права (окно «Назначение прав»)
+const RIGHTS = { mail: 'Рассылка уведомлений', invite: 'Приглашение в альянс', kick: 'Исключение из альянса', rights: 'Назначение прав',
+  desc: 'Изменение описания', news: 'Новости и форум', diplo: 'Дипломатия', treasury: 'Казначейство', logs: 'Чтение логов', albums: 'Альбомы',
+  rally: 'Созыв на мирового босса' };
+const DIPLO = { ally: 'Союз', nap: 'Пакт о ненападении', war: 'Война' };
+const RES4 = ['wood', 'stone', 'iron', 'food'];
+const clean = (s, n) => String(s || '').trim().slice(0, n);
+
+function install(Game) {
+  const P = Game.prototype;
+
+  P.allyCan = function allyCan(al, uid, right) {
+    if (!al) return false;
+    if (al.leader === uid) return true;
+    const r = (al.ranks || {})[uid];
+    return !!(r && r.rights && r.rights.includes(right));
+  };
+  // игрок уходит из альянса (вышел, исключён, удалён администрацией).
+  // Ушёл создатель: права создателя — участнику с наибольшим числом прав (при равенстве — с большим рейтингом),
+  // если прав ни у кого нет — участнику с самым большим рейтингом. Никого не осталось — альянс исчезает отовсюду.
+  P.allyRemoveMember = function allyRemoveMember(al, uid) {
+    if (!al) return null;
+    al.members = al.members.filter((m) => m !== uid && this.userById(m));
+    if (al.ranks) delete al.ranks[uid];
+    const u = this.userById(uid); if (u && u.alliance === al.id) delete u.alliance;
+    if (!al.members.length) { this.allyDissolve(al); return null; }
+    if (al.leader === uid || !al.members.includes(al.leader)) {
+      const nRights = (id) => (((al.ranks || {})[id] || {}).rights || []).length, rating = (id) => this.userRating(this.userById(id));
+      const next = al.members.slice().sort((a, b) => nRights(b) - nRights(a) || rating(b) - rating(a))[0];
+      al.leader = next; if (al.ranks) delete al.ranks[next]; // создатель и так может всё
+      const nu = this.userById(next);
+      this.allyLog(al, `Права создателя перешли к ${nu.login}`);
+      this.event(next, `Вы теперь создатель альянса [${al.tag}] ${al.name}.`);
+      for (const m of al.members) if (m !== next) this.event(m, `Новый создатель альянса [${al.tag}]: ${nu.login}.`);
+    }
+    return al;
+  };
+  // альянс исчезает: из списка, рейтинга, дипломатии других альянсов, приглашений и заявок игроков
+  P.allyDissolve = function allyDissolve(al) {
+    const A = this.db.alliances || {};
+    delete A[al.id];
+    for (const o of Object.values(A)) if (o.diplo) delete o.diplo[al.id];
+    for (const u of Object.values(this.db.users)) {
+      if (u.alliance === al.id) delete u.alliance;
+      if (u.invites && u.invites.includes(al.id)) u.invites = u.invites.filter((x) => x !== al.id);
+      if (u.inviteBy) delete u.inviteBy[al.id];
+    }
+    this.cache = {};
+  };
+  // зависшие альянсы (участники удалены, создатель пропал) — привести в порядок
+  P.allyCleanup = function allyCleanup() {
+    for (const al of Object.values(this.db.alliances || {})) {
+      // живые участники: игрок есть и не состоит в другом альянсе
+      al.members = (al.members || []).filter((m) => { const u = this.userById(m); return u && (u.alliance === al.id || u.alliance == null); });
+      if (!al.members.length) this.allyDissolve(al);
+      else if (!al.members.includes(al.leader)) this.allyRemoveMember(al, al.leader);
+    }
+  };
+  // медали Зала славы участника за последний месяц (по лучшему месту в каждом зале) — для «Состава» альянса
+  P.allyMedals = function allyMedals(u, now = Date.now()) {
+    const best = {};
+    for (const m of u.awards || []) if (m.at > now - 35 * 86400000 && (!best[m.hall] || m.place < best[m.hall].place)) best[m.hall] = m;
+    return Object.values(best).sort((a, b) => a.place - b.place).map((m) => ({ icon: m.icon, name: m.name, place: m.place, month: m.month }));
+  };
+  P.allyLog = function allyLog(al, text, kind = 'log') {
+    const key = kind === 'store' ? 'slog' : 'log';
+    (al[key] = al[key] || []).push({ at: Date.now(), text });
+    if (al[key].length > 300) al[key].splice(0, al[key].length - 300);
+  };
+  P.allyRank = function allyRank(al) {
+    if (!al) return 0;
+    return this.ratingAlliances().findIndex((a) => a.id === al.id) + 1;
+  };
+  P.allyTitle = function allyTitle(al, uid) {
+    // погоны 0–8 (gfx/ep): 8 — корона, только у главы; старые звания (бронза/серебро/золото) → 2, 4, 6
+    if (al.leader === uid) return { title: 'Создатель альянса', ep: 8 };
+    const r = (al.ranks || {})[uid];
+    const ep = !r ? 0 : r.v === 2 ? r.ep || 0 : [0, 2, 4, 6, 6][r.ep || 0] || 0;
+    return r ? { title: r.title || 'Участник', ep } : { title: 'Участник', ep: 0 };
+  };
+
+  // категория записи военного лога по отчёту
+  P.warCat = function warCat(r) {
+    if (r.kind === 'battle') return r.data && r.data.side === 'def' ? 'def' : 'att';
+    if (r.kind === 'scout') return /^Замечены вражеские разведчики/.test(r.title) ? 'sdef' : 'scout';
+    return /^Подкрепление от/.test(r.title) ? 'rin' : 'rout';
+  };
+  // может ли игрок открыть чужой отчёт из военных логов своего альянса (право «Логи»)
+  P.canSeeReport = function canSeeReport(user, r) {
+    if (r.owner === user.id) return true;
+    const al = this.allianceOf(user);
+    return !!(al && al.members.includes(r.owner) && ['battle', 'scout', 'reinforce'].includes(r.kind) && this.allyCan(al, user.id, 'logs'));
+  };
+  // полная карточка альянса для окна «Альянс»
+  P.allyView = function allyView(user, al) {
+    const me = user.id, can = (r) => this.allyCan(al, me, r), now = Date.now();
+    const members = al.members.map((id) => { const m = this.userById(id); if (!m) return null;
+      const t = this.allyTitle(al, id); return { id, login: m.login, rating: this.userRating(m), rep: m.reputation ?? START_REP, score: this.userRating(m) + (m.reputation ?? START_REP), medals: this.allyMedals(m), ...t,
+        rights: id === al.leader ? Object.keys(RIGHTS) : ((al.ranks || {})[id] || {}).rights || [] }; }).filter(Boolean).sort((a, b) => b.score - a.score);
+    const A = this.db.alliances || {};
+    // военные логи: каждое военное действие участников — нападение, оборона, разведка (своя и вражеская), подкрепления
+    const reports = can('logs') ? (this.db.reports || []).filter((r) => al.members.includes(r.owner) && ['battle', 'scout', 'reinforce'].includes(r.kind)).slice(-200).reverse()
+      .map((r) => ({ id: r.id, login: (this.userById(r.owner) || {}).login, title: r.title, at: r.at, cat: this.warCat(r), line: (r.lines || [])[0] || '' })) : [];
+    return {
+      id: al.id, tag: al.tag, name: al.name, desc: al.desc || '', charter: al.charter || '', ad: al.ad || '', created: al.created,
+      rank: this.allyRank(al), score: this.allianceScore(al), leader: al.leader, leaderLogin: (this.userById(al.leader) || {}).login, slots: this.allianceSlots(al),
+      members, my: { lead: al.leader === me, rights: Object.keys(RIGHTS).filter(can).concat(this.canModerate(user) && !can('news') ? ['modnews'] : []) },
+      requests: can('invite') ? (al.requests || []).map((id) => { const m = this.userById(id); return m ? { id, login: m.login, rating: this.userRating(m) } : null; }).filter(Boolean) : [],
+      invited: can('invite') ? Object.values(this.db.users).filter((u) => (u.invites || []).includes(al.id)).map((u) => u.login) : [],
+      treasury: al.treasury || 0, storage: al.storage || { wood: 0, stone: 0, iron: 0, food: 0 },
+      diplo: Object.entries(al.diplo || {}).map(([id, st]) => (A[id] ? { id: Number(id), tag: A[id].tag, name: A[id].name, status: st, statusName: DIPLO[st] } : null)).filter(Boolean),
+      news: (al.news || []).slice().reverse(),
+      forum: (al.forum || []).filter((t) => !t.deleted || can('news') || this.canModerate(user)).map((t) => ({ id: t.id, title: t.title, by: t.by, at: t.at, pinned: !!t.pinned, closed: !!t.closed, deleted: !!t.deleted,
+        replies: t.posts.length, last: t.posts[t.posts.length - 1] })).sort((a, b) => (b.pinned - a.pinned) || ((b.last ? b.last.at : b.at) - (a.last ? a.last.at : a.at))),
+      log: can('logs') ? (al.log || []).slice(-100).reverse() : [], slog: can('logs') ? (al.slog || []).slice(-100).reverse() : [], reports,
+      rightsList: RIGHTS, now, foreign: user.alliance !== al.id, modr: this.canModerate(user),
+    };
+  };
+  // публичная карточка чужого (или своего) альянса — то, что видит любой игрок: без казны, логов, прав и форума
+  P.allyPublic = function allyPublic(al) {
+    const members = al.members.map((id) => { const m = this.userById(id); if (!m) return null;
+      return { id, login: m.login, rep: m.reputation ?? START_REP, score: this.userRating(m) + (m.reputation ?? START_REP), medals: this.allyMedals(m), ...this.allyTitle(al, id) }; }).filter(Boolean).sort((a, b) => b.score - a.score);
+    const A = this.db.alliances || {};
+    return { id: al.id, tag: al.tag, name: al.name, desc: al.desc || '', charter: al.charter || '', created: al.created, rank: this.allyRank(al), score: this.allianceScore(al),
+      leader: al.leader, leaderLogin: (this.userById(al.leader) || {}).login, slots: this.allianceSlots(al), members,
+      diplo: Object.entries(al.diplo || {}).map(([id, st]) => (A[id] ? { id: Number(id), tag: A[id].tag, name: A[id].name, status: st, statusName: DIPLO[st] } : null)).filter(Boolean) };
+  };
+  P.allyTopic = function allyTopic(user, al, id) {
+    const t = (al.forum || []).find((x) => x.id === Number(id)); if (!t || (t.deleted && !this.allyCan(al, user.id, 'news') && !this.canModerate(user))) return null;
+    return { id: t.id, title: t.title, closed: !!t.closed, pinned: !!t.pinned, posts: t.posts.map((p) => { const u = this.userById(p.byId); return { ...p, rep: u ? u.reputation ?? START_REP : START_REP }; }) };
+  };
+
+  // все операции окна «Альянс»
+  P.allyOp = function allyOp(user, castle, m, alArg) {
+    const al = alArg || this.allianceOf(user); if (!al) return { error: 'Вы не в альянсе.' };
+    const modr = this.canModerate(user); // модератор форума / админ: удаление тем и сообщений в любом альянсе
+    const can = (r) => this.allyCan(al, user.id, r) || (modr && r === 'news' && ['topicop', 'postdel'].includes(m.op)), need = (r) => (can(r) ? null : { error: `Нет права: ${RIGHTS[r]}.` });
+    const find = (login) => this.db.users[String(login || '').trim()];
+    const member = (login) => { const t = find(login); return t && al.members.includes(t.id) ? t : null; };
+    const now = Date.now();
+    const done = (msg) => { this.store.save(); return { ok: true, msg }; };
+    switch (m.op) {
+      case 'rank': { // звание, погоны и права участника
+        const e = need('rights'); if (e) return e;
+        const t = member(m.login); if (!t) return { error: 'Игрок не в альянсе.' };
+        if (t.id === al.leader) return { error: 'Права создателя изменить нельзя.' };
+        const rights = (Array.isArray(m.rights) ? m.rights : []).filter((r) => RIGHTS[r]);
+        (al.ranks = al.ranks || {})[t.id] = { title: clean(m.title, 24) || 'Участник', ep: Math.max(0, Math.min(7, Math.floor(Number(m.ep)) || 0)), v: 2, rights };
+        this.allyLog(al, `${user.login} назначил ${t.login}: «${al.ranks[t.id].title}»`);
+        return done(`Права назначены: ${t.login}.`);
+      }
+      case 'desc': {
+        const e = need('desc'); if (e) return e;
+        const tag = clean(m.tag, 5).toUpperCase(), name = clean(m.name, 24);
+        if (tag.length < 2 || name.length < 3) return { error: 'Короткое название 2–5 символов, полное — от 3.' };
+        if (Object.values(this.db.alliances).some((x) => x !== al && x.tag === tag)) return { error: 'Такое короткое название уже занято.' };
+        al.tag = tag; al.name = name; al.desc = clean(m.desc, 1000);
+        this.allyLog(al, `${user.login} изменил описание альянса`);
+        return done('Описание изменено.');
+      }
+      case 'charter': { const e = need('desc'); if (e) return e; al.charter = clean(m.text, 3000); return done('Устав сохранён.'); }
+      case 'ad': { const e = need('invite'); if (e) return e; al.ad = clean(m.text, 300); return done(al.ad ? 'Реклама размещена.' : 'Реклама снята.'); }
+      case 'mail': {
+        const e = need('mail'); if (e) return e;
+        const lim = this.tooOften(user, 'allymail'); if (lim) return { error: lim }; // письмо каждому участнику — не чаще раза в минуту
+        const text = clean(m.text, 2000); if (!text) return { error: 'Введите текст.' };
+        for (const id of al.members) { const u = this.userById(id); if (u && u.id !== user.id) { this.sendMail(user, u.login, `Рассылка альянса [${al.tag}]`, text); this.event(u.id, `Рассылка альянса [${al.tag}] от ${user.login}.`); } }
+        return done('Рассылка отправлена всем участникам.');
+      }
+      case 'gold': { // казна: взнос (любой) или выдача (казначейство)
+        const n = Math.floor(Number(m.n)); if (!(n > 0)) return { error: 'Укажите количество.' };
+        if (m.to) {
+          const e = need('treasury'); if (e) return e;
+          const t = member(m.to); if (!t) return { error: 'Игрок не в альянсе.' };
+          if ((al.treasury || 0) < n) return { error: 'В казне столько нет.' };
+          al.treasury -= n; this.goldChange(t, n, `Выдано из казны альянса [${al.tag}]`);
+          this.allyLog(al, `${user.login} выдал из казны ${t.login}: ${n} золота`, 'store');
+          return done(`Выдано ${n} золота: ${t.login}.`);
+        }
+        if ((user.gold || 0) < n) return { error: 'Не хватает золота.' };
+        this.goldChange(user, -n, `Взнос в казну альянса [${al.tag}]`); al.treasury = (al.treasury || 0) + n;
+        this.allyLog(al, `${user.login} внёс в казну ${n} золота`, 'store');
+        return done(`Внесено в казну: ${n} золота.`);
+      }
+      case 'store': { // кладовая: взнос ресурсов из своего замка или выдача участнику
+        al.storage = al.storage || { wood: 0, stone: 0, iron: 0, food: 0 };
+        const res = Object.fromEntries(RES4.map((r) => [r, Math.max(0, Math.floor(Number((m.res || {})[r]) || 0))]));
+        if (!RES4.some((r) => res[r])) return { error: 'Укажите ресурсы.' };
+        const line = RES4.filter((r) => res[r]).map((r) => `${{ wood: 'дерево', stone: 'камень', iron: 'железо', food: 'еда' }[r]} ${res[r]}`).join(', ');
+        if (m.to) {
+          const e = need('treasury'); if (e) return e;
+          const t = member(m.to); if (!t) return { error: 'Игрок не в альянсе.' };
+          for (const r of RES4) if (al.storage[r] < res[r]) return { error: 'В кладовой столько нет.' };
+          const c = this.castleOf(t); this.tick(c); const cap = this.capacity(c);
+          for (const r of RES4) { al.storage[r] -= res[r]; c.res[r] = Math.max(c.res[r], Math.min(cap[r], c.res[r] + res[r])); }
+          this.allyLog(al, `${user.login} выдал из кладовой ${t.login}: ${line}`, 'store');
+          return done(`Выдано из кладовой: ${t.login}.`);
+        }
+        this.tick(castle);
+        for (const r of RES4) if (castle.res[r] < res[r]) return { error: 'В замке столько нет.' };
+        for (const r of RES4) { castle.res[r] -= res[r]; al.storage[r] += res[r]; }
+        this.allyLog(al, `${user.login} внёс в кладовую: ${line}`, 'store');
+        return done('Ресурсы внесены в кладовую.');
+      }
+      case 'diplo': {
+        const e = need('diplo'); if (e) return e;
+        const other = Object.values(this.db.alliances).find((x) => x.tag === clean(m.tag, 5).toUpperCase());
+        if (!other || other === al) return { error: 'Альянс не найден.' };
+        al.diplo = al.diplo || {};
+        if (!DIPLO[m.status]) delete al.diplo[other.id]; else al.diplo[other.id] = m.status;
+        this.allyLog(al, `${user.login}: [${other.tag}] — ${DIPLO[m.status] || 'отношения сброшены'}`);
+        this.allyLog(other, `[${al.tag}] объявил: ${DIPLO[m.status] || 'отношения сброшены'}`);
+        return done(`[${other.tag}]: ${DIPLO[m.status] || 'нейтралитет'}.`);
+      }
+      case 'transfer': { // «Сместить Создателя»: создатель передаёт альянс, или офицер с правами — если создателя нет 14 дней
+        const t = member(m.login); if (!t) return { error: 'Игрок не в альянсе.' };
+        const lead = this.userById(al.leader), away = lead ? (now - (lead.lastSeen || lead.created || now)) / 86400000 : 99;
+        if (al.leader !== user.id && !(can('rights') && away > 14)) return { error: 'Сместить создателя можно, если его нет в игре больше 14 дней.' };
+        const old = al.leader; al.leader = t.id; if (al.ranks) delete al.ranks[t.id];
+        (al.ranks = al.ranks || {})[old] = { title: 'Бывший создатель', ep: 3, rights: Object.keys(RIGHTS) };
+        this.allyLog(al, `Новый создатель альянса: ${t.login}`);
+        return done(`Создатель альянса: ${t.login}.`);
+      }
+      case 'topic': {
+        const title = clean(m.title, 60), text = clean(m.text, 2000); if (!title || !text) return { error: 'Введите тему и текст.' };
+        const lim = this.tooOften(user, 'allypost'); if (lim) return { error: lim };
+        const t = { id: this.db.nextId++, title, by: user.login, byId: user.id, at: now, posts: [{ by: user.login, byId: user.id, at: now, text }] };
+        (al.forum = al.forum || []).push(t); if (al.forum.length > 300) al.forum.shift(); // тем не больше 300 — самые старые уходят
+        return { ...done('Тема создана.'), topic: t.id };
+      }
+      case 'post': {
+        const t = (al.forum || []).find((x) => x.id === Number(m.topic)); if (!t || t.deleted) return { error: 'Тема не найдена.' };
+        if (t.closed && !can('news')) return { error: 'Тема закрыта.' };
+        const text = clean(m.text, 2000); if (!text) return { error: 'Введите текст.' };
+        const lim = this.tooOften(user, 'allypost'); if (lim) return { error: lim };
+        t.posts.push({ by: user.login, byId: user.id, at: now, text }); if (t.posts.length > 500) t.posts.shift();
+        return done('Сообщение добавлено.');
+      }
+      case 'postdel': { // удалить одно сообщение темы
+        const e = need('news'); if (e) return e;
+        const t = (al.forum || []).find((x) => x.id === Number(m.topic)); if (!t) return { error: 'Тема не найдена.' };
+        const i = Number(m.idx); if (!(i >= 0 && i < t.posts.length)) return { error: 'Сообщение не найдено.' };
+        if (i === 0 && t.posts.length > 1) { t.posts[0] = { ...t.posts[0], text: '[сообщение удалено модератором]', deleted: true }; }
+        else t.posts.splice(i, 1);
+        if (!t.posts.length) t.deleted = true;
+        this.allyLog(al, `${user.login} удалил сообщение в теме «${t.title}»`);
+        return done('Сообщение удалено.');
+      }
+      case 'topicop': {
+        const e = need('news'); if (e) return e;
+        const t = (al.forum || []).find((x) => x.id === Number(m.topic)); if (!t) return { error: 'Тема не найдена.' };
+        if (m.act === 'pin') t.pinned = !t.pinned; else if (m.act === 'close') t.closed = !t.closed;
+        else if (m.act === 'delete') t.deleted = true; else if (m.act === 'restore') t.deleted = false; else return { error: 'Неизвестное действие.' };
+        return done('Готово.');
+      }
+      case 'news': {
+        const e = need('news'); if (e) return e;
+        if (m.del) { al.news = (al.news || []).filter((x) => x.id !== Number(m.del)); return done('Новость удалена.'); }
+        const title = clean(m.title, 80), text = clean(m.text, 2000); if (!title || !text) return { error: 'Введите тему и текст новости.' };
+        const lim = this.tooOften(user, 'allypost'); if (lim) return { error: lim };
+        (al.news = al.news || []).push({ id: this.db.nextId++, title, text, by: user.login, at: now }); if (al.news.length > 100) al.news.shift();
+        for (const id of al.members) if (id !== user.id) this.event(id, `Новость альянса [${al.tag}]: ${title}`);
+        return done('Новость добавлена.');
+      }
+      default: return { error: 'Неизвестное действие.' };
+    }
+  };
+}
+
+module.exports = { install, RIGHTS, DIPLO };

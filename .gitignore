@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+node_modules/
+# база игроков при запуске на своём компьютере (на сервере она в /opt/war/game-data)
+server/data/
+*.apk
+# своё Android-приложение (собирается tools/build-apk.sh)
+!dist/war-kings.apk
