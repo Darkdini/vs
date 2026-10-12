@@ -25,7 +25,7 @@ const TALENTS = {
     { id: 'l1', name: 'Жадность', max: 5, per: { loot: 0.04 }, need: 0, desc: '+4% к унесённой добыче' },
     { id: 'l2', name: 'Быстрый марш', max: 5, per: { speed: 0.03 }, need: 5, desc: '+3% к скорости армии с генералом' },
     { id: 'l3', name: 'Мастер набегов', max: 5, per: { raid: 0.06 }, need: 5, desc: '+6% к урону в Набеге' },
-    { id: 'l4', name: 'Охотник за трофеями', max: 5, per: { find: 0.02 }, need: 10, desc: '+2% шанс найти снаряжение в лагерях' },
+    { id: 'l4', name: 'Охотник за рунами', max: 5, per: { find: 0.05 }, need: 10, desc: '+5% шанс, что отряд за руной принесёт две руны' }, // снаряжение в боях не выпадает — только ковка за руны
   ] },
 };
 const TAL = Object.fromEntries(Object.entries(TALENTS).flatMap(([br, b]) => b.list.map((t) => [t.id, { ...t, br }])));
@@ -96,7 +96,8 @@ function install(Game) {
   // вещь сейчас у Кузнеца в каком-то замке королевства
   const atSmith = (g, castle, id) => g.castlesOf(g.userById(castle.owner) || { castleIds: [castle.id] }).find((c) => c.gearJob && c.gearJob.item === id);
 
-  // новая вещь: rarity — фиксированная или случайная (сдвиг bias повышает шанс редких)
+  // новая вещь: rarity — фиксированная или случайная (сдвиг bias повышает шанс редких). В игре вещи только куются за руны (runeForge);
+  // rollGear и giveGear остались для проверок (server/test)
   P.rollGear = function rollGear(bias = 0, rarity) {
     let r = rarity;
     if (r === undefined) { const x = Math.random() * (1 - Math.min(0.5, bias)); r = x < 0.01 ? 3 : x < 0.06 ? 2 : x < 0.30 ? 1 : 0; }

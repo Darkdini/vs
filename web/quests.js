@@ -37,7 +37,7 @@ function questsWin() {
   } else if (tab === 'week') {
     const ch = q.wchest;
     body = `<div class="qstep">Задания недели — до понедельника, осталось <span class="cd" data-e="${ch.ends}"></span></div>${q.weekly.map((d) => qCard(d, 'weekly')).join('')}
-      <div class="qchest ${ch.ready ? 'ready' : ''} ${ch.taken ? 'claimed' : ''}">${qImg(ch.ready || ch.taken ? 'quest/chest_open.png' : 'quest/chest.png')}<div class="grow"><b>Сундук недели</b><p>${ch.taken ? 'Открыт. Новый — в понедельник.' : 'Откроется, когда все три задания недели выполнены: много ресурсов, уникальные воины, опыт генерала, редкое снаряжение и шанс на артефакт.'}</p></div>
+      <div class="qchest ${ch.ready ? 'ready' : ''} ${ch.taken ? 'claimed' : ''}">${qImg(ch.ready || ch.taken ? 'quest/chest_open.png' : 'quest/chest.png')}<div class="grow"><b>Сундук недели</b><p>${ch.taken ? 'Открыт. Новый — в понедельник.' : 'Откроется, когда все три задания недели выполнены: много ресурсов, уникальные воины, опыт генерала и шанс на артефакт.'}</p></div>
       ${ch.ready ? '<button class="qbtn" data-qclaim="wchest">Открыть</button>' : ''}</div>`;
   } else if (tab === 'cal') {
     body = calBody(q.cal);

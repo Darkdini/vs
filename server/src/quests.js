@@ -36,7 +36,7 @@ const TUT = [
   { id: 'stash', title: 'Королевская кладовая', text: 'Награды заданий ждут в Кладовой (сундук справа вверху). Заберите из неё что-нибудь в замок.', icon: 'stash/btn.png', need: (g, u, c, base) => [g.qstat(u, 'stashTake', base), 1], reward: R(1000, { u: { cav: 5 } }) },
   { id: 'genpts', title: 'Опыт полководца', text: 'Откройте Военный штаб → Генерал и распределите очки опыта: атака, защита, командование.', icon: b(2), need: (g, u, c) => [c.general && !c.general.dead && Object.values(c.general.pts || {}).some((v) => v > 0) ? 1 : 0, 1], reward: R(1200, { exp: 150 }) },
   { id: 'talent', title: 'Путь героя', text: 'Изучите у генерала первое умение (Генерал → Умения): Завоеватель, Страж или Мародёр.', icon: 'hero/icon_point.png', need: (g, u, c) => [c.general && !c.general.dead && Object.values(c.general.tal || {}).some((v) => v > 0) ? 1 : 0, 1], reward: R(1300, { u: { mag: 5 } }) },
-  { id: 'gear', title: 'Доспехи полководца', text: 'Наденьте на генерала любую вещь (Генерал → Снаряжение). Снаряжение добывается в логовах похода и в лагерях, а ещё его куёт Кузнец за руны.', icon: 'hero/gear_helm_1.png', need: (g, u, c) => [c.general && !c.general.dead && Object.values(c.general.eq || {}).some(Boolean) ? 1 : 0, 1], reward: R(1500, { exp: 250 }) },
+  { id: 'gear', title: 'Доспехи полководца', text: 'Наденьте на генерала любую вещь (Генерал → Снаряжение). Вещи куёт Кузнец за руны: соберите руны на карте мира (поход «Сбор руны») и откройте Кузнец → «Ковка снаряжения».', icon: 'hero/gear_helm_1.png', need: (g, u, c) => [c.general && !c.general.dead && Object.values(c.general.eq || {}).some(Boolean) ? 1 : 0, 1], reward: R(1500, { exp: 250 }) },
   { id: 'temple', title: 'Вера предков', text: 'Постройте Храм и примите религию: Свет, Природа или Война.', icon: 'build/hd3/temple.png', need: (g, u, c) => [c.religion ? 1 : 0, 1], reward: R(1800, { u: { inf: 10 } }) },
   { id: 'kills', title: 'Гроза врагов', text: 'Уничтожьте в боях 300 вражеских воинов (лагеря, логова и чужие замки — всё считается).', icon: 'gfx3d/rep/swords.png', need: (g, u, c, base) => [g.qstat(u, 'kills', base), 300], reward: R(2500, { u: { inf: 10, cav: 10, mag: 5 }, exp: 400 }) },
 ];
@@ -93,11 +93,11 @@ const WEEKLY = [
 ];
 
 // ---------- календарь входа: 28 дней ----------
-// t — уровень Ратуши (награды растут вместе с замком); gear — редкость вещи генерала (0 обычная, 1 редкая, 2 эпическая)
+// t — уровень Ратуши (награды растут вместе с замком); снаряжения в наградах нет — вещи генерала только куёт Кузнец за руны
 const CAL = Array.from({ length: 28 }, (_, i) => (t) => {
   const d = i + 1, wk = Math.ceil(d / 7);
-  if (d === 28) return { big: 3, rw: R(8000 + 2000 * t, { art: 2, u: { inf: 20, cav: 20, mag: 15 }, exp: 600 * t, gear: 2 }) };
-  if (d % 7 === 0) return { big: wk === 2 ? 2 : 1, rw: wk === 2 ? R(3000 + 800 * t, { u: { inf: 10, cav: 10, mag: 5 }, exp: 300 * t, gear: 1 }) : R(3000 + 800 * t, { art: wk === 3 ? 1 : 0, u: { inf: 10, cav: 8, mag: 5 }, exp: 200 * t }) };
+  if (d === 28) return { big: 3, rw: R(8000 + 2000 * t, { art: 2, u: { inf: 20, cav: 20, mag: 15 }, exp: 600 * t }) };
+  if (d % 7 === 0) return { big: wk === 2 ? 2 : 1, rw: wk === 2 ? R(3000 + 800 * t, { u: { inf: 10, cav: 10, mag: 5 }, exp: 300 * t }) : R(3000 + 800 * t, { art: wk === 3 ? 1 : 0, u: { inf: 10, cav: 8, mag: 5 }, exp: 200 * t }) };
   const kind = d % 3, k = 1 + (wk - 1) * 0.25;
   if (kind === 1) return { rw: R(Math.round((600 + 250 * t) * k)) };
   if (kind === 2) return { rw: { exp: Math.round(60 * t * k), u: { [['inf', 'cav', 'mag'][Math.floor(d / 3) % 3]]: Math.round((3 + t / 2) * k) } } };
@@ -290,7 +290,7 @@ function install(Game) {
       const art = Math.random() < 0.25, t = th(this, c); q.daily.chest = true;
       const slot = ['inf', 'cav', 'mag'][Math.floor(Math.random() * 3)];
       const got = give(this, u, c, R(400 + 200 * t, { u: { [slot]: 3 + Math.floor(t / 2) }, exp: 40 * t, ...(art ? { art: 0 } : {}) }));
-      this.store.save(); // снаряжения в Сундуке дня нет: вещи генерала — из логовов и лагерей, Сундука недели, наград за вход и ковки за руны
+      this.store.save(); // снаряжения в наградах нет: вещи генерала только куёт Кузнец за руны
       return { ok: true, msg: `Сундук дня открыт!${gotMsg(got)}` };
     }
     if (kind === 'adv') {
@@ -310,18 +310,16 @@ function install(Game) {
       if (!st.wchest.ready) return { error: 'Сундук недели откроется, когда все три задания недели выполнены.' };
       q.weekly.chest = true; const t = th(this, c);
       const got = give(this, u, c, R(3000 + 1000 * t, { u: { inf: 5 + t, cav: 5 + t, mag: 3 + t }, exp: 250 * t, art: Math.random() < 0.5 ? 1 : 0 }));
-      const gr = Math.random() < 0.3 ? 2 : 1, gear = this.heroGear(c).length < 24 ? this.giveGear(c, this.rollGear(0, gr)) : null; if (gear && RC) RC.gear = gr;
       this.store.save();
-      return { ok: true, msg: `Сундук недели открыт!${gotMsg(got)}${gear ? ' И снаряжение генерала!' : ''}` };
+      return { ok: true, msg: `Сундук недели открыт!${gotMsg(got)}` };
     }
     if (kind === 'cal') {
       const cal = st.cal; if (!cal.ready) return { error: 'Награда за сегодня уже получена — приходите завтра!' };
-      const d = cal.days[cal.n], rw = { ...d.rw }, gear = rw.gear; delete rw.gear;
+      const d = cal.days[cal.n], rw = { ...d.rw };
       const got = give(this, u, c, rw);
-      const g2 = gear !== undefined && this.heroGear(c).length < 24 ? this.giveGear(c, this.rollGear(0, gear)) : null; if (g2 && RC) RC.gear = gear;
       q.cal.last = dayKey(); q.cal.n++; if (q.cal.n >= CAL.length) { q.cal.n = 0; q.cal.cycle++; }
       this.store.save();
-      return { ok: true, msg: `Награда за вход — день ${d.i + 1}!${gotMsg(got)}${g2 ? ' И снаряжение генерала!' : ''}` };
+      return { ok: true, msg: `Награда за вход — день ${d.i + 1}!${gotMsg(got)}` };
     }
     if (kind === 'camp') {
       if (!q.campWon) return { error: 'Сначала разорите логово.' };

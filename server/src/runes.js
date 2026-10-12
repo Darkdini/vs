@@ -31,10 +31,12 @@ function install(Game) {
     let title;
     if (r && u) {
       const back = this.npcGone(a.x, a.y, t, RUNE_BACK_SEC), have = this.runesOf(u);
-      have[r.key]++;
-      this.addStat && this.addStat(u.id, 'runes', 1);
-      title = `Собрана ${r.name}`;
-      lines.push(`Отряд забрал ${r.name} у камня ${a.x}:${a.y}.`, `Теперь у вас: ${RUNE_KEYS.map((k) => `${RUNE_NAME[k]} — ${have[k]}`).join(', ')}.`,
+      // умение генерала «Охотник за рунами» (hero.js): шанс, что отряд принесёт две руны — генерал может быть в любом замке королевства
+      const gen = this.castlesOf(u).map((k) => k.general).find((x) => x && !x.dead), two = !!gen && Math.random() < this.heroBonus(gen).find, n = two ? 2 : 1;
+      have[r.key] += n;
+      this.addStat && this.addStat(u.id, 'runes', n);
+      title = two ? `Собраны 2 руны: ${r.name}` : `Собрана ${r.name}`;
+      lines.push(two ? `Отряд забрал у камня ${a.x}:${a.y} сразу две руны — ${r.name} (умение генерала «Охотник за рунами»).` : `Отряд забрал ${r.name} у камня ${a.x}:${a.y}.`, `Теперь у вас: ${RUNE_KEYS.map((k) => `${RUNE_NAME[k]} — ${have[k]}`).join(', ')}.`,
         'Руны тратятся в Кузнице на ковку снаряжения генерала.', `Новый рунный камень появится в этой провинции через ${Math.max(1, Math.round((back || 0) / 60))} мин.`);
     } else {
       title = 'Руну уже забрали';

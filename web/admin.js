@@ -376,7 +376,7 @@ function admTestHtml(t) {
       <button class="btn small" data-tcopy>📋 Скопировать логин и пароль</button>`) : ''}
     ${aSec('➕ Новый тестер', `<p class="small">Всё можно оставить пустым: логин будет вида test_xxxx, ник — как логин. Пароль сервер придумает сам.</p>
       <form class="stack" data-aform="testadd"><input name="acct" placeholder="Логин (необязательно, от 5 символов)" autocapitalize="none" maxlength="40">
-        <input name="nick" placeholder="Ник в игре (необязательно, 3–10 символов)" autocapitalize="none" maxlength="10">
+        <input name="nick" placeholder="Ник в игре (необязательно, 3–10 англ. букв и цифр)" autocapitalize="none" maxlength="10">
         <select name="race">${['Люди', 'Эльфы', 'Гномы', 'Орки'].map((r, i) => `<option value="${i}">${r}</option>`).join('')}</select>
         <input name="note" placeholder="Кому выдан (видно только вам)" maxlength="60"><button class="btn primary">Создать тестера</button></form>`)}
     ${aSec(`👥 Тестеры — ${t.list.length}`, t.list.length ? t.list.map((u) => `<div class="trow ${u.off ? 'off' : ''}"><div><b>${esc(u.login)}</b> <small>логин ${esc(u.acct)} · ${esc(u.race)}</small>

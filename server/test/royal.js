@@ -370,12 +370,24 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(/ник уже занят/.test(g.register({ login: 'other', password: '12345', nick: 'Zevs', race: 0 }).error));
   assert.ok(/логин/.test(g.register({ login: 'ZEVS@MAIL.RU', password: '12345', nick: 'Zeus', race: 0 }).error), 'логин занят');
   assert.ok(/минимум 5/.test(g.register({ login: 'short', password: '1234', nick: 'Shorty', race: 0 }).error), 'пароль короче 5 — нельзя');
+  { // ник: только английские буквы и цифры; мат, оскорбления (и с цифрами вместо букв) и «админские» ники — нельзя
+    // (свой отдельный мир — лишние игроки не сдвигают замки следующих проверок)
+    const NDB = path.join(os.tmpdir(), `royal-nick-${process.pid}.json`), gn = new Game(new Store(NDB));
+    const reg = (nick) => gn.register({ login: `nk_${nick.toLowerCase().replace(/[^a-z0-9]/g, '')}${Math.random().toString(36).slice(2, 6)}`, password: '12345', nick, race: 0 });
+    assert.ok(/английские буквы/.test(reg('Иван').error), 'русские буквы в нике — нельзя');
+    for (const n of ['Admin', 'Adm1n', 'Moderator', 'Sovetnik', 'Support']) assert.ok(/администрации/.test(reg(n).error), `«${n}» — похоже на администрацию`);
+    for (const n of ['Suka', 'B1yat', 'Bl9t', 'Pi3da', 'Fuuuck', 'Id10t', 'Mudak', 'Loh']) assert.ok(/мат или оскорбление/.test(reg(n).error), `«${n}» — мат/оскорбление`);
+    for (const n of ['Kozlov', 'Ivan1999', 'Modern', 'Sukhoi', 'Den4ik']) assert.ok(reg(n).user, `обычный ник «${n}» разрешён`);
+    const ch = gn.register({ login: 'nickchange1', password: '12345', nick: 'Rodion', race: 0 }).user; ch.gold = 500;
+    assert.ok(/мат/.test(gn.changeNick(ch, 'Pidor1').error) && /администрации/.test(gn.changeNick(ch, 'Moder').error) && ch.gold === 500, 'смена на плохой ник — отказ, монеты целы');
+    for (const f of [NDB, `${NDB}.tmp`]) try { fs.unlinkSync(f); } catch { /* нет файла */ }
+  }
   assert.ok(g.register({ login: 'admin2', password: '12345', nick: 'ADMIN', race: 0 }).error, 'ник admin в любом регистре — нельзя');
   assert.ok(/минимум 5/.test(g.register({ login: 'abcd', password: '12345', race: 0 }).error) && g.register({ login: 'abcde', password: '12345', race: 0 }).user, 'логин не короче 5 символов');
   z.gold = 50; assert.ok(/100 монет/.test(g.changeNick(z, 'ZeVs').error), 'без монет ник не меняется');
   z.gold = 250; assert.ok(g.changeNick(z, 'ZeVs').ok); assert.strictEqual(z.login, 'ZeVs'); assert.strictEqual(z.gold, 150); assert.ok(g.login('zevs@mail.ru', '12345') === z, 'логин тот же');
   assert.ok(g.changeNick(z, 'zevs').error, 'занятый ник'); assert.ok(g.changeNick(z, 'Громовержец').error, 'длиннее 10');
-  console.log('✓ Регистрация: логин + пароль + ник; вход по логину; Zevs и zevs — разные ники; смена ника за 100 золота');
+  console.log('✓ Регистрация: логин + пароль + ник; вход по логину; Zevs и zevs — разные ники; смена ника за 100 монет; ник — только английские буквы, без мата, оскорблений и «админских» имён');
 }
 { // премиум: население +50%, 5 строек, расписание (без премиума войска не теряются), +1 репутации себе
   const pu = g.register({ login: 'premtest', password: '12345', nick: 'PremTest', race: 0 }).user, pc = g.castleOf(pu);
@@ -1575,7 +1587,19 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.ok(g.reportsOf(R2.id).some((x) => x.title === 'Ковка прервана'), 'отчёт о прерванной ковке');
     assert.ok(cap2.general && cap2.general.level === 30 && cap2.general.eq.weapon === eqIt && !c2.general, 'захват: генерал с рунным клинком отступил в столицу');
     assert.ok((cap2.deadGenerals || []).includes(old) && !(c2.deadGenerals || []).length, 'павшие генералы — в столицу, захватчику не достались');
-    console.log('✓ Руны: 3 рунных камня в провинции, руну забирает отряд, пришедший первым, камень возвращается через 3 часа; ковка за руны в Кузнице (рунное — с 20 ур.), вещь — в Оружейную, Кузнец один на ковку и усиление');
+    // снаряжение — только ковкой: в наградах за вход и в боях с лагерями вещей нет; умение «Охотник за рунами» — две руны с камня
+    const Q = require('../src/quests');
+    assert.ok(Q.CAL.every((d) => d(10).rw.gear === undefined), 'в наградах за вход снаряжения нет');
+    const camp30 = g.provNpc(pn).find((o) => o.img === 30), bag0 = R.gear.length;
+    rc.units = { 200: 50, 204: 3000 }; rc.general.tal = { l4: 5 }; assert.ok(Math.abs(g.heroBonus(rc.general).find - 0.25) < 1e-9, 'Охотник за рунами 5 ур.: шанс 25%');
+    if (camp30) { const ra = g.sendArmy(rc, { units: { 204: 3000 }, x: camp30.x, y: camp30.y, mission: 'attack', general: true }); assert.ok(!ra.error, ra.error); g.tickWorld(ra.army.arrive + 1000);
+      assert.ok(g.reportsOf(R.id).some((x) => x.data && x.data.type === 'battle' && x.data.win && x.data.x === camp30.x) && R.gear.length === bag0, 'победа над лагерем с генералом — вещей не выпало'); }
+    const st41 = g.provNpc(pn).find((o) => o.img === 41), def0 = g.runesOf(R).def, rnd0 = Math.random;
+    const rr = g.sendArmy(rc, { units: { 200: 5 }, x: st41.x, y: st41.y, mission: 'rune' }); assert.ok(!rr.error, rr.error);
+    Math.random = () => 0; g.tickWorld(rr.army.arrive + 1000); Math.random = rnd0;
+    assert.strictEqual(g.runesOf(R).def, def0 + 2, 'генерал — Охотник за рунами: отряд принёс две руны');
+    assert.ok(g.reportsOf(R.id).some((x) => x.title === 'Собраны 2 руны: Руна Стойкости'), 'отчёт: две руны');
+    console.log('✓ Руны: снаряжение только ковкой (в боях и наградах не выпадает), «Охотник за рунами» — две руны; 3 рунных камня в провинции, руну забирает отряд, пришедший первым, камень возвращается через 3 часа; ковка за руны в Кузнице (рунное — с 20 ур.), вещь — в Оружейную, Кузнец один на ковку и усиление');
   }
   try { fs.unlinkSync(DB); } catch {}
   process.exit(0);

@@ -45,7 +45,7 @@ function heroGearWin() {
     ${h.job ? (() => { const all = [...h.gear, ...Object.values(eq)], it = all.find((x) => x && x.id === h.job.item); return `<div class="upbody center gjob">⚒ Кузнец усиливает${it ? ` «${esc(gearNm(it))}»` : ''} до +${h.job.plus}: <b><span class="cd" data-e="${h.job.end}"></span></b></div>`; })() : ''}
     ${ribbon(`Оружейная ${h.gear.length}/${h.bagMax}`)}<p class="ghint center">Одна на всё королевство — вещи видны из любого замка.</p>
     <div class="gbag">${h.gear.length ? h.gear.map((it) => `<button class="gitem" data-gitem="${it.id}" style="--rc:${RR[it.r].color}">${gearIcon(it)}${it.plus ? `<em>+${it.plus}</em>` : ''}</button>`).join('')
-      : '<p class="parch-note">Пусто. Снаряжение добывает генерал: в логовах похода «Тёмные земли» — всегда, в лагерях — иногда (умение «Охотник за трофеями» повышает шанс). Бывает в Сундуке недели и в наградах за вход. А ещё его куёт Кузнец за руны.</p>'}</div>
+      : '<p class="parch-note">Пусто. Вещи генерала куёт Кузнец за руны: соберите руны на карте мира (поход «Сбор руны») и нажмите «Ковка снаряжения». Умение генерала «Охотник за рунами» помогает приносить больше рун.</p>'}</div>
     ${h.forgeJob ? runeJobHtml() : ''}<button class="pbar" data-runeforge>⚒ Ковка снаряжения за руны</button>`;
 }
 

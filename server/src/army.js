@@ -1292,13 +1292,7 @@ function install(Game, helpers) {
     const aLoss = R.aLoss, dLoss = R.dLoss, aSum = calc.att.total, Dsum = calc.def.total;
     const aliveAfter = Object.values(a.units).some((n) => n > 0);
     if (win) { this.addStat(c.owner, 'wins', 1); if (!target) this.addStat(c.owner, 'npcWins', 1); if (lair) this.lairWon(c.owner, lair.k); } // задания
-    // трофейное снаряжение: только если генерал был в этой армии — в логове всегда, в лагере с шансом
-    let gearLine = null;
-    if (win && !target && a.general && c.general && !c.general.dead) {
-      const hb = this.heroBonus(c.general);
-      if (lair) gearLine = this.giveGear(c, this.rollGear(0, lair.k < 2 ? 1 : lair.k < 5 ? 2 : 3));
-      else if (Math.random() < 0.06 + hb.find) gearLine = this.giveGear(c, this.rollGear(hb.find * 3));
-    }
+    // снаряжение генерала в боях не выпадает — его куёт Кузнец за руны (hero.js runeForge)
     // генералы
     const genA = [], genD = []; let genExpA = 0, genExpD = 0, genDiedD = false; // опыт генералов — в отчёт числом
     if (a.general && c.general) {
@@ -1430,7 +1424,6 @@ function install(Game, helpers) {
     if (genDied) lines.push('Генерал пал в бою — воскресите его в Военном штабе.');
     lines.push(...genA.filter((x) => !genDied || !/пал в бою/.test(x)));
     if (calc.saved) lines.push(`Полевой лекарь спас ${Wd.ofWarriors(calc.saved)}.`);
-    if (gearLine) { lines.push(gearLine); data.gear = gearLine; }
     const title = `Атака на ${target ? (captured ? captured.prevLogin : defUser.login) : npc.name}`; // как в оригинале: «Атака на <игрок>» / «Оборона от <игрок>»
     this.report(c.owner, title, lines, 'battle', { ...data, side: 'att' });
     if (target) {

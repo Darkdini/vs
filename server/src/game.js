@@ -393,7 +393,9 @@ class Game {
     password = String(password || '').toLowerCase(); // клиент приводит пароль к нижнему регистру при входе
     if (!/^[a-zа-яё0-9_.@-]{1,40}$/i.test(acct)) return { error: 'Email / Логин: до 40 символов (буквы, цифры, _ . @ -).' };
     if (acct.length < 5 && !system) return { error: 'Логин слишком короткий (минимум 5 символов).' }; // старые короткие логины входят как раньше
-    if (!/^[a-zа-яё0-9_]{3,10}$/i.test(nick)) return { error: 'Ник: 3–10 символов (буквы, цифры, _).' };
+    // ник: английские буквы, цифры и «_»; без мата, оскорблений и имён администрации (badnames.js); системные — админ «Советник»
+    const bad = system ? (/^[a-zа-яё0-9_]{3,10}$/i.test(nick) ? null : 'Ник: 3–10 символов.') : require('./badnames').nickProblem(nick);
+    if (bad) return { error: bad };
     if (password.length < 5 && !system) return { error: 'Пароль слишком короткий (минимум 5 символов).' };
     if (this.db.accts[acct]) return { error: 'Такой логин (email) уже зарегистрирован.' };
     if (Object.prototype.hasOwnProperty.call(this.db.users, nick)) return { error: 'Такой ник уже занят.' };
@@ -428,7 +430,7 @@ class Game {
     nick = String(nick || '').trim();
     const price = Number(process.env.NICK_PRICE) || 100, oldKey = user.login, key = nick;
     if (user.admin) return { error: 'Ник администратора не меняется.' };
-    if (!/^[a-zа-яё0-9_]{3,10}$/i.test(nick)) return { error: 'Ник: 3–10 символов (буквы, цифры, _).' };
+    const bad = require('./badnames').nickProblem(nick); if (bad) return { error: bad }; // английские буквы, без мата и «админских» ников
     if (nick === user.login) return { error: 'Это ваш текущий ник.' };
     if (Object.prototype.hasOwnProperty.call(this.db.users, key) || ['admin', 'советник'].includes(key.toLowerCase())) return { error: 'Такой ник уже занят.' };
     if ((user.gold || 0) < price) return { error: `Смена ника стоит ${require('./words').coinsAcc(price)}, у вас ${user.gold || 0}.` };
