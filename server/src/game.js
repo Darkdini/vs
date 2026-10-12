@@ -431,7 +431,7 @@ class Game {
     if (!/^[a-zа-яё0-9_]{3,10}$/i.test(nick)) return { error: 'Ник: 3–10 символов (буквы, цифры, _).' };
     if (nick === user.login) return { error: 'Это ваш текущий ник.' };
     if (Object.prototype.hasOwnProperty.call(this.db.users, key) || ['admin', 'советник'].includes(key.toLowerCase())) return { error: 'Такой ник уже занят.' };
-    if ((user.gold || 0) < price) return { error: `Смена ника стоит ${price} золота, у вас ${user.gold || 0}.` };
+    if ((user.gold || 0) < price) return { error: `Смена ника стоит ${require('./words').coinsAcc(price)}, у вас ${user.gold || 0}.` };
     this.goldChange(user, -price, `Смена ника: ${user.login} → ${nick}`);
     (user.nickLog = user.nickLog || []).push({ at: Date.now(), from: user.login, to: nick });
     delete this.db.users[oldKey]; this.db.users[key] = user; this.db.accts[user.acct] = key;

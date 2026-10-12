@@ -1,4 +1,5 @@
 'use strict';
+const Wd = require('./words'); // слова после чисел: 1 воин, 2 воина, 5 воинов
 // Мировой босс: появляется, когда его вызывает администратор (админ-панель → «Мировой босс»), на 48 часов. Его бьют альянсы — созывом:
 // руководство альянса объявляет созыв на 15 минут, участники отправляют в него войска и генерала; когда время выходит, армии складываются
 // и бьют босса одним ударом. Каждая часть бьёт со своими Кузницей, наукой и генералом; урон созыва делится по вкладу, потери — у каждой части свои.
@@ -180,12 +181,12 @@ function install(Game) {
     const by = new Map(); for (const h of hits) { const v = by.get(h.c.owner) || { n: 0, gen: 0 }; v.n += h.sent; v.gen += h.gen ? 1 : 0; by.set(h.c.owner, v); }
     const comp = [...by].map(([id, v]) => `${login(this, id)} — ${fmt(v.n)}${v.gen ? ' и генерал' : ''}`).join(', '), sum = hits.reduce((q, h) => q + h.sent, 0);
     for (const h of hits) {
-      const { c, a } = h, lines = [`Созыв альянса [${r.tag}] на ${b.name} (${b.x}:${b.y}): армии ${players} ${players % 10 === 1 && players % 100 !== 11 ? 'игрока' : 'игроков'} сложились — ${fmt(sum)} воинов вместе.`,
+      const { c, a } = h, lines = [`Созыв альянса [${r.tag}] на ${b.name} (${b.x}:${b.y}): армии ${players} ${Wd.plural(players, 'игрока', 'игроков', 'игроков')} сложились — ${Wd.warriors(sum)} вместе.`,
         `Армия созыва: ${comp}.`,
-        `Урон созыва: ${fmt(total)} (${pctTxt(total / b.maxHp)} здоровья).${raw > cap && cap < b.hp + total ? ` За один удар созыв из ${players} ${players % 10 === 1 && players % 100 !== 11 ? 'игрока' : 'игроков'} снимает не больше ${Math.round(capK * 100)}% здоровья босса (каждый игрок +${Math.round(HIT_MAX * 100)}%, всего до ${Math.round(HIT_CAP * 100)}%).` : ''}`,
+        `Урон созыва: ${fmt(total)} (${pctTxt(total / b.maxHp)} здоровья).${raw > cap && cap < b.hp + total ? ` За один удар созыв из ${players} ${Wd.plural(players, 'игрока', 'игроков', 'игроков')} снимает не больше ${Math.round(capK * 100)}% здоровья босса (каждый игрок +${Math.round(HIT_MAX * 100)}%, всего до ${Math.round(HIT_CAP * 100)}%).` : ''}`,
         `Ваш вклад: ${fmt(h.dmg)} (${total ? Math.round(h.dmg / total * 100) : 0}% урона созыва — по силе Ваших войск).`,
         b.hp > 0 ? `У босса осталось ${fmt(b.hp)} из ${fmt(b.maxHp)}.` : `${b.name} повержен!`,
-        `Ваши потери: ${fmt(h.lostN)} из ${fmt(h.before)} воинов.${h.rage ? ` ${b.name} в ярости — бьёт в полтора раза сильнее!` : ''}`, `Ваш урон за всё время: ${fmt(b.dmg[c.owner])}.`];
+        `Ваши потери: ${fmt(h.lostN)} из ${Wd.ofWarriors(h.before)}.${h.rage ? ` ${b.name} в ярости — бьёт в полтора раза сильнее!` : ''}`, `Ваш урон за всё время: ${fmt(b.dmg[c.owner])}.`];
       if (a.general && c.general && !c.general.dead) {
         if (!Object.values(a.units).some((n) => n > 0)) {
           if (Math.random() < this.heroBonus(c.general).survive) lines.push('Армия разбита, но генерал уцелел.');

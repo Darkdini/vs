@@ -11,7 +11,7 @@ S.premTo = null;
 const premCard = () => `<img class="premcard" src="${GFX}premium_card.png" alt="">`;
 const premUntil = () => { const t = S.st.user.premium; return t > Date.now() ? `<div class="bwline center good2">Премиум активен до ${new Date(t).toLocaleString('ru-RU')}</div>` : ''; };
 function premiumWin() {
-  return `${ribbon('Что это такое?')}<div class="bwline big2">Премиум - это набор функций для более комфортного развития замков и управления армиями Вашего королевства.</div>
+  return `${ribbon('Что это такое?')}<div class="bwline big2">Премиум — это набор функций для более комфортного развития замков и управления армиями Вашего королевства.</div>
     ${premUntil()}${ribbon('Доступные Премиумы')}
     <div class="premrow">${premCard()}<div class="premside"><div class="premname">Премиум Завоеватель</div>
       <button class="pbar" data-prem="buy">Купить</button><button class="pbar" data-prem="info">Подробнее</button></div></div>`;
@@ -21,7 +21,7 @@ function premiumBuyWin() {
   return `${ribbon(to ? `Премиум в подарок: ${to}` : 'Премиум')}<div class="premrow">${premCard()}<div class="premside"><div class="premname">Премиум Завоеватель</div>
     <div class="bwline">Самый полный и престижный премиум пакет.</div><button class="pbar" data-prem="info">Подробнее</button></div></div>
     ${Object.entries(S.cat.premiumPlans).map(([d, c]) => `<button class="pbar big" data-premday="${d}">${d} дней = <img class="coinimg" src="${GFX}coins_s.png" alt=""> ${c}</button>`).join('')}
-    <div class="bwline center small">У вас ${fmtFull(S.st.user.gold || 0)} монет</div>${to ? '' : premUntil()}`;
+    <div class="bwline center small">У вас ${coinsN(S.st.user.gold || 0)}</div>${to ? '' : premUntil()}`;
 }
 function premiumInfoWin() {
   return `${ribbon('Премиум')}<div class="premrow">${premCard()}<div class="premside"><div class="premname">Премиум Завоеватель</div>
@@ -51,7 +51,7 @@ function kingdomWin() {
   const list = S.kingdom, r = MY().royal;
   if (!list) return `${ribbon('Королевство')}<p class="parch-note">Загрузка…</p>`;
   const opts = list.map((c) => `<option value="${c.id}">${esc(c.name)} (${c.x}:${c.y})</option>`).join('');
-  const rit = r ? `${ribbon('Ритуалы')}<div class="bwline small">Бонус лояльности сейчас +${Math.round(r.bonus * 100)}%. Ресурсы спишутся из выбранного замка.</div>
+  const rit = r ? `${ribbon('Ритуалы')}<div class="bwline small">Бонус лояльности сейчас +${Math.round(r.bonus * 100)}% (предел +${Math.round((r.bonusCap || 0) * 100)}% — 5% за уровень лучшего Храма). Ресурсы спишутся из выбранного замка.</div>
     <div class="arow"><span>Платит замок:</span><select data-kpay>${opts}</select></div>
     ${r.rituals.map((x) => `<div class="fest"><b>${esc(x.name)}</b> — +${Math.round(x.pct * 100)}% на ${x.hours} ч
       <div class="chips">${x.cost ? RES4.map((k) => `<span>${RES_IC[k]} ${fmtFull(x.cost[k])}</span>`).join('') : ''}${x.gold ? `<span>${gimg('coins_s.png', 'ri')} ${x.gold}</span>` : ''}</div>

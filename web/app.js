@@ -24,7 +24,7 @@ const BUILD_IMG = ['castle', 'storage', 'mbases', 'baraks', 'market', 'lands/far
   'guard_tower', null, 'workshop', 'traveler', 'temple', 'secret', 'lands/wood3', 'lands/stone3', 'lands/iron3', 'lands/farm3', 'lands/house3',
   'lands/wood5', 'lands/stone5', 'lands/iron5', 'lands/farm5', 'lands/house5', 'lands/fish1', 'portal', 'magscool', 'builder', 'beer', 'gendel',
   'alchimia', 'reasury', 'spycentr', 'resident'];
-// здания земель — своя картинка на каждый из 5 уровней (номера 100–129: Огород, Хибара, Дровосек, Каменьщик, Рудник, Рыболовная заводь)
+// здания земель — своя картинка на каждый из 5 уровней (номера 100–129: Огород, Хибара, Дровосек, Каменщик, Рудник, Рыболовная заводь)
 ['farm', 'house', 'wood', 'stone', 'iron', 'fish'].forEach((k, i) => { for (let l = 1; l <= 5; l++) BUILD_IMG[100 + i * 5 + l - 1] = `lands/${k}${l}`; });
 const RACE_IMG = { humans: 'units/human/hd/knight.png', elves: 'units/elf/hd/archer.png', dwarves: 'units/dwarv/hd/fighter.png', orcs: 'units/orc/hd/marauder.png' };
 // здания земель: 5 уровней, каждый — как прежний уровень из lands.eff (1, 5, 10, 15, 20): добыча, места, прочность
@@ -109,7 +109,8 @@ function buildSecRaw(def, level, townhall) {
 function buildSec(def, level, townhall) {
   const L = S.cat.lands, T = R().time; // здания земель: своё время уровней 1–5 при Ратуше 1, Ратуша ускоряет на 5% за уровень
   const raw = def.layer === 'lands' && !def.time && L && L.time ? Math.max(T.min, Math.round(L.time[Math.max(1, Math.min(5, level))] * T.townhallFactor ** Math.max(0, townhall - 1))) : buildSecRaw(def, level, townhall);
-  return Math.max(R().minBuildSec, Math.round(raw / S.cat.speed));
+  const eng = (MY() && MY().bonus && MY().bonus.build) || 1; // наука Инженерия (как на сервере: game.js build)
+  return Math.max(R().minBuildSec, Math.round(Math.round(raw / S.cat.speed) * eng));
 }
 const ratingPer = (def) => (def.layer === 'lands' ? R().rating.lands : R().rating.castle + (def.id === 1 ? R().rating.store || 0 : 0)); // Склад: ещё очки за развитие Складов
 const fr = (v) => (Math.round(v * 100) / 100).toLocaleString('ru-RU'); // дробные очки рейтинга
@@ -119,7 +120,7 @@ function effect(def, level) {
   const sp = S.cat.resSpeed || 1, K = S.cat.prodK || {};
   if (def.produces === 'people') {
     const LM = (S.cat.lands && S.cat.lands.mult) || {}, cap = Math.round(R().store.peoplePerHut * (S.cat.lands.hutCap || 1) * landEff(def, level)), p = Math.round(S.cat.prod[landEff(def, level)] * K.people * (LM[def.id] || 1) * sp);
-    return { text: `+${cap} мест для людей, +${p} людей/ч`, short: `+${cap} мест` };
+    return { text: `+${cap} ${plural(cap, 'место', 'места', 'мест')} для людей, +${p} людей/ч`, short: `+${cap} ${plural(cap, 'место', 'места', 'мест')}` };
   }
   const GEN = { wood: 'дерева', stone: 'камня', iron: 'железа', food: 'еды' }; // текст (экранируется в окнах), без HTML-иконок
   if (def.produces) { const p = Math.round(S.cat.prod[landEff(def, level)] * (K[def.produces] || 1) * (((S.cat.lands && S.cat.lands.mult) || {})[def.id] || 1) * sp); return { text: `+${fmtFull(p)} ${GEN[def.produces]} в час`, short: `+${fmtN(p)}/ч` }; }
@@ -461,7 +462,7 @@ function resSheet() {
   const row = (r) => { const now = Math.max(0, resNow(r)), cap = c.cap[r] || 1, pc = Math.max(0, Math.min(100, now / cap * 100));
     return `<div class="rsrow"><img src="gfx3d/res/${r}.png" alt=""><div class="rsbar ${pc >= 100 ? 'full' : ''}"><i style="width:${pc}%"></i><span data-rsres="${r}">${fmt(now)}/${fmt(cap)}</span></div><b>${fmtFull(c.rate[r])} ед./час</b></div>`; };
   return `<div class="rswin"><div class="rstitle">Добыча замка</div>${RES.map(row).join('')}
-    <div class="rsnote">${esc(c.name)} · добыча — с учётом науки, религии и артефактов</div>
+    <div class="rsnote">${esc(c.name)} · добыча — с учётом науки, религии, артефактов и боевого ранга</div>
     <button class="rsclosebtn" data-rsclose><img src="gfx3d/res/closebtn.png" alt="Закрыть"></button></div>`;
 }
 // окно ресурсов — поверх игры: фон затемнён, королевство просвечивает (как в оригинале); закрыть — «Закрыть» или тап по фону
@@ -539,19 +540,22 @@ const SUBPAGES = {
   },
   army: () => armyBookHtml(), // оригинальные юниты игры (mil.js)
   rules() {
-    const T = R().time, st = R().store;
+    // числа — из правил сервера (S.cat), те же формулы, что в окнах зданий (effect)
+    const st = R().store, br = R().baseRate, sp = S.cat.resSpeed || 1, K = S.cat.prodK || {}, LM = (S.cat.lands && S.cat.lands.mult) || {};
+    const lv = [1, 2, 3, 4, 5], f = (v) => fmtFull(Math.round(v));
+    const prodRow = (id) => { const d = S.by[id]; if (!d || !d.produces) return ''; const r = d.produces;
+      const v = lv.map((l) => (r === 'people' ? Math.round(S.cat.prod[landEff(d, l)] * K.people * (LM[id] || 1) * sp) : Math.round(S.cat.prod[landEff(d, l)] * (K[r] || 1) * (LM[id] || 1) * sp)));
+      return `<b>${esc(d.name)}</b>: ${v.map((x, k) => `${k + 1} ур. — ${f(x)}`).join(', ')}`; };
+    const hut = lv.map((l) => `${l} ур. — ${f(st.peoplePerHut * (S.cat.lands.hutCap || 1) * landEff(S.by[6], l))}`).join(', ');
     return `<div class="vhead"><button class="iconbtn" data-back>‹</button><h2>Формулы</h2></div><div class="pad" style="padding-top:0">
-      <div class="section">Стоимость уровня</div>
-      <div class="formula">Замок: база ${RES_IC.wood}120 ${RES_IC.stone}110 ${RES_IC.iron}80 ${RES_IC.food}60 ${RES_IC.people}2 × 1.3^(ур−1)<br>Земли: база ${RES_IC.wood}60 ${RES_IC.stone}50 ${RES_IC.iron}40 ${RES_IC.food}30 ${RES_IC.people}1 × 1.45^(ур−1)<br>Люди: база × уровень (не тратятся, заняты на время стройки)</div>
-      <div class="section">Время стройки</div>
-      <div class="formula">Замок: ${T.castle.base} с × ${T.castle.growth}^(ур−1)<br>Земли: ${T.lands.base} с × ${T.lands.growth}^(ур−1)<br>× ${T.townhallFactor}^(ур. Ратуши) ÷ скорость мира (×${S.cat.speed})</div>
+      <div class="section">Стройка</div>
+      <div class="formula">Цена и время каждого уровня — в окне здания («Развить» и «О здании»).<br>Ратуша ускоряет все стройки на 5% за свой уровень, наука Инженерия — ещё на 1% за уровень (на 10 и 20 ур. — ещё по 2,5%).<br>Одновременно строится до ${S.cat.maxQueue} зданий (с премиумом — до 5). Люди заняты только на время стройки.</div>
       <div class="section">Рейтинг</div>
-      <div class="formula">Полностью отстроенный замок — ★ ${R().rating.max}: постройки замка до ${R().rating.castleMax}, развитие Складов до ${R().rating.storeMax}, земли до ${R().rating.landsMax}.<br>Уровень здания в замке: ★ ${fr(R().rating.castle)}<br>Уровень Склада: ещё ★ ${fr(R().rating.store)}<br>Уровень на землях: ★ ${fr(R().rating.lands)}</div>
-      <div class="section">Добыча и склад</div>
-      <div class="formula">Базово ${R().baseRate.wood}/ч дерева, камня и железа + добыча зданий земель по таблице (еда ×${S.cat.prodK.food}, люди ×${S.cat.prodK.people})<br>
-      Склад: ${st.base} + сумма всех Складов (по уровням: ${st.levels.slice(1).join(', ')})<br>Люди: ${st.people} + ${st.peoplePerHut} мест за уровень Хибары</div>
-      <div class="section">Добыча здания земель по уровням (в час, ×1)</div>
-      <div class="formula">${[1, 2, 3, 4, 5].map((l) => `${l}: ${S.cat.prod[S.cat.lands.eff[l]]}`).join(' · ')}</div></div>`;
+      <div class="formula">Полностью отстроенный замок — ★ ${R().rating.max}: постройки замка до ${R().rating.castleMax}, развитие Складов до ${R().rating.storeMax}, земли до ${R().rating.landsMax}.<br>Уровень здания в замке: ★ ${fr(R().rating.castle)}<br>Уровень Склада: ещё ★ ${fr(R().rating.store)}</div>
+      <div class="section">Добыча в час</div>
+      <div class="formula">Сам замок: ${f(br.wood)} дерева, камня, железа и еды, ${f(br.people)} людей.<br>Здания Земель (каждое, без бонусов):<br>${[5, 37, 7, 8, 9].map(prodRow).filter(Boolean).join('<br>')}<br>${prodRow(6).replace('</b>:', '</b> (людей):')}<br>Добычу увеличивают наука Экономика, религия Природа, артефакты и боевой ранг.</div>
+      <div class="section">Склад и люди</div>
+      <div class="formula">Вместимость: ${f(st.base)} + все Склады замка (до 5) по уровням: ${st.levels.slice(1).map(f).join(', ')}. Пять Складов 20 ур. — ${f(st.base + 5 * st.levels[20])} каждого ресурса.<br>Места для людей: ${f(st.people)} + Хибары: ${hut}.</div></div>`;
   },
 };
 
@@ -695,7 +699,7 @@ function buildingSheet(def, lvl, ctx) {
   const th = S.st.castle.townhall, w = ratingPer(def);
   const q = ctx && queueAt(ctx.view, ctx.cell);
   const cur = currentLine(def, lvl);
-  let h = bwinHead(def, lvl, `<b>${esc(def.name)}</b><div>${lvl ? `${lvl} уровень` : 'не построено'}</div><div>Рейтинг ★ : ${fr(landEff(def, lvl) * w)}</div>`) +
+  let h = bwinHead(def, lvl, `<b>${esc(def.name)}</b><div>${lvl ? `${lvl} уровень` : 'не построено'}</div><div>Рейтинг ★: ${fr(landEff(def, lvl) * w)}</div>`) +
     `${lvl ? `<div class="bwline center">Текущая прочность здания: ${fmtFull(def.hp * landEff(def, lvl))}</div>` : ''}
     <div class="bwline">${esc(def.desc)}</div>${cur ? `<hr class="cwhr"><div class="bwline">${cur}</div>` : ''}`;
   if (q) {
@@ -703,10 +707,11 @@ function buildingSheet(def, lvl, ctx) {
       <p class="small" style="margin:6px 0 0">Осталось: <span class="cd" data-e="${q.end}"></span></p>${typeof shopSpeedBtns === 'function' ? shopSpeedBtns(q) : ''}</div>`;
   } else if (lvl < def.max) {
     const n = lvl + 1, cost = def.costs[n];
+    const dw = def.layer === 'lands' ? (landEff(def, n) - landEff(def, lvl)) * w : w; // уровень земель стоит нескольких прежних уровней
     const reqs = Object.entries(def.req);
     const blk = ctx ? blockers(def, n, ctx.view, ctx.cell) : [];
     h += `<div class="card next"><h4>${lvl ? `Развить до ${n} ур.` : 'Построить (1 ур.)'}</h4>${costChips(cost)}
-      <div class="chips"><span>${TIME_IC} ${fmtT(buildSec(def, n, th))}</span><span>★ +${typeof w === "number" ? fr(w) : w}</span><span>${esc(effect(def, n).text)}</span></div>
+      <div class="chips"><span>${TIME_IC} ${fmtT(buildSec(def, n, th))}</span><span>★ +${typeof dw === "number" ? fr(dw) : dw}</span><span>${esc(effect(def, n).text)}</span></div>
       ${reqs.length ? `<ul class="reqs">${reqs.map(([id, l]) => { const ok = buildingLevel(Number(id)) >= l; return `<li class="${ok ? 'ok' : 'bad'}">${ok ? '✓' : '✗'} ${esc(S.by[id].name)} ${l} ур.</li>`; }).join('')}</ul>` : ''}
       ${ctx ? `${blk.length ? `<p class="reasons">${blk.map(esc).join('<br>')}</p>` : ''}
       <button class="btn primary" data-build="${ctx.view},${ctx.cell},${def.id}" ${blk.length ? 'disabled' : ''}>${lvl ? 'Развить' : 'Построить'}</button>` : ''}</div>`;
@@ -724,7 +729,7 @@ function aboutSheet(def) {
   const table = def.id === 1 ? R().store.levels.slice(1).map((c, i) => `${i + 1} уровень - ${c}.`)
     : def.produces ? Array.from({ length: def.max }, (_, i) => `${i + 1} уровень - ${effect(def, i + 1).text}.`) : [];
   const reqs = Object.entries(def.req);
-  return `${bwinHead(def, def.max, `<b>${esc(def.name)}</b><div>Рейтинг ★: +${fr(ratingPer(def))}</div><div>Максимальный уровень: <img class="upar" src="${GFX}smallicon/maxupgrade.png" alt=""> ${def.max}</div>`, 'Справка')}
+  return `${bwinHead(def, def.max, `<b>${esc(def.name)}</b><div>Рейтинг ★: ${def.layer === 'lands' ? `до +${fr(landEff(def, def.max) * ratingPer(def))} на ${def.max} ур.` : `+${fr(ratingPer(def))} за уровень`}</div><div>Максимальный уровень: <img class="upar" src="${GFX}smallicon/maxupgrade.png" alt=""> ${def.max}</div>`, 'Справка')}
     <div class="bwline">Прочность на первом уровне: ${fmtFull(def.hp)}</div>
     <div class="costbox"><div class="cbt">Стоимость постройки:</div><div class="cbg">${RES.map((r) => `<div>${RES_IC[r]}<b>${fmtFull(cost[r])}</b></div>`).join('')}<div>${TIME_IC}<b>${clock}</b></div></div></div>
     ${ribbon('Описание:')}<div class="bwline">${esc(def.about || def.desc)}${table.length ? `<br>${table.map(esc).join('<br>')}` : ''}</div>

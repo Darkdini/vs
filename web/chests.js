@@ -24,7 +24,7 @@ function chestsWin() {
     ${s.gold && !(r && r.golden) ? `<button class="chgold" data-chgold><img src="${CH_IMG.gold}" alt=""><span>Золотой сундук ждёт Вас!<br><small>Нажмите — гарантированно редкий приз</small></span></button>` : ''}
     <div class="chstreak"><div class="chdots">${dots}</div>
       <small>${s.today && !s.streak ? 'Золотой сундук открыт! Новая серия начнётся завтра.' : `Серия: <b>${s.streak}</b> из ${s.need} дней подряд${s.today ? ' (сегодня засчитано)' : ''}.`} На ${s.need}-й день — Золотой сундук. Пропустите день — серия сгорает.</small></div>
-    <p class="chnote">Бесплатно ${s.max} попытки в день${s.max < 5 ? ' (с премиумом — 5)' : ''}. Призы: ресурсы, опыт генерала, уникальные воины, иногда — артефакт. Каждая игра — очко в Зал Славы «Азарт».</p>`;
+    <p class="chnote">Бесплатно ${s.max} ${plural(s.max, 'попытка', 'попытки', 'попыток')} в день${s.max < 5 ? ' (с премиумом — 5)' : ''}. Призы: ресурсы, опыт генерала, уникальные воины, иногда — артефакт. Каждая игра — очко в Зал Славы «Азарт».</p>`;
 }
 function chestsMsg(m) {
   if (m.t === 'chests') { S.chests = m.state; S.chestRes = null; }

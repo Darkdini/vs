@@ -1,4 +1,5 @@
 'use strict';
+const Wd = require('./words'); // слова после чисел: 1 воин, 2 воина, 5 воинов
 // Военная часть и функции зданий: юниты, тренировка, генерал, армии и бой, торговля, альянсы, науки, религия,
 // экспедиции и артефакты. Подключается к Game (game.js) как набор методов — см. install() внизу.
 //
@@ -56,7 +57,7 @@ const UNIT_LIST = [
   [218, 'Защитник гор', 'dwarves', 'dwarv/hd/defender', 'heavy_cav', B.STABLE, 5, { [B.BARRACKS]: 7, [B.WORKSHOP]: 3, [B.SMITH]: 7 }],
   [256, 'Механический центурион', 'dwarves', 'dwarv/hd/centurion', 'elite_inf', B.MAGE_ACADEMY, 7, { [B.SMITH]: 5 }],
   [219, 'Револьверщик', 'dwarves', 'dwarv/hd/revolver', 'elite_inf', B.BARRACKS, 10, { [B.WORKSHOP]: 10, [B.SMITH]: 8 }],
-  [220, 'Йетти', 'dwarves', 'dwarv/hd/yeti', 'legendary', B.MAGE_ACADEMY, 10, { [B.WORKSHOP]: 10 }],
+  [220, 'Йети', 'dwarves', 'dwarv/hd/yeti', 'legendary', B.MAGE_ACADEMY, 10, { [B.WORKSHOP]: 10 }],
   // орки — как в оригинале (скрины окна «Юнит»): имена, требования, характеристики — в ORIG ниже
   [245, 'Мародер', 'orcs', 'orc/hd/marauder', 'atk_inf', B.BARRACKS, 1],
   [247, 'Бугай', 'orcs', 'orc/hd/bugai', 'def_inf', B.BARRACKS, 3, { [B.SMITH]: 1 }],
@@ -134,7 +135,7 @@ const ORIG = {
   218: { type: 'cavalry', hp: 60, atk: 56, mag: 5, def: 25, mdef: 0, speed: 8, carry: 86, cost: [100, 175, 95, 80], pop: 33, time: 2800 }, // Защитник гор 46:40
   256: { type: 'infantry', hp: 70, atk: 30, mag: 0, def: 45, mdef: 25, speed: 9, carry: 80, cost: [125, 185, 130, 85], pop: 53, time: 3000 }, // Механический центурион 50:00
   219: { type: 'infantry', hp: 80, atk: 40, mag: 20, def: 45, mdef: 5, speed: 9, carry: 78, cost: [165, 205, 175, 85], pop: 51, time: 3330 }, // Револьверщик 55:30
-  220: { type: 'infantry', hp: 100, atk: 25, mag: 5, def: 20, mdef: 5, speed: 2, carry: 55, cost: [655, 750, 665, 620], pop: 89, time: 4640, bldDmg: 27 }, // Йетти 1:17:20
+  220: { type: 'infantry', hp: 100, atk: 25, mag: 5, def: 20, mdef: 5, speed: 2, carry: 55, cost: [655, 750, 665, 620], pop: 89, time: 4640, bldDmg: 27 }, // Йети 1:17:20
   // общие юниты (те же скрины), значения один в один; у Путешественника орков другая цена (raceOvr ниже)
   224: { type: 'special', hp: 10, atk: 1, mag: 1, def: 1, mdef: 1, speed: 10, carry: 0, cost: [5000, 7500, 5000, 5000], pop: 3000, time: 136800 }, // Путешественник 38:00:00
   233: { type: 'special', hp: 10, atk: 2, mag: 2, def: 1, mdef: 1, speed: 9, carry: 0, cost: [12012, 13316, 10412, 24031], pop: 3026, time: 486000 }, // Бунтарь 135:00:00
@@ -325,7 +326,7 @@ const UP = {
 };
 const UP_CAP = 72000; // улучшение не дороже 72 000 одного ресурса — влезает в Склад (полный — 95 000)
 const SPY_OPEN = {
-  armies: { name: 'Армий в замке', level: 1, survive: 0, cond: 'выжил хотя-бы 1 разведчик' },
+  armies: { name: 'Армий в замке', level: 1, survive: 0, cond: 'выжил хотя бы 1 разведчик' },
   res: { name: 'Ресурсов', level: 4, survive: 0.5, cond: 'выжило больше 50% разведчиков' },
   build: { name: 'Зданий', level: 8, survive: 0.7, cond: 'выжило больше 70% разведчиков' },
   riot: { name: 'Бунта', level: 12, survive: 0.85, cond: 'выжило больше 85% разведчиков' },
@@ -668,7 +669,7 @@ function install(Game, helpers) {
       const spent = GEN_STATS.reduce((s, k) => s + g.pts[k], 0);
       if (!spent) return { error: 'Очки ещё не распределены.' };
       if (g.resets > 0) g.resets--;
-      else { if ((user.gold || 0) < GEN.resetGold) return { error: `Нужно ${GEN.resetGold} золота.` }; this.goldChange(user, -GEN.resetGold, 'Сброс очков генерала'); }
+      else { if ((user.gold || 0) < GEN.resetGold) return { error: `Нужно монет: ${GEN.resetGold}.` }; this.goldChange(user, -GEN.resetGold, 'Сброс очков генерала'); }
       for (const k of GEN_STATS) g.pts[k] = 0;
       g.free += spent;
     } else if (op === 'kill') {
@@ -944,7 +945,7 @@ function install(Game, helpers) {
   };
   P.returnHome = function returnHome(c, a) {
     if (this.tgNotify && a.mission !== 'trade') { const n = Object.values(a.units).reduce((q, k) => q + k, 0), loot = a.loot ? Object.values(a.loot).reduce((q, k) => q + (k || 0), 0) : 0;
-      this.tgNotify(c.owner, 'home', `🏰 Армия вернулась в «${c.name}»: ${n.toLocaleString('ru-RU')} воинов${a.general ? ' и генерал' : ''}${loot ? `, добыча ${Math.floor(loot).toLocaleString('ru-RU')} ресурсов` : ''}.`); }
+      this.tgNotify(c.owner, 'home', `🏰 Армия вернулась в «${c.name}»: ${Wd.warriors(n)}${a.general ? ' и генерал' : ''}${loot ? `, добыча ${Wd.resources(Math.floor(loot))}` : ''}.`); }
     this.tick(c);
     this.mil(c);
     const units = Object.fromEntries(Object.entries(a.units).filter(([id, n]) => n > 0 && Number(id) !== MERCHANT_ID)); // торговцы просто возвращаются на Рынок
@@ -1339,7 +1340,7 @@ function install(Game, helpers) {
       if (target) for (const r of RES4) target.res[r] -= loot[r];
       else if (npc.ruins && RES4.some((r) => loot[r] > 0)) this.db.npc[where] = { ...this.db.npc[where], until: t + NPC_REGEN_SEC / SPEED * 1000 }; // запас руин восстанавливается за час; бунт в руинах при этом не сбрасывается (раньше сбрасывался)
     }
-    // осада: стена и тараны — до боя (в clash), здания ломают после победы Йетти, Энт, Нурух, Кулак Ярости (урон по зданиям) и катапульты
+    // осада: стена и тараны — до боя (в clash), здания ломают после победы Йети, Энт, Нурух, Кулак Ярости (урон по зданиям) и катапульты
     const siege = [...R.siege]; let siegeN = R.siegeN;
     if (target && !target.site && a.mission === 'attack' && win) {
       const bD = this.bonus(target), bA = this.bonus(c);
@@ -1428,7 +1429,7 @@ function install(Game, helpers) {
     }
     if (genDied) lines.push('Генерал пал в бою — воскресите его в Военном штабе.');
     lines.push(...genA.filter((x) => !genDied || !/пал в бою/.test(x)));
-    if (calc.saved) lines.push(`Полевой лекарь спас ${calc.saved} воинов.`);
+    if (calc.saved) lines.push(`Полевой лекарь спас ${Wd.ofWarriors(calc.saved)}.`);
     if (gearLine) { lines.push(gearLine); data.gear = gearLine; }
     const title = `Атака на ${target ? (captured ? captured.prevLogin : defUser.login) : npc.name}`; // как в оригинале: «Атака на <игрок>» / «Оборона от <игрок>»
     this.report(c.owner, title, lines, 'battle', { ...data, side: 'att' });
@@ -1696,9 +1697,12 @@ function install(Game, helpers) {
   // уровень башни (лучшая в королевстве) решает, что видно о вражеской армии:
   // 1+ — кто, куда и когда; 3+ — примерная численность; 6+ — точная численность; 10+ — состав войск и генерал
   P.watchLevel = function watchLevel(user) { return user ? Math.max(0, ...this.castlesOf(user).map((c) => this.buildingLevel(c, B.WATCHTOWER))) : 0; };
+  // сведения о вражеской армии: Караульная башня (у неё 1 уровень) замечает армию, а подробности даёт лучший Центр разведки
+  // королевства: 3 ур. — примерная численность, 6 — точная, 10 — состав войск и генерал
+  P.watchIntel = function watchIntel(user) { return this.hasWatch(user) ? Math.max(0, ...this.castlesOf(user).map((c) => this.buildingLevel(c, B.SPY))) : 0; };
   const roughly = (n) => { if (n < 10) return n; const p = 10 ** (Math.floor(Math.log10(n)) - 1); return Math.round(n / p) * p; };
   P.incoming = function incoming(castle) {
-    const out = [], wl = this.watchLevel(this.ownerOf(castle)), watch = wl > 0;
+    const owner = this.ownerOf(castle), out = [], watch = this.hasWatch(owner), wl = watch ? this.watchIntel(owner) : 0;
     for (const c of Object.values(this.db.castles)) {
       if (c === castle || !c.armies) continue;
       for (const a of c.armies) {
@@ -2073,7 +2077,7 @@ function install(Game, helpers) {
       invited: al && this.allyCan(al, user.id, 'invite') ? Object.values(this.db.users).filter((u) => (u.invites || []).includes(al.id)).map((u) => ({ id: u.id, login: u.login, rating: this.userRating(u) })) : [],
       forge: castle.forge, upJobs: castle.upJobs, forgeUnits: this.forgeUnits(castle).map((u) => u.id), magicUnits: this.magicUnits(castle).map((u) => u.id),
       upNext: Object.fromEntries([...new Set([...this.forgeUnits(castle), ...this.magicUnits(castle)])].map((u) => [u.id, Object.fromEntries(['a', 'd', 'm', 'md'].map((k) => [k, this.forgeCost(u, k, this.forgeLvl(castle, u.id, k) + 2)]))])),
-      admin: !!user.admin, royal: this.royalView(user, castle), watch: this.hasWatch(user), watchLevel: this.watchLevel(user),
+      admin: !!user.admin, royal: this.royalView(user, castle), watch: this.hasWatch(user), watchLevel: this.watchIntel(user), // watchLevel — уровень сведений (Центр разведки), не самой башни
       stash: this.stashCount(user), // значок «Кладовая»: сколько видов наград ждёт
       worldBoss: (() => { const b = this.bossNow(), ro = b && this.rallyOf(user); return b ? { kind: b.kind, name: b.name, x: b.x, y: b.y, end: b.end, hp: b.hp, maxHp: b.maxHp, rally: ro ? ro.r.end : 0 } : null; })(), // кнопка мирового босса
       threats: this.castlesOf(user).flatMap((c) => this.incoming(c)).filter((a) => a.mission === 'attack' || a.mission === 'raid').sort((p, q) => p.arrive - q.arrive), // значок «на вас идёт армия»

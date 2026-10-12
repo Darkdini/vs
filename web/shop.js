@@ -53,17 +53,17 @@ $('#sheetBody').addEventListener('click', (e) => {
     if (fr.dataset.use) return send({ t: 'shop', op: 'frameuse', id: fr.dataset.shframe });
     const cost = Number(fr.dataset.cost), gold = S.st.user.gold || 0;
     if (gold < cost) return toast(`Не хватает монет: нужно ${cost}, у вас ${gold}.`, 'err');
-    if (!confirm(`Купить «${fr.dataset.name}» за ${cost} монет? Навсегда.`)) return;
+    if (!confirm(`Купить «${fr.dataset.name}» за ${coinsZa(cost)}? Навсегда.`)) return;
     return send({ t: 'shop', op: 'frame', id: fr.dataset.shframe });
   }
   const b = e.target.closest('[data-shspeed],[data-shchest]'); if (!b || b.disabled) return;
   const cost = Number(b.dataset.cost), gold = S.st.user.gold || 0;
   if (gold < cost) return toast(`Не хватает монет: нужно ${cost}, у вас ${gold}.`, 'err');
   if (b.dataset.shspeed) {
-    if (!confirm(b.dataset.mode === 'hour' ? `Ускорить стройку на 1 час за ${cost} монет?` : `Достроить сейчас за ${cost} монет?`)) return;
+    if (!confirm(b.dataset.mode === 'hour' ? `Ускорить стройку на 1 час за ${coinsZa(cost)}?` : `Достроить сейчас за ${coinsZa(cost)}?`)) return;
     return send({ t: 'shop', op: 'speed', key: b.dataset.shspeed, mode: b.dataset.mode });
   }
-  if (!confirm(`Купить «${b.dataset.name}» за ${cost} монет?`)) return;
+  if (!confirm(`Купить «${b.dataset.name}» за ${coinsZa(cost)}?`)) return;
   send({ t: 'shop', op: 'chest', id: b.dataset.shchest });
 });
 $('#sheetBody').addEventListener('click', (e) => { if (e.target.closest('[data-shopopen]')) openShop(); });
@@ -72,6 +72,6 @@ $('#sheetBody').addEventListener('submit', (e) => {
   const x = Math.floor(Number(f.x.value)), y = Math.floor(Number(f.y.value)), cost = (S.shop && S.shop.moveGold) || 500, gold = S.st.user.gold || 0;
   if (!Number.isFinite(x) || !Number.isFinite(y)) return;
   if (gold < cost) return toast(`Не хватает монет: нужно ${cost}, у вас ${gold}.`, 'err');
-  if (!confirm(`Перенести «${S.st.castle.name}» на ${x}:${y} за ${cost} монет?`)) return;
+  if (!confirm(`Перенести «${S.st.castle.name}» на ${x}:${y} за ${coinsZa(cost)}?`)) return;
   send({ t: 'shop', op: 'move', x, y });
 });

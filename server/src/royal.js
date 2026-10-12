@@ -29,7 +29,7 @@ const RITUALS = {
 const CALM_PER = { wood: 400, stone: 400, iron: 400, food: 400 }, CALM_TEMPLE_OFF = 0.025;
 // время: 1% бунта снимается за 6 минут (÷ скорость мира), каждый уровень Храма — на 2,5% быстрее; бунт падает постепенно
 const CALM_MIN = 6, SPEED = Number(process.env.SPEED || 1);
-const dayKey = (t) => Math.floor(t / DAY);
+const dayKey = (t) => Math.floor((t + 3 * 3600000) / DAY); // сутки — по Москве, как у заданий и сундучков
 
 function install(Game) {
   const P = Game.prototype;
@@ -101,9 +101,12 @@ function install(Game) {
     if (anyTemple ? !this.castlesOf(user).some((c) => this.buildingLevel(c, 25)) : !this.buildingLevel(castle, 25)) return { error: 'Нужен Храм.' };
     const now = Date.now(); this.ritualBonus(user, now);
     if (user.rituals.some((x) => x.id === id)) return { error: 'Этот ритуал ещё действует.' };
+    // бонус уже на пределе Храма — ритуал ничего не прибавит: не берём за него ресурсы и монеты
+    const cap = this.ritualCap(user);
+    if (this.ritualBonus(user, now) >= cap - 1e-9) return { error: `Бонус ритуалов уже на пределе: +${Math.round(cap * 100)}% (5% за уровень лучшего Храма). Новый ритуал ничего не добавит — развивайте Храм.` };
     this.tick(castle);
     if (r.cost) for (const k of Object.keys(r.cost)) if (castle.res[k] < r.cost[k]) return { error: 'Недостаточно ресурсов.' };
-    if (r.gold && (user.gold || 0) < r.gold) return { error: `Нужно ${r.gold} золота.` };
+    if (r.gold && (user.gold || 0) < r.gold) return { error: `Нужно монет: ${r.gold}.` };
     if (r.cost) for (const k of Object.keys(r.cost)) castle.res[k] -= r.cost[k];
     if (r.gold) this.goldChange(user, -r.gold, `Ритуал «${r.name}»`);
     user.rituals.push({ id, pct: r.pct, until: now + r.hours * 3600000 });
@@ -149,10 +152,10 @@ function install(Game) {
     const f = FESTIVALS[id]; if (!f) return { error: 'Нет такого праздника.' };
     if (!this.buildingLevel(castle, 46)) return { error: 'Нужна Резиденция.' };
     const now = Date.now(); user.festAt = user.festAt || {};
-    if (user.festAt[id] > now - DAY) return { error: 'Этот праздник уже был сегодня.' };
+    if (user.festAt[id] > now - DAY) { const m = Math.max(1, Math.ceil((user.festAt[id] + DAY - now) / 60000)); return { error: `Этот праздник можно устроить снова через ${m >= 60 ? `${Math.floor(m / 60)} ч ${m % 60} мин` : `${m} мин`}.` }; }
     this.tick(castle);
     if (f.cost) for (const r of Object.keys(f.cost)) if (castle.res[r] < f.cost[r]) return { error: 'Недостаточно ресурсов.' };
-    if (f.gold && (user.gold || 0) < f.gold) return { error: `Нужно ${f.gold} золота.` };
+    if (f.gold && (user.gold || 0) < f.gold) return { error: `Нужно монет: ${f.gold}.` };
     if (f.cost) for (const r of Object.keys(f.cost)) castle.res[r] -= f.cost[r];
     if (f.gold) this.goldChange(user, -f.gold, `Праздник «${f.name}»`);
     user.festAt[id] = now;

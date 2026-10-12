@@ -55,7 +55,7 @@ function allyMainWin() {
       ${aTile('data-aw="mail"', `${AL}mail.png`, 'Рассылки', !can('mail'))}
       ${aTile('data-aw="ad"', `${AL}ad.png`, 'Реклама', !can('invite'))}
       ${aTile('data-aw="news"', `${AL}news.png`, 'Новости')}
-      ${aTile('data-aw="logs"', `${AL}logs.png`, 'Логи', !can('logs'))}
+      ${aTile('data-aw="logs"', `${AL}logs.png`, 'Журнал', !can('logs'))}
     </div>`;
 }
 
@@ -192,9 +192,9 @@ S.allyLogKind = 'war';
 const WAR_CAT = { att: ['Нападение', 'smallicon/swordred.png', 'att'], def: ['Оборона', 'smallicon/shieldblue.png', 'def'], scout: ['Разведка', 'units/human/hd/scout.png', 'scout'],
   sdef: ['Вражеская разведка', 'smallicon/shieldgreen.png', 'scout'], rout: ['Подкрепление союзнику', 'smallicon/swordgreen.png', 'reinf'], rin: ['Подкрепление получено', 'smallicon/shieldgreen.png', 'reinf'] };
 function allyLogsWin() {
-  const a = S.ally; if (!a) return loading('Военные логи');
-  const k = S.allyLogKind, title = { war: 'Военные логи', log: 'Логи дипломатии и состава', slog: 'Логи кладовой' }[k];
-  const links = [['war', 'Военные логи'], ['log', 'Логи дипломатии и состава альянса'], ['slog', 'Логи кладовой альянса']].filter(([x]) => x !== k)
+  const a = S.ally; if (!a) return loading('Военный журнал');
+  const k = S.allyLogKind, title = { war: 'Военный журнал', log: 'Журнал дипломатии и состава', slog: 'Журнал кладовой' }[k];
+  const links = [['war', 'Военный журнал'], ['log', 'Журнал дипломатии и состава альянса'], ['slog', 'Журнал кладовой альянса']].filter(([x]) => x !== k)
     .map(([x, t]) => `<div class="bwline center">${t} <a data-alog="${x}">&gt;</a></div>`).join('');
   if (k === 'war') {
     const f = S.warCat || 'all', list = a.reports.filter((r) => f === 'all' || WAR_CAT[r.cat][2] === f);

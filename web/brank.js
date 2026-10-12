@@ -25,7 +25,7 @@ function brankWin() {
       ${n > 0 ? `<div class="brnext"><img src="${BR_IMG(b.pendingInfo.icon)}" alt=""><div>${day} ранг станет:<br><b>${b.pending + 1}. ${esc(b.pendingInfo.title)}</b> ${brStars(b.pendingInfo.stars, 'sm')}
         <small>и придут награды за ${n} ${plural(n, 'ранг', 'ранга', 'рангов')}</small></div></div>` : ''}
       <p class="coinhint">Ранг меняется раз в месяц — 1-го числа. До обновления: <b><span class="cd" data-e="${b.update}"></span></b></p>
-      ${nx ? `<div class="brbar"><i style="width:${pct.toFixed(1)}%"></i><span>${fmtFull(b.pts - pv)} / ${fmtFull(nx - pv)} · ${Math.floor(pct)}%</span></div><p class="coinhint">До ${pi + 2}-го ранга: <b>${fmtFull(nx - b.pts)}</b> очков.</p>` : '<p class="coinhint">Очков хватает на высший ранг!</p>'}
+      ${nx ? `<div class="brbar"><i style="width:${pct.toFixed(1)}%"></i><span>${fmtFull(b.pts - pv)} / ${fmtFull(nx - pv)} · ${Math.floor(pct)}%</span></div><p class="coinhint">До ${pi + 2}-го ранга: <b>${fmtFull(nx - b.pts)}</b> ${plural(nx - b.pts, 'очко', 'очка', 'очков')}.</p>` : '<p class="coinhint">Очков хватает на высший ранг!</p>'}
       <div class="brbonus">Бонус ранга: урон и защита воинов <b>+${(Math.round(b.bonus.atk * 1000) / 10)}%</b>, прирост ресурсов <b>+${(Math.round(b.bonus.prod * 1000) / 10)}%</b></div>
       ${b.self ? '' : `<p class="coinhint">Игрок: <b>${esc(b.login)}</b></p>`}`;
   } else if (S.brTab === 'table') {

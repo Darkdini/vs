@@ -214,7 +214,7 @@ function client() {
     adm.send({ t: 'ally', op: 'gold', n: 100 });
     await adm.expect('toast', (m) => /Внесено в казну: 100/.test(m.msg));
     a.send({ t: 'ally', op: 'gold', n: 40, to: 'Webby' });
-    await a.expect('toast', (m) => /Выдано 40 золота: webby/i.test(m.msg));
+    await a.expect('toast', (m) => /Игроку webby выдано из казны: 40 монет/i.test(m.msg));
     adm.send({ t: 'ally', op: 'get' });
     const av = (await adm.expect('ally', (m) => m.data.treasury === 60)).data;
     assert.ok(av.name === 'Короли Мира' && av.members.find((x) => x.login === 'Webby').title === 'Казначей' && av.forum[0].replies === 2 && av.log.length > 0);
@@ -294,7 +294,7 @@ function client() {
     const rv = (await adm.expect('state', (m) => m.castle.mil.royal && m.castle.mil.royal.festivals.some((f) => f.id === 'feast' && !f.ready))).castle.mil.royal;
     assert.ok(rv.royal > 0 && rv.need === 13500 * rv.castles);
     adm.send({ t: 'festival', id: 'feast' });
-    await adm.expect('error', (m) => /уже был сегодня/.test(m.msg));
+    await adm.expect('error', (m) => /можно устроить снова через/.test(m.msg));
     adm.send({ t: 'ritual', id: 'mystery' });
     await adm.expect('toast', (m) => /Великое таинство: бонус лояльности \+20%/.test(m.msg));
     adm.send({ t: 'ritual', id: 'mystery' });
@@ -360,9 +360,9 @@ function client() {
     await a.expect('toast', (m) => /Готово/.test(m.msg));
     console.log('✓ модератор форума: удаление сообщения, бан в чате на 2 ч, админа забанить нельзя');
 
-    // ---- казна: админ выдаёт монеты — игроку письмо «Ваша казна пополнена 50 монетами», история трат ----
+    // ---- казна: админ выдаёт монеты — игроку письмо «Ваша казна пополнена на 50 монет», история трат ----
     adm.send({ t: 'admin', op: 'gold', login: 'Webby', n: 50 });
-    await a.expect('toast', (m) => /Ваша казна пополнена 50 монетами/.test(m.msg));
+    await a.expect('toast', (m) => /Ваша казна пополнена на 50 монет/.test(m.msg));
     const gl = (await a.expect('state', (m) => (m.user.goldLog || []).some((x) => x.delta === 50))).user.goldLog;
     assert.ok(gl[0].reason === 'Пополнение казны администрацией' && gl.some((x) => /казны альянса/.test(x.reason)), JSON.stringify(gl));
     a.send({ t: 'mail', folder: 'in' });
@@ -423,7 +423,7 @@ function client() {
 
     // ---- премиум: покупка за монеты, звание VIP ----
     adm.send({ t: 'admin', op: 'gold', login: 'Webby', n: 150 });
-    await a.expect('toast', (m) => /пополнена 150/.test(m.msg));
+    await a.expect('toast', (m) => /пополнена на 150 монет/.test(m.msg));
     a.send({ t: 'premium', days: 30 });
     await a.expect('toast', (m) => /Премиум активен до/.test(m.msg));
     a.send({ t: 'profile', id: s3.user.id });

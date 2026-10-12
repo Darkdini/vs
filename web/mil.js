@@ -54,32 +54,32 @@ function unitStatsHtml(u) {
 function milEffect(def, L) {
   const pct = (v) => `${Math.round(v * 1000) / 10}%`;
   const train = () => ({ text: `открывает новых воинов по мере роста уровня`, short: `${L} ур.` }); // уровень не ускоряет тренировку (как в оригинале)
-  const wallPer = { humans: 0.03, elves: 0.035, dwarves: 0.02 }[S.st.user.race] || 0.03;
+  const wallPer = (MY().bonus && MY().bonus.wallPer) || { humans: 0.03, elves: 0.035, dwarves: 0.02, orcs: 0.025 }[S.st.user.race] || 0.03; // с вехами Инженерии — как на сервере
   const fx = {
     2: () => ({ text: 'армии, генерал, бунтари; отправка войск', short: 'армии' }),
     3: train, 12: train, 20: train, 23: train,
-    4: () => ({ text: `обмен по курсу ${Math.min(1, 0.7 + 0.015 * L).toFixed(2)}, торговцы`, short: `курс ${Math.min(1, 0.7 + 0.015 * L).toFixed(2)}` }),
+    4: () => ({ text: `груз торговцев ${fmtFull(45 * L)} ед., бартер 2,5 : 1`, short: `${fmtFull(45 * L)} ед.` }), // торговцев всегда 20, груз — 45 за уровень
     11: () => ({ text: `улучшение атаки и защиты юнитов до ${L} ур.`, short: `до ${L} ур.` }),
-    13: () => ({ text: `мест в альянсе: ${3 * L}`, short: `${3 * L} мест` }),
+    13: () => { const n = Math.min(50, 5 * L); return { text: `мест в альянсе: ${n} (считается по Центру главы альянса)`, short: `${n} ${plural(n, 'место', 'места', 'мест')}` }; },
     14: () => ({ text: 'обучение ученых (ускоряют науку)', short: 'ученые' }),
     15: () => ({ text: `науки до ${L} уровня`, short: `науки ${L}` }),
     16: () => ({ text: `археологи, +${3 * L}% к находке артефакта`, short: `+${3 * L}%` }),
     17: () => ({ text: `экспедиции в руины, +${2 * L}% к находке`, short: `+${2 * L}%` }),
-    18: () => ({ text: `активных артефактов: ${1 + Math.floor(L / 3)}`, short: `${1 + Math.floor(L / 3)} слота` }),
+    18: () => { const n = 1 + Math.floor(L / 3); return { text: `активных артефактов: ${n}`, short: `${n} ${plural(n, 'слот', 'слота', 'слотов')}` }; },
     19: () => ({ text: `+${10 * L}% груза и скорости торговцев`, short: `+${10 * L}%` }),
-    21: () => ({ text: `+${5 * L}% к контрразведке${L >= 5 ? ', виден состав входящих армий' : ''}`, short: `+${5 * L}%` }),
-    22: () => ({ text: `+${pct(wallPer * L)} к защите, +${10 * L} обороны`, short: `+${pct(wallPer * L)}` }),
-    24: () => ({ text: 'путешественники (основание замков — позже)', short: '' }),
+    21: () => ({ text: '+5% к контрразведке; видны армии, идущие на Ваши замки (подробности — по уровню Центра разведки)', short: 'дозор' }),
+    22: () => ({ text: `+${pct(wallPer * L)} к защите войск в замке`, short: `+${pct(wallPer * L)}` }),
+    24: () => ({ text: 'путешественники (освоение новых замков) и бунтари (захват)', short: '' }),
     25: () => ({ text: `религия: +${L}% к её бонусу`, short: `+${L}%` }),
-    26: () => { const h = Math.round(200 * 1.3 ** (L - 1)) * (S.st.user.race === 'dwarves' ? 2 : 1); return { text: `прячет ${fmtFull(h)} каждого ресурса от грабежа`, short: fmtN(h) }; },
+    26: () => { const h = Math.round(200 * 1.3 ** (L - 1) * (S.st.user.race === 'dwarves' ? 2 : 1) * ((MY().sciences || {}).eco >= 10 ? 1.25 : 1)); return { text: `прячет ${fmtFull(h)} каждого ресурса от грабежа`, short: fmtN(h) }; }, // как на сервере: гномы ×2, Экономика 10 — ещё +25%
     38: () => ({ text: 'призыв легендарных юнитов', short: '' }),
     39: () => ({ text: `+${2 * L}% магической атаки и защиты`, short: `+${2 * L}%` }),
-    40: () => ({ text: `−${5 * L}% урона от катапульт`, short: `−${5 * L}%` }),
+    40: () => { const p = Math.round((1 - 1 / (1 + 0.05 * L)) * 100); return { text: `здания получают на ${p}% меньше урона (катапульты и осадные воины)`, short: `−${p}%` }; }, // урон ÷ (1 + 5% × ур.)
     41: () => ({ text: `+${L}% к атаке (боевой дух)`, short: `+${L}%` }),
     42: () => ({ text: 'найм наёмников: Великан, Валькирия', short: '' }),
     43: () => ({ text: `тренировка быстрее на ${2 * L}%`, short: `−${2 * L}%` }),
-    44: () => ({ text: `хранит ${3 + L} артефактов`, short: `${3 + L}` }),
-    45: () => ({ text: `+${5 * L}% к контрразведке; Око и Тень`, short: `+${5 * L}%` }),
+    44: () => ({ text: `хранит ${3 + L} ${plural(3 + L, 'артефакт', 'артефакта', 'артефактов')}`, short: `${3 + L}` }),
+    45: () => ({ text: `+${5 * L}% к контрразведке; Око и Тень; с Караульной башней — сведения о вражеских армиях`, short: `+${5 * L}%` }),
   }[def.id];
   return fx ? fx() : null;
 }
@@ -379,7 +379,7 @@ function reportHtml(r) {
     `<div class="rp">${ic('skull')} Потери: ${fmtFull(aL)} из ${fmtFull(aW)} ( ${pct(aL, aW)}% )<br>Потери в ресурсах:${resRow(d.att.lossRes)}${unitRows(d.att.units, d.att.race)}${genRow(d.att)}</div>`);
   const defBox = armyBox('shield', 'Армия защиты', 'Армия защиты', d.def.npc
     ? `<div class="rp">${ic('skull')} Охрана потеряла ${d.def.lossPct}%${(d.def.garrison || []).map((g) => `<div class="rul">${esc(g.name)}: ${fmtFull(g.lost || 0)} из ${fmtFull(g.n)}</div>`).join('')}</div>`
-    : dW || d.def.general ? `<div class="rp">${ic('skull')} Потери: ${fmtFull(dL)} из ${fmtFull(dW)} ( ${pct(dL, dW)}% )<br>Потери в ресурсах:${resRow(d.def.lossRes)}${unitRows(d.def.units, d.def.race)}${genRow(d.def)}${d.def.wall ? `<div class="rul">${gimg('fence/fence1.png', 'ric')} Забор ${d.def.wall} ур.</div>` : ''}</div>`
+    : dW || d.def.general ? `<div class="rp">${ic('skull')} Потери: ${fmtFull(dL)} из ${fmtFull(dW)} ( ${pct(dL, dW)}% )<br>Потери в ресурсах:${resRow(d.def.lossRes)}${unitRows(d.def.units, d.def.race)}${genRow(d.def)}${d.def.wall ? `<div class="rul">${gimg('fence/hd/fence1.png', 'ric')} Забор ${d.def.wall} ур.</div>` : ''}</div>`
     : '<div class="rp">В замке не было защитников.</div>');
   return `${head}${top}
     ${band('kingatt', 'Нападение')}${sideBlock(d.att, d.att.rating, d.att.cx ?? '-', d.att.cy ?? '-', lossLine(aL, aW) + aWhy)}

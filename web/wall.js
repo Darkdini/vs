@@ -15,7 +15,7 @@ function wallWin() {
       <div>Бонус при защите: <img class="ri" src="${GFX}smallicon/phidef.png" alt=""> <b>${Math.round(per * L * 100)} %</b></div>
       <div>Прочность: <b>${fmtFull(hp)}</b></div>
       <div>Рейтинг: <b>+${fr(L * ratingPer(def))}</b></div></div></div>
-    <p class="small">Стена окружает замок и не занимает места внутри. Уменьшает <b>физическую атаку</b> наступающей армии на указанный процент. Тараны ломают уровни стены до боя — каждый уровень держит удар отдельно.</p>
+    <p class="small">Стена окружает замок и не занимает места внутри. Увеличивает <b>защиту войск в замке</b> на указанный процент — и от оружия, и от магии. Тараны ломают уровни стены до боя — каждый уровень держит удар отдельно.</p>
     ${q ? `<div class="upbody center">Строится ${q.level} уровень: <b><span class="cd" data-e="${q.end}"></span></b></div><div class="pbar2"><i data-s="${q.start}" data-e="${q.end}"></i></div>`
       : cost ? `${ribbon(`Улучшить до ${next} уровня`)}<div class="upbody center">Бонус станет <b>${Math.round(per * next * 100)} %</b>, прочность <b>${fmtFull(hp + wallHp(next))}</b></div>${costHtml}<button class="pbar" data-wallup>Улучшить</button>`
         : '<p class="parch-note">Стена построена до предела.</p>'}`;

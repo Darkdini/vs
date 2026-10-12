@@ -1,4 +1,5 @@
 'use strict';
+const W = require('./words');
 // «Биржа Замков» (Кабинет → Биржа): игрок выставляет на продажу свой замок (не столицу) за золото — цена от 300.
 // Покупатель платит золото, продавец его получает, замок переходит к покупателю со зданиями, ресурсами, стеной и
 // артефактами и армией, что стоит в замке (Замковая армия и отряды Штаба). Генерал один на все замки: замок с генералом продать нельзя — сначала его переводят подкреплением в другой свой замок.
@@ -54,15 +55,15 @@ function install(Game) {
     if (!c) return { error: 'Это не ваш замок.' };
     if (c === cs[0]) return { error: 'Столицу продать нельзя.' };
     price = Math.floor(Number(price));
-    if (!(price >= MIN_PRICE)) return { error: `Цена — от ${MIN_PRICE} золота.` };
-    if (price > MAX_PRICE) return { error: `Цена — не больше ${fmt(MAX_PRICE)} золота.` };
+    if (!(price >= MIN_PRICE)) return { error: `Цена — от ${W.coinsGen(MIN_PRICE)}.` };
+    if (price > MAX_PRICE) return { error: `Цена — не больше ${W.coinsGen(MAX_PRICE)}.` };
     const l = this.marketSweep(now);
     if (l.some((x) => x.castle === c.id)) return { error: 'Этот замок уже на Бирже.' };
     if (l.filter((x) => x.seller === u.id).length >= MAX_LOTS) return { error: `Не больше ${MAX_LOTS} замков на Бирже одновременно.` };
     const why = busy(this, c); if (why) return { error: `Сейчас продать нельзя: ${why}.` };
     l.push({ id: this.db.nextId++, castle: c.id, name: c.name, seller: u.id, price, at: now });
     this.store.save();
-    return { ok: true, msg: `Замок «${c.name}» выставлен на Биржу за ${fmt(price)} золота.` };
+    return { ok: true, msg: `Замок «${c.name}» выставлен на Биржу за ${W.coinsAcc(price)}.` };
   };
   P.marketCancel = function marketCancel(u, id) {
     const l = lots(this), x = l.find((k) => k.id === Number(id) && k.seller === u.id);
@@ -75,7 +76,7 @@ function install(Game) {
     if (!x) return { error: 'Замок уже продан или снят с Биржи.' };
     if (x.seller === u.id) return { error: 'Это Ваш замок.' };
     const c = this.db.castles[x.castle], seller = this.userById(x.seller);
-    if ((u.gold || 0) < x.price) return { error: `Нужно ${fmt(x.price)} золота (у вас ${fmt(u.gold || 0)}).` };
+    if ((u.gold || 0) < x.price) return { error: `Нужно монет: ${fmt(x.price)} (у вас ${fmt(u.gold || 0)}).` };
     const sc = this.castlesOf(seller);
     if (sc[0] === c) return { error: 'Столицу продать нельзя — лот снят.' };
     this.tick(c); this.mil(c);
@@ -93,9 +94,9 @@ function install(Game) {
     this.goldChange(u, -x.price, `Биржа замков: покупка «${c.name}» у ${seller.login}`);
     this.goldChange(seller, x.price, `Биржа замков: продажа «${c.name}» игроку ${u.login}`);
     this.addStat(u.id, 'capRating', this.rating(c)); // Развитие не учитывает рейтинг купленных замков
-    this.report(seller.id, `Биржа Замков: замок «${c.name}» продан игроку ${u.login} за ${fmt(x.price)} золота`, [`Золото +${fmt(x.price)} — в Казне.`, 'Армия ушла вместе с замком.'], 'market');
+    this.report(seller.id, `Биржа Замков: замок «${c.name}» продан игроку ${u.login} за ${W.coinsAcc(x.price)}`, [`Монеты +${fmt(x.price)} — в Казне.`, 'Армия ушла вместе с замком.'], 'market');
     this.cache = {}; this.store.save();
-    return { ok: true, msg: `Замок «${c.name}» теперь Ваш! Списано ${fmt(x.price)} золота.`, castle: { id: c.id, x: c.x, y: c.y }, seller };
+    return { ok: true, msg: `Замок «${c.name}» теперь Ваш! Списано монет: ${fmt(x.price)}.`, castle: { id: c.id, x: c.x, y: c.y }, seller };
   };
 }
 

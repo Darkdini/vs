@@ -12,12 +12,14 @@ const ADVISOR = {
   orcs: { name: 'Советник Грумаш', w: 480, h: 725, top: 436, bot: 65 },
 };
 const plural = (n, a, b, c) => { const m = n % 100, k = n % 10; return m > 10 && m < 20 ? c : k === 1 ? a : k >= 2 && k <= 4 ? b : c; };
+const coinsN = (n) => `${fmtFull(n)} ${plural(n, 'монета', 'монеты', 'монет')}`; // «у вас 21 монета»
+const coinsZa = (n) => `${fmtFull(n)} ${plural(n, 'монету', 'монеты', 'монет')}`; // «за 21 монету»
 function welcomeShow(m) {
   if (S.welcomed) return; S.welcomed = true;
   const race = (S.st && S.st.user.race) || 'humans', A = ADVISOR[race] || ADVISOR.humans, items = [];
   if (m.attacks) items.push(['reports', '⚔', `На ваши замки нападали: ${m.attacks} ${plural(m.attacks, 'раз', 'раза', 'раз')}`]);
   if (m.reports) items.push(['reports', '📜', `Новых отчётов: ${m.reports}`]);
-  if (m.gifts) items.push(['gifts', '🎁', `${plural(m.gifts, 'Вам подарили подарок', 'Вам подарили подарки', 'Вам подарили подарков')}: ${m.gifts}`]);
+  if (m.gifts) items.push(['gifts', '🎁', `${plural(m.gifts, 'Новый подарок', 'Новых подарка', 'Новых подарков')}: ${m.gifts}`]);
   if (m.mail) items.push(['mail', '✉', `${plural(m.mail, 'Новое письмо', 'Новых письма', 'Новых писем')}: ${m.mail}`]);
   if (m.news) items.push(['news', '📰', `${plural(m.news, 'Свежая новость', 'Свежие новости', 'Свежих новостей')}: ${m.news}`]);
   const bossRow = m.boss && m.boss.on ? `<div class="wlc-boss"><img src="${GFX}boss/m_${m.boss.kind}.png" alt=""><span>${esc(m.boss.name)}</span><button type="button" data-wgo="boss">Перейти</button></div>` : '';

@@ -48,7 +48,7 @@ function install(Game) {
     const ps = PROPS(this);
     if (ps.some((p) => p.from === user.id && p.to === to.id)) return { error: 'Вы уже отправили предложение этому игроку — дождитесь ответа.' };
     if (ps.filter((p) => p.from === user.id).length >= MAX_OUT) return { error: `Не больше ${MAX_OUT} предложений одновременно.` };
-    if ((user.gold || 0) < PROPOSE_GOLD) return { error: `Нужно ${PROPOSE_GOLD} золота (у вас ${user.gold || 0}).` };
+    if ((user.gold || 0) < PROPOSE_GOLD) return { error: `Нужно монет: ${PROPOSE_GOLD} (у вас ${user.gold || 0}).` };
     this.goldChange(user, -PROPOSE_GOLD, `ЗАГС: предложение о браке игроку ${to.login}`);
     ps.push({ id: this.db.nextId++, from: user.id, to: to.id, role, text, at: Date.now() });
     this.sendMail(user, to.login, 'Предложение о браке', `💍 ${ROLE[role]} ${user.login} делает Вам предложение руки и сердца!\n«${text}»\nПринять или отклонить: Кабинет → ЗАГС → Предложение.`);
@@ -108,7 +108,7 @@ function install(Game) {
     const m = MAR(this)[Number(id)]; if (!m) return { error: 'Пара не найдена.' };
     coins = Math.floor(Number(coins));
     if (!(coins >= 1) || coins > VOTE_MAX) return { error: 'Укажите количество монет.' };
-    if ((user.gold || 0) < coins) return { error: `Не хватает золота (у вас ${user.gold || 0}).` };
+    if ((user.gold || 0) < coins) return { error: `Не хватает монет (у вас ${user.gold || 0}).` };
     const k = this.userById(m.king), q = this.userById(m.queen);
     this.goldChange(user, -coins, `ЗАГС: рейтинг пары ${k.login} и ${q.login} +${coins}`);
     m.votes = (m.votes || 0) + coins; this.cache = {};
@@ -121,7 +121,7 @@ function install(Game) {
     const m = MAR(this)[Number(id)]; if (!m) return { error: 'Пара не найдена.' };
     const { GIFTS } = require('./social'), g = GIFTS[giftId]; if (!g) return { error: 'Нет такого подарка.' };
     if (g.premium && !this.isPremium(user)) return { error: 'Это уникальный подарок — дарить его можно только с премиумом.' };
-    if ((user.gold || 0) < g.gold) return { error: `Нужно ${g.gold} золота (у вас ${user.gold || 0}).` };
+    if ((user.gold || 0) < g.gold) return { error: `Нужно монет: ${g.gold} (у вас ${user.gold || 0}).` };
     const k = this.userById(m.king), q = this.userById(m.queen);
     this.goldChange(user, -g.gold, `ЗАГС: подарок «${g.name}» паре ${k.login} и ${q.login}`);
     (m.gifts = m.gifts || []).push({ gift: giftId, from: user.id, at: Date.now() }); if (m.gifts.length > 200) m.gifts.splice(0, m.gifts.length - 200);

@@ -1,4 +1,5 @@
 'use strict';
+const W = require('./words');
 // Альянс как в оригинале: карточка (название, ранг, рейтинг, состав, верховенство), управление с правами,
 // звания и погоны, устав, описание, дипломатия, казна и кладовая, рассылки, реклама, форум, новости, логи.
 // Основные операции (создать, пригласить, заявки, исключить, покинуть) — P.alliance в army.js.
@@ -180,13 +181,13 @@ function install(Game) {
           const t = member(m.to); if (!t) return { error: 'Игрок не в альянсе.' };
           if ((al.treasury || 0) < n) return { error: 'В казне столько нет.' };
           al.treasury -= n; this.goldChange(t, n, `Выдано из казны альянса [${al.tag}]`);
-          this.allyLog(al, `${user.login} выдал из казны ${t.login}: ${n} золота`, 'store');
-          return done(`Выдано ${n} золота: ${t.login}.`);
+          this.allyLog(al, `${user.login} выдал из казны ${t.login}: ${W.coinsAcc(n)}`, 'store');
+          return done(`Игроку ${t.login} выдано из казны: ${W.coins(n)}.`);
         }
-        if ((user.gold || 0) < n) return { error: 'Не хватает золота.' };
+        if ((user.gold || 0) < n) return { error: 'Не хватает монет.' };
         this.goldChange(user, -n, `Взнос в казну альянса [${al.tag}]`); al.treasury = (al.treasury || 0) + n;
-        this.allyLog(al, `${user.login} внёс в казну ${n} золота`, 'store');
-        return done(`Внесено в казну: ${n} золота.`);
+        this.allyLog(al, `${user.login} внёс в казну ${W.coinsAcc(n)}`, 'store');
+        return done(`Внесено в казну: ${W.coins(n)}.`);
       }
       case 'store': { // кладовая: взнос ресурсов из своего замка или выдача участнику
         al.storage = al.storage || { wood: 0, stone: 0, iron: 0, food: 0 };

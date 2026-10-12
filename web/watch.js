@@ -10,7 +10,7 @@ function movesWin() {
     ${ribbon('Надвигающиеся атаки')}${m.incoming.length ? m.incoming.map((a) => `<div class="mrow ${['attack', 'raid'].includes(a.mission) ? 'danger' : ''}">${['attack', 'raid'].includes(a.mission) ? `<img class="wic" src="${GFX}watch/ic_${a.mission}.png" alt="">` : ''}<span><b>${M().missions[a.mission]}</b> на «${esc(a.to)}» от ${esc(a.from)}<br><small>из «${esc(a.castle)}» · прибудет через <span class="cd" data-e="${a.arrive}"></span></small>${threatInfo(a)}</span></div>`).join('') : '<p class="parch-note">Никто не идёт на Ваши замки.</p>'}
     <p class="small muted whint"><img src="${GFX}watch/ic_watch.png" alt="">${watchHint()} Разведку, направленную в Ваши замки, башня не показывает.</p>`;
 }
-// что башня узнала о вражеской армии (зависит от уровня башни — server/src/army.js watchLevel)
+// что известно о вражеской армии: башня замечает, подробности — по Центру разведки (server/src/army.js watchIntel)
 function threatInfo(a) {
   if (a.size == null) return '';
   const units = a.units ? Object.entries(a.units).filter(([, n]) => n > 0).map(([id, n]) => { const u = unitById(Number(id)); return u ? `<span class="tu"><img src="${unitSrc(u)}" alt="">${fmtFull(n)}</span>` : ''; }).join('') : '';
@@ -18,7 +18,9 @@ function threatInfo(a) {
 }
 function watchHint() {
   const L = MY().watchLevel || 0;
-  return L >= 10 ? `Башня ${L} ур. видит численность, состав войск и генерала.` : L >= 6 ? `Башня ${L} ур. видит точную численность; состав войск — с 10 ур.` : L >= 3 ? `Башня ${L} ур. видит примерную численность; точную — с 6 ур., состав — с 10 ур.` : L ? `Башня ${L} ур. видит только кто и когда придёт; численность — с 3 ур.` : 'Постройте Караульную башню, чтобы видеть вражеские армии.';
+  if (!MY().watch) return 'Постройте Караульную башню, чтобы видеть вражеские армии.';
+  return L >= 10 ? `Башня замечает армию, Центр разведки ${L} ур. — численность, состав войск и генерала.` : L >= 6 ? `Центр разведки ${L} ур.: видна точная численность; состав войск — с 10 ур.`
+    : L >= 3 ? `Центр разведки ${L} ур.: видна примерная численность; точная — с 6 ур., состав — с 10 ур.` : 'Башня видит, кто и когда придёт. Численность покажет Центр разведки с 3 ур., точную — с 6 ур., состав и генерала — с 10 ур.';
 }
 // значок на экране: «⚔ на вас идёт армия» с таймером до ближайшего удара; нажатие — «Передвижения армий»
 function threatBtn() {

@@ -1,4 +1,5 @@
 'use strict';
+const W = require('./words');
 // Администратор: 20 замков на полной прокачке и все админ-команды (отдельное окно «Админ-панель» в клиенте).
 // Подключается к Game после army.js и social.js — см. install().
 
@@ -125,8 +126,8 @@ function install(Game) {
       case 'gold': {
         const n = num(arg.n, 1000);
         this.goldChange(target, n, n >= 0 ? 'Пополнение казны администрацией' : 'Списание администрацией');
-        if (n > 0) this.sendMail(user, target.login, 'Казна пополнена', `Ваша казна пополнена ${n} монетами.`);
-        this.event(target.id, n >= 0 ? `Ваша казна пополнена ${n} монетами.` : `С вашей казны списано ${-n} монет.`);
+        if (n > 0) this.sendMail(user, target.login, 'Казна пополнена', `Ваша казна пополнена на ${W.coinsAcc(n)}.`);
+        this.event(target.id, n >= 0 ? `Ваша казна пополнена на ${W.coinsAcc(n)}.` : `Из вашей казны списано монет: ${-n}.`);
         msg = `${target.login}: монет ${target.gold}.`; break;
       }
       // --- стройки и время ---

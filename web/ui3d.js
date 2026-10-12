@@ -6,7 +6,7 @@
 const G3 = 'gfx3d/';
 const me = () => S.st.user.id;
 const ribbon = (t) => `<div class="ribbon">${esc(t)}</div>`;
-const soonWin = (title) => () => `${ribbon(title)}<div class="parch-note">Этот раздел появится в следующих версиях сервера.</div>`;
+const soonWin = (title) => () => `${ribbon(title)}<div class="parch-note">Этот раздел скоро откроется — следите за новостями игры.</div>`;
 const openSoon = (title) => openSheet(soonWin(title));
 const raceIcon = (race) => gimg(RACE_IMG[race] || 'units/human/hd/general.png', 'rico');
 
@@ -25,7 +25,7 @@ const MENUS = {
     ['Премиум', M3('premium'), () => openPremium()],
     ['Королевство', M3('loyalty'), () => openKingdom()],
     ['Ресурсы', M3('resources'), () => openRes()],
-    ['Подарки', M3('gifts'), () => openSoon('Подарки')],
+    ['Подарки', M3('gifts'), () => send({ t: 'profile', id: S.st.user.id })], // свои подарки — в профиле
     [S.st.user.zagsNew ? `ЗАГС (${S.st.user.zagsNew})` : 'ЗАГС', 'zags/rings.png', () => openZags()],
     ['Репутация', M3('reputation'), () => openRating('reputation')],
     ['Авторитет', M3('authority'), () => openSoon('Авторитет города')],
@@ -351,7 +351,7 @@ function hallDescWin() {
     <div class="bwline center small">Ваша позиция: <b>${fmtFull(h.pos)}</b>${h.mine ? ` · ваши очки: <b>${fmtFull(h.mine)}</b>` : ''}</div>`;
 }
 // окно «Зал <название>» как в оригинале: медаль (серая «?», пока не в тройке), позиция, дата отсчёта, показатель, «Описание»/«Архив», рейтинг по 10
-const HALL_UNIT = { growth: (v) => `Прирост рейтинга ${fmtFull(v)} единиц.`, wealth: (v) => `${fmtFull(v)} монет.` };
+const HALL_UNIT = { growth: (v) => `Прирост рейтинга ${fmtFull(v)} ${plural(v, 'единица', 'единицы', 'единиц')}.`, wealth: (v) => `${fmtFull(v)} ${plural(v, 'монета', 'монеты', 'монет')}.` };
 // Зал славы: из меню — свои места, из профиля игрока — места этого игрока (who)
 function openHalls(who) { S.halls = null; S.hallWhoId = who; send({ t: 'halls', ...(who !== undefined ? { who } : {}) }); openSheet(hallsWin); }
 function openHall(id, page = 0) { S.hallId = id; S.hall = null; send({ t: 'hall', id, page, ...(S.hallWhoId !== undefined ? { who: S.hallWhoId } : {}) }); openSheet(hallWin); }
@@ -365,7 +365,7 @@ function hallWin() {
     <span>${h.page + 1}</span><button data-hpg="${h.page + 1}" ${h.page < h.pages - 1 ? '' : 'disabled'}>▶</button><button data-hpg="${h.pages - 1}" ${h.page < h.pages - 1 ? '' : 'disabled'}>▶▶</button></div>`;
   return `${ribbon(`Зал ${name}`)}
     <div class="hhead"><div class="hq ${top3 ? '' : 'none'}"><img src="${top3 ? HALL_IMG(id, h.pos) : HALL_IMG(id)}" alt="">${top3 ? '' : '<b>?</b>'}</div>
-      <div class="hinfo">Позиция: ${h.pos}<br>Дата отсчета:<br>${m ? `01.${m}.${y}` : '—'}<br>Показатель: ${(HALL_UNIT[id] || ((v) => `${fmtFull(v)} очков.`))(h.value)}
+      <div class="hinfo">Позиция: ${h.pos}<br>Дата отсчета:<br>${m ? `01.${m}.${y}` : '—'}<br>Показатель: ${(HALL_UNIT[id] || ((v) => `${fmtFull(v)} ${plural(v, 'очко', 'очка', 'очков')}.`))(h.value)}
         <button class="hdark" data-hdesc="${id}">Описание</button><button class="hdark" data-harch="${id}">Архив</button></div></div>
     ${ribbon('Рейтинг')}${nav}
     <div class="htable">${h.rows.map((r) => `<div class="${r.id === (S.hallWhoId ?? me()) ? 'me' : ''}"><span>${r.place}</span><a data-cprof="${r.id}">${esc(r.login)}</a><span>${fmtFull(r.value)}</span></div>`).join('') || '<p class="parch-note">В этом месяце пока никто не отличился.</p>'}</div>
@@ -500,9 +500,9 @@ function advisorWin() {
   const L = (id) => buildingLevel(id);
   if (!c.queue.length) tips.push('Очередь строительства пуста — стройте! Одновременно можно до ' + maxQueue() + ' строек.');
   if (L(0) < 3) tips.push('Развивайте Ратушу до 3 уровня — она открывает Казарму, Военный штаб и Рынок, а каждое её развитие ускоряет стройки на 5%.');
-  if (L(1) < 3) tips.push('Склад переполняется — развивайте Склад, иначе излишки ресурсов пропадают.');
+  if (L(1) < 3) tips.push('Развивайте Склад: когда он полон, новая добыча пропадает.');
   const prodCells = c.grid[1].filter((b) => [5, 7, 8, 9].includes(b)).length;
-  if (prodCells < 8) tips.push('Стройте добывающие здания на Землях: лес — Дровосек, валуны — Каменьщик, горы — Рудник, трава — Огород.');
+  if (prodCells < 8) tips.push('Стройте добывающие здания на Землях: лес — Дровосек, валуны — Каменщик, горы — Рудник, трава — Огород.');
   if (L(3) && !Object.values(c.mil.units).some((n) => n > 0)) tips.push('Казарма есть, а войск нет — натренируйте защитников.');
   if (L(3) && !L(2)) tips.push('Постройте Военный штаб — без него нельзя отправлять армии и нанять генерала.');
   if (L(2) && !c.mil.general) tips.push('Наймите генерала в Военном штабе — он усиливает армию и растёт в уровне.');
@@ -511,7 +511,7 @@ function advisorWin() {
   if (!tips.length) tips.push('Замок развивается отлично! Грабьте лагеря разбойников на карте мира и поднимайтесь в Зале Славы.');
   return `${ribbon('Советник')}<div class="advisor"><img src="${GFX}units/${S.cat.mil.raceDir[S.st.user.race]}/wisdom.png" alt=""><div>${tips.map((t) => `<p>${esc(t)}</p>`).join('')}</div></div>`;
 }
-const contactsWin = () => `${ribbon('Контакты')}<div class="pstats">Вопросы и ошибки — через «Инфо → Служба поддержки»: сообщение сохранится на сервере и попадёт разработчикам.</div>`;
+const contactsWin = () => `${ribbon('Контакты')}<div class="pstats">Вопросы и ошибки — через «Инфо → Поддержка»: сообщение сохранится на сервере и попадёт разработчикам.</div>`;
 const menuDescWin = () => `${ribbon('Описание меню')}<div class="pstats">${Object.values(MENUS).map((m) => `<b>${m.label}</b>: ${m.items().filter(Boolean).map((i) => i[0]).join(', ')}`).join('<br><br>')}</div>`;
 const helpWin = () => `${ribbon('Справка')}<div class="mitems light">
   <button class="mitem" data-act="book"><img src="${GFX}build/hd3/university.png" alt=""><span>Справочник зданий</span></button>
@@ -675,7 +675,7 @@ $('#sheetBody').addEventListener('click', (e) => {
 $('#sheetBody').addEventListener('click', (e) => {
   const t = e.target.closest('[data-giftsend]'); if (!t) return;
   const p = S.giftTo, g = S.cat.gifts[t.dataset.giftsend];
-  const text = prompt(`Подарок «${g.name}» игроку ${p.login} за ${g.gold} золота. Подпись (необязательно):`, '');
+  const text = prompt(`Подарок «${g.name}» игроку ${p.login} за ${g.gold} ${plural(g.gold, 'монету', 'монеты', 'монет')}. Подпись (необязательно):`, '');
   if (text === null) return;
   send({ t: 'gift', to: p.id, gift: t.dataset.giftsend, text });
   closeSheet();

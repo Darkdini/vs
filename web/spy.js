@@ -9,7 +9,7 @@ function spyButtons() {
 function spyInfoWin() {
   const L = buildingLevel(45), open = M().spyOpen;
   const riot = unitSrc(unitById(233)); // Бунтарь — значок «Бунта»
-  return `${ribbon('Центр шпионажа')}
+  return `${ribbon('Центр разведки')}
     <div class="bwline center">Текущий уровень здания: <img class="upar" src="${GFX}smallicon/maxupgrade.png" alt=""> ${L}</div>
     <div class="center"><a class="plink" data-about="45">Справка</a></div>
     <div class="bwline" style="margin-top:14px">Доступна разведка:</div>

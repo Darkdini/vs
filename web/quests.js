@@ -149,7 +149,7 @@ function advWin() {
   if (!a || a.finished) return `${ribbon('Советник')}<div class="advdone"><img src="${GFX}tut/laurel.png" alt=""><p>Все задания советника выполнены! Дальше помогут Задания (свиток слева).</p></div>`;
   return `${ribbon('Советник')}<div class="advisor"><img src="${advPic()}" alt=""><div>
       <p><b>${a.done ? `<img class="advic" src="${GFX}tut/done.png" alt="">` : `<img class="advic" src="${GFX}tut/${a.stash ? 'ic_reward' : a.need > 1 ? 'ic_up' : 'ic_build'}.png" alt="">`} ${a.stash ? 'Урок: Кладовая' : `Задание ${a.idx + 1} из ${a.total}`}</b></p><p>${esc(a.title)}.</p>
-      <p class="small">${a.done ? 'Отлично, правитель! Забирайте награду.' : a.stash ? 'Награды, которым не хватило места на Складе, ждут в Кладовой — сундук справа вверху. Откройте её, выберите ресурс, ползунком отметьте сколько и нажмите «Извлечь». Забирать можно, пока на Складе есть место.' : `Сейчас: ${a.have} из ${a.need}. Здание — ${a.layer === 'lands' ? 'на Землях (дерево на панели справа)' : 'в замке'}. Ресурсы награды пойдут сразу в замок, а что не поместится на Складе — в Кладовую (сундук справа вверху), они не пропадут.`}</p></div></div>
+      <p class="small">${a.done ? 'Отлично, правитель! Забирайте награду.' : a.stash ? 'Награды, которым не хватило места на Складе, ждут в Кладовой — сундук справа вверху. Откройте её, выберите ресурс, ползунком отметьте сколько и нажмите «Извлечь». Забирать можно, пока на Складе есть место.' : `${a.n > 1 ? `Готово зданий: ${a.have} из ${a.need}` : `Сейчас: ${a.have} из ${a.need}`}. Здание — ${a.layer === 'lands' ? 'на Землях (дерево на панели справа)' : 'в замке'}. Ресурсы награды пойдут сразу в замок, а что не поместится на Складе — в Кладовую (сундук справа вверху), они не пропадут.`}</p></div></div>
     <div class="qcard ${a.done ? 'ready' : ''}">${qBar(a.have, a.need)}${qReward(a.reward)}
       ${a.done ? '<button class="qbtn" data-qclaim="adv">Забрать награду</button>' : '<button class="pbar" data-advgo>Выполнить — к зданию</button>'}</div>`;
 }
@@ -161,7 +161,9 @@ function advTarget() {
   const a = S.st && S.st.quests && S.st.quests.adv; if (!a || a.finished || a.done || a.stash) return null;
   const v = a.layer === 'lands' ? VIEW.LANDS : VIEW.CASTLE, c = S.st.castle, N = v ? LN() : 7, g = c.grid[v], lv = c.levels[v];
   let best = -1;
-  for (let i = 0; i < g.length; i++) { const q = queueAt(v, i); if ((g[i] === a.bid || (q && q.building === a.bid)) && (best < 0 || lv[i] > lv[best])) best = i; }
+  // шаг «второй/третий» (a.n > 1): здание этого вида, которое ещё ниже нужного уровня; все уже готовы — место под новое
+  const lvl = a.n > 1 ? a.lvl : Infinity;
+  for (let i = 0; i < g.length; i++) { const q = queueAt(v, i); if ((g[i] === a.bid || (q && q.building === a.bid)) && Math.max(lv[i], q ? q.level : 0) < lvl && (best < 0 || lv[i] > lv[best])) best = i; }
   if (best < 0) { // не построено — ближайшее к центру свободное место, где можно поставить это здание
     let bd = 1e9; const mid = (N - 1) / 2;
     for (let i = 0; i < g.length; i++) {

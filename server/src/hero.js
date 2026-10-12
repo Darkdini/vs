@@ -141,7 +141,7 @@ function install(Game) {
     } else if (m.op === 'talreset') {
       if (!spent(g)) return { error: 'Умения ещё не изучены.' };
       if (g.talResets > 0) g.talResets--;
-      else { if ((user.gold || 0) < TAL_RESET_GOLD) return { error: `Нужно ${TAL_RESET_GOLD} золота.` }; this.goldChange(user, -TAL_RESET_GOLD, 'Сброс умений генерала'); }
+      else { if ((user.gold || 0) < TAL_RESET_GOLD) return { error: `Нужно монет: ${TAL_RESET_GOLD}.` }; this.goldChange(user, -TAL_RESET_GOLD, 'Сброс умений генерала'); }
       g.tal = {};
     } else if (m.op === 'equip') {
       const it = findBag(m.item); if (!it) return { error: 'Вещь не найдена.' };

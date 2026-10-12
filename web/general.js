@@ -104,7 +104,7 @@ function genElseWin(ge, dead) {
 function noGeneralWin() {
   const my = MY(), dead = my.deadGenerals || [], tr = my.genTrain;
   if (my.genElse) return genElseWin(my.genElse, dead);
-  const deadHtml = dead.map((d, i) => `<div class="upbody center">Мертвый ${gico(d.kindId)} Генерал (${esc(d.kind || '')})<br>${esc(d.name)}, ${fmtFull(d.level)} ур.</div>
+  const deadHtml = dead.map((d, i) => `<div class="upbody center">Мёртвый ${gico(d.kindId)} Генерал (${esc(d.kind || '')})<br>${esc(d.name)}, ${fmtFull(d.level)} ур.</div>
     ${d.reviveAt ? `<div class="upbody center">Воскрешение. Осталось: <span class="cd" data-e="${d.reviveAt}"></span></div>`
     : d.coinsOnly ? `<div class="upbody center">Генерала выше 100 уровня воскрешают только за монеты.</div><div class="upbody center">Стоимость воскрешения: ${fmtFull(d.gold)} ${gimg('coins_s.png', 'ri')}</div>
       <button class="pbar" data-genrevg="${i}">Воскресить за монеты</button>`
@@ -138,7 +138,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.general !== undefined) return openGeneral();
   if (d.gendist !== undefined) { S.gd = {}; return openSheet(genDistWin); }
   if (d.genreset !== undefined) {
-    if (!confirm(g && g.resets > 0 ? 'Сбросить все очки опыта генерала? (бесплатный сброс)' : `Сбросить все очки за ${g ? g.resetGold : 100} золота?`)) return;
+    if (!confirm(g && g.resets > 0 ? 'Сбросить все очки опыта генерала? (бесплатный сброс)' : `Сбросить все очки за ${coinsZa(g ? g.resetGold : 100)}?`)) return;
     return send({ t: 'general', op: 'reset' });
   }
   if (d.genname !== undefined) { const n = prompt('Новое имя генерала:', g ? g.name : ''); if (n) send({ t: 'general', op: 'rename', name: n }); return; }

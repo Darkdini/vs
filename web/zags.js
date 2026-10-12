@@ -34,7 +34,7 @@ function zproposeWin() {
     <p class="zlab">Вы являетесь:</p><div class="zroles">
       <label class="zrole"><input type="radio" name="role" value="king"><span>${ZI('king')}<b>Королем</b><small>жених</small></span></label>
       <label class="zrole"><input type="radio" name="role" value="queen"><span>${ZI('queen')}<b>Королевой</b><small>невеста</small></span></label></div>
-    <p class="zcost">Стоимость отправки заявки составляет ${gimg('coins_s.png', 'ri')} ${(S.zprops && S.zprops.price) || 10}. Если ваше предложение отвергнут, золото возвращено не будет!</p>
+    <p class="zcost">Стоимость отправки заявки составляет ${gimg('coins_s.png', 'ri')} ${(S.zprops && S.zprops.price) || 10}. Если ваше предложение отвергнут, монеты не вернутся!</p>
     <button class="pbar">Отправить</button></form>`;
 }
 function zpropsWin() {
@@ -97,11 +97,11 @@ function zvoteWin() {
     <button class="pbar" data-zvotego>Поднять рейтинг паре на <span data-zvn>${c}</span></button>`;
 }
 const zhelpWin = () => `${ribbon('Заявления')}<div class="pstats zhelp">Чтобы подать заявление, зайдите в «${ZI('rings')} ЗАГС» и нажмите «Свадьба».<br><br>
-  В открывшемся окне введите имя избранницы (избранника), текст предложения, Вашу роль в браке (Король / Королева) и нажмите «Отправить». Заявка стоит ${gimg('coins_s.png', 'ri')} 10 — если предложение отвергнут, золото не возвращается.<br><br>
+  В открывшемся окне введите имя избранницы (избранника), текст предложения, Вашу роль в браке (Король / Королева) и нажмите «Отправить». Заявка стоит ${gimg('coins_s.png', 'ri')} 10 — если предложение отвергнут, монеты не возвращаются.<br><br>
   Вашей половинке придёт уведомление, и она сможет принять или отклонить Ваше предложение.<br><br>
   Посмотреть Ваши предложения и предложения, сделанные Вам, можно в разделе «Предложение».<br><br>
   Предложения действуют 2 недели. Когда брак заключён, Ваши другие предложения снимаются.<br><br>
-  Рейтинг пары поднимается за золото: 1 ${gimg('coins_s.png', 'ri')} = 1 голос. Нажмите на пару (в профиле, рейтинге или «Последних браках») и затем «Проголосовать». Развестись можно там же — кнопка «Развестись» на странице Вашей пары.</div>`;
+  Рейтинг пары поднимается за монеты: 1 ${gimg('coins_s.png', 'ri')} = 1 голос. Нажмите на пару (в профиле, рейтинге или «Последних браках») и затем «Проголосовать». Развестись можно там же — кнопка «Развестись» на странице Вашей пары.</div>`;
 
 function zagsMsg(m) {
   if (m.t === 'zags') S.zags = m.home;
@@ -134,7 +134,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.zpg !== undefined) { S.zpage = Math.max(0, Number(d.zpg)); return refreshSheet(); }
   if (d.zvote || d.zprofvote) { S.zvoteId = Number(d.zvote || d.zprofvote); S.zcoins = 1; return openSheet(zvoteWin); }
   if (d.zvotego !== undefined) { document.activeElement && document.activeElement.blur(); closeSheet(); if (S.sheets[S.sheets.length - 1] !== zpairWin) openPair(S.zvoteId); return send({ t: 'zvote', id: S.zvoteId, coins: S.zcoins || 1 }); }
-  if (d.zgift) { const g = S.cat.gifts[d.zgift]; if (!confirm(`Подарить паре «${g.name}» за ${g.gold} золота?`)) return; closeSheet(); if (S.sheets[S.sheets.length - 1] !== zpairWin) openPair(S.zgiftTo); return send({ t: 'zgift', id: S.zgiftTo, gift: d.zgift }); }
+  if (d.zgift) { const g = S.cat.gifts[d.zgift]; if (!confirm(`Подарить паре «${g.name}» за ${coinsZa(g.gold)}?`)) return; closeSheet(); if (S.sheets[S.sheets.length - 1] !== zpairWin) openPair(S.zgiftTo); return send({ t: 'zgift', id: S.zgiftTo, gift: d.zgift }); }
   if (d.zgiftlist !== undefined) return openSheet(zgiftListWin);
   if (d.zcdel) { if (confirm('Удалить комментарий?')) send({ t: 'zcomment', id: S.zpair.id, del: Number(d.zcdel) }); return; }
   if (d.zdivorce !== undefined) { if (confirm('Развестись? Голоса и подарки пары пропадут.')) send({ t: 'zdivorce' }); }

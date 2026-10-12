@@ -41,7 +41,15 @@ assert.equal(v.royal - b, Math.round(62 * 1.05));
 v.royal = 1e6; v.created = T;
 assert.ok(!g.royalCanCapture(v) && g.royalWaitDays(v, T) === 30);
 v.created = T - 31 * 86400000; assert.ok(g.royalCanCapture(v));
-console.log('✓ Храм: +12 в сутки; ритуал +5%; первый захват не раньше 30-го дня игры');
+{ // ритуал сверх предела Храма (5% за уровень лучшего Храма) ничего не прибавит — монеты и ресурсы не списываются
+  const rv = g.register({ login: 'ritualcap', password: '12345', race: 0 }).user, rc = g.castlesOf(rv)[0];
+  rc.grid[0][0] = 25; rc.levels[0][0] = 1; Object.assign(rc.res, { wood: 50000, stone: 50000, iron: 50000, food: 50000 }); rv.gold = 500;
+  assert.ok(g.ritual(rv, rc, 'prayer').ok, 'Молебен при Храме 1 ур. — до предела 5%');
+  const gold0 = rv.gold, r2 = g.ritual(rv, rc, 'mystery');
+  assert.ok(r2.error && /на пределе/.test(r2.error) && rv.gold === gold0, `Великое таинство сверх предела — отказ без списания: ${r2.error}`);
+  rc.levels[0][0] = 10; assert.ok(g.ritual(rv, rc, 'mystery').ok && rv.gold === gold0 - 100, 'Храм 10 ур. — предел 50%, таинство проходит');
+}
+console.log('✓ Храм: +12 в сутки; ритуал +5%; ритуал сверх предела Храма не берёт монет; первый захват не раньше 30-го дня игры');
 // Кузница: улучшение атаки Мечника +1 за уровень, не выше уровня Кузнеца
 const w = g.register({ login: 'forgetest', password: '12345', race: 0 }).user, fc = g.castlesOf(w)[0];
 fc.grid[0][1] = 11; fc.levels[0][1] = 2; fc.grid[0][2] = 1; fc.levels[0][2] = 10;
@@ -364,7 +372,7 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(/минимум 5/.test(g.register({ login: 'short', password: '1234', nick: 'Shorty', race: 0 }).error), 'пароль короче 5 — нельзя');
   assert.ok(g.register({ login: 'admin2', password: '12345', nick: 'ADMIN', race: 0 }).error, 'ник admin в любом регистре — нельзя');
   assert.ok(/минимум 5/.test(g.register({ login: 'abcd', password: '12345', race: 0 }).error) && g.register({ login: 'abcde', password: '12345', race: 0 }).user, 'логин не короче 5 символов');
-  z.gold = 50; assert.ok(/100 золота/.test(g.changeNick(z, 'ZeVs').error), 'без золота ник не меняется');
+  z.gold = 50; assert.ok(/100 монет/.test(g.changeNick(z, 'ZeVs').error), 'без монет ник не меняется');
   z.gold = 250; assert.ok(g.changeNick(z, 'ZeVs').ok); assert.strictEqual(z.login, 'ZeVs'); assert.strictEqual(z.gold, 150); assert.ok(g.login('zevs@mail.ru', '12345') === z, 'логин тот же');
   assert.ok(g.changeNick(z, 'zevs').error, 'занятый ник'); assert.ok(g.changeNick(z, 'Громовержец').error, 'длиннее 10');
   console.log('✓ Регистрация: логин + пароль + ник; вход по логину; Zevs и zevs — разные ники; смена ника за 100 золота');
@@ -574,20 +582,23 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   console.log('✓ Герой-генерал: ветки умений, снаряжение (надеть, усилить, разобрать), бонусы в бою');
   if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
 }
-{ // Караульная башня: уровень раскрывает сведения о вражеской армии, значок «на вас идёт армия» (threats)
+{ // Караульная башня (1 ур.) замечает вражескую армию, подробности — по Центру разведки: 3 — примерно, 6 — точно, 10 — состав и генерал
   const A = g.register({ login: 'watchA', password: '12345', race: 3 }).user, Dd = g.register({ login: 'watchD', password: '12345', race: 3 }).user;
   const ca = g.castleOf(A), cd = g.castleOf(Dd); g.mil(ca); g.mil(cd); g.maxOut(ca); g.maxOut(cd); ca.units = { 247: 1234 };
   const r = g.sendArmy(ca, { units: { 247: 1234 }, x: cd.x, y: cd.y, mission: 'attack' }); assert.ok(r.army, JSON.stringify(r));
   let cell = cd.grid[0].indexOf(21); if (cell < 0) cell = cd.grid[0].indexOf(-1);
-  const tw = (L) => { cd.grid[0][cell] = L ? 21 : -1; cd.levels[0][cell] = L; return g.incoming(cd).find((x) => x.mission === 'attack'); };
-  assert.ok(!tw(0), 'без башни нападение не видно');
-  let x = tw(1); assert.ok(x && x.size === null && x.units === null, 'башня 1 ур.: кто и когда');
-  x = tw(3); assert.ok(x.size === 1200 && !x.exact, `башня 3 ур.: примерно (${x.size})`);
-  x = tw(6); assert.ok(x.size === 1234 && x.exact && x.units === null, 'башня 6 ур.: точно');
-  x = tw(10); assert.ok(x.units[247] === 1234 && x.general === false, 'башня 10 ур.: состав и генерал');
+  let spy = cd.grid[0].indexOf(45); if (spy < 0) { spy = cd.grid[0].findIndex((b, k) => b === -1 && k !== cell); cd.grid[0][spy] = 45; }
+  assert.strictEqual(require('../src/catalog').BY_ID[21].max, 1, 'у Караульной башни один уровень');
+  const tw = (T, L) => { cd.grid[0][cell] = T ? 21 : -1; cd.levels[0][cell] = T; cd.levels[0][spy] = L; return g.incoming(cd).find((x) => x.mission === 'attack'); };
+  assert.ok(!tw(0, 20), 'без башни нападение не видно, даже с Центром разведки');
+  let x = tw(1, 1); assert.ok(x && x.size === null && x.units === null, 'башня и Центр разведки 1 ур.: кто и когда');
+  x = tw(1, 3); assert.ok(x.size === 1200 && !x.exact, `Центр разведки 3 ур.: примерно (${x.size})`);
+  x = tw(1, 6); assert.ok(x.size === 1234 && x.exact && x.units === null, 'Центр разведки 6 ур.: точно');
+  x = tw(1, 10); assert.ok(x.units[247] === 1234 && x.general === false, 'Центр разведки 10 ур.: состав и генерал');
   assert.ok(g.milState(cd, Dd).threats.length === 1 && g.milState(cd, Dd).watchLevel === 10, 'значок видит нападение');
-  console.log('✓ Караульная башня: 1 ур. — кто и когда, 3 — примерно, 6 — точно, 10 — состав и генерал');
+  console.log('✓ Караульная башня (1 ур.) замечает армию; Центр разведки: 3 ур. — примерно, 6 — точно, 10 — состав и генерал');
 }
+
 { // мировой босс: созыв альянса — армии складываются и бьют одним ударом; награды всем по урону (1-е место — 20 000 / 10 / 100, повержен — ×4)
   const { nextSaturday, REWARD, KILL_X, HIT_MAX } = require('../src/boss');
   const sat = new Date(nextSaturday(Date.UTC(2026, 9, 1, 12))); assert.ok(sat.getUTCDay() === 6 && sat.getUTCHours() === 15, 'суббота 18:00 МСК');
@@ -957,7 +968,19 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   }
   const v = g.register({ login: 'advold1', password: '12345', race: 0 }).user, cv = g.castleOf(v); cv.levels[0][cv.grid[0].indexOf(0)] = 7;
   assert.ok(g.advState(v, cv).finished, 'опытному (Ратуша 7) — цепочка пройдена');
-  console.log('✓ Советник-строитель: шаги, ресурсы в замок до Склада, остаток в Кладовую');
+  { // шаги «второй/третий Дровосек до 2 ур.»: не засчитываются сами по себе — нужно ещё одно такое здание
+    const { ADV } = require('../src/quests');
+    const titles = ADV.map((x) => x.title); assert.strictEqual(new Set(titles).size, titles.length, `у советника нет одинаковых заданий: ${titles.filter((t, i) => titles.indexOf(t) !== i)}`);
+    const w = g.register({ login: 'advwood', password: '12345', race: 0 }).user, cw = g.castleOf(w), q = g.qinit(w);
+    q.adv = ADV.findIndex((x) => x.id === 'a_wd3'); q.advStash = true;
+    const forest = [...cw.grid[1].keys()].filter((i) => cw.grid[1][i] === -1).slice(0, 3);
+    cw.grid[1][forest[0]] = 7; cw.levels[1][forest[0]] = 2;
+    let s = g.advState(w, cw); assert.ok(s.id === 'a_wd3' && !s.done && s.have === 1 && s.need === 2, `один Дровосек 2 ур. — шаг «второй» не выполнен (${s.have}/${s.need})`);
+    cw.grid[1][forest[1]] = 7; cw.levels[1][forest[1]] = 1; assert.ok(!g.advState(w, cw).done, 'второй Дровосек 1 ур. — ещё нет');
+    cw.levels[1][forest[1]] = 2; s = g.advState(w, cw); assert.ok(s.done && s.have === 2, 'второй Дровосек 2 ур. — выполнено');
+    q.adv = ADV.findIndex((x) => x.id === 'a_wd4'); s = g.advState(w, cw); assert.ok(!s.done && s.need === 3, 'третий — нужен ещё один');
+  }
+  console.log('✓ Советник-строитель: шаги без повторов («второй/третий Дровосек»), ресурсы в замок до Склада, остаток в Кладовую');
 }
 { // «Пригласить в альянс» в профиле игрока без альянса — видит тот, у кого есть право приглашать
   const lead = g.register({ login: 'allyLeadP', password: '12345', race: 0 }).user, free = g.register({ login: 'freeGuyP', password: '12345', race: 0 }).user, nob = g.register({ login: 'noAllyP', password: '12345', race: 0 }).user;

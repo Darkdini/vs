@@ -1,4 +1,5 @@
 'use strict';
+const Wd = require('./words'); // слова после чисел: 1 воин, 2 воина, 5 воинов
 // Задания: обучение (цепочка для новичка), ежедневные (3 в день + сундук) и поход «Тёмные земли» (логова с боссами рядом со столицей).
 // Прогресс считается по состоянию замка (уровни зданий, генерал, артефакты) и по счётчикам игрока (stats: trained, wins, npcWins,
 // loot, trades, expeds, built, upgrades, research, arts) — от значения на момент, когда задание стало активным.
@@ -43,18 +44,20 @@ const TUT = [
 // ---------- советник-строитель: первые шаги с щедрыми наградами ----------
 // Полоска «Задание: … [Выполнить]» над чатом (как в оригинале). Простые строительные задания; ресурсы — сразу в замок
 // (что не влезло в Склад — в Кладовую, не пропадает). Цель — новичок не упирается в нехватку ресурсов в первые дни.
-const A_ = (id, title, bid, lvl, res, extra = {}) => ({ id, title, bid, lvl, reward: R(res, extra) });
+const A_ = (id, title, bid, lvl, res, extra = {}, n = 1) => ({ id, title, bid, lvl, n, reward: R(res, extra) });
+// n > 1 — «второй/третий»: нужно n зданий этого вида не ниже уровня lvl (у зданий земель всего 5 уровней — третий уровень
+// для новичка дорог, поэтому следующие шаги — ещё одно такое же здание до 2 уровня, а не повтор уже выполненного)
 const ADV = [
   A_('a_th2', 'Улучшите Ратушу до 2 уровня', 0, 2, 500), A_('a_st2', 'Улучшите Склад до 2 уровня', 1, 2, 500),
-  A_('a_wd2', 'Улучшите Дровосека до 2 уровня', 7, 2, 500), A_('a_sn2', 'Улучшите Каменьщика до 2 уровня', 8, 2, 500),
+  A_('a_wd2', 'Улучшите Дровосека до 2 уровня', 7, 2, 500), A_('a_sn2', 'Улучшите Каменщика до 2 уровня', 8, 2, 500),
   A_('a_ir2', 'Улучшите Рудник до 2 уровня', 9, 2, 500), A_('a_fd2', 'Улучшите Огород до 2 уровня', 5, 2, 500),
   A_('a_ht2', 'Улучшите Хибару до 2 уровня', 6, 2, 600), A_('a_th3', 'Улучшите Ратушу до 3 уровня', 0, 3, 800),
-  A_('a_st3', 'Улучшите Склад до 3 уровня', 1, 3, 800), A_('a_wd3', 'Улучшите Дровосека до 2 уровня', 7, 2, 800),
-  A_('a_sn3', 'Улучшите Каменьщика до 2 уровня', 8, 2, 800), A_('a_ir3', 'Улучшите Рудник до 2 уровня', 9, 2, 800),
-  A_('a_fd3', 'Улучшите Огород до 2 уровня', 5, 2, 800), A_('a_br1', 'Постройте Казарму', 3, 1, 1000, { u: { inf: 10 } }),
+  A_('a_st3', 'Улучшите Склад до 3 уровня', 1, 3, 800), A_('a_wd3', 'Улучшите второго Дровосека до 2 уровня', 7, 2, 800, {}, 2),
+  A_('a_sn3', 'Улучшите второго Каменщика до 2 уровня', 8, 2, 800, {}, 2), A_('a_ir3', 'Улучшите второй Рудник до 2 уровня', 9, 2, 800, {}, 2),
+  A_('a_fd3', 'Улучшите второй Огород до 2 уровня', 5, 2, 800, {}, 2), A_('a_br1', 'Постройте Казарму', 3, 1, 1000, { u: { inf: 10 } }),
   A_('a_th4', 'Улучшите Ратушу до 4 уровня', 0, 4, 1200), A_('a_st4', 'Улучшите Склад до 4 уровня', 1, 4, 1200),
-  A_('a_ht4', 'Улучшите Хибару до 2 уровня', 6, 2, 1200), A_('a_wd4', 'Улучшите Дровосека до 2 уровня', 7, 2, 1500),
-  A_('a_sn4', 'Улучшите Каменьщика до 2 уровня', 8, 2, 1500), A_('a_ir4', 'Улучшите Рудник до 2 уровня', 9, 2, 1500),
+  A_('a_ht4', 'Улучшите вторую Хибару до 2 уровня', 6, 2, 1200, {}, 2), A_('a_wd4', 'Улучшите третьего Дровосека до 2 уровня', 7, 2, 1500, {}, 3),
+  A_('a_sn4', 'Улучшите третьего Каменщика до 2 уровня', 8, 2, 1500, {}, 3), A_('a_ir4', 'Улучшите третий Рудник до 2 уровня', 9, 2, 1500, {}, 3),
   A_('a_th5', 'Улучшите Ратушу до 5 уровня', 0, 5, 2000), A_('a_st5', 'Улучшите Склад до 5 уровня', 1, 5, 2000),
   A_('a_th6', 'Улучшите Ратушу до 6 уровня', 0, 6, 3000, { u: { inf: 10, cav: 10, mag: 5 } }),
 ];
@@ -66,11 +69,11 @@ const DAILY = [
   { id: 'd_train', title: 'Пополнение', text: (n) => `Обучите ${n} воинов.`, icon: b(3), stat: 'trained', n: (g, c) => 10 + 5 * Math.min(10, th(g, c)) },
   { id: 'd_npc', title: 'Гроза разбойников', text: (n) => `Победите в ${n} боях с лагерями.`, icon: 'ground/dikari.png', stat: 'npcWins', n: () => 2 },
   { id: 'd_loot', title: 'Богатая добыча', text: (n) => `Унесите из походов ${n} ресурсов.`, icon: 'res/wood.png', stat: 'loot', n: (g, c) => 1500 * th(g, c) },
-  { id: 'd_built', title: 'Стройка века', text: (n) => `Завершите ${n} построек или улучшений.`, icon: b(10), stat: 'built', n: () => 3 },
+  { id: 'd_built', title: 'Стройка века', text: (n) => `Завершите ${n} ${Wd.plural(n, 'постройку', 'постройки', 'построек')} или ${Wd.plural(n, 'улучшение', 'улучшения', 'улучшений')}.`, icon: b(10), stat: 'built', n: () => 3 },
   { id: 'd_trade', title: 'Караван', text: () => 'Отправьте торговцев с ресурсами.', icon: b(4), stat: 'trades', n: () => 1, ok: (g, c) => g.buildingLevel(c, 4) > 0 },
   { id: 'd_exped', title: 'Раскопки', text: () => 'Отправьте экспедицию в руины.', icon: b(17), stat: 'expeds', n: () => 1, ok: (g, c) => g.buildingLevel(c, 17) > 0 },
   { id: 'd_up', title: 'Мастерство', text: () => 'Начните улучшение в Кузнице или Школе магии.', icon: b(39), stat: 'upgrades', n: () => 1, ok: (g, c) => g.buildingLevel(c, 11) > 0 || g.buildingLevel(c, 39) > 0 },
-  { id: 'd_win', title: 'Слава оружия', text: (n) => `Одержите ${n} побед в боях.`, icon: 'gfx3d/rep/swords.png', stat: 'wins', n: () => 3 },
+  { id: 'd_win', title: 'Слава оружия', text: (n) => `Одержите ${n} ${Wd.plural(n, 'победу', 'победы', 'побед')} в боях.`, icon: 'gfx3d/rep/swords.png', stat: 'wins', n: () => 3 },
   { id: 'd_kills', title: 'Жатва битвы', text: (n) => `Уничтожьте в боях ${n} вражеских воинов.`, icon: 'gfx3d/rep/swords.png', stat: 'kills', n: (g, c) => 30 + 10 * Math.min(10, th(g, c)) },
   { id: 'd_online', title: 'Дозор', text: (n) => `Проведите в игре ${n} минут.`, icon: 'quest/scroll.png', stat: 'presence', n: () => 20 },
   { id: 'd_boss', title: 'Удар по чудовищу', text: () => 'Нанесите урон мировому боссу в созыве альянса.', icon: 'boss/m_dragon.png', stat: 'bossDmg', n: () => 1, ok: (g, c) => !!g.bossNow() && !!(c && g.allianceOf(g.ownerOf(c))) },
@@ -81,9 +84,9 @@ const WEEKLY = [
   { id: 'w_train', title: 'Набор в войско', text: (n) => `Обучите за неделю ${n} воинов.`, icon: b(3), stat: 'trained', n: (g, c) => 150 + 50 * Math.min(10, th(g, c)) },
   { id: 'w_npc', title: 'Очистка дорог', text: (n) => `Победите в ${n} боях с лагерями.`, icon: 'ground/dikari.png', stat: 'npcWins', n: () => 15 },
   { id: 'w_loot', title: 'Казна полна', text: (n) => `Унесите из походов ${n} ресурсов.`, icon: 'res/wood.png', stat: 'loot', n: (g, c) => 10000 * th(g, c) },
-  { id: 'w_built', title: 'Великая стройка', text: (n) => `Завершите ${n} построек или улучшений.`, icon: b(10), stat: 'built', n: () => 15 },
+  { id: 'w_built', title: 'Великая стройка', text: (n) => `Завершите ${n} ${Wd.plural(n, 'постройку', 'постройки', 'построек')} или ${Wd.plural(n, 'улучшение', 'улучшения', 'улучшений')}.`, icon: b(10), stat: 'built', n: () => 15 },
   { id: 'w_kills', title: 'Гроза королевств', text: (n) => `Уничтожьте в боях ${n} вражеских воинов.`, icon: 'gfx3d/rep/swords.png', stat: 'kills', n: (g, c) => 300 + 60 * Math.min(10, th(g, c)) },
-  { id: 'w_wins', title: 'Полководец недели', text: (n) => `Одержите ${n} побед в боях.`, icon: 'gfx3d/rep/swords.png', stat: 'wins', n: () => 20 },
+  { id: 'w_wins', title: 'Полководец недели', text: (n) => `Одержите ${n} ${Wd.plural(n, 'победу', 'победы', 'побед')} в боях.`, icon: 'gfx3d/rep/swords.png', stat: 'wins', n: () => 20 },
   { id: 'w_exped', title: 'Охотник за древностями', text: (n) => `Отправьте ${n} экспедиций.`, icon: b(17), stat: 'expeds', n: () => 5, ok: (g, c) => g.buildingLevel(c, 17) > 0 },
   { id: 'w_up', title: 'Мастерская', text: (n) => `Начните ${n} улучшений в Кузнице или Школе магии.`, icon: b(11), stat: 'upgrades', n: () => 5, ok: (g, c) => g.buildingLevel(c, 11) > 0 || g.buildingLevel(c, 39) > 0 },
   { id: 'w_online', title: 'Верный правитель', text: (n) => `Проведите в игре ${n} минут за неделю.`, icon: 'quest/scroll.png', stat: 'presence', n: () => 180 },
@@ -223,8 +226,11 @@ function install(Game) {
         return { idx: q.adv, total: ADV.length, id: 'a_stash', title: 'Заберите ресурсы из Кладовой', layer: 'stash', have: done ? 1 : 0, need: 1, done, reward: R(300), stash: true };
       }
     }
-    const have = this.buildingLevel(c, t.bid), def = C.BY_ID[t.bid];
-    return { idx: q.adv, total: ADV.length, id: t.id, title: t.title, bid: t.bid, layer: def ? def.layer : 'castle', have: Math.min(have, t.lvl), need: t.lvl, done: have >= t.lvl, reward: t.reward };
+    // шаг «второй/третий»: сколько зданий этого вида уже не ниже нужного уровня; обычный шаг — уровень самого развитого
+    const many = t.n > 1, def = C.BY_ID[t.bid];
+    const have = many ? [0, 1].reduce((s, v) => s + c.grid[v].filter((x, i) => x === t.bid && c.levels[v][i] >= t.lvl).length, 0) : this.buildingLevel(c, t.bid);
+    const need = many ? t.n : t.lvl;
+    return { idx: q.adv, total: ADV.length, id: t.id, title: t.title, bid: t.bid, lvl: t.lvl, n: t.n, layer: def ? def.layer : 'castle', have: Math.min(have, need), need, done: have >= need, reward: t.reward };
   };
   // награда советника: ресурсы — сразу в замок, до вместимости Склада; остаток, воины и опыт — в Кладовую (не пропадают)
   const giveNow = (g, u, c, rw) => {
@@ -292,7 +298,7 @@ function install(Game) {
       const r = giveNow(this, u, c, a.stash ? a.reward : ADV[q.adv].reward);
       if (a.stash) { q.advStash = true; delete q.advStashBase; } else q.adv++;
       this.store.save();
-      return { ok: true, msg: `Советник: «${a.title}» — выполнено!${r.inCastle ? ` В замок: ${r.inCastle.toLocaleString('ru-RU')} ресурсов.` : ''}${r.toS ? ` Не поместилось на Складе — ${r.toS.toLocaleString('ru-RU')} в Кладовой (сундук справа вверху).` : ''}${r.stash.length ? ` В Кладовую: ${r.stash.join(', ')}.` : ''}` };
+      return { ok: true, msg: `Советник: «${a.title}» — выполнено!${r.inCastle ? ` В замок: ${Wd.resources(r.inCastle)}.` : ''}${r.toS ? ` Не поместилось на Складе — ${r.toS.toLocaleString('ru-RU')} в Кладовой (сундук справа вверху).` : ''}${r.stash.length ? ` В Кладовую: ${r.stash.join(', ')}.` : ''}` };
     }
     if (kind === 'weekly') {
       const x = q.weekly.list.find((y) => y.id === id), v = st.weekly.find((y) => y.id === id);

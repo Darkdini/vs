@@ -31,7 +31,7 @@ function accountWin(p) {
     <div class="acuid">Ваш уникальный номер в игре:<br><b>${a.uid}</b>${a.acctLogin ? `<br>Логин для входа: <b>${esc(a.acctLogin)}</b>` : ''}</div>
     ${bar('data-acct="pass"', '', '🔑 Изменить пароль')}
     ${tgBlock(a.tg)}
-    ${p.self !== false && !(S.st.user.admin) ? `<form class="acform" data-form="nickcase"><label>Новый ник (3–10 символов):<input name="nick" maxlength="10" value="${esc(p.login)}" autocapitalize="none" required></label><button class="pbar">Сменить ник за ${S.st.nickPrice || 100} золота</button></form>` : ''}
+    ${p.self !== false && !(S.st.user.admin) ? `<form class="acform" data-form="nickcase"><label>Новый ник (3–10 символов):<input name="nick" maxlength="10" value="${esc(p.login)}" autocapitalize="none" required></label><button class="pbar">Сменить ник за ${coinsZa(S.st.nickPrice || 100)}</button></form>` : ''}
     ${ribbon('Цвет сообщений')}<div class="mcolhead"><img src="${GFX}chat/color.png" alt=""><span>Цвет текста в чате, письмах и на форуме (премиум)</span></div><div class="mcolors">${(S.st.msgColors || ['']).map((c, i) => `<button type="button" class="mcol ${i === (S.st.msgColor || 0) ? 'on' : ''}" data-mcol="${i}" style="background:${c || '#3a2410'}" aria-label="цвет ${i}">${i ? '' : 'Аа'}</button>`).join('')}</div>
     <div class="bwline small center">${a.premium ? 'Этим цветом будут видны ваши сообщения в диалогах и на форуме.' : '🔒 Выбор цвета — с премиумом.'}</div>
     ${ribbon('Замок')}
@@ -64,7 +64,7 @@ $('#sheetBody').addEventListener('click', (e) => {
 $('#sheetBody').addEventListener('submit', (e) => {
   const f = e.target, k = f.dataset.form; if (k !== 'passwd' && k !== 'castleinfo' && k !== 'nickcase') return;
   e.preventDefault(); e.stopPropagation();
-  if (k === 'nickcase') { const n = f.nick.value.trim(); if (!confirm(`Сменить ник на «${n}» за ${S.st.nickPrice || 100} золота?`)) return; return send({ t: 'nickcase', nick: n }); }
+  if (k === 'nickcase') { const n = f.nick.value.trim(); if (!confirm(`Сменить ник на «${n}» за ${coinsZa(S.st.nickPrice || 100)}?`)) return; return send({ t: 'nickcase', nick: n }); }
   if (k === 'castleinfo') return send({ t: 'castleinfo', name: f.name.value, desc: f.desc.value });
   if (f.new.value !== f.new2.value) return toast('Новые пароли не совпадают.', 'err');
   send({ t: 'passwd', old: f.old.value, new: f.new.value }); f.reset(); closeSheet();
