@@ -8,6 +8,12 @@ const aNum = (name, value, ph) => `<input class="anum" type="number" inputmode="
 // Разделы: Игрок (поиск, карточка, пароли, наказания) · Выдать (монеты, ресурсы, замки, армия) · Модерация (модераторы, мульты, жалобы) · Мир (новости, рассылки, события).
 // У каждого действия — короткое описание; одно действие — в одном месте.
 const ADM_TABS = [['player', '👤 Игрок'], ['give', '🎁 Выдать'], ['mod', '🛡 Модерация'], ['world', '🌍 Мир'], ['stats', '📊 Статистика'], ['pay', '⭐ Платежи'], ['alerts', '🚨 Тревоги'], ['sec', '🔒 Защита'], ['test', '🧪 Тест']];
+// заявки старших модераторов: кого предлагают в модераторы (server/src/smod.js) — принять или отклонить
+const modReqSec = (a) => { const l = (a.mods && a.mods.reqs) || [];
+  return aSec(`📝 Заявки в модераторы${l.length ? ` (${l.length})` : ''}`, !a.mods ? '<p class="small">Загрузка…</p>' : l.length ? l.map((r) => `<div class="acard"><b>${esc(r.login)}</b>${r.online ? ' · в игре' : ''}
+    <p class="small">Предлагает: ${esc(r.by)} (старший модератор), ${fmtDate(r.at)}<br>Почему: ${esc(r.why)}<br>В игре ${r.days} дн., нарушений: ${r.violations}${r.banned ? ' · <b>заблокирован</b>' : ''}</p>
+    <div class="acrow"><button class="btn small primary" data-amodreq="${r.id}" data-ok="1">Принять</button><button class="btn small danger" data-amodreq="${r.id}" data-ok="0">Отклонить</button></div></div>`).join('')
+    : '<p class="small">Заявок нет. Старший модератор предлагает игрока в модераторы — заявка появится здесь.</p>'); };
 // строка действия: название и пояснение слева, поле и кнопка справа
 const aAct = (title, desc, controls, wide = false) => `<div class="aact ${wide ? 'wide' : ''}"><div class="aact-t"><b>${title}</b><small>${desc}</small></div><div class="aact-c">${controls}</div></div>`;
 const aBtn2 = (op, text, extra = '', cls = '') => `<button class="btn small ${cls}" data-adm="${op}" ${extra}>${text}</button>`;
@@ -20,7 +26,7 @@ function adminHtml() {
   const a = S.adm, tab = ADM_TABS.some(([k]) => k === a.tab) ? a.tab : 'player';
   const who = a.login ? `игрок <b>${esc(a.login)}</b> <button class="btn small" data-adm-self>× сбросить</button>` : '<b>вы (Советник)</b>';
   const head = `${ribbon('Админ-панель')}
-    <div class="atabs">${ADM_TABS.map(([k, t]) => `<button class="${k === tab ? 'on' : ''}" data-atab="${k}">${t}${k === 'mod' && S.st.user.multiNew ? ` <b class="abadge">${S.st.user.multiNew}</b>` : ''}${k === 'alerts' && S.st.user.alertsNew ? ` <b class="abadge">${S.st.user.alertsNew}</b>` : ''}${k === 'pay' && S.st.user.payNew ? ` <b class="abadge">${S.st.user.payNew}</b>` : ''}${k === 'sec' && S.st.user.secNew ? ` <b class="abadge">${S.st.user.secNew}</b>` : ''}</button>`).join('')}</div>`;
+    <div class="atabs">${ADM_TABS.map(([k, t]) => `<button class="${k === tab ? 'on' : ''}" data-atab="${k}">${t}${k === 'mod' && (S.st.user.multiNew || S.st.user.modReqNew) ? ` <b class="abadge">${(S.st.user.multiNew || 0) + (S.st.user.modReqNew || 0)}</b>` : ''}${k === 'alerts' && S.st.user.alertsNew ? ` <b class="abadge">${S.st.user.alertsNew}</b>` : ''}${k === 'pay' && S.st.user.payNew ? ` <b class="abadge">${S.st.user.payNew}</b>` : ''}${k === 'sec' && S.st.user.secNew ? ` <b class="abadge">${S.st.user.secNew}</b>` : ''}</button>`).join('')}</div>`;
   const target = `<div class="atarget">Кому: ${who}<label class="check"><input type="checkbox" data-an="all" ${a.all ? 'checked' : ''}> во все замки игрока</label></div>`;
   const T = {
     player: () => `${aSec('Найти игрока', `<p class="small">Введите ник (можно часть) или нажмите «Топ-100». Нажмите на игрока — откроется его карточка.</p>
@@ -48,7 +54,7 @@ function adminHtml() {
         ${aAct('Генерал', 'Генерал нужного уровня (1–500) в активном замке.', `${aNum('general', 100, 'уровень')}${aBtn2('general', 'Выдать', 'data-arg="general:level"')}`)}
         ${aAct('Артефакты', '5 легендарных артефактов в Сокровищницу.', aBtn2('arts', 'Выдать'))}
         ${aAct('Снаряжение генерала', 'Полный набор вещей всех редкостей в Оружейную.', aBtn2('gear', 'Выдать'))}`)}`,
-    mod: () => `${aSec('⭐ Старшие модераторы', `<p class="small">Старший модератор: панель «Модерация» в Меню — блокировка на 1–7 дней, сброс ника, аватара и замков, альянсы, назначение модераторов. Администратора не видит и не трогает.</p>
+    mod: () => `${modReqSec(a)}${aSec('⭐ Старшие модераторы', `<p class="small">Старший модератор: панель «Модерация» в Меню — блокировка на 1–7 дней, сброс ника, аватара и замков, альянсы; модераторов предлагает заявкой — Вы принимаете или отклоняете (раздел выше), снимает сразу. Администратора не видит и не трогает.</p>
       ${!a.mods ? '<p class="small">Загрузка…</p>' : (a.mods.smods || []).length ? a.mods.smods.map((m) => `<div class="arow"><span><b>${esc(m.login)}</b>${m.online ? ' · в игре' : ''}</span><button class="btn small" data-asmod="${esc(m.login)}">Снять</button></div>`).join('') : '<p class="small">Старших модераторов пока нет.</p>'}
       <form class="chatform" data-aform="addsmod"><input name="login" placeholder="Ник игрока" autocapitalize="none" required><button class="btn primary small">Назначить</button></form>`)}
       ${aSec('🛡 Модераторы форума', `<p class="small">Модератор удаляет сообщения и темы на форуме и в чате, может запретить игроку писать.</p>
@@ -153,7 +159,7 @@ function playerCard(p) {
     ${aAct('Перенести', 'Переставить активный замок на свободную клетку карты.', '<form class="chatform" data-aform="move"><input name="x" type="number" placeholder="X" required><input name="y" type="number" placeholder="Y" required><button class="btn small primary">Перенести</button></form>', true)}
     ${aAct('Сменить расу', 'Юниты прежней расы пропадут.', `<select data-an="race">${S.cat.raceOrder.map((r) => `<option value="${r}">${esc(S.cat.races[r])}</option>`).join('')}</select>${aBtn2('race', 'Сменить', 'data-arg="race:race" data-confirm="Сменить расу? Юниты прежней расы пропадут."')}`)}
     ${aAct('Сброс на старт', 'Все замки, войска и постройки пропадут — один новый замок, как после регистрации.', aBtn2('reset', 'Сбросить', `data-confirm="Сбросить игрока ${esc(p.login)} к началу игры?"`, 'danger'))}
-    ${p.admin ? '' : aAct('Удалить игрока', 'Аккаунт и все замки — навсегда.', aBtn2('delete', 'Удалить', 'data-confirm="Удалить игрока и все его замки навсегда?"', 'danger'))}</div>
+    ${p.admin ? '' : aAct('Удалить игрока', 'Аккаунт и все замки — навсегда. Игрок пропадёт у всех: из друзей, альянса, брака; переписка с ним удалится, чужие подкрепления из его замков вернутся домой.', aBtn2('delete', 'Удалить', 'data-confirm="Удалить игрока и все его замки навсегда?"', 'danger'))}</div>
   <div class="acard">${devCard(p)}</div>`;
 }
 
@@ -173,6 +179,7 @@ $('#sheetBody').addEventListener('change', (e) => {
 $('#sheetBody').addEventListener('click', (e) => {
   const gf = e.target.closest('[data-gafill]'); if (gf) { $$('.gaunit input').forEach((i) => { i.value = gf.dataset.gafill; }); return; }
   const sm = e.target.closest('[data-asmod]'); if (sm) { if (!confirm(`Снять ${sm.dataset.asmod} со старших модераторов? Обычным модератором он останется.`)) return; send({ t: 'admin', op: 'smod', login: sm.dataset.asmod, on: 0 }); return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
+  const mq = e.target.closest('[data-amodreq]'); if (mq) { const ok = mq.dataset.ok === '1'; if (!confirm(ok ? 'Принять заявку — назначить игрока модератором?' : 'Отклонить заявку?')) return; send({ t: 'admin', op: 'modreq', id: Number(mq.dataset.amodreq), ok: ok ? 1 : 0 }); return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
   const md = e.target.closest('[data-amod]'); if (md) { if (!confirm(`Снять ${md.dataset.amod} с модераторов?`)) return; send({ t: 'admin', op: 'mod', login: md.dataset.amod, on: 0 }); return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
   const tb = e.target.closest('[data-atab]'); if (tb) { S.adm.tab = tb.dataset.atab; if (S.adm.tab === 'mod') { send({ t: 'admin', op: 'mods' }); send({ t: 'admin', op: 'multis' }); } if (S.adm.tab === 'stats') send({ t: 'admin', op: 'stats' }); if (S.adm.tab === 'alerts') send({ t: 'admin', op: 'alerts' }); if (S.adm.tab === 'pay') send({ t: 'admin', op: 'payments' }); if (S.adm.tab === 'sec') send({ t: 'admin', op: 'sec' }); if (S.adm.tab === 'test') send({ t: 'admin', op: 'testview' }); return refreshSheet(); }
   const mb = e.target.closest('[data-mban],[data-mall],[data-mdev]');

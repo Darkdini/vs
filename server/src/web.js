@@ -83,7 +83,7 @@ function catalogJson() {
     march: require('./army').MARCH, // армии ходят быстрее во столько раз
     maxQueue: G.MAX_QUEUE,
     rules: {
-      prov: G.PROV, provN: G.PROV_N, time: C.TIME, rating: C.RATING, store: G.STORE, baseRate: G.BASE_RATE, peopleFactor: G.PEOPLE_FACTOR, minBuildSec: 3,
+      prov: G.PROV, provN: G.PROV_N, provNo: Array.from({ length: G.PROV_N * G.PROV_N }, (_, i) => G.provNo(i + 1)), time: C.TIME, rating: C.RATING, store: G.STORE, baseRate: G.BASE_RATE, peopleFactor: G.PEOPLE_FACTOR, minBuildSec: 3,
     },
     buildings: C.BUILDINGS.map((b) => ({
       id: b.id, name: b.name, desc: b.desc, layer: b.layer, max: b.max || 20, unique: !!b.unique, req: b.req || {},
@@ -130,7 +130,8 @@ class WebSession {
       t: 'state',
       now: Date.now(),
       quests: this.questsLite(),
-      user: { id: u.id, login: u.login, ally: u.alliance || null, race: u.race, raceName: C.RACE_NAMES[u.race], premium: u.premium || 0, gold: u.gold || 0, goldLog: (u.goldLog || []).slice(-50).reverse(), admin: !!u.admin, mod: !!u.mod, smod: !!u.smod, alertsNew: u.admin ? this.game.alertsNew() : 0, payNew: u.admin ? this.game.payNew() : 0, secNew: u.admin ? this.game.secNew() : 0, zagsNew: this.game.zagsNew(u), friendsNew: this.game.friendsNew(u), staff: this.game.staffOk(u), staffNew: this.game.staffUnread(u), brank: (({ idx, icon, stars, title }) => ({ idx, icon, stars, title }))(require('./battlerank').rankInfo(this.game.brRank(u))), black: this.game.privacyOf(u).black, multiNew: u.admin ? (this.game.db.multiLog || []).filter((x) => x.at > (u.multiSeen || 0)).length : 0 },
+      user: { id: u.id, login: u.login, ally: u.alliance || null, race: u.race, raceName: C.RACE_NAMES[u.race], premium: u.premium || 0, gold: u.gold || 0, goldLog: (u.goldLog || []).slice(-50).reverse(), admin: !!u.admin, mod: !!u.mod, smod: !!u.smod, alertsNew: u.admin ? this.game.alertsNew() : 0, payNew: u.admin ? this.game.payNew() : 0, secNew: u.admin ? this.game.secNew() : 0, zagsNew: this.game.zagsNew(u), friendsNew: this.game.friendsNew(u), staff: this.game.staffOk(u), staffNew: this.game.staffUnread(u), brank: (({ idx, icon, stars, title }) => ({ idx, icon, stars, title }))(require('./battlerank').rankInfo(this.game.brRank(u))), black: this.game.privacyOf(u).black, multiNew: u.admin ? (this.game.db.multiLog || []).filter((x) => x.at > (u.multiSeen || 0)).length : 0,
+        modReqNew: u.admin && this.game.modReqList ? this.game.modReqList().length : 0 }, // заявки в модераторы, ждущие решения админа
       castle: {
         id: c.id, name: c.name, x: c.x, y: c.y, grid: { 0: Array.from(c.grid[0]), 1: Array.from(c.grid[1]) }, levels: { 0: Array.from(c.levels[0]), 1: Array.from(c.levels[1]) },
         res: c.res, rate: this.game.rates(c), cap: this.game.capacity(c),

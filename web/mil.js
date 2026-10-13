@@ -75,7 +75,7 @@ function milEffect(def, L) {
     38: () => ({ text: 'призыв легендарных юнитов', short: '' }),
     39: () => ({ text: `+${2 * L}% магической атаки и защиты`, short: `+${2 * L}%` }),
     40: () => { const p = Math.round((1 - 1 / (1 + 0.05 * L)) * 100); return { text: `здания получают на ${p}% меньше урона (катапульты и осадные воины)`, short: `−${p}%` }; }, // урон ÷ (1 + 5% × ур.)
-    41: () => ({ text: `+${L}% к атаке (боевой дух)`, short: `+${L}%` }),
+    41: () => ({ text: `спасает ${2 * L}% павших в нападениях и набегах — они возвращаются домой`, short: `${2 * L}%` }), // Лазарет (army.js INFIRM_PER)
     42: () => ({ text: 'найм наёмников: Великан, Валькирия', short: '' }),
     43: () => ({ text: `тренировка быстрее на ${2 * L}%`, short: `−${2 * L}%` }),
     44: () => ({ text: `хранит ${3 + L} ${plural(3 + L, 'артефакт', 'артефакта', 'артефактов')}`, short: `${3 + L}` }),
@@ -144,11 +144,10 @@ function trainCard(u) {
 }
 
 
-// Военный штаб — как в оригинале (видео): кнопки Армии, Симулятор, Генерал, Расписание походов, Обзор армий, Учения
+// Военный штаб: Армии, Генерал, Расписание походов, Обзор армий (Симулятор и Учения появятся, когда будут готовы)
 function hqHtml() {
-  return `<button class="rbar" data-armies>Армии</button><button class="rbar" data-hq="sim">Симулятор</button>
-    <button class="rbar" data-general>Генерал</button><button class="rbar ${isPrem() ? '' : 'rlock'}" data-hq="sched">${isPrem() ? '' : '🔒 '}Расписание походов</button>
-    <button class="rbar" data-moves>Обзор армий</button><button class="rbar" data-hq="drill">Учения</button>`;
+  return `<button class="rbar" data-armies>Армии</button><button class="rbar" data-general>Генерал</button>
+    <button class="rbar ${isPrem() ? '' : 'rlock'}" data-hq="sched">${isPrem() ? '' : '🔒 '}Расписание походов</button><button class="rbar" data-moves>Обзор армий</button>`;
 }
 // «Расписание походов» — армии, отправленные по расписанию и ещё не вышедшие
 function schedWin() {
@@ -161,8 +160,6 @@ $('#sheetBody').addEventListener('click', (e) => {
   const k = t.dataset.hq;
   if (k === 'sched' && !isPrem()) return toast('Расписание походов — только с премиумом.', 'err');
   if (k === 'sched') return openSheet(schedWin);
-  if (k === 'sim') return openSoon('Симулятор');
-  if (k === 'drill') return openSoon('Учения');
 });
 
 // Рынок — как в оригинале: груз и скорость торговца, «Передать», «Бартер» (обмен), «Торговцы»
@@ -370,6 +367,9 @@ function reportHtml(r) {
   const why = (t) => `<div class="rwhy">${t}</div>`, kA = times(AP, DP), kD = times(DP, AP);
   const aWhy = aL || !aW ? '' : !d.def.npc && !dW && !d.def.general ? why('В замке не было защитников — сражаться было не с кем, поэтому потерь нет.')
     : d.win && kA >= 2 ? why(`Атака была в ${kA} ${plural(kA, 'раз', 'раза', 'раз')} сильнее ${d.def.npc ? 'охраны' : 'защиты'} — при таком перевесе победитель почти не теряет войск.`) : '';
+  // павшие, что выжили и вернулись домой: Лазарет замка и умение генерала «Полевой лекарь» (только в отчёте нападавшего)
+  const ofW = (n) => `${fmtFull(n)} ${plural(n, 'воина', 'воинов', 'воинов')}`, cl = d.calc || {};
+  const healWhy = attV && (cl.infirm || cl.saved) ? why(`${[cl.infirm ? `Лазарет спас ${ofW(cl.infirm)}` : '', cl.saved ? `Полевой лекарь спас ${ofW(cl.saved)}` : ''].filter(Boolean).join(', ')} — они вернутся домой.`) : '';
   const dWhy = dL || !dW || d.win || kD < 2 ? '' : why(`Защита была в ${kD} ${plural(kD, 'раз', 'раза', 'раз')} сильнее атаки — при таком перевесе защитники почти не теряют войск.`);
   // «Армия атаки» / «Армия защиты» — раскрываются нажатием: потери, потери в ресурсах, по юнитам «погибло из было», генерал
   const unitRows = (units, race) => Object.entries(units || {}).map(([id, v]) => { const u = unitById(id); return u ? `<div class="rul"><img class="ric" src="${unitSrc(u, race)}" alt=""> ${esc(u.name)}: ${fmtFull(v.lost)} из ${fmtFull(v.was)}</div>` : ''; }).join('');
@@ -382,7 +382,7 @@ function reportHtml(r) {
     : dW || d.def.general ? `<div class="rp">${ic('skull')} Потери: ${fmtFull(dL)} из ${fmtFull(dW)} ( ${pct(dL, dW)}% )<br>Потери в ресурсах:${resRow(d.def.lossRes)}${unitRows(d.def.units, d.def.race)}${genRow(d.def)}${d.def.wall ? `<div class="rul">${gimg('fence/hd/fence1.png', 'ric')} Забор ${d.def.wall} ур.</div>` : ''}</div>`
     : '<div class="rp">В замке не было защитников.</div>');
   return `${head}${top}
-    ${band('kingatt', 'Нападение')}${sideBlock(d.att, d.att.rating, d.att.cx ?? '-', d.att.cy ?? '-', lossLine(aL, aW) + aWhy)}
+    ${band('kingatt', 'Нападение')}${sideBlock(d.att, d.att.rating, d.att.cx ?? '-', d.att.cy ?? '-', lossLine(aL, aW) + aWhy + healWhy)}
     ${band('kingdef', 'Защита')}
     ${d.def.npc ? `<div class="rp">Игрок: Неизвестный игрок<br>Объект: ${esc(d.def.npc)}<br>(Рейтинг: -, X: ${d.x}, Y: ${d.y})<br>${ic('skull')} Охрана потеряла ${d.def.lossPct}%</div>`
       : sideBlock(d.def, d.def.rating, d.x, d.y, dW ? lossLine(dL, dW) + dWhy : `${ic('skull')} В замке не было защитников!`)}

@@ -42,9 +42,6 @@ function allyMainWin() {
       ${aTile('data-aw="charter"', `${AL}charter.png`, 'Устав')}
       ${aTile('data-aw="diplo"', `${AL}diplo.png`, 'Дипломатия')}
       ${aTile('data-aw="desc"', `${AL}desc.png`, 'Описание')}
-      ${aTile('data-soon="Альбомы альянса"', `${AL}albums.png`, 'Альбомы')}
-      ${aTile('data-soon="Скоро здесь появится новая функция альянса"', `${AL}quest.png`, '')}
-      ${aTile('data-soon="Скоро здесь появится новая функция альянса"', `${AL}quest.png`, '')}
     </div>
     ${ribbon('Состав')}
     <div class="atable">${a.members.slice(0, 5).map((m, i) => `<div class="atr4"><span>${i + 1}</span><span><a data-cprof="${m.id}" style="color:${nameColor(m.rep)}">${esc(m.login)}</a><br>${repIcons(m.rep)}${allyMedalsRow(m)}</span><span>${epImg(m.ep)}</span><span>${fmtFull(m.score)}</span></div>`).join('')}</div>
@@ -273,9 +270,6 @@ function allyInfoWin() {
       ${aTile('data-ai="charter"', `${AL}charter.png`, 'Устав')}
       ${aTile('data-ai="diplo"', `${AL}diplo.png`, 'Дипломатия')}
       ${aTile('data-ai="desc"', `${AL}desc.png`, 'Описание')}
-      ${aTile('data-soon="Альбомы альянса"', `${AL}albums.png`, 'Альбомы')}
-      ${aTile('data-soon="Скоро здесь появится новая функция альянса"', `${AL}quest.png`, '')}
-      ${aTile('data-soon="Скоро здесь появится новая функция альянса"', `${AL}quest.png`, '')}
     </div>
     ${ribbon('Состав')}
     <div class="atable">${a.members.map((m, i) => `<div class="atr4"><span>${i + 1}</span><span><a data-cprof="${m.id}" style="color:${nameColor(m.rep)}">${esc(m.login)}</a><br>${repIcons(m.rep)}${allyMedalsRow(m)}</span><span>${epImg(m.ep)}</span><span>${fmtFull(m.score)}</span></div>`).join('')}</div>`;

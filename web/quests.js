@@ -32,7 +32,7 @@ function questsWin() {
   } else if (tab === 'daily') {
     const ch = q.chest;
     body = `<div class="qstep">Новые задания — каждый день</div>${q.daily.map((d) => qCard(d, 'daily')).join('')}
-      <div class="qchest ${ch.ready ? 'ready' : ''} ${ch.taken ? 'claimed' : ''}">${qImg(ch.ready || ch.taken ? 'quest/chest_open.png' : 'quest/chest.png')}<div class="grow"><b>Сундук дня</b><p>${ch.taken ? 'Открыт. Новый — завтра.' : 'Откроется, когда все три задания дня выполнены: ресурсы, уникальные воины, опыт генерала и шанс на артефакт.'}</p></div>
+      <div class="qchest ${ch.ready ? 'ready' : ''} ${ch.taken ? 'claimed' : ''}">${qImg(ch.ready || ch.taken ? 'quest/chest_open.png' : 'quest/chest.png')}<div class="grow"><b>Сундук дня</b><p>${ch.taken ? 'Открыт. Новый — завтра.' : 'Откроется, когда все три задания дня выполнены: ресурсы, уникальные воины, опыт генерала, 2 руны и шанс на артефакт.'}</p></div>
       ${ch.ready ? '<button class="qbtn" data-qclaim="chest">Открыть</button>' : ''}</div>`;
   } else if (tab === 'week') {
     const ch = q.wchest;

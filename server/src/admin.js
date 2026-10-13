@@ -50,9 +50,47 @@ function install(Game) {
     this.store.save();
     return u;
   };
+  // замок исчезает (удаление игрока, сброс на старт, удаление замка админом): чужие подкрепления в нём идут домой с отчётом хозяевам
+  P.dropCastle = function dropCastle(c, now = Date.now()) {
+    for (const g of this.guestsOf(c)) {
+      this.goBack(g.c, g.a, now);
+      this.report(g.c.owner, `Подкрепление возвращается из ${c.name}`, [`Замка «${c.name}» (${c.x}:${c.y}) больше нет — Ваша армия возвращается домой.`], 'reinforce');
+    }
+    this.removeCastle(c);
+  };
+  // удалить игрока насовсем и убрать его отовсюду: замки (чужие подкрепления — домой), альянс, брак и предложения ЗАГСа, друзья и заявки,
+  // чёрные списки, переписка, его отчёты, вызовы «Орёл-решка» (вызовы ему — ставка возвращается), лоты Биржи, модератор раздела форума,
+  // урон по мировому боссу. Остаётся история: подарки, чат, форум, чужие отчёты — с его ником.
+  P.purgeUser = function purgeUser(t, now = Date.now()) {
+    const id = t.id, al = this.allianceOf(t);
+    this.removeAvatar(t);
+    for (const c of this.castlesOf(t)) this.dropCastle(c, now);
+    const M = this.db.marriages || {}, m = t.marriage && M[t.marriage];
+    if (m) {
+      const other = this.userById(m.king === id ? m.queen : m.king);
+      if (other && other.marriage === m.id) { delete other.marriage; this.event(other.id, `Ваш брак с ${t.login} расторгнут: аккаунт ${t.login} удалён.`); }
+      delete M[m.id];
+    }
+    this.db.proposals = (this.db.proposals || []).filter((x) => x.from !== id && x.to !== id);
+    for (const u of Object.values(this.db.users)) {
+      if (u.friends && u.friends.includes(id)) u.friends = u.friends.filter((x) => x !== id);
+      if (u.friendIn && u.friendIn.includes(id)) u.friendIn = u.friendIn.filter((x) => x !== id);
+      if (u.privacy && u.privacy.black && u.privacy.black.includes(id)) u.privacy.black = u.privacy.black.filter((x) => x !== id);
+    }
+    this.db.friendFeed = (this.db.friendFeed || []).filter((e) => e.uid !== id);
+    this.db.messages = (this.db.messages || []).filter((x) => x.from !== id && x.to !== id);
+    this.db.reports = (this.db.reports || []).filter((r) => r.owner !== id);
+    if (this.coinDropUser) this.coinDropUser(id);
+    this.db.castleMarket = (this.db.castleMarket || []).filter((x) => x.seller !== id);
+    for (const sec of (this.db.forum && this.db.forum.sections) || []) if (sec.mods && sec.mods.includes(id)) sec.mods = sec.mods.filter((x) => x !== id);
+    const b = this.db.boss && this.db.boss.cur; if (b) { if (b.dmg) delete b.dmg[id]; if (b.hits) delete b.hits[id]; }
+    delete this.db.users[t.login]; if (t.acct) delete this.db.accts[t.acct]; this.byId.delete(id);
+    if (al) this.allyRemoveMember(al, id);
+    this.cache = {}; // рейтинги, «Семейные пары» и т. п. пересчитаются без него
+  };
   // админ с нуля: все его замки (и войска в них) убираются, вместо них — один новый стартовый замок; золото и лояльность как у новичка
   P.adminFresh = function adminFresh(u) {
-    for (const c of this.castlesOf(u)) this.removeCastle(c);
+    for (const c of this.castlesOf(u)) this.dropCastle(c);
     const c = this.createCastle(u);
     u.castleId = c.id; u.castleIds = [c.id];
     u.gold = 0; u.adminGold = false; u.royal = 0; u.royalAt = Date.now(); u.captures = 0;
@@ -76,7 +114,7 @@ function install(Game) {
   };
   // игрок (или админ) — как сразу после регистрации: один новый стартовый замок, золото 0, репутация 10; ник, пароль, раса, премиум и союз остаются
   P.adminResetPlayer = function adminResetPlayer(u) {
-    for (const c of this.castlesOf(u)) this.removeCastle(c);
+    for (const c of this.castlesOf(u)) this.dropCastle(c);
     const c = this.createCastle(u);
     u.castleId = c.id; u.castleIds = [c.id];
     u.gold = 0; u.reputation = START_REP; u.royal = 0; u.royalAt = Date.now(); u.captures = 0;
@@ -117,7 +155,7 @@ function install(Game) {
     const num = (v, d) => (Number.isFinite(Number(v)) && v !== '' ? Number(v) : d);
     const now = Date.now();
     // админ что-то меняет у игрока — «Подозрительное» (anomaly.js) начнёт замер заново, без ложной тревоги
-    if (!['player', 'players', 'stats', 'alerts', 'mods', 'multis', 'bugs', 'passcheck', 'armyinfo', 'sec', 'ipban', 'ipunban', 'secclear', 'alertsclear', 'tgbackup'].includes(op)) target.admTouch = now;
+    if (!['player', 'players', 'stats', 'alerts', 'mods', 'modreq', 'multis', 'bugs', 'passcheck', 'armyinfo', 'sec', 'ipban', 'ipunban', 'secclear', 'alertsclear', 'tgbackup'].includes(op)) target.admTouch = now;
     let data = null, msg = 'Готово.';
     switch (op) {
       // --- ресурсы, золото ---
@@ -209,8 +247,10 @@ function install(Game) {
       case 'mods': // модераторы форума (общие) и модераторы разделов форума
         data = { mods: Object.values(this.db.users).filter((u) => u.mod && !u.smod && !u.admin).map((u) => ({ login: u.login, online: !!u.online })),
           smods: Object.values(this.db.users).filter((u) => u.smod && !u.admin).map((u) => ({ login: u.login, online: !!u.online })), // старшие — отдельным списком
+          reqs: this.modReqList ? this.modReqList() : [], // заявки старших модераторов: кого предлагают в модераторы (smod.js)
           sections: this.forumDb().sections.filter((s) => s.mods.length).map((s) => ({ name: s.name, mods: s.mods.map((id) => (this.userById(id) || {}).login).filter(Boolean) })) };
         break;
+      case 'modreq': { const r = this.modReqDecide(user, num(arg.id, 0), !!Number(arg.ok)); if (r.error) return r; msg = r.msg; break; } // заявка в модераторы: принять / отклонить
       case 'players': { // первые 100 по рейтингу (+ поиск по части логина)
         const q = String(arg.q || '').trim().toLowerCase();
         data = (q ? Object.values(this.db.users).filter((u) => u.login.toLowerCase().includes(q)) : this.leaderboard().slice(0, 100).map((x) => x.u)).slice(0, 100).map((u) => this.playerInfo(u));
@@ -261,8 +301,7 @@ function install(Game) {
         const cs = this.castlesOf(target), i = cs.findIndex((k) => k.id === Number(arg.cid)), c = cs[i];
         if (!c) return { error: 'Замок не найден.' };
         if (op === 'castledel' && cs.length < 2) return { error: 'Это единственный замок игрока — используйте «Сброс на старт» или «Удалить игрока».' };
-        for (const g of this.guestsOf(c)) this.goBack(g.c, g.a, now); // чужие подкрепления — домой
-        this.removeCastle(c);
+        this.dropCastle(c, now); // чужие подкрепления — домой
         if (op === 'castledel') {
           target.castleIds = cs.filter((k) => k !== c).map((k) => k.id);
           if (target.castleId === c.id) target.castleId = target.castleIds[0];
@@ -281,10 +320,7 @@ function install(Game) {
       case 'reset': { this.adminResetPlayer(target); msg = `${target.login}: замок сброшен, как после регистрации.`; if (target !== user) this.event(target.id, 'Администрация вернула ваш замок в начальное состояние.'); break; }
       case 'delete': {
         if (target.admin) return { error: 'Админа удалить нельзя.' };
-        this.removeAvatar(target);
-        for (const c of this.castlesOf(target)) this.removeCastle(c);
-        const al0 = this.allianceOf(target);
-        delete this.db.users[target.login]; if (target.acct) delete this.db.accts[target.acct]; this.byId.delete(target.id); if (al0) this.allyRemoveMember(al0, target.id); msg = `Игрок ${target.login} удалён.`; break;
+        this.purgeUser(target, now); msg = `Игрок ${target.login} удалён.`; break;
       }
       case 'rename': {
         const c = this.castleAt(num(arg.x, NaN), num(arg.y, NaN)) || this.castleOf(target);

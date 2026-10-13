@@ -1,7 +1,7 @@
 'use strict';
 // Герой-генерал: ветки умений (Завоеватель, Страж, Мародёр) и снаряжение (6 ячеек, 4 редкости + «рунное», усиление и ковка за руны в Кузнице).
-// Очки умений — за уровни генерала (1 + каждые 3 уровня). Снаряжение падает в лагерях и логовах (только если генерал в походе),
-// изредка — из Сундука дня. Вещи лежат в Оружейной — одна на всё королевство, как и генерал (u.gear); надетые — у генерала (g.eq).
+// Очки умений — за уровни генерала (1 + каждые 3 уровня). Снаряжение только куёт Кузнец за руны (в боях и наградах не выпадает);
+// усиление +1…+5 — за ресурсы и руны. Вещи лежат в Оружейной — одна на всё королевство, как и генерал (u.gear); надетые — у генерала (g.eq).
 // Бонусы героя (heroBonus) учитываются в бою (army.js clash/arrive), в скорости марша и в опыте генерала.
 
 const RES4 = ['wood', 'stone', 'iron', 'food'];
@@ -49,7 +49,11 @@ const GEAR = {
 const SLOTS = Object.keys(GEAR);
 const GEAR_MAX_PLUS = 5, GEAR_BAG = 24, SURVIVE_MAX = 0.6;
 const gearVal = (it) => GEAR[it.slot].val[it.r] * (1 + 0.15 * (it.plus || 0));
-const enhanceCost = (it) => Object.fromEntries(RES4.map((r) => [r, Math.round(1500 * (it.r + 1) * ((it.plus || 0) + 1) ** 2)]));
+// усиление: ресурсов — не больше ENH_RES_MAX каждого (влезает в полный Склад, 95 000), плюс руны вида вещи: (редкость+1) × (шаг+1) —
+// рунная вещь до +5: 5+10+15+20+25 = 75 рун. Руны дают Сундук дня и камни на карте — топ-генерал собирается не сразу
+const ENH_RES_MAX = 90000;
+const enhanceCost = (it) => Object.fromEntries(RES4.map((r) => [r, Math.min(ENH_RES_MAX, Math.round(1500 * (it.r + 1) * ((it.plus || 0) + 1) ** 2))]));
+const enhanceRunes = (it) => (it.r + 1) * ((it.plus || 0) + 1);
 const sellPrice = (it) => Object.fromEntries(RES4.map((r) => [r, Math.round(400 * (it.r + 1) * ((it.plus || 0) + 1))]));
 // время усиления у Кузнеца: до +1 — 10 мин … до +5 — 4 ч; редкие вещи дольше (×1, ×1,5, ×2, ×2,5). Одна вещь за раз.
 const ENH_MIN = [10, 30, 60, 120, 240];
@@ -57,7 +61,8 @@ const enhanceSec = (it) => Math.round(ENH_MIN[Math.min(ENH_MIN.length - 1, it.pl
 const gearName = (it) => `${GEAR[it.slot].items[it.r]}${it.plus ? ` +${it.plus}` : ''}`;
 // ковка за руны (Кузница): по редкости — сколько рун нужного вида (GEAR[slot].rune), ресурсов каждого вида, минут работы
 // и какой уровень Кузницы нужен. Рунное (5-я редкость) — только так. Кузнец делает одно дело: ковка или усиление.
-const FORGE = { runes: [4, 12, 30, 70, 150], res: [2000, 6000, 15000, 35000, 70000], min: [30, 120, 360, 720, 1440], lvl: [1, 5, 10, 15, 20] };
+// полный рунный комплект (6 вещей): 1200 рун — по 400 каждого вида; ресурсы — в пределах полного Склада
+const FORGE = { runes: [5, 15, 40, 100, 200], res: [2000, 6000, 15000, 40000, 90000], min: [30, 120, 360, 720, 1440], lvl: [1, 5, 10, 15, 20] };
 const forgeSec = (r) => Math.max(10, Math.round(FORGE.min[r] * 60 / Number(process.env.SPEED || 1)));
 
 function install(Game) {
@@ -160,11 +165,13 @@ function install(Game) {
       if (castle.gearJob) return { error: 'Кузнец уже усиливает другую вещь — дождитесь конца.' };
       if (castle.runeJob) return { error: 'Кузнец куёт новую вещь — дождитесь конца.' };
       const busy = atSmith(this, castle, it.id); if (busy) return { error: `Эта вещь уже у Кузнеца в замке «${busy.name}».` };
-      const c = enhanceCost(it);
+      const c = enhanceCost(it), { RUNE_NAME } = require('./runes'), rk = GEAR[it.slot].rune, rn = enhanceRunes(it), have = this.runesOf(user);
+      if (have[rk] < rn) return { error: `Не хватает рун: нужно ${rn} «${RUNE_NAME[rk]}», у вас ${have[rk]}.` };
       for (const r of RES4) if (castle.res[r] < c[r]) return { error: 'Недостаточно ресурсов.' };
       for (const r of RES4) castle.res[r] -= c[r];
+      have[rk] -= rn;
       const now = Date.now(), sec = enhanceSec(it);
-      castle.gearJob = { item: it.id, plus: (it.plus || 0) + 1, start: now, end: now + sec * 1000 };
+      castle.gearJob = { item: it.id, plus: (it.plus || 0) + 1, start: now, end: now + sec * 1000, owner: user.id, rk, rn }; // руны вернутся, если работу прервут
       this.store.save(); return { ok: true, msg: `Кузнец взялся за «${gearName(it)}» — будет +${castle.gearJob.plus}.` };
     } else return { error: 'Неизвестное действие.' };
     this.store.save(); return { ok: true };
@@ -212,10 +219,15 @@ function install(Game) {
   };
   // замок захватили: Кузнец бросает работу — ковка отменяется, руны возвращаются тому, кто их потратил; усиление отменяется
   P.smithAbandon = function smithAbandon(castle, prev) {
-    const j = castle.runeJob; castle.runeJob = null; castle.gearJob = null;
+    const j = castle.runeJob, e = castle.gearJob; castle.runeJob = null; castle.gearJob = null;
+    const { RUNE_NAME } = require('./runes');
+    if (e && e.rn && RUNE_NAME[e.rk]) { // усиление прервано — руны назад тому, кто платил
+      const u = this.userById(e.owner) || prev;
+      if (u) { this.runesOf(u)[e.rk] += e.rn; this.report(u.id, 'Усиление прервано', [`Замок «${castle.name}» захвачен — Кузнец не докончил усиление.`, `${e.rn} × ${RUNE_NAME[e.rk]} вернулись к вам. Ресурсы остались в замке.`], 'rune'); }
+    }
     if (!j || !SLOTS.includes(j.slot)) return;
     const u = this.userById(j.owner) || prev; if (!u) return;
-    const key = GEAR[j.slot].rune, n = FORGE.runes[j.r] || 0, { RUNE_NAME } = require('./runes');
+    const key = GEAR[j.slot].rune, n = FORGE.runes[j.r] || 0;
     this.runesOf(u)[key] += n;
     this.report(u.id, 'Ковка прервана', [`Замок «${castle.name}» захвачен — Кузнец не докончил «${GEAR[j.slot].items[j.r]}».`, `${n} × ${RUNE_NAME[key]} вернулись к вам. Ресурсы остались в замке.`], 'rune');
   };
@@ -230,6 +242,7 @@ function install(Game) {
 const heroCatalog = () => ({ talents: TALENTS, gear: GEAR, gearRarity: GEAR_RARITY, gearMaxPlus: GEAR_MAX_PLUS, talResetGold: TAL_RESET_GOLD,
   enhanceSec: GEAR_RARITY.map((_, r) => Array.from({ length: GEAR_MAX_PLUS }, (__, p) => enhanceSec({ r, plus: p }))),
   enhanceCost: GEAR_RARITY.map((_, r) => Array.from({ length: GEAR_MAX_PLUS }, (__, p) => enhanceCost({ r, plus: p }))),
+  enhanceRunes: GEAR_RARITY.map((_, r) => Array.from({ length: GEAR_MAX_PLUS }, (__, p) => enhanceRunes({ r, plus: p }))),
   sellPrice: GEAR_RARITY.map((_, r) => Array.from({ length: GEAR_MAX_PLUS + 1 }, (__, p) => sellPrice({ r, plus: p }))),
   forge: { runes: FORGE.runes, res: FORGE.res, sec: FORGE.runes.map((_, r) => forgeSec(r)), lvl: FORGE.lvl, runeBack: Math.round(require('./runes').RUNE_BACK_SEC / Number(process.env.SPEED || 1)) },
   runeNames: require('./runes').RUNE_NAME });

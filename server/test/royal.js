@@ -455,6 +455,29 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   g.adminOp(ad, 'reset', {}); assert.ok(g.castlesOf(ad).length === 1 && ad.admin, 'админ сбрасывает себя');
   console.log('✓ Админ: смена расы игрока, сброс игрока и себя к началу');
 }
+{ // удаление игрока админом: игрок убирается отовсюду и ничего не падает; чужое подкрепление из его замка идёт домой
+  // (свой отдельный мир — лишние игроки не сдвигают замки следующих проверок)
+  const DDB = path.join(os.tmpdir(), `royal-del-${process.pid}.json`), g = new Game(new Store(DDB)); g.ensureAdmin();
+  const adm = g.adminUser(), reg = (l) => g.register({ login: l, password: '12345', race: 1 }).user;
+  const P1 = reg('purgeA1'), P2 = reg('purgeB1'), c1 = g.castleOf(P1), c2 = g.castleOf(P2); g.mil(c1); g.mil(c2);
+  P1.friends = [P2.id]; P2.friends = [P1.id]; P1.friendIn = [P2.id]; g.privacyOf(P1).black.push(P2.id);
+  g.db.marriages = g.db.marriages || {}; const mid = g.db.nextId++;
+  g.db.marriages[mid] = { id: mid, king: P2.id, queen: P1.id, at: Date.now(), votes: 0, gifts: [], comments: [] }; P1.marriage = P2.marriage = mid;
+  g.db.messages = g.db.messages || []; g.db.messages.push({ id: g.db.nextId++, from: P2.id, to: P1.id, text: 'привет', at: Date.now(), read: false });
+  g.report(P2.id, 'Отчёт удаляемого', ['—'], 'battle');
+  c1.armies.push({ id: g.db.nextId++, units: { 207: 5 }, mission: 'reinforce', state: 'stay', stayAt: c2.id, x: c2.x, y: c2.y, depart: Date.now() - 60000, arrive: Date.now() });
+  c1.res.wood = Math.max(c1.res.wood, 500); const bet = g.coinBet(P1, c1, 'wood', 300, 'eagle', 'purgeB1');
+  assert.ok(bet.ok && g.pairsList().some((x) => x.id === mid), 'до удаления: вызов брошен, пара в рейтинге');
+  const r = g.adminOp(adm, 'delete', { login: 'purgeB1' });
+  assert.ok(r.ok && !g.db.users.purgeB1 && !g.userById(P2.id), 'игрок удалён');
+  assert.ok(!P1.friends.length && !P1.friendIn.length && !g.privacyOf(P1).black.length, 'из друзей, заявок и чёрного списка — убран');
+  assert.ok(!P1.marriage && !g.db.marriages[mid] && !g.pairsList().some((x) => x.id === mid), 'брак расторгнут, «Семейные пары» без ошибки');
+  assert.ok(!g.db.messages.some((x) => x.from === P2.id || x.to === P2.id) && !g.db.reports.some((x) => x.owner === P2.id), 'переписка с ним и его отчёты удалены');
+  assert.ok(c1.armies.some((a) => a.state === 'back' && a.units[207] === 5) && g.reportsOf(P1.id).some((x) => /Подкрепление возвращается/.test(x.title)), 'подкрепление из его замка идёт домой, хозяину — отчёт');
+  assert.ok(!(g.db.coinBets || []).some((b) => b.to === P2.id) && ((P1.stash || {}).res || {}).wood >= 300, 'вызов «Орёл-решка» ему снят — ставка вернулась в Кладовую');
+  for (const f of [DDB, `${DDB}.tmp`]) try { fs.unlinkSync(f); } catch { /* нет файла */ }
+  console.log('✓ Удаление игрока: друзья, чёрный список, брак, переписка, отчёты, вызовы, подкрепления — всё убрано');
+}
 { // бой как в Travian: сильный побеждает с малыми потерями, проигравший при нападении гибнет весь; стена, Кузница, тараны, набег
   const luck0 = process.env.LUCK; process.env.LUCK = '0';
   const A = g.register({ login: 'btlAA', password: '12345', race: 3 }).user, Dd = g.register({ login: 'btlDD', password: '12345', race: 3 }).user;
@@ -476,6 +499,14 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const raid = fight({ 247: 200 }, { 247: 200 }, { m: 'raid' });
   assert.ok(raid.calc.aLossPct < 100 && raid.calc.dLossPct < 100, 'набег: никто не гибнет целиком');
   console.log('✓ Бой как в Travian: втрое больше — потери', big.calc.aLossPct + '%, вдесятеро —', x10.calc.aLossPct + '%; стена, Кузница, тараны, набег');
+  // Лазарет (здание 41, бывшая Пивоварня): 2% павших за уровень выживает — в нападении и набеге; тараны не лечатся; атаку не прибавляет
+  const atk0 = g.bonus(ca).atk, k = ca.grid[0].indexOf(-1) >= 0 ? ca.grid[0].indexOf(-1) : ca.grid[0].length - 1; ca.grid[0][k] = 41; ca.levels[0][k] = 10;
+  assert.ok(g.bonus(ca).infirm === 0.2 && g.bonus(ca).atk === atk0, 'Лазарет 10 ур. — 20%, к атаке не прибавляет (бонус Пивоварни убран)');
+  const lz = fight({ 247: 100 }, { 247: 300 }), lzRaid = fight({ 247: 200 }, { 247: 200 }, { m: 'raid' }), lzRam = fight({ 243: 20, 247: 300 }, { 247: 100 }, { wall: 10 });
+  assert.ok(!lz.win && lz.calc.infirm === 20 && lz.aLost[247] === 80, `проигранное нападение: из 100 павших Лазарет спас 20 (${lz.calc.infirm})`);
+  assert.ok(lzRaid.calc.infirm > 0 && lzRam.aLost[243] === 20, 'набег — тоже; тараны одноразовые — не спасаются');
+  ca.grid[0][k] = -1; ca.levels[0][k] = 0;
+  console.log('✓ Лазарет: 10 ур. спасает 20% павших в нападении и набеге, тараны — нет');
   if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
 }
 { // задания: обучение, ежедневные, поход в логово
@@ -516,11 +547,13 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   g.arrive(c, c.armies[0], Date.now());
   const gold = u.gold; assert.ok(g.questsState(u, c).camp.won && g.questClaim(u, c, 'camp').ok && u.gold === gold && g.questsState(u, c).camp.k === 1, 'логово разорено, глава 2');
   assert.ok(g.sendArmy(c, { units: { 246: 1 }, x: L.x, y: L.y, mission: 'attack' }).error, 'старое логово исчезло');
-  { // Сундук дня — без снаряжения генерала (вещи — из логовов и лагерей, Сундука недели, наград за вход и ковки за руны)
+  { // Сундук дня — 2 руны, без снаряжения генерала (вещи только куёт Кузнец за руны)
     const c0 = g.castleOf(u); g.questsState(u, c0); u.quests.daily.list.forEach((x) => { x.claimed = true; }); u.quests.daily.chest = false;
     const bag0 = g.heroGear(c0).length, rnd = Math.random; Math.random = () => 0; // раньше при таком броске выпадала вещь
-    try { const r = g.questClaim(u, c0, 'chest'); assert.ok(r.ok, r.error); assert.ok(!/снаряжение/.test(r.msg) && g.heroGear(c0).length === bag0, 'в Сундуке дня нет снаряжения'); } finally { Math.random = rnd; }
-    console.log('✓ Сундук дня: ресурсы, воины, опыт, шанс на артефакт — без снаряжения генерала');
+    const rsum = () => Object.values(g.runesOf(u)).reduce((q, v) => q + v, 0), r0 = rsum();
+    try { const r = g.questClaim(u, c0, 'chest'); assert.ok(r.ok, r.error); assert.ok(!/снаряжение/.test(r.msg) && g.heroGear(c0).length === bag0, 'в Сундуке дня нет снаряжения');
+      assert.ok(rsum() === r0 + 2 && /Руны: Руна Силы ×2/.test(r.msg), `в Сундуке дня — 2 руны: ${r.msg}`); } finally { Math.random = rnd; }
+    console.log('✓ Сундук дня: ресурсы, воины, опыт, 2 руны, шанс на артефакт — без снаряжения генерала');
   }
   { // календарь входа: раз в сутки, прогресс копится, 7-й день — особый; недельные задания и сундук недели
     const Q = require('../src/quests'); const c0 = g.castleOf(u);
@@ -581,7 +614,9 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const it = g.rollGear(0, 3); it.slot = 'weapon'; g.giveGear(ca, it);
   assert.ok(g.heroOp(ca, A, { op: 'equip', item: it.id }).ok && ca.general.eq.weapon === it && !g.heroGear(ca).length);
   Object.assign(ca.res, { wood: 1e6, stone: 1e6, iron: 1e6, food: 1e6 });
-  assert.ok(g.heroOp(ca, A, { op: 'enhance', item: it.id }).ok && it.plus === 0 && ca.gearJob && ca.gearJob.end - ca.gearJob.start >= 9 * 60000, 'усиление — по времени');
+  g.runesOf(A).str = 3; assert.ok(/Не хватает рун/.test(g.heroOp(ca, A, { op: 'enhance', item: it.id }).error || '') && !ca.gearJob, 'усиление — ещё и за руны вида вещи');
+  g.runesOf(A).str = 10;
+  assert.ok(g.heroOp(ca, A, { op: 'enhance', item: it.id }).ok && it.plus === 0 && ca.gearJob && ca.gearJob.end - ca.gearJob.start >= 9 * 60000 && g.runesOf(A).str === 6, 'усиление — по времени; легендарная вещь до +1 — 4 руны Силы');
   assert.ok(/уже усиливает/.test(g.heroOp(ca, A, { op: 'enhance', item: it.id }).error), 'одна вещь за раз');
   ca.gearJob.end = Date.now() - 1; g.heroGearTick(ca); assert.ok(it.plus === 1 && !ca.gearJob, 'по окончании +1');
   const hb = g.heroBonus(ca.general); assert.ok(Math.abs(hb.atk - (0.10 + 0.15 * 1.15)) < 1e-9 && Math.abs(hb.mag - 0.15) < 1e-9, JSON.stringify(hb));
@@ -1230,10 +1265,22 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.ok(g.smodOp(sm, { op: 'ban', login: pl.login, days: 5, why: 'тест' }).error, 'только 1, 3, 7 дней');
     assert.ok(g.smodOp(sm, { op: 'ban', login: pl.login, days: 3, why: 'оскорбления' }).msg && pl.banned && !g.banExpired(pl), 'блокировка на 3 дня');
     assert.ok(g.banExpired(pl, Date.now() + 4 * 86400000) && !pl.banned, 'через 3 дня — снята сама');
-    const r = g.smodOp(sm, { op: 'nick', login: pl.login }); assert.ok(/^Игрок/.test(pl.login) && g.db.users[pl.login] === pl, r.msg);
-    assert.ok(g.smodOp(sm, { op: 'mod', login: pl.login, on: 1 }).msg && pl.mod && !pl.smod, 'назначил модератора');
+    const r = g.smodOp(sm, { op: 'nick', login: pl.login }); assert.ok(/^Player\d{1,4}$/.test(pl.login) && pl.login.length <= 10 && g.db.users[pl.login] === pl, r.msg);
+    // модератора назначает администратор: старший модератор — только заявкой с причиной; снимает — сразу
+    assert.ok(/почему/.test(g.smodOp(sm, { op: 'mod', login: pl.login, on: 1 }).error || ''), 'заявка — только с причиной');
+    assert.ok(/Заявка отправлена/.test(g.smodOp(sm, { op: 'mod', login: pl.login, on: 1, why: 'Помогает новичкам' }).msg || '') && !pl.mod, 'старший модератор — только заявка администратору');
+    assert.ok(/уже ждёт/.test(g.smodOp(sm, { op: 'mod', login: pl.login, on: 1, why: 'ещё раз' }).error || ''), 'вторая заявка на того же — нельзя');
+    const rq = g.modReqList(); assert.ok(rq.length === 1 && rq[0].login === pl.login && rq[0].by === sm.login && g.smodView(sm).reqs[0].mine && g.adminOp(adm, 'mods').data.reqs.length === 1, 'заявка видна администратору и старшему');
+    assert.ok(g.modReqDecide(sm, rq[0].id, true).error && !pl.mod, 'решает только администратор');
+    assert.ok(g.adminOp(adm, 'modreq', { id: rq[0].id, ok: 1 }).msg && pl.mod && !pl.smod && !g.modReqList().length, 'администратор принял — модератор');
+    assert.ok(g.smodOp(sm, { op: 'mod', login: pl.login, on: 0 }).msg && !pl.mod, 'снять модератора — сразу');
+    g.smodOp(sm, { op: 'mod', login: pl.login, on: 1, why: 'вторая попытка' });
+    assert.ok(g.adminOp(adm, 'modreq', { id: g.modReqList()[0].id, ok: 0 }).msg && !pl.mod && !g.modReqList().length, 'администратор отклонил — не модератор');
+    g.smodOp(sm, { op: 'mod', login: pl.login, on: 1, why: 'третья' });
+    assert.ok(g.smodOp(sm, { op: 'modreqcancel', login: pl.login }).msg && !g.modReqList().length, 'свою заявку можно отозвать');
+    assert.ok(g.smodOp(adm, { op: 'mod', login: pl.login, on: 1 }).msg && pl.mod && !pl.smod, 'администратор назначает сразу');
     assert.ok((g.db.modLog || []).length >= 4, 'журнал модерации');
-    console.log('✓ Старший модератор: права работают, администратора не видит и не трогает');
+    console.log('✓ Старший модератор: права работают, модераторов — заявкой администратору (принять / отклонить / отозвать), администратора не видит и не трогает');
   }
   { // «Золото всем»: только админ, каждому игроку (не ботам и не админу) по n в Казну
     const adm = Object.values(g.db.users).find((u) => u.admin), pl = Object.values(g.db.users).find((u) => !u.admin && !u.bot), g0 = pl.gold || 0, a0 = adm.gold || 0;
@@ -1447,6 +1494,11 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     for (const k of ['a', 'd', 'm', 'md']) assert.ok(Object.values(g.forgeCost(big, k, 20).cost).every((v) => v <= 72000), `Изувер ${k} 20 ур. влезает в Склад`);
     const u = g.register({ login: 'revfund', password: '12345', race: 3 }).user, c = g.castleOf(u); g.mil(c); g.maxOut(c);
     c.general = { ...g.newGeneral(c, 60), dead: true }; c.deadGenerals = [];
+    { // снаряжение генерала: ковка и усиление до +5 любой вещи — в пределах полного Склада (раньше усиление эпических и выше до +4/+5 не влезало)
+      const H = require('../src/hero').heroCatalog(), capW = g.capacity(c).wood;
+      assert.ok(H.enhanceCost.every((row) => row.every((x) => Object.values(x).every((v) => v <= capW))) && H.forge.res.every((v) => v <= capW), 'ковка и усиление влезают в Склад');
+      assert.ok(H.forge.runes.join() === '5,15,40,100,200' && H.enhanceRunes[4].reduce((q, v) => q + v, 0) === 75, 'руны: ковка 5…200, рунная вещь до +5 — ещё 75 рун');
+    }
     const cap = g.capacity(c), full = g.reviveCostOf(c.general), rc = g.reviveCostOf(c.general, c);
     assert.ok(full.cost.wood > cap.wood && rc.cost.wood === cap.wood && !rc.coinsOnly && rc.gold === 9, `60 ур.: цена урезана до Склада (${full.cost.wood} → ${rc.cost.wood}), монет — 9`);
     Object.assign(c.res, { ...cap }); assert.ok(g.reviveGeneral(c, u, 0, false).ok && c.general.reviveAt && !c.general.fund, 'полный Склад — воскрешение сразу');
@@ -1487,8 +1539,12 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
   }
   { // провинции 25×25: в каждой — руины и 3 лагеря (лёгкий, средний, тяжёлый); побеждённый лагерь исчезает и через час встаёт на новом месте провинции
-    const { PROV, provinceOf, onProvEdge } = require('../src/game'), SP = Number(process.env.SPEED) || 1, HOUR = 3600000 / SP;
+    const { PROV, provinceOf, onProvEdge, provNo, PROV_N } = require('../src/game'), SP = Number(process.env.SPEED) || 1, HOUR = 3600000 / SP;
     assert.strictEqual(PROV, 25, 'провинция 25×25');
+    // номера для игрока — по порядку заселения: центр карты — №1…№4, все номера разные, от 1 до 1600
+    const nos = Array.from({ length: PROV_N * PROV_N }, (_, i) => provNo(i + 1));
+    assert.ok([780, 781, 821, 820].map(provNo).join() === '1,2,3,4' && new Set(nos).size === nos.length && Math.min(...nos) === 1 && Math.max(...nos) === nos.length, 'номера провинций — по порядку заселения');
+    const first = Object.values(g.db.castles).sort((p, q) => p.id - q.id)[0]; assert.ok(provNo(provinceOf(first.x, first.y).n) <= 4, 'первые замки — в провинциях №1–4');
     for (const n of [1, 777, 1600]) {
       const L = g.provNpc(n); assert.deepStrictEqual(L.map((o) => o.img).sort(), [24, 30, 31, 32, 40, 41, 42], `провинция ${n}: руины, 3 лагеря и 3 рунных камня — ${L.map((o) => o.img)}`);
       assert.ok(L.every((o) => provinceOf(o.x, o.y).n === n && !onProvEdge(o.x, o.y)), 'объекты внутри своей провинции, не у границы');
@@ -1570,7 +1626,8 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.ok(g.reportsOf(R.id).some((x) => x.title === 'Сковано: Клинок Древних Рун'), 'отчёт о ковке');
     assert.ok(g.heroBonus({ eq: { weapon: forged }, tal: {} }).atk >= 0.2, 'рунный клинок: +20% атаки');
     for (const k of ['wood', 'stone', 'iron', 'food']) rc.res[k] = 50000;
-    const en = g.heroOp(rc, R, { op: 'enhance', item: forged.id }); assert.ok(en.ok, `рунную вещь можно усиливать у Кузнеца: ${en.error}`);
+    g.runesOf(R).str += 5; // рунная вещь до +1 — 5 рун Силы
+    const en = g.heroOp(rc, R, { op: 'enhance', item: forged.id }); assert.ok(en.ok && g.runesOf(R).str === 2, `рунную вещь можно усиливать у Кузнеца (за ресурсы и 5 рун): ${en.error}`);
     const v = g.heroView(rc); assert.ok(v.runes && v.runes.str === 2 && v.forgeJob === null, 'руны видны в окне генерала и Кузницы');
     const H = require('../src/hero').heroCatalog(); assert.ok(H.gearRarity.length === 5 && H.enhanceCost.length === 5 && H.forge.runes.length === 5 && H.runeNames.path === 'Руна Пути', 'справочник: 5 редкостей и рецепты ковки');
     // замок захватили во время ковки: ковка отменяется, руны — тому, кто платил; продать замок, пока Кузнец работает, нельзя
@@ -1580,10 +1637,10 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     c2.general = g.newGeneral(c2, 30); const eqIt = { id: g.db.nextId++, slot: 'weapon', r: 4, plus: 2 }; c2.general.eq = { weapon: eqIt };
     const old = g.newGeneral(c2, 5); old.dead = true; c2.deadGenerals = [old];
     for (const k of ['wood', 'stone', 'iron', 'food']) c2.res[k] = 50000;
-    g.runesOf(R2).path = 40; const f2 = g.heroOp(c2, R2, { op: 'forge', slot: 'horse', r: 2 }); assert.ok(f2.ok, f2.error);
-    assert.ok(c2.runeJob.owner === R2.id && g.runesOf(R2).path === 10, 'ковка коня за 30 рун Пути');
+    g.runesOf(R2).path = 50; const f2 = g.heroOp(c2, R2, { op: 'forge', slot: 'horse', r: 2 }); assert.ok(f2.ok, f2.error);
+    assert.ok(c2.runeJob.owner === R2.id && g.runesOf(R2).path === 10, 'ковка эпического коня за 40 рун Пути');
     g.captureCastle(R, c2);
-    assert.ok(!c2.runeJob && g.runesOf(R2).path === 40 && !R.gear.some((x) => x.slot === 'horse' && x.r === 2), 'захват: ковка отменена, руны вернулись, захватчику вещь не досталась');
+    assert.ok(!c2.runeJob && g.runesOf(R2).path === 50 && !R.gear.some((x) => x.slot === 'horse' && x.r === 2), 'захват: ковка отменена, руны вернулись, захватчику вещь не досталась');
     assert.ok(g.reportsOf(R2.id).some((x) => x.title === 'Ковка прервана'), 'отчёт о прерванной ковке');
     assert.ok(cap2.general && cap2.general.level === 30 && cap2.general.eq.weapon === eqIt && !c2.general, 'захват: генерал с рунным клинком отступил в столицу');
     assert.ok((cap2.deadGenerals || []).includes(old) && !(c2.deadGenerals || []).length, 'павшие генералы — в столицу, захватчику не достались');

@@ -28,7 +28,6 @@ const MENUS = {
     ['Подарки', M3('gifts'), () => send({ t: 'profile', id: S.st.user.id })], // свои подарки — в профиле
     [S.st.user.zagsNew ? `ЗАГС (${S.st.user.zagsNew})` : 'ЗАГС', 'zags/rings.png', () => openZags()],
     ['Репутация', M3('reputation'), () => openRating('reputation')],
-    ['Авторитет', M3('authority'), () => openSoon('Авторитет города')],
     ['События', M3('events'), () => openReports()],
     [S.st.user.friendsNew ? `Друзья (${S.st.user.friendsNew})` : 'Друзья', M3('friends'), () => openFriends()],
     ['Поиск', M3('search'), () => openPlayers('search')],
@@ -63,7 +62,6 @@ const MENUS = {
     ['Приват.', M3('privacy'), () => openPrivacy()],
     ['Форум', M3('forum'), () => openForum()],
     ['Чат', M3('chat'), () => openChat()],
-    ['Блоги', M3('blogs'), () => openSoon('Блог')],
     ['Горн', M3('horn'), () => openReports()],
   ] },
   games: { label: 'Игры', icon: 'menu2/games.png', items: () => [
@@ -83,11 +81,8 @@ const MENUS = {
     ['Игрок', M3('player'), () => openRating('players')],
     ['Замок', M3('castle'), () => openRating('castles')],
     ['Альянс', M3('ally'), () => openRating('alliances')],
-    ['Знаменитость', M3('fame'), () => openSoon('Знаменитость')],
     ['Авторитет', M3('authority'), () => openRating('reputation')],
     ['Семейные пары', M3('pairs'), () => openPairs()],
-    ['Империи', M3('empire'), () => openSoon('Империи')],
-    ['Археология', M3('archaeology'), () => openSoon('Археология')],
   ] },
 };
 S.menu = null;
@@ -259,8 +254,6 @@ function profileWin(p) {
   S.bossBadgesOf = { login: p.login, list: bb, slay: SLAY };
   const slayer = bb.length ? `<div data-bbl>${ribbon(`Победы над боссами - ${bb.length} ›`)}<div class="bbadges">${bb.slice(0, 12).map((m) => bossMedal(m)).join('')}${bb.length > 12 ? `<b>+${bb.length - 12}</b>` : ''}</div></div>` : '';
   return `${ribbon('Профиль')}
-    <div class="pauth"><img class="pcrown" src="gfx3d/prof/crown.png" alt=""><div>Авторитет Вашего города:<br><img class="pking" src="gfx3d/prof/king.png" alt=""> Здесь может быть Ваше имя!</div></div>
-    <button class="pbar" data-soon="Авторитет города">Стать Авторитетом!</button>
     ${ribbon('Информация')}
     <div class="pinfo"><div class="avatar ${p.avatar ? 'avaclick' : ''}" ${p.avatar ? `data-avaview="${p.id}"` : ''}>${avatarImg(p)}</div><div>
       Никнейм: <b>${esc(p.login)}</b><br>Ранг: ${p.rank}<br>Рейтинг: ${fmtFull(p.rating)}<br>Раса: ${raceIcon(p.race)} ${esc(p.raceName)}</div></div>

@@ -24,8 +24,17 @@ function smodPlayerCard(p) {
     <div class="smrow">${[1, 6, 24, 72].map((h) => smBtn('chat', `${h} ч`, `data-hours="${h}"`)).join('')}${p.chatBan ? smBtn('chat', 'Снять', 'data-hours="0"') : ''}</div>
     <div class="smsec">Нарушения и сброс</div>
     <div class="smrow">${smBtn('viol', '+1 нарушение', 'data-d="1"')}${smBtn('viol', '−1', 'data-d="-1"')}</div>
-    <div class="smrow">${smBtn('nick', 'Сбросить ник', 'data-confirm="Сбросить ник игрока на «ИгрокN»?"')}${smBtn('castles', 'Названия замков', 'data-confirm="Сбросить названия и описания замков?"')}${p.avatar ? smBtn('avatar', 'Удалить аватар', 'data-confirm="Удалить аватар игрока?"') : ''}</div>
-    ${p.smod ? '' : `<div class="smsec">Команда</div><div class="smrow">${smBtn('mod', p.mod ? 'Снять с модераторов' : 'Назначить модератором', `data-on="${p.mod ? 0 : 1}" data-confirm="${p.mod ? 'Снять права модератора?' : 'Назначить модератором?'}"`)}</div>`}`}</div>`;
+    <div class="smrow">${smBtn('nick', 'Сбросить ник', 'data-confirm="Сбросить ник игрока на «PlayerN»?"')}${smBtn('castles', 'Названия замков', 'data-confirm="Сбросить названия и описания замков?"')}${p.avatar ? smBtn('avatar', 'Удалить аватар', 'data-confirm="Удалить аватар игрока?"') : ''}</div>
+    ${p.smod ? '' : `<div class="smsec">Команда</div>${smodTeamCard(p)}`}`}</div>`;
+}
+// «Команда» в карточке игрока: модератора снимают сразу; назначает администратор — старший модератор отправляет ему заявку с причиной
+function smodTeamCard(p) {
+  if (p.mod) return `<div class="smrow">${smBtn('mod', 'Снять с модераторов', 'data-on="0" data-confirm="Снять права модератора?"')}</div>`;
+  if (S.st.user.admin) return `<div class="smrow">${smBtn('mod', 'Назначить модератором', 'data-on="1" data-confirm="Назначить модератором?"')}</div>`;
+  const r = ((S.smod && S.smod.reqs) || []).find((x) => x.login === p.login);
+  if (r) return `<p class="coinhint">Заявка в модераторы ждёт решения администратора (предложил ${esc(r.by)}).</p>${r.mine ? `<div class="smrow">${smBtn('modreqcancel', 'Отозвать заявку', 'data-confirm="Отозвать заявку?"')}</div>` : ''}`;
+  return `<div class="smrow"><input data-smmodwhy placeholder="Почему он подходит в модераторы (обязательно)" maxlength="200"></div>
+    <div class="smrow">${smBtn('mod', 'Предложить в модераторы', 'data-on="1"')}</div><p class="coinhint">Заявку рассмотрит администратор: примет или отклонит.</p>`;
 }
 function smodWin() {
   const d = S.smod, T = [['player', 'Игрок'], ['team', 'Команда'], ['bans', 'Наказания'], ['multi', 'Мульты'], ['ally', 'Альянсы'], ['news', 'Новость'], ['log', 'Журнал']];
@@ -39,8 +48,10 @@ function smodWin() {
     const row = (u, k) => `<div class="smline"><span><img class="acico" src="${GFX}${k}_badge_s.png" alt=""> <a class="plink" data-smpick="${esc(u.login)}">${esc(u.login)}</a>${u.online ? ' · <i class="smon">в игре</i>' : ''}</span>${k === 'mod' ? smBtn('mod', 'Снять', `data-login="${esc(u.login)}" data-on="0" data-confirm="Снять ${esc(u.login)} с модераторов?"`) : ''}</div>`;
     body = `<div class="smsec">Старшие модераторы</div>${d.smods.map((u) => row(u, 'smod')).join('') || '<p class="parch-note">—</p>'}
       <div class="smsec">Модераторы</div>${d.mods.map((u) => row(u, 'mod')).join('') || '<p class="parch-note">Модераторов нет.</p>'}
-      <form class="chatform" data-smaddmod><input name="who" placeholder="Ник — назначить модератором" autocapitalize="none" autocomplete="off"><button class="btn primary small">Назначить</button></form>
-      <p class="coinhint">Старших модераторов назначает только администратор.</p>`;
+      ${(d.reqs || []).length ? `<div class="smsec">Заявки — ждут решения администратора</div>${d.reqs.map((r) => `<div class="smline"><span><a class="plink" data-smpick="${esc(r.login)}">${esc(r.login)}</a> · предложил ${esc(r.by)}, ${smDate(r.at)}<br><small>${esc(r.why)}</small></span>${r.mine ? smBtn('modreqcancel', 'Отозвать', `data-login="${esc(r.login)}" data-confirm="Отозвать заявку на ${esc(r.login)}?"`) : ''}</div>`).join('')}` : ''}
+      ${S.st.user.admin ? `<form class="chatform" data-smaddmod><input name="who" placeholder="Ник — назначить модератором" autocapitalize="none" autocomplete="off"><button class="btn primary small">Назначить</button></form>`
+        : `<form class="smform" data-smaddmod><input name="who" placeholder="Ник — предложить в модераторы" autocapitalize="none" autocomplete="off"><input name="why" placeholder="Почему он подходит (обязательно)" maxlength="200"><div class="smrow"><button class="btn primary small">Отправить заявку</button></div></form>`}
+      <p class="coinhint">Модератора назначает администратор: старший модератор отправляет заявку, администратор принимает или отклоняет. Снять модератора можно сразу. Старших модераторов назначает только администратор.</p>`;
   } else if (S.smodTab === 'bans') {
     body = `<div class="smsec">Заблокированы</div>${d.banned.map((u) => `<div class="smline"><span><a class="plink" data-smpick="${esc(u.login)}">${esc(u.login)}</a><br><small>${u.until ? `до ${smDate(u.until)}` : 'навсегда (админ)'}${u.why ? ` — ${esc(u.why)}` : ''}</small></span>${u.until ? smBtn('unban', 'Снять', `data-login="${esc(u.login)}"`) : ''}</div>`).join('') || '<p class="parch-note">Никого.</p>'}
       <div class="smsec">Запрет в чате</div>${d.chatBanned.map((u) => `<div class="smline"><span><a class="plink" data-smpick="${esc(u.login)}">${esc(u.login)}</a><br><small>${u.until === -1 ? 'навсегда' : `до ${smDate(u.until)}`}</small></span>${smBtn('chat', 'Снять', `data-login="${esc(u.login)}" data-hours="0"`)}</div>`).join('') || '<p class="parch-note">Никого.</p>'}`;
@@ -54,7 +65,7 @@ function smodWin() {
   } else if (S.smodTab === 'news') {
     body = `<p class="coinhint">Новость увидят все игроки: фиолетовый конверт в верхней панели, потом — в «Инфо → Новости». До 4 скриншотов. Публикация записывается в журнал модерации.</p>${newsPubForm()}`;
   } else {
-    const OP = { news: 'Новость', mod: 'Модератор', ban: 'Блокировка', unban: 'Разблокировка', chat: 'Чат', viol: 'Нарушения', nick: 'Ник', castles: 'Замки', avatar: 'Аватар', allyname: 'Альянс', allydesc: 'Альянс' };
+    const OP = { news: 'Новость', mod: 'Модератор', modreq: 'Заявка в модераторы', ban: 'Блокировка', unban: 'Разблокировка', chat: 'Чат', viol: 'Нарушения', nick: 'Ник', castles: 'Замки', avatar: 'Аватар', allyname: 'Альянс', allydesc: 'Альянс' };
     body = d.log.map((x) => `<div class="smlog"><small>${smDate(x.at)} · <b>${esc(x.by)}</b></small><div>${OP[x.op] || esc(x.op)}: <b>${esc(x.target)}</b> — ${esc(x.text)}</div></div>`).join('') || '<p class="parch-note">Журнал пуст.</p>';
   }
   const n = S.smodNote && Date.now() - S.smodNote.at < 6000 ? `<div class="smnote ${S.smodNote.ok ? 'ok' : ''}">${S.smodNote.ok ? '✔' : '⛔'} ${esc(S.smodNote.msg)}</div>` : '';
@@ -75,12 +86,21 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.hours !== undefined) m.hours = Number(d.hours);
   if (d.d !== undefined) m.d = Number(d.d);
   if (d.on !== undefined) m.on = Number(d.on);
+  if (d.smop === 'mod' && m.on === 1 && !S.st.user.admin) { // заявка администратору — с причиной
+    const why = (($('[data-smmodwhy]') || {}).value || '').trim(); if (why.length < 3) return toast('Напишите, почему игрок подходит в модераторы.', 'err');
+    if (!confirm(`Отправить администратору заявку: ${login} — в модераторы?`)) return; m.why = why;
+  }
   send(m);
 });
 $('#sheetBody').addEventListener('submit', (e) => {
   const f = e.target;
   if (f.matches('[data-smfind]')) { e.preventDefault(); e.stopPropagation(); const w = f.who.value.trim(); if (w) smFind(w); return; }
-  if (f.matches('[data-smaddmod]')) { e.preventDefault(); e.stopPropagation(); const w = f.who.value.trim(); if (w && confirm(`Назначить ${w} модератором?`)) send({ t: 'smod', op: 'mod', login: w, on: 1 }); return; }
+  if (f.matches('[data-smaddmod]')) {
+    e.preventDefault(); e.stopPropagation(); const w = f.who.value.trim(); if (!w) return;
+    if (S.st.user.admin) { if (confirm(`Назначить ${w} модератором?`)) send({ t: 'smod', op: 'mod', login: w, on: 1 }); return; }
+    const why = f.why.value.trim(); if (why.length < 3) return toast('Напишите, почему игрок подходит в модераторы.', 'err');
+    if (confirm(`Отправить администратору заявку: ${w} — в модераторы?`)) send({ t: 'smod', op: 'mod', login: w, on: 1, why }); return;
+  }
   if (f.matches('[data-smally]')) {
     e.preventDefault(); e.stopPropagation(); const E = f.elements, go = e.submitter && e.submitter.value, id = E.id.value.trim(); // f.id / f.name — свойства самой формы, поля — через elements if (!id) return toast('Укажите тег альянса.', 'err');
     if (go === 'desc') { if (confirm(`Сбросить описание и устав [${id}]?`)) send({ t: 'smod', op: 'allydesc', id }); return; }

@@ -26,6 +26,12 @@ function install(Game) {
     for (const b of l) if (b.at + LIFE <= now || !this.userById(b.from)) { refund(this, b, 'вызов никто не принял за сутки'); } else keep.push(b);
     if (keep.length !== l.length) { this.db.coinBets = keep; this.store.save(); }
   };
+  // игрок удалён (admin.js purgeUser): его вызовы снимаются; вызовы ему — ставка возвращается тому, кто вызывал
+  P.coinDropUser = function coinDropUser(id) {
+    const keep = [];
+    for (const b of bets(this)) { if (b.from === id) continue; if (b.to === id) { refund(this, b, 'игрок, которого Вы вызвали, удалён'); continue; } keep.push(b); }
+    this.db.coinBets = keep;
+  };
   const row = (g, b, viewer) => { const f = g.userById(b.from), t = b.to ? g.userById(b.to) : null;
     return { id: b.id, from: { id: f.id, login: f.login }, to: t ? { id: t.id, login: t.login } : null, res: b.res, amount: b.amount, side: b.side, at: b.at, exp: b.at + LIFE, mine: b.from === viewer.id }; };
   P.coinState = function coinState(u, castle, now = Date.now()) {

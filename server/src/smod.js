@@ -1,13 +1,14 @@
 'use strict';
 // «Старший модератор»: помощник администратора — следит за порядком и за модераторами, экономику игры не трогает.
 // Назначает и снимает только администратор (админ-панель → игрок → «Старший модератор»).
-// Может: всё, что модератор (чат, форумы, новости — комментарии), плюс назначать/снимать модераторов, запрет в чате модераторам,
+// Может: всё, что модератор (чат, форумы, новости — комментарии), плюс предлагать модераторов (заявка — администратор принимает или
+// отклоняет, db.modReqs) и снимать их сразу, запрет в чате модераторам,
 // блокировка аккаунта на 1/3/7 дней с причиной, «Нарушения», сброс ника / названий замков / аватара, переименование альянса и сброс описания,
 // публикация новостей, просмотр журнала мультов и сведений об игроке (ники, входы, IP), журнал модерации.
 // НЕ может: золото, премиум, ресурсы, войска, замки, босс, вечная блокировка. Администратора — ни наказать, ни посмотреть:
 // он не виден в журнале мультов, в списках и в сведениях; любое действие над ним отклоняется. Другого старшего модератора — тоже нельзя.
 
-const BAN_DAYS = [1, 3, 7], LOG_KEEP = 500;
+const BAN_DAYS = [1, 3, 7], LOG_KEEP = 500, REQ_MAX = 30; // заявок в модераторы, ждущих решения, — не больше REQ_MAX
 const clean = (s, n) => String(s || '').replace(/[<>]/g, '').trim().slice(0, n);
 
 function install(Game) {
@@ -24,6 +25,26 @@ function install(Game) {
     if (t.id === me.id) return { error: 'Это Вы.' };
     return { t };
   };
+  // заявки в модераторы: { id, uid — кого, by — кто предложил (старший модератор), why, at }. Устаревшие (игрока нет, он уже модератор,
+  // предложившего нет) отпадают сами
+  const reqs = (g) => (g.db.modReqs = (g.db.modReqs || []).filter((r) => { const t = g.userById(r.uid); return t && !t.mod && g.userById(r.by); }));
+  P.modReqList = function modReqList() {
+    return reqs(this).map((r) => { const t = this.userById(r.uid), b = this.userById(r.by);
+      return { id: r.id, login: t.login, by: b.login, why: r.why, at: r.at, days: Math.max(0, Math.floor((Date.now() - (t.created || Date.now())) / 86400000)),
+        violations: t.violations || 0, banned: !!t.banned, online: !!t.online, uid: t.id, byId: b.id }; });
+  };
+  // решение администратора: ok — игрок становится модератором, иначе заявка снимается; предложившему — уведомление, в журнал — запись
+  P.modReqDecide = function modReqDecide(admin, id, ok) {
+    if (!admin || !admin.admin) return { error: 'Нет прав.' };
+    const r = reqs(this).find((x) => x.id === Number(id)); if (!r) return { error: 'Заявка не найдена — возможно, её уже отозвали.' };
+    const t = this.userById(r.uid), by = this.userById(r.by);
+    this.db.modReqs = this.db.modReqs.filter((x) => x !== r);
+    if (ok) { t.mod = true; this.event(t.id, 'Вас назначили модератором.'); }
+    this.event(by.id, ok ? `Администратор принял заявку: ${t.login} — теперь модератор.` : `Администратор отклонил заявку: ${t.login} — в модераторы.`);
+    log(this, { login: 'Администратор' }, 'modreq', t.login, ok ? `заявка ${by.login} принята — назначен модератором` : `заявка ${by.login} отклонена`);
+    this.store.save();
+    return { msg: ok ? `${t.login} — модератор (заявка ${by.login}).` : `Заявка ${by.login} на ${t.login} отклонена.` };
+  };
   // временная блокировка истекла — снимается при входе
   P.banExpired = function banExpired(u, now = Date.now()) { if (u.banned && u.banUntil && u.banUntil <= now) { u.banned = false; delete u.banUntil; delete u.banWhy; this.store.save(); } return !u.banned; };
 
@@ -34,6 +55,7 @@ function install(Game) {
     const multis = (this.multis ? this.multis() : []).map((g) => ({ kind: g.kind, key: g.kind === 'ip' ? g.key : g.key, users: g.users.filter((x) => !x.admin) })).filter((g) => g.users.length > 1).slice(0, 60);
     return {
       mods: users.filter((u) => u.mod && !u.smod).map((u) => ({ login: u.login, online: !!u.online })),
+      reqs: this.modReqList().map((r) => ({ id: r.id, login: r.login, by: r.by, why: r.why, at: r.at, mine: r.byId === me.id })),
       smods: users.filter((u) => u.smod).map((u) => ({ login: u.login, online: !!u.online })),
       banned: users.filter((u) => u.banned).map((u) => ({ login: u.login, until: u.banUntil || 0, why: u.banWhy || '' })),
       chatBanned: users.filter((u) => u.chatBan === -1 || u.chatBan > Date.now()).map((u) => ({ login: u.login, until: u.chatBan })),
@@ -64,10 +86,27 @@ function install(Game) {
     }
     const v = victim(this, me, m.login); if (v.error) return v; const t = v.t;
     switch (op) {
-      case 'mod': { // назначить / снять модератора (старшего — только администратор)
-        const on = !!Number(m.on); t.mod = on; if (!on) t.smod = false;
+      case 'mod': { // снять модератора — сразу; назначить: администратор — сразу, старший модератор — заявкой администратору
+        const on = !!Number(m.on);
+        if (on && !me.admin) {
+          if (t.mod) return { error: `${t.login} уже модератор.` };
+          if (t.banned) return { error: 'Игрок заблокирован — в модераторы его не предложить.' };
+          if (reqs(this).some((r) => r.uid === t.id)) return { error: `Заявка на ${t.login} уже ждёт решения администратора.` };
+          if (this.db.modReqs.length >= REQ_MAX) return { error: 'Много заявок ждут решения — дождитесь ответа администратора.' };
+          const why = clean(m.why, 200); if (why.length < 3) return { error: 'Напишите, почему игрок подходит в модераторы.' };
+          this.db.modReqs.push({ id: this.db.nextId++, uid: t.id, by: me.id, why, at: Date.now() });
+          for (const a of Object.values(this.db.users)) if (a.admin) this.event(a.id, `📝 Заявка в модераторы: ${me.login} предлагает ${t.login}. Админка → Модерация.`);
+          log(this, me, 'modreq', t.login, `заявка администратору: ${why}`); this.store.save();
+          return { msg: `Заявка отправлена администратору: ${t.login} — в модераторы. О решении придёт уведомление, оно будет и в журнале.` };
+        }
+        t.mod = on; if (!on) t.smod = false;
         this.event(t.id, on ? 'Вас назначили модератором.' : 'Вы больше не модератор.'); log(this, me, op, t.login, on ? 'назначен модератором' : 'снят с модераторов');
         this.store.save(); return { msg: `${t.login} — ${on ? 'модератор' : 'больше не модератор'}.` };
+      }
+      case 'modreqcancel': { // отозвать свою заявку (администратор — любую)
+        const r = reqs(this).find((x) => x.uid === t.id && (x.by === me.id || me.admin)); if (!r) return { error: 'Заявки на этого игрока нет.' };
+        this.db.modReqs = this.db.modReqs.filter((x) => x !== r); log(this, me, 'modreq', t.login, 'заявка отозвана'); this.store.save();
+        return { msg: `Заявка на ${t.login} отозвана.` };
       }
       case 'ban': {
         const d = Number(m.days); if (!BAN_DAYS.includes(d)) return { error: 'Блокировка — на 1, 3 или 7 дней.' };
@@ -91,8 +130,10 @@ function install(Game) {
         const n = Math.max(0, (t.violations || 0) + (Number(m.d) > 0 ? 1 : -1)); t.violations = n;
         log(this, me, op, t.login, `нарушений: ${n}`); this.store.save(); return { msg: `${t.login}: нарушений ${n}.` };
       }
-      case 'nick': { // сброс неприличного ника на «ИгрокN»
-        let nick = `Игрок${t.id % 100000}`; for (let k = 1; Object.prototype.hasOwnProperty.call(this.db.users, nick); k++) nick = `Игрок${(t.id + k) % 100000}`;
+      case 'nick': { // сброс неприличного ника на «PlayerN» — английскими буквами, не длиннее 10 знаков, как требуют правила ника
+        const has = (n) => Object.prototype.hasOwnProperty.call(this.db.users, n);
+        let nick = `Player${t.id % 10000}`; for (let k = 1; has(nick) && k < 10000; k++) nick = `Player${(t.id + k) % 10000}`;
+        if (has(nick)) nick = `P${t.id}`;
         const old = t.login; (t.nickLog = t.nickLog || []).push({ at: Date.now(), from: old, to: nick, by: me.login });
         delete this.db.users[old]; this.db.users[nick] = t; this.db.accts[t.acct] = nick; t.login = nick; this.cache = {};
         this.event(t.id, `Ваш ник сброшен модерацией: ${old} → ${nick}. Вход — по прежнему логину.`);

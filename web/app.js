@@ -22,7 +22,7 @@ const DECOR = ['wood', 'walun', 'mount'];
 const BUILD_IMG = ['castle', 'storage', 'mbases', 'baraks', 'market', 'lands/farm1', 'lands/house1', 'lands/wood1', 'lands/stone1', 'lands/iron1',
   'build', 'smith', 'stables', 'diplomat', 'wisdom_house', 'university', 'arhcamp', 'expedition', 'art_tower', 'commerce', 'magtower',
   'guard_tower', null, 'workshop', 'traveler', 'temple', 'secret', 'lands/wood3', 'lands/stone3', 'lands/iron3', 'lands/farm3', 'lands/house3',
-  'lands/wood5', 'lands/stone5', 'lands/iron5', 'lands/farm5', 'lands/house5', 'lands/fish1', 'portal', 'magscool', 'builder', 'beer', 'gendel',
+  'lands/wood5', 'lands/stone5', 'lands/iron5', 'lands/farm5', 'lands/house5', 'lands/fish1', 'portal', 'magscool', 'builder', 'infirmary', 'gendel',
   'alchimia', 'reasury', 'spycentr', 'resident'];
 // здания земель — своя картинка на каждый из 5 уровней (номера 100–129: Огород, Хибара, Дровосек, Каменщик, Рудник, Рыболовная заводь)
 ['farm', 'house', 'wood', 'stone', 'iron', 'fish'].forEach((k, i) => { for (let l = 1; l <= 5; l++) BUILD_IMG[100 + i * 5 + l - 1] = `lands/${k}${l}`; });
@@ -835,7 +835,7 @@ $('#view').addEventListener('submit', (e) => {
   const f = e.target.closest('[data-wprovgo]'); if (!f) return; e.preventDefault(); document.activeElement && document.activeElement.blur();
   const N = (S.cat.rules && S.cat.rules.provN) || 40, n = Math.round(Number(f.n.value));
   if (!(n >= 1 && n <= N * N)) return toast(`Номер провинции — от 1 до ${N * N}.`, 'err');
-  const P = PROV(), px = (n - 1) % N, py = Math.floor((n - 1) / N);
+  const P = PROV(), i = provInner(n), px = (i - 1) % N, py = Math.floor((i - 1) / N); // n — номер, который видит игрок
   S.wJump = true; S.wPanel = false; send({ t: 'world', r: worldR(), cx: px * P + Math.floor(P / 2), cy: py * P + Math.floor(P / 2) });
 });
 $('#view').addEventListener('click', (e) => { const b = e.target.closest('.infobox'); if (b && Iso.sel && S.world) openWorldCell(S.world.cx - S.world.radius + Iso.sel.x, S.world.cy - S.world.radius + Iso.sel.y); });
@@ -876,7 +876,7 @@ const HD = {
   'ground/wood.png': ['ground/wood.png', 159 / 63], 'ground/walun.png': ['ground/walun.png', 167 / 63], 'ground/mount.png': ['ground/mount.png', 200 / 64],
   // здания замка — новая графика «Средневековье»: каждое на своей ромбовидной плите; [масштаб, ширина плиты, y центра плиты, x центра плиты] в точках картинки.
   // плита — шириной 48 точек на экране, её центр — в центре клетки
-  ...Object.fromEntries(Object.entries({ castle: [5.792, 278, 274.0, 140.0], storage: [5.646, 271, 187.2, 138.5], mbases: [5.875, 282, 244.5, 141.0], baraks: [5.771, 277, 165.0, 139.5], market: [5.812, 279, 158.5, 141.5], smith: [5.708, 274, 238.0, 139.0], stables: [5.875, 282, 175.8, 142.0], diplomat: [5.875, 282, 220.2, 142.0], wisdom_house: [5.479, 263, 243.5, 132.5], university: [5.688, 273, 225.5, 137.5], arhcamp: [5.792, 278, 197.8, 141.0], expedition: [5.812, 279, 217.0, 142.5], art_tower: [5.042, 242, 242.2, 122.0], commerce: [5.875, 282, 211.0, 141.0], magtower: [5.438, 261, 243.0, 131.5], guard_tower: [4.792, 230, 287.2, 117.0], workshop: [5.604, 269, 173.2, 134.5], traveler: [5.458, 262, 211.5, 133.0], temple: [5.812, 279, 247.8, 140.5], secret: [5.417, 260, 178.0, 132.0], portal: [5.417, 260, 223.5, 131.0], magscool: [5.625, 270, 246.2, 136.0], builder: [5.792, 278, 188.5, 139.0], beer: [5.812, 279, 233.0, 140.5], gendel: [5.583, 268, 214.2, 135.0], alchimia: [5.229, 251, 224.5, 127.5], reasury: [5.625, 270, 202.5, 135.0], spycentr: [5.396, 259, 227.5, 129.5], resident: [6.021, 289, 214.0, 144.5], build: [5.646, 271, 177.8, 138.5] }).map(([n, [k, fw, ay, ax]]) => [`build/${n}.png`, [`build/hd3/${n}.png`, k, fw, ay, ax]])),
+  ...Object.fromEntries(Object.entries({ castle: [5.792, 278, 274.0, 140.0], storage: [5.646, 271, 187.2, 138.5], mbases: [5.875, 282, 244.5, 141.0], baraks: [5.771, 277, 165.0, 139.5], market: [5.812, 279, 158.5, 141.5], smith: [5.708, 274, 238.0, 139.0], stables: [5.875, 282, 175.8, 142.0], diplomat: [5.875, 282, 220.2, 142.0], wisdom_house: [5.479, 263, 243.5, 132.5], university: [5.688, 273, 225.5, 137.5], arhcamp: [5.792, 278, 197.8, 141.0], expedition: [5.812, 279, 217.0, 142.5], art_tower: [5.042, 242, 242.2, 122.0], commerce: [5.875, 282, 211.0, 141.0], magtower: [5.438, 261, 243.0, 131.5], guard_tower: [4.792, 230, 287.2, 117.0], workshop: [5.604, 269, 173.2, 134.5], traveler: [5.458, 262, 211.5, 133.0], temple: [5.812, 279, 247.8, 140.5], secret: [5.417, 260, 178.0, 132.0], portal: [5.417, 260, 223.5, 131.0], magscool: [5.625, 270, 246.2, 136.0], builder: [5.792, 278, 188.5, 139.0], infirmary: [5.812, 279, 206.1, 139.7], gendel: [5.583, 268, 214.2, 135.0], alchimia: [5.229, 251, 224.5, 127.5], reasury: [5.625, 270, 202.5, 135.0], spycentr: [5.396, 259, 227.5, 129.5], resident: [6.021, 289, 214.0, 144.5], build: [5.646, 271, 177.8, 138.5] }).map(([n, [k, fw, ay, ax]]) => [`build/${n}.png`, [`build/hd3/${n}.png`, k, fw, ay, ax]])),
   'build/watch1.png': ['build/hd3/guard_tower.png', 4.792, 230, 287.2, 117.0], 'build/watch2.png': ['build/hd3/guard_tower.png', 4.792, 230, 287.2, 117.0], 'build/watch3.png': ['build/hd3/guard_tower.png', 4.792, 230, 287.2, 117.0] };
 
 function pic(path) {
@@ -1417,7 +1417,11 @@ function worldLayer(w, c, dpr) {
 // границы провинций (как в оригинале): у каждой провинции PROV×PROV клеток — своя тонкая светлая рамка со скруглёнными углами,
 // как плитки: между соседями — две отдельные линии, на перекрёстках — скруглённые углы, линии не соединяются
 const PROV = () => (S.cat && S.cat.rules && S.cat.rules.prov) || 25;
-const provNum = (x, y) => Math.floor(y / PROV()) * ((S.cat && S.cat.rules && S.cat.rules.provN) || 40) + Math.floor(x / PROV()) + 1;
+// номер провинции для игрока — по порядку заселения (сервер: game.js provNo; таблица — в каталоге rules.provNo); n — внутренний номер (по строкам)
+const provShow = (n) => { const t = S.cat && S.cat.rules && S.cat.rules.provNo; return (t && t[n - 1]) || n; };
+const provNum = (x, y) => provShow(Math.floor(y / PROV()) * ((S.cat && S.cat.rules && S.cat.rules.provN) || 40) + Math.floor(x / PROV()) + 1);
+let PROV_INNER = null; // обратная таблица: номер для игрока → внутренний номер
+const provInner = (k) => { const t = S.cat && S.cat.rules && S.cat.rules.provNo; if (!t) return k; if (!PROV_INNER || PROV_INNER.t !== t) { PROV_INNER = { t, m: new Map(t.map((v, i) => [v, i + 1])) }; } return PROV_INNER.m.get(k) || k; };
 const PROV_SPR = { k: '' };
 function provBorders(g, w, ax, bx, ay, by, pz, vr) { // ax..bx, ay..by — клетки относительно загруженного участка; pz — масштаб в режиме секций
   const P = PROV(), X0 = w.cx - w.radius, Y0 = w.cy - w.radius, E = pz ? 0.6 : 0.12, k = pz ? 1.1 / pz : 1, RAD = 18 * k;
@@ -1426,7 +1430,7 @@ function provBorders(g, w, ax, bx, ay, by, pz, vr) { // ax..bx, ay..by — кл�
   for (let py = Math.max(0, Math.floor((Y0 + ay) / P)); py * P <= Y0 + by && py < N; py++) for (let px = Math.max(0, Math.floor((X0 + ax) / P)); px * P <= X0 + bx && px < N; px++) {
     const x0 = px * P + E, y0 = py * P + E, x1 = (px + 1) * P - E, y1 = (py + 1) * P - E, b = [pt(x0, y0), pt(x1, y0), pt(x1, y1), pt(x0, y1)];
     if (vr && (Math.max(...b.map((q) => q[0])) < vr[0] || Math.min(...b.map((q) => q[0])) > vr[0] + vr[2] || Math.max(...b.map((q) => q[1])) < vr[1] || Math.min(...b.map((q) => q[1])) > vr[1] + vr[3])) continue; // за краем фона
-    b.n = py * N + px + 1; b.c = pt((px + 0.5) * P, (py + 0.5) * P); boxes.push(b);
+    b.n = provShow(py * N + px + 1); b.c = pt((px + 0.5) * P, (py + 0.5) * P); boxes.push(b);
   }
   const path = () => { g.beginPath(); for (const b of boxes) { const m = [(b[0][0] + b[3][0]) / 2, (b[0][1] + b[3][1]) / 2]; g.moveTo(m[0], m[1]); for (let k = 0; k < 4; k++) g.arcTo(b[k][0], b[k][1], b[(k + 1) % 4][0], b[(k + 1) % 4][1], RAD); g.closePath(); } };
   g.save(); g.lineJoin = 'round';

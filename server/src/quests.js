@@ -92,6 +92,7 @@ const WEEKLY = [
   { id: 'w_online', title: 'Верный правитель', text: (n) => `Проведите в игре ${n} минут за неделю.`, icon: 'quest/scroll.png', stat: 'presence', n: () => 180 },
 ];
 
+const CHEST_RUNES = 2; // руны в Сундуке дня (снаряжение генерала куётся и усиливается за руны — hero.js)
 // ---------- календарь входа: 28 дней ----------
 // t — уровень Ратуши (награды растут вместе с замком); снаряжения в наградах нет — вещи генерала только куёт Кузнец за руны
 const CAL = Array.from({ length: 28 }, (_, i) => (t) => {
@@ -209,6 +210,12 @@ function install(Game) {
     if (rw.art !== undefined) { g.mil(c); const types = Object.keys(require('./army').ART_TYPES); const type = types[Math.floor(Math.random() * types.length)]; c.artifacts.push({ id: g.db.nextId++, type, rarity: rw.art, active: false, found: Date.now() }); got.push('артефакт'); }
     return got;
   };
+  // Сундук дня: CHEST_RUNES рун случайного вида (Силы, Стойкости, Пути); текст — «Руна Силы ×2, Руна Пути»
+  const chestRunes = (g, u) => {
+    const { RUNE_KEYS, RUNE_NAME } = require('./runes'), have = g.runesOf(u), got = {};
+    for (let i = 0; i < CHEST_RUNES; i++) { const k = RUNE_KEYS[Math.floor(Math.random() * RUNE_KEYS.length)]; have[k]++; got[k] = (got[k] || 0) + 1; }
+    return Object.entries(got).map(([k, n]) => `${RUNE_NAME[k]}${n > 1 ? ` ×${n}` : ''}`).join(', ');
+  };
   const gotMsg = (got) => (got.length ? ` В Кладовую: ${got.filter((x) => x !== 'артефакт').join(', ')}.${got.includes('артефакт') ? ' Артефакт — в Сокровищнице!' : ''}` : '');
 
   // советник-строитель: текущий шаг (у опытных игроков — Ратуша 6+ на старте — цепочка сразу пройдена)
@@ -290,8 +297,9 @@ function install(Game) {
       const art = Math.random() < 0.25, t = th(this, c); q.daily.chest = true;
       const slot = ['inf', 'cav', 'mag'][Math.floor(Math.random() * 3)];
       const got = give(this, u, c, R(400 + 200 * t, { u: { [slot]: 3 + Math.floor(t / 2) }, exp: 40 * t, ...(art ? { art: 0 } : {}) }));
-      this.store.save(); // снаряжения в наградах нет: вещи генерала только куёт Кузнец за руны
-      return { ok: true, msg: `Сундук дня открыт!${gotMsg(got)}` };
+      const runes = chestRunes(this, u); // руны — на ковку и усиление снаряжения генерала у Кузнеца
+      this.store.save();
+      return { ok: true, msg: `Сундук дня открыт!${gotMsg(got)} Руны: ${runes}.` };
     }
     if (kind === 'adv') {
       const a = this.advState(u, c); if (a.finished || !a.done) return { error: 'Задание советника ещё не выполнено.' };

@@ -56,14 +56,17 @@ function heroItemWin() {
   if (!it) return heroGearWin();
   const cur = !worn && h.eq && h.eq[it.slot];
   const cost = (it.plus || 0) < HC().gearMaxPlus ? HC().enhanceCost[it.r][it.plus || 0] : null, sell = HC().sellPrice[it.r][it.plus || 0];
-  const res = (c, sec) => `<div class="upcost">${RES4.map((r) => `<span data-need="${r}:${c[r]}">${RES_IC[r]}<b>${fmtFull(c[r])}</b></span>`).join('')}${sec ? `<span>${TIME_IC}<b>${fmtT(sec)}</b></span>` : ''}</div>`;
+  // усиление стоит ещё и руны вида вещи (server/src/hero.js enhanceRunes): нехватка — красным
+  const rk = G[it.slot].rune, rn = cost && HC().enhanceRunes ? HC().enhanceRunes[it.r][it.plus || 0] : 0, rHave = (h.runes || {})[rk] || 0;
+  const runeChip = (n) => (n ? `<span class="${rHave >= n ? '' : 'lack'}"><img class="ri" src="${RUNE_ICON(rk)}" alt=""><b>${n}</b></span>` : '');
+  const res = (c, sec, n) => `<div class="upcost">${runeChip(n)}${RES4.map((r) => `<span data-need="${r}:${c[r]}">${RES_IC[r]}<b>${fmtFull(c[r])}</b></span>`).join('')}${sec ? `<span>${TIME_IC}<b>${fmtT(sec)}</b></span>` : ''}</div>`;
   const job = h.job, mine = job && job.item === it.id;
   return `${ribbon(G[it.slot].name)}
     <div class="gcard" style="--rc:${RR[it.r].color}">${gearIcon(it, 'big')}<div><b>${esc(gearNm(it))}</b><small>${RR[it.r].name}</small>
       <p>+${pc(gearVl(it))} — ${G[it.slot].txt}${cur ? `<br><span class="muted">сейчас надето: ${esc(gearNm(cur))} (+${pc(gearVl(cur))})</span>` : ''}</p></div></div>
     ${worn ? `<button class="pbar" data-gun="${it.slot}">Снять</button>` : MY().general ? `<button class="pbar" data-geq="${it.id}">Надеть</button>` : ''}
     ${mine ? `<div class="upbody center gjob">⚒ Кузнец усиливает до +${job.plus}: <b><span class="cd" data-e="${job.end}"></span></b></div>`
-      : cost ? `<div class="upbody center">Усилить у Кузнеца до +${(it.plus || 0) + 1} (+15% к силе вещи):</div>${res(cost, HC().enhanceSec[it.r][it.plus || 0])}${job ? '<div class="upbody center muted">Кузнец занят другой вещью — дождитесь конца.</div>' : `<button class="pbar" data-genh="${it.id}">Усилить</button>`}` : '<div class="upbody center">Вещь усилена до предела.</div>'}
+      : cost ? `<div class="upbody center">Усилить у Кузнеца до +${(it.plus || 0) + 1} (+15% к силе вещи):</div>${res(cost, HC().enhanceSec[it.r][it.plus || 0], rn)}${rn ? `<div class="upbody center muted">${esc(HC().runeNames[rk])}: у вас ${fmtFull(rHave)}.</div>` : ''}${job ? '<div class="upbody center muted">Кузнец занят другой вещью — дождитесь конца.</div>' : `<button class="pbar" data-genh="${it.id}">Усилить</button>`}` : '<div class="upbody center">Вещь усилена до предела.</div>'}
     ${inBag && !mine ? `<div class="upbody center">Разобрать на ресурсы:</div>${res(sell)}<button class="pbar" data-gsell="${it.id}">Разобрать</button>` : ''}`;
 }
 

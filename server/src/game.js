@@ -13,7 +13,8 @@ const SPEED = Number(process.env.SPEED || 1);
 const WORLD = Number(process.env.WORLD_SIZE || 1000);
 const SPAWN_GAP = 2;
 // провинции (как в оригинале): мир нарезан на квадраты PROV×PROV клеток (25×25; было 20×20 — стало просторнее); новые игроки заселяют провинцию по PROV_CAP замков,
-// потом — следующую, по спирали от центра карты (соседи рядом). Номер провинции — по строкам, с 1.
+// потом — следующую, по спирали от центра карты (соседи рядом). Внутренний номер провинции — по строкам, с 1; игрок видит номер
+// по порядку заселения (provNo): №1 заселяется первой, потом №2 и т. д.
 const PROV = 25, PROV_CAP = 10, PROV_EDGE = 2, PROV_N = Math.ceil(WORLD / PROV);
 // клетки у границы провинции (по PROV_EDGE с каждой стороны линии) пустые: замки и лагеря не налезают на границу
 const onProvEdge = (x, y) => { const a = ((x % PROV) + PROV) % PROV, b = ((y % PROV) + PROV) % PROV; return a < PROV_EDGE || a >= PROV - PROV_EDGE || b < PROV_EDGE || b >= PROV - PROV_EDGE; };
@@ -43,6 +44,11 @@ let PROV_ORDER = null; // провинции от центра карты к к�
 const provOrder = () => PROV_ORDER || (PROV_ORDER = Array.from({ length: PROV_N * PROV_N }, (_, i) => i).map((i) => ({ px: i % PROV_N, py: Math.floor(i / PROV_N) }))
   .map((p) => ({ ...p, d: Math.hypot((p.px + 0.5) * PROV - WORLD / 2, (p.py + 0.5) * PROV - WORLD / 2), a: Math.atan2((p.py + 0.5) * PROV - WORLD / 2, (p.px + 0.5) * PROV - WORLD / 2) }))
   .sort((p, q) => Math.round(p.d / PROV) - Math.round(q.d / PROV) || p.a - q.a));
+// номер провинции, который видит игрок, — по порядку заселения: №1…№4 в центре карты, вокруг — №5…№16 и дальше кругами,
+// так что новички заполняют №1, потом №2 и т. д. Внутри игры провинция — по строкам (provinceOf(…).n: раскладка лагерей и рун, db.pnpc);
+// на карте, в поиске «Провинция №» и в сообщениях — provNo(n). Клиент получает таблицу в каталоге (web.js rules.provNo).
+let PROV_NO = null;
+const provNo = (n) => { if (!PROV_NO) { PROV_NO = new Array(PROV_N * PROV_N); provOrder().forEach((p, i) => { PROV_NO[p.py * PROV_N + p.px] = i + 1; }); } return PROV_NO[n - 1] || n; };
 // где на нарисованном фоне карты мира луг, а не роща (world_open.json — маска картинки web/gfx/ground/world_bg.jpg):
 // клетка мира (X, Y) лежит в точке фона ((X+Y)·31+31, (Y−X)·16+16) по модулю размера картинки.
 // Сейчас фон — ровная трава без рощ, маски нет: луг везде
@@ -374,7 +380,7 @@ class Game {
     if (this.worldObjects(x, y, 1, 1).some((o) => o.kind === 'object')) return 'Клетка занята (лагерь или руины).';
     if (this.objNear(x, y)) return 'Рядом лагерь или руины — нужна хотя бы одна пустая клетка между ними.';
     const p = provinceOf(x, y); let n = 0; for (const k of this.byXY.values()) if (k !== except && provinceOf(k.x, k.y).n === p.n) n++;
-    if (n >= PROV_CAP) return `Провинция ${p.n} заполнена (${PROV_CAP} замков).`;
+    if (n >= PROV_CAP) return `Провинция №${provNo(p.n)} заполнена (${PROV_CAP} замков).`;
     return null;
   }
   moveCastle(c, x, y) { this.byXY.delete(c.x * WORLD + c.y); c.x = x; c.y = y; this.byXY.set(x * WORLD + y, c); }
@@ -808,4 +814,4 @@ require('./boss').install(Game);
 require('./closedtest').install(Game);
 require('./staff').install(Game); // «МАСТЕРА»: общение админа и тестеров // после admin.js: дополняет adminOp командами test…
 
-module.exports = { PROV, PROV_CAP, PROV_N, PROV_EDGE, PROV_NPC, CAMP_IMGS, NPC_BACK_SEC, provinceOf, onProvEdge, passLogPush, checkPassword, meadowAt, fixPlaza, migrateLands, LANDS_N, WORLD, Game, Store, STORE, BASE_RATE, PEOPLE_FACTOR, storeBonus, RES_SPEED, buildTime, VIEW, GRID, landOptions, SPEED, MAX_QUEUE, LANDS_BASE, LANDS_DECOR, LANDS_EDGE };
+module.exports = { PROV, PROV_CAP, PROV_N, PROV_EDGE, PROV_NPC, CAMP_IMGS, NPC_BACK_SEC, provinceOf, provNo, onProvEdge, passLogPush, checkPassword, meadowAt, fixPlaza, migrateLands, LANDS_N, WORLD, Game, Store, STORE, BASE_RATE, PEOPLE_FACTOR, storeBonus, RES_SPEED, buildTime, VIEW, GRID, landOptions, SPEED, MAX_QUEUE, LANDS_BASE, LANDS_DECOR, LANDS_EDGE };
