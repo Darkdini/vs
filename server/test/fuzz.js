@@ -4,7 +4,7 @@
 const { spawn } = require('child_process');
 const path = require('path'), os = require('os'), fs = require('fs');
 const PORT = 18000 + (process.pid % 1000), DB = path.join(os.tmpdir(), `fuzz-${process.pid}.json`);
-const srv = spawn(process.execPath, [path.join(__dirname, '..', 'src', 'index.js')], { env: { ...process.env, WEB_PORT: String(PORT), HOST: '127.0.0.1', DB, SPEED: '1', SAVE_MS: '500', NO_CAPTCHA: '1', ADMIN_PASS: 'admin', RATE_OFF: '1', NO_BACKUP: '1', ADMIN_FULL: '1' } });
+const srv = spawn(process.execPath, [path.join(__dirname, '..', 'src', 'index.js')], { env: { ...process.env, WEB_PORT: String(PORT), HOST: '127.0.0.1', DB, SPEED: '1', SAVE_MS: '500', NO_CAPTCHA: '1', ADMIN_PASS: 'admin', RATE_OFF: '1', NO_BACKUP: '1', ADMIN_FULL: '1', SHOP_OPEN: '1' } });
 let log = ''; srv.stdout.on('data', (d) => { log += d; }); srv.stderr.on('data', (d) => { log += d; });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function client() {
@@ -37,7 +37,7 @@ const EVIL = [-1, -1e9, 1e300, 0.5, '-5', '1e400', 'Infinity', 'NaN', null, true
     ally: { op: 'gold', n: 5, to: 'victim', res: { wood: 1 }, login: 'victim', rights: {}, text: 't', title: 't', topic: 1, idx: 0, act: 'delete', name: 'n', tag: 't', status: 'war', desc: 'd' },
     avatar: { op: 'set', px: 'x' }, bug: { text: 'b' },
     // новые разделы: Защита, Лавка, Биржа замков, Орёл-решка, сундуки, ЗАГС, Кладовая, задания, бунт, генерал за золото, походы
-    shield: { op: 'buy', kind: 'castle', days: 1 }, shop: { op: 'chest', id: 'chest_s', key: 'x', mode: 'hour', x: 500, y: 500 },
+    shield: { op: 'buy', kind: 'castle', days: 1 }, shop: { op: 'treasure', id: 't1', key: 'x', mode: 'hour', x: 500, y: 500, res: 'wood', size: 0, prov: 2, coins: 1 },
     marketsell: { id: 1, price: 100 }, marketcancel: { id: 1 }, marketbuy: { id: 1 },
     coinbet: { res: 'wood', amount: 100, side: 'eagle', to: 'victim' }, coinaccept: { id: 1 }, coincancel: { id: 1 },
     chestopen: { pick: 0, golden: false }, stash: { op: 'take', kind: 'res', key: 'wood', n: 1 }, qclaim: { kind: 'daily', id: 'd_train' },
@@ -51,7 +51,7 @@ const EVIL = [-1, -1e9, 1e300, 0.5, '-5', '1e400', 'Infinity', 'NaN', null, true
   const allyOps = ['gold', 'store', 'transfer', 'rank', 'diplo', 'mail', 'news', 'post', 'postdel', 'topic', 'topicop', 'ad', 'charter', 'desc', 'rights', 'kick', 'leave', 'give'];
   const squadOps = ['create', 'move', 'rename', 'delete', 'split', 'merge', 'back', 'recall'];
   const genOps = ['dist', 'reset', 'rename', 'revive', 'kill'];
-  const shopOps = ['speed', 'chest', 'frame', 'frameuse', 'move'];
+  const shopOps = ['speed', 'res', 'treasure', 'frame', 'frameuse', 'move', 'moveprov', 'fest', 'rep'];
   const missions = ['attack', 'raid', 'scout', 'trade', 'expedition', 'reinforce', 'settle', 'rally', '__proto__', 'constructor', 'rune'];
   const msgs = [];
   for (const [t, b] of Object.entries(base)) {
@@ -62,7 +62,7 @@ const EVIL = [-1, -1e9, 1e300, 0.5, '-5', '1e400', 'Infinity', 'NaN', null, true
   for (const op of squadOps) for (const e of EVIL) msgs.push({ t: 'squad', ...base.squad, op, units: { 200: e, __proto__: e } });
   for (const op of genOps) for (const e of EVIL) msgs.push({ t: 'general', op, pts: { atk: e, def: e } });
   for (const e of EVIL) msgs.push({ t: 'general', op: 'revive', idx: e, gold: true }, { t: 'general', op: 'revive', idx: 0, gold: e });
-  for (const op of shopOps) for (const e of EVIL) msgs.push({ t: 'shop', op, id: e, key: e, mode: e, x: e, y: e });
+  for (const op of shopOps) for (const e of EVIL) msgs.push({ t: 'shop', op, id: e, key: e, mode: e, x: e, y: e, res: e, size: e, prov: e, coins: e });
   for (const e of EVIL) msgs.push({ t: 'hero', op: 'forge', slot: e, r: e }, { t: 'hero', op: 'forge', slot: 'weapon', r: e }, { t: 'hero', op: 'forge', slot: e, r: 0 }); // ковка за руны
   for (const e of EVIL) msgs.push({ t: 'shield', op: 'buy', kind: e, days: e }, { t: 'shield', op: 'off', kind: e }, { t: 'send', ...base.send, dropShield: e }, { t: 'coinbet', res: 'wood', amount: e, side: 'tails', to: '' }, { t: 'calm', pct: e }, { t: 'marketsell', id: e, price: e });
   for (const m of missions) for (const e of EVIL) msgs.push({ t: 'send', ...base.send, mission: m, units: { 200: e, 233: e }, res: { wood: e, food: e } }, { t: 'send', ...base.send, mission: m, from: e });

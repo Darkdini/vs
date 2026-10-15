@@ -97,7 +97,7 @@ function install(Game) {
   };
 
   P.ritual = function ritual(user, castle, id, anyTemple = false) {
-    const r = RITUALS[id]; if (!r) return { error: 'Нет такого ритуала.' };
+    const r = Object.prototype.hasOwnProperty.call(RITUALS, id) ? RITUALS[id] : null; if (!r) return { error: 'Нет такого ритуала.' }; // только свои: не __proto__, constructor и т. п.
     if (anyTemple ? !this.castlesOf(user).some((c) => this.buildingLevel(c, 25)) : !this.buildingLevel(castle, 25)) return { error: 'Нужен Храм.' };
     const now = Date.now(); this.ritualBonus(user, now);
     if (user.rituals.some((x) => x.id === id)) return { error: 'Этот ритуал ещё действует.' };
@@ -149,7 +149,7 @@ function install(Game) {
   };
 
   P.festival = function festival(user, castle, id) {
-    const f = FESTIVALS[id]; if (!f) return { error: 'Нет такого праздника.' };
+    const f = Object.prototype.hasOwnProperty.call(FESTIVALS, id) ? FESTIVALS[id] : null; if (!f) return { error: 'Нет такого праздника.' };
     if (!this.buildingLevel(castle, 46)) return { error: 'Нужна Резиденция.' };
     const now = Date.now(); user.festAt = user.festAt || {};
     if (user.festAt[id] > now - DAY) { const m = Math.max(1, Math.ceil((user.festAt[id] + DAY - now) / 60000)); return { error: `Этот праздник можно устроить снова через ${m >= 60 ? `${Math.floor(m / 60)} ч ${m % 60} мин` : `${m} мин`}.` }; }

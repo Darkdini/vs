@@ -314,11 +314,17 @@ const API = {
   shop(m) {
     const g = this.game, u = this.user, op = String(m.op || '');
     if (!g.shopAllowed(u)) return this.error('Лавка Короля скоро откроется.');
-    if (op === 'speed' || op === 'chest' || op === 'frame' || op === 'frameuse' || op === 'move') {
-      const r = op === 'speed' ? g.shopSpeed(u, this.castle, m.key, m.mode) : op === 'chest' ? g.shopChest(u, String(m.id || '')) : op === 'move' ? g.shopMove(u, this.castle, m.x, m.y)
-        : g.shopFrame(u, m.id, op === 'frameuse');
+    const DO = {
+      speed: () => g.shopSpeed(u, this.castle, m.key, m.mode), res: () => g.shopRes(u, this.castle, String(m.res || ''), m.size),
+      treasure: () => g.shopTreasure(u, String(m.id || '')), move: () => g.shopMove(u, this.castle, m.x, m.y), moveprov: () => g.shopMoveProv(u, this.castle, m.prov),
+      frame: () => g.shopFrame(u, m.id, false), frameuse: () => g.shopFrame(u, m.id, true),
+      fest: () => g.festival(u, this.castle, String(m.id || '')), // праздник Резиденции — из раздела «Лояльность»
+      rep: () => { const r = g.giveReputation(u, u.id, m.coins); return r.error ? r : { msg: `Репутация +${r.add} (теперь ${r.rep.toLocaleString('ru-RU')}).` }; }, // своя репутация
+    };
+    if (Object.prototype.hasOwnProperty.call(DO, op)) {
+      const r = DO[op]();
       this.pushState();
-      return this.send({ t: 'shop', data: g.shopInfo(u), note: { ok: !r.error, msg: r.error || r.msg } }); // ответ — плашкой в окне лавки
+      return this.send({ t: 'shop', data: g.shopInfo(u), note: { ok: !r.error, msg: r.error || r.msg }, op, lines: r.lines || null }); // ответ — плашкой в окне лавки
     }
     this.send({ t: 'shop', data: g.shopInfo(u) });
   },
@@ -379,7 +385,9 @@ const API = {
   avalike(m) { const r = this.game.avaLike(this.user, m.id); if (r.error) return this.error(r.error); this.send({ t: 'avalikes', done: r.msg, ...this.game.avaLikes(this.user, m.id) }); },
   avalikes(m) { const r = this.game.avaLikes(this.user, m.id); if (r.error) return this.error(r.error); this.send({ t: 'avalikes', ...r }); },
   profile(m) {
-    const u = this.game.userById(Number(m.id) || this.user.id);
+    const k = m.login !== undefined ? String(m.login).trim() : null, U = this.game.db.users; // по нику — «Подарки» из Лавки
+    const u = k !== null ? (Object.prototype.hasOwnProperty.call(U, k) ? U[k] : Object.values(U).find((x) => x.login.toLowerCase() === k.toLowerCase()))
+      : this.game.userById(Number(m.id) || this.user.id);
     if (!u) return this.error('Игрок не найден.');
     const profile = this.game.profileOf(u, this.user);
     if (m.acct && u.id === this.user.id) { // «Кабинет → Профиль»: настройки своего аккаунта

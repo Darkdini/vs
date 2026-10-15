@@ -2064,9 +2064,6 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .gnew a { margin: 0 6px; cursor: pointer; } .gnew .gsel { font-weight: 700; color: #3a1a0a; text-decoration: none; }
 
 /* «Лавка Короля» (shop.js) */
-.shhead { display: flex; gap: 12px; align-items: center; margin: 6px 4px 10px; }
-.shhead > img { width: 84px; height: 84px; object-fit: contain; flex: none; }
-.shhead b { font-size: 1.3em; }
 .shcard { display: flex; gap: 10px; align-items: center; padding: 8px; margin: 6px 2px; border: 1px solid #b1a47f88; border-radius: 6px; background: #fff3d955; }
 .shico { width: 64px; height: 64px; object-fit: contain; flex: none; }
 .shgrow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
@@ -2075,6 +2072,54 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .shbtns .pbar.gold { background: linear-gradient(#e9c25a, #b8862a); color: #3a2205; }
 .shcoin { width: 1.15em; height: 1.15em; vertical-align: -0.2em; }
 .shwarn { color: #9a2a10; }
+/* Лавка как «Магазин» оригинала: плашка казны, плитки разделов, размеры ресурсов S…XXXL, сундуки, окно «Содержит», вкладки */
+.shcash { margin: 6px 2px 10px; padding: 8px 10px; border: 2px solid #8a5a22; border-radius: 8px; background: linear-gradient(#f9d79a, #e9b064); color: #3a1f08;
+  font: min(20px, 4.8vw)/1.4 var(--serif); text-align: center; box-shadow: 0 2px 4px #0005; }
+.shcash .shres { width: 1.3em; height: 1.3em; vertical-align: -0.3em; object-fit: contain; }
+#sheetBody .shgrid { gap: 10px; margin: 6px 0 10px; }
+#sheetBody .shgrid .ptile { position: relative; padding: 6px 4px 5px; gap: 2px; justify-content: space-between; }
+#sheetBody .shgrid .ptile img { width: 74%; height: auto; max-height: 68%; aspect-ratio: 1; object-fit: contain; image-rendering: auto; filter: drop-shadow(0 2px 2px #0008); }
+#sheetBody .shgrid .ptile span { font-size: min(14px, 3.5vw); }
+#sheetBody .shgrid .shempty { background: none; border: 2px dashed #b89a6a; border-radius: 10px; }
+#sheetBody .shgrid .ptile.off { filter: grayscale(.85) brightness(.85); }
+#sheetBody .shgrid .shsz, #sheetBody .shgrid .shchest { aspect-ratio: .8; justify-content: flex-start; }
+#sheetBody .shgrid .shsz img { width: 62%; max-height: 44%; margin: auto 0; }
+#sheetBody .shgrid .shchest img { width: 86%; max-height: 70%; margin: auto 0; }
+#sheetBody .shgrid .shszk { font: 700 min(17px, 4.2vw)/1.1 var(--serif); color: #fff; text-shadow: 0 1px 2px #000; }
+#sheetBody .shgrid .shszn { display: block; width: 94%; background: #d01818; color: #fff; font: 700 min(14px, 3.5vw)/1.3 system-ui, sans-serif; border-radius: 3px; text-align: center; text-shadow: none; }
+#sheetBody .shgrid .shszp { display: inline-flex; align-items: center; gap: 3px; font: 700 min(15px, 3.8vw)/1 system-ui, sans-serif; color: #ff5a4a; padding: 3px 9px; border-radius: 9px; background: #0006; }
+#sheetBody .shgrid .ok .shszp { background: linear-gradient(#6fe058, #1f8a12); color: #fff; border: 1px solid #0d4a06; }
+#sheetBody .shgrid .shszp .shcoin { width: 1.1em; height: 1.1em; max-height: none; aspect-ratio: auto; filter: none; }
+.shtrhead { display: flex; align-items: center; gap: 12px; margin: 6px 4px 10px; font: min(19px, 4.6vw)/1.35 var(--serif); }
+.shtrhead > img { width: 96px; height: 96px; object-fit: contain; flex: none; filter: drop-shadow(0 3px 3px #0007); }
+.shtrhead > b { font: 700 min(23px, 5.6vw)/1.2 var(--serif); }
+.shtrbox { border: 2px solid #6a3a14; border-radius: 8px; background: #3a1a0c; overflow: hidden; margin: 0 2px 10px; }
+.shtrcap { background: linear-gradient(#f5c46a, #c8862a); color: #3a1f08; font: 700 19px/1.6 var(--serif); text-align: center; }
+.shtrow { display: grid; grid-template-columns: 34px 1fr auto auto auto auto; align-items: center; column-gap: 6px; padding: 5px 8px; color: #f6e6c6; font: min(16px, 3.9vw)/1.2 var(--serif); border-top: 1px solid #ffffff14; }
+.shtrow:nth-child(even) { background: #ffffff0d; }
+.shtrow img { width: 32px; height: 32px; object-fit: contain; }
+.shtrow b { min-width: 3.6em; text-align: right; font-weight: 600; }
+.shtrow .shtrv { grid-column: 3 / -1; }
+.shtrf { color: #e8a060; font-size: .85em; }
+.shbuy { display: block; margin: 12px auto 8px; min-width: 64%; padding: 10px 18px; border: 2px solid #0d4a06; border-radius: 10px; background: linear-gradient(#7be45f, #2a9a1a 60%, #1b7a0e); color: #fff;
+  font: 700 min(21px, 5vw)/1.2 var(--serif); text-shadow: 0 1px 2px #000a; box-shadow: 0 3px 6px #0006, inset 0 1px 0 #fff6; cursor: pointer; }
+.shbuy:active { filter: brightness(.9); }
+.shbuy img { width: 1.15em; height: 1.15em; vertical-align: -0.2em; }
+.shlack { margin: 12px auto; padding: 8px 16px; width: fit-content; border: 2px solid #8a5a22; border-radius: 8px; background: #f6e2b8; color: #3a1f08; font: min(21px, 5vw) var(--serif); }
+.shlack .bad { color: #c01010; font-weight: 700; }
+.shtabs { display: flex; gap: 6px; margin: 4px 2px 10px; }
+.shtabs button { flex: 1; padding: 9px 6px; border: 2px solid #8a5a22; border-radius: 8px; background: linear-gradient(#7a3a1a, #4a1a08); color: #f3d9a0; font: min(18px, 4.4vw) var(--serif); }
+.shtabs button.on { background: linear-gradient(#f9d79a, #e9b064); color: #3a1f08; font-weight: 700; }
+.shtabs img { width: 1.2em; height: 1.2em; vertical-align: -0.25em; }
+.shtele { margin: 0 4px; }
+.shtl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font: min(20px, 4.8vw)/1.4 var(--serif); margin: 8px 0; }
+.shtl > span { color: #8a4a12; min-width: 7.2em; }
+.shtl input { width: 4.6em; padding: 6px 8px; font: 18px var(--serif); border: 2px solid #8a5a22; border-radius: 6px; background: #fff7e6; color: #3a1f08; }
+.shfest .shlack { margin: 6px 0 0; font-size: min(17px, 4.2vw); }
+.shfest { display: flex; gap: 10px; align-items: center; padding: 8px; margin: 8px 2px; border: 1px solid #b1a47f88; border-radius: 8px; background: #fff3d955; }
+.shfest > img { width: 84px; height: 84px; object-fit: contain; flex: none; }
+.shfest .shbuy { margin: 6px 0 0; min-width: 0; width: 100%; font-size: min(18px, 4.4vw); padding: 8px; }
+.shgot { margin: 0 2px 10px; padding: 8px 10px; border: 2px solid #3a8a1a; border-radius: 8px; background: #e6f6d8; color: #1f5a0a; font: min(16px, 3.9vw)/1.4 var(--serif); }
 /* рамка аватара (Лавка Короля): квадратная, фото — целиком в «окне» рамки (рамка его не закрывает).
    --hx/--hy/--hw/--hh — окно рамки в % от картинки рамки (измерено при нарезке). В профиле рамка крупнее: окно = размер фото. */
 .afr { position: relative; display: block; width: 100%; height: 100%; min-width: 64px; min-height: 64px; aspect-ratio: 1; }
@@ -2088,7 +2133,6 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .pinfo .avatar .afr { width: calc(92px * 100 / var(--hw)); height: calc(92px * 100 / var(--hw)); }
 .dava:has(.afr), .zava:has(.afr), .zpava:has(.afr) { border-color: transparent; background: none; }
 .shava { width: 84px; height: 84px; flex: none; display: block; }
-.shmove { display: flex; gap: 6px; align-items: stretch; flex-wrap: wrap; margin-top: 4px; } .shmove input { width: 76px; flex: none; } .shmove .pbar { flex: 1; min-width: 150px; margin: 0; }
 .shnote { position: sticky; top: 0; z-index: 3; }
 /* «Забыли пароль?» и Telegram в Профиле */
 .linkbtn { background: none; border: 0; color: #f3d9a0; text-decoration: underline; font: inherit; font-size: .95em; margin: 10px auto 0; display: block; cursor: pointer; padding: 6px; }

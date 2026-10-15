@@ -995,12 +995,34 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   sc.queue.push({ view: 0, cell: 4, building: 1, level: 2, start: now, end: now + 30 * 60000, cost: { wood: 0, stone: 0, iron: 0, food: 0, people: 0 } });
   assert.ok(g.shopSpeed(su, sc, '0:4', 'hour', now).error && su.gold === 58, 'меньше часа — «−1 час» нельзя');
   sc.queue = sc.queue.filter((q) => q.cell !== 4);
-  // сундуки — в Кладовую (без ограничения Складом), 5 в сутки
-  const st0 = (g.stashOf(su).res.wood || 0);
-  su.gold = 1000; assert.ok(g.shopChest(su, 'chest_s', now).msg && su.gold === 970 && g.stashOf(su).res.wood === st0 + 10000, 'сундук (30) — в Кладовую целиком');
-  for (let i = 0; i < 4; i++) assert.ok(g.shopChest(su, 'wagon', now).msg, 'обоз ' + i);
-  assert.ok(/завтра/.test(g.shopChest(su, 'wagon', now).error || ''), 'лимит 5 в сутки');
-  assert.ok(g.shopChest(su, 'wagon', now + 86400000).msg, 'на следующий день — снова можно');
+  // ресурсы S…XXXL и пакеты: в замок до вместимости Складов, остаток — в Кладовую; 2 покупки в сутки
+  const st0 = (g.stashOf(su).res.wood || 0), capW = g.capacity(sc).wood;
+  su.gold = 1000; sc.res.wood = capW - 300;
+  const r1 = g.shopRes(su, sc, 'wood', 2, now); // L: 10 000 дерева за 9
+  assert.ok(r1.msg && su.gold === 991 && sc.res.wood >= capW - 1 && g.stashOf(su).res.wood - st0 >= 9700 && g.stashOf(su).res.wood - st0 <= 9701, 'L дерева: 300 до полного Склада — в замок, 9 700 в Кладовую — ' + r1.msg);
+  const s0 = { ...sc.res }, k0 = { ...g.stashOf(su).res }; for (const r of ['stone', 'iron', 'food']) sc.res[r] = 0;
+  const capS = g.capacity(sc).stone, k2 = { ...g.stashOf(su).res };
+  assert.ok(g.shopRes(su, sc, 'pack', 0, now).msg && su.gold === 988 && ['stone', 'iron', 'food'].every((r) => sc.res[r] >= Math.min(1000, capS) - 1 && (g.stashOf(su).res[r] || 0) - (k2[r] || 0) <= 1000 - Math.min(1000, capS) + 1), 'пакет S (3): все ресурсы по 1 000 — в замок, что не влезло — в Кладовую');
+  void s0; void k0;
+  assert.ok(/завтра/.test(g.shopRes(su, sc, 'stone', 0, now).error || '') && su.gold === 988, 'лимит 2 покупки в сутки, монеты не тратятся');
+  assert.ok(g.shopRes(su, sc, 'stone', 0, now + 86400000).msg, 'на следующий день — снова можно');
+  assert.ok(g.shopRes(su, sc, 'gold', 0, now + 2 * 86400000).error && g.shopRes(su, sc, 'wood', 6, now + 2 * 86400000).error && g.shopRes(su, sc, '__proto__', 1, now + 2 * 86400000).error, 'нет такого товара');
+  // «Сокровища»: всё по таблице «от … до …»; артефакты — в Сокровищницу столицы, полна — осколки в Кладовую
+  { const T = require('../src/shop').TREASURES, ru0 = { ...g.runesOf(su) }, rep0 = su.reputation ?? 10, k1 = { ...g.stashOf(su) }, kr = { ...k1.res };
+    su.gold = 2000; g.mil(sc); sc.artifacts = [];
+    const rt = g.shopTreasure(su, 't7'); assert.ok(rt.msg && su.gold === 1, 'Сокровище Дракона за 1999');
+    const it = Object.fromEntries(T.t7.items.map(([k, a, b]) => [k, [a, b]])), dRes = g.stashOf(su).res.wood - (kr.wood || 0), dRune = g.runesOf(su).str - ru0.str;
+    assert.ok(dRes >= it.res[0] && dRes <= it.res[1] && dRune >= it.runes[0] && dRune <= it.runes[1] && g.runesOf(su).path - ru0.path === dRune, `ресурсы ${dRes} и руны ${dRune} — в пределах`);
+    assert.ok(sc.artifacts.length >= it.art1[0] + it.art2[0] && sc.artifacts.length <= it.art1[1] + it.art2[1] && sc.artifacts.every((a) => a.rarity >= 1 && !a.active), 'артефакты в Сокровищнице: ' + sc.artifacts.length);
+    const dRep = su.reputation - rep0, dExp = (g.stashOf(su).exp || 0) - (k1.exp || 0), dRoyal = (g.stashOf(su).royal || 0) - (k1.royal || 0);
+    assert.ok(dRep >= it.rep[0] && dRep <= it.rep[1] && dExp >= it.exp[0] && dExp <= it.exp[1] && dRoyal >= it.royal[0] && dRoyal <= it.royal[1], 'репутация, опыт, лояльность — в пределах');
+    assert.ok(g.db.reports.slice(-1)[0].title === 'Сокровища: Сокровище Дракона', 'отчёт со списком находок');
+    assert.ok(/Не хватает/.test(g.shopTreasure(su, 't1').error || '') && su.gold === 1, 'мало монет');
+    su.gold = 49; sc.artifacts = Array.from({ length: g.bonus(sc).artStore }, (_, i) => ({ id: 9000 + i, type: 'atk', rarity: 0, active: false }));
+    const w0 = g.stashOf(su).res.wood, rf = g.shopTreasure(su, 't2');
+    assert.ok(rf.msg && sc.artifacts.length === g.bonus(sc).artStore && /осколки/.test(rf.lines.join(' ')) && g.stashOf(su).res.wood - w0 >= T.t2.items[0][1] + 300, 'Сокровищница полна — артефакт на осколки');
+    assert.ok(g.shopTreasure(su, 'nope').error && g.shopTreasure(su, '__proto__').error, 'нет такого сундука');
+    sc.artifacts = []; }
   // рамки аватара: купить навсегда, надеть, снять
   su.gold = 200;
   assert.ok(g.shopFrame(su, 'gold').msg && su.gold === 20 && su.frame === 'gold', 'золотая рамка (180) куплена и надета');
@@ -1021,13 +1043,21 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     sc.armies = [{ state: 'go', x: 1, y: 1 }]; assert.ok(/армии/.test(g.shopMove(su, sc, spot.x, spot.y).error || ''), 'армии в походе — нельзя'); sc.armies = [];
     busy.armies = [{ state: 'go', x: sc.x, y: sc.y }]; assert.ok(/чужая армия/.test(g.shopMove(su, sc, spot.x, spot.y).error || ''), 'к замку идёт армия — нельзя'); busy.armies = [];
     assert.ok(g.shopMove(su, sc, spot.x, spot.y).msg && sc.x === spot.x && sc.y === spot.y && su.gold === 100 && g.castleAt(spot.x, spot.y) === sc && !g.castleAt(old.x, old.y), 'переехал за 500');
-    assert.ok((su.goldLog || []).some((x) => /переезд/.test(x.reason)), 'переезд — в журнале золота'); }
+    assert.ok((su.goldLog || []).some((x) => /переезд/.test(x.reason)), 'переезд — в журнале золота');
+    // телепорт в провинцию (номер — как видит игрок) на случайное свободное место за 250
+    const { provNo, provinceOf, PROV_CAP } = require('../src/game'), here = provNo(provinceOf(sc.x, sc.y).n);
+    const inProv = (k) => [...g.byXY.values()].filter((c) => provNo(provinceOf(c.x, c.y).n) === k).length;
+    let to = 1; while (to === here || inProv(to) >= PROV_CAP) to++; // первая провинция от центра, где есть место
+    su.gold = 249; assert.ok(/Не хватает/.test(g.shopMoveProv(su, sc, to).error || ''), 'мало монет на телепорт');
+    su.gold = 300; assert.ok(g.shopMoveProv(su, sc, 0).error && g.shopMoveProv(su, sc, 99999).error && g.shopMoveProv(su, sc, 'x').error && su.gold === 300, 'нет такой провинции');
+    const mp = g.shopMoveProv(su, sc, to);
+    assert.ok(mp.msg && provNo(provinceOf(sc.x, sc.y).n) === to && su.gold === 50 && g.castleAt(sc.x, sc.y) === sc, `телепорт в провинцию №${to}: ${mp.msg}`); }
   // пока лавка не открыта для всех — только администратор
   delete process.env.SHOP_OPEN; assert.ok(!g.shopAllowed(su) && g.shopAllowed(g.adminUser()), 'лавка — только админу');
   process.env.SHOP_OPEN = '1'; assert.ok(g.shopAllowed(su), 'SHOP_OPEN=1 — всем'); delete process.env.SHOP_OPEN;
-  su.gold = 3; assert.ok(/Не хватает/.test(g.shopChest(su, 'chest_l', now + 86400000).error || ''), 'мало монет');
+  su.gold = 3; assert.ok(/Не хватает/.test(g.shopRes(su, sc, 'pack', 5, now + 3 * 86400000).error || ''), 'мало монет');
   assert.ok((su.goldLog || []).some((x) => /Лавка: достроить/.test(x.reason)), 'покупки — в журнале золота');
-  console.log('✓ Лавка Короля: −1 час, достроить сейчас, сундуки в Кладовую (5 в сутки), рамки аватара, переезд замка за 500, пока только админу');
+  console.log('✓ Лавка Короля: −1 час, достроить сейчас, ресурсы S…XXXL и пакеты (2 в сутки, замок + Кладовая), Сокровища (от … до …, артефакты, осколки), рамки, телепорт по координатам (500) и в провинцию (250), пока только админу');
 }
 { // копия базы в Telegram (tgbackup.js): шифрование, расписание; сеть не трогаем
   const TB = require('../src/tgbackup'), zlib = require('zlib');
