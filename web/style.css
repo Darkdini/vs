@@ -1290,6 +1290,11 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .tslider::-moz-range-track { background: transparent; }
 .tslider:disabled { filter: grayscale(.7); }
 .tbtn { font: 400 min(26px, 6vw) var(--serif) !important; }
+/* Лазарет: «Сколько хватит» и «Вылечить» рядом; подсказка, на скольких хватит ресурсов */
+.hbtns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.hbtns .pbar { width: auto; margin: 0; font-size: min(21px, 5vw) !important; }
+.hbtns .pbar:disabled { filter: grayscale(.7); opacity: .7; }
+.hnote { margin: 8px 0 0; color: #8a1a0a; font: min(18px, 4.4vw) var(--serif); }
 
 /* Кузница / Школа магии — как в оригинале */
 .uphead { text-align: center; font: 400 min(26px, 6vw) var(--serif); color: #2a1408; border-bottom: 1px solid #b08a5a66; padding: 6px 0 4px; margin-top: 6px; }

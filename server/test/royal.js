@@ -526,6 +526,14 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   g.tickTraining(ca, ca.healing[0].start + ca.healing[0].each * 40 + 1000);
   assert.ok((ca.units[247] || 0) === cu0 + 40 && !ca.healing.length, 'вылеченные вернулись в Замковую армию');
   assert.ok(/Раненых нет/.test(g.healWounded(ca, { 999: 5 }).error || ''), 'лечить можно только раненых');
+  // выбрать количество: «Сколько хватит» — на сколько хватает ресурсов; не хватает — подсказка «хватит на N»
+  { const left = ca.wounded[247], one = g.healOneOf(ca, 247), w1 = Math.round(one.wood * 7);
+    Object.assign(ca.res, { wood: w1, stone: 1e6, iron: 1e6, food: 1e6 }); ca.healing = [];
+    assert.ok(left > 7 && g.healAfford(ca, 247) === 7, `дерева — ровно на 7 (${g.healAfford(ca, 247)})`);
+    const r9 = g.healWounded(ca, { 247: 9 }); assert.ok(/хватит на 7/.test(r9.error || '') && ca.wounded[247] === left, r9.error || 'не хватает — подсказка, никого не лечим');
+    const r7 = g.healWounded(ca, { 247: 7 }); assert.ok(r7.ok && ca.wounded[247] === left - 7 && ca.res.wood < one.wood, r7.error); // дерево ушло (за время теста чуть прибавилось — меньше цены одного)
+    assert.ok(g.healAfford(ca, 247) === 0 && /даже на одного/.test(g.healWounded(ca, { 247: 1 }).error || ''), 'ресурсов нет — даже на одного');
+    ca.healing = []; Object.assign(ca.res, { wood: 1e6, stone: 1e6, iron: 1e6, food: 1e6 }); }
   // места кончились — остальные павшие погибают насовсем
   ca.levels[0][k] = 1; ca.wounded = { 247: 100 };
   const full = fight({ 247: 100 }, { 247: 300 }); assert.ok(full.calc.wounded === 0 && ca.wounded[247] === 100, 'Лазарет полон — новых раненых нет');

@@ -487,6 +487,15 @@ function install(Game, helpers) {
   };
   // лечение одного воина: цена и время — HEAL_K от тренировки (наука и Алхимия ускоряют так же)
   P.healCostOf = function healCostOf(castle, id, n) { const u = raceUnit(UNIT[id], this.raceOf(castle)); return Object.fromEntries(RES4.map((r) => [r, Math.round((u.cost[r] || 0) * n * HEAL_K)])); };
+  // цена лечения одного раненого без округления: клиент считает цену любого количества так же, как healCostOf
+  P.healOneOf = function healOneOf(castle, id) { const u = raceUnit(UNIT[id], this.raceOf(castle)); return Object.fromEntries(RES4.map((r) => [r, (u.cost[r] || 0) * HEAL_K])); };
+  // скольких раненых этого вида хватит ресурсов вылечить сейчас
+  P.healAfford = function healAfford(castle, id) {
+    const fits = (n) => { const c = this.healCostOf(castle, id, n); return RES4.every((r) => castle.res[r] >= c[r]); };
+    let lo = 0, hi = (castle.wounded || {})[id] || 0;
+    while (lo < hi) { const mid = Math.ceil((lo + hi) / 2); if (fits(mid)) lo = mid; else hi = mid - 1; }
+    return lo;
+  };
   P.healSecOf = function healSecOf(castle, id) { return Math.max(1, Math.round(this.trainTime(castle, raceUnit(UNIT[id], this.raceOf(castle))) * HEAL_K)); };
   // вылечить: pick { id: n } или всех (pick пустой); очередь лечения — своя, Казармы не заняты, дневной лимит тренировки не тратится
   P.healWounded = function healWounded(castle, pick) {
@@ -497,7 +506,11 @@ function install(Game, helpers) {
     if (!list.length) return { error: 'Раненых нет.' };
     const cost = { wood: 0, stone: 0, iron: 0, food: 0 };
     for (const [id, n] of list) { const c = this.healCostOf(castle, id, n); for (const r of RES4) cost[r] += c[r]; }
-    for (const r of RES4) if (castle.res[r] < cost[r]) return { error: 'Недостаточно ресурсов.' };
+    if (RES4.some((r) => castle.res[r] < cost[r])) { // одного вида — подсказать, на скольких хватит
+      if (list.length > 1) return { error: 'Недостаточно ресурсов.' };
+      const a = this.healAfford(castle, list[0][0]);
+      return { error: a ? `Недостаточно ресурсов — хватит на ${a}.` : 'Недостаточно ресурсов даже на одного раненого.' };
+    }
     for (const r of RES4) castle.res[r] -= cost[r];
     const now = Date.now(); castle.healing = castle.healing || [];
     let start = castle.healing.reduce((m, t) => Math.max(m, t.start + t.each * t.count), now);
@@ -2118,7 +2131,7 @@ function install(Game, helpers) {
         stayName: a.state === 'stay' && this.db.castles[a.stayAt] ? this.db.castles[a.stayAt].name : null })),
       squads: castle.squads, merchants: this.merchants(castle),
       infirm: this.buildingLevel(castle, B.INFIRMARY) ? { cap: this.infirmCap(castle), used: this.infirmUsed(castle), // Лазарет: раненые, цена и время лечения одного, очередь
-        wounded: Object.entries(castle.wounded || {}).filter(([, n]) => n > 0).map(([id, n]) => ({ id: Number(id), n, cost: this.healCostOf(castle, id, n), sec: this.healSecOf(castle, id) })), // cost — за всех n, ровно столько спишет healWounded
+        wounded: Object.entries(castle.wounded || {}).filter(([, n]) => n > 0).map(([id, n]) => ({ id: Number(id), n, cost: this.healCostOf(castle, id, n), one: this.healOneOf(castle, id), sec: this.healSecOf(castle, id) })), // cost — за всех n, ровно столько спишет healWounded; one — цена одного без округления
         healing: (castle.healing || []).map((t) => ({ unit: t.unit, count: t.count, done: t.done, each: t.each, start: t.start })) } : null,
       guests: this.guestsOf(castle).map((g) => ({ id: g.a.id, from: this.ownerOf(g.c).login, castle: g.c.name, units: g.a.units })),
       incoming: this.incoming(castle), sciences: castle.sciences, sciCapital: this.isCapital(castle), research: castle.research, religion: castle.religion,

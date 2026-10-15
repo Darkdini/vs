@@ -85,13 +85,30 @@ function milEffect(def, L) {
 }
 
 // ---------- Лазарет (здание 41): раненые воины и лечение — за полцены и половину времени тренировки (server: army.js healWounded) ----------
+// Лазарет: цена лечения n раненых — как на сервере (healCostOf): цена одного без округления × n, округлить
+S.healN = {}; // сколько выбрано по видам (окно перерисовывается — число не теряется)
+const healCost = (w, n) => Object.fromEntries(RES4.map((r) => [r, Math.round(((w.one || {})[r] || 0) * n)]));
+// скольких хватит ресурсов вылечить сейчас (ресурсы — с приростом, resNow)
+function healMax(w) {
+  const fits = (n) => { const c = healCost(w, n); return RES4.every((r) => resNow(r) >= c[r]); };
+  let lo = 0, hi = w.n;
+  while (lo < hi) { const m = Math.ceil((lo + hi) / 2); if (fits(m)) lo = m; else hi = m - 1; }
+  return lo;
+}
+const healCostRow = (w, n) => { const k = Math.max(1, n), c = healCost(w, k); return `${RES4.map((r) => `<span data-need="${r}:${c[r]}">${RES_IC[r]}<b>${fmtFull(c[r])}</b></span>`).join('')}<span>${TIME_IC}<b>${fmtT(w.sec * k)}</b></span>`; };
 function infirmaryHtml() {
   const I = MY().infirm; if (!I) return '';
   const cost = (c) => RES4.map((r) => `<span data-need="${r}:${c[r]}">${RES_IC[r]}<b>${fmtFull(c[r])}</b></span>`).join(''); // w.cost — уже за всех раненых этого вида (как спишет сервер)
   const all = I.wounded.reduce((q, w) => q + w.n, 0), allCost = Object.fromEntries(RES4.map((r) => [r, I.wounded.reduce((q, w) => q + w.cost[r], 0)]));
-  const rows = I.wounded.map((w) => { const u = unitById(w.id); return u ? `<div class="tcard"><div class="tname">${esc(u.name)} — раненых: ${fmtFull(w.n)}</div>${uimg(u, 'timg')}
-    <div class="tcost"><div class="tcost-h">Вылечить всех ${fmtFull(w.n)}:</div><div class="tcost-r">${cost(w.cost)}<span>${TIME_IC}<b>${fmtT(w.sec * w.n)}</b></span></div></div>
-    <button class="pbar tbtn" data-heal="${w.id}">Вылечить</button></div>` : ''; }).join('');
+  // по видам, как «Постройка юнитов»: количество (не больше, чем хватит ресурсов), ползунок, цена за выбранное, «Сколько хватит» и «Вылечить»
+  const rows = I.wounded.map((w) => { const u = unitById(w.id); if (!u) return '';
+    const max = healMax(w), n = Math.min(S.healN[w.id] || 0, max);
+    return `<div class="tcard"><div class="tname">${esc(u.name)} — раненых: ${fmtFull(w.n)}</div>${uimg(u, 'timg')}
+    <div class="tcost"><div class="tcost-h" data-hhead="${w.id}">${n ? `Лечение ${fmtFull(n)}:` : 'Лечение одного:'}</div><div class="tcost-r" data-hcost="${w.id}">${healCostRow(w, n)}</div></div>
+    <div class="tqty">Количество: <input type="number" inputmode="numeric" min="0" max="${max}" value="${n}" data-hcnt="${w.id}"> /${fmtFull(max)}</div>
+    <input type="range" class="tslider" min="0" max="${Math.max(1, max)}" value="${n}" data-hrange="${w.id}" style="--p:${max ? n / max * 100 : 0}%" ${max ? '' : 'disabled'}>
+    <div class="hbtns"><button class="pbar" data-hmax="${w.id}" ${max ? '' : 'disabled'}>Сколько хватит</button><button class="pbar tbtn" data-heal="${w.id}" ${max ? '' : 'disabled'}>Вылечить</button></div>
+    ${max < w.n ? `<p class="hnote">${max ? `Ресурсов хватит на ${fmtFull(max)} из ${fmtFull(w.n)}.` : 'Ресурсов не хватает даже на одного.'}</p>` : ''}</div>`; }).join('');
   const jobs = I.healing.map((t) => { const u = unitById(t.unit); return u ? `<div class="upjob"><img src="${unitSrc(u)}" alt=""> ${esc(u.name)} ${t.done}/${t.count}<br>Осталось <img class="ri" src="${GFX}res/time.png" alt=""> <span class="cd" data-e="${t.start + t.each * t.count}"></span></div>` : ''; }).join('');
   return `${ribbon('Раненые')}<p class="coinhint">Мест: <b>${fmtFull(I.used)} из ${fmtFull(I.cap)}</b>. Сюда попадают Ваши воины, павшие в нападениях и набегах из этого замка и при его обороне.
       Лечение — за полцены и половину времени тренировки; вылеченные возвращаются в Замковую армию.</p>
@@ -100,9 +117,24 @@ function infirmaryHtml() {
       <button class="pbar" data-heal="all">Вылечить всех</button>` : ''}` : '<p class="parch-note">Раненых нет.</p>'}`;
 }
 $('#sheetBody').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-heal]'); if (!b) return;
-  const id = b.dataset.heal, w = ((MY().infirm || {}).wounded || []).find((x) => String(x.id) === id);
-  send({ t: 'heal', units: id === 'all' ? null : { [id]: w ? w.n : 0 } });
+  const b = e.target.closest('[data-heal],[data-hmax]'); if (!b) return;
+  const id = b.dataset.heal || b.dataset.hmax, w = ((MY().infirm || {}).wounded || []).find((x) => String(x.id) === id);
+  if (b.dataset.hmax) { if (w) { S.healN[id] = healMax(w); refreshSheet(); } return; } // «Сколько хватит»: на сколько хватит ресурсов
+  if (id === 'all') return send({ t: 'heal', units: null }); // «Вылечить всех»
+  const n = Math.floor(S.healN[id] || 0);
+  if (!(n > 0)) return toast('Выберите количество или нажмите «Сколько хватит».', 'err');
+  S.healN[id] = 0; send({ t: 'heal', units: { [id]: n } });
+});
+// Лазарет: поле «Количество» и ползунок связаны; цена и время — за выбранное число
+$('#sheetBody').addEventListener('input', (e) => {
+  const d = e.target.dataset, id = d.hcnt || d.hrange; if (!id) return;
+  const w = ((MY().infirm || {}).wounded || []).find((x) => String(x.id) === id); if (!w) return;
+  const max = healMax(w), n = Math.max(0, Math.min(max, Math.floor(Number(e.target.value)) || 0)); S.healN[id] = n;
+  const r = $(`[data-hrange="${id}"]`), i = $(`[data-hcnt="${id}"]`), h = $(`[data-hhead="${id}"]`), c = $(`[data-hcost="${id}"]`);
+  if (r) { if (d.hcnt) r.value = n; r.style.setProperty('--p', `${max ? n / max * 100 : 0}%`); }
+  if (i && d.hrange) i.value = n;
+  if (h) h.textContent = n ? `Лечение ${fmtFull(n)}:` : 'Лечение одного:';
+  if (c) c.innerHTML = healCostRow(w, n);
 });
 
 // ---------- функции здания (в шторке здания, ниже улучшения) ----------
