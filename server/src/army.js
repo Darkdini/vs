@@ -2164,28 +2164,35 @@ function install(Game, helpers) {
     if (r.kind === 'scout' || /напал|захвачен/.test(r.title)) return 'lose';
     return 'info';
   };
+  // удалить отчёты: ids — номера или 'read' (все прочитанные); пересланные в личку копии (fwd) живут при письме — их тут не удалить
   P.reportDelete = function reportDelete(user, ids) {
-    const set = new Set((ids || []).map(Number));
+    const read = ids === 'read', set = new Set(read ? [] : [].concat(ids || []).map(Number));
     const before = (this.db.reports || []).length;
-    this.db.reports = (this.db.reports || []).filter((r) => !(r.owner === user.id && (ids === 'read' ? r.read : set.has(r.id))));
+    this.db.reports = (this.db.reports || []).filter((r) => !(r.owner === user.id && !r.fwd && (read ? r.read : set.has(r.id))));
     this.store.save();
     return { n: before - this.db.reports.length };
   };
-  // переслать отчёт другому игроку — копия с пометкой отправителя
+  // переслать отчёт другому игроку — как в оригинале, в личные сообщения: письмо «Вам прислали отчёт» с кнопкой-названием.
+  // Копия отчёта (fwd) — у получателя; в списке «Отчёты» её нет, открывается из переписки (получателем и отправителем)
   P.reportForward = function reportForward(user, id, login) {
     const r = (this.db.reports || []).find((y) => y.id === Number(id) && this.canSeeReport(user, y));
     if (!r) return { error: 'Отчёт не найден.' };
-    const to = Object.prototype.hasOwnProperty.call(this.db.users, String(login || '').trim()) ? this.db.users[String(login || '').trim()] : null;
-    if (!to) return { error: 'Игрок не найден.' };
+    const k = String(login || '').trim(), byKey = Object.prototype.hasOwnProperty.call(this.db.users, k) ? this.db.users[k] : null;
+    const to = byKey || (k ? Object.values(this.db.users).find((x) => x.login.toLowerCase() === k.toLowerCase()) : null);
+    if (!to || to.bot) return { error: 'Игрок не найден.' };
     if (to.id === user.id) return { error: 'Нельзя переслать самому себе.' };
+    const deny = this.canReach ? this.canReach(user, to, 'msg') : null; if (deny) return { error: deny }; // чёрный список — как для писем
     const lim = this.tooOften(user, 'repfwd'); if (lim) return { error: lim }; // не чаще раза в 3 с и 50 в сутки
-    this.db.reports.push({ ...JSON.parse(JSON.stringify(r)), id: this.db.nextId++, owner: to.id, at: Date.now(), read: false, from: user.login, title: `${r.title} (от ${user.login})` });
+    const copy = { ...JSON.parse(JSON.stringify(r)), id: this.db.nextId++, owner: to.id, at: Date.now(), read: true, from: user.login, fromId: user.id, fwd: true };
+    this.db.reports.push(copy);
     if (this.db.reports.length > 2000) this.db.reports.splice(0, this.db.reports.length - 2000); // как у обычных отчётов: пересылкой база больше не растёт без конца
-    this.event(to.id, `${user.login} переслал вам отчёт`);
+    const sent = this.sendMail(user, to.login, 'Отчёт', `📜 Отчёт: ${r.title}`); // текст — для списка диалогов и Telegram
+    if (sent.error) { this.db.reports = this.db.reports.filter((x) => x !== copy); return sent; }
+    sent.message.rep = copy.id; sent.message.repTitle = r.title;
     this.store.save();
-    return { msg: `Отчёт переслан игроку ${to.login}.` };
+    return { msg: `Отчёт переслан игроку ${to.login} — он придёт ему в личные сообщения.`, to };
   };
-  P.reportsOf = function reportsOf(userId) { return (this.db.reports || []).filter((r) => r.owner === userId).slice(-50).reverse(); };
+  P.reportsOf = function reportsOf(userId) { return (this.db.reports || []).filter((r) => r.owner === userId && !r.fwd).slice(-50).reverse(); };
 
   void buildTime;
 }

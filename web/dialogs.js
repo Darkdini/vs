@@ -31,11 +31,13 @@ function dialogWin() {
   if (d.msgs.some((m) => m.pic) && !S.dlg.picTimer) S.dlg.picTimer = setTimeout(() => { S.dlg.picTimer = null; if (S.sheets[S.sheets.length - 1] === dialogWin) refreshSheet(); }, 20000); // отсчёт «исчезнет через…»
   const picHtml = (m) => (m.pic ? `<button class="dpic" data-dlgview="pic/${m.pic}.png" data-exp="${m.picExp}"><img src="pic/${m.pic}.png" alt="Фото"></button><small class="dpict">⏳ исчезнет через ${picLeft(m.picExp)}</small>`
     : '<span class="dpicgone">📷 Фото удалено (фото хранятся 3 часа)</span>');
+  // пересланный отчёт, как в оригинале: «Вам прислали ✉ Отчёт» и кнопка с его названием — открывает окно отчёта
+  const repHtml = (m) => `<span class="drepw">${m.mine ? 'Вы переслали' : 'Вам прислали'} <img class="drepic" src="gfx3d/rep/envnew.svg" alt=""> Отчёт<button class="pbtn drepb" data-report="${Number(m.rep)}">${esc(m.repTitle || 'Открыть отчёт')}</button></span>`;
   for (const m of d.msgs) {
     const dd = new Date(m.at).toLocaleDateString('ru-RU');
     if (dd !== day) { day = dd; body += `<div class="ribbon ddate">${dd}</div>`; }
     body += `<div class="dmsg ${m.mine ? 'mine' : ''}"><div class="dwho"><img src="gfx3d/prof/king.png" alt=""><b>${esc(m.mine ? me : w.login)}</b></div>
-      <div class="dline"><small>${new Date(m.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</small>${m.pic || m.picGone ? `<span class="dpicw">${picHtml(m)}</span>` : `<span${/^#[0-9a-f]{6}$/i.test(m.color || '') ? ` style="color:${m.color}"` : ''}>${m.subject && !/^Re:/.test(m.subject) && m.subject !== 'Сообщение' ? `<b>${esc(m.subject)}</b><br>` : ''}${smiles(esc(m.text))}</span>`}</div></div>`;
+      <div class="dline"><small>${new Date(m.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</small>${m.rep ? repHtml(m) : m.pic || m.picGone ? `<span class="dpicw">${picHtml(m)}</span>` : `<span${/^#[0-9a-f]{6}$/i.test(m.color || '') ? ` style="color:${m.color}"` : ''}>${m.subject && !/^Re:/.test(m.subject) && m.subject !== 'Сообщение' ? `<b>${esc(m.subject)}</b><br>` : ''}${smiles(esc(m.text))}</span>`}</div></div>`;
   }
   return `${ribbon('Диалог')}
     ${d.hasMore ? '<button class="pbar" data-dlgmore>Показать раньше</button>' : ''}

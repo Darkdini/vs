@@ -326,7 +326,7 @@ function reportHtml(r) {
   const bar = (icon, text) => `<div class="rbar"><img src="${REPG}${icon}.png" alt=""> ${text}</div>`;
   const head = `${ribbon('Отчет')}<div class="rp">От: ${esc(r.from || 'Советник')}<br>Тема: <b>${esc(r.title)}</b><br>${repDate(r.at)}</div><hr class="rhr">`;
   const foot = `<hr class="rhr"><div class="rtiles"><button class="rtile" data-repfwd="${r.id}"><img src="${REPG}fwd.png" alt="Переслать"></button>
-    ${r.owner === S.st.user.id ? `<button class="rtile" data-repdel="${r.id}"><img src="${REPG}del.png" alt="Удалить"></button>` : ''}</div>`;
+    ${r.owner === S.st.user.id && !r.fwd ? `<button class="rtile" data-repdel="${r.id}"><img src="${REPG}del.png" alt="Удалить"></button>` : ''}</div>`; // пересланный (fwd) живёт при письме
   const sideBlock = (s, rating, x, y, lossLine) => `<div class="rp">Игрок: ${plink(s.id, s.login)}<br>Замок: ${x !== '-' && x != null ? `<button class="rlink" data-goworld="${x},${y}">${esc(s.castle || '')}</button>` : esc(s.castle || '')}<br>(Рейтинг: ${rating ?? '-'}, X: ${x}, Y: ${y})${lossLine ? `<br>${lossLine}` : ''}</div>`;
   if (d.type === 'invite') { // приглашение в альянс: вступить прямо из отчёта
     const a = d.ally || {}, live = (MY().invites || []).find((x) => x.id === a.id), inAl = MY().alliance;

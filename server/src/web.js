@@ -598,7 +598,8 @@ const API = {
     if (changed) { this.game.store.save(); this.pushState(); }
     const lim = Math.min(all.length, Math.max(30, Math.floor(Number(m.more)) || 30));
     this.send({ t: 'dialog', with: { id: o.id, login: o.login, race: o.race, avatar: o.avatar || 0, frame: o.frame || '' }, more: all.length > lim,
-      list: all.slice(-lim).map((x) => ({ id: x.id, mine: x.from === me, subject: x.subject, text: x.text, at: x.at, color: x.color || '', ...(x.pic && this.game.picGet(x.pic) ? { pic: x.pic, picExp: x.picExp } : x.pic || x.picGone ? { picGone: true } : {}) })), keep: !!m.keep });
+      list: all.slice(-lim).map((x) => ({ id: x.id, mine: x.from === me, subject: x.subject, text: x.text, at: x.at, color: x.color || '', ...(x.pic && this.game.picGet(x.pic) ? { pic: x.pic, picExp: x.picExp } : x.pic || x.picGone ? { picGone: true } : {}),
+        ...(x.rep ? { rep: x.rep, repTitle: x.repTitle || '' } : {}) })), keep: !!m.keep }); // rep — пересланный отчёт: «Вам прислали отчёт» и кнопка-название
   },
   read(m) {
     const x = (this.game.db.messages || []).find((y) => y.id === Number(m.id) && (y.to === this.user.id || y.from === this.user.id));
@@ -706,7 +707,10 @@ const API = {
   },
   reports() { this.send({ t: 'reports', list: this.game.reportsOf(this.user.id).map((x) => ({ id: x.id, at: x.at, kind: x.kind, title: x.title, read: x.read, tone: this.game.reportTone(x), from: x.from })) }); },
   repdel(m) { const r = this.game.reportDelete(this.user, m.ids === 'read' ? 'read' : [].concat(m.ids || [])); this.toast(r.n ? `Удалено отчётов: ${r.n}` : 'Нечего удалять.'); API.reports.call(this); this.pushState(); },
-  repfwd(m) { const r = this.game.reportForward(this.user, m.id, m.to); if (r.error) return this.error(r.error); this.toast(r.msg); },
+  repfwd(m) { // пересланный отчёт приходит письмом: получателю — как новое письмо (открыта переписка — обновится сразу)
+    const r = this.game.reportForward(this.user, m.id, m.to); if (r.error) return this.error(r.error); this.toast(r.msg);
+    for (const s of WebSession.all || []) if (s.user && s.user.id === r.to.id) { if (s.dialogWith === this.user.id) API.dialog.call(s, { id: this.user.id, keep: 1 }); else { s.toast(`${this.user.login} переслал(а) вам отчёт — он в личных сообщениях.`); s.pushState(); } }
+  },
   report(m) {
     const x = (this.game.db.reports || []).find((y) => y.id === Number(m.id) && this.game.canSeeReport(this.user, y));
     if (!x) return this.error('Отчёт не найден.');

@@ -221,20 +221,30 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(us.every((u) => u.reputation > 10), 'репутация начислена');
   console.log(`✓ Зал Славы: бонус репутации за места — Грабежи 80/40/20, репутация ${us.map((u) => u.reputation).join('/')}`);
 }
-// отчёты: цвет в списке, пересылка другому игроку, удаление своих
+// отчёты: цвет в списке, пересылка в личные сообщения, удаление своих (и «Удалить прочитанные»)
 {
   const [a, b] = ['rp1', 'rp2'].map((l) => g.register({ login: `${l}_acc`, nick: l, password: '12345', race: 0 }).user);
   g.report(a.id, 'Нападение: победа', ['x'], 'battle', { type: 'battle', side: 'att', win: true });
   g.report(a.id, 'Разведка — провал', ['x'], 'scout', { type: 'scout', ok: false });
   const [r1, r2] = g.reportsOf(a.id).reverse();
   assert.deepStrictEqual([g.reportTone(r1), g.reportTone(r2)], ['win', 'lose']);
-  assert.ok(g.reportForward(a, r1.id, 'rp2').msg, 'переслан');
-  assert.ok(g.reportForward(a, r1.id, 'nobody').error && g.reportForward(b, r1.id, 'rp1').error, 'чужой отчёт/несуществующий игрок');
-  const fw = g.reportsOf(b.id)[0];
-  assert.ok(fw.from === 'rp1' && fw.owner === b.id);
+  const unreadB = () => g.db.reports.filter((r) => r.owner === b.id && !r.read).length, u0 = unreadB();
+  g.blackAdd(b, a.id); assert.ok(/ограничил/.test(g.reportForward(a, r1.id, 'rp2').error || ''), 'в чёрном списке — переслать нельзя, как и письмо'); g.blackDel(b, a.id);
+  assert.ok(g.reportForward(a, r1.id, 'RP2').msg, 'переслан (ник — без учёта больших букв)');
+  assert.ok(g.reportForward(a, r1.id, 'nobody').error && g.reportForward(b, r1.id, 'rp1').error && g.reportForward(a, r1.id, 'rp1').error, 'несуществующий игрок / чужой отчёт / самому себе');
+  // как в оригинале: в личных сообщениях — «Вам прислали отчёт» с кнопкой-названием; в «Отчётах» получателя его нет, открыть могут оба
+  const mail = g.db.messages.filter((x) => x.from === a.id && x.to === b.id && x.rep).pop(), fw = mail && g.db.reports.find((x) => x.id === mail.rep);
+  assert.ok(mail && mail.repTitle === r1.title && !mail.read && fw, 'письмо с пересланным отчётом');
+  assert.ok(fw.fwd && fw.owner === b.id && fw.from === 'rp1' && !g.reportsOf(b.id).some((x) => x.id === fw.id) && unreadB() === u0, 'в «Отчётах» получателя копии нет, непрочитанных не прибавилось');
+  assert.ok(g.canSeeReport(b, fw) && g.canSeeReport(a, fw), 'отчёт из письма открывают получатель и отправитель');
   assert.strictEqual(g.reportDelete(b, [r1.id]).n, 0, 'чужой отчёт не удалить');
-  assert.strictEqual(g.reportDelete(a, [r1.id, r2.id]).n, 2);
-  console.log('✓ отчёты: зелёный/красный в списке, «Переслать» игроку, «Удалить» только свои');
+  assert.ok(g.reportDelete(b, 'read').n === 0 && g.reportDelete(b, [fw.id]).n === 0, 'пересланный в личку не удаляется из «Отчётов»');
+  r1.read = true; // «Удалить прочитанные» (была «Ошибка сервера»): уходят только прочитанные свои
+  assert.strictEqual(g.reportDelete(a, 'read').n, 1, '«Удалить прочитанные» работает');
+  assert.ok(!g.reportsOf(a.id).some((x) => x.id === r1.id) && g.reportsOf(a.id).some((x) => x.id === r2.id), 'непрочитанный остался');
+  assert.strictEqual(g.reportDelete(a, [r2.id]).n, 1);
+  assert.ok(g.canSeeReport(b, fw), 'отправитель удалил свой отчёт — в письме у получателя он остался');
+  console.log('✓ отчёты: зелёный/красный в списке, «Переслать» — в личные сообщения (кнопка-отчёт), «Удалить» и «Удалить прочитанные» — только свои');
 }
 // общий форум: темы создают только модераторы, отвечают все; закрытие, запрет, модератор раздела
 {

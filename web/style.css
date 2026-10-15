@@ -1115,6 +1115,8 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .dline small { color: #6a5a48; }
 .dline span { color: #d0120c; white-space: pre-wrap; overflow-wrap: anywhere; }
 .dmsg.mine .dline span { color: #2a1408; }
+.dline .drepw { white-space: normal; } .drepic { height: 1em; vertical-align: -.12em; } /* пересланный отчёт: «Вам прислали ✉ Отчёт» и кнопка-название */
+.drepb { display: block; margin: 6px auto 2px; max-width: 100%; font-size: min(20px, 4.8vw); line-height: 1.25; white-space: normal; text-align: center; }
 .dmsg.mine .dwho img { filter: hue-rotate(160deg) saturate(.7); }
 .dform { display: flex; gap: 8px; align-items: center; margin: 10px 0 6px; }
 .dform input { flex: 1; min-width: 0; height: 52px; border: 3px solid #d8a850; border-radius: 8px; background: #6e7a58; color: #fff4c0; font: min(22px, 5.2vw) var(--serif); padding: 0 10px; }

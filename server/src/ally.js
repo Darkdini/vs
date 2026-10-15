@@ -95,6 +95,7 @@ function install(Game) {
   // может ли игрок открыть чужой отчёт из военных логов своего альянса (право «Логи»)
   P.canSeeReport = function canSeeReport(user, r) {
     if (r.owner === user.id) return true;
+    if (r.fwd) return r.fromId === user.id; // пересланный в личку отчёт — получателю и тому, кто переслал (открывается из переписки)
     const al = this.allianceOf(user);
     return !!(al && al.members.includes(r.owner) && ['battle', 'scout', 'reinforce'].includes(r.kind) && this.allyCan(al, user.id, 'logs'));
   };
@@ -106,7 +107,7 @@ function install(Game) {
         rights: id === al.leader ? Object.keys(RIGHTS) : ((al.ranks || {})[id] || {}).rights || [] }; }).filter(Boolean).sort((a, b) => b.score - a.score);
     const A = this.db.alliances || {};
     // военные логи: каждое военное действие участников — нападение, оборона, разведка (своя и вражеская), подкрепления
-    const reports = can('logs') ? (this.db.reports || []).filter((r) => al.members.includes(r.owner) && ['battle', 'scout', 'reinforce'].includes(r.kind)).slice(-200).reverse()
+    const reports = can('logs') ? (this.db.reports || []).filter((r) => !r.fwd && al.members.includes(r.owner) && ['battle', 'scout', 'reinforce'].includes(r.kind)).slice(-200).reverse()
       .map((r) => ({ id: r.id, login: (this.userById(r.owner) || {}).login, title: r.title, at: r.at, cat: this.warCat(r), line: (r.lines || [])[0] || '' })) : [];
     return {
       id: al.id, tag: al.tag, name: al.name, desc: al.desc || '', charter: al.charter || '', ad: al.ad || '', created: al.created,
