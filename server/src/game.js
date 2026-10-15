@@ -772,7 +772,52 @@ class Game {
 
   mailList(userId, folder) {
     const all = this.db.messages || [];
-    return all.filter((m) => (folder === 1 ? m.from === userId : m.to === userId)).slice(-30).reverse();
+    return all.filter((m) => (folder === 1 ? m.from === userId : m.to === userId) && this.msgSees(m, userId)).slice(-30).reverse();
+  }
+  // видит ли игрок письмо: участник переписки и не удалил его у себя (удаление — только у себя, у собеседника письмо остаётся,
+  // чтобы нельзя было спрятать оскорбления от модераторов; удалённое обоими — стирается совсем)
+  msgSees(m, uid) { return (m.from === uid && !m.delFrom) || (m.to === uid && !m.delTo); }
+  // «Изменить» → «Удалить отмеченное» (ids) или «Удалить разговор» (withId — собеседник): только у себя
+  msgDelete(user, ids, withId) {
+    const me = user.id, set = new Set([].concat(ids || []).map(Number)), other = withId !== undefined && withId !== null ? Number(withId) : null;
+    let n = 0;
+    for (const m of this.db.messages || []) {
+      if (!this.msgSees(m, me)) continue;
+      if (other !== null ? (m.from === me ? m.to : m.from) !== other : !set.has(m.id)) continue;
+      if (m.from === me) m.delFrom = true;
+      if (m.to === me) { m.delTo = true; m.read = true; } // удалённое непрочитанным не висит
+      n++;
+    }
+    if (n) { this.db.messages = this.db.messages.filter((m) => !(m.delFrom && m.delTo)); this.store.save(); }
+    return { ok: true, n };
+  }
+  // «Переслать» сообщение другому игроку — с пометкой, от кого оно; фото — той же картинкой (пока не истекла), отчёт — снова отчётом
+  msgForward(user, id, toLogin) {
+    const m = (this.db.messages || []).find((x) => x.id === Number(id) && this.msgSees(x, user.id));
+    if (!m) return { error: 'Сообщение не найдено.' };
+    if (m.rep) return this.reportForward(user, m.rep, toLogin);
+    const k = String(toLogin || '').trim(), byKey = Object.prototype.hasOwnProperty.call(this.db.users, k) ? this.db.users[k] : null;
+    const to = byKey || (k ? Object.values(this.db.users).find((x) => x.login.toLowerCase() === k.toLowerCase()) : null);
+    if (!to || to.bot) return { error: 'Игрок не найден.' };
+    if (to.id === user.id) return { error: 'Себе переслать нельзя.' };
+    const deny = this.canReach ? this.canReach(user, to, 'msg') : null; if (deny) return { error: deny }; // чёрный список — как для писем
+    const pic = m.pic && this.picGet && this.picGet(m.pic) ? m.pic : null;
+    if ((m.pic || m.picGone) && !pic) return { error: 'Фото уже удалено (фото хранятся 3 часа) — переслать нельзя.' };
+    const lim = this.tooOften ? this.tooOften(user, 'mail') : null; if (lim) return { error: lim }; // не чаще раза в секунду, как письма
+    const r = this.sendMail(user, to.login, 'Переслано', pic ? '[фото]' : m.text);
+    if (r.error) return r;
+    r.message.fwd = (this.userById(m.from) || { login: '?' }).login;
+    if (pic) { r.message.pic = pic; r.message.picExp = m.picExp; }
+    this.store.save();
+    return { ok: true, msg: `Сообщение переслано игроку ${to.login}.`, to };
+  }
+  // «История» переписки с игроком: по 20 сообщений на страницу, по умолчанию — последняя (новые)
+  dialogHistory(user, otherId, page, per = 20) {
+    const o = this.userById(Number(otherId)); if (!o) return { error: 'Игрок не найден.' };
+    const all = (this.db.messages || []).filter((x) => ((x.from === user.id && x.to === o.id) || (x.from === o.id && x.to === user.id)) && this.msgSees(x, user.id));
+    const pages = Math.max(1, Math.ceil(all.length / per));
+    let p = Math.floor(Number(page)); if (!Number.isFinite(p) || p < 0 || p >= pages) p = pages - 1;
+    return { with: { id: o.id, login: o.login, race: o.race, avatar: o.avatar || 0 }, page: p, pages, total: all.length, list: all.slice(p * per, p * per + per) };
   }
 }
 

@@ -1326,6 +1326,30 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     const r = g.adminOp(adm, 'goldall', { n: 5, why: 'Праздник' }); assert.ok(!r.error && pl.gold === g0 + 5 && (adm.gold || 0) === a0 && pl.goldLog.some((x) => /Праздник/.test(x.reason || x.why || JSON.stringify(x))), r.msg);
     console.log('✓ Золото всем:', r.msg);
   }
+  { // переписка, как в оригинале: «История» по страницам, «Изменить» — удалить отмеченное / разговор (только у себя), «Переслать»
+    const MDB = path.join(os.tmpdir(), `royal-msg-${process.pid}.json`), g = new Game(new Store(MDB));
+    const reg = (l) => g.register({ login: l, password: '12345', race: 0 }).user, a = reg('msgA1'), b = reg('msgB1'), c = reg('msgC1');
+    for (let i = 0; i < 25; i++) g.sendMail(i % 2 ? b : a, i % 2 ? a.login : b.login, 'Сообщение', `текст ${i}`);
+    const ab = () => g.db.messages.filter((x) => (x.from === a.id && x.to === b.id) || (x.from === b.id && x.to === a.id));
+    const h = g.dialogHistory(a, b.id); assert.ok(h.pages === 2 && h.page === 1 && h.list.length === 5 && g.dialogHistory(a, b.id, 0).list.length === 20, 'История: по 20 на страницу, сначала — новые');
+    const [first, second] = ab();
+    assert.ok(g.msgDelete(c, [first.id]).n === 0, 'чужую переписку не удалить');
+    assert.ok(g.msgDelete(a, [first.id, second.id]).n === 2 && !g.msgSees(first, a.id) && g.msgSees(first, b.id), 'отмеченные удалены у себя');
+    assert.ok(g.dialogHistory(a, b.id).total === 23 && g.dialogHistory(b, a.id).total === 25, 'у собеседника сообщения остались');
+    const fw = g.msgForward(b, second.id, 'MSGC1'); assert.ok(fw.ok, fw.error);
+    const got = g.db.messages[g.db.messages.length - 1];
+    assert.ok(got.from === b.id && got.to === c.id && got.fwd === g.userById(second.from).login && got.text === second.text, 'переслано с пометкой, от кого');
+    assert.ok(g.msgForward(a, first.id, 'msgC1').error && g.msgForward(c, second.id, 'msgA1').error, 'удалённое у себя и чужое не переслать');
+    g.blackAdd(c, a.id); assert.ok(/ограничил/.test(g.msgForward(a, ab()[5].id, 'msgC1').error || ''), 'чёрный список — как для писем'); g.blackDel(c, a.id);
+    g.report(a.id, 'Нападение: победа', ['x'], 'battle', { type: 'battle', side: 'att', win: true });
+    assert.ok(g.reportForward(a, g.reportsOf(a.id)[0].id, 'msgB1').msg, 'отчёт переслан');
+    const repMail = g.db.messages.filter((x) => x.to === b.id && x.rep).pop(), r2 = g.msgForward(b, repMail.id, 'msgC1');
+    assert.ok(r2.msg && g.db.messages.some((x) => x.from === b.id && x.to === c.id && x.rep), 'пересланный отчёт пересылается снова отчётом');
+    assert.ok(g.msgDelete(b, [], a.id).n === 26 && !g.dialogHistory(b, a.id).total, 'разговор удалён у себя (25 писем и отчёт)');
+    assert.ok(ab().length === 24 && ab().every((x) => g.msgSees(x, a.id)), 'удалённое обоими стёрто, остальное у собеседника на месте');
+    for (const f of [MDB, `${MDB}.tmp`]) try { fs.unlinkSync(f); } catch { /* нет файла */ }
+    console.log('✓ Переписка: «История» по страницам, «Изменить» — удалить отмеченное и разговор (только у себя), «Переслать» (текст, отчёт), чёрный список');
+  }
   { // медаль «Первопроходец» (honors.js): вручает только админ — по никам через запятую или всем тестерам; видна в профиле, можно забрать
     // (свой отдельный мир — лишние игроки не сдвигают замки следующих проверок)
     const HDB = path.join(os.tmpdir(), `royal-hon-${process.pid}.json`), g = new Game(new Store(HDB)); g.ensureAdmin();

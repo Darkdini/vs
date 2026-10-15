@@ -130,7 +130,7 @@ class WebSession {
       t: 'state',
       now: Date.now(),
       quests: this.questsLite(),
-      user: { id: u.id, login: u.login, ally: u.alliance || null, race: u.race, raceName: C.RACE_NAMES[u.race], premium: u.premium || 0, gold: u.gold || 0, goldLog: (u.goldLog || []).slice(-50).reverse(), admin: !!u.admin, mod: !!u.mod, smod: !!u.smod, alertsNew: u.admin ? this.game.alertsNew() : 0, payNew: u.admin ? this.game.payNew() : 0, secNew: u.admin ? this.game.secNew() : 0, zagsNew: this.game.zagsNew(u), friendsNew: this.game.friendsNew(u), staff: this.game.staffOk(u), staffNew: this.game.staffUnread(u), brank: (({ idx, icon, stars, title }) => ({ idx, icon, stars, title }))(require('./battlerank').rankInfo(this.game.brRank(u))), brNew: this.game.brChests ? this.game.brChests(u) : 0, // сундуков наград ранга ждёт (метка на значке) black: this.game.privacyOf(u).black, multiNew: u.admin ? (this.game.db.multiLog || []).filter((x) => x.at > (u.multiSeen || 0)).length : 0,
+      user: { id: u.id, login: u.login, avatar: u.avatar || 0, ally: u.alliance || null, race: u.race, raceName: C.RACE_NAMES[u.race], premium: u.premium || 0, gold: u.gold || 0, goldLog: (u.goldLog || []).slice(-50).reverse(), admin: !!u.admin, mod: !!u.mod, smod: !!u.smod, alertsNew: u.admin ? this.game.alertsNew() : 0, payNew: u.admin ? this.game.payNew() : 0, secNew: u.admin ? this.game.secNew() : 0, zagsNew: this.game.zagsNew(u), friendsNew: this.game.friendsNew(u), staff: this.game.staffOk(u), staffNew: this.game.staffUnread(u), brank: (({ idx, icon, stars, title }) => ({ idx, icon, stars, title }))(require('./battlerank').rankInfo(this.game.brRank(u))), brNew: this.game.brChests ? this.game.brChests(u) : 0, // сундуков наград ранга ждёт (метка на значке) black: this.game.privacyOf(u).black, multiNew: u.admin ? (this.game.db.multiLog || []).filter((x) => x.at > (u.multiSeen || 0)).length : 0,
         modReqNew: u.admin && this.game.modReqList ? this.game.modReqList().length : 0 }, // заявки в модераторы, ждущие решения админа
       castle: {
         id: c.id, name: c.name, x: c.x, y: c.y, grid: { 0: Array.from(c.grid[0]), 1: Array.from(c.grid[1]) }, levels: { 0: Array.from(c.levels[0]), 1: Array.from(c.levels[1]) },
@@ -577,7 +577,7 @@ const API = {
   dialogs(m) {
     const me = this.user.id, by = new Map();
     for (const x of this.game.db.messages || []) {
-      if (x.to !== me && x.from !== me) continue;
+      if ((x.to !== me && x.from !== me) || !this.game.msgSees(x, me)) continue; // удалённое у себя — не в списке
       const o = x.from === me ? x.to : x.from, d = by.get(o) || { unread: 0 };
       if (x.to === me && !x.read) d.unread++;
       d.last = x; by.set(o, d);
@@ -593,16 +593,28 @@ const API = {
     const o = Number(m.id) ? this.game.userById(Number(m.id)) : Object.prototype.hasOwnProperty.call(this.game.db.users, key) ? this.game.db.users[key] : null;
     if (!o) return this.error('Игрок не найден.');
     if (!m.keep || this.dialogWith === undefined) this.dialogWith = o.id;
-    const all = (this.game.db.messages || []).filter((x) => (x.from === me && x.to === o.id) || (x.from === o.id && x.to === me));
+    const all = (this.game.db.messages || []).filter((x) => ((x.from === me && x.to === o.id) || (x.from === o.id && x.to === me)) && this.game.msgSees(x, me)); // удалённое у себя — не показываем
     let changed = false; for (const x of all) if (x.to === me && !x.read) { x.read = true; changed = true; }
     if (changed) { this.game.store.save(); this.pushState(); }
     const lim = Math.min(all.length, Math.max(30, Math.floor(Number(m.more)) || 30));
-    this.send({ t: 'dialog', with: { id: o.id, login: o.login, race: o.race, avatar: o.avatar || 0, frame: o.frame || '' }, more: all.length > lim,
-      list: all.slice(-lim).map((x) => ({ id: x.id, mine: x.from === me, subject: x.subject, text: x.text, at: x.at, color: x.color || '', ...(x.pic && this.game.picGet(x.pic) ? { pic: x.pic, picExp: x.picExp } : x.pic || x.picGone ? { picGone: true } : {}),
-        ...(x.rep ? { rep: x.rep, repTitle: x.repTitle || '' } : {}) })), keep: !!m.keep }); // rep — пересланный отчёт: «Вам прислали отчёт» и кнопка-название
+    this.send({ t: 'dialog', with: { id: o.id, login: o.login, race: o.race, avatar: o.avatar || 0, frame: o.frame || '', friend: this.game.friendState ? this.game.friendState(this.user, o) : null }, more: all.length > lim,
+      list: all.slice(-lim).map((x) => msgOut(this.game, x, me)), keep: !!m.keep });
+  },
+  // «История» переписки: страницы по 20 сообщений, под каждым — «Переслать»
+  dialoghist(m) { const r = this.game.dialogHistory(this.user, m.id, m.page); if (r.error) return this.error(r.error); this.send({ t: 'dialoghist', ...r, list: r.list.map((x) => msgOut(this.game, x, this.user.id)) }); },
+  // «Изменить»: удалить отмеченные (ids) или весь разговор (with) — только у себя
+  msgdel(m) {
+    const w = m.with !== undefined ? Number(m.with) : null; if (w !== null && !this.game.userById(w)) return this.error('Игрок не найден.');
+    const r = this.game.msgDelete(this.user, w !== null ? [] : [].concat(m.ids || []).slice(0, 200), w);
+    this.toast(r.n ? `Удалено сообщений: ${r.n}.` : 'Нечего удалять.'); this.pushState();
+    if (w !== null || m.dlg) API.dialog.call(this, { id: w !== null ? w : Number(m.dlg), keep: 1 });
+  },
+  msgfwd(m) { // «Переслать» сообщение: получателю — как новое письмо (открыта переписка — обновится сразу)
+    const r = this.game.msgForward(this.user, m.id, m.to); if (r.error) return this.error(r.error); this.toast(r.msg);
+    for (const s of WebSession.all || []) if (s.user && s.user.id === r.to.id) { if (s.dialogWith === this.user.id) API.dialog.call(s, { id: this.user.id, keep: 1 }); else if (s.notifyMail) s.notifyMail(this.user.login); }
   },
   read(m) {
-    const x = (this.game.db.messages || []).find((y) => y.id === Number(m.id) && (y.to === this.user.id || y.from === this.user.id));
+    const x = (this.game.db.messages || []).find((y) => y.id === Number(m.id) && this.game.msgSees(y, this.user.id)); // участник и не удалил у себя
     if (!x) return this.error('Письмо не найдено.');
     if (x.to === this.user.id && !x.read) { x.read = true; this.game.store.save(); }
     const from = this.game.userById(x.from), to = this.game.userById(x.to);
@@ -740,6 +752,10 @@ const API = {
   },
 };
 
+// сообщение переписки для клиента (диалог и «История»): фото — пока не истекло; rep — пересланный отчёт; fwd — «Переслано от …»
+const msgOut = (game, x, me) => ({ id: x.id, mine: x.from === me, subject: x.subject, text: x.text, at: x.at, color: x.color || '',
+  ...(x.pic && game.picGet(x.pic) ? { pic: x.pic, picExp: x.picExp } : x.pic || x.picGone ? { picGone: true } : {}),
+  ...(x.rep ? { rep: x.rep, repTitle: x.repTitle || '' } : {}), ...(x.fwd ? { fwd: x.fwd } : {}) });
 // созыв на мирового босса: всем в альянсе игрока — новое окно босса и состояние (не команда клиента — её нельзя вызвать запросом)
 const rallyShow = (ses) => { const al = ses.game.allianceOf(ses.user); if (al) for (const s of WebSession.all || []) if (s.user && al.members.includes(s.user.id)) { s.pushState(); s.send({ t: 'boss', data: ses.game.bossView(s.user) }); } };
 // Зал Славы: чьи места показывать — указанного игрока или свои (раньше функция лежала среди команд и её можно было вызвать запросом)

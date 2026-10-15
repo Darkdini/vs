@@ -273,7 +273,7 @@ function onMsg(m) {
     case 'profile': if (m.acct) { S.lastAcct = m.profile; S.lastProfile = m.profile; if (m.refresh && S.sheets.length) { S.sheets[S.sheets.length - 1] = () => accountWin(m.profile); showSheet(false); } else openSheet(() => accountWin(m.profile)); break; }
       if (m.refresh && S.sheets.length) { S.sheets[S.sheets.length - 1] = () => profileSheet(m.profile); showSheet(false); } else openSheet(() => profileSheet(m.profile)); break;
     case 'mail': S.mail = m; refreshSheet(); break;
-    case 'dialogs': case 'dialog': dialogsMsg(m); break;
+    case 'dialogs': case 'dialog': case 'dialoghist': dialogsMsg(m); break;
     case 'picok': picMsg(m); break;
     case 'staff': case 'staffnew': case 'staffpicok': staffMsg(m); break;
     case 'newspicok': if (typeof newsPicMsg === 'function') newsPicMsg(m); else if (m.done === undefined) { /* ошибка загрузки — без админки */ } break;
