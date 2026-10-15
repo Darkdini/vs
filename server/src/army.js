@@ -1033,10 +1033,12 @@ function install(Game, helpers) {
       for (const [id, n] of Object.entries(units)) c.units[id] = (c.units[id] || 0) + n;
       if (a.general && c.general && c.general.away === a.id) delete c.general.away;
     }
-    const cap = this.capacity(c);
-    if (a.loot) for (const r of RES4) c.res[r] = Math.max(c.res[r], Math.min(cap[r], c.res[r] + (a.loot[r] || 0)));
+    const cap = this.capacity(c), rest = {};
+    // добыча — в замок до вместимости Складов; с лагерей и руин остаток — в Кладовую (поход не должен уходить в минус), с игроков — сверх Складов пропадает
+    if (a.loot) for (const r of RES4) { const add = a.loot[r] || 0, k = Math.max(0, Math.min(add, Math.floor(cap[r] - c.res[r]))); c.res[r] += k; if (a.lootNpc && add > k) rest[r] = add - k; }
+    const ow = this.userById(c.owner), toStash = ow && Object.keys(rest).length ? (this.stashAdd(ow, rest), Object.values(rest).reduce((q, v) => q + v, 0)) : 0;
     c.armies = c.armies.filter((x) => x !== a);
-    const lootTxt = a.loot ? ` Добыча: ${RES4.map((r) => a.loot[r] || 0).join('/')}` : '';
+    const lootTxt = a.loot ? ` Добыча: ${RES4.map((r) => a.loot[r] || 0).join('/')}${toStash ? ` (не влезло в Склады — ${toStash.toLocaleString('ru-RU')} в Кладовой)` : ''}` : '';
     this.event(c.owner, `Армия вернулась (${MISSIONS[a.mission]}).${lootTxt}`);
   };
   // подкрепление в свой замок: армия становится отдельной армией нового замка, генерал — генералом этого замка
@@ -1462,7 +1464,7 @@ function install(Game, helpers) {
         }
       }
     }
-    a.loot = loot;
+    a.loot = loot; if (loot && !target) a.lootNpc = true; // добыча с лагеря или руин: что не влезет в Склады — в Кладовую (returnHome)
     // лагерь разбойников побеждён — исчезает с карты и через час появляется на новом месте той же провинции (game.js npcGone)
     const npcBack = win && !target && !lair && obj && CAMPS.includes(obj.img) ? this.npcGone(a.x, a.y, t) : null;
     // статистика для Зала Славы (social.js)

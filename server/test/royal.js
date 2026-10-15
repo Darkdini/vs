@@ -1206,6 +1206,13 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(vs(30, 20).lost === 20, 'проиграл — погибла вся армия, как прежде');
   const pvp = g.castleOf(g.register({ login: 'campPvpZ', password: '12345', race: 0 }).user); g.mil(pvp); pvp.units = { 200: 30 };
   const ap = { units: { 200: 200 }, mission: 'attack', general: false }; const Rp = g.clash(cr, ap, pvp, null, Date.now()); assert.ok(Rp.win, 'бой с игроком — как прежде');
+  // добыча с лагеря: что не влезло в Склады — в Кладовую (с игроков — как прежде, сверх Складов пропадает)
+  const capW = g.capacity(cr).wood; cr.res.wood = capW - 100; const st0 = g.stashOf(g.userById(cr.owner)).res.wood || 0;
+  g.returnHome(cr, { units: { 200: 1 }, mission: 'attack', loot: { wood: 900, stone: 0, iron: 0, food: 0 }, lootNpc: true });
+  assert.ok(cr.res.wood >= capW - 1 && (g.stashOf(g.userById(cr.owner)).res.wood || 0) - st0 >= 800, 'лагерь: 100 в замок, 800 в Кладовую');
+  cr.res.wood = capW - 100; const st1 = g.stashOf(g.userById(cr.owner)).res.wood || 0;
+  g.returnHome(cr, { units: { 200: 1 }, mission: 'raid', loot: { wood: 900, stone: 0, iron: 0, food: 0 } });
+  assert.ok((g.stashOf(g.userById(cr.owner)).res.wood || 0) === st1, 'добыча с игрока сверх Складов — не в Кладовую');
   if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
   console.log(`✓ Лагеря окупаются: 62 мечника на лёгкий — погибло ${r62.lost}; 93 — ${r93.lost}, добыча ${loot} больше потерь`);
 }
