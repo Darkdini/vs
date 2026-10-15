@@ -621,7 +621,19 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const a = g.activateArtifact(c, 1, true); assert.ok(a.ok && c.artifacts[0].until > Date.now(), 'пробуждение на время');
   assert.ok(g.activateArtifact(c, 1, false).error, 'усыпить нельзя');
   c.artifacts[0].until = Date.now() - 1; g.mil(c); assert.ok(!c.artifacts.length, 'истёкший артефакт рассыпается');
-  console.log('✓ Экспедиции из здания, временные артефакты');
+  // разбить спящий артефакт: ресурсы — в замок до вместимости Складов, остаток — в Кладовую; пробуждённый не разбить
+  c.artifacts = [{ id: 2, type: 'def', rarity: 2, active: false }, { id: 3, type: 'atk', rarity: 0, active: true, until: Date.now() + 1e6 }, { id: 4, type: 'prod', rarity: 0, active: false }];
+  const cap = g.capacity(c), RES = ['wood', 'stone', 'iron', 'food'], inStash = () => g.stashOf(u).res.wood || 0;
+  for (const r of RES) c.res[r] = cap[r] - 500;
+  let s0 = inStash();
+  assert.ok(g.breakArtifact(c, 2).ok && !c.artifacts.some((x) => x.id === 2), 'спящий артефакт разбит');
+  assert.ok(c.res.wood > cap.wood - 1 && inStash() - s0 >= 1500 && inStash() - s0 < 2000, 'легендарный: 2000 — до полного Склада в замок, остаток в Кладовую');
+  for (const r of RES) c.res[r] = 0;
+  s0 = inStash();
+  assert.ok(g.breakArtifact(c, 4).ok && RES.every((r) => c.res[r] >= 300 && c.res[r] < 310) && inStash() === s0, 'обычный: +300 каждого — всё в замок');
+  assert.ok(g.breakArtifact(c, 3).error && c.artifacts.length === 1, 'пробуждённый не разбить');
+  assert.ok(g.breakArtifact(c, 99).error, 'нет такого артефакта');
+  console.log('✓ Экспедиции из здания, временные артефакты, «Разбить» спящий артефакт');
 }
 { // земли 15×15 (как в оригинале) и перенос с прежних раскладок 7×7 и 5×5 без потери добычи
   const G = require('../src/game'), Cc = require('../src/catalog');

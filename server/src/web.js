@@ -704,6 +704,7 @@ const API = {
   research(m) { this.result(this.game.research(this.castle, m.sci)); },
   religion(m) { this.result(this.game.setReligion(this.castle, m.id)); },
   artifact(m) { const r = this.game.activateArtifact(this.castle, m.id, !!m.on); if (r.msg) this.toast(r.msg); this.result(r); },
+  artbreak(m) { const r = this.game.breakArtifact(this.castle, m.id); if (r.msg) this.toast(r.msg); this.result(r); },
   exped(m) { const r = this.game.expedGo(this.castle, String(m.kind || ''), m.n); if (r.msg) this.toast(r.msg); this.result(r); },
   alliance(m) {
     const r = this.game.alliance(this.user, this.castle, m);

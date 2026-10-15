@@ -321,11 +321,11 @@ function expedHtml() {
 const ART_HOURS = [12, 24, 48];
 function artifactsHtml() {
   const my = MY(), active = my.artifacts.filter((a) => a.active).length;
-  return `<div class="section">Артефакты</div><p class="small muted">Пробуждено ${active} из ${my.bonus.artSlots} (Башня артефактов), хранится ${my.artifacts.length} из ${my.bonus.artStore} (Сокровищница). Одинаковые артефакты складываются с убыванием: второй даёт половину, третий — четверть.</p>
+  return `<div class="section">Артефакты</div><p class="small muted">Пробуждено ${active} из ${my.bonus.artSlots} (Башня артефактов), хранится ${my.artifacts.length} из ${my.bonus.artStore} (Сокровищница). Одинаковые артефакты складываются с убыванием: второй даёт половину, третий — четверть. Ненужный спящий артефакт можно разбить на осколки — освободится место, а взамен немного ресурсов.</p>
     ${my.artifacts.map((a) => { const t = M().artifacts[a.type], r = M().rarity[a.rarity]; return `<div class="card unit"><div class="top">${gimg(ART_ICON[a.type] || 'smallicon/magattack.png', 'ui s')}
       <div class="grow"><b>${esc(t.name)}</b><span class="muted small">${r.name}: +${Math.round(r.bonus * 100)}% — ${esc(t.desc)}${a.active ? ` · <b class="good">пробуждён${a.eff !== undefined && a.eff < r.bonus - 1e-9 ? `, действует +${Math.round(a.eff * 100)}%` : ''}</b>` : ''}</span></div>
-      ${a.active ? '' : `<button class="btn small primary" data-art="${a.id}" data-on="1" data-hours="${ART_HOURS[a.rarity]}">Пробудить</button>`}</div>
-      ${a.active && a.until ? `<div class="artlife"><div class="bar"><i data-s="${a.until - ART_HOURS[a.rarity] * 3600000 / S.cat.speed}" data-e="${a.until}"></i></div><span>иссякнет через <span class="cd" data-e="${a.until}"></span></span></div>` : `<p class="small muted">Пробуждённый действует ${ART_HOURS[a.rarity]} ч, затем рассыпается.</p>`}</div>`; }).join('') || '<p class="muted small">Артефактов нет — их приносят экспедиции археологов (здание «Экспедиция»).</p>'}`;
+      ${a.active ? '' : `<div class="artbtns"><button class="btn small primary" data-art="${a.id}" data-on="1" data-hours="${ART_HOURS[a.rarity]}">Пробудить</button><button class="btn small danger" data-artbreak="${a.id}">Разбить</button></div>`}</div>
+      ${a.active && a.until ? `<div class="artlife"><div class="bar"><i data-s="${a.until - ART_HOURS[a.rarity] * 3600000 / S.cat.speed}" data-e="${a.until}"></i></div><span>иссякнет через <span class="cd" data-e="${a.until}"></span></span></div>` : `<p class="small muted">Пробуждённый действует ${ART_HOURS[a.rarity]} ч, затем рассыпается. Разбить — +${fmtFull(M().artBreak[a.rarity])} каждого ресурса.</p>`}</div>`; }).join('') || '<p class="muted small">Артефактов нет — их приносят экспедиции археологов (здание «Экспедиция»).</p>'}`;
 }
 
 // ---------- отправка войск — окно «Военный поход» в armies.js ----------
@@ -503,6 +503,11 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.sci) return send({ t: 'research', sci: d.sci });
   if (d.religion) return send({ t: 'religion', id: d.religion });
   if (d.art) { if (!confirm(`Пробудить артефакт? Он будет действовать ${d.hours} ч, а затем рассыплется.`)) return; return send({ t: 'artifact', id: Number(d.art), on: true }); }
+  if (d.artbreak) {
+    const a = MY().artifacts.find((x) => x.id === Number(d.artbreak)); if (!a) return;
+    if (!confirm(`Разбить «${M().artifacts[a.type].name}» (${M().rarity[a.rarity].name})? Он исчезнет навсегда, взамен — по ${fmtFull(M().artBreak[a.rarity])} каждого ресурса. Что не влезет в Склады — в Кладовую.`)) return;
+    return send({ t: 'artbreak', id: a.id });
+  }
   if (d.exgo) { const n = Number(($('[data-exn]') || {}).value) || 0; if (!(n > 0)) return toast('Сколько археологов отправить?', 'err'); return send({ t: 'exped', kind: d.exgo, n }); }
   if (d.alleave !== undefined) return send({ t: 'alliance', op: 'leave' });
 });

@@ -276,6 +276,8 @@ const ART_TYPES = {
 const RARITY = [{ name: 'обычный', bonus: 0.10 }, { name: 'редкий', bonus: 0.20 }, { name: 'легендарный', bonus: 0.35 }];
 // пробуждённый артефакт действует ограниченное время (часы по редкости, делятся на скорость мира), затем рассыпается
 const ART_HOURS = [12, 24, 48];
+// спящий артефакт можно разбить на осколки: место в Сокровищнице освобождается, взамен — немного каждого ресурса (по редкости)
+const ART_BREAK = [300, 800, 2000];
 // экспедиции из здания «Экспедиция»: археологи уходят на время; дальше — выше шанс и редкость, но опаснее
 const EXPED = {
   near: { name: 'Окрестные руины', hours: 2, chance: 0.25, bias: 0, risk: 0, lvl: 1, desc: 'Ближние развалины. Безопасно, но находки скромные.' },
@@ -1757,6 +1759,19 @@ function install(Game, helpers) {
     a.active = true; a.until = Date.now() + ART_HOURS[a.rarity || 0] * 3600000 / SPEED; this.store.save();
     return { ok: true, msg: `«${ART_TYPES[a.type].name}» пробуждён на ${ART_HOURS[a.rarity || 0]} ч. Потом он рассыплется.` };
   };
+  // разбить спящий артефакт: ресурсы — в замок до вместимости Складов, остаток — в Кладовую (не пропадает)
+  P.breakArtifact = function breakArtifact(castle, id) {
+    this.tick(castle); this.mil(castle);
+    const a = castle.artifacts.find((x) => x.id === Number(id)); if (!a) return { error: 'Артефакт не найден.' };
+    if (a.active) return { error: 'Пробуждённый артефакт не разбить — его сила иссякнет сама.' };
+    const g = ART_BREAK[a.rarity] || ART_BREAK[0], cap = this.capacity(castle), rest = {};
+    castle.artifacts.splice(castle.artifacts.indexOf(a), 1);
+    for (const r of RES4) { const k = Math.max(0, Math.min(g, Math.floor(cap[r] - castle.res[r]))); castle.res[r] += k; if (g > k) rest[r] = g - k; }
+    const u = this.userById(castle.owner), stash = Object.keys(rest).length > 0 && !!u;
+    if (stash) this.stashAdd(u, rest);
+    this.store.save();
+    return { ok: true, msg: `«${ART_TYPES[a.type].name}» разбит на осколки: +${g.toLocaleString('ru-RU')} каждого ресурса${stash ? ' (что не влезло в Склады — в Кладовой)' : ''}.` };
+  };
 
   // входящие армии к замку
   // Караульная башня (хоть в одном замке королевства): видны армии, идущие на замки короля, кроме разведки;
@@ -2211,7 +2226,7 @@ function install(Game, helpers) {
 }
 
 const catalogJson = () => ({
-  units: UNITS, generalId: GENERAL_ID, sciences: SCIENCES, religions: RELIGIONS, artifacts: ART_TYPES, rarity: RARITY,
+  units: UNITS, generalId: GENERAL_ID, sciences: SCIENCES, religions: RELIGIONS, artifacts: ART_TYPES, rarity: RARITY, artBreak: ART_BREAK,
   npc: NPC, missions: MISSIONS, settleN: SETTLE_N, settleTake: SETTLE_TAKE, settleDays: Math.round(SETTLE_SEC / 86400 * 10) / 10, raceDir: RACE_DIR, spyOpen: SPY_OPEN, scienceCost: Array.from({ length: 21 }, (_, l) => (l ? scienceCost(l) : null)),
   scienceTime: Array.from({ length: 21 }, (_, l) => (l ? scienceTime(l) : 0)),
   hero: require('./hero').heroCatalog(),
