@@ -1024,6 +1024,10 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .fpt { white-space: pre-wrap; word-break: break-word; }
 .fpm { display: flex; gap: 6px; justify-content: flex-end; margin-top: 4px; }
 .fpm button { border: 1px solid #a86a3a; border-radius: 4px; background: #f6e2c0; font: 14px var(--serif); padding: 3px 10px; }
+.fpm button[data-freply] { background: #e6f2d8; border-color: #5a8a3a; color: #1f4a0a; }
+/* «Ответить»: цитата того, кому ответ (в сообщении и над полем ответа) */
+.fquote { margin: 2px 0 6px; padding: 4px 8px; border-left: 3px solid #a86a3a; background: #0000000d; border-radius: 3px; font: 14px/1.35 var(--serif); color: #5a3a1a; overflow-wrap: anywhere; }
+.fquote.fto { display: flex; align-items: flex-start; gap: 6px; margin: 0 0 6px; } .fxto { margin-left: auto; border: 0; background: none; font-size: 18px; line-height: 1; color: #8a1a0a; cursor: pointer; padding: 0 2px; }
 .fform { display: grid; gap: 8px; margin: 8px 0; }
 .fform input, .fform textarea { width: 100%; box-sizing: border-box; border: 2px solid #d8a070; border-radius: 6px; background: #fff6e4; font: 19px var(--serif); padding: 8px; color: #2a1408; }
 .fform.frow { grid-template-columns: 1fr auto; }

@@ -55,7 +55,7 @@ function forumTopicsWin() {
 function forumPostsWin() {
   const d = S.fr.posts;
   if (!d) return `${ribbon('Форум')}<p class="parch-note">Загрузка…</p>`;
-  const mod = d.canMod;
+  const mod = d.canMod, rt = S.fr.replyTo; // «Ответить»: кому отвечаем (сбрасывается при входе в тему и после отправки)
   return `${fRib(d.title)}
     <div class="ftools"><button data-fr="fav" class="${d.fav ? 'on' : ''}"><img src="${FG}star.png" alt=""> ${d.fav ? 'В избранном' : 'В избранное'}</button>
       ${mod ? `<button data-ftop="pin">${d.pinned ? 'Открепить' : 'Закрепить'}</button><button data-ftop="close">${d.closed ? 'Открыть' : 'Закрыть'}</button>
@@ -63,10 +63,11 @@ function forumPostsWin() {
     ${d.deleted ? '<div class="bwline center small">Тема удалена — её видят только модераторы.</div>' : ''}
     ${fPager(d.page, d.pages, 'data-fppg')}
     ${d.posts.map((p) => `<div class="fpost ${p.deleted ? 'fdel' : ''}"><div class="fph"><img class="fking" src="${FG}king.png" alt="">${fWho(p.by, p.byId, p.role)}<small>${repDate(p.at)}</small></div>
+      ${p.reply ? `<div class="fquote">↪ <b>${esc(p.reply.by)}</b>: «${esc(p.reply.text)}»</div>` : ''}
       <div class="fpt"${/^#[0-9a-f]{6}$/i.test(p.color || '') ? ` style="color:${p.color}"` : ''}>${esc(p.text)}</div>
-      ${mod ? `<div class="fpm"><button data-fpdel="${p.id}">${p.deleted ? 'Восстановить' : 'Удалить'}</button>${p.role ? '' : `<button data-fban="${p.byId}" data-fbanname="${esc(p.by)}">Запрет</button>`}</div>` : ''}</div>`).join('')}
+      ${(d.canPost && !p.deleted) || mod ? `<div class="fpm">${d.canPost && !p.deleted ? `<button data-freply="${p.id}">Ответить</button>` : ''}${mod ? `<button data-fpdel="${p.id}">${p.deleted ? 'Восстановить' : 'Удалить'}</button>${p.role ? '' : `<button data-fban="${p.byId}" data-fbanname="${esc(p.by)}">Запрет</button>`}` : ''}</div>` : ''}</div>`).join('')}
     ${fPager(d.page, d.pages, 'data-fppg')}
-    ${d.canPost ? `<form class="fform" data-form="freply"><textarea name="text" maxlength="1500" rows="3" placeholder="Ваш ответ…" required></textarea><button class="lbar">Ответить</button></form>`
+    ${d.canPost ? `<form class="fform" data-form="freply">${rt ? `<div class="fquote fto"><span>↪ Ответ для <b>${esc(rt.by)}</b>: «${esc(rt.text)}»</span><button type="button" class="fxto" data-freplyx title="Не отвечать на это сообщение">✕</button></div>` : ''}<textarea name="text" maxlength="1500" rows="3" placeholder="Ваш ответ…" required></textarea><button class="lbar">Ответить</button></form>`
       : `<div class="bwline center small">${d.closed ? 'Тема закрыта — отвечать нельзя.' : esc(d.ban || '')}</div>`}`;
 }
 function forumNewTopicWin() {
@@ -104,10 +105,18 @@ function forumMsg(m) {
 
 $('#sheetBody').addEventListener('click', (e) => {
   if (e.target.closest('[data-cprof]')) return;
-  const t = e.target.closest('[data-fr],[data-fsec],[data-ftopic],[data-ftpg],[data-fppg],[data-ftop],[data-fpdel],[data-fban],[data-frrule],[data-fsecmod]'); if (!t) return;
+  const t = e.target.closest('[data-fr],[data-fsec],[data-ftopic],[data-ftpg],[data-fppg],[data-ftop],[data-fpdel],[data-fban],[data-frrule],[data-fsecmod],[data-freply],[data-freplyx]'); if (!t) return;
   const d = t.dataset;
+  if (d.freply) { // ответ на сообщение: ник и начало его текста — над полем ответа; поле внизу страницы, сразу в нём
+    const p = (S.fr.posts && S.fr.posts.posts || []).find((x) => x.id === Number(d.freply)); if (!p) return;
+    S.fr.replyTo = { id: p.id, by: p.by, text: p.text.length > 90 ? `${p.text.slice(0, 90)}…` : p.text }; refreshSheet();
+    const f = $('[data-form="freply"]'); if (!f) return;
+    if (!f.text.value.trim()) f.text.value = `${p.by}, `;
+    f.scrollIntoView({ block: 'end' }); f.text.focus(); f.text.setSelectionRange(f.text.value.length, f.text.value.length); return;
+  }
+  if (d.freplyx !== undefined) { S.fr.replyTo = null; return refreshSheet(); }
   if (d.fsec) { S.fr.topics = null; S.fr.sec = Number(d.fsec); fsend({ op: 'topics', section: S.fr.sec }); return openSheet(forumTopicsWin); }
-  if (d.ftopic) { S.fr.posts = null; S.fr.topic = Number(d.ftopic); fsend({ op: 'posts', topic: S.fr.topic, page: -1 }); return openSheet(forumPostsWin); }
+  if (d.ftopic) { S.fr.posts = null; S.fr.replyTo = null; S.fr.topic = Number(d.ftopic); fsend({ op: 'posts', topic: S.fr.topic, page: -1 }); return openSheet(forumPostsWin); }
   if (d.ftpg !== undefined) return fsend({ op: 'topics', section: S.fr.sec, page: Number(d.ftpg) });
   if (d.fppg !== undefined) return fsend({ op: 'posts', topic: S.fr.topic, page: Number(d.fppg) });
   if (d.ftop) { if (d.ftop === 'delete' && !confirm('Удалить тему?')) return; return fsend({ op: 'topicop', topic: S.fr.topic, act: d.ftop, page: S.fr.posts && S.fr.posts.page }); }
@@ -128,7 +137,7 @@ $('#sheetBody').addEventListener('submit', (e) => {
   const f = e.target, k = f.dataset.form; if (!['freply', 'ftopic', 'fsecmod'].includes(k)) return;
   e.preventDefault(); e.stopImmediatePropagation();
   if (document.activeElement) document.activeElement.blur();
-  if (k === 'freply') { fsend({ op: 'post', topic: S.fr.topic, text: f.text.value }); f.text.value = ''; }
+  if (k === 'freply') { fsend({ op: 'post', topic: S.fr.topic, text: f.text.value, reply: S.fr.replyTo ? S.fr.replyTo.id : undefined }); f.text.value = ''; S.fr.replyTo = null; }
   if (k === 'ftopic') fsend({ op: 'topic', section: S.fr.sec, title: f.title.value, text: f.text.value });
   if (k === 'fsecmod') fsend({ op: 'secmod', section: Number(f.dataset.sec), login: f.login.value });
 }, true);

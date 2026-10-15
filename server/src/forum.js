@@ -61,7 +61,7 @@ function install(Game) {
     return { id: t.id, title: t.title, section: { id: s.id, name: s.name }, closed: !!t.closed, pinned: !!t.pinned, deleted: !!t.deleted, canMod: mod,
       fav: (user.forumFav || []).includes(t.id), canPost: !t.closed && !t.deleted && !this.forumBanned(user), ban: this.forumBanned(user), page: pg, pages,
       posts: list.slice(pg * POSTS_PAGE, pg * POSTS_PAGE + POSTS_PAGE).map((p) => { const u = this.userById(p.byId);
-        return { id: p.id, by: p.by, byId: p.byId, at: p.at, text: p.text, color: p.color || '', deleted: !!p.deleted, role: u ? (u.admin ? 'admin' : u.mod || s.mods.includes(u.id) ? 'mod' : '') : '' }; }) };
+        return { id: p.id, by: p.by, byId: p.byId, at: p.at, text: p.text, color: p.color || '', deleted: !!p.deleted, reply: p.reply || null, role: u ? (u.admin ? 'admin' : u.mod || s.mods.includes(u.id) ? 'mod' : '') : '' }; }) };
   };
 
   P.forumOp = function forumOp(user, m) {
@@ -83,7 +83,11 @@ function install(Game) {
         const ban = this.forumBanned(user); if (ban) return { error: ban };
         if (!this.forumCanMod(user, f.s) && user.forumLast && now - user.forumLast < POST_GAP_MS) return { error: 'Не так часто — подождите несколько секунд.' };
         const text = clean(m.text, TEXT_MAX); if (!text) return { error: 'Пустое сообщение.' };
-        f.t.posts.push({ id: fd.nextId++, by: user.login, byId: user.id, at: now, text, color: this.msgColor(user) }); user.forumLast = now;
+        // «Ответить» у сообщения: ответ помнит, кому (ник и начало его сообщения), автору — уведомление
+        const to = m.reply ? f.t.posts.find((p) => p.id === Number(m.reply) && !p.deleted) : null;
+        const reply = to ? { id: to.id, by: to.by, text: to.text.length > 90 ? `${to.text.slice(0, 90)}…` : to.text } : undefined;
+        f.t.posts.push({ id: fd.nextId++, by: user.login, byId: user.id, at: now, text, color: this.msgColor(user), ...(reply ? { reply } : {}) }); user.forumLast = now;
+        if (to && to.byId !== user.id && this.event) this.event(to.byId, `💬 ${user.login} ответил(а) вам на форуме в теме «${f.t.title}».`);
         if (f.t.posts.length > 5000) f.t.posts.splice(1, f.t.posts.length - 5000);
         this.store.save();
         return { msg: 'Сообщение добавлено.', topic: f.t.id };

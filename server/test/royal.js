@@ -263,7 +263,14 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   g.forumOp(md, { op: 'topicop', topic: t, act: 'close' });
   assert.ok(g.forumOp(md, { op: 'ban', topic: t, id: pl.id, hours: 2 }).msg && g.forumOp(pl, { op: 'post', topic: t, text: 'бан' }).error, 'запрет писать');
   assert.ok(g.forumOp(pl, { op: 'ban', topic: t, id: md.id, hours: 2 }).error, 'игрок не банит');
-  console.log('✓ форум: темы — только модераторы (админ назначает модератора раздела), ответы всех, антифлуд, закрытие темы, запрет писать');
+  // «Ответить» у сообщения: ответ помнит, кому, и начало его текста; автору — уведомление; чужое/удалённое — просто ответ
+  const q = g.forumPosts(md, t, -1).posts.find((p) => p.text === 'Как строить?');
+  assert.ok(g.forumOp(md, { op: 'post', topic: t, text: 'Через Ратушу.', reply: q.id }).msg, 'ответ на сообщение');
+  const last = g.forumPosts(md, t, -1).posts.slice(-1)[0];
+  assert.ok(last.reply && last.reply.by === pl.login && last.reply.text === 'Как строить?' && last.reply.id === q.id, 'в ответе — кому и цитата');
+  assert.ok((g.events || []).some((e) => e.userId === pl.id && /ответил\(а\) вам на форуме/.test(e.msg)), 'уведомление автору');
+  md.forumLast = 0; assert.ok(g.forumOp(md, { op: 'post', topic: t, text: 'просто так', reply: '__proto__' }).msg && !g.forumPosts(md, t, -1).posts.slice(-1)[0].reply, 'неверный ответ — обычное сообщение');
+  console.log('✓ форум: темы — только модераторы (админ назначает модератора раздела), ответы всех, антифлуд, закрытие темы, запрет писать, «Ответить» с цитатой');
 }
 // секретный логин админа: ADMIN_LOGIN — вход только под ним, «admin» отклоняется, в игре ник остаётся admin
 {
