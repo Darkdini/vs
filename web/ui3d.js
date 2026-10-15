@@ -441,7 +441,8 @@ function castleWin(o, x, y) {
       ${!mine ? tile(`data-warpick data-ax="${x}" data-ay="${y}"`, 'smallicon/swordred.png', 'Война')
     : S.st.castle.x === x && S.st.castle.y === y ? '' : `<button class="ptile" data-armyopen="reinforce" data-ax="${x}" data-ay="${y}"><img src="${G3}top/reinf.png" alt=""><span>Подкрепление</span></button>`}
     </div>
-    <button class="pbar cwsave" data-saveplace="${x},${y}">${saved ? 'Место запомнено' : 'Запомнить место'}</button>`;
+    <button class="pbar cwsave" data-saveplace="${x},${y}">${saved ? 'Место запомнено' : 'Запомнить место'}</button>
+    ${S.st.user.admin ? `<button class="pbar" data-ainspxy="${x},${y}">👁 Осмотр (админ): генерал, войска, всё</button>` : ''}`;
 }
 
 // ---------- недострой на карте: чья стройка, когда будет готова; подкрепить (свой или союзника) или Война ----------

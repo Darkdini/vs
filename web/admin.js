@@ -143,7 +143,8 @@ function playerCard(p) {
       <span>Раса</span><b>${esc(p.race)}</b><span>Рейтинг</span><b>${fmtFull(p.rating)}</b><span>Монеты</span><b>${fmtFull(p.gold)}</b>
       <span>Регистрация</span><b>${fmtDate(p.created)}</b><span>Был в игре</span><b>${p.online ? 'сейчас' : fmtDate(p.lastSeen)}</b></div>
     ${(p.nickLog || []).length ? `<div class="small">Прежние ники: ${p.nickLog.map((x) => `${esc(x.from)} → ${esc(x.to)} <small>${fmtDate(x.at)}</small>`).join('; ')}</div>` : ''}
-    <div class="ptiles g3a"><button class="ptile" data-cprof="${p.id}"><img src="${GFX}chat/profile.png" alt=""><span>Профиль и письмо</span></button>${p.castlesList[0] ? `<button class="ptile" data-goworld="${p.castlesList[0].x},${p.castlesList[0].y}"><img src="${GFX}world/castle1.png" alt=""><span>На карте</span></button>` : ''}</div></div>
+    <div class="ptiles g3a"><button class="ptile" data-cprof="${p.id}"><img src="${GFX}chat/profile.png" alt=""><span>Профиль и письмо</span></button>${p.castlesList[0] ? `<button class="ptile" data-goworld="${p.castlesList[0].x},${p.castlesList[0].y}"><img src="${GFX}world/castle1.png" alt=""><span>На карте</span></button>` : ''}
+      <button class="ptile" data-ainsp="${esc(p.login)}"><img src="${GFX}shop/spy.png" alt=""><span>👁 Осмотр</span></button></div></div>
   <div class="acard"><div class="cwname">🔑 Пароль и восстановление аккаунта</div>
     <p class="small">Пароли не хранятся в открытом виде — только их стойкие отпечатки. Если игрок потерял доступ, спросите у него старый пароль и проверьте его здесь: сервер ответит, совпадает ли он с текущим или прежним паролем этого аккаунта и когда тот действовал. Потом задайте новый пароль и сообщите его игроку.</p>
     <form class="chatform" data-aform="passcheck"><input name="password" placeholder="Пароль, который назвал игрок" autocomplete="off" required><button class="btn primary small">Проверить</button></form>
@@ -162,7 +163,7 @@ function playerCard(p) {
     ${aAct('Репутация', 'Добавить или убавить (минус) очки репутации.', `${aNum('rep', 10, 'очков')}${aBtn2('rep', 'Изменить', 'data-arg="rep:n"')}`)}</div>
   <div class="acard"><div class="cwname">🏰 Замки игрока</div>
     <div class="rlist">${p.castlesList.map((c) => `<div class="rrow"><span class="rn"><b>${esc(c.name)}</b><small>X:${c.x} Y:${c.y} · бунт ${100 - c.loyalty}%</small></span><span class="rv">${fmtFull(c.rating)}</span>
-      <button class="btn small" data-goworld="${c.x},${c.y}">карта</button></div>
+      <button class="btn small" data-ainsp="${esc(p.login)}" data-cid="${c.id}">👁 осмотр</button><button class="btn small" data-goworld="${c.x},${c.y}">карта</button></div>
       <div class="acrow"><button class="btn small danger" data-adm="castlereset" data-cid="${c.id}" data-confirm="Сбросить замок «${esc(c.name)}» к стартовому виду? Здания, войска и ресурсы пропадут, место и имя останутся.">Сбросить замок</button>
       ${p.castlesList.length > 1 ? `<button class="btn small danger" data-adm="castledel" data-cid="${c.id}" data-confirm="Удалить замок «${esc(c.name)}» навсегда?">Удалить замок</button>` : ''}</div>`).join('')}</div>
     ${aAct('Переименовать', 'Новое имя активного замка игрока.', '<form class="chatform" data-aform="rename"><input name="name" placeholder="Имя замка" required><button class="btn small primary">Переименовать</button></form>', true)}
@@ -172,6 +173,58 @@ function playerCard(p) {
     ${p.admin ? '' : aAct('Удалить игрока', 'Аккаунт и все замки — навсегда. Игрок пропадёт у всех: из друзей, альянса, брака; переписка с ним удалится, чужие подкрепления из его замков вернутся домой.', aBtn2('delete', 'Удалить', 'data-confirm="Удалить игрока и все его замки навсегда?"', 'danger'))}</div>
   <div class="acard">${devCard(p)}</div>`;
 }
+
+// ---------- «👁 Осмотр» (против жульничества): всё о замках и аккаунте игрока, только чтение (server/src/admin.js adminInspect) ----------
+// открывается из карточки игрока (весь аккаунт или замок) и с карты мира (окно «Замок» — у админа плитка «Осмотр»)
+function openInspect(arg) { S.adm.insp = null; S.adm.inspArg = arg; send({ t: 'admin', op: 'inspect', ...arg }); openSheet(admInspectWin); }
+const INSP_MIS = { attack: 'Нападение', raid: 'Набег', scout: 'Разведка', trade: 'Торговля', reinforce: 'Подкрепление', expedition: 'Раскопки', settle: 'Освоение', rally: 'Созыв', rune: 'Сбор руны' };
+const INSP_ST = { go: 'идёт', wait: 'ждёт выхода', stay: 'стоит', back: 'возвращается' };
+const INSP_STAT = { loot: 'награблено', kills: 'убито в нападениях', defKills: 'убито в защите', arts: 'артефакты (очки)', expeds: 'экспедиций', trades: 'торговых походов', boost: 'пробуждений',
+  genExp: 'опыт генерала', runes: 'рун собрано', ruins: 'осад руин', repGold: 'монет на репутацию', loyal: 'лояльность за дела', npcWins: 'побед над лагерями', stashTake: 'взято из Кладовой' };
+const INSP_RAR = ['обычный', 'редкий', 'легендарный'];
+function admInspectWin() {
+  const d = S.adm.insp; if (!d) return `${ribbon('👁 Осмотр')}<p class="parch-note">Загрузка…</p>`;
+  const kv = (k, v) => `<span>${k}</span><b>${v}</b>`;
+  const ul = (l) => (l.length ? `${l.map((x) => `${esc(x.name)} <b>${fmtFull(x.n)}</b>`).join(' · ')} <small>(всего ${fmtFull(l.reduce((s, x) => s + x.n, 0))})</small>` : '<span class="muted">нет</span>');
+  const sec = (t, body) => `<div class="mhead">${t}</div><div class="small insb">${body}</div>`;
+  const till = (t) => (t ? `до ${fmtDate(t)}` : 'нет');
+  const st = d.stash, gp = (p, k) => p[k] || 0;
+  const head = `<div class="acard"><div class="cwname">${esc(d.login)} <small>· ${esc(d.race)} · ${d.online ? '<span class="ok">в игре</span>' : `был ${fmtDate(d.lastSeen)}`}</small></div>
+    <div class="akv">${kv('Монеты', fmtFull(d.gold))}${kv('Премиум', till(d.premium))}${kv('Лояльность населения', fmtFull(d.royal))}${kv('Репутация', fmtFull(d.rep))}
+      ${kv('Боевой ранг', `${d.brank.rank} · очков ${fmtFull(d.brank.pts)} · наград забрано ${d.brank.claimed}`)}${kv('Захватов замков', d.captures)}
+      ${kv('Руны', `Силы ${gp(d.runes, 'str')} · Стойкости ${gp(d.runes, 'def')} · Пути ${gp(d.runes, 'path')}`)}${kv('Купол королевства', till(d.shieldKingdom))}${kv('Контрразведка', till(d.shieldSpy))}${kv('Регистрация', fmtDate(d.created))}</div>
+    ${sec('📦 Кладовая', `${['wood', 'stone', 'iron', 'food'].map((r) => `${RES_IC[r]} ${fmtFull(st.res[r])}`).join(' ')}<br>Воины: ${ul(st.units)}<br>Опыт генерала: <b>${fmtFull(st.exp)}</b> · лояльность: <b>${fmtFull(st.royal)}</b>`)}
+    ${sec('📈 Счётчики', Object.entries(d.stats).filter(([, v]) => typeof v === 'number').map(([k, v]) => `${INSP_STAT[k] || esc(k)}: <b>${fmtFull(v)}</b>`).join(' · ') || 'нет')}
+    <button class="pbar" data-ainsprefresh>🔄 Обновить</button></div>`;
+  const castle = (c) => { const g = c.general, p = (g && g.pts) || {};
+    const genHtml = g ? `<b>${esc(g.name)}</b>, ${g.level} ур. (опыт ${fmtFull(g.exp)}), ${g.away ? 'в походе' : 'в замке'}<br>Очки: атака ${gp(p, 'atk')} · защита ${gp(p, 'def')} · ком. атакой ${gp(p, 'catk')} · ком. защитой ${gp(p, 'cdef')} · восстановление ${gp(p, 'heal')} · карьера ${gp(p, 'career')} · свободно ${g.free}${g.gear.length ? `<br>Снаряжение: ${g.gear.map(esc).join(', ')}` : ''}`
+      : `<span class="muted">нет</span>${c.dead.length ? `<br>Погибли: ${c.dead.map((x) => `${esc(x.name)} ${x.level} ур.${x.reviveAt ? ` (воскреснет ${fmtDate(x.reviveAt)})` : ''}`).join(', ')}` : ''}`;
+    return `<div class="acard insc" data-insc="${c.id}"><div class="cwname">🏰 ${esc(c.name)} <small>X:${c.x} Y:${c.y}${c.capital ? ' · столица' : ''}</small></div>
+    <div class="akv">${kv('Рейтинг', fmtFull(c.rating))}${kv('Бунт', `${c.riot}%`)}${kv('Стена', `${c.wall} ур.`)}${kv('Купол', till(c.shield))}${kv('Религия', c.religion ? esc(((S.cat.mil.religions || {})[c.religion] || {}).name || c.religion) : 'нет')}
+      ${kv('Науки', `экономика ${gp(c.sciences, 'eco')} · инженерия ${gp(c.sciences, 'eng')} · философия ${gp(c.sciences, 'fhi')} · война ${gp(c.sciences, 'war')}`)}</div>
+    ${sec('Ресурсы', `${['wood', 'stone', 'iron', 'food'].map((r) => `${RES_IC[r]} ${fmtFull(c.res[r].n)} / ${fmtFull(c.res[r].cap)} <small>+${fmtFull(c.res[r].rate)}/ч</small>`).join('<br>')}<br>${RES_IC.people} ${fmtFull(c.people)}`)}
+    ${sec('⚔ Генерал', `${genHtml}${c.bag ? `<br>Вещей в Оружейной: ${c.bag}` : ''}`)}
+    ${sec('🛡 Войска в замке', ul(c.units))}
+    ${c.squads.length ? sec('Отряды', c.squads.map((q) => `<b>${esc(q.name)}</b>: ${ul(q.units)}`).join('<br>')) : ''}
+    ${c.training.length ? sec('Тренируются', c.training.map((t) => `${esc(t.name)} ×${fmtFull(t.left)} — до ${fmtDate(t.end)}`).join('<br>')) : ''}
+    ${c.wounded.length || c.healing.length ? sec('Лазарет', `Раненые: ${ul(c.wounded)}${c.healing.length ? `<br>Лечатся: ${c.healing.map((t) => `${esc(t.name)} ×${fmtFull(t.left)}`).join(', ')}` : ''}`) : ''}
+    ${sec(`🚩 Армии вне замка (${c.armies.length})`, c.armies.map((a) => `<b>${INSP_MIS[a.mission] || esc(a.mission)}</b> → ${a.x}:${a.y} · ${INSP_ST[a.state] || esc(a.state)}${a.stay ? ` в «${esc(a.stay)}»` : ''}${a.general ? ' · с генералом' : ''}${a.state !== 'stay' ? ` · ${fmtDate(a.arrive)}` : ''}<br>${ul(a.units)}`).join('<hr>') || '<span class="muted">нет</span>')}
+    ${sec('🤝 Чужие подкрепления в замке', c.guests.map((x) => `<b>${esc(x.from)}</b> («${esc(x.castle)}»): ${ul(x.units)}`).join('<br>') || '<span class="muted">нет</span>')}
+    ${sec('🎯 Идут к замку', c.incoming.map((a) => `<b>${esc(a.from)}</b> («${esc(a.castle)}») — ${INSP_MIS[a.mission] || esc(a.mission)}, ${fmtDate(a.arrive)}<br>${ul(a.units)}`).join('<hr>') || '<span class="muted">никто</span>')}
+    ${c.queue.length || c.research ? sec('🔨 Стройки', `${c.queue.map((q) => `${esc(q.name)} → ${q.level} ур. до ${fmtDate(q.end)}`).join('<br>')}${c.research ? `<br>Наука ${esc(c.research.sci)} → ${c.research.level} ур. до ${fmtDate(c.research.end)}` : ''}`) : ''}
+    ${sec('🏛 Здания замка', c.castleB.map((b) => `${esc(b.name)} ${b.n > 1 ? `×${b.n} (до ${b.max} ур.)` : `${b.max} ур.`}`).join(' · ') || 'нет')}
+    ${sec('🌾 Земли', c.landsB.map((b) => `${esc(b.name)} ×${b.n} (до ${b.max} ур.)`).join(' · ') || 'нет')}
+    ${sec('💎 Артефакты', c.artifacts.map((a) => `${esc(a.name)} (${INSP_RAR[a.rarity] || a.rarity})${a.active ? ` · <span class="ok">пробуждён${a.until ? ` до ${fmtDate(a.until)}` : ''}</span>` : ''}`).join('<br>') || 'нет')}
+    ${c.expeds.length ? sec('Экспедиции', c.expeds.map((e) => `${esc(e.kind)}: ${e.n} археологов, вернутся ${fmtDate(e.end)}`).join('<br>')) : ''}
+    <button class="btn small" data-goworld="${c.x},${c.y}">На карте</button></div>`; };
+  return `${ribbon(`👁 Осмотр: ${d.login}`)}<p class="small muted center">Только просмотр — игрок об осмотре не узнаёт.</p>${head}${d.castles.map(castle).join('')}`;
+}
+$('#sheetBody').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-ainsp],[data-ainspxy],[data-ainsprefresh]'); if (!b) return;
+  if (b.dataset.ainsprefresh !== undefined) { S.adm.insp = null; refreshSheet(); return send({ t: 'admin', op: 'inspect', ...(S.adm.inspArg || {}) }); }
+  if (b.dataset.ainspxy) { const [x, y] = b.dataset.ainspxy.split(',').map(Number); return openInspect({ x, y }); }
+  openInspect({ login: b.dataset.ainsp, castle: Number(b.dataset.cid) || 0 });
+});
 
 function admSend(op, extra = {}) {
   const a = S.adm;
@@ -278,6 +331,11 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
     if (m.op.startsWith('honor')) S.adm.honor = m.data;
     if (m.op.startsWith('test')) { const keep = S.adm.test && S.adm.test.created; S.adm.test = { ...m.data, created: m.data.created || (m.op === 'testview' ? null : keep) }; }
     if (m.op === 'armyinfo') S.adm.ga = m.data;
+    if (m.op === 'inspect') { // осмотр: сразу к нужному замку (нажали на замок на карте или «осмотр» у замка)
+      S.adm.insp = m.data; refreshSheet();
+      if (m.data.focus && S.sheets[S.sheets.length - 1] === admInspectWin) { const el = $(`[data-insc="${m.data.focus}"]`); if (el) el.scrollIntoView({ block: 'start' }); }
+      return;
+    }
     if (m.op === 'passcheck') S.adm.passcheck = m.data;
     if (m.op === 'goldall' || m.op === 'goldallget') S.adm.goldAll = { ...m.data, at: Date.now() };
     return refreshSheet();

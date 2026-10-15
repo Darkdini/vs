@@ -147,6 +147,42 @@ function install(Game) {
       online: !!u.online, banned: !!u.banned, admin: !!u.admin, mod: !!u.mod, smod: !!u.smod, created: u.created, lastSeen: u.lastSeen || u.created, x: cs[0] && cs[0].x, y: cs[0] && cs[0].y };
   };
 
+  // «👁 Осмотр» (против жульничества): всё о замках и аккаунте игрока — генерал, войска, армии, подкрепления, ресурсы,
+  // здания, стройки, артефакты, Кладовая, руны, счётчики. Только чтение: игрок ничего не узнаёт (ни отчёта, ни события)
+  P.adminInspect = function adminInspect(u, focus = 0) {
+    const now = Date.now(), A = require('./army'), H = require('./hero');
+    const nm = (id) => (UNIT[id] || {}).name || `юнит ${id}`, bn = (id) => (C.BY_ID[id] || {}).name || `здание ${id}`;
+    const units = (o) => Object.entries(o || {}).filter(([, n]) => n > 0).map(([id, n]) => ({ name: nm(id), n: Math.floor(n) })).sort((a, b) => b.n - a.n);
+    const blds = (c, v) => { const m = new Map(); c.grid[v].forEach((b, k) => { if (b < 0) return; const e = m.get(b) || { name: bn(b), n: 0, max: 0, sum: 0 }; const l = c.levels[v][k]; e.n++; e.max = Math.max(e.max, l); e.sum += l; m.set(b, e); }); return [...m.values()].sort((a, b) => b.max - a.max); };
+    const s = this.stashOf(u), br = this.brOf(u);
+    const castles = this.castlesOf(u).map((c, i) => {
+      this.tick(c); this.mil(c);
+      const g = c.general && !c.general.dead ? c.general : null, cap = this.capacity(c), rate = this.rates(c);
+      return { id: c.id, name: c.name, x: c.x, y: c.y, capital: i === 0, rating: this.rating(c), riot: Math.max(0, Math.round(100 - (c.loyalty ?? 100))), wall: c.wall || 0,
+        shield: (c.shieldUntil || 0) > now ? c.shieldUntil : 0, religion: c.religion || null, sciences: this.sciOf(c),
+        res: Object.fromEntries(RES4.map((r) => [r, { n: Math.floor(c.res[r]), cap: cap[r], rate: Math.round(rate[r] || 0) }])), people: Math.floor(c.res.people || 0),
+        general: g ? { name: g.name, level: g.level, exp: Math.floor(g.exp || 0), free: g.free || 0, pts: g.pts || {}, away: !!g.away, gear: Object.values(g.eq || {}).filter(Boolean).map((it) => H.gearName(it)) } : null,
+        dead: this.deadList(c).map((d) => ({ name: d.name, level: d.level, reviveAt: d.reviveAt || 0 })), bag: this.heroGear(c).length,
+        units: units(c.units), squads: (c.squads || []).map((q) => ({ name: q.name, units: units(q.units) })),
+        training: (c.training || []).map((t) => ({ name: t.unit === GENERAL_ID ? `Генерал (${nm(t.kindId)})` : nm(t.unit), left: t.count - (t.done || 0), end: t.start + t.each * t.count })),
+        wounded: units(c.wounded), healing: (c.healing || []).map((t) => ({ name: nm(t.unit), left: t.count - (t.done || 0) })),
+        armies: c.armies.map((a) => ({ mission: a.mission, state: a.state, x: a.x, y: a.y, arrive: a.arrive, general: !!a.general, units: units(a.units), stay: a.state === 'stay' && this.db.castles[a.stayAt] ? this.db.castles[a.stayAt].name : null })),
+        guests: this.guestsOf(c).map((x) => ({ from: (this.ownerOf(x.c) || {}).login || '?', castle: x.c.name, units: units(x.a.units) })),
+        incoming: Object.values(this.db.castles).flatMap((k) => (k === c ? [] : (k.armies || []).filter((a) => (a.state === 'go' || a.state === 'wait') && a.x === c.x && a.y === c.y)
+          .map((a) => ({ from: (this.ownerOf(k) || {}).login || '?', castle: k.name, mission: a.mission, arrive: a.arrive, units: units(a.units) })))), // все, без Караульной башни
+        queue: (c.queue || []).map((q) => ({ name: q.wall ? 'Стена' : bn(q.building), level: q.level, end: q.end })),
+        research: c.research ? { sci: c.research.sci, level: c.research.level, end: c.research.end } : null,
+        castleB: blds(c, 0), landsB: blds(c, 1),
+        artifacts: c.artifacts.map((a) => ({ name: (A.ART_TYPES[a.type] || {}).name || a.type, rarity: a.rarity, active: !!a.active, until: a.until || 0 })),
+        expeds: (c.expeds || []).map((e) => ({ kind: (A.EXPED[e.kind] || {}).name || e.kind, n: e.n, end: e.end })) };
+    });
+    return { id: u.id, login: u.login, race: C.RACE_NAMES[u.race], online: !!u.online, lastSeen: u.lastSeen || u.created, created: u.created, focus: Number(focus) || 0,
+      gold: u.gold || 0, premium: this.isPremium(u) ? u.premium : 0, royal: Math.floor(this.royalTick(u)), rep: u.reputation ?? START_REP, captures: u.captures || 0,
+      brank: { pts: br.pts, rank: this.brRank(u) + 1, claimed: br.claimed + 1 }, runes: { ...this.runesOf(u) },
+      stash: { res: Object.fromEntries(RES4.map((r) => [r, Math.floor(s.res[r] || 0)])), units: units(s.units), exp: s.exp || 0, royal: s.royal || 0 },
+      stats: { ...this.stats(u) }, shieldKingdom: (u.shieldKingdom || 0) > now ? u.shieldKingdom : 0, shieldSpy: (u.shieldSpy || 0) > now ? u.shieldSpy : 0, castles };
+  };
+
   // все админ-команды. arg.login — над каким игроком (пусто — над собой); arg.all — над всеми его замками
   P.adminOp = function adminOp(user, op, arg = {}) {
     if (!user.admin) return { error: 'Нет прав.' };
@@ -156,7 +192,7 @@ function install(Game) {
     const num = (v, d) => (Number.isFinite(Number(v)) && v !== '' ? Number(v) : d);
     const now = Date.now();
     // админ что-то меняет у игрока — «Подозрительное» (anomaly.js) начнёт замер заново, без ложной тревоги
-    if (!['player', 'players', 'stats', 'alerts', 'mods', 'modreq', 'multis', 'bugs', 'passcheck', 'armyinfo', 'sec', 'ipban', 'ipunban', 'secclear', 'alertsclear', 'tgbackup'].includes(op)) target.admTouch = now;
+    if (!['player', 'players', 'stats', 'alerts', 'mods', 'modreq', 'multis', 'bugs', 'passcheck', 'armyinfo', 'inspect', 'sec', 'ipban', 'ipunban', 'secclear', 'alertsclear', 'tgbackup'].includes(op)) target.admTouch = now;
     let data = null, msg = 'Готово.';
     switch (op) {
       // --- ресурсы, золото ---
@@ -201,6 +237,15 @@ function install(Game) {
         data = { login: target.login, race: target.race, raceName: C.RACE_NAMES[target.race] || target.race, units: list.map((u) => u.id),
           castles: this.castlesOf(target).map((c, i) => ({ id: c.id, name: c.name, x: c.x, y: c.y, capital: i === 0 })) };
         break;
+      }
+      // «👁 Осмотр»: по нику (arg.login) или по клетке карты (arg.x, arg.y — чей там замок); arg.castle — какой замок показать первым
+      case 'inspect': {
+        let who = target, focus = Number(arg.castle) || 0;
+        if (arg.x !== undefined && arg.y !== undefined) {
+          const c = this.castleAt(Math.floor(Number(arg.x)), Math.floor(Number(arg.y))); if (!c) return { error: 'На этой клетке нет замка.' };
+          who = this.userById(c.owner); focus = c.id; if (!who) return { error: 'У замка нет хозяина.' };
+        }
+        data = this.adminInspect(who, focus); break;
       }
       case 'givearmy': {
         const allowed = new Set(unitsForRace(target.race).filter((u) => u.id !== GENERAL_ID && !u.notrain).map((u) => u.id));

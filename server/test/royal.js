@@ -1072,6 +1072,18 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok((su.goldLog || []).some((x) => /Лавка: достроить/.test(x.reason)), 'покупки — в журнале золота');
   console.log('✓ Лавка Короля: −1 час, достроить сейчас, ресурсы S…XXXL и пакеты (2 в сутки, замок + Кладовая), Сокровища (от … до …, артефакты, осколки), рамки, телепорт по координатам (500) и в провинцию (250), пока только админу');
 }
+{ // «👁 Осмотр» в админке: всё о замках игрока (генерал, войска, армии, подкрепления, здания, Кладовая) — только админу, без следов у игрока
+  const ch = g.register({ login: 'inspU', password: '12345', race: 0 }).user, cc = g.castleOf(ch); g.maxOut(cc); g.mil(cc);
+  cc.units = { 200: 777 }; cc.armies = [{ id: 1, units: { 201: 55 }, mission: 'raid', x: 3, y: 4, state: 'go', arrive: Date.now() + 60000, general: false }];
+  const rep0 = (g.db.reports || []).filter((r) => r.owner === ch.id).length, touch0 = ch.admTouch;
+  const r = g.adminOp(g.adminUser(), 'inspect', { login: 'inspU' }), c0 = r.data && r.data.castles[0];
+  assert.ok(c0 && c0.general && c0.general.level >= 1 && c0.units.some((u) => u.n === 777) && c0.armies.length === 1 && c0.armies[0].units[0].n === 55 && c0.castleB.length > 5 && c0.res.wood.cap > 0, 'генерал, войска дома и в походе, здания, ресурсы');
+  assert.ok(r.data.stash && r.data.runes && r.data.brank && typeof r.data.royal === 'number', 'Кладовая, руны, ранг, лояльность');
+  const r2 = g.adminOp(g.adminUser(), 'inspect', { x: cc.x, y: cc.y }); assert.ok(r2.data && r2.data.login === 'inspU' && r2.data.focus === cc.id, 'по клетке карты — тот же игрок, нужный замок');
+  assert.ok(g.adminOp(g.adminUser(), 'inspect', { x: 0, y: 0 }).error && g.adminOp(ch, 'inspect', { login: 'inspU' }).error, 'пустая клетка — ошибка; не админу — нельзя');
+  assert.ok((g.db.reports || []).filter((x) => x.owner === ch.id).length === rep0 && ch.admTouch === touch0, 'игрок ничего не узнаёт, «Подозрительное» не сбрасывается');
+  console.log('✓ Осмотр в админке: генерал, войска, армии, здания, Кладовая — по нику и с карты, только админу, без следов');
+}
 { // копия базы в Telegram (tgbackup.js): шифрование, расписание; сеть не трогаем
   const TB = require('../src/tgbackup'), zlib = require('zlib');
   const gz = zlib.gzipSync(Buffer.from('{"users":{}}')), enc = TB.encrypt(gz, 'пароль123');

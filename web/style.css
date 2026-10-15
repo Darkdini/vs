@@ -2367,3 +2367,5 @@ p.ghint.center { margin: 2px 8px 6px; text-align: center; font: 14px var(--serif
 .rfneed { font: 600 14px system-ui, sans-serif; color: #8a2a10; margin-top: 2px; }
 .pbar.rfgo { width: auto; margin: 4px 0 0; padding: 4px 18px; display: inline-block; }
 .pbar.rfgo:disabled { opacity: 0.5; }
+/* «👁 Осмотр» в админке (admin.js admInspectWin): блоки сведений о замке */
+.insb { line-height: 1.5; margin: 2px 0 8px; overflow-wrap: anywhere; } .insb hr { border: 0; border-top: 1px dashed #b08a5a88; margin: 4px 0; }
