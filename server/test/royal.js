@@ -1712,7 +1712,12 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
       assert.ok(L.every((o) => L.every((q) => q === o || Math.max(Math.abs(q.x - o.x), Math.abs(q.y - o.y)) > 1)), 'объекты не вплотную друг к другу');
     }
     const W = g.register({ login: 'campWin1', password: '12345', race: 0 }).user, wc = g.castleOf(W); g.mil(wc); g.maxOut(wc);
-    const pn = provinceOf(wc.x, wc.y).n, camp = g.provNpc(pn).find((o) => o.img === 30);
+    // своя пустая провинция: в общей замки других проверок теснят лагеря (переезжают, а места может не найтись) — проверка была нестабильной
+    let pn = 0; for (let n = PROV_N * PROV_N; n > 0 && !pn; n--) if (![...g.byXY.values()].some((k) => provinceOf(k.x, k.y).n === n)) pn = n;
+    { const L0 = g.provNpc(pn), px = (pn - 1) % PROV_N, py = Math.floor((pn - 1) / PROV_N); let spot = null;
+      for (let y = py * PROV + 3; y < (py + 1) * PROV - 3 && !spot; y++) for (let x = px * PROV + 3; x < (px + 1) * PROV - 3 && !spot; x++) if (!g.placeError(x, y, wc) && !L0.some((o) => Math.max(Math.abs(o.x - x), Math.abs(o.y - y)) <= 2)) spot = { x, y };
+      g.moveCastle(wc, spot.x, spot.y); }
+    const camp = g.provNpc(pn).find((o) => o.img === 30);
     wc.units = { 204: 3000 }; wc.squads = []; wc.armies = []; wc.general = null;
     const r = g.sendArmy(wc, { units: { 204: 3000 }, x: camp.x, y: camp.y, mission: 'attack' }); assert.ok(!r.error, r.error);
     const t1 = r.army.arrive + 1000; g.tickWorld(t1);
