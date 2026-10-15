@@ -34,7 +34,11 @@ function openForum() { S.fr = { sections: null }; fsend({ op: 'sections' }); ope
 const fRib = (t) => `<div class="ribbon ${t.length > 24 ? 'rlong' : ''}">${esc(t)}</div>`;
 const fsend = (m) => send({ t: 'forum', ...m });
 const fArrow = `<img class="farrow" src="${FG}arrow.svg" alt="">`;
-const fWho = (name, id, role) => `${role ? `<img class="fcrown" src="${FG}crown.png" alt="">` : ''}<a class="fnick ${role ? 'mod' : ''}" data-cprof="${id}">${esc(name)}</a>`;
+// значок роли — наш (как в профиле): администратор или модератор форума
+const fBadge = (role) => (role ? `<img class="fbadge" src="${GFX}${role === 'admin' ? 'admin' : 'mod'}_badge_s.png" alt="">` : '');
+const fWho = (name, id, role) => `${fBadge(role)}<a class="fnick ${role ? 'mod' : ''}" data-cprof="${id}">${esc(name)}</a>`;
+// аватарка автора сообщения: своё фото или портрет расы (как в переписке)
+const fAva = (p) => `<span class="dmava fava" data-cprof="${p.byId}">${p.ava ? `<img src="avatar/${p.byId}.png?v=${p.ava}" alt="">` : raceAva(p.race)}</span>`;
 const fPager = (pg, pages, attr) => pages > 1 ? `<div class="hpager">${Array.from({ length: pages }, (_, i) => `<button class="${i === pg ? 'on' : ''}" ${attr}="${i}">${i + 1}</button>`).join('')}</div>` : '';
 
 function forumSecWin() {
@@ -62,7 +66,7 @@ function forumPostsWin() {
       <button data-ftop="${d.deleted ? 'restore' : 'delete'}">${d.deleted ? 'Восстановить' : 'Удалить тему'}</button>` : ''}</div>
     ${d.deleted ? '<div class="bwline center small">Тема удалена — её видят только модераторы.</div>' : ''}
     ${fPager(d.page, d.pages, 'data-fppg')}
-    ${d.posts.map((p) => `<div class="fpost ${p.deleted ? 'fdel' : ''}"><div class="fph"><img class="fking" src="${FG}king.png" alt="">${fWho(p.by, p.byId, p.role)}<small>${repDate(p.at)}</small></div>
+    ${d.posts.map((p) => `<div class="fpost ${p.deleted ? 'fdel' : ''}"><div class="fph">${fAva(p)}${fWho(p.by, p.byId, p.role)}<small>${repDate(p.at)}</small></div>
       ${p.reply ? `<div class="fquote">↪ <b>${esc(p.reply.by)}</b>: «${esc(p.reply.text)}»</div>` : ''}
       <div class="fpt"${/^#[0-9a-f]{6}$/i.test(p.color || '') ? ` style="color:${p.color}"` : ''}>${esc(p.text)}</div>
       ${(d.canPost && !p.deleted) || mod ? `<div class="fpm">${d.canPost && !p.deleted ? `<button data-freply="${p.id}">Ответить</button>` : ''}${mod ? `<button data-fpdel="${p.id}">${p.deleted ? 'Восстановить' : 'Удалить'}</button>${p.role ? '' : `<button data-fban="${p.byId}" data-fbanname="${esc(p.by)}">Запрет</button>`}` : ''}</div>` : ''}</div>`).join('')}
@@ -84,7 +88,7 @@ function forumRulesWin() {
 function forumModsWin() {
   const list = S.fr && S.fr.sections; if (!list) return forumSecWin();
   const admin = S.st.user.admin;
-  return list.map((s) => `${fRib(s.name)}${s.mods.length ? s.mods.map((m) => `<div class="fcard fmod"><img class="fking" src="${FG}king.png" alt=""><b>${esc(m)}</b>${admin ? `<button class="pbtn small" data-fsecmod="${s.id}" data-login="${esc(m)}">Снять</button>` : ''}</div>`).join('')
+  return list.map((s) => `${fRib(s.name)}${s.mods.length ? s.mods.map((m) => `<div class="fcard fmod">${fBadge('mod')}<b>${esc(m)}</b>${admin ? `<button class="pbtn small" data-fsecmod="${s.id}" data-login="${esc(m)}">Снять</button>` : ''}</div>`).join('')
     : '<p class="parch-note">Модератор не назначен — темы ведёт Администрация.</p>'}
     ${admin ? `<form class="fform frow" data-form="fsecmod" data-sec="${s.id}"><input name="login" placeholder="Ник игрока" required><button class="pbtn small">Назначить</button></form>` : ''}`).join('');
 }

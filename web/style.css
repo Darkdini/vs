@@ -1008,7 +1008,7 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .fcard small { color: #7a6a58; font-size: .9em; }
 .fcard.fdel { opacity: .55; }
 .farrow { width: 26px; height: 72px; flex: none; }
-.fcrown { height: 22px; vertical-align: -3px; margin-right: 4px; }
+.fbadge { height: 1.15em; vertical-align: -0.2em; margin-right: 4px; }
 .fnick { color: #2a1408; } .fnick.mod { color: #e01010; font-size: 1.1em; }
 .fbtns { margin-bottom: 4px; } .fbtns button { min-height: 50px; border: 3px solid #d8a070; border-radius: 6px; background: #f0d8b0; color: #2a1408; font: min(24px, 5.6vw) var(--serif); }
 .fbtns button:only-child { grid-column: 1 / -1; }
@@ -1020,7 +1020,8 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .fpost.fdel { opacity: .5; }
 .fph { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; border-bottom: 1px solid #b08a5a66; padding-bottom: 4px; margin-bottom: 4px; }
 .fph small { margin-left: auto; color: #7a6a58; font-size: .8em; }
-.fking { width: 36px; height: 36px; object-fit: contain; }
+.fava { width: 40px; height: 40px; cursor: pointer; } .fava img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.fmod .fbadge { height: 30px; margin-right: 8px; }
 .fpt { white-space: pre-wrap; word-break: break-word; }
 .fpm { display: flex; gap: 6px; justify-content: flex-end; margin-top: 4px; }
 .fpm button { border: 1px solid #a86a3a; border-radius: 4px; background: #f6e2c0; font: 14px var(--serif); padding: 3px 10px; }

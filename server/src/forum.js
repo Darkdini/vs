@@ -61,7 +61,8 @@ function install(Game) {
     return { id: t.id, title: t.title, section: { id: s.id, name: s.name }, closed: !!t.closed, pinned: !!t.pinned, deleted: !!t.deleted, canMod: mod,
       fav: (user.forumFav || []).includes(t.id), canPost: !t.closed && !t.deleted && !this.forumBanned(user), ban: this.forumBanned(user), page: pg, pages,
       posts: list.slice(pg * POSTS_PAGE, pg * POSTS_PAGE + POSTS_PAGE).map((p) => { const u = this.userById(p.byId);
-        return { id: p.id, by: p.by, byId: p.byId, at: p.at, text: p.text, color: p.color || '', deleted: !!p.deleted, reply: p.reply || null, role: u ? (u.admin ? 'admin' : u.mod || s.mods.includes(u.id) ? 'mod' : '') : '' }; }) };
+        return { id: p.id, by: p.by, byId: p.byId, at: p.at, text: p.text, color: p.color || '', deleted: !!p.deleted, reply: p.reply || null, role: u ? (u.admin ? 'admin' : u.mod || s.mods.includes(u.id) ? 'mod' : '') : '',
+          race: u ? u.race : '', ava: (u && u.avatar) || 0 }; }) }; // аватарка автора (своя или портрет расы) — как в переписке
   };
 
   P.forumOp = function forumOp(user, m) {
