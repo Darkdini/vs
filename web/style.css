@@ -1139,8 +1139,7 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .dctl .dsm { width: 46px; height: 46px; padding: 3px; }
 .dctl .two2 { gap: 6px; } .dctl .two2 + .two2 { margin-top: 0; }
 #sheetBody .dctl .pbar { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 42px; margin: 0; padding: 3px 8px; font-size: min(19px, 4.6vw); }
-#sheetBody .dctl .pbar img { height: 26px; width: auto; margin: 0; }
-.dctl .pbar .dclip { font-size: 22px; line-height: 1; }
+#sheetBody .dctl .pbar img { height: 32px; width: auto; margin: -2px 0; }
 /* переписка: «Изменить» и «История» — под сообщением «Переслать» и галочка «Удалить»; пометка «Переслано от …» */
 .dmact { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin: 4px 0 2px; }
 .pbtn.dfwd { display: inline-flex; align-items: center; gap: 6px; font-size: min(18px, 4.4vw); padding: 2px 12px; }

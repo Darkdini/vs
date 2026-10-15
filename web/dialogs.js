@@ -63,9 +63,9 @@ function dialogWin() {
       <button type="button" class="dsm" data-dlgsmile><img src="gfx3d/smiles2/smile.png" alt="Смайлы"></button>${fr}</form>
     ${S.dlg.picBusy ? `<div class="dpicst">📷 ${esc(S.dlg.picBusy)}</div>` : ''}
     ${d.smile ? `<div class="smilebox">${SMILES.map((k) => `<button data-dlgsm="${k}"><img src="${smileSrc(k)}" alt=""></button>`).join('')}</div>` : ''}
-    <button class="pbar dsend" data-dlgsend><img src="gfx3d/chat/tosend_button.png" alt=""> Отправить</button>
-    <div class="two2"><button class="pbar" data-cprof="${w.id}"><img src="gfx3d/prof/king.png" alt=""> Профиль</button><button class="pbar" data-dlghist><img src="${M3('files')}" alt=""> История</button></div>
-    <div class="two2"><button class="pbar" data-dlgedit><img src="gfx3d/rep/mailset.png" alt=""> Изменить</button><button class="pbar" data-dlgpic><span class="dclip">📎</span> Файл</button></div></div>`;
+    <button class="pbar dsend" data-dlgsend><img src="${GFX}dlg/send.png" alt=""> Отправить</button>
+    <div class="two2"><button class="pbar" data-cprof="${w.id}"><img src="${GFX}dlg/profile.png" alt=""> Профиль</button><button class="pbar" data-dlghist><img src="${GFX}dlg/history.png" alt=""> История</button></div>
+    <div class="two2"><button class="pbar" data-dlgedit><img src="${GFX}dlg/edit.png" alt=""> Изменить</button><button class="pbar" data-dlgpic><img src="${GFX}dlg/file.png" alt=""> Файл</button></div></div>`; // значки кнопок — web/gfx/dlg
 }
 // «История» переписки, как в оригинале: листать страницы и пересылать сообщения
 function dialogHistWin() {
