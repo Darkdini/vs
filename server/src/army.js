@@ -297,13 +297,16 @@ const EXPED_MAXN = 20; // больше 20 археологов в одну эк�
 const NPC = {
   // охрана — в том же масштабе, что и юниты (сила атаки воина: мечник 10, рыцарь 45)
   // лагеря разбойников — боты трёх уровней сложности, в каждой провинции по одному (game.js PROV_NPC); добыча скромная (не заменяет свою экономику).
-  // Были слишком слабые (тяжёлый — ~150 мечников): охрана ×3 / ×6 / ×10, добыча ×2 / ×3 / ×5; руины — охрана ×4
-  30: { name: 'Лагерь разбойников (лёгкий)', level: 'Лёгкий', def: { inf: 270, cav: 240, mag: 120 }, loot: { wood: 500, stone: 500, iron: 300, food: 600 } },
-  31: { name: 'Лагерь разбойников (средний)', level: 'Средний', def: { inf: 2700, cav: 2400, mag: 1080 }, loot: { wood: 1500, stone: 1500, iron: 1050, food: 1800 } },
-  32: { name: 'Лагерь разбойников (тяжёлый)', level: 'Тяжёлый', def: { inf: 15000, cav: 13500, mag: 6000 }, loot: { wood: 4500, stone: 4500, iron: 3500, food: 5000 } },
-  24: { name: 'Заброшенный замок', def: { inf: 10080, cav: 9240, mag: 4200 }, loot: { wood: 4000, stone: 4000, iron: 4000, food: 4000 }, ruins: true },
+  // Были слишком слабые (тяжёлый — ~150 мечников): охрана ×3 / ×6 / ×10, руины — ×4.
+  // Поход не должен уходить в минус: добыча покрывает потери (в бою с лагерем и руинами потери победителя вдвое меньше — CAMP_LOSS):
+  // армия вдвое больше нужной — примерно в ноль, втрое — в плюс (больше — ещё выгоднее; Лазарет вернёт часть павших)
+  30: { name: 'Лагерь разбойников (лёгкий)', level: 'Лёгкий', def: { inf: 270, cav: 240, mag: 120 }, loot: { wood: 1000, stone: 1000, iron: 700, food: 1300 } },
+  31: { name: 'Лагерь разбойников (средний)', level: 'Средний', def: { inf: 2700, cav: 2400, mag: 1080 }, loot: { wood: 7500, stone: 7500, iron: 6000, food: 9000 } },
+  32: { name: 'Лагерь разбойников (тяжёлый)', level: 'Тяжёлый', def: { inf: 15000, cav: 13500, mag: 6000 }, loot: { wood: 40000, stone: 40000, iron: 35000, food: 45000 } },
+  24: { name: 'Заброшенный замок', def: { inf: 10080, cav: 9240, mag: 4200 }, loot: { wood: 27500, stone: 27500, iron: 27500, food: 27500 }, ruins: true },
 };
 const NPC_REGEN_SEC = 3600;
+const CAMP_LOSS = 0.5; // в бою с лагерем разбойников и руинами победитель теряет вдвое меньше (поражение — по-прежнему вся армия)
 const CAMPS = [30, 31, 32]; // лагеря разбойников: лёгкий, средний, тяжёлый
 // бой (как в Travian): сила атаки против защиты, смешанной по составу нападающих; лечение раненых дома
 const HEAL_HOME = 0.25; // раненые защитники в своём замке: четверть павших выздоравливает
@@ -1183,7 +1186,8 @@ function install(Game, helpers) {
     const x = Math.pow(Math.min(AP, DP) / Math.max(AP, DP, 1e-9), LOSS_POW);
     const raid = a.mission === 'raid';
     const lossW = raid ? x / (1 + x) : x, lossL = raid ? 1 / (1 + x) : 1;
-    const aShare = D.length || DP > DBASE ? (win ? lossW : lossL) : 0, dShare = win ? lossL : lossW;
+    const campK = !target && npc && [30, 31, 32, 24].some((k) => NPC[k] === npc) ? CAMP_LOSS : 1; // лагеря и руины (не логова «Тёмных земель»)
+    const aShare = D.length || DP > DBASE ? (win ? lossW * campK : lossL) : 0, dShare = win ? lossL : lossW;
     const roll = (v) => { let l = Math.floor(v); if (process.env.LUCK !== '0' ? Math.random() < v - l : v - l >= 0.5) l++; return l; };
     const aLostN = new Map(A.map((s) => [s, Math.min(s.n, roll(s.n * aShare))])), dLostN = new Map(D.map((s) => [s, Math.min(s.n, roll(s.n * dShare))]));
     const routed = 0;

@@ -1196,6 +1196,19 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(g.divorce(Q).ok && !K.marriage && !Q.marriage && !g.profileOf(K, X).marriage, 'развод');
   console.log('✓ ЗАГС: предложение, свадьба, рейтинг пары за золото, подарки, комментарии, развод');
 }
+{ // лагеря разбойников и руины: поход окупается — у победителя потери вдвое меньше, добыча покрывает потери
+  const luck0 = process.env.LUCK; process.env.LUCK = '0';
+  const AR = require('../src/army'), cr = g.castleOf(g.register({ login: 'campProfit', password: '12345', race: 0 }).user); g.mil(cr); cr.general = null;
+  const vs = (npc, n) => { const a = { units: { 200: n }, mission: 'attack', general: false }; const R = g.clash(cr, a, null, AR.NPC[npc], Date.now()); return { win: R.win, lost: n - (a.units[200] || 0) }; };
+  const r62 = vs(30, 62); assert.ok(r62.win && r62.lost >= 9 && r62.lost <= 13, `лёгкий лагерь, 62 мечника: погибло ${r62.lost} (вдвое меньше прежних ~21)`);
+  const cost = Object.values(AR.UNIT[200].cost).reduce((q, v) => q + v, 0), loot = Object.values(AR.NPC[30].loot).reduce((q, v) => q + v, 0);
+  const r93 = vs(30, 93); assert.ok(r93.win && loot > r93.lost * cost && (93 - r93.lost) * AR.UNIT[200].carry >= r93.lost * cost, `втрое больше нужного — в плюсе: добыча ${loot} > потери ${r93.lost * cost}`);
+  assert.ok(vs(30, 20).lost === 20, 'проиграл — погибла вся армия, как прежде');
+  const pvp = g.castleOf(g.register({ login: 'campPvpZ', password: '12345', race: 0 }).user); g.mil(pvp); pvp.units = { 200: 30 };
+  const ap = { units: { 200: 200 }, mission: 'attack', general: false }; const Rp = g.clash(cr, ap, pvp, null, Date.now()); assert.ok(Rp.win, 'бой с игроком — как прежде');
+  if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
+  console.log(`✓ Лагеря окупаются: 62 мечника на лёгкий — погибло ${r62.lost}; 93 — ${r93.lost}, добыча ${loot} больше потерь`);
+}
 { // лагеря разбойников: набег втрое быстрее (туда и обратно), на игроков — как было
   const R = g.register({ login: 'campRunner', password: '12345', race: 0 }).user, rc = g.castleOf(R); g.mil(rc);
   const camp = g.provNpc(require('../src/game').provinceOf(rc.x, rc.y).n).find((o) => [30, 31, 32].includes(o.img)); // лагеря своей провинции
