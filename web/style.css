@@ -1405,6 +1405,10 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .artlife { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-top: 6px; } .artlife .bar { flex: 1; }
 .artlife .bar i { background: linear-gradient(90deg, #9c27b0, #e1bee7); }
 .artbtns { display: flex; flex-direction: column; gap: 6px; flex: none; } .artbtns .btn.small { width: 100%; }
+.artico { width: 56px; height: 56px; object-fit: contain; flex: none; }
+/* редкость артефакта — свечение: обычный без него, редкий — синее, легендарный — золотое */
+img.artr1 { filter: drop-shadow(0 0 3px #4aa8ff) drop-shadow(0 0 6px #2a6aff); }
+img.artr2 { filter: drop-shadow(0 0 3px #ffd34a) drop-shadow(0 0 7px #ff8a1a); }
 
 .qplace { image-rendering: auto; height: 118px; } .qscene { height: 160px; }
 /* карта мира: слои фона и объектов под холстом, двигаются через transform */

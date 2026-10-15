@@ -617,6 +617,19 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(g.expedGo(c, 'nope', 1).error, 'неизвестная экспедиция');
   c.expeds[0].end = Date.now() - 1; g.tick(c);
   assert.ok(!c.expeds.length && c.units[230] >= 5 && g.db.reports.slice(-1)[0].title.startsWith('Экспедиция вернулась'), 'экспедиция вернулась с отчётом');
+  { // добыча артефактов труднее: экспедиции 15/30/45% + 1% за археолога, до 80%; руины 10% + 1%, до 50%; полная Сокровищница — осколки
+    const AR = require('../src/army'), I = g.expedInfo(c), near = I.kinds.find((k) => k.k === 'near');
+    assert.ok(near.per === 1 && near.cap === 80 && AR.EXPED.near.chance === 0.15 && AR.EXPED.tomb.chance === 0.45 && AR.RUINS.cap === 0.5, 'новые шансы в окне экспедиций');
+    const rnd0 = Math.random, ruins = { x: 1, y: 1, units: { 230: 500 } }; c.artifacts = []; const back = g.goBack; g.goBack = () => {};
+    Math.random = () => 0.51; g.expedition(c, ruins, Date.now()); assert.ok(!c.artifacts.length && /Шанс находки 50%/.test(g.db.reports.slice(-1)[0].lines.join(' ')), 'руины: 500 археологов — всё равно не больше 50%');
+    Math.random = () => 0.49; g.expedition(c, ruins, Date.now()); assert.strictEqual(c.artifacts.length, 1, 'руины: находка при шансе 50%');
+    c.artifacts = Array.from({ length: g.bonus(c).artStore }, (_, i) => ({ id: 8000 + i, type: 'atk', rarity: 0, active: false }));
+    const w0 = g.stashOf(u).res.wood || 0; Math.random = () => 0.01; g.expedition(c, ruins, Date.now());
+    assert.ok(c.artifacts.length === g.bonus(c).artStore && (g.stashOf(u).res.wood || 0) > w0 && /осколки/.test(g.db.reports.slice(-1)[0].lines.join(' ')), 'руины: Сокровищница полна — осколки в Кладовую, сверх места не кладётся');
+    const w1 = g.stashOf(u).res.wood; g.expedBack(c, { kind: 'near', n: 20 }); // Math.random = 0.01: без потерь, находка
+    assert.ok(c.artifacts.length === g.bonus(c).artStore && g.stashOf(u).res.wood > w1 && /осколки/.test(g.db.reports.slice(-1)[0].lines.join(' ')), 'экспедиция: полна — осколки, а не «оставить в руинах»');
+    Math.random = rnd0; g.goBack = back; c.artifacts = []; delete c.units[230]; c.units[230] = 25;
+  }
   c.artifacts = [{ id: 1, type: 'atk', rarity: 0, active: false }];
   const a = g.activateArtifact(c, 1, true); assert.ok(a.ok && c.artifacts[0].until > Date.now(), 'пробуждение на время');
   assert.ok(g.activateArtifact(c, 1, false).error, 'усыпить нельзя');
@@ -633,7 +646,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(g.breakArtifact(c, 4).ok && RES.every((r) => c.res[r] >= 300 && c.res[r] < 310) && inStash() === s0, 'обычный: +300 каждого — всё в замок');
   assert.ok(g.breakArtifact(c, 3).error && c.artifacts.length === 1, 'пробуждённый не разбить');
   assert.ok(g.breakArtifact(c, 99).error, 'нет такого артефакта');
-  console.log('✓ Экспедиции из здания, временные артефакты, «Разбить» спящий артефакт');
+  console.log('✓ Экспедиции из здания, временные артефакты, «Разбить» спящий артефакт; добыча труднее (экспедиции до 80%, руины до 50%), полная Сокровищница — осколки');
 }
 { // земли 15×15 (как в оригинале) и перенос с прежних раскладок 7×7 и 5×5 без потери добычи
   const G = require('../src/game'), Cc = require('../src/catalog');

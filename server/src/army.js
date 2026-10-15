@@ -279,11 +279,16 @@ const ART_HOURS = [12, 24, 48];
 // спящий артефакт можно разбить на осколки: место в Сокровищнице освобождается, взамен — немного каждого ресурса (по редкости)
 const ART_BREAK = [300, 800, 2000];
 // экспедиции из здания «Экспедиция»: археологи уходят на время; дальше — выше шанс и редкость, но опаснее
+// шанс находки: chance + EXPED_PER за археолога + 3% за ур. Лагеря археологов + 2% за ур. Экспедиции, не больше EXPED_CAP
+// (было 25/40/55%, +2% за археолога, до 95% — новички набирали слишком много артефактов)
 const EXPED = {
-  near: { name: 'Окрестные руины', hours: 2, chance: 0.25, bias: 0, risk: 0, lvl: 1, desc: 'Ближние развалины. Безопасно, но находки скромные.' },
-  city: { name: 'Древний город', hours: 6, chance: 0.4, bias: 0.12, risk: 0.1, lvl: 3, desc: 'Засыпанные песком улицы. Бывают обвалы — часть археологов может не вернуться.' },
-  tomb: { name: 'Затерянная гробница', hours: 12, chance: 0.55, bias: 0.25, risk: 0.25, lvl: 6, desc: 'Ловушки и проклятия древних королей. Здесь чаще всего находят легендарные реликвии.' },
+  near: { name: 'Окрестные руины', hours: 2, chance: 0.15, bias: 0, risk: 0, lvl: 1, desc: 'Ближние развалины. Безопасно, но находки скромные.' },
+  city: { name: 'Древний город', hours: 6, chance: 0.3, bias: 0.12, risk: 0.1, lvl: 3, desc: 'Засыпанные песком улицы. Бывают обвалы — часть археологов может не вернуться.' },
+  tomb: { name: 'Затерянная гробница', hours: 12, chance: 0.45, bias: 0.25, risk: 0.25, lvl: 6, desc: 'Ловушки и проклятия древних королей. Здесь чаще всего находят легендарные реликвии.' },
 };
+const EXPED_PER = 0.01, EXPED_CAP = 0.8;
+// раскопки в руинах на карте (Заброшенный замок): 10% + 1% за археолога + бонусы зданий, не больше 50% (было 20% + 5%, до 95%)
+const RUINS = { chance: 0.1, per: 0.01, cap: 0.5 };
 const rndPick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const EXPED_MAXN = 20; // больше 20 археологов в одну экспедицию — без толку
 
@@ -1685,16 +1690,13 @@ function install(Game, helpers) {
   // экспедиция археологов в руины
   P.expedition = function expedition(c, a, t) {
     const n = a.units[230] || 0;
-    const chance = 0.2 + 0.05 * n + 0.03 * this.buildingLevel(c, B.ARCH_CAMP) + 0.02 * this.buildingLevel(c, B.EXPEDITION);
-    const lines = [`Раскопки в руинах ${a.x}:${a.y}, археологов: ${n}. Шанс находки ${Math.round(Math.min(0.95, chance) * 100)}%.`];
+    const chance = Math.min(RUINS.cap, RUINS.chance + RUINS.per * n + 0.03 * this.buildingLevel(c, B.ARCH_CAMP) + 0.02 * this.buildingLevel(c, B.EXPEDITION));
+    const lines = [`Раскопки в руинах ${a.x}:${a.y}, археологов: ${n}. Шанс находки ${Math.round(chance * 100)}%.`];
     if (Math.random() < chance) {
       const types = Object.keys(ART_TYPES), type = types[Math.floor(Math.random() * types.length)];
       const roll = Math.random() + 0.02 * this.buildingLevel(c, B.ARCH_CAMP), rarity = roll > 0.95 ? 2 : roll > 0.7 ? 1 : 0;
-      const art = { id: this.db.nextId++, type, rarity, active: false, found: t };
-      c.artifacts.push(art);
       this.addStat(c.owner, 'arts', 1 + rarity * 2); // качество: обычный 1, редкий 3, легендарный 5
-      lines.push(`Найден артефакт: ${ART_TYPES[type].name} (${RARITY[rarity].name}, +${RARITY[rarity].bonus * 100}% — ${ART_TYPES[type].desc}).`);
-      if (c.artifacts.length > this.bonus(c).artStore) lines.push('Сокровищница переполнена — постройте/развейте Сокровищницу.');
+      lines.push(this.artFound(c, type, rarity, t));
     } else lines.push('Ничего не найдено.');
     this.report(c.owner, `Экспедиция ${a.x}:${a.y}`, lines, 'expedition');
     this.goBack(c, a, t);
@@ -1705,7 +1707,7 @@ function install(Game, helpers) {
     const L = this.buildingLevel(castle, B.EXPEDITION), camp = this.buildingLevel(castle, B.ARCH_CAMP);
     return { slots: L ? 1 + Math.floor(L / 4) : 0, maxN: EXPED_MAXN, have: castle.units[230] || 0,
       kinds: Object.entries(EXPED).map(([k, e]) => ({ k, name: e.name, desc: e.desc, sec: Math.max(10, Math.round(e.hours * 3600 / SPEED)), lvl: e.lvl, open: L >= e.lvl, risk: Math.round(e.risk * 100),
-        base: Math.round((e.chance + 0.03 * camp + 0.02 * L) * 100), per: 2, rare: Math.round(Math.min(1, 0.3 + e.bias + 0.02 * camp) * 100), legend: Math.round(Math.min(1, 0.05 + e.bias + 0.02 * camp) * 100) })) };
+        base: Math.round((e.chance + 0.03 * camp + 0.02 * L) * 100), per: Math.round(EXPED_PER * 100), cap: Math.round(EXPED_CAP * 100), rare: Math.round(Math.min(1, 0.3 + e.bias + 0.02 * camp) * 100), legend: Math.round(Math.min(1, 0.05 + e.bias + 0.02 * camp) * 100) })) };
   };
   P.expedGo = function expedGo(castle, kind, n) {
     this.tick(castle); this.mil(castle);
@@ -1728,15 +1730,11 @@ function install(Game, helpers) {
     let lost = 0; for (let i = 0; i < x.n; i++) if (Math.random() < e.risk) lost++;
     if (lost) lines.push(rndPick(['Обвал в галерее', 'Древняя ловушка', 'Проклятие гробницы', 'Нападение песчаных гиен']) + `: не вернулось ${lost}.`);
     const back = x.n - lost; if (back) castle.units[230] = (castle.units[230] || 0) + back;
-    const chance = Math.min(0.95, e.chance + 0.02 * x.n + 0.03 * camp + 0.02 * L);
+    const chance = Math.min(EXPED_CAP, e.chance + EXPED_PER * x.n + 0.03 * camp + 0.02 * L);
     if (back && Math.random() < chance) {
       const type = rndPick(Object.keys(ART_TYPES)), roll = Math.random() + e.bias + 0.02 * camp, rarity = roll > 0.95 ? 2 : roll > 0.7 ? 1 : 0;
-      if (castle.artifacts.length >= this.bonus(castle).artStore) lines.push(`Найден артефакт «${ART_TYPES[type].name}», но Сокровищница полна — его пришлось оставить в руинах. Развейте Сокровищницу.`);
-      else {
-        castle.artifacts.push({ id: this.db.nextId++, type, rarity, active: false, found: Date.now() });
-        this.addStat(castle.owner, 'arts', 1 + rarity * 2);
-        lines.push(`Найден артефакт: ${ART_TYPES[type].name} (${RARITY[rarity].name}, +${RARITY[rarity].bonus * 100}% — ${ART_TYPES[type].desc}). Он в Сокровищнице — пробудите его в Башне артефактов.`);
-      }
+      this.addStat(castle.owner, 'arts', 1 + rarity * 2);
+      lines.push(this.artFound(castle, type, rarity, Date.now()));
     } else if (back) {
       const g = Math.round((50 + Math.random() * 150) * (1 + Object.keys(EXPED).indexOf(x.kind))); const cap = this.capacity(castle);
       for (const r of RES4) castle.res[r] = Math.max(castle.res[r], Math.min(cap[r], castle.res[r] + g));
@@ -1745,6 +1743,17 @@ function install(Game, helpers) {
     this.report(castle.owner, `Экспедиция вернулась: ${e.name}`, lines, 'expedition');
   };
 
+  // находка археологов: в Сокровищницу; полна — артефакт разбит на осколки (ресурсы — в Кладовую, ничего не пропадает)
+  P.artFound = function artFound(castle, type, rarity, t) {
+    const what = `${ART_TYPES[type].name} (${RARITY[rarity].name}, +${RARITY[rarity].bonus * 100}% — ${ART_TYPES[type].desc})`;
+    if (castle.artifacts.length < this.bonus(castle).artStore) {
+      castle.artifacts.push({ id: this.db.nextId++, type, rarity, active: false, found: t });
+      return `Найден артефакт: ${what}. Он в Сокровищнице — пробудите его в Башне артефактов.`;
+    }
+    const g = ART_BREAK[rarity] || ART_BREAK[0], u = this.userById(castle.owner);
+    if (u) this.stashAdd(u, Object.fromEntries(RES4.map((r) => [r, g])));
+    return `Найден артефакт: ${what}, но Сокровищница полна — он разбит на осколки: по ${g.toLocaleString('ru-RU')} каждого ресурса в Кладовую. Развейте Сокровищницу или разбейте ненужные артефакты.`;
+  };
   P.activateArtifact = function activateArtifact(castle, id, on) {
     this.mil(castle);
     const a = castle.artifacts.find((x) => x.id === Number(id)); if (!a) return { error: 'Артефакт не найден.' };
@@ -2232,4 +2241,4 @@ const catalogJson = () => ({
   hero: require('./hero').heroCatalog(),
 });
 
-module.exports = { CAMP_FAST, MARCH, RIOT_STEP, RIOT_CAPTURED, uniqueFor, EXPED, ART_HOURS, NEWBIE_RATING, install, UNITS, UNIT, B, GENERAL_ID, GEN, SCIENCES, RELIGIONS, NPC, MISSIONS, unitsForRace, unitImg, catalogJson, ART_TYPES, RARITY, ART_BREAK };
+module.exports = { CAMP_FAST, MARCH, RIOT_STEP, RIOT_CAPTURED, uniqueFor, EXPED, ART_HOURS, NEWBIE_RATING, install, UNITS, UNIT, B, GENERAL_ID, GEN, SCIENCES, RELIGIONS, NPC, MISSIONS, unitsForRace, unitImg, catalogJson, ART_TYPES, RARITY, ART_BREAK, EXPED_PER, EXPED_CAP, RUINS };

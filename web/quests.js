@@ -9,7 +9,7 @@ const qImg = (p, cls = '') => `<img class="${cls}" src="${p.startsWith('gfx3d/')
 function qReward(r) {
   if (!r) return '';
   return `<div class="qrew"><span class="qrew-h">Награда:</span>${RES4.filter((k) => r[k]).map((k) => `<span>${RES_IC[k]}<b>${fmtFull(r[k])}</b></span>`).join('')}
-${r.art !== undefined ? `<span>${gimg(ART_ICON.atk, 'ri')}<b>${['артефакт', 'редкий артефакт', 'легендарный артефакт'][r.art]}</b></span>` : ''}
+${r.art !== undefined ? `<span>${gimg(ART_ICON.def, `ri artr${r.art}`)}<b>${['артефакт', 'редкий артефакт', 'легендарный артефакт'][r.art]}</b></span>` : ''}
     ${Object.entries(r.u || {}).map(([slot, n]) => { const u = M().units.find((x) => x.quest && x.race === S.st.user.race && x.slot === slot); return u ? `<span class="quni"><img class="ri" src="${unitSrc(u)}" alt=""><b>${esc(u.name)} ×${n}</b></span>` : ''; }).join('')}
     ${r.exp ? `<span><img class="ri" src="${GFX}stash/exp.png" data-fb="${GFX}smallicon/magattack.png" alt=""><b>опыт генерала ${fmtFull(r.exp)}</b></span>` : ''}</div>`;
 }
@@ -61,7 +61,7 @@ const qTabReady = (q, k) => (k === 'tut' ? q.tut.done : k === 'daily' ? q.daily.
   : k === 'week' ? q.weekly.some((d) => d.done && !d.claimed) || q.wchest.ready : k === 'cal' ? q.cal.ready : q.camp.won);
 // календарь входа: 28 клеток (4 недели), каждый 7-й день — крупная награда; пропуск дня прогресс не сбрасывает
 function calIcon(rw) {
-  if (rw.art !== undefined) return qImg(ART_ICON.atk);
+  if (rw.art !== undefined) return qImg(ART_ICON.def);
   if (rw.gear !== undefined) return qImg(`hero/gear_armor_${rw.gear}.png`);
   const slot = Object.keys(rw.u || {})[0], u = slot && M().units.find((x) => x.quest && x.race === S.st.user.race && x.slot === slot);
   if (u && !rw.wood) return `<img src="${unitSrc(u)}" alt="">`;
@@ -98,7 +98,7 @@ function questDone(m) {
       const hint = any(rc.castle) && any(rc.stash) ? 'Не поместилось на Складе — заберите, когда освободится место (сундук справа вверху).' : 'Забирайте сколько нужно в любой свой замок — сундук справа вверху.';
       body += `<div class="qw-sec stash"><div class="qw-h"><img src="${GFX}stash/btn.png" alt=""> В Кладовую</div>${any(rc.stash) ? `<div class="qw-row">${chips(rc.stash)}</div>` : ''}${inStash.length ? `<div class="qw-items">${inStash.join('')}</div>` : ''}<small>${hint}</small></div>`;
     }
-    const more = [rc.art !== null && rc.art !== undefined ? item(`${GFX}${ART_ICON.atk}`, ['Артефакт', 'Редкий артефакт', 'Легендарный артефакт'][rc.art] || 'Артефакт', 'в Сокровищнице') : '',
+    const more = [rc.art !== null && rc.art !== undefined ? item(`${GFX}${ART_ICON.def}`, ['Артефакт', 'Редкий артефакт', 'Легендарный артефакт'][rc.art] || 'Артефакт', 'в Сокровищнице') : '',
       rc.gear !== null && rc.gear !== undefined ? item(`${GFX}hero/gear_armor_${rc.gear}.png`, 'Снаряжение генерала', 'в Оружейной') : ''].filter(Boolean);
     if (more.length) body += `<div class="qw-sec"><div class="qw-h">✨ Трофеи</div><div class="qw-items">${more.join('')}</div></div>`;
   }
