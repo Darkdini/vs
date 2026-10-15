@@ -20,6 +20,16 @@ const aBtn2 = (op, text, extra = '', cls = '') => `<button class="btn small ${cl
 // «Золото всем игрокам» — на вкладках «Выдать» (сверху) и «Мир»
 const goldAllLog = () => { const g = S.adm.goldAll; if (!g) { if (!S.adm.goldAllAsked) { S.adm.goldAllAsked = true; send({ t: 'admin', op: 'goldallget' }); } return ''; }
   return `${g.msg ? `<div class="smnote ok">✔ ${esc(g.msg)}</div>` : ''}${g.last.length ? `<p class="small"><b>Последние раздачи:</b><br>${g.last.map((x) => `${fmtDate(x.at)} — по ${x.n} зол. «${esc(x.why)}», игроков: ${x.players}`).join('<br>')}</p>` : '<p class="small">Раздач ещё не было.</p>'}`; };
+// «🏅 Медали» — медали для красоты (server/src/honors.js): вручить по никам или всем тестерам, список награждённых — забрать
+const HONOR_SEC = () => {
+  const d = S.adm.honor;
+  if (!d) { if (!S.adm.honorAsked) { S.adm.honorAsked = true; send({ t: 'admin', op: 'honorview' }); } return aSec('🏅 Медали', '<p class="small">Загрузка…</p>'); }
+  return aSec('🏅 Медали', `${d.msg ? `<div class="smnote ok">✔ ${esc(d.msg)}</div>` : ''}${d.list.map((h) => `<div class="honadm"><img src="${GFX}${h.img}" alt=""><div><b>${esc(h.name)}</b><small>${esc(h.desc)}. Видна в профиле в строке «Звание», бонусов не даёт. Игроку придёт уведомление.</small></div></div>
+    <form class="chatform" data-aform="honorgive" data-id="${h.id}"><input name="nicks" placeholder="Ники через запятую" autocapitalize="none" autocomplete="off" value="${esc(S.adm.login || '')}"><button class="btn primary small">Вручить</button></form>
+    ${h.testersLeft ? `<button class="pbar" data-ahonall="${h.id}">Вручить всем тестерам (${h.testersLeft})</button>` : ''}
+    <p class="small"><b>Награждены: ${h.who.length}</b></p>
+    ${h.who.map((w) => `<div class="arow"><span><b>${esc(w.login)}</b>${w.tester ? ' · тестер' : ''} · ${fmtDate(w.at)}</span><button class="btn small" data-ahontake="${h.id}" data-login="${esc(w.login)}">Забрать</button></div>`).join('')}`).join('<hr>')}`);
+};
 const GOLD_ALL = () => aSec('🎁 Золото всем игрокам', `<p class="small">Каждому игроку на сервере (кроме ботов и Вас) — золото в Казну и сообщение в игре.</p><form class="stack" data-aform="goldall"><input class="anum" name="n" type="number" inputmode="numeric" min="1" max="1000" value="5" placeholder="Сколько каждому"><input name="why" maxlength="100" value="Подарок от администрации" placeholder="За что (видно игрокам)"><button class="btn primary">Выдать всем</button></form>${goldAllLog()}`);
 const aSec = (title, body) => `<div class="acard"><div class="cwname">${title}</div>${body}</div>`;
 function adminHtml() {
@@ -35,7 +45,7 @@ function adminHtml() {
       ${a.players ? `<div class="rlist">${a.players.map((p) => `<button class="rrow" data-apick="${esc(p.login)}"><span class="rn"><b>${esc(p.login)}${p.admin ? ` <img class="admbadge s" src="${GFX}admin_badge_s.png" alt="">` : p.mod ? ` <img class="admbadge s" src="${GFX}chat/moder.png" alt="">` : ''}${p.banned ? ' <span class="bad">[бан]</span>' : ''}</b>
         <small>${esc(p.race)} · замков ${p.castles} · монет ${fmtFull(p.gold)} · ${p.online ? 'в игре' : `был ${fmtDate(p.lastSeen)}`}</small></span><span class="rv">${fmtFull(p.rating)}</span></button>`).join('')}</div>` : ''}`)}
       ${a.player ? playerCard(a.player) : a.login ? '<p class="parch-note">Загрузка карточки…</p>' : ''}`,
-    give: () => `${GOLD_ALL()}${target}
+    give: () => `${GOLD_ALL()}${HONOR_SEC()}${target}
       ${aSec('💰 Казна и ресурсы', `
         ${aAct('Монеты', 'Добавить золото на счёт. Минус — забрать. Игроку придёт письмо.', `${aNum('gold', 100, 'монет')}${aBtn2('gold', 'Выдать', 'data-arg="gold:n"')}`)}
         ${aAct('Ресурсы', 'Дерево, камень, железо и еду — поровну, в пределах складов.', `${aNum('res', 100000, 'каждого')}${aBtn2('res', 'Выдать', 'data-arg="res:n"')}`)}
@@ -190,6 +200,13 @@ $('#sheetBody').addEventListener('click', (e) => {
     if (d.mdev !== undefined) { if (on && !confirm(`Заблокировать устройство? С него нельзя будет войти и зарегистрироваться${d.fp ? ' — даже после очистки данных или из другого браузера' : ''}.`)) return; send({ t: 'admin', op: on ? 'devban' : 'devunban', dev: d.mdev, fp: d.fp || undefined }); }
     return setTimeout(() => (S.adm.tab === 'player' && S.adm.login ? send({ t: 'admin', op: 'player', login: S.adm.login }) : send({ t: 'admin', op: 'multis' })), 200);
   }
+  const hn = e.target.closest('[data-ahonall],[data-ahontake]');
+  if (hn) { // 🏅 Медали: всем тестерам / забрать у игрока
+    const d = hn.dataset;
+    if (d.ahonall) { if (!confirm('Вручить медаль всем тестерам, у кого её ещё нет?')) return; return send({ t: 'admin', op: 'honorgive', id: d.ahonall, testers: 1 }); }
+    if (!confirm(`Забрать медаль у ${d.login}?`)) return;
+    return send({ t: 'admin', op: 'honortake', id: d.ahontake, login: d.login });
+  }
   const tt = e.target.closest('[data-tmode],[data-top],[data-tcopy]');
   if (tt) { // 🧪 Тест: режим, пароль, отключить, снять
     const d = tt.dataset;
@@ -236,6 +253,7 @@ $('#sheetBody').addEventListener('submit', (e) => {
   if (k === 'find') { S.adm.players = null; S.adm.q = f.q.value; return send({ t: 'admin', op: 'players', q: f.q.value }); }
   if (k === 'testadd') return send({ t: 'admin', op: 'testadd', acct: f.acct.value.trim(), nick: f.nick.value.trim(), race: Number(f.race.value), note: f.note.value.trim() });
   if (k === 'testmark') { const l = f.login.value.trim(); if (!l) return; f.login.value = ''; return send({ t: 'admin', op: 'testmark', login: l, on: 1 }); }
+  if (k === 'honorgive') { const v = f.nicks.value.trim(); if (!v) return toast('Впишите ники через запятую.', 'err'); return send({ t: 'admin', op: 'honorgive', id: f.dataset.id, nicks: v }); }
   if (k === 'passcheck') { admSend('passcheck', { password: f.password.value }); f.password.value = ''; return; }
   if (k === 'goldall') { const n = Math.floor(Number(f.n.value)); if (!(n >= 1 && n <= 1000)) return toast('От 1 до 1000 золота.', 'err'); if (!confirm(`Выдать КАЖДОМУ игроку по ${n} золота?`)) return; S.adm.goldAll = { msg: 'Выдаю…', last: (S.adm.goldAll || { last: [] }).last }; refreshSheet(); return send({ t: 'admin', op: 'goldall', n, why: f.why.value }); }
   if (k === 'mailall') send({ t: 'admin', op: 'mailall', subject: f.subject.value, text: f.text.value });
@@ -257,6 +275,7 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
     if (m.op === 'alerts') S.adm.alerts = m.data;
     if (m.op === 'payments') S.adm.pay = m.data;
     if (m.op === 'sec') S.adm.sec = m.data;
+    if (m.op.startsWith('honor')) S.adm.honor = m.data;
     if (m.op.startsWith('test')) { const keep = S.adm.test && S.adm.test.created; S.adm.test = { ...m.data, created: m.data.created || (m.op === 'testview' ? null : keep) }; }
     if (m.op === 'armyinfo') S.adm.ga = m.data;
     if (m.op === 'passcheck') S.adm.passcheck = m.data;

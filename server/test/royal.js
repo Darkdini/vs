@@ -1316,6 +1316,30 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     const r = g.adminOp(adm, 'goldall', { n: 5, why: 'Праздник' }); assert.ok(!r.error && pl.gold === g0 + 5 && (adm.gold || 0) === a0 && pl.goldLog.some((x) => /Праздник/.test(x.reason || x.why || JSON.stringify(x))), r.msg);
     console.log('✓ Золото всем:', r.msg);
   }
+  { // медаль «Первопроходец» (honors.js): вручает только админ — по никам через запятую или всем тестерам; видна в профиле, можно забрать
+    // (свой отдельный мир — лишние игроки не сдвигают замки следующих проверок)
+    const HDB = path.join(os.tmpdir(), `royal-hon-${process.pid}.json`), g = new Game(new Store(HDB)); g.ensureAdmin();
+    const adm = g.adminUser();
+    const t1 = g.register({ login: 'honTest1', password: '12345', race: 0 }).user, t2 = g.register({ login: 'honTest2', password: '12345', race: 0 }).user;
+    const pl = g.register({ login: 'honPlayer', password: '12345', race: 0 }).user; t1.tester = t2.tester = true;
+    assert.ok(g.adminOp(pl, 'honorgive', { id: 'pioneer', nicks: pl.login }).error && !pl.honors, 'не админу — нельзя');
+    assert.ok(g.adminOp(adm, 'honorgive', { id: 'nope', nicks: pl.login }).error && g.adminOp(adm, 'honorgive', { id: 'toString', nicks: pl.login }).error, 'нет такой медали');
+    assert.ok(g.adminOp(adm, 'honorgive', { id: 'pioneer', nicks: ' , ' }).error, 'пустой список');
+    const e0 = (g.events || []).length;
+    const r = g.adminOp(adm, 'honorgive', { id: 'pioneer', nicks: 'honplayer, honTest1 ,nobodyX' });
+    assert.ok(r.data && pl.honors.pioneer && t1.honors.pioneer && !t2.honors && /Не найдены: nobodyX/.test(r.data.msg), r.error || r.data.msg);
+    assert.ok(g.events.slice(e0).some((e) => e.userId === pl.id && /Первопроходец/.test(e.msg)), 'игроку — уведомление');
+    assert.ok(g.reportsOf(pl.id).some((x) => /Первопроходец/.test(x.title) && !x.read), 'и отчёт — увидит, даже если его не было в игре');
+    const at1 = t1.honors.pioneer, all = g.adminOp(adm, 'honorgive', { id: 'pioneer', testers: 1 });
+    assert.ok(t2.honors.pioneer && t1.honors.pioneer === at1 && /Уже была: .*honTest1/.test(all.data.msg), 'всем тестерам — у кого уже была, не трогаем');
+    const view = all.data.list.find((h) => h.id === 'pioneer');
+    assert.ok(view.testersLeft === 0 && ['honPlayer', 'honTest1', 'honTest2'].every((l) => view.who.some((w) => w.login === l)), 'список награждённых');
+    const prof = g.profileOf(pl, t1); assert.ok(prof.honors.length === 1 && prof.honors[0].name === 'Первопроходец' && prof.honors[0].small, 'медаль в профиле');
+    assert.ok(g.adminOp(adm, 'honortake', { id: 'pioneer', login: pl.login }).data && !pl.honors && !g.profileOf(pl, t1).honors.length, 'забрать');
+    assert.ok(g.adminOp(adm, 'honortake', { id: 'pioneer', login: pl.login }).error, 'второй раз — нечего забирать');
+    for (const f of [HDB, `${HDB}.tmp`]) try { fs.unlinkSync(f); } catch { /* нет файла */ }
+    console.log('✓ Медаль «Первопроходец»: вручает только админ (по никам и всем тестерам), уведомление и отчёт, видна в профиле, можно забрать');
+  }
   { // скриншоты к новости: только админ/старший модератор, сервер сам собирает PNG; подставной id не пройдёт
     const zlib = require('zlib'), adm = Object.values(g.db.users).find((u) => u.admin), pl = Object.values(g.db.users).find((u) => !u.admin && !u.smod && !u.bot);
     assert.ok(g.newsPicBegin(pl, 100, 50, 1).error, 'игроку нельзя');
@@ -1618,7 +1642,8 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     const pn = provinceOf(rc.x, rc.y).n, stone = g.provNpc(pn).find((o) => o.img === 40);
     assert.ok(stone && (g.worldObjects(stone.x, stone.y, 1, 1)[0] || {}).rune === 'str', 'на карте — рунный камень Силы');
     rc.units = { 200: 50 }; rc.squads = []; rc.armies = []; rc.general = null; R.gear = [];
-    assert.ok(/нет рунного камня/.test(g.sendArmy(rc, { units: { 200: 5 }, x: rc.x + 3, y: rc.y, mission: 'rune' }).error || ''), 'за руной — только к камню');
+    const bare = [3, 4, 5, 6, 7, 8, 9].map((d) => ({ x: rc.x + d, y: rc.y })).find((p) => !g.runeAt(p.x, p.y) && !g.castleAt(p.x, p.y)); // клетка без камня (камни стоят где придётся)
+    assert.ok(bare && /нет рунного камня/.test(g.sendArmy(rc, { units: { 200: 5 }, x: bare.x, y: bare.y, mission: 'rune' }).error || ''), 'за руной — только к камню');
     assert.ok(/некого атаковать/.test(g.sendArmy(rc, { units: { 200: 5 }, x: stone.x, y: stone.y, mission: 'attack' }).error || ''), 'на камень не нападают');
     const a1 = g.sendArmy(rc, { units: { 200: 10 }, x: stone.x, y: stone.y, mission: 'rune' }); assert.ok(!a1.error, a1.error);
     const a2 = g.sendArmy(rc, { units: { 200: 10 }, x: stone.x, y: stone.y, mission: 'rune' }); assert.ok(!a2.error, a2.error);

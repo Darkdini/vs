@@ -18,7 +18,8 @@ function tgBlock(t) {
 }
 function accountWin(p) {
   const a = p.acct || {}, bar = (attr, icon, text) => `<button class="pbar acbar" ${attr}>${icon ? `<img src="${icon}" alt="">` : ''} ${text}</button>`;
-  const title = (p.titles || []).length ? p.titles.map((t) => `${t === 'Администратор' ? `<img class="acico" src="${GFX}admin_badge_s.png" alt="">` : t === 'Старший модератор' ? `<img class="acico" src="${GFX}smod_badge_s.png" alt="">` : t === 'Модератор форума' ? `<img class="acico" src="${GFX}mod_badge_s.png" alt="">` : `<img class="acico" src="${GFX}premium_crown.png" alt="">`} ${esc(t)}`).join(', ') : '—';
+  const title = (p.titles || []).length || (p.honors || []).length ? [...(p.titles || []).map((t) => `${t === 'Администратор' ? `<img class="acico" src="${GFX}admin_badge_s.png" alt="">` : t === 'Старший модератор' ? `<img class="acico" src="${GFX}smod_badge_s.png" alt="">` : t === 'Модератор форума' ? `<img class="acico" src="${GFX}mod_badge_s.png" alt="">` : `<img class="acico" src="${GFX}premium_crown.png" alt="">`} ${esc(t)}`),
+    ...(p.honors || []).map((h) => `<span class="honi"><img class="acico honor" src="${GFX}${h.small}" alt=""> ${esc(h.name)}</span>`)].join(', ') : '—'; // медали «для красоты» (honors.js) — рядом со званиями
   return `${ribbon('Профиль')}
     <div class="acctop"><div class="acleft"><div class="avatar">${avatarImg(p)}</div>
       <button class="pbtn acbtn" data-avatar="set">Изменить</button>${p.avatar ? '<button class="pbtn acbtn" data-avatar="del">Удалить</button>' : ''}</div>

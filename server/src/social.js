@@ -208,6 +208,7 @@ function install(Game) {
       title: u.admin ? 'Администратор' : u.smod ? 'Старший модератор' : u.mod ? 'Модератор форума' : this.isPremium(u) ? 'VIP' : null,
       // звания в профиле: VIP — пока действует купленный премиум (закончился — строка пропадает), плюс админ/модератор
       titles: [...((u.premium || 0) > Date.now() ? ['VIP'] : []), ...(u.admin ? ['Администратор'] : u.smod ? ['Старший модератор'] : u.mod ? ['Модератор форума'] : [])], premium: this.isPremium(u) && !u.admin ? u.premium : 0,
+      honors: this.honorsOf ? this.honorsOf(u) : [], // медали «для красоты» (honors.js) — в той же строке «Звание»
       chatBan: viewer.admin || viewer.mod || u.id === viewer.id ? u.chatBan || 0 : undefined,
       alliance: al ? { id: al.id, name: al.name, tag: al.tag, ...(this.allyTitle ? (({ title, ep }) => ({ role: title, ep }))(this.allyTitle(al, u.id)) : { role: al.leader === u.id ? 'Глава' : 'Участник', ep: 0 }) } : null,
       // «Пригласить в альянс» в чужом профиле: у игрока нет альянса, у смотрящего — альянс и право приглашать
