@@ -21,9 +21,9 @@ const fmtN = (n) => Number(n).toLocaleString('ru-RU'); // 8 400, 14 000
 const rankIdx = (pts) => { let i = -1; while (i + 1 < N && pts >= NEED[i + 1]) i++; return i; }; // -1 — ещё без ранга
 const rankInfo = (i) => (i < 0 ? { idx: -1, title: 'Без ранга', icon: 1, stars: 0 } : { idx: i, title: TITLES[Math.floor(i / 6)], icon: Math.floor(i / 6) + 1, stars: i % 6 });
 const bonusAt = (i) => { const f = i < 0 ? 0 : (i + 1) / N; return { atk: +(MAX_ATK * f).toFixed(3), prod: +(MAX_PROD * f).toFixed(3) }; };
-// награда за открытие ранга i: армия 300 × номер ранга (поровну пехота, конница, маги своей расы) и ресурсы по 500 × номер ранга;
-// на новом звании ещё опыт генерала
-const prizeAt = (i) => { const n = i + 1; return { army: 300 * n, res: 500 * n, exp: i % 6 === 0 && i > 0 ? 100 * (Math.floor(i / 6) + 1) : 0 }; };
+// награда за открытие ранга i: армия 150 × номер ранга (поровну пехота, конница, маги своей расы) и ресурсы по 250 × номер ранга;
+// на новом звании ещё опыт генерала 50 × номер звания (все награды — вдвое меньше прежних 300 / 500 / 100)
+const prizeAt = (i) => { const n = i + 1; return { army: 150 * n, res: 250 * n, exp: i % 6 === 0 && i > 0 ? 50 * (Math.floor(i / 6) + 1) : 0 }; };
 // воины награды: первая пехота с атакой, первая конница (не разведчик) и первый маг расы
 const prizeUnits = (race) => {
   const list = require('./army').unitsForRace(race).filter((x) => !x.quest);
