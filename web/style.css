@@ -1945,6 +1945,11 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .brtable > div > img { width: 24px; }
 .brtable b { text-align: right; font-weight: 400; }
 .brtable .brbox { width: 24px; }
+.brtable > div.ready .brbox { filter: drop-shadow(0 0 4px #ffd84a) drop-shadow(0 0 2px #ffd84a); animation: brglow 1.2s ease-in-out infinite alternate; } /* сундук ждёт — светится */
+.brtable > div.got .brbox { opacity: .4; } /* награда забрана */
+@keyframes brglow { from { transform: scale(1); } to { transform: scale(1.18); } }
+#btnRank .brdot { position: absolute; top: -2px; right: -4px; width: 11px; height: 11px; border-radius: 50%; background: #e02020; border: 2px solid #fff3; }
+.brclaim > img { width: 58px; }
 .brhelp { font: 18px/1.45 var(--serif); }
 #top > #btnRank { position: absolute; left: 32px; bottom: 15px; height: 30px; width: auto; display: flex; align-items: center; border: 0; background: none; padding: 0; z-index: 7; margin: 0; filter: drop-shadow(0 2px 2px #000a); cursor: pointer; }
 #btnRank .brsh { height: 30px; width: auto; }

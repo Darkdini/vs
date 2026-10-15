@@ -2,7 +2,8 @@
 // «Боевой ранг», как в оригинале: 78 рангов — 13 званий по 6 ступеней (0–5 звёзд). Очки — за уничтоженных воинов противника
 // (население погибших юнитов): в нападениях и набегах на игроков и в защите своего замка — полностью, лагеря разбойников — вполовину.
 // Если противник слабее больше чем на 5 рангов — очков меньше (за избиение новичков ранг почти не растёт).
-// Ранг обновляется 1-го числа каждого месяца; за каждый открытый ранг — награда в Кладовую (армия, ресурсы, на новом звании опыт генерала).
+// Ранг растёт сразу, как набраны очки (звание видно в профиле и на значке); за каждый новый ранг — сундук с наградой:
+// игрок забирает его сам в окне «Боевой ранг» (армия, ресурсы, на новом звании опыт генерала — в Кладовую).
 // Пока ранг держится — постоянный бонус: урон и защита воинов до +20%, прирост ресурсов до +30% (на Легенде 5★).
 
 const TITLES = ['Новобранец', 'Рекрут', 'Боец', 'Воин', 'Чемпион', 'Полководец', 'Мастер войны', 'Вершитель', 'Завоеватель', 'Покоритель', 'Триумфатор', 'Герой', 'Легенда'];
@@ -12,11 +13,10 @@ const NEED = [20, 60, 80, 100, 100, 110, 320, 600, 1150, 1210, 1220, 1900, 4550,
   354800, 522080, 531440, 551020, 579840, 602780, 617480, 637260, 653280, 671740, 687120, 720240, 744840, 764120, 781000, 799520, 816760, 835120,
   866080, 897560, 915800, 934760, 954160, 971620, 990920, 1128880, 1297360, 1306380, 1325940, 1329080, 1359080, 2786340, 3000000, 3500000, 4000000, 5000000];
 const N = NEED.length, MAX_ATK = 0.20, MAX_PROD = 0.30, NPC_K = 0.5;
-// Как в оригинале: очки копятся без ограничений, а ранг обновляется раз в месяц — 1-го числа (по Москве);
-// тогда же выдаются награды за все открытые за месяц ранги. Очки — население уничтоженных воинов, без дневных ограничений.
-const PTS_K = 1, START_MAX = 11, MSK = 3 * 3600000;
-const monthKey = (t) => new Date(t + MSK).toISOString().slice(0, 7);
-const nextMonth = (t) => { const d = new Date(t + MSK); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1) - MSK; };
+// Очки — население уничтоженных воинов, без дневных ограничений; ранг — сразу по очкам (rankIdx). b.claimed — до какого ранга
+// сундуки наград уже забраны (раньше ранг и награды обновлялись 1-го числа месяца — теперь сразу)
+const PTS_K = 1, START_MAX = 11;
+const fmtN = (n) => Number(n).toLocaleString('ru-RU'); // 8 400, 14 000
 
 const rankIdx = (pts) => { let i = -1; while (i + 1 < N && pts >= NEED[i + 1]) i++; return i; }; // -1 — ещё без ранга
 const rankInfo = (i) => (i < 0 ? { idx: -1, title: 'Без ранга', icon: 1, stars: 0 } : { idx: i, title: TITLES[Math.floor(i / 6)], icon: Math.floor(i / 6) + 1, stars: i % 6 });
@@ -36,38 +36,43 @@ const prizeUnits = (race) => {
 function install(Game) {
   const P = Game.prototype;
   // при первом обращении — стартовые очки по уже набитой статистике боёв, но не выше Рекрута 5★ (без наград за прошлые ранги)
-  P.brOf = function brOf(u, now = Date.now()) {
-    if (!u.br || u.br.v !== 3) { const s = this.stats(u), pts = Math.min(NEED[START_MAX], Math.round((s.kills || 0) + (s.defKills || 0))); u.br = { v: 3, pts, claimed: rankIdx(pts), month: monthKey(now) }; }
-    const b = u.br, m = monthKey(now);
-    if (b.month !== m) { b.month = m; this.brMonth(u, b); } // наступил новый месяц — ранг обновляется, награды за новые ранги
-    return b;
+  P.brOf = function brOf(u) {
+    if (!u.br || u.br.v !== 3) { const s = this.stats(u), pts = Math.min(NEED[START_MAX], Math.round((s.kills || 0) + (s.defKills || 0))); u.br = { v: 3, pts, claimed: rankIdx(pts) }; }
+    return u.br;
   };
+  // сундуков с наградой ждёт: новые ранги, за которые награда ещё не забрана
+  P.brChests = function brChests(u) { const b = this.brOf(u); return Math.max(0, rankIdx(b.pts) - b.claimed); };
   // награда ранга → в Кладовую: армия поровну пехота / конница / маги расы игрока, ресурсы, опыт
   P.brPrize = function brPrize(u, i) {
     const p = prizeAt(i), units = {}, ids = prizeUnits(u.race);
     ids.forEach((id, k) => { units[id] = Math.floor(p.army / ids.length) + (k < p.army % ids.length ? 1 : 0); });
     return { army: p.army, res: p.res, exp: p.exp, rw: { wood: p.res, stone: p.res, iron: p.res, food: p.res, units, exp: p.exp } };
   };
-  P.brMonth = function brMonth(u, b) {
-    const to = rankIdx(b.pts); if (to <= b.claimed) return;
-    const lines = []; let army = 0, res = 0, exp = 0;
-    for (let i = b.claimed + 1; i <= to; i++) { const p = this.brPrize(u, i); this.stashAdd(u, p.rw); army += p.army; res += p.res; exp += p.exp; const inf = rankInfo(i); lines.push(`${i + 1}. ${inf.title} ${'★'.repeat(inf.stars) || '☆'} — армия ${p.army}, ресурсы по ${p.res}${p.exp ? `, опыт генерала +${p.exp}` : ''}`); }
-    b.claimed = to; const inf = rankInfo(to), bo = bonusAt(to);
-    this.report(u.id, `Боевой ранг за месяц: ${inf.title} ${'★'.repeat(inf.stars) || '☆'} (${to + 1}-й)!`, [...lines, `Всего в Кладовую: армия ${army}, ресурсы по ${res}${exp ? `, опыт генерала +${exp}` : ''}.`, `Бонус ранга: урон и защита воинов +${Math.round(bo.atk * 1000) / 10}%, прирост ресурсов +${Math.round(bo.prod * 1000) / 10}%.`], 'rank');
+  // забрать сундуки наград: upto — до какого ранга (по умолчанию все открытые); награды — в Кладовую
+  P.brClaim = function brClaim(u, upto) {
+    const b = this.brOf(u), to = rankIdx(b.pts), last = Math.min(to, Number.isInteger(upto) ? upto : to);
+    if (last <= b.claimed) return { error: to > b.claimed ? 'Сначала заберите награды за прежние ранги.' : 'Новых наград нет — повышайте ранг в боях.' };
+    let army = 0, res = 0, exp = 0;
+    for (let i = b.claimed + 1; i <= last; i++) { const p = this.brPrize(u, i); this.stashAdd(u, p.rw); army += p.army; res += p.res; exp += p.exp; }
+    const n = last - b.claimed; b.claimed = last; this.store.save();
+    const inf = rankInfo(last);
+    return { ok: true, msg: `${n > 1 ? `Награды за ${n} ${require('./words').plural(n, 'ранг', 'ранга', 'рангов')}` : `Награда за ранг ${last + 1}. ${inf.title}`} — в Кладовой: армия ${fmtN(army)}, ресурсы по ${fmtN(res)}${exp ? `, опыт генерала +${fmtN(exp)}` : ''}.` };
   };
-  P.brRank = function brRank(u) { return u ? this.brOf(u).claimed : -1; };
+  P.brRank = function brRank(u) { return u ? rankIdx(this.brOf(u).pts) : -1; }; // ранг — сразу по очкам
   P.brBonus = function brBonus(u) { return bonusAt(u ? this.brRank(u) : -1); };
   // очки за бой: who — кто получает, vs — противник (null для лагеря разбойников)
-  P.brAdd = function brAdd(whoId, pts, vsId, now = Date.now()) {
+  P.brAdd = function brAdd(whoId, pts, vsId) {
     const u = this.userById(whoId); if (!u || u.bot || !(pts > 0)) return;
-    const b = this.brOf(u, now);
+    const b = this.brOf(u), was = rankIdx(b.pts);
     let k = PTS_K * (vsId === null ? NPC_K : 1);
-    if (vsId) { const v = this.userById(vsId), d = b.claimed - (v ? this.brRank(v) : -1); if (d > 5) k *= Math.max(0.1, 1 - 0.15 * (d - 5)); }
+    if (vsId) { const v = this.userById(vsId), d = was - (v ? this.brRank(v) : -1); if (d > 5) k *= Math.max(0.1, 1 - 0.15 * (d - 5)); }
     b.pts += Math.round(pts * k);
+    const now = rankIdx(b.pts);
+    if (now > was && this.event) { const inf = rankInfo(now); this.event(u.id, `⚔ Боевой ранг повышен: ${now + 1}. ${inf.title} ${'★'.repeat(inf.stars) || '☆'}! Заберите сундук с наградой в окне «Боевой ранг».`); }
   };
   P.brView = function brView(viewer, u) {
-    const b = this.brOf(u), i = b.claimed, cur = rankInfo(i), next = i + 1 < N ? NEED[i + 1] : null, prev = i >= 0 ? NEED[i] : 0;
-    return { login: u.login, self: viewer.id === u.id, pts: b.pts, ...cur, next, prev, bonus: bonusAt(i), titles: TITLES, pending: rankIdx(b.pts), units: prizeUnits(u.race), pendingInfo: rankInfo(rankIdx(b.pts)), update: nextMonth(Date.now()),
+    const b = this.brOf(u), i = rankIdx(b.pts), cur = rankInfo(i), next = i + 1 < N ? NEED[i + 1] : null, prev = i >= 0 ? NEED[i] : 0, self = viewer.id === u.id;
+    return { login: u.login, self, pts: b.pts, ...cur, next, prev, bonus: bonusAt(i), titles: TITLES, claimed: b.claimed, chests: self ? Math.max(0, i - b.claimed) : 0, units: prizeUnits(u.race),
       table: NEED.map((need, k) => ({ ...rankInfo(k), need, prize: prizeAt(k), bonus: bonusAt(k) })) };
   };
 }

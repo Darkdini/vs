@@ -130,7 +130,7 @@ class WebSession {
       t: 'state',
       now: Date.now(),
       quests: this.questsLite(),
-      user: { id: u.id, login: u.login, ally: u.alliance || null, race: u.race, raceName: C.RACE_NAMES[u.race], premium: u.premium || 0, gold: u.gold || 0, goldLog: (u.goldLog || []).slice(-50).reverse(), admin: !!u.admin, mod: !!u.mod, smod: !!u.smod, alertsNew: u.admin ? this.game.alertsNew() : 0, payNew: u.admin ? this.game.payNew() : 0, secNew: u.admin ? this.game.secNew() : 0, zagsNew: this.game.zagsNew(u), friendsNew: this.game.friendsNew(u), staff: this.game.staffOk(u), staffNew: this.game.staffUnread(u), brank: (({ idx, icon, stars, title }) => ({ idx, icon, stars, title }))(require('./battlerank').rankInfo(this.game.brRank(u))), black: this.game.privacyOf(u).black, multiNew: u.admin ? (this.game.db.multiLog || []).filter((x) => x.at > (u.multiSeen || 0)).length : 0,
+      user: { id: u.id, login: u.login, ally: u.alliance || null, race: u.race, raceName: C.RACE_NAMES[u.race], premium: u.premium || 0, gold: u.gold || 0, goldLog: (u.goldLog || []).slice(-50).reverse(), admin: !!u.admin, mod: !!u.mod, smod: !!u.smod, alertsNew: u.admin ? this.game.alertsNew() : 0, payNew: u.admin ? this.game.payNew() : 0, secNew: u.admin ? this.game.secNew() : 0, zagsNew: this.game.zagsNew(u), friendsNew: this.game.friendsNew(u), staff: this.game.staffOk(u), staffNew: this.game.staffUnread(u), brank: (({ idx, icon, stars, title }) => ({ idx, icon, stars, title }))(require('./battlerank').rankInfo(this.game.brRank(u))), brNew: this.game.brChests ? this.game.brChests(u) : 0, // сундуков наград ранга ждёт (метка на значке) black: this.game.privacyOf(u).black, multiNew: u.admin ? (this.game.db.multiLog || []).filter((x) => x.at > (u.multiSeen || 0)).length : 0,
         modReqNew: u.admin && this.game.modReqList ? this.game.modReqList().length : 0 }, // заявки в модераторы, ждущие решения админа
       castle: {
         id: c.id, name: c.name, x: c.x, y: c.y, grid: { 0: Array.from(c.grid[0]), 1: Array.from(c.grid[1]) }, levels: { 0: Array.from(c.levels[0]), 1: Array.from(c.levels[1]) },
@@ -410,7 +410,13 @@ const API = {
   msgcolor(m) { const r = this.game.setMsgColor(this.user, m.i); if (r.msg) this.toast(r.msg); this.result(r); this.pushState(); },
   castleinfo(m) { const r = this.game.castleInfo(this.user, m.name, m.desc); if (r.error) return this.error(r.error); this.toast('Замок переименован.'); API.profile.call(this, { id: this.user.id, acct: 1, refresh: 1 }); },
   // ---- Боевой ранг (server/src/battlerank.js) ----
-  brank(m) { const u = this.game.userById(Number(m.id) || this.user.id); if (!u) return this.error('Игрок не найден.'); this.send({ t: 'brank', data: this.game.brView(this.user, u) }); },
+  brank(m) {
+    if (m.op === 'claim') { // забрать сундуки наград за новые ранги (до ранга m.upto или все) — в Кладовую
+      const r = this.game.brClaim(this.user, Number.isInteger(m.upto) ? m.upto : undefined); if (r.error) return this.error(r.error);
+      this.toast(r.msg); this.send({ t: 'brank', data: this.game.brView(this.user, this.user) }); return this.pushState();
+    }
+    const u = this.game.userById(Number(m.id) || this.user.id); if (!u) return this.error('Игрок не найден.'); this.send({ t: 'brank', data: this.game.brView(this.user, u) });
+  },
   // ---- «Приватность» (server/src/privacy.js) ----
   privacy(m) {
     let r = null;

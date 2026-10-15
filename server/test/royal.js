@@ -1218,20 +1218,24 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(g.adminOp(adm, 'castledel', { login: 'admCast', cid: cap.id }).error, 'единственный — нельзя');
   console.log('✓ Админка: сброс одного замка и удаление замка');
 }
-{ // Боевой ранг: очки за бой, награды за каждый ранг в Кладовую, бонус урона/защиты/прироста, меньше очков за слабых
+{ // Боевой ранг: очки за бой — ранг растёт сразу (звание в профиле); за каждый новый ранг — сундук награды (забрать — в Кладовую); бонусы
   const BR = require('../src/battlerank');
   const A = g.register({ login: 'brAaa', password: '12345', race: 0 }).user, Bq = g.register({ login: 'brBbb', password: '12345', race: 1 }).user;
   assert.strictEqual(g.brRank(A), -1, 'без боёв — без ранга');
-  const T0 = Date.now() - 40 * 86400000; A.br = undefined; g.brOf(A, T0);
-  g.brAdd(A.id, 400, Bq.id, T0); assert.strictEqual(A.br.pts, 400, 'очки — полностью'); assert.strictEqual(g.brOf(A, T0).claimed, -1, 'ранг ещё не обновился');
-  g.brAdd(A.id, 400, null, T0); assert.strictEqual(A.br.pts, 600, 'лагерь — вдвое меньше');
-  g.brOf(A); assert.strictEqual(g.brRank(A), BR.rankIdx(600), '1-го числа ранг обновился');
-  const un = Object.values(g.stashOf(A).units).reduce((a, n) => a + n, 0); const want = Array.from({ length: g.brRank(A) + 1 }, (_, i) => 300 * (i + 1)).reduce((a, n) => a + n, 0);
-  assert.strictEqual(un, want, 'армия за все открытые ранги — в Кладовую');
-  const b = g.brBonus(A); assert.ok(b.atk > 0 && b.prod > 0 && b.atk <= 0.2, 'бонус ранга');
-  const v = g.brView(A, A); assert.ok(v.table.length === 78 && v.title && v.next, 'окно ранга');
+  A.br = undefined; g.brOf(A);
+  g.brAdd(A.id, 400, Bq.id); assert.ok(A.br.pts === 400 && g.brRank(A) === BR.rankIdx(400), 'очки — полностью, ранг вырос сразу');
+  g.brAdd(A.id, 400, null); assert.strictEqual(A.br.pts, 600, 'лагерь — вдвое меньше');
+  const r = BR.rankIdx(600), units = () => Object.values(g.stashOf(A).units || {}).reduce((a, n) => a + n, 0), u0 = units();
+  assert.ok(g.brRank(A) === r && g.brChests(A) === r + 1 && g.profileOf(A, A).brank.idx === r, `ранг ${r + 1} сразу, в профиле — новое звание, сундуков — ${r + 1}`);
+  assert.ok(g.brClaim(A, 0).ok && g.brChests(A) === r && units() === u0 + 300, 'сундук 1-го ранга: 300 воинов — в Кладовую');
+  const cl = g.brClaim(A); assert.ok(cl.ok && g.brChests(A) === 0, cl.error);
+  const want = Array.from({ length: r + 1 }, (_, k) => 300 * (k + 1)).reduce((a, n) => a + n, 0); assert.strictEqual(units() - u0, want, 'армия за все открытые ранги — в Кладовую');
+  assert.ok(/Новых наград нет/.test(g.brClaim(A).error || ''), 'дважды не забрать');
+  const b = g.brBonus(A); assert.ok(b.atk > 0 && b.prod > 0 && b.atk <= 0.2, 'бонус ранга — сразу');
+  const v = g.brView(A, A); assert.ok(v.table.length === 78 && v.title && v.next && v.chests === 0 && v.claimed === r, 'окно ранга');
+  assert.ok(g.brView(Bq, A).chests === 0, 'чужие сундуки не видны');
   assert.strictEqual(BR.rankInfo(77).title, 'Легенда'); assert.strictEqual(BR.bonusAt(77).atk, 0.2);
-  console.log('✓ Боевой ранг: очки за бои, награды за ранги, бонусы, таблица 78 рангов');
+  console.log('✓ Боевой ранг: растёт сразу по очкам, звание в профиле, сундуки наград за каждый ранг, бонусы, таблица 78 рангов');
 }
 { // аватар в хорошем качестве: только сжатые точки, сервер сам собирает PNG, шелл и неверный размер — отказ
   const zl = require('zlib'), U = g.register({ login: 'avaHq', password: '12345', race: 0 }).user;
