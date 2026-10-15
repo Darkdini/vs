@@ -499,14 +499,32 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const raid = fight({ 247: 200 }, { 247: 200 }, { m: 'raid' });
   assert.ok(raid.calc.aLossPct < 100 && raid.calc.dLossPct < 100, 'набег: никто не гибнет целиком');
   console.log('✓ Бой как в Travian: втрое больше — потери', big.calc.aLossPct + '%, вдесятеро —', x10.calc.aLossPct + '%; стена, Кузница, тараны, набег');
-  // Лазарет (здание 41, бывшая Пивоварня): 2% павших за уровень выживает — в нападении и набеге; тараны не лечатся; атаку не прибавляет
+  // Лазарет (здание 41, бывшая Пивоварня): павшие — ранеными в Лазарет (100 мест за уровень); лечение — за полцены и половину времени тренировки
   const atk0 = g.bonus(ca).atk, k = ca.grid[0].indexOf(-1) >= 0 ? ca.grid[0].indexOf(-1) : ca.grid[0].length - 1; ca.grid[0][k] = 41; ca.levels[0][k] = 10;
-  assert.ok(g.bonus(ca).infirm === 0.2 && g.bonus(ca).atk === atk0, 'Лазарет 10 ур. — 20%, к атаке не прибавляет (бонус Пивоварни убран)');
-  const lz = fight({ 247: 100 }, { 247: 300 }), lzRaid = fight({ 247: 200 }, { 247: 200 }, { m: 'raid' }), lzRam = fight({ 243: 20, 247: 300 }, { 247: 100 }, { wall: 10 });
-  assert.ok(!lz.win && lz.calc.infirm === 20 && lz.aLost[247] === 80, `проигранное нападение: из 100 павших Лазарет спас 20 (${lz.calc.infirm})`);
-  assert.ok(lzRaid.calc.infirm > 0 && lzRam.aLost[243] === 20, 'набег — тоже; тараны одноразовые — не спасаются');
-  ca.grid[0][k] = -1; ca.levels[0][k] = 0;
-  console.log('✓ Лазарет: 10 ур. спасает 20% павших в нападении и набеге, тараны — нет');
+  assert.ok(g.infirmCap(ca) === 1000 && g.bonus(ca).atk === atk0, 'Лазарет 10 ур. — 1000 мест, к атаке не прибавляет (бонус Пивоварни убран)');
+  ca.wounded = {}; ca.healing = [];
+  const lz = fight({ 247: 100 }, { 247: 300 });
+  assert.ok(!lz.win && lz.aLost[247] === 100 && lz.calc.wounded === 100 && ca.wounded[247] === 100, `проигранное нападение: все 100 павших — ранеными в Лазарет (${lz.calc.wounded})`);
+  const lzRam = fight({ 243: 20, 247: 300 }, { 247: 100 }, { wall: 10 });
+  assert.ok(lzRam.aLost[243] === 20 && !ca.wounded[243], 'тараны одноразовые — в Лазарет не попадают');
+  // лечение: половина цены и половина времени тренировки, своя очередь; вылеченные — в Замковую армию
+  const U = require('../src/army').UNIT[247], n0 = ca.wounded[247], cu0 = ca.units[247] || 0;
+  Object.assign(ca.res, { wood: 1e6, stone: 1e6, iron: 1e6, food: 1e6 }); const w0 = ca.res.wood;
+  const hr = g.healWounded(ca, { 247: 40 }); assert.ok(hr.ok && ca.wounded[247] === n0 - 40 && ca.healing.length === 1, hr.error);
+  assert.ok(w0 - ca.res.wood === Math.round(U.cost.wood * 40 * 0.5), `цена — половина тренировки (${w0 - ca.res.wood})`);
+  assert.strictEqual(ca.healing[0].each, Math.max(1, Math.round(g.trainTime(ca, U) * 0.5)) * 1000, 'время — половина тренировки');
+  g.tickTraining(ca, ca.healing[0].start + ca.healing[0].each * 40 + 1000);
+  assert.ok((ca.units[247] || 0) === cu0 + 40 && !ca.healing.length, 'вылеченные вернулись в Замковую армию');
+  assert.ok(/Раненых нет/.test(g.healWounded(ca, { 999: 5 }).error || ''), 'лечить можно только раненых');
+  // места кончились — остальные павшие погибают насовсем
+  ca.levels[0][k] = 1; ca.wounded = { 247: 100 };
+  const full = fight({ 247: 100 }, { 247: 300 }); assert.ok(full.calc.wounded === 0 && ca.wounded[247] === 100, 'Лазарет полон — новых раненых нет');
+  // оборона: свои павшие защитники — в Лазарет замка защиты
+  const kd = cd.grid[0].indexOf(-1) >= 0 ? cd.grid[0].indexOf(-1) : cd.grid[0].length - 1; cd.grid[0][kd] = 41; cd.levels[0][kd] = 10; cd.wounded = {};
+  const df = fight({ 247: 300 }, { 247: 100 }); assert.ok(df.calc.dWounded > 0 && cd.wounded[247] === df.calc.dWounded, `оборона: раненые защитники — в Лазарет (${df.calc.dWounded})`);
+  cd.grid[0][kd] = -1; cd.levels[0][kd] = 0; delete cd.wounded;
+  ca.grid[0][k] = -1; ca.levels[0][k] = 0; delete ca.wounded; ca.healing = [];
+  console.log('✓ Лазарет: павшие — ранеными (100 мест за уровень), лечение за полцены и половину времени, тараны — нет, оборона — тоже');
   if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
 }
 { // задания: обучение, ежедневные, поход в логово
@@ -703,6 +721,11 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const m = g.chatPost(u, 'привет').msg; assert.strictEqual(m.color, require('../src/premium').MSG_COLORS[2], 'цвет премиума в чате');
   const u2 = g.register({ login: 'colorchat2', password: '12345', race: 0 }).user; assert.strictEqual(g.chatPost(u2, 'ещё').msg.color, '', 'без премиума — обычный');
   assert.ok(/Не так часто/.test(g.chatPost(u, 'и ещё').error || ''), 'чат — не чаще раза в 1,5 с');
+  { // личные сообщения: без лимита в час и в сутки (было 40 в час, 300 в сутки) — только не чаще раза в секунду
+    const { tooOften, RATE } = require('../src/security'), mu = { id: -777 }, t0 = Date.now();
+    for (let k = 0; k < 400; k++) assert.ok(!tooOften(mu, 'mailtest', RATE.mail, t0 + k * 1100), `письмо ${k + 1} — можно`);
+    assert.ok(tooOften(mu, 'mailtest', RATE.mail, t0 + 399 * 1100 + 300), 'чаще раза в секунду — нельзя');
+  }
   console.log('✓ Премиум: цвет сообщений в общем чате; чат не чаще раза в 1,5 с');
 }
 { // стена без клетки: старый Забор с клетки переносится, развивается из Ратуши, на сетке не строится

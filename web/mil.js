@@ -75,7 +75,7 @@ function milEffect(def, L) {
     38: () => ({ text: 'призыв легендарных юнитов', short: '' }),
     39: () => ({ text: `+${2 * L}% магической атаки и защиты`, short: `+${2 * L}%` }),
     40: () => { const p = Math.round((1 - 1 / (1 + 0.05 * L)) * 100); return { text: `здания получают на ${p}% меньше урона (катапульты и осадные воины)`, short: `−${p}%` }; }, // урон ÷ (1 + 5% × ур.)
-    41: () => ({ text: `спасает ${2 * L}% павших в нападениях и набегах — они возвращаются домой`, short: `${2 * L}%` }), // Лазарет (army.js INFIRM_PER)
+    41: () => ({ text: `мест для раненых: ${fmtFull(100 * L)}; лечение — за полцены и половину времени тренировки`, short: `${fmtFull(100 * L)} мест` }), // Лазарет (army.js INFIRM_CAP)
     42: () => ({ text: 'найм наёмников: Великан, Валькирия', short: '' }),
     43: () => ({ text: `тренировка быстрее на ${2 * L}%`, short: `−${2 * L}%` }),
     44: () => ({ text: `хранит ${3 + L} ${plural(3 + L, 'артефакт', 'артефакта', 'артефактов')}`, short: `${3 + L}` }),
@@ -84,12 +84,34 @@ function milEffect(def, L) {
   return fx ? fx() : null;
 }
 
+// ---------- Лазарет (здание 41): раненые воины и лечение — за полцены и половину времени тренировки (server: army.js healWounded) ----------
+function infirmaryHtml() {
+  const I = MY().infirm; if (!I) return '';
+  const cost = (c) => RES4.map((r) => `<span data-need="${r}:${c[r]}">${RES_IC[r]}<b>${fmtFull(c[r])}</b></span>`).join(''); // w.cost — уже за всех раненых этого вида (как спишет сервер)
+  const all = I.wounded.reduce((q, w) => q + w.n, 0), allCost = Object.fromEntries(RES4.map((r) => [r, I.wounded.reduce((q, w) => q + w.cost[r], 0)]));
+  const rows = I.wounded.map((w) => { const u = unitById(w.id); return u ? `<div class="tcard"><div class="tname">${esc(u.name)} — раненых: ${fmtFull(w.n)}</div>${uimg(u, 'timg')}
+    <div class="tcost"><div class="tcost-h">Вылечить всех ${fmtFull(w.n)}:</div><div class="tcost-r">${cost(w.cost)}<span>${TIME_IC}<b>${fmtT(w.sec * w.n)}</b></span></div></div>
+    <button class="pbar tbtn" data-heal="${w.id}">Вылечить</button></div>` : ''; }).join('');
+  const jobs = I.healing.map((t) => { const u = unitById(t.unit); return u ? `<div class="upjob"><img src="${unitSrc(u)}" alt=""> ${esc(u.name)} ${t.done}/${t.count}<br>Осталось <img class="ri" src="${GFX}res/time.png" alt=""> <span class="cd" data-e="${t.start + t.each * t.count}"></span></div>` : ''; }).join('');
+  return `${ribbon('Раненые')}<p class="coinhint">Мест: <b>${fmtFull(I.used)} из ${fmtFull(I.cap)}</b>. Сюда попадают Ваши воины, павшие в нападениях и набегах из этого замка и при его обороне.
+      Лечение — за полцены и половину времени тренировки; вылеченные возвращаются в Замковую армию.</p>
+    ${jobs ? `${ribbon('Лечатся')}${jobs}` : ''}
+    ${all ? `${rows}${I.wounded.length > 1 ? `<div class="tcost"><div class="tcost-h">Вылечить всех раненых (${fmtFull(all)}):</div><div class="tcost-r">${cost(allCost)}<span>${TIME_IC}<b>${fmtT(I.wounded.reduce((q, w) => q + w.sec * w.n, 0))}</b></span></div></div>
+      <button class="pbar" data-heal="all">Вылечить всех</button>` : ''}` : '<p class="parch-note">Раненых нет.</p>'}`;
+}
+$('#sheetBody').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-heal]'); if (!b) return;
+  const id = b.dataset.heal, w = ((MY().infirm || {}).wounded || []).find((x) => String(x.id) === id);
+  send({ t: 'heal', units: id === 'all' ? null : { [id]: w ? w.n : 0 } });
+});
+
 // ---------- функции здания (в шторке здания, ниже улучшения) ----------
 function buildingFunctions(def, lvl) {
   if (!lvl || !S.cat.mil) return '';
   let h = '';
   if (def.id === 0) return `<button class="rbar" data-wallwin>Стена${S.st.castle.wall ? ` · ${S.st.castle.wall} ур.` : ''}</button><button class="rbar" data-shieldopen>🛡 Защита</button>`; // Ратуша: стена замка (wall.js)
   if (def.id === 46) return residenceHtml(); // Резиденция: лояльность населения (residence.js)
+  if (def.id === 41) return infirmaryHtml(); // Лазарет: раненые и лечение
   if (def.id === 11) return '<button class="rbar" data-forge>Юниты</button><button class="rbar" data-runeforge>Ковка снаряжения за руны</button>' + upJobsHtml(11) + runeJobHtml(); // Кузница (forge.js, runes.js)
   if (def.id === 39) return '<button class="rbar" data-magic>Юниты</button>' + upJobsHtml(39); // Школа магии (forge.js)
   if (def.id === 21) return '<button class="rbar" data-moves>Передвижения армий</button>'; // Караульная башня (watch.js)
@@ -367,9 +389,11 @@ function reportHtml(r) {
   const why = (t) => `<div class="rwhy">${t}</div>`, kA = times(AP, DP), kD = times(DP, AP);
   const aWhy = aL || !aW ? '' : !d.def.npc && !dW && !d.def.general ? why('В замке не было защитников — сражаться было не с кем, поэтому потерь нет.')
     : d.win && kA >= 2 ? why(`Атака была в ${kA} ${plural(kA, 'раз', 'раза', 'раз')} сильнее ${d.def.npc ? 'охраны' : 'защиты'} — при таком перевесе победитель почти не теряет войск.`) : '';
-  // павшие, что выжили и вернулись домой: Лазарет замка и умение генерала «Полевой лекарь» (только в отчёте нападавшего)
+  // павшие: «Полевой лекарь» спас сразу (нападавшему); раненые — в Лазарет замка (нападавшему и защитнику)
   const ofW = (n) => `${fmtFull(n)} ${plural(n, 'воина', 'воинов', 'воинов')}`, cl = d.calc || {};
-  const healWhy = attV && (cl.infirm || cl.saved) ? why(`${[cl.infirm ? `Лазарет спас ${ofW(cl.infirm)}` : '', cl.saved ? `Полевой лекарь спас ${ofW(cl.saved)}` : ''].filter(Boolean).join(', ')} — они вернутся домой.`) : '';
+  const healWhy = (attV && cl.saved ? why(`Полевой лекарь спас ${ofW(cl.saved)} — они вернутся домой.`) : '')
+    + (attV && cl.wounded ? why(`В Лазарет отправлено раненых: ${fmtFull(cl.wounded)} — вылечите их там за полцены.`) : '');
+  const dHealWhy = !attV && cl.dWounded && !d.captured ? why(`В Лазарет отправлено раненых: ${fmtFull(cl.dWounded)} — вылечите их там за полцены.`) : '';
   const dWhy = dL || !dW || d.win || kD < 2 ? '' : why(`Защита была в ${kD} ${plural(kD, 'раз', 'раза', 'раз')} сильнее атаки — при таком перевесе защитники почти не теряют войск.`);
   // «Армия атаки» / «Армия защиты» — раскрываются нажатием: потери, потери в ресурсах, по юнитам «погибло из было», генерал
   const unitRows = (units, race) => Object.entries(units || {}).map(([id, v]) => { const u = unitById(id); return u ? `<div class="rul"><img class="ric" src="${unitSrc(u, race)}" alt=""> ${esc(u.name)}: ${fmtFull(v.lost)} из ${fmtFull(v.was)}</div>` : ''; }).join('');
@@ -385,7 +409,7 @@ function reportHtml(r) {
     ${band('kingatt', 'Нападение')}${sideBlock(d.att, d.att.rating, d.att.cx ?? '-', d.att.cy ?? '-', lossLine(aL, aW) + aWhy + healWhy)}
     ${band('kingdef', 'Защита')}
     ${d.def.npc ? `<div class="rp">Игрок: Неизвестный игрок<br>Объект: ${esc(d.def.npc)}<br>(Рейтинг: -, X: ${d.x}, Y: ${d.y})<br>${ic('skull')} Охрана потеряла ${d.def.lossPct}%</div>`
-      : sideBlock(d.def, d.def.rating, d.x, d.y, dW ? lossLine(dL, dW) + dWhy : `${ic('skull')} В замке не было защитников!`)}
+      : sideBlock(d.def, d.def.rating, d.x, d.y, dW ? lossLine(dL, dW) + dWhy + dHealWhy : `${ic('skull')} В замке не было защитников!`)}
     ${attBox}${defBox}
     ${foot}`;
 }

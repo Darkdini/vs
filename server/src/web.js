@@ -645,13 +645,15 @@ const API = {
   sendmail(m) {
     if (!String(m.text || '').trim()) return this.error('Пустое сообщение.');
     const tu = this.game.db.users[String(m.to || '').trim()], deny = tu && this.game.canReach(this.user, tu, 'msg'); if (deny) return this.error(deny);
-    if (tu) { const lim = this.game.tooOften(this.user, 'mail'); if (lim) return this.error(lim); } // не чаще раза в 2 с, 40 в час, 300 в сутки
+    if (tu) { const lim = this.game.tooOften(this.user, 'mail'); if (lim) return this.error(lim); } // не чаще раза в секунду (security.js RATE.mail)
     const res = this.game.sendMail(this.user, m.to, m.subject, m.text);
     if (res.error) return this.error(res.error);
     if (m.dialog) API.dialog.call(this, { id: res.to.id, keep: 1 }); else this.toast('Сообщение отправлено.');
     for (const s of WebSession.all || []) if (s.user && s.user.id === res.to.id) { if (s.dialogWith === this.user.id) API.dialog.call(s, { id: this.user.id, keep: 1 }); else if (s.notifyMail) s.notifyMail(this.user.login); }
   },
   // ---- функции зданий и армия (server/src/army.js) ----
+  // Лазарет: вылечить раненых (units { id: n } или всех) — за полцены и половину времени тренировки (army.js healWounded)
+  heal(m) { const c = pickCastle(this, m); if (!c) return; const r = this.game.healWounded(c, m.units && typeof m.units === 'object' && !Array.isArray(m.units) ? m.units : null); if (r && r.ok) this.toast(r.msg); this.result(r); },
   train(m) { const c = pickCastle(this, m); if (!c) return; const r = this.game.train(c, Number(m.unit), Number(m.count)); if (r && r.job) this.toast('Тренировка начата!'); this.result(r); if (c !== this.castle) API.kingdom.call(this); },
   kingdom() { if (!this.game.isPremium(this.user)) return this.error('Сводка королевства — с премиумом.'); this.send({ t: 'kingdom', list: this.game.kingdom(this.user) }); },
   send(m) {

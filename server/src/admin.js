@@ -108,6 +108,7 @@ function install(Game) {
       this.mil(c);
       clean(c.units); c.squads.forEach((q) => clean(q.units)); c.armies.forEach((a) => clean(a.units));
       c.training = c.training.filter((t) => ok(t.unit));
+      clean(c.wounded); if (c.healing) c.healing = c.healing.filter((t) => ok(t.unit)); // раненые в Лазарете — тоже
     }
     u.race = race;
     return { ok: true };

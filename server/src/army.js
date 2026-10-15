@@ -299,7 +299,9 @@ const NPC_REGEN_SEC = 3600;
 const CAMPS = [30, 31, 32]; // лагеря разбойников: лёгкий, средний, тяжёлый
 // бой (как в Travian): сила атаки против защиты, смешанной по составу нападающих; лечение раненых дома
 const HEAL_HOME = 0.25; // раненые защитники в своём замке: четверть павших выздоравливает
-const INFIRM_PER = 0.02; // Лазарет (здание 41, бывшая Пивоварня): +2% за уровень — столько павших в нападениях и набегах выживает (до 20% на 10 ур.)
+// Лазарет (здание 41, бывшая Пивоварня): свои павшие в нападениях и набегах из этого замка и при его обороне попадают сюда ранеными —
+// INFIRM_CAP мест за уровень (10 ур. — 1000); лечение — за HEAL_K цены и времени тренировки, своей очередью, вне дневного лимита TRAIN_DAY
+const INFIRM_CAP = 100, HEAL_K = 0.5;
 const ROW = { infantry: 3, cavalry: 2, magic: 1, siege: 1, special: 1 }, DMG = 2, ROUT = 0.3; // бой с боссом (clashHp): ряды строя, множитель урона, бегство
 const DEF_HOME = 1.75; // замок помогает своим защитникам (и подкреплениям в нём): защита ×1,75 — иначе на равные ресурсы нападение всегда сильнее (атака у юнитов вдвое дешевле защиты)
 const LOSS_POW = 1.5; // бой как в Travian: потери победителя = (слабая сторона / сильная)^1,5
@@ -438,7 +440,6 @@ function install(Game, helpers) {
       train: (1 - 0.02 * L(B.ALCHEMY)) * (1 - art.train) * (1 - ms.train),
       build: (1 - SCIENCES.eng.per * sci.eng) * (1 - ms.build),
       wall: L(B.FENCE), wallPer: wallPer * (1 + ms.wall),
-      infirm: INFIRM_PER * L(B.INFIRMARY), // Лазарет: доля павших в походах этого замка, что выживает и возвращается домой
       hidden: L(B.CACHE) ? Math.round(200 * 1.3 ** (L(B.CACHE) - 1) * (race === 'dwarves' ? 2 : 1) * (1 + ms.hidden)) : 0,
       watch: L(B.WATCHTOWER), spyCenter: L(B.SPY), mason: L(B.MASON),
       tradeCarry: 1 + 0.1 * L(B.TRADE_HALL) + ms.tradeCarry, tradeSpeed: 1 + 0.1 * L(B.TRADE_HALL) + ms.tradeSpeed,
@@ -465,6 +466,49 @@ function install(Game, helpers) {
     const bl = Math.max(1, this.buildingLevel(castle, unit.building));
     void bl; // уровень здания открывает юнитов, но не ускоряет тренировку (как в оригинале: Орк загонщик — 14:40 и на 20 ур.)
     return Math.max(1, Math.round(unit.time * this.bonus(castle).train / SPEED));
+  };
+  // ----- Лазарет (здание 41): раненые и лечение -----
+  // кто попадает в Лазарет: воины с ценой тренировки (не тараны и прочие одноразовые, не уникальные воины заданий, не генерал)
+  const healable = (id) => { const u = UNIT[id]; return !!(u && u.cost && !u.oneUse && !u.notrain && Number(id) !== GENERAL_ID); };
+  P.infirmCap = function infirmCap(castle) { return INFIRM_CAP * this.buildingLevel(castle, B.INFIRMARY); };
+  // занято мест: раненые и те, кого сейчас лечат
+  P.infirmUsed = function infirmUsed(castle) {
+    return Object.values(castle.wounded || {}).reduce((q, n) => q + n, 0) + (castle.healing || []).reduce((q, j) => q + j.count - j.done, 0);
+  };
+  // павшие lost { id: n } — ранеными в Лазарет замка, пока есть места; не поместились — погибли. Возвращает, сколько попало
+  P.toInfirmary = function toInfirmary(castle, lost) {
+    if (!castle || !lost) return 0;
+    let free = this.infirmCap(castle) - this.infirmUsed(castle), n = 0;
+    for (const [id, k] of Object.entries(lost)) {
+      if (free <= 0) break; if (!(k > 0) || !healable(id)) continue;
+      const t = Math.min(k, free); castle.wounded = castle.wounded || {}; castle.wounded[id] = (castle.wounded[id] || 0) + t; free -= t; n += t;
+    }
+    return n;
+  };
+  // лечение одного воина: цена и время — HEAL_K от тренировки (наука и Алхимия ускоряют так же)
+  P.healCostOf = function healCostOf(castle, id, n) { const u = raceUnit(UNIT[id], this.raceOf(castle)); return Object.fromEntries(RES4.map((r) => [r, Math.round((u.cost[r] || 0) * n * HEAL_K)])); };
+  P.healSecOf = function healSecOf(castle, id) { return Math.max(1, Math.round(this.trainTime(castle, raceUnit(UNIT[id], this.raceOf(castle))) * HEAL_K)); };
+  // вылечить: pick { id: n } или всех (pick пустой); очередь лечения — своя, Казармы не заняты, дневной лимит тренировки не тратится
+  P.healWounded = function healWounded(castle, pick) {
+    this.tick(castle);
+    if (!this.buildingLevel(castle, B.INFIRMARY)) return { error: 'Нужен Лазарет.' };
+    const w = castle.wounded || {}, src = pick && typeof pick === 'object' && Object.keys(pick).length ? pick : w, list = [];
+    for (const [id, n0] of Object.entries(src)) { const n = Math.min(Math.floor(Number(n0)) || 0, w[id] || 0); if (n > 0 && healable(id)) list.push([id, n]); }
+    if (!list.length) return { error: 'Раненых нет.' };
+    const cost = { wood: 0, stone: 0, iron: 0, food: 0 };
+    for (const [id, n] of list) { const c = this.healCostOf(castle, id, n); for (const r of RES4) cost[r] += c[r]; }
+    for (const r of RES4) if (castle.res[r] < cost[r]) return { error: 'Недостаточно ресурсов.' };
+    for (const r of RES4) castle.res[r] -= cost[r];
+    const now = Date.now(); castle.healing = castle.healing || [];
+    let start = castle.healing.reduce((m, t) => Math.max(m, t.start + t.each * t.count), now);
+    for (const [id, n] of list) {
+      const each = this.healSecOf(castle, id) * 1000;
+      castle.healing.push({ id: this.db.nextId++, unit: Number(id), count: n, done: 0, each, start });
+      start += each * n; w[id] -= n; if (!w[id]) delete w[id];
+    }
+    castle.wounded = w; this.store.save();
+    const total = list.reduce((q, [, n]) => q + n, 0);
+    return { ok: true, msg: `Лекари взялись за раненых: ${total}. Вылеченные вернутся в Замковую армию.`, cost };
   };
   P.unitLock = function unitLock(castle, unit) {
     const race = this.raceOf(castle);
@@ -520,6 +564,13 @@ function install(Game, helpers) {
       }
       return t.done < t.count;
     });
+    if (castle.healing && castle.healing.length) { // Лазарет: вылеченные — в Замковую армию
+      castle.healing = castle.healing.filter((t) => {
+        const ready = Math.max(0, Math.min(t.count, Math.floor((now - t.start) / t.each)));
+        if (ready > t.done) { castle.units[t.unit] = (castle.units[t.unit] || 0) + ready - t.done; t.done = ready; if (t.done === t.count) this.event(owner, `Лазарет: вылечены ${UNIT[t.unit] ? UNIT[t.unit].name : 'воины'} ×${t.count}`); }
+        return t.done < t.count;
+      });
+    }
     // генерал воскрес
     const g = castle.general;
     if (g && g.dead && g.reviveAt && g.reviveAt <= now) { g.dead = false; delete g.reviveAt; delete g.reviveStart; this.event(owner, 'Генерал снова в строю.'); }
@@ -1116,14 +1167,14 @@ function install(Game, helpers) {
     const aLostN = new Map(A.map((s) => [s, Math.min(s.n, roll(s.n * aShare))])), dLostN = new Map(D.map((s) => [s, Math.min(s.n, roll(s.n * dShare))]));
     const routed = 0;
     // применяем потери; раненые защитники в своём замке частично выздоравливают
-    const aLost = {}, dLost = {}, dAll = {};
-    // павшие в походе, что выжили и вернутся домой: Лазарет замка (infirm) и умение генерала «Полевой лекарь» (saved); тараны одноразовые — не лечатся
-    let saved = 0, infirm = 0; const pInf = bA.infirm || 0;
-    for (const s of A) { let l = aLostN.get(s); if (l && !UNIT[s.id].oneUse) { const hi = Math.floor(l * pInf), h = hA && hA.heal ? Math.floor(l * hA.heal) : 0; l -= hi + h; infirm += hi; saved += h; } if (l) { s.m[s.id] -= l; aLost[s.id] = (aLost[s.id] || 0) + l; } }
+    const aLost = {}, dLost = {}, dAll = {}, dOwn = {}; // dOwn — павшие свои защитники замка (без подкреплений)
+    let saved = 0; // умение «Полевой лекарь»: часть павших в походе выживает (тараны одноразовые — нет)
+    for (const s of A) { let l = aLostN.get(s); if (l && hA && hA.heal && !UNIT[s.id].oneUse) { const h = Math.floor(l * hA.heal); l -= h; saved += h; } if (l) { s.m[s.id] -= l; aLost[s.id] = (aLost[s.id] || 0) + l; } }
     let healed = 0;
     for (const s of D) {
       let l = dLostN.get(s); if (!l) { if (s.m) dAll[s.id] = (dAll[s.id] || 0) + s.n; continue; }
       if (s.own && !target.site) { const h = Math.floor(l * HEAL_HOME); l -= h; healed += h; }
+      if (s.own && l) dOwn[s.id] = (dOwn[s.id] || 0) + l;
       if (s.m) { s.m[s.id] -= l; if (!s.m[s.id]) delete s.m[s.id]; }
       dLost[s.id] = (dLost[s.id] || 0) + l;
       if (s.m && s.m[s.id]) dAll[s.id] = (dAll[s.id] || 0) + s.m[s.id];
@@ -1131,12 +1182,14 @@ function install(Game, helpers) {
     // тараны одноразовые: после боя их больше нет
     const ramsUsed = Object.entries(a.units).filter(([id]) => UNIT[id] && UNIT[id].oneUse).reduce((q, [id, n]) => { if (n) { aLost[id] = (aLost[id] || 0) + n; a.units[id] = 0; } return q + n; }, 0);
     for (const id of Object.keys(a.units)) if (!a.units[id]) delete a.units[id];
+    // Лазарет: павшие — ранеными в Лазарет замка, откуда вышла армия, и замка защитников (с мировым боссом — нет: там потери задаёт босс)
+    const wounded = npc && npc.boss ? 0 : this.toInfirmary(c, aLost), dWounded = target ? this.toInfirmary(target, dOwn) : 0;
     const cnt = (L) => sum(L, (s) => s.n) || 1;
     const aLoss = sum(A, (s) => aLostN.get(s)) / cnt(A), dLoss = D.length ? sum(D, (s) => dLostN.get(s)) / cnt(D) : 1;
     const calc = { rule: a.mission === 'attack' ? 'attack' : 'raid', model: 3, luck, morale: Math.round(morale * 100),
       att: { phys: Math.round(PA), mag: Math.round(MA), gen: Math.round(genA), bonusPct: Math.round((kA / (1 + luck / 100) / morale - 1) * 100), total: Math.round(AP), hpLostPct: Math.round(aShare * 100) },
       def: { npc: !target, phys: Math.round(PD), mag: Math.round(MD), bonusPct: bD ? Math.round((bD.def - 1) * 100) : 0, wall: wallL, wall0, wallPct: Math.round((wallK - 1) * 100), total: Math.round(DP), hpLostPct: Math.round(dShare * 100) },
-      aLossPct: Math.round(aLoss * 100), dLossPct: Math.round(dLoss * 100), routed, healed, ramsUsed, saved, infirm };
+      aLossPct: Math.round(aLoss * 100), dLossPct: Math.round(dLoss * 100), routed, healed, ramsUsed, saved, wounded, dWounded };
     const garrison = target ? null : D.map((s) => ({ name: s.npc.name, n: s.n, lost: dLostN.get(s) }));
     return { garrison, win, luck, calc, aLost, dLost, dAll, aLoss: aShare >= 1 ? 1 : aLoss, dLoss: dShare >= 1 || !D.length ? 1 : dLoss, siege, siegeN };
   };
@@ -1218,14 +1271,14 @@ function install(Game, helpers) {
     let routed = 0;
     if (win && a.mission === 'attack' && target) for (const s of D) { const r = roll((s.n - dLostN.get(s)) * ROUT); dLostN.set(s, dLostN.get(s) + r); routed += r; }
     // применяем потери; раненые защитники в своём замке частично выздоравливают
-    const aLost = {}, dLost = {}, dAll = {};
-    // павшие в походе, что выжили: Лазарет замка (infirm; в бою с мировым боссом не действует — там потери задаёт босс) и «Полевой лекарь» (saved)
-    let saved = 0, infirm = 0; const pInf = npc && npc.boss ? 0 : bA.infirm || 0;
-    for (const s of A) { let l = aLostN.get(s); if (l && !UNIT[s.id].oneUse) { const hi = Math.floor(l * pInf), h = hA && hA.heal ? Math.floor(l * hA.heal) : 0; l -= hi + h; infirm += hi; saved += h; } if (l) { s.m[s.id] -= l; aLost[s.id] = (aLost[s.id] || 0) + l; } }
+    const aLost = {}, dLost = {}, dAll = {}, dOwn = {}; // dOwn — павшие свои защитники замка (без подкреплений)
+    let saved = 0; // умение «Полевой лекарь»: часть павших в походе выживает (тараны одноразовые — нет)
+    for (const s of A) { let l = aLostN.get(s); if (l && hA && hA.heal && !UNIT[s.id].oneUse) { const h = Math.floor(l * hA.heal); l -= h; saved += h; } if (l) { s.m[s.id] -= l; aLost[s.id] = (aLost[s.id] || 0) + l; } }
     let healed = 0;
     for (const s of D) {
       let l = dLostN.get(s); if (!l) { if (s.m) dAll[s.id] = (dAll[s.id] || 0) + s.n; continue; }
       if (s.own) { const h = Math.floor(l * HEAL_HOME); l -= h; healed += h; }
+      if (s.own && l) dOwn[s.id] = (dOwn[s.id] || 0) + l;
       if (s.m) { s.m[s.id] -= l; if (!s.m[s.id]) delete s.m[s.id]; }
       dLost[s.id] = (dLost[s.id] || 0) + l;
       if (s.m && s.m[s.id]) dAll[s.id] = (dAll[s.id] || 0) + s.m[s.id];
@@ -1233,12 +1286,14 @@ function install(Game, helpers) {
     // тараны одноразовые: после боя их больше нет
     const ramsUsed = Object.entries(a.units).filter(([id]) => UNIT[id] && UNIT[id].oneUse).reduce((q, [id, n]) => { if (n) { aLost[id] = (aLost[id] || 0) + n; a.units[id] = 0; } return q + n; }, 0);
     for (const id of Object.keys(a.units)) if (!a.units[id]) delete a.units[id];
+    // Лазарет: павшие — ранеными в Лазарет замка, откуда вышла армия, и замка защитников (с мировым боссом — нет: там потери задаёт босс)
+    const wounded = npc && npc.boss ? 0 : this.toInfirmary(c, aLost), dWounded = target ? this.toInfirmary(target, dOwn) : 0;
     const cnt = (L) => sum(L, (s) => s.n) || 1;
     const aLoss = sum(A, (s) => aLostN.get(s)) / cnt(A), dLoss = D.length ? sum(D, (s) => dLostN.get(s)) / cnt(D) : 1;
     const calc = { rule: a.mission === 'attack' ? 'attack' : 'raid', model: 2, luck, morale: Math.round(morale * 100),
       att: { phys: Math.round(PA / DMG / RK), mag: Math.round(MA / DMG / RK), gen: Math.round(genA), bonusPct: Math.round((kA / (1 + luck / 100) / morale - 1) * 100), total: Math.round((PA + MA) / DMG / RK), hpLostPct: Math.round(aShare * 100) },
       def: { npc: !target, phys: Math.round(PD / DMG / RK), mag: Math.round(MD / DMG / RK), bonusPct: bD ? Math.round((bD.def - 1) * 100) : 0, wall: wallL, wall0, wallPct: Math.round((wallK - 1) * 100), total: Math.round((PD + MD) / DMG / RK), hpLostPct: Math.round(dShare * 100) },
-      aLossPct: Math.round(aLoss * 100), dLossPct: Math.round(dLoss * 100), routed, healed, ramsUsed, saved, infirm };
+      aLossPct: Math.round(aLoss * 100), dLossPct: Math.round(dLoss * 100), routed, healed, ramsUsed, saved, wounded, dWounded };
     const garrison = target ? null : D.map((s) => ({ name: s.npc.name, n: s.n, lost: dLostN.get(s) }));
     return { garrison, win, luck, calc, aLost, dLost, dAll, aLoss: aShare >= 1 ? 1 : aLoss, dLoss: dShare >= 1 ? 1 : dLoss, siege, siegeN };
   };
@@ -1427,7 +1482,7 @@ function install(Game, helpers) {
     }
     if (genDied) lines.push('Генерал пал в бою — воскресите его в Военном штабе.');
     lines.push(...genA.filter((x) => !genDied || !/пал в бою/.test(x)));
-    if (calc.infirm) lines.push(`Лазарет спас ${Wd.ofWarriors(calc.infirm)}.`);
+    if (calc.wounded) lines.push(`В Лазарет отправлено раненых: ${calc.wounded} — вылечите их там за полцены.`);
     if (calc.saved) lines.push(`Полевой лекарь спас ${Wd.ofWarriors(calc.saved)}.`);
     const title = `Атака на ${target ? (captured ? captured.prevLogin : defUser.login) : npc.name}`; // как в оригинале: «Атака на <игрок>» / «Оборона от <игрок>»
     this.report(c.owner, title, lines, 'battle', { ...data, side: 'att' });
@@ -1438,6 +1493,7 @@ function install(Game, helpers) {
         `Ваши войска: ${unitsLine(dAll, dLost)}`,
         loot ? `Унесено: дерево ${loot.wood}, камень ${loot.stone}, железо ${loot.iron}, еда ${loot.food}` : 'Враг разбит, ничего не унесено.',
         ...siege, ...(loyalty ? [`Бунт в замке: ${100 - loyalty.from}% → ${100 - loyalty.to}%`] : []), ...(took ? [`Ваш недострой ${a.x}:${a.y} захвачен игроком ${att.login}.`] : []), ...genD,
+        ...(calc.dWounded && !captured ? [`В Лазарет отправлено раненых: ${calc.dWounded} — вылечите их там за полцены.`] : []),
       ], 'battle', { ...data, side: 'def' });
     }
     if (took) { a.units[TRAVELER_ID] -= SETTLE_TAKE; if (!a.units[TRAVELER_ID]) delete a.units[TRAVELER_ID]; } // путешественники остаются строить
@@ -1518,6 +1574,7 @@ function install(Game, helpers) {
     prev.castleIds = this.castlesOf(prev).filter((k) => k !== castle).map((k) => k.id);
     if (prev.castleId === castle.id) prev.castleId = prev.castleIds[0];
     if (this.smithAbandon) this.smithAbandon(castle, prev); // ковка за руны отменяется, руны — прежнему хозяину
+    delete castle.wounded; delete castle.healing; // раненые прежнего хозяина в Лазарете не достаются захватчику
     castle.owner = att.id;
     for (const g of this.guestsOf(castle)) this.goBack(g.c, g.a, Date.now()); // чужие подкрепления уходят домой
     // генерал королевства не пропадает и не достаётся захватчику: живой (дома или в походе) отступает в столицу прежнего хозяина
@@ -2060,6 +2117,9 @@ function install(Game, helpers) {
       genUnits: this.genTrainUnits(castle).map((u) => ({ id: u.id, ...this.genTrainCost(u) })), armies: castle.armies.map((a) => ({ id: a.id, units: a.units, general: a.general, mission: a.mission, x: a.x, y: a.y, depart: a.depart, arrive: a.arrive, back: a.back, state: a.state, loot: a.loot, cargo: a.cargo, squad: a.squad, portal: a.portal,
         stayName: a.state === 'stay' && this.db.castles[a.stayAt] ? this.db.castles[a.stayAt].name : null })),
       squads: castle.squads, merchants: this.merchants(castle),
+      infirm: this.buildingLevel(castle, B.INFIRMARY) ? { cap: this.infirmCap(castle), used: this.infirmUsed(castle), // Лазарет: раненые, цена и время лечения одного, очередь
+        wounded: Object.entries(castle.wounded || {}).filter(([, n]) => n > 0).map(([id, n]) => ({ id: Number(id), n, cost: this.healCostOf(castle, id, n), sec: this.healSecOf(castle, id) })), // cost — за всех n, ровно столько спишет healWounded
+        healing: (castle.healing || []).map((t) => ({ unit: t.unit, count: t.count, done: t.done, each: t.each, start: t.start })) } : null,
       guests: this.guestsOf(castle).map((g) => ({ id: g.a.id, from: this.ownerOf(g.c).login, castle: g.c.name, units: g.a.units })),
       incoming: this.incoming(castle), sciences: castle.sciences, sciCapital: this.isCapital(castle), research: castle.research, religion: castle.religion,
       hero: this.heroView(castle), artifacts: (() => { const eff = artEffects(castle.artifacts); return castle.artifacts.map((a) => (a.active && eff.has(a.id) ? { ...a, eff: eff.get(a.id) } : a)); })(), expeds: castle.expeds, expedInfo: this.expedInfo(castle), upkeep: Math.round(this.upkeep(castle) * SPEED),
