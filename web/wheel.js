@@ -6,19 +6,21 @@
 // Лента едет CSS-анимацией с задержкой от начала розыгрыша: чат перерисовывается при каждом сообщении, а лента не прыгает.
 S.wheels = {}; S.wheelPin = 0; S.wheelOpen = 0;
 const WH = { p1: 5000, p2s: 6200, res: 12200, card: 106, at0: 2 }; // времена — как SPIN_MS на сервере; карточка 100 + 6 px
-const WH_RES = { wood: ['shop/wood.png', 'дерева'], stone: ['shop/stone.png', 'камня'], iron: ['shop/iron.png', 'железа'], food: ['shop/food.png', 'еды'] };
+const WH_RES = { wood: ['shop/wood.png', 'дерева', 'дерево'], stone: ['shop/stone.png', 'камня', 'камень'], iron: ['shop/iron.png', 'железа', 'железо'], food: ['shop/food.png', 'еды', 'еда'] };
 const WH_RACES = ['humans', 'elves', 'dwarves', 'orcs'], WH_FRAMES = ['silver', 'gold', 'fire'];
 const whGold = (n) => `${fmtFull(n)} ${plural(n, 'золото', 'золота', 'золота')}`;
 const whLeft = (until) => { const s = Math.max(0, Math.ceil((until - now()) / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
-// приз ячейки: рамка по редкости, картинка, короткая подпись (на табличке) и полное название
+// приз ячейки: рамка по редкости, картинка, сколько (n — цифрой на картинке), что (t — слово на табличке) и полное название
 function whPrize(c) {
-  if (c.k === 'gold') return { f: 'gold', img: `${GFX}gifts/gold_coin.png`, t: whGold(c.n), full: whGold(c.n) };
-  if (c.k === 'exp') return { f: 'gold', img: `${GFX}units/${HD_DIR[S.st.user.race] || 'human/hd'}/general.png`, cls: 'top', t: `${fmtFull(c.n)} опыта`, full: `${fmtFull(c.n)} опыта генерала` };
-  if (c.k === 'unit') return { f: 'fire', img: `${GFX}units/${c.img}.png`, cls: 'unit', t: `${c.n} юнит`, full: `${c.name} ×${c.n}` };
-  const r = WH_RES[c.k] || WH_RES.wood; return { f: 'silver', img: `${GFX}${r[0]}`, t: fmtFull(c.n), full: `${fmtFull(c.n)} ${r[1]}` };
+  if (c.k === 'gold') return { f: 'gold', img: `${GFX}gifts/gold_coin.png`, n: c.n, t: 'золото', full: whGold(c.n) };
+  if (c.k === 'exp') return { f: 'gold', img: `${GFX}units/${HD_DIR[S.st.user.race] || 'human/hd'}/general.png`, cls: 'top', n: c.n, t: 'опыт', full: `${fmtFull(c.n)} опыта генерала` };
+  if (c.k === 'unit') return { f: 'fire', img: `${GFX}units/${c.img}.png`, cls: 'unit', n: c.n, t: 'воин', full: `${c.name} ×${c.n}` };
+  const r = WH_RES[c.k] || WH_RES.wood; return { f: 'silver', img: `${GFX}${r[0]}`, n: c.n, t: r[2], full: `${fmtFull(c.n)} ${r[1]}` };
 }
+// число на картинке — коротко, чтобы влезало в рамку: 10 000, 250 тыс, 1,5 млн
+const whAmt = (n) => (n >= 1e6 ? `${String(+(n / 1e6).toFixed(1)).replace('.', ',')} млн` : n >= 1e5 ? `${Math.round(n / 1e3)} тыс` : fmtFull(n));
 const whBurst = () => `<img class="rl-burst" src="${GFX}coin/burst.png" alt="">`;
-const whFrame = (p, burst) => `${burst ? whBurst() : ''}<span class="afr afr-${p.f} rl-prz"><span class="afr-in"><img class="${p.cls || ''}" src="${p.img}" alt=""></span><img class="afr-f" src="${GFX}shop/frame_${p.f}.png" alt=""></span>`;
+const whFrame = (p, burst) => `${burst ? whBurst() : ''}<span class="afr afr-${p.f} rl-prz"><span class="afr-in"><img class="${p.cls || ''}" src="${p.img}" alt="">${p.n ? `<span class="rl-amt">${whAmt(p.n)}</span>` : ''}</span><img class="afr-f" src="${GFX}shop/frame_${p.f}.png" alt=""></span>`;
 // игрок: своя аватарка (или портрет расы) в своей рамке из Лавки (нет рамки — серебряная)
 const whAva = (id, p, burst) => { const f = WH_FRAMES.includes(p.fr) ? p.fr : 'silver';
   const img = p.av ? `<img src="avatar/${Number(id)}.png?v=${Number(p.av)}" alt="">` : `<img class="raceava" src="${GFX}auth/race_${WH_RACES.includes(p.race) ? p.race : 'humans'}.webp" alt="">`;
@@ -34,18 +36,19 @@ function whCardHtml(m) {
 function whJoinHtml(w) {
   const one = (k) => w.cells.find((c) => c.k === k), res = w.cells.filter((c) => WH_RES[c.k]), rare = ['gold', 'exp', 'unit'].map(one).filter(Boolean);
   const cards = [...rare.map((c) => { const p = whPrize(c); return whCard(whFrame(p), p.t); }),
-    ...(res.length ? [whCard(whFrame({ f: 'silver', img: `${GFX}shop/res.png` }), 'ресурсы')] : [])].join('');
+    ...(res.length ? [whCard(whFrame({ f: 'silver', img: `${GFX}shop/res.png`, n: res[0].n }), 'ресурсы')] : [])].join('');
   const names = rare.map((c) => ({ gold: 'золото', exp: 'опыт', unit: 'воин' }[c.k])), list = names.length > 1 ? `${names.slice(0, -1).join(', ')} и ${names[names.length - 1]}` : names[0] || '';
-  const how = `Ячеек: ${w.cells.length}${list ? ` — ${list} ${rare.length > 1 ? 'по одной' : 'одна'}` : ''}${res.length ? `${list ? ', остальные' : ' —'} ${res.length} — ресурсы по ${fmtFull(res[0].n)}` : ''}.`;
-  const unit = one('unit'), adm = S.st.user.admin;
+  const unit = one('unit'), adm = S.st.user.admin, N = w.cells.length, cells = `${N} ${plural(N, 'ячейка', 'ячейки', 'ячеек')}`;
+  const how = [rare.length ? `${cells}: ${list} — ${rare.length > 1 ? 'по одной' : 'одна'}${res.length ? ',' : '.'}` : `${cells} — все ресурсы по ${fmtFull(res[0].n)}.`,
+    ...(rare.length && res.length ? [`ресурсы — ${res.length} по ${fmtFull(res[0].n)}.`] : []), ...(unit ? [`Воин: <b>${esc(unit.name)}</b>`] : [])].join('<br>');
   let foot = '';
   if (w.st === 'join') foot = `${adm ? `<div class="fpm rl-adm"><button data-wspin="${w.id}">Крутить сейчас</button><button data-wcancel="${w.id}">Отменить</button></div>`
     : w.mine ? '<div class="rl-in">✔ Вы участвуете — ждите розыгрыша</div>' : `<button class="rl-go" data-wjoin="${w.id}">Участвую</button>`}
     <div class="rl-foot">Участников: <b data-wn="${w.id}">${w.n}</b> · старт через <b data-wt="${w.until}">${whLeft(w.until)}</b></div>`;
   else if (w.st === 'cancel') foot = `<div class="rl-foot">${w.why === 'empty' ? 'Никто не записался — розыгрыш не состоялся.' : 'Розыгрыш отменён администратором.'}</div>`;
-  else foot = `<div class="rl-foot">Запись закрыта · участников: ${w.n}. Розыгрыш — ниже.</div>`;
+  else foot = `<div class="rl-foot">Запись закрыта · участников: ${w.n}</div>`;
   return `<div class="rl-rib">Колесо Фортуны</div><div class="rl-cap">Призы в колесе:</div><div class="rl-list">${cards}</div>
-    <div class="rl-cap">${how}${unit ? ` Воин: ${esc(unit.name)}.` : ''}</div>${foot}`;
+    <div class="rl-cap rl-how">${how}</div>${foot}`;
 }
 // розыгрыш: что показать сейчас (ники / призы / итог) — по времени от начала; на границе — перерисовать карточку
 function whSpinHtml(w) {
@@ -54,16 +57,16 @@ function whSpinHtml(w) {
   whSchedule(w.id, (el < WH.p2s ? WH.p2s : WH.res) - el);
   return el < WH.p2s ? whStage1(w, el) : whStage2(w, el - WH.p2s);
 }
-// лента: нужная карточка (w.at) встаёт под стрелки; delay < 0 — анимация уже идёт столько-то; --wd — когда засветится выигрыш
-const whTrack = (w, items, jit, el) => `<div class="rl-win"><div class="rl-track rl-run" style="left:calc(50% - ${WH.at0 * WH.card + 50}px);--d:${-((w.at - WH.at0) * WH.card + jit)}px;--wd:${Math.round(WH.p1 - el)}ms;animation-delay:${-Math.round(el)}ms">${items}</div><i class="rl-ptr t"></i><i class="rl-ptr b"></i></div>`;
+// лента: нужная карточка (w.at) встаёт ровно под стрелки; delay < 0 — анимация уже идёт столько-то; --wd — когда засветится выигрыш
+const whTrack = (w, items, el) => `<div class="rl-win"><div class="rl-track rl-run" style="left:calc(50% - ${WH.at0 * WH.card + 50}px);--d:${-(w.at - WH.at0) * WH.card}px;--wd:${Math.round(WH.p1 - el)}ms;animation-delay:${-Math.round(el)}ms">${items}</div><i class="rl-ptr t"></i><i class="rl-ptr b"></i></div>`;
 function whStage1(w, el) {
   const items = w.strip1.map((id, i) => { const p = w.people[id] || { login: '—' }; return whCard(whAva(id, p, i === w.at), esc(p.login), i === w.at ? 'win' : ''); }).join('');
-  return `<div class="rl-rib">Колесо Фортуны</div><div class="rl-cap">Кто получит приз?</div>${whTrack(w, items, w.jit1, el)}<div class="rl-foot">Участников: ${w.n} · крутится…</div>`;
+  return `<div class="rl-rib">Колесо Фортуны</div><div class="rl-cap">Кто получит приз?</div>${whTrack(w, items, el)}<div class="rl-foot">Участников: ${w.n} · крутится…</div>`;
 }
 function whStage2(w, el) {
   const items = w.strip2.map((ci, i) => { const p = whPrize(w.cells[ci]); return whCard(whFrame(p, i === w.at), p.t, i === w.at ? 'win' : ''); }).join('');
   const who = w.people[w.win] || { login: '—' };
-  return `<div class="rl-rib">Колесо Фортуны</div><div class="rl-who">${whAva(w.win, who)}<span>Крутит: <b>${esc(who.login)}</b></span></div>${whTrack(w, items, w.jit2, el)}<div class="rl-foot">Участников: ${w.n} · крутится…</div>`;
+  return `<div class="rl-rib">Колесо Фортуны</div><div class="rl-who">${whAva(w.win, who)}<span>Крутит: <b>${esc(who.login)}</b></span></div>${whTrack(w, items, el)}<div class="rl-foot">Участников: ${w.n} · крутится…</div>`;
 }
 function whResultHtml(w, el) {
   const c = w.cells[w.cell], p = whPrize(c), who = (w.people || {})[w.win] || { login: '—' };

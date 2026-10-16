@@ -87,7 +87,7 @@ function install(Game) {
     else this.stashAdd(u, { [c.k]: c.n });
     const strip1 = Array.from({ length: STRIP }, (_, i) => (i === AT ? win : ids[rnd(ids.length)]));
     const strip2 = Array.from({ length: STRIP }, (_, i) => (i === AT ? cell : rnd(w.cells.length)));
-    Object.assign(w, { st: 'spin', spinAt: now, n: ids.length, win, winLogin: u.login, cell, strip1, strip2, jit1: rnd(61) - 30, jit2: rnd(61) - 30 });
+    Object.assign(w, { st: 'spin', spinAt: now, n: ids.length, win, winLogin: u.login, cell, strip1, strip2 });
     const r = this.chatPost(this.userById(w.byId) || this.adminUser() || u, '🎰 Колесо Фортуны крутится!', { wheel: w.id, wph: 'spin' }, { sys: true });
     w.msg = r.msg ? r.msg.id : 0;
     (this.db.wheelLog = this.db.wheelLog || []).push({ at: now, id: w.id, by: w.by, n: ids.length, win: u.login, prize: this.wheelPrize(c) });
@@ -135,7 +135,7 @@ function install(Game) {
     if (w.st !== 'spin' && w.st !== 'done') return v;
     const people = {};
     for (const pid of new Set(w.strip1)) { const u = this.userById(pid); people[pid] = u ? { login: u.login, race: u.race, av: u.avatar || 0, fr: u.frame || '' } : { login: '—', race: '', av: 0, fr: '' }; }
-    return { ...v, spinAt: w.spinAt, strip1: w.strip1, strip2: w.strip2, jit1: w.jit1, jit2: w.jit2, at: AT, people, win: w.win, cell: w.cell, prize: this.wheelPrize(w.cells[w.cell]) };
+    return { ...v, spinAt: w.spinAt, strip1: w.strip1, strip2: w.strip2, at: AT, people, win: w.win, cell: w.cell, prize: this.wheelPrize(w.cells[w.cell]) };
   };
   // для окна чата: колёса из сообщений и закреп (идёт запись)
   P.chatWheelViews = function chatWheelViews(user) {

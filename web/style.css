@@ -752,12 +752,18 @@ textarea.ainput { resize: vertical; }
 .rl-rib { height: 84px; margin: 0 auto -6px; background: url(gfx/reward/ribbon.png) center top / auto 84px no-repeat; color: #fff1c0; font: 700 21px/56px var(--serif); text-shadow: 0 2px 2px #0009; letter-spacing: .5px; }
 .rl-cap { font: 16px var(--serif); color: #5a4030; margin: 2px 0; }
 .rl-sheet .rl-rib { display: none; } /* в окне из закрепа название уже на ленте окна */
-.rl-list { display: flex; justify-content: center; gap: 2px; margin: 4px 0 2px; }
+.rl-list { display: flex; justify-content: center; gap: 6px; margin: 4px 0 2px; }
 .rl-card { flex: none; width: 100px; display: flex; flex-direction: column; align-items: center; position: relative; }
 .rl-card .afr { width: 92px; height: 92px; min-width: 0; min-height: 0; z-index: 1; }
 .rl-nk { width: 100px; height: 45px; margin-top: -4px; background: url(gfx/reward/plaque.png) center / 100% 100% no-repeat; display: grid; place-items: center; padding: 0 16px;
   font: 700 14px var(--serif); color: #3a1a0a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; z-index: 1; }
-.rl-list .rl-card { width: 86px; } .rl-list .rl-card .afr { width: 78px; height: 78px; } .rl-list .rl-nk { width: 88px; height: 40px; font-size: 12.5px; padding: 0 11px; }
+.rl-list .rl-card { flex: 0 1 84px; width: auto; min-width: 0; } .rl-list .rl-card .afr { width: 100%; height: auto; }
+.rl-list .rl-nk { width: 100%; height: 40px; margin-top: -3px; padding: 0 12%; font-size: 13px; }
+/* сколько — цифрой внизу картинки (как в сундуках), что — словом на табличке: подписи всегда в одну строку */
+#sheetBody .rl .rl-amt { position: absolute; left: 0; right: 0; bottom: 4%; text-align: center; font: 800 13px/1 system-ui, sans-serif; color: #fff; white-space: nowrap;
+  text-shadow: 0 0 2px #000, 0 1px 2px #000, 0 0 5px #000; pointer-events: none; }
+#sheetBody .rl-list .rl-amt { font-size: 12px; } #sheetBody .rl-res .rl-amt { font-size: 21px; bottom: 6%; }
+.rl-how { line-height: 1.35; margin-top: 4px; }
 .rl-prz .afr-in { background: radial-gradient(circle at 50% 45%, #7a5530, #2a1408 72%) !important; }
 .rl .rl-prz .afr-in img { object-fit: contain !important; padding: 5px; }
 .rl .rl-prz .afr-in img.top { object-fit: cover !important; object-position: 50% 8%; padding: 0; }
@@ -783,7 +789,7 @@ textarea.ainput { resize: vertical; }
 .rl-go { display: block; width: 230px; height: 80px; margin: 8px auto 0; border: 0; background: url(gfx/reward/button.png) center / 100% 100% no-repeat; color: #fff; font: 700 22px var(--serif); text-shadow: 0 2px 2px #000a; cursor: pointer; }
 .rl-go:active { filter: brightness(1.15); }
 .rl-in { margin: 10px auto 2px; font: 700 18px var(--serif); color: #2f6a12; }
-.rl-adm { justify-content: center; margin: 8px 0 2px; }
+.fpm.rl-adm { justify-content: center; gap: 10px; margin: 10px 0 2px; }
 .rl-foot { font: 17px var(--serif); color: #5a4030; margin-top: 4px; }
 .rl-res { position: relative; padding: 4px 0 2px; }
 .rl-res .rl-burst { position: absolute; left: 50%; top: 80px; width: 280px; height: 280px; transform: translate(-50%, -50%); z-index: 0; pointer-events: none; }
@@ -795,9 +801,12 @@ textarea.ainput { resize: vertical; }
 .rl-pop .afr, .rl-pop .rl-big { animation: rlPop .6s cubic-bezier(.2, 1.4, .4, 1) both; }
 .rl-pop .rl-burst { animation: rlFade .8s ease-out both; }
 #sheetBody .whform label { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0; font: 19px var(--serif); color: #3a1a0a; }
-#sheetBody .whform label input, #sheetBody .whform label select { width: 46%; flex: none; margin: 0; }
+#sheetBody .whform label input, #sheetBody .whform label select { width: 46%; flex: none; margin: 0; height: 46px; padding: 0 10px; border: 2px solid #d8a070; border-radius: 6px;
+  background: #fff6e4; color: #2a1408; font: 19px var(--serif); } /* поля и списки — одинаковые, как в окне опроса */
 .cadmplus { color: #ffd76a; font: 700 32px/1 var(--serif); text-shadow: 0 1px 2px #000a; }
 .cpop-grid.cadm-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.cadm-grid .ptile { justify-content: flex-start; padding: 12px 4px 8px; } /* значки — на одной высоте, подпись в одну или две строки */
+#sheetBody .cadm-grid .ptile span:last-child { min-height: 2.3em; display: flex; align-items: center; justify-content: center; }
 #sheetBody .ptile .ptem { font: 36px/1 system-ui, sans-serif; text-shadow: none; }
 .cadmbtn:active { filter: brightness(1.2); }
 .cpop-bg { position: fixed; inset: 0; z-index: 50; background: #0006; display: grid; place-items: center; }

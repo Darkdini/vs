@@ -382,7 +382,7 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(c.k === 'gold' ? (win.goldLog || []).some((x) => x.delta === 1 && /Колесо Фортуны/.test(x.reason)) : c.k === 'exp' ? s.exp === 5000 : c.k === 'unit' ? s.units[c.id] === 1 : s.res[c.k] === 10000, `приз начислен сразу: ${JSON.stringify(c)}`);
   assert.ok([w1, w2, w3].filter((u) => u !== win).every((u) => snap(u) === before.get(u.id)), 'остальным — ничего');
   const vA = g.wheelView(w.id, w1), vB = g.wheelView(w.id, w2);
-  assert.ok(JSON.stringify([vA.strip1, vA.strip2, vA.jit1, vA.jit2]) === JSON.stringify([vB.strip1, vB.strip2, vB.jit1, vB.jit2]) && vA.people[w.win].login === win.login && vA.prize === g.wheelPrize(c), 'у всех одни и те же полосы');
+  assert.ok(JSON.stringify([vA.strip1, vA.strip2]) === JSON.stringify([vB.strip1, vB.strip2]) && vA.people[w.win].login === win.login && vA.prize === g.wheelPrize(c), 'у всех одни и те же полосы');
   assert.ok(g.wheelOp(adm, { op: 'cancel', id: w.id }).error && !g.chatWheelViews(w1).wpin, 'после розыгрыша не отменить, закреп снят');
   const rep0 = g.reportsOf(w.win).length; g.wheelCheck(w.spinAt + 5000);
   assert.ok(w.st === 'spin' && g.reportsOf(w.win).length === rep0, 'отчёт — не раньше конца прокрутки');
