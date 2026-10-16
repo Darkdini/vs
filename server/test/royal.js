@@ -516,40 +516,41 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const raid = fight({ 247: 200 }, { 247: 200 }, { m: 'raid' });
   assert.ok(raid.calc.aLossPct < 100 && raid.calc.dLossPct < 100, 'набег: никто не гибнет целиком');
   console.log('✓ Бой как в Travian: втрое больше — потери', big.calc.aLossPct + '%, вдесятеро —', x10.calc.aLossPct + '%; стена, Кузница, тараны, набег');
-  // Лазарет (здание 41, бывшая Пивоварня): павшие — ранеными в Лазарет (100 мест за уровень); лечение — за полцены и половину времени тренировки
+  // Лазарет (здание 41, бывшая Пивоварня): павшие — ранеными в Лазарет (200 мест за уровень); лечение — за полцены тренировки, сразу
   const atk0 = g.bonus(ca).atk, k = ca.grid[0].indexOf(-1) >= 0 ? ca.grid[0].indexOf(-1) : ca.grid[0].length - 1; ca.grid[0][k] = 41; ca.levels[0][k] = 10;
-  assert.ok(g.infirmCap(ca) === 1000 && g.bonus(ca).atk === atk0, 'Лазарет 10 ур. — 1000 мест, к атаке не прибавляет (бонус Пивоварни убран)');
-  ca.wounded = {}; ca.healing = [];
+  assert.ok(g.infirmCap(ca) === 2000 && g.bonus(ca).atk === atk0, 'Лазарет 10 ур. — 2000 мест, к атаке не прибавляет (бонус Пивоварни убран)');
+  ca.wounded = {};
   const lz = fight({ 247: 100 }, { 247: 300 });
   assert.ok(!lz.win && lz.aLost[247] === 100 && lz.calc.wounded === 100 && ca.wounded[247] === 100, `проигранное нападение: все 100 павших — ранеными в Лазарет (${lz.calc.wounded})`);
   const lzRam = fight({ 243: 20, 247: 300 }, { 247: 100 }, { wall: 10 });
   assert.ok(lzRam.aLost[243] === 20 && !ca.wounded[243], 'тараны одноразовые — в Лазарет не попадают');
-  // лечение: половина цены и половина времени тренировки, своя очередь; вылеченные — в Замковую армию
-  const U = require('../src/army').UNIT[247], n0 = ca.wounded[247], cu0 = ca.units[247] || 0;
+  // лечение: половина цены тренировки, сразу — вылеченные тут же в Замковой армии, дневной лимит тренировки не тратится
+  const U = require('../src/army').UNIT[247], n0 = ca.wounded[247], cu0 = ca.units[247] || 0, td0 = g.trainedToday(ca), tl0 = ca.training.length;
   Object.assign(ca.res, { wood: 1e6, stone: 1e6, iron: 1e6, food: 1e6 }); const w0 = ca.res.wood;
-  const hr = g.healWounded(ca, { 247: 40 }); assert.ok(hr.ok && ca.wounded[247] === n0 - 40 && ca.healing.length === 1, hr.error);
+  const hr = g.healWounded(ca, { 247: 40 }); assert.ok(hr.ok && ca.wounded[247] === n0 - 40 && (ca.units[247] || 0) === cu0 + 40 && !ca.healing, hr.error);
   assert.ok(w0 - ca.res.wood === Math.round(U.cost.wood * 40 * 0.5), `цена — половина тренировки (${w0 - ca.res.wood})`);
-  assert.strictEqual(ca.healing[0].each, Math.max(1, Math.round(g.trainTime(ca, U) * 0.5)) * 1000, 'время — половина тренировки');
-  g.tickTraining(ca, ca.healing[0].start + ca.healing[0].each * 40 + 1000);
-  assert.ok((ca.units[247] || 0) === cu0 + 40 && !ca.healing.length, 'вылеченные вернулись в Замковую армию');
+  assert.ok(g.trainedToday(ca) === td0 && ca.training.length === tl0, 'лечение не занимает Казармы и не тратит дневной лимит');
+  // очередь лечения прежней версии (уже оплачена) — долечивается сразу
+  ca.healing = [{ id: 1, unit: 247, count: 5, done: 2, each: 3600000, start: Date.now() }]; g.tickTraining(ca, Date.now());
+  assert.ok((ca.units[247] || 0) === cu0 + 43 && !ca.healing, 'старая очередь лечения — сразу в Замковую армию');
   assert.ok(/Раненых нет/.test(g.healWounded(ca, { 999: 5 }).error || ''), 'лечить можно только раненых');
   // выбрать количество: «Сколько хватит» — на сколько хватает ресурсов; не хватает — подсказка «хватит на N»
   { const left = ca.wounded[247], one = g.healOneOf(ca, 247), w1 = Math.round(one.wood * 7);
-    Object.assign(ca.res, { wood: w1, stone: 1e6, iron: 1e6, food: 1e6 }); ca.healing = [];
+    Object.assign(ca.res, { wood: w1, stone: 1e6, iron: 1e6, food: 1e6 });
     assert.ok(left > 7 && g.healAfford(ca, 247) === 7, `дерева — ровно на 7 (${g.healAfford(ca, 247)})`);
     const r9 = g.healWounded(ca, { 247: 9 }); assert.ok(/хватит на 7/.test(r9.error || '') && ca.wounded[247] === left, r9.error || 'не хватает — подсказка, никого не лечим');
     const r7 = g.healWounded(ca, { 247: 7 }); assert.ok(r7.ok && ca.wounded[247] === left - 7 && ca.res.wood < one.wood, r7.error); // дерево ушло (за время теста чуть прибавилось — меньше цены одного)
     assert.ok(g.healAfford(ca, 247) === 0 && /даже на одного/.test(g.healWounded(ca, { 247: 1 }).error || ''), 'ресурсов нет — даже на одного');
-    ca.healing = []; Object.assign(ca.res, { wood: 1e6, stone: 1e6, iron: 1e6, food: 1e6 }); }
+    Object.assign(ca.res, { wood: 1e6, stone: 1e6, iron: 1e6, food: 1e6 }); }
   // места кончились — остальные павшие погибают насовсем
-  ca.levels[0][k] = 1; ca.wounded = { 247: 100 };
-  const full = fight({ 247: 100 }, { 247: 300 }); assert.ok(full.calc.wounded === 0 && ca.wounded[247] === 100, 'Лазарет полон — новых раненых нет');
+  ca.levels[0][k] = 1; ca.wounded = { 247: 200 };
+  const full = fight({ 247: 100 }, { 247: 300 }); assert.ok(full.calc.wounded === 0 && ca.wounded[247] === 200, 'Лазарет полон (1 ур. — 200 мест) — новых раненых нет');
   // оборона: свои павшие защитники — в Лазарет замка защиты
   const kd = cd.grid[0].indexOf(-1) >= 0 ? cd.grid[0].indexOf(-1) : cd.grid[0].length - 1; cd.grid[0][kd] = 41; cd.levels[0][kd] = 10; cd.wounded = {};
   const df = fight({ 247: 300 }, { 247: 100 }); assert.ok(df.calc.dWounded > 0 && cd.wounded[247] === df.calc.dWounded, `оборона: раненые защитники — в Лазарет (${df.calc.dWounded})`);
   cd.grid[0][kd] = -1; cd.levels[0][kd] = 0; delete cd.wounded;
-  ca.grid[0][k] = -1; ca.levels[0][k] = 0; delete ca.wounded; ca.healing = [];
-  console.log('✓ Лазарет: павшие — ранеными (100 мест за уровень), лечение за полцены и половину времени, тараны — нет, оборона — тоже');
+  ca.grid[0][k] = -1; ca.levels[0][k] = 0; delete ca.wounded;
+  console.log('✓ Лазарет: павшие — ранеными (200 мест за уровень), лечение за полцены и сразу, тараны — нет, оборона — тоже');
   if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
 }
 { // задания: обучение, ежедневные, поход в логово
@@ -1530,11 +1531,12 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.ok(g.profileOf(a, b).nicks.length === 1 && g.profileOf(a, Object.values(g.db.users).find((u) => u.admin)).nicks.length === 2, 'сброшенный модерацией ник скрыт от игроков');
     console.log('✓ История ников в профиле');
   }
-  { // бартер на Рынке: 2,5 : 1
+  { // бартер на Рынке: 2 : 1
     const u = g.register({ login: 'bxA1x', password: '12345', race: 0 }).user, c = g.castleOf(u); g.maxOut(c);
     Object.assign(c.res, { wood: 1000, iron: 0 }); const r = g.exchange(c, 'wood', 'iron', 250);
-    assert.ok(r.got === 100 && c.res.wood < 760 && c.res.iron >= 100, JSON.stringify(r)); // за время обмена замок мог чуть добыть
-    console.log('✓ Бартер: отдаёшь 2,5 — получаешь 1');
+    assert.ok(r.got === 125 && c.res.wood < 760 && c.res.iron >= 125, JSON.stringify(r)); // за время обмена замок мог чуть добыть
+    assert.ok(g.exchange(c, 'wood', 'iron', 3).got === 1, 'нечётное — с округлением вниз');
+    console.log('✓ Бартер: отдаёшь 2 — получаешь 1');
   }
   { // альянс: ушёл создатель — права к тому, у кого больше прав, иначе к самому рейтинговому; последний ушёл — альянс исчезает
     const mk = (l, max) => { const u = g.register({ login: l, password: '12345', race: 0 }).user; const c = g.castleOf(u); g.mil(c); if (max) g.maxOut(c); return u; };

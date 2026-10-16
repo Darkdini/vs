@@ -59,7 +59,7 @@ function milEffect(def, L) {
   const fx = {
     2: () => ({ text: 'армии, генерал, бунтари; отправка войск', short: 'армии' }),
     3: train, 12: train, 20: train, 23: train,
-    4: () => ({ text: `груз торговцев ${fmtFull(45 * L)} ед., бартер 2,5 : 1`, short: `${fmtFull(45 * L)} ед.` }), // торговцев всегда 20, груз — 45 за уровень
+    4: () => ({ text: `груз торговцев ${fmtFull(45 * L)} ед., бартер 2 : 1`, short: `${fmtFull(45 * L)} ед.` }), // торговцев всегда 20, груз — 45 за уровень
     11: () => ({ text: `улучшение атаки и защиты юнитов до ${L} ур.`, short: `до ${L} ур.` }),
     13: () => { const n = Math.min(50, 5 * L); return { text: `мест в альянсе: ${n} (считается по Центру главы альянса)`, short: `${n} ${plural(n, 'место', 'места', 'мест')}` }; },
     14: () => ({ text: 'обучение ученых (ускоряют науку)', short: 'ученые' }),
@@ -76,7 +76,7 @@ function milEffect(def, L) {
     38: () => ({ text: 'призыв легендарных юнитов', short: '' }),
     39: () => ({ text: `+${2 * L}% магической атаки и защиты`, short: `+${2 * L}%` }),
     40: () => { const p = Math.round((1 - 1 / (1 + 0.05 * L)) * 100); return { text: `здания получают на ${p}% меньше урона (катапульты и осадные воины)`, short: `−${p}%` }; }, // урон ÷ (1 + 5% × ур.)
-    41: () => ({ text: `мест для раненых: ${fmtFull(100 * L)}; лечение — за полцены и половину времени тренировки`, short: `${fmtFull(100 * L)} мест` }), // Лазарет (army.js INFIRM_CAP)
+    41: () => ({ text: `мест для раненых: ${fmtFull(200 * L)}; лечение — за полцены тренировки, сразу`, short: `${fmtFull(200 * L)} мест` }), // Лазарет (army.js INFIRM_CAP)
     42: () => ({ text: 'найм наёмников: Великан, Валькирия', short: '' }),
     43: () => ({ text: `тренировка быстрее на ${2 * L}%`, short: `−${2 * L}%` }),
     44: () => ({ text: `хранит ${3 + L} ${plural(3 + L, 'артефакт', 'артефакта', 'артефактов')}`, short: `${3 + L}` }),
@@ -85,7 +85,7 @@ function milEffect(def, L) {
   return fx ? fx() : null;
 }
 
-// ---------- Лазарет (здание 41): раненые воины и лечение — за полцены и половину времени тренировки (server: army.js healWounded) ----------
+// ---------- Лазарет (здание 41): раненые воины и лечение — за полцены тренировки, сразу (server: army.js healWounded) ----------
 // Лазарет: цена лечения n раненых — как на сервере (healCostOf): цена одного без округления × n, округлить
 S.healN = {}; // сколько выбрано по видам (окно перерисовывается — число не теряется)
 const healCost = (w, n) => Object.fromEntries(RES4.map((r) => [r, Math.round(((w.one || {})[r] || 0) * n)]));
@@ -96,7 +96,7 @@ function healMax(w) {
   while (lo < hi) { const m = Math.ceil((lo + hi) / 2); if (fits(m)) lo = m; else hi = m - 1; }
   return lo;
 }
-const healCostRow = (w, n) => { const k = Math.max(1, n), c = healCost(w, k); return `${RES4.map((r) => `<span data-need="${r}:${c[r]}">${RES_IC[r]}<b>${fmtFull(c[r])}</b></span>`).join('')}<span>${TIME_IC}<b>${fmtT(w.sec * k)}</b></span>`; };
+const healCostRow = (w, n) => { const c = healCost(w, Math.max(1, n)); return RES4.map((r) => `<span data-need="${r}:${c[r]}">${RES_IC[r]}<b>${fmtFull(c[r])}</b></span>`).join(''); };
 function infirmaryHtml() {
   const I = MY().infirm; if (!I) return '';
   const cost = (c) => RES4.map((r) => `<span data-need="${r}:${c[r]}">${RES_IC[r]}<b>${fmtFull(c[r])}</b></span>`).join(''); // w.cost — уже за всех раненых этого вида (как спишет сервер)
@@ -110,11 +110,9 @@ function infirmaryHtml() {
     <input type="range" class="tslider" min="0" max="${Math.max(1, max)}" value="${n}" data-hrange="${w.id}" style="--p:${max ? n / max * 100 : 0}%" ${max ? '' : 'disabled'}>
     <div class="hbtns"><button class="pbar" data-hmax="${w.id}" ${max ? '' : 'disabled'}>Сколько хватит</button><button class="pbar tbtn" data-heal="${w.id}" ${max ? '' : 'disabled'}>Вылечить</button></div>
     ${max < w.n ? `<p class="hnote">${max ? `Ресурсов хватит на ${fmtFull(max)} из ${fmtFull(w.n)}.` : 'Ресурсов не хватает даже на одного.'}</p>` : ''}</div>`; }).join('');
-  const jobs = I.healing.map((t) => { const u = unitById(t.unit); return u ? `<div class="upjob"><img src="${unitSrc(u)}" alt=""> ${esc(u.name)} ${t.done}/${t.count}<br>Осталось <img class="ri" src="${GFX}res/time.png" alt=""> <span class="cd" data-e="${t.start + t.each * t.count}"></span></div>` : ''; }).join('');
   return `${ribbon('Раненые')}<p class="coinhint">Мест: <b>${fmtFull(I.used)} из ${fmtFull(I.cap)}</b>. Сюда попадают Ваши воины, павшие в нападениях и набегах из этого замка и при его обороне.
-      Лечение — за полцены и половину времени тренировки; вылеченные возвращаются в Замковую армию.</p>
-    ${jobs ? `${ribbon('Лечатся')}${jobs}` : ''}
-    ${all ? `${rows}${I.wounded.length > 1 ? `<div class="tcost"><div class="tcost-h">Вылечить всех раненых (${fmtFull(all)}):</div><div class="tcost-r">${cost(allCost)}<span>${TIME_IC}<b>${fmtT(I.wounded.reduce((q, w) => q + w.sec * w.n, 0))}</b></span></div></div>
+      Лечение — за полцены тренировки и сразу: ждать не нужно, вылеченные тут же возвращаются в Замковую армию.</p>
+    ${all ? `${rows}${I.wounded.length > 1 ? `<div class="tcost"><div class="tcost-h">Вылечить всех раненых (${fmtFull(all)}):</div><div class="tcost-r">${cost(allCost)}</div></div>
       <button class="pbar" data-heal="all">Вылечить всех</button>` : ''}` : '<p class="parch-note">Раненых нет.</p>'}`;
 }
 $('#sheetBody').addEventListener('click', (e) => {
@@ -257,7 +255,7 @@ function mktBarterWin() {
   return `${ribbon('Бартер')}<form class="card stack" data-form="exchange">
       <div class="row2"><label>Отдать<select name="from">${opt('wood')}</select></label><label>Получить<select name="to">${opt('iron')}</select></label></div>
       <input name="amount" type="number" inputmode="numeric" min="1" placeholder="Сколько отдать" required data-bxamt>
-      <p class="small muted">Курс 2,5 : 1 — отдаёте 2,5 единицы, получаете 1.</p><p class="bxgot" data-bxgot>Получите: <b>0</b></p><button class="btn primary">Обменять</button></form>`;
+      <p class="small muted">Курс 2 : 1 — отдаёте 2 единицы, получаете 1.</p><p class="bxgot" data-bxgot>Получите: <b>0</b></p><button class="btn primary">Обменять</button></form>`;
 }
 $('#sheetBody').addEventListener('click', (e) => {
   const own = e.target.closest('[data-mkown]');
@@ -537,5 +535,5 @@ $('#sheetBody').addEventListener('click', (e) => {
   send({ t: 'alliance', op: b.dataset.repinv, id: Number(b.dataset.id) });
   b.closest('.two').innerHTML = `<p class="parch-note">${b.dataset.repinv === 'accept' ? 'Вступаете в альянс…' : 'Приглашение отклонено.'}</p>`;
 });
-// бартер: сколько получите при курсе 2,5 : 1
-$('#sheetBody').addEventListener('input', (e) => { const i = e.target.closest('[data-bxamt]'); if (!i) return; const g = $('[data-bxgot] b'); if (g) g.textContent = fmtFull(Math.floor((Number(i.value) || 0) * (MY().bonus.marketRate || 0.4))); });
+// бартер: сколько получите при курсе 2 : 1
+$('#sheetBody').addEventListener('input', (e) => { const i = e.target.closest('[data-bxamt]'); if (!i) return; const g = $('[data-bxgot] b'); if (g) g.textContent = fmtFull(Math.floor((Number(i.value) || 0) * (MY().bonus.marketRate || 0.5))); });

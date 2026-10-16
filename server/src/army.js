@@ -311,8 +311,8 @@ const CAMPS = [30, 31, 32]; // лагеря разбойников: лёгкий
 // бой (как в Travian): сила атаки против защиты, смешанной по составу нападающих; лечение раненых дома
 const HEAL_HOME = 0.25; // раненые защитники в своём замке: четверть павших выздоравливает
 // Лазарет (здание 41, бывшая Пивоварня): свои павшие в нападениях и набегах из этого замка и при его обороне попадают сюда ранеными —
-// INFIRM_CAP мест за уровень (10 ур. — 1000); лечение — за HEAL_K цены и времени тренировки, своей очередью, вне дневного лимита TRAIN_DAY
-const INFIRM_CAP = 100, HEAL_K = 0.5;
+// INFIRM_CAP мест за уровень (10 ур. — 2000); лечение — за HEAL_K цены тренировки, сразу (если хватает ресурсов), вне дневного лимита TRAIN_DAY
+const INFIRM_CAP = 200, HEAL_K = 0.5;
 const ROW = { infantry: 3, cavalry: 2, magic: 1, siege: 1, special: 1 }, DMG = 2, ROUT = 0.3; // бой с боссом (clashHp): ряды строя, множитель урона, бегство
 const DEF_HOME = 1.75; // замок помогает своим защитникам (и подкреплениям в нём): защита ×1,75 — иначе на равные ресурсы нападение всегда сильнее (атака у юнитов вдвое дешевле защиты)
 const LOSS_POW = 1.5; // бой как в Travian: потери победителя = (слабая сторона / сильная)^1,5
@@ -454,7 +454,7 @@ function install(Game, helpers) {
       hidden: L(B.CACHE) ? Math.round(200 * 1.3 ** (L(B.CACHE) - 1) * (race === 'dwarves' ? 2 : 1) * (1 + ms.hidden)) : 0,
       watch: L(B.WATCHTOWER), spyCenter: L(B.SPY), mason: L(B.MASON),
       tradeCarry: 1 + 0.1 * L(B.TRADE_HALL) + ms.tradeCarry, tradeSpeed: 1 + 0.1 * L(B.TRADE_HALL) + ms.tradeSpeed,
-      marketRate: L(B.MARKET) ? 0.4 : 0, // бартер: отдаёшь 2,5 — получаешь 1 (уровень Рынка не влияет)
+      marketRate: L(B.MARKET) ? 0.5 : 0, // бартер: отдаёшь 2 — получаешь 1 (уровень Рынка не влияет)
       artSlots: L(B.ART_TOWER) ? 1 + Math.floor(L(B.ART_TOWER) / 3) : 0,
       artStore: L(B.TREASURY) ? 3 + L(B.TREASURY) : 3,
     };
@@ -482,7 +482,7 @@ function install(Game, helpers) {
   // кто попадает в Лазарет: воины с ценой тренировки (не тараны и прочие одноразовые, не уникальные воины заданий, не генерал)
   const healable = (id) => { const u = UNIT[id]; return !!(u && u.cost && !u.oneUse && !u.notrain && Number(id) !== GENERAL_ID); };
   P.infirmCap = function infirmCap(castle) { return INFIRM_CAP * this.buildingLevel(castle, B.INFIRMARY); };
-  // занято мест: раненые и те, кого сейчас лечат
+  // занято мест: раненые (и очередь лечения прежней версии, пока замок не обновился)
   P.infirmUsed = function infirmUsed(castle) {
     return Object.values(castle.wounded || {}).reduce((q, n) => q + n, 0) + (castle.healing || []).reduce((q, j) => q + j.count - j.done, 0);
   };
@@ -496,7 +496,7 @@ function install(Game, helpers) {
     }
     return n;
   };
-  // лечение одного воина: цена и время — HEAL_K от тренировки (наука и Алхимия ускоряют так же)
+  // лечение: цена — HEAL_K от тренировки, ждать не нужно
   P.healCostOf = function healCostOf(castle, id, n) { const u = raceUnit(UNIT[id], this.raceOf(castle)); return Object.fromEntries(RES4.map((r) => [r, Math.round((u.cost[r] || 0) * n * HEAL_K)])); };
   // цена лечения одного раненого без округления: клиент считает цену любого количества так же, как healCostOf
   P.healOneOf = function healOneOf(castle, id) { const u = raceUnit(UNIT[id], this.raceOf(castle)); return Object.fromEntries(RES4.map((r) => [r, (u.cost[r] || 0) * HEAL_K])); };
@@ -507,8 +507,7 @@ function install(Game, helpers) {
     while (lo < hi) { const mid = Math.ceil((lo + hi) / 2); if (fits(mid)) lo = mid; else hi = mid - 1; }
     return lo;
   };
-  P.healSecOf = function healSecOf(castle, id) { return Math.max(1, Math.round(this.trainTime(castle, raceUnit(UNIT[id], this.raceOf(castle))) * HEAL_K)); };
-  // вылечить: pick { id: n } или всех (pick пустой); очередь лечения — своя, Казармы не заняты, дневной лимит тренировки не тратится
+  // вылечить: pick { id: n } или всех (pick пустой) — сразу в Замковую армию; Казармы не заняты, дневной лимит тренировки не тратится
   P.healWounded = function healWounded(castle, pick) {
     this.tick(castle);
     if (!this.buildingLevel(castle, B.INFIRMARY)) return { error: 'Нужен Лазарет.' };
@@ -523,16 +522,10 @@ function install(Game, helpers) {
       return { error: a ? `Недостаточно ресурсов — хватит на ${a}.` : 'Недостаточно ресурсов даже на одного раненого.' };
     }
     for (const r of RES4) castle.res[r] -= cost[r];
-    const now = Date.now(); castle.healing = castle.healing || [];
-    let start = castle.healing.reduce((m, t) => Math.max(m, t.start + t.each * t.count), now);
-    for (const [id, n] of list) {
-      const each = this.healSecOf(castle, id) * 1000;
-      castle.healing.push({ id: this.db.nextId++, unit: Number(id), count: n, done: 0, each, start });
-      start += each * n; w[id] -= n; if (!w[id]) delete w[id];
-    }
+    for (const [id, n] of list) { castle.units[id] = (castle.units[id] || 0) + n; w[id] -= n; if (!w[id]) delete w[id]; }
     castle.wounded = w; this.store.save();
     const total = list.reduce((q, [, n]) => q + n, 0);
-    return { ok: true, msg: `Лекари взялись за раненых: ${total}. Вылеченные вернутся в Замковую армию.`, cost };
+    return { ok: true, msg: `Лекари вылечили раненых: ${total}. Они уже в Замковой армии.`, cost };
   };
   P.unitLock = function unitLock(castle, unit) {
     const race = this.raceOf(castle);
@@ -588,12 +581,9 @@ function install(Game, helpers) {
       }
       return t.done < t.count;
     });
-    if (castle.healing && castle.healing.length) { // Лазарет: вылеченные — в Замковую армию
-      castle.healing = castle.healing.filter((t) => {
-        const ready = Math.max(0, Math.min(t.count, Math.floor((now - t.start) / t.each)));
-        if (ready > t.done) { castle.units[t.unit] = (castle.units[t.unit] || 0) + ready - t.done; t.done = ready; if (t.done === t.count) this.event(owner, `Лазарет: вылечены ${UNIT[t.unit] ? UNIT[t.unit].name : 'воины'} ×${t.count}`); }
-        return t.done < t.count;
-      });
+    if (castle.healing) { // Лазарет: очередь лечения прежней версии — лечение теперь сразу, оплаченные встают в строй
+      for (const t of castle.healing) if (t.count > t.done) { castle.units[t.unit] = (castle.units[t.unit] || 0) + t.count - t.done; this.event(owner, `Лазарет: вылечены ${UNIT[t.unit] ? UNIT[t.unit].name : 'воины'} ×${t.count}`); }
+      delete castle.healing;
     }
     // генерал воскрес
     const g = castle.general;
@@ -2161,9 +2151,8 @@ function install(Game, helpers) {
       genUnits: this.genTrainUnits(castle).map((u) => ({ id: u.id, ...this.genTrainCost(u) })), armies: castle.armies.map((a) => ({ id: a.id, units: a.units, general: a.general, mission: a.mission, x: a.x, y: a.y, depart: a.depart, arrive: a.arrive, back: a.back, state: a.state, loot: a.loot, cargo: a.cargo, squad: a.squad, portal: a.portal,
         stayName: a.state === 'stay' && this.db.castles[a.stayAt] ? this.db.castles[a.stayAt].name : null })),
       squads: castle.squads, merchants: this.merchants(castle),
-      infirm: this.buildingLevel(castle, B.INFIRMARY) ? { cap: this.infirmCap(castle), used: this.infirmUsed(castle), // Лазарет: раненые, цена и время лечения одного, очередь
-        wounded: Object.entries(castle.wounded || {}).filter(([, n]) => n > 0).map(([id, n]) => ({ id: Number(id), n, cost: this.healCostOf(castle, id, n), one: this.healOneOf(castle, id), sec: this.healSecOf(castle, id) })), // cost — за всех n, ровно столько спишет healWounded; one — цена одного без округления
-        healing: (castle.healing || []).map((t) => ({ unit: t.unit, count: t.count, done: t.done, each: t.each, start: t.start })) } : null,
+      infirm: this.buildingLevel(castle, B.INFIRMARY) ? { cap: this.infirmCap(castle), used: this.infirmUsed(castle), // Лазарет: раненые и цена лечения
+        wounded: Object.entries(castle.wounded || {}).filter(([, n]) => n > 0).map(([id, n]) => ({ id: Number(id), n, cost: this.healCostOf(castle, id, n), one: this.healOneOf(castle, id) })) } : null, // cost — за всех n, ровно столько спишет healWounded; one — цена одного без округления
       guests: this.guestsOf(castle).map((g) => ({ id: g.a.id, from: this.ownerOf(g.c).login, castle: g.c.name, units: g.a.units })),
       incoming: this.incoming(castle), sciences: castle.sciences, sciCapital: this.isCapital(castle), research: castle.research, religion: castle.religion,
       hero: this.heroView(castle), artifacts: (() => { const eff = artEffects(castle.artifacts); return castle.artifacts.map((a) => (a.active && eff.has(a.id) ? { ...a, eff: eff.get(a.id) } : a)); })(), expeds: castle.expeds, expedInfo: this.expedInfo(castle), upkeep: Math.round(this.upkeep(castle) * SPEED),
