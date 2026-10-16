@@ -297,6 +297,42 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(secs.join() === 'Помощь новичкам. Обсуждение игровых моментов,Альянсы,Общение,Спорт' && talk.topics.some((x) => x.id === 99901) && g.forumTopic(99901).s === talk, `разделы: ${secs}`);
   console.log('✓ форум: темы — только модераторы (админ назначает модератора раздела), ответы всех, антифлуд, закрытие темы, запрет писать, «Ответить» с цитатой; 4 раздела, темы убранных — в «Общение»');
 }
+// опрос в теме форума (как в Telegram): создают модераторы; один голос (или несколько), отмена; итоги — после голоса;
+// кто как голосовал — в открытом опросе всем, в анонимном — только админу; завершение и срок
+{
+  const [pl, pl2, md, ad] = ['fq1', 'fq2', 'fq3', 'fq4'].map((l) => g.register({ login: `${l}_acc`, nick: l, password: '12345', race: 0 }).user);
+  md.mod = true; ad.admin = true;
+  const t = g.forumOp(md, { op: 'topic', section: 4, title: 'Прогнозы на матч', text: 'Кто победит?' }).topic;
+  assert.ok(g.forumOp(pl, { op: 'pollcreate', topic: t, q: 'Кто победит?', opts: ['Спартак', 'Зенит'] }).error, 'игрок опрос не создаёт');
+  assert.ok(g.forumOp(md, { op: 'pollcreate', topic: t, q: 'Кто победит?', opts: ['Спартак'] }).error, 'нужно 2 варианта');
+  assert.ok(g.forumOp(md, { op: 'pollcreate', topic: t, q: 'Кто победит?', opts: ['Спартак', 'спартак'] }).error, 'одинаковые варианты — нельзя');
+  assert.ok(g.forumOp(md, { op: 'pollcreate', topic: t, q: 'Кто победит?', opts: Array.from({ length: 11 }, (_, i) => `В${i}`) }).error, 'не больше 10 вариантов');
+  assert.ok(g.forumOp(md, { op: 'pollcreate', topic: t, q: 'Кто победит?', opts: ['Спартак', 'Зенит', 'Ничья <b>'], days: 3 }).msg);
+  assert.ok(g.forumOp(md, { op: 'pollcreate', topic: t, q: 'Ещё', opts: ['а', 'б'] }).error, 'в теме один опрос');
+  let v = g.forumPosts(pl, t, -1).poll;
+  assert.ok(v && v.canVote && !v.results && v.opts.every((o) => o.n === undefined) && v.opts[2].text === 'Ничья b', 'до голоса итогов не видно, теги вычищены');
+  assert.ok(g.forumPosts(md, t, -1).poll.results, 'модератор видит итоги сразу');
+  assert.ok(g.forumOp(pl, { op: 'pollvote', topic: t, opts: [0, 1] }).error && g.forumOp(pl, { op: 'pollvote', topic: t, opts: [7] }).error, 'один вариант; несуществующий — нельзя');
+  assert.ok(g.forumOp(pl, { op: 'pollvote', topic: t, opts: [0] }).msg && g.forumOp(pl, { op: 'pollvote', topic: t, opts: [1] }).error, 'один голос с аккаунта');
+  g.forumOp(pl2, { op: 'pollvote', topic: t, opts: [1] }); g.forumOp(ad, { op: 'pollvote', topic: t, opts: [1] });
+  v = g.forumPosts(pl, t, -1).poll;
+  assert.ok(v.results && v.total === 3 && v.opts[0].pct === 33 && v.opts[1].pct === 67 && v.opts[0].mine && !v.canVote && v.opts[0].voters === undefined, 'итоги после голоса, опрос анонимный');
+  const va = g.forumPosts(ad, t, -1).poll; assert.ok(va.opts[1].voters.includes('fq2') && va.opts[0].voters.includes('fq1'), 'админ видит, кто как голосовал');
+  assert.ok(g.forumOp(pl, { op: 'pollunvote', topic: t }).msg && g.forumPosts(pl, t, -1).poll.canVote && g.forumOp(pl, { op: 'pollvote', topic: t, opts: [2] }).msg, 'отмена голоса и новый голос');
+  assert.ok(g.forumTopics(pl, 4).topics.find((x) => x.id === t).poll, 'в списке тем — значок опроса');
+  assert.ok(g.forumOp(pl, { op: 'pollclose', topic: t }).error && g.forumOp(md, { op: 'pollclose', topic: t }).msg, 'завершает только модератор');
+  assert.ok(g.forumOp(pl2, { op: 'pollunvote', topic: t }).error && g.forumPosts(pl, t, -1).poll.results, 'после завершения голос не отменить, итоги видны всем');
+  const t2 = g.forumOp(md, { op: 'topic', section: 4, title: 'Любимый вид спорта', text: 'Выбирайте' }).topic;
+  g.forumOp(md, { op: 'pollcreate', topic: t2, q: 'Что смотрите?', opts: ['Футбол', 'Хоккей', 'Бокс'], multi: true, public: true, days: 1 });
+  assert.ok(g.forumOp(pl, { op: 'pollvote', topic: t2, opts: [0, 1] }).msg, 'несколько вариантов');
+  v = g.forumPosts(pl2, t2, -1).poll; assert.ok(!v.results && v.multi && v.public, 'до голоса — без итогов');
+  g.forumOp(pl2, { op: 'pollvote', topic: t2, opts: [1] }); v = g.forumPosts(pl2, t2, -1).poll;
+  assert.ok(v.opts[1].pct === 100 && v.opts[0].pct === 50 && v.opts[1].voters.join() === 'fq1,fq2', 'открытый опрос: всем видно, кто голосовал');
+  g.forumTopic(t2).t.poll.until = Date.now() - 1;
+  assert.ok(g.forumOp(md, { op: 'pollvote', topic: t2, opts: [2] }).error && !g.forumPosts(pl, t2, -1).poll.open, 'срок вышел — опрос завершён');
+  assert.ok(g.forumOp(md, { op: 'polldel', topic: t2 }).msg && !g.forumPosts(pl, t2, -1).poll, 'модератор удаляет опрос');
+  console.log('✓ форум: опросы как в Telegram — создаёт модератор, один голос (или несколько), отмена, итоги после голоса, кто как голосовал — открыто или админу, завершение и срок');
+}
 // секретный логин админа: ADMIN_LOGIN — вход только под ним, «admin» отклоняется, в игре ник остаётся admin
 {
   const adm = g.ensureAdmin('secretpass');

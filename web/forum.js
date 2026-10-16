@@ -1,6 +1,7 @@
 'use strict';
 // Общий форум (Почта → Форум), как в оригинале: Правила / Модераторы / ★ избранное, разделы («Тем: N»),
-// темы раздела (Новая тема — только модераторам, Категории, страницы), сообщения темы с ответом внизу.
+// темы раздела (Новая тема — только модераторам, Категории, страницы), сообщения темы с ответом внизу;
+// опрос в теме (как в Telegram) — карточкой вверху темы, создают модераторы (forumPollNewWin).
 // Сервер: server/src/forum.js, API { t: 'forum', op }.
 const FG = 'gfx3d/forum/';
 const FORUM_RULES = [
@@ -51,7 +52,7 @@ function forumTopicsWin() {
   if (!d) return `${ribbon('Форум')}<p class="parch-note">Загрузка…</p>`;
   return `${fRib(d.name)}<div class="two2 fbtns">${d.canMod ? '<button data-fr="newtopic">Новая тема</button>' : ''}<button data-fr="cats">Категории</button></div>
     ${fPager(d.page, d.pages, 'data-ftpg')}
-    ${d.topics.map((t) => `<button class="fcard ${t.deleted ? 'fdel' : ''}" data-ftopic="${t.id}"><div><b>${t.pinned ? '📌 ' : ''}${t.closed ? '🔒 ' : ''}${esc(t.title)}</b>
+    ${d.topics.map((t) => `<button class="fcard ${t.deleted ? 'fdel' : ''}" data-ftopic="${t.id}"><div><b>${t.pinned ? '📌 ' : ''}${t.closed ? '🔒 ' : ''}${t.poll ? '📊 ' : ''}${esc(t.title)}</b>
       <span>${fWho(t.by, t.byId, 1)} Ответов: ${t.replies}</span><small>${t.last ? `${repDate(t.last.at)} от ${esc(t.last.by)}` : ''}</small></div>${fArrow}</button>`).join('')
       || '<p class="parch-note">В этом разделе пока нет тем.</p>'}
     ${fPager(d.page, d.pages, 'data-ftpg')}`;
@@ -63,8 +64,9 @@ function forumPostsWin() {
   return `${fRib(d.title)}
     <div class="ftools"><button data-fr="fav" class="${d.fav ? 'on' : ''}"><img src="${FG}star.png" alt=""> ${d.fav ? 'В избранном' : 'В избранное'}</button>
       ${mod ? `<button data-ftop="pin">${d.pinned ? 'Открепить' : 'Закрепить'}</button><button data-ftop="close">${d.closed ? 'Открыть' : 'Закрыть'}</button>
-      <button data-ftop="${d.deleted ? 'restore' : 'delete'}">${d.deleted ? 'Восстановить' : 'Удалить тему'}</button>` : ''}</div>
+      <button data-ftop="${d.deleted ? 'restore' : 'delete'}">${d.deleted ? 'Восстановить' : 'Удалить тему'}</button>${d.poll || d.deleted ? '' : '<button data-fr="poll">📊 Опрос</button>'}` : ''}</div>
     ${d.deleted ? '<div class="bwline center small">Тема удалена — её видят только модераторы.</div>' : ''}
+    ${d.poll ? fPollCard(d.poll, mod) : ''}
     ${fPager(d.page, d.pages, 'data-fppg')}
     ${d.posts.map((p) => `<div class="fpost ${p.deleted ? 'fdel' : ''}"><div class="fph">${fAva(p)}${fWho(p.by, p.byId, p.role)}<small>${repDate(p.at)}</small></div>
       ${p.reply ? `<div class="fquote">↪ <b>${esc(p.reply.by)}</b>: «${esc(p.reply.text)}»</div>` : ''}
@@ -73,6 +75,31 @@ function forumPostsWin() {
     ${fPager(d.page, d.pages, 'data-fppg')}
     ${d.canPost ? `<form class="fform" data-form="freply">${rt ? `<div class="fquote fto"><span>↪ Ответ для <b>${esc(rt.by)}</b>: «${esc(rt.text)}»</span><button type="button" class="fxto" data-freplyx title="Не отвечать на это сообщение">✕</button></div>` : ''}<textarea name="text" maxlength="1500" rows="3" placeholder="Ваш ответ…" required></textarea><button class="lbar">Ответить</button></form>`
       : `<div class="bwline center small">${d.closed ? 'Тема закрыта — отвечать нельзя.' : esc(d.ban || '')}</div>`}`;
+}
+// опрос: пока игрок не голосовал — варианты-кнопки (один вариант — голос сразу, несколько — галочки и «Голосовать»);
+// после голоса или завершения — полоски с процентами, ✔ у своего выбора; модератору итоги видны сразу
+function fPollCard(p, mod) {
+  const sel = S.fr.pollSel || [], when = p.open ? (p.until ? ` · до ${repDate(p.until)}` : '') : ' · завершён';
+  const row = (o, i) => { const inner = `${p.results ? `<span class="fpbar" style="width:${o.pct}%"></span>` : ''}<span class="fpt2">${p.multi && p.canVote ? (sel.includes(i) ? '☑ ' : '☐ ') : ''}${o.mine ? '✔ ' : ''}${esc(o.text)}</span>${p.results ? `<b class="fpp">${o.pct}%</b>` : ''}`;
+    const who = o.voters && (o.voters.length || o.more) ? `<small class="fpvote">${o.voters.map(esc).join(', ')}${o.more ? ` и ещё ${o.more}` : ''}</small>` : '';
+    return `${p.canVote ? `<button class="fpopt ${sel.includes(i) ? 'on' : ''}" data-fpoll="${i}">${inner}</button>` : `<div class="fpopt ${o.mine ? 'mine' : ''}">${inner}</div>`}${who}`; };
+  return `<div class="fpoll"><div class="fpq">📊 ${esc(p.q)}</div><div class="fpm2">${p.public ? 'Открытый опрос' : 'Анонимный опрос'}${p.multi ? ' · можно выбрать несколько' : ''}${when}</div>
+    ${p.opts.map(row).join('')}
+    <div class="fpfoot"><span>Проголосовало: <b>${p.total}</b></span>${p.canVote && p.multi ? `<button class="pbtn small" data-fpollgo ${sel.length ? '' : 'disabled'}>Голосовать</button>` : ''}
+      ${p.mine && p.open ? '<button class="pbtn small" data-fpollun>Отменить голос</button>' : ''}</div>
+    ${mod ? `<div class="fpm">${p.open ? '<button data-fpollclose>Завершить опрос</button>' : ''}<button data-fpolldel>Удалить опрос</button></div>` : ''}</div>`;
+}
+// новый опрос (модератор): вопрос, 2–10 вариантов (4 поля сразу, «Ещё вариант» — следующее), несколько ответов, открытый, срок
+function forumPollNewWin() {
+  const d = S.fr.posts;
+  return `${ribbon('Новый опрос')}<div class="bwline center small">Тема: <b>${esc(d ? d.title : '')}</b></div>
+    <form class="fform fpollnew" data-form="fpoll"><input name="q" maxlength="200" placeholder="Вопрос, например: Кто победит?" required>
+      ${Array.from({ length: 10 }, (_, i) => `<input name="o${i}" maxlength="100" placeholder="Вариант ${i + 1}${i < 2 ? '' : ' (необязательно)'}" ${i < 2 ? 'required' : ''} class="${i < 4 ? '' : 'hidden'}">`).join('')}
+      <button type="button" class="pbtn small" data-fpolladd>+ Ещё вариант</button>
+      <label class="check"><input type="checkbox" name="multi"> Можно выбрать несколько вариантов</label>
+      <label class="check"><input type="checkbox" name="public"> Показывать всем, кто как голосовал</label>
+      <label class="fpdays">Срок: <select name="days"><option value="0">без срока</option><option value="1">1 день</option><option value="3">3 дня</option><option value="7">7 дней</option></select></label>
+      <button class="lbar">Создать опрос</button></form>`;
 }
 function forumNewTopicWin() {
   const d = S.fr.topics;
@@ -101,7 +128,8 @@ function forumFavsWin() {
 function forumMsg(m) {
   S.fr = S.fr || {};
   S.fr[m.view] = m.data;
-  if (m.view === 'posts') S.fr.topic = m.data.id;
+  if (m.view === 'posts') { S.fr.topic = m.data.id; S.fr.pollSel = []; }
+  if (m.pollMade && S.sheets.length && S.sheets[S.sheets.length - 1] === forumPollNewWin) { closeSheet(); return; } // опрос создан — назад в тему
   if (m.view === 'posts' && m.replace === 0 && S.sheets.length) { S.sheets[S.sheets.length - 1] = forumPostsWin; showSheet(true); return; }
   refreshSheet();
   if (m.scroll) $('#sheetBody').scrollTop = 99999;
@@ -109,8 +137,18 @@ function forumMsg(m) {
 
 $('#sheetBody').addEventListener('click', (e) => {
   if (e.target.closest('[data-cprof]')) return;
-  const t = e.target.closest('[data-fr],[data-fsec],[data-ftopic],[data-ftpg],[data-fppg],[data-ftop],[data-fpdel],[data-fban],[data-frrule],[data-fsecmod],[data-freply],[data-freplyx]'); if (!t) return;
-  const d = t.dataset;
+  const t = e.target.closest('[data-fr],[data-fsec],[data-ftopic],[data-ftpg],[data-fppg],[data-ftop],[data-fpdel],[data-fban],[data-frrule],[data-fsecmod],[data-freply],[data-freplyx],[data-fpoll],[data-fpollgo],[data-fpollun],[data-fpollclose],[data-fpolldel],[data-fpolladd]'); if (!t) return;
+  const d = t.dataset, pg = S.fr.posts && S.fr.posts.page;
+  if (d.fpoll !== undefined) { // голос: один вариант — сразу, несколько — галочки
+    const p = S.fr.posts && S.fr.posts.poll, i = Number(d.fpoll); if (!p) return;
+    if (!p.multi) return fsend({ op: 'pollvote', topic: S.fr.topic, opts: [i], page: pg });
+    const sel = S.fr.pollSel || []; S.fr.pollSel = sel.includes(i) ? sel.filter((x) => x !== i) : [...sel, i]; return refreshSheet();
+  }
+  if (d.fpollgo !== undefined) return fsend({ op: 'pollvote', topic: S.fr.topic, opts: S.fr.pollSel || [], page: pg });
+  if (d.fpollun !== undefined) return fsend({ op: 'pollunvote', topic: S.fr.topic, page: pg });
+  if (d.fpollclose !== undefined) { if (!confirm('Завершить опрос? Голосовать больше будет нельзя, итоги увидят все.')) return; return fsend({ op: 'pollclose', topic: S.fr.topic, page: pg }); }
+  if (d.fpolldel !== undefined) { if (!confirm('Удалить опрос вместе с голосами?')) return; return fsend({ op: 'polldel', topic: S.fr.topic, page: pg }); }
+  if (d.fpolladd !== undefined) { const h = t.form && [...t.form.querySelectorAll('input[name^="o"].hidden')][0]; if (h) { h.classList.remove('hidden'); h.focus(); } if (!(t.form && t.form.querySelector('input[name^="o"].hidden'))) t.classList.add('hidden'); return; }
   if (d.freply) { // ответ на сообщение: ник и начало его текста — над полем ответа; поле внизу страницы, сразу в нём
     const p = (S.fr.posts && S.fr.posts.posts || []).find((x) => x.id === Number(d.freply)); if (!p) return;
     S.fr.replyTo = { id: p.id, by: p.by, text: p.text.length > 90 ? `${p.text.slice(0, 90)}…` : p.text }; refreshSheet();
@@ -133,15 +171,18 @@ $('#sheetBody').addEventListener('click', (e) => {
     case 'mods': return openSheet(forumModsWin);
     case 'favs': S.fr.favs = null; fsend({ op: 'favs' }); return openSheet(forumFavsWin);
     case 'newtopic': return openSheet(forumNewTopicWin);
+    case 'poll': return openSheet(forumPollNewWin);
     case 'cats': return closeSheet();
     case 'fav': return fsend({ op: 'fav', topic: S.fr.topic, page: S.fr.posts && S.fr.posts.page });
   }
 });
 $('#sheetBody').addEventListener('submit', (e) => {
-  const f = e.target, k = f.dataset.form; if (!['freply', 'ftopic', 'fsecmod'].includes(k)) return;
+  const f = e.target, k = f.dataset.form; if (!['freply', 'ftopic', 'fsecmod', 'fpoll'].includes(k)) return;
   e.preventDefault(); e.stopImmediatePropagation();
   if (document.activeElement) document.activeElement.blur();
   if (k === 'freply') { fsend({ op: 'post', topic: S.fr.topic, text: f.text.value, reply: S.fr.replyTo ? S.fr.replyTo.id : undefined }); f.text.value = ''; S.fr.replyTo = null; }
   if (k === 'ftopic') fsend({ op: 'topic', section: S.fr.sec, title: f.title.value, text: f.text.value });
   if (k === 'fsecmod') fsend({ op: 'secmod', section: Number(f.dataset.sec), login: f.login.value });
+  if (k === 'fpoll') fsend({ op: 'pollcreate', topic: S.fr.topic, q: f.q.value, opts: Array.from({ length: 10 }, (_, i) => f[`o${i}`].value.trim()).filter(Boolean),
+    multi: f.multi.checked, public: f.public.checked, days: Number(f.days.value), page: S.fr.posts && S.fr.posts.page });
 }, true);

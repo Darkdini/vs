@@ -2,12 +2,16 @@
 // Общий форум всех игроков (Почта → Форум), как в оригинале:
 // разделы → темы → сообщения. Темы создают только модераторы (админ, модераторы форума, модераторы раздела),
 // отвечают все игроки. Модераторы закрепляют/закрывают/удаляют темы, удаляют сообщения и запрещают писать на форуме.
+// Опрос в теме (как в Telegram): создаёт модератор — вопрос, 2–10 вариантов, «несколько ответов», «показывать, кто как
+// голосовал», срок. Игрок голосует один раз (голос можно отменить, пока опрос открыт); итоги видны после голоса или
+// завершения, модераторам — сразу; кто за что голосовал — в открытом опросе всем, в анонимном — только администратору.
 
 const SECTIONS = ['Помощь новичкам. Обсуждение игровых моментов', 'Альянсы', 'Общение', 'Спорт'];
 // убранные разделы: их темы (если были) переезжают в «Общение», назначенные в них модераторы снимаются
 const REMOVED = ['Пресс-служба союзов', 'Hi-Tech технологии', 'Музыка', 'Клуб по интересам'];
 const TOPICS_PAGE = 10, POSTS_PAGE = 10;
 const TITLE_MAX = 80, TEXT_MAX = 1500, POST_GAP_MS = 10000;
+const POLL_Q = 200, POLL_OPT = 100, POLL_MIN = 2, POLL_MAX = 10, POLL_DAYS = [0, 1, 3, 7], POLL_VOTERS = 40;
 
 function install(Game) {
   const P = Game.prototype;
@@ -36,6 +40,17 @@ function install(Game) {
     return null;
   };
   const lastOf = (t) => { const p = t.posts.filter((x) => !x.deleted); return p[p.length - 1] || null; };
+  // опрос для окна темы: голоса — { id игрока: [номера вариантов] }; итоги — после своего голоса, после завершения, модератору — всегда
+  const pollOpen = (p, now = Date.now()) => !p.closed && !(p.until && p.until <= now);
+  P.forumPollView = function forumPollView(p, user, mod) {
+    const open = pollOpen(p), mine = p.votes[user.id] || null, ids = Object.keys(p.votes), total = ids.length;
+    const results = !!mine || !open || mod, who = p.public || user.admin;
+    const count = p.opts.map(() => 0), voters = p.opts.map(() => []);
+    for (const id of ids) for (const i of p.votes[id]) { count[i]++; if (who && results && voters[i].length < POLL_VOTERS) { const v = this.userById(Number(id)); if (v) voters[i].push(v.login); } }
+    return { q: p.q, multi: !!p.multi, public: !!p.public, until: p.until || 0, open, total, results, mine, canVote: open && !mine && !user.bot,
+      opts: p.opts.map((text, i) => ({ text, ...(results ? { n: count[i], pct: total ? Math.round(count[i] / total * 100) : 0 } : {}), mine: !!(mine && mine.includes(i)),
+        ...(who && results ? { voters: voters[i], more: Math.max(0, count[i] - voters[i].length) } : {}) })) };
+  };
 
   // список разделов
   P.forumSections = function forumSections(user) {
@@ -53,7 +68,7 @@ function install(Game) {
     return { id: s.id, name: s.name, canMod: mod, page: pg, pages,
       topics: all.slice(pg * TOPICS_PAGE, pg * TOPICS_PAGE + TOPICS_PAGE).map((t) => { const l = lastOf(t);
         return { id: t.id, title: t.title, by: t.by, byId: t.byId, replies: Math.max(0, t.posts.filter((x) => !x.deleted).length - 1), last: l ? { at: l.at, by: l.by } : null,
-          pinned: !!t.pinned, closed: !!t.closed, deleted: !!t.deleted, fav: fav.has(t.id) }; }) };
+          pinned: !!t.pinned, closed: !!t.closed, deleted: !!t.deleted, fav: fav.has(t.id), poll: !!t.poll }; }) };
   };
   // сообщения темы (по умолчанию — последняя страница)
   P.forumPosts = function forumPosts(user, topicId, page) {
@@ -64,6 +79,7 @@ function install(Game) {
     const pages = Math.max(1, Math.ceil(list.length / POSTS_PAGE));
     const pg = page === undefined || page === null || page === -1 ? pages - 1 : Math.max(0, Math.min(pages - 1, Math.floor(Number(page)) || 0));
     return { id: t.id, title: t.title, section: { id: s.id, name: s.name }, closed: !!t.closed, pinned: !!t.pinned, deleted: !!t.deleted, canMod: mod,
+      poll: t.poll ? this.forumPollView(t.poll, user, mod) : null,
       fav: (user.forumFav || []).includes(t.id), canPost: !t.closed && !t.deleted && !this.forumBanned(user), ban: this.forumBanned(user), page: pg, pages,
       posts: list.slice(pg * POSTS_PAGE, pg * POSTS_PAGE + POSTS_PAGE).map((p) => { const u = this.userById(p.byId);
         return { id: p.id, by: p.by, byId: p.byId, at: p.at, text: p.text, color: p.color || '', deleted: !!p.deleted, reply: p.reply || null, role: u ? (u.admin ? 'admin' : u.mod || s.mods.includes(u.id) ? 'mod' : '') : '',
@@ -133,6 +149,39 @@ function install(Game) {
         if (h !== 0) { t.violations = (t.violations || 0) + 1; this.event(t.id, h < 0 ? 'Вам запрещено писать на форуме навсегда.' : `Вам запрещено писать на форуме на ${h} ч.`); }
         this.store.save();
         return { msg: h === 0 ? `${t.login}: запрет снят.` : `${t.login}: запрет на форуме ${h < 0 ? 'навсегда' : `на ${h} ч.`}` };
+      }
+      case 'pollcreate': { // опрос в теме — только модераторы; в теме один опрос
+        const f = this.forumTopic(m.topic); if (!f || f.t.deleted) return { error: 'Тема не найдена.' };
+        if (!this.forumCanMod(user, f.s)) return { error: 'Опрос создают только модераторы.' };
+        if (f.t.poll) return { error: 'В теме уже есть опрос — сначала удалите его.' };
+        const q = clean(m.q, POLL_Q); if (q.length < 3) return { error: 'Вопрос — от 3 символов.' };
+        const opts = [].concat(m.opts || []).slice(0, POLL_MAX + 5).map((x) => clean(x, POLL_OPT)).filter(Boolean);
+        if (opts.length < POLL_MIN) return { error: `Нужно хотя бы ${POLL_MIN} варианта ответа.` };
+        if (opts.length > POLL_MAX) return { error: `Не больше ${POLL_MAX} вариантов ответа.` };
+        if (new Set(opts.map((x) => x.toLowerCase())).size !== opts.length) return { error: 'Варианты ответа повторяются.' };
+        const days = Number(m.days) || 0; if (!POLL_DAYS.includes(days)) return { error: 'Неверный срок опроса.' };
+        f.t.poll = { q, opts, multi: !!m.multi, public: !!m.public, until: days ? now + days * 86400000 : 0, closed: false, at: now, by: user.login, byId: user.id, votes: {} };
+        this.store.save();
+        return { msg: 'Опрос создан.', topic: f.t.id };
+      }
+      case 'pollvote': case 'pollunvote': { // голос (один раз; несколько вариантов — если разрешено) и отмена голоса, пока опрос открыт
+        const f = this.forumTopic(m.topic); if (!f || f.t.deleted || !f.t.poll) return { error: 'Опрос не найден.' };
+        const p = f.t.poll; if (!pollOpen(p, now)) return { error: 'Опрос завершён.' };
+        if (user.bot) return { error: 'Нет прав.' };
+        if (m.op === 'pollunvote') { if (!p.votes[user.id]) return { error: 'Вы ещё не голосовали.' }; delete p.votes[user.id]; this.store.save(); return { msg: 'Голос отменён.', topic: f.t.id }; }
+        if (p.votes[user.id]) return { error: 'Вы уже проголосовали — чтобы переголосовать, отмените голос.' };
+        const pick = [...new Set([].concat(m.opts || []).map(Number))].filter((i) => Number.isInteger(i) && i >= 0 && i < p.opts.length).sort((a, b) => a - b);
+        if (!pick.length) return { error: 'Выберите вариант ответа.' };
+        if (!p.multi && pick.length > 1) return { error: 'Можно выбрать только один вариант.' };
+        p.votes[user.id] = pick; this.store.save();
+        return { msg: 'Голос принят.', topic: f.t.id };
+      }
+      case 'pollclose': case 'polldel': { // завершить (итоги остаются) / удалить опрос — модераторы
+        const f = this.forumTopic(m.topic); if (!f || !f.t.poll) return { error: 'Опрос не найден.' };
+        if (!this.forumCanMod(user, f.s)) return { error: 'Нет прав модератора.' };
+        if (m.op === 'polldel') { delete f.t.poll; this.store.save(); return { msg: 'Опрос удалён.', topic: f.t.id }; }
+        f.t.poll.closed = true; this.store.save();
+        return { msg: 'Опрос завершён — итоги видны всем.', topic: f.t.id };
       }
       case 'secmod': { // назначить / снять модератора раздела — только админ
         if (!user.admin) return { error: 'Назначает только администратор.' };

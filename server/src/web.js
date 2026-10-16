@@ -561,7 +561,7 @@ const API = {
     if (r.msg) this.toast(r.msg);
     if (op === 'topic' || op === 'post') { const v = g.forumPosts(u, r.topic, -1); if (!v.error) this.send({ t: 'forum', view: 'posts', data: v, replace: op === 'topic' ? 0 : 1, scroll: op === 'post' ? 1 : 0 }); return; }
     if (op === 'secmod') return this.send({ t: 'forum', view: 'sections', data: g.forumSections(u), replace: 1 });
-    if (r.topic) { const v = g.forumPosts(u, r.topic, m.page); if (!v.error) this.send({ t: 'forum', view: 'posts', data: v, replace: 1 }); else if (r.section) this.send({ t: 'forum', view: 'topics', data: g.forumTopics(u, r.section, 0), replace: 1 }); }
+    if (r.topic) { const v = g.forumPosts(u, r.topic, m.page); if (!v.error) this.send({ t: 'forum', view: 'posts', data: v, replace: 1, ...(op === 'pollcreate' ? { pollMade: 1 } : {}) }); else if (r.section) this.send({ t: 'forum', view: 'topics', data: g.forumTopics(u, r.section, 0), replace: 1 }); }
   },
   // чьи места показывать: свой зал или игрока, из профиля которого открыт Зал славы
   allyinfo(m) { const al = Object.prototype.hasOwnProperty.call(this.game.db.alliances || {}, String(m.id)) ? this.game.db.alliances[m.id] : null; if (!al) return this.error('Альянс не найден.'); this.send({ t: 'allyinfo', ally: this.game.allyPublic(al), mine: this.user.alliance === al.id }); },
