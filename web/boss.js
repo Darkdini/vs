@@ -33,6 +33,7 @@ function bossWin() {
         <small>Объявил ${esc(r.by)} · игроков: ${r.players} · воинов: ${fmtFull(r.total)}</small>
         ${r.parts.length ? `<div class="bs-parts">${r.parts.map((p) => `<div class="${p.mine ? 'me' : ''}"><span>${esc(p.login)}</span><em>${fmtFull(p.n)}${p.gen ? ' + генерал' : ''}</em></div>`).join('')}</div>` : '<small>Пока никто не прислал войска — будьте первым.</small>'}</div>
       <div class="qbtns bs-go"><button class="pbar" data-bgo="rally"><img src="${GFX}boss/swords.png" alt="">В созыв</button></div>`
+    : d.ally.next > now() ? `<p class="parch-note">Следующий созыв альянса — через <b><span class="cd" data-e="${d.ally.next}"></span></b>.</p>` // пауза после удара
     : d.ally.can ? `<div class="qbtns bs-go"><button class="pbar" data-brally><img src="${GFX}boss/swords.png" alt="">Объявить созыв (${R.min || 15} мин)</button></div>`
     : '<p class="parch-note">Созыв объявляет руководство альянса — когда он начнётся, придёт оповещение.</p>';
   const allies = b.allies && b.allies.length ? `${ribbon('Альянсы по урону')}<div class="bs-top">${b.allies.map((a, i) => `<div><b>${i + 1}</b><span>[${esc(a.tag)}]</span><em>${fmtFull(a.d)}</em></div>`).join('')}</div>` : '';
@@ -43,7 +44,7 @@ function bossWin() {
     ${rally}
     <button class="btn" data-goworld="${b.x},${b.y}">Показать на карте</button>
     ${allies}${ribbon('Лучший урон')}${bossTop(b.top)}
-    <p class="small muted bs-rw"><img src="${GFX}boss/chest.png" alt="">Босса бьют созывом альянса: руководство объявляет созыв на ${R.min || 15} минут, участники отправляют войска и генерала. Когда время выходит, армии складываются и бьют одним ударом, урон делится по силе войск. Каждый игрок в созыве прибавляет ${pct(R.hit || 0.05)}% к пределу урона за удар (всего до ${pct(R.cap || 0.25)}%). Босс уносит не меньше 12–15% каждой армии, а в ярости (меньше 30% здоровья) — в полтора раза больше. Генерал получает опыт за урон.
+    <p class="small muted bs-rw"><img src="${GFX}boss/chest.png" alt="">Босса бьют созывом альянса: руководство объявляет созыв на ${R.min || 15} минут, участники отправляют войска и генерала. Когда время выходит, армии складываются и бьют одним ударом, урон делится по силе войск. Каждый игрок в созыве прибавляет ${pct(R.hit || 0.02)}% к пределу урона за удар (всего до ${pct(R.cap || 0.1)}%). Следующий созыв альянс может объявить через ${(R.gap || 120) >= 60 ? `${Math.round((R.gap || 120) / 60)} ч` : `${R.gap} мин`} после удара. Босс уносит не меньше 12–15% каждой армии, а в ярости (меньше 30% здоровья) — в полтора раза больше. Генерал получает опыт за урон.
       Награды — в Кладовую всем по урону: 1-е место — ${fmtFull(R.res || 20000)} каждого ресурса, ${R.rep || 10} репутации и ${R.royal || 100} лояльности населения; если босс повержен — в ${R.killX || 4} раза больше, а первым трём — медаль. Остальным — меньше, по доле урона от 1-го места.</p>`;
 }
 const bossTop = (top) => (top && top.length ? `<div class="bs-top">${top.map((r, i) => `<div><b>${i + 1}</b><span>${esc(r.login)}</span><em>${fmtFull(r.d)}</em></div>`).join('')}</div>` : '<p class="parch-note">Пока никто не нанёс урона.</p>');

@@ -745,11 +745,12 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
 }
 
 { // мировой босс: созыв альянса — армии складываются и бьют одним ударом; награды всем по урону (1-е место — 20 000 / 10 / 100, повержен — ×4)
-  const { nextSaturday, REWARD, KILL_X, HIT_MAX } = require('../src/boss');
+  const { nextSaturday, REWARD, KILL_X, HIT_MAX, HIT_CAP, RALLY_GAP, HP_BASE, HP_PER } = require('../src/boss');
   const sat = new Date(nextSaturday(Date.UTC(2026, 9, 1, 12))); assert.ok(sat.getUTCDay() === 6 && sat.getUTCHours() === 15, 'суббота 18:00 МСК');
   const P1 = g.register({ login: 'bossA1', password: '12345', race: 3 }).user, P2 = g.register({ login: 'bossA2', password: '12345', race: 0 }).user, P3 = g.register({ login: 'bossA3', password: '12345', race: 0 }).user;
   g.db.alliances = g.db.alliances || {}; const aid = g.db.nextId++; g.db.alliances[aid] = { id: aid, name: 'Охотники', tag: 'OXT', leader: P1.id, members: [P1.id, P2.id], created: Date.now() }; P1.alliance = aid; P2.alliance = aid;
   const b = g.bossSpawn(Date.now(), 1); assert.ok(g.bossAt(b.x, b.y) && b.hp === b.maxHp);
+  assert.ok(HP_BASE === 3e6 && HP_PER === 3e5 && b.maxHp >= 3e6 && (b.maxHp - 3e6) % 3e5 === 0 && HIT_MAX === 0.02 && HIT_CAP === 0.1, `здоровье 3 млн + 300 тыс. за игрока (${b.maxHp}), созыв — до 10%, по 2% за игрока`);
   const c1 = g.castleOf(P1), c2 = g.castleOf(P2), c3 = g.castleOf(P3); for (const c of [c1, c2, c3]) { g.mil(c); g.maxOut(c); c.squads = []; c.armies = []; }
   c1.units = { 247: 3000 }; c2.units = { 247: 500 }; c3.units = { 247: 500 }; c1.general = g.newGeneral(c1, 10); c2.general = null;
   assert.ok(/созывом альянса/.test(g.sendArmy(c3, { units: { 247: 100 }, x: b.x, y: b.y, mission: 'attack' }).error || ''), 'в одиночку на босса — нельзя, только созывом');
@@ -773,6 +774,11 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(rp && /Армия созыва: bossA1 — 3\D000 и генерал, bossA2 — 500/.test(rp.lines.join(' ')) && /Ваш вклад/.test(rp.lines.join(' ')), 'один отчёт: армия созыва целиком и свой вклад');
   assert.ok(c1.armies.length === 1 && c1.armies[0].state === 'back' && c1.armies[0].back - (rs.rally.end) <= 900000 && c2.armies[0].state === 'back', 'армии созыва идут домой быстрым маршем');
   assert.ok(g.stats(P2).bossDmg === d2, 'урон засчитан для задания сразу');
+  // пауза: следующий созыв того же альянса — через 2 часа после удара
+  { const SP = Number(process.env.SPEED) || 1, gap = b.rallyNext[aid] - rs.rally.end; // пауза считается от удара (конца созыва)
+    assert.ok(/Следующий созыв альянса — через \d+ мин\. Между созывами — 2 часа/.test(g.rallyStart(P1).error || '') && gap === Math.round(RALLY_GAP / SP) * 1000, `пауза 2 часа после удара (${Math.round(gap / 60000)} мин)`);
+    assert.ok(g.bossView(P2).ally.next === b.rallyNext[aid] && g.bossView(P2).rules.gap === Math.round(RALLY_GAP / SP / 60), 'в окне босса — когда следующий созыв');
+    b.rallyNext[aid] = Date.now() - 1; assert.ok(g.rallyStart(P1).ok, 'пауза прошла — созыв можно'); delete b.rallies[aid]; }
   // итог: ушёл непобеждённым — награды всем по урону; 1-е место — полная награда
   const rep1 = P1.reputation ?? 10, rep2 = P2.reputation ?? 10; b.end = Date.now() - 1; g.bossCheck(Date.now());
   const sh = d2 / d1;

@@ -6,14 +6,17 @@ const Wd = require('./words'); // слова после чисел: 1 воин, 
 // Бой — тот же общий удар (army.js clashHp): босс — «гарнизон» из частей по SEG здоровья, его сила удара постоянна.
 // Итог (повержен или ушёл): награды в Кладовую всем, кто нанёс урон: 1-е место — 20 000 каждого ресурса, 10 репутации, 100 лояльности населения;
 // если босс повержен — вчетверо больше; остальным — меньше, по доле урона от 1-го места. Если повержен — первым трём ещё медаль. Золото босс не даёт.
-// Здоровье — 1,5 млн + 150 тыс. за каждого активного игрока (до 30 млн).
+// Здоровье — 3 млн + 300 тыс. за каждого активного игрока (до 60 млн). Созыв снимает не больше 10% здоровья (по 2% за игрока),
+// следующий созыв того же альянса — не раньше чем через 2 часа после удара: убить босса можно минимум за 10 созывов (около 20 часов).
 
 const RES4 = ['wood', 'stone', 'iron', 'food'];
 const DAY = 86400000, LIFE = 2 * DAY, SEG = 1000;
 // награда 1-го места по урону (босс ушёл); повержен — ×KILL_X; остальным — доля от урона 1-го места
 const REWARD = { res: 20000, rep: 10, royal: 100 }, KILL_X = 4;
-// созыв длится RALLY_SEC (с учётом скорости мира). Один удар созыва снимает не больше HIT_MAX здоровья за каждого игрока в нём, всего — не больше HIT_CAP
-const RALLY_SEC = 900, HIT_MAX = 0.05, HIT_CAP = 0.25;
+// созыв длится RALLY_SEC, следующий созыв альянса — не раньше RALLY_GAP после удара (с учётом скорости мира).
+// Один удар созыва снимает не больше HIT_MAX здоровья за каждого игрока в нём, всего — не больше HIT_CAP
+const RALLY_SEC = 900, RALLY_GAP = 7200, HIT_MAX = 0.02, HIT_CAP = 0.1;
+const HP_BASE = 3e6, HP_PER = 3e5, HP_MAX = 60e6; // здоровье: база + за каждого активного игрока, не больше HP_MAX
 // сила босса: за удар он забирает не меньше kill каждой части армии, в ярости (меньше RAGE здоровья) — в полтора раза больше
 const RAGE = 0.3, RAGE_K = 1.5;
 const SLAYER = { dragon: 'Драконоборец', troll: 'Сокрушитель троллей', lich: 'Изгоняющий тьму' };
@@ -67,7 +70,7 @@ function install(Game) {
     if (this.bossNow()) this.bossFinish(now);
     const K = BOSSES[kindIdx !== undefined ? kindIdx % BOSSES.length : s.n % BOSSES.length]; s.n++;
     const active = Object.values(this.db.users).filter((u) => !u.bot && !u.banned && (u.lastSeen || u.created || 0) > now - 7 * DAY).length;
-    const hp = Math.min(30e6, 1500000 + 150000 * active);
+    const hp = Math.min(HP_MAX, HP_BASE + HP_PER * active);
     const spot = this.bossSpot();
     s.cur = { id: this.db.nextId++, kind: K.kind, name: K.name, ...spot, hp, maxHp: hp, start: now, end: now + LIFE, dmg: {}, hits: {}, ally: {}, rallies: {}, done: false };
     s.next = nextSaturday(now + LIFE);
@@ -135,6 +138,9 @@ function install(Game) {
     if (!this.allyCan(al, user.id, 'rally')) return { error: 'Созыв объявляет руководство альянса (право «Созыв на мирового босса»).' };
     b.rallies = b.rallies || {};
     if (b.rallies[al.id]) return { error: 'Созыв уже идёт — отправляйте в него войска.' };
+    const next = (b.rallyNext || {})[al.id] || 0; // пауза после удара прошлого созыва
+    const gapH = Math.round(RALLY_GAP / 3600);
+    if (now < next) return { error: `Следующий созыв альянса — через ${Math.ceil((next - now) / 60000)} мин. Между созывами — ${gapH} ${Wd.plural(gapH, 'час', 'часа', 'часов')}.` };
     const sec = Math.round(RALLY_SEC / SPEED()), end = now + sec * 1000;
     if (end > b.end) return { error: `${b.name} уйдёт раньше, чем закончится созыв.` };
     const r = { id: this.db.nextId++, ally: al.id, tag: al.tag, by: user.id, start: now, end };
@@ -171,6 +177,7 @@ function install(Game) {
       this.store.save(); return;
     }
     const hits = parts.map(([c, a]) => { const sent = armyN(a.units); return { c, a, sent, gen: !!a.general, ...strike(this, c, a, b, t) }; });
+    const gapMs = Math.round(RALLY_GAP / SPEED()) * 1000; (b.rallyNext = b.rallyNext || {})[r.ally] = t + gapMs; // следующий созыв альянса — после паузы
     const players = new Set(hits.map((h) => h.c.owner)).size, capK = Math.min(HIT_CAP, HIT_MAX * players), cap = Math.round(b.maxHp * capK);
     const raw = hits.reduce((q, h) => q + h.raw, 0), total = Math.min(b.hp, raw, cap), k = raw > 0 ? total / raw : 0;
     let given = 0; hits.forEach((h, i) => { h.dmg = i === hits.length - 1 ? total - given : Math.floor(h.raw * k); given += h.dmg; });
@@ -185,7 +192,7 @@ function install(Game) {
         `Армия созыва: ${comp}.`,
         `Урон созыва: ${fmt(total)} (${pctTxt(total / b.maxHp)} здоровья).${raw > cap && cap < b.hp + total ? ` За один удар созыв из ${players} ${Wd.plural(players, 'игрока', 'игроков', 'игроков')} снимает не больше ${Math.round(capK * 100)}% здоровья босса (каждый игрок +${Math.round(HIT_MAX * 100)}%, всего до ${Math.round(HIT_CAP * 100)}%).` : ''}`,
         `Ваш вклад: ${fmt(h.dmg)} (${total ? Math.round(h.dmg / total * 100) : 0}% урона созыва — по силе Ваших войск).`,
-        b.hp > 0 ? `У босса осталось ${fmt(b.hp)} из ${fmt(b.maxHp)}.` : `${b.name} повержен!`,
+        b.hp > 0 ? `У босса осталось ${fmt(b.hp)} из ${fmt(b.maxHp)}. Следующий созыв альянса — через ${Math.round(gapMs / 60000)} мин.` : `${b.name} повержен!`,
         `Ваши потери: ${fmt(h.lostN)} из ${Wd.ofWarriors(h.before)}.${h.rage ? ` ${b.name} в ярости — бьёт в полтора раза сильнее!` : ''}`, `Ваш урон за всё время: ${fmt(b.dmg[c.owner])}.`];
       if (a.general && c.general && !c.general.dead) {
         if (!Object.values(a.units).some((n) => n > 0)) {
@@ -211,11 +218,12 @@ function install(Game) {
       const parts = rallyParts(this, r).map(([c, a]) => ({ login: login(this, c.owner), n: armyN(a.units), gen: !!a.general, mine: c.owner === user.id }));
       rally = { end: r.end, by: login(this, r.by), parts, total: parts.reduce((q, p) => q + p.n, 0), players: new Set(parts.map((p) => p.login)).size };
     }
-    const rules = { min: Math.round(RALLY_SEC / SPEED() / 60), hit: HIT_MAX, cap: HIT_CAP, ...REWARD, killX: KILL_X };
-    return { last: s.last, rules, ally: al ? { tag: al.tag, can: this.allyCan(al, user.id, 'rally') } : null, rally,
+    const rules = { min: Math.round(RALLY_SEC / SPEED() / 60), gap: Math.round(RALLY_GAP / SPEED() / 60), hit: HIT_MAX, cap: HIT_CAP, ...REWARD, killX: KILL_X };
+    const next = b && al && b.rallyNext && b.rallyNext[al.id] > now ? b.rallyNext[al.id] : 0; // когда альянс сможет объявить следующий созыв
+    return { last: s.last, rules, ally: al ? { tag: al.tag, can: this.allyCan(al, user.id, 'rally'), next } : null, rally,
       boss: b ? { kind: b.kind, name: b.name, desc: (BOSSES.find((x) => x.kind === b.kind) || {}).desc, x: b.x, y: b.y, hp: b.hp, maxHp: b.maxHp, end: b.end, top: top(b.dmg), mine: b.dmg[user.id] || 0, players: Object.keys(b.dmg).length,
         allies: Object.entries(b.ally || {}).map(([id, d]) => ({ tag: ((this.db.alliances || {})[id] || {}).tag || '?', d })).sort((p, q) => q.d - p.d).slice(0, 5) } : null };
   };
 }
 
-module.exports = { install, BOSSES, SLAYER, REWARD, KILL_X, RALLY_SEC, HIT_MAX, HIT_CAP, rewardFor, nextSaturday };
+module.exports = { install, BOSSES, SLAYER, REWARD, KILL_X, RALLY_SEC, RALLY_GAP, HIT_MAX, HIT_CAP, HP_BASE, HP_PER, HP_MAX, rewardFor, nextSaturday };
