@@ -42,6 +42,28 @@ function install(Game) {
   const lastOf = (t) => { const p = t.posts.filter((x) => !x.deleted); return p[p.length - 1] || null; };
   // опрос для окна темы: голоса — { id игрока: [номера вариантов] }; итоги — после своего голоса, после завершения, модератору — всегда
   const pollOpen = (p, now = Date.now()) => !p.closed && !(p.until && p.until <= now);
+  P.pollOpen = pollOpen;
+  // новый опрос из формы (форум и общий чат — chatpoll.js): проверка вопроса, вариантов и срока
+  P.pollMake = function pollMake(m, user, now = Date.now()) {
+    const q = clean(m.q, POLL_Q); if (q.length < 3) return { error: 'Вопрос — от 3 символов.' };
+    const opts = [].concat(m.opts || []).slice(0, POLL_MAX + 5).map((x) => clean(x, POLL_OPT)).filter(Boolean);
+    if (opts.length < POLL_MIN) return { error: `Нужно хотя бы ${POLL_MIN} варианта ответа.` };
+    if (opts.length > POLL_MAX) return { error: `Не больше ${POLL_MAX} вариантов ответа.` };
+    if (new Set(opts.map((x) => x.toLowerCase())).size !== opts.length) return { error: 'Варианты ответа повторяются.' };
+    const days = Number(m.days) || 0; if (!POLL_DAYS.includes(days)) return { error: 'Неверный срок опроса.' };
+    return { poll: { q, opts, multi: !!m.multi, public: !!m.public, until: days ? now + days * 86400000 : 0, closed: false, at: now, by: user.login, byId: user.id, votes: {} } };
+  };
+  // голос в опросе (форум и чат): один раз, несколько вариантов — если разрешено; отмена — пока опрос открыт
+  P.pollVote = function pollVote(p, user, opts, undo, now = Date.now()) {
+    if (!pollOpen(p, now)) return { error: 'Опрос завершён.' };
+    if (user.bot) return { error: 'Нет прав.' };
+    if (undo) { if (!p.votes[user.id]) return { error: 'Вы ещё не голосовали.' }; delete p.votes[user.id]; return { msg: 'Голос отменён.' }; }
+    if (p.votes[user.id]) return { error: 'Вы уже проголосовали — чтобы переголосовать, отмените голос.' };
+    const pick = [...new Set([].concat(opts || []).map(Number))].filter((i) => Number.isInteger(i) && i >= 0 && i < p.opts.length).sort((a, b) => a - b);
+    if (!pick.length) return { error: 'Выберите вариант ответа.' };
+    if (!p.multi && pick.length > 1) return { error: 'Можно выбрать только один вариант.' };
+    p.votes[user.id] = pick; return { msg: 'Голос принят.' };
+  };
   P.forumPollView = function forumPollView(p, user, mod) {
     const open = pollOpen(p), mine = p.votes[user.id] || null, ids = Object.keys(p.votes), total = ids.length;
     const results = !!mine || !open || mod, who = p.public || user.admin;
@@ -154,27 +176,14 @@ function install(Game) {
         const f = this.forumTopic(m.topic); if (!f || f.t.deleted) return { error: 'Тема не найдена.' };
         if (!this.forumCanMod(user, f.s)) return { error: 'Опрос создают только модераторы.' };
         if (f.t.poll) return { error: 'В теме уже есть опрос — сначала удалите его.' };
-        const q = clean(m.q, POLL_Q); if (q.length < 3) return { error: 'Вопрос — от 3 символов.' };
-        const opts = [].concat(m.opts || []).slice(0, POLL_MAX + 5).map((x) => clean(x, POLL_OPT)).filter(Boolean);
-        if (opts.length < POLL_MIN) return { error: `Нужно хотя бы ${POLL_MIN} варианта ответа.` };
-        if (opts.length > POLL_MAX) return { error: `Не больше ${POLL_MAX} вариантов ответа.` };
-        if (new Set(opts.map((x) => x.toLowerCase())).size !== opts.length) return { error: 'Варианты ответа повторяются.' };
-        const days = Number(m.days) || 0; if (!POLL_DAYS.includes(days)) return { error: 'Неверный срок опроса.' };
-        f.t.poll = { q, opts, multi: !!m.multi, public: !!m.public, until: days ? now + days * 86400000 : 0, closed: false, at: now, by: user.login, byId: user.id, votes: {} };
-        this.store.save();
+        const pm = this.pollMake(m, user, now); if (pm.error) return pm;
+        f.t.poll = pm.poll; this.store.save();
         return { msg: 'Опрос создан.', topic: f.t.id };
       }
       case 'pollvote': case 'pollunvote': { // голос (один раз; несколько вариантов — если разрешено) и отмена голоса, пока опрос открыт
         const f = this.forumTopic(m.topic); if (!f || f.t.deleted || !f.t.poll) return { error: 'Опрос не найден.' };
-        const p = f.t.poll; if (!pollOpen(p, now)) return { error: 'Опрос завершён.' };
-        if (user.bot) return { error: 'Нет прав.' };
-        if (m.op === 'pollunvote') { if (!p.votes[user.id]) return { error: 'Вы ещё не голосовали.' }; delete p.votes[user.id]; this.store.save(); return { msg: 'Голос отменён.', topic: f.t.id }; }
-        if (p.votes[user.id]) return { error: 'Вы уже проголосовали — чтобы переголосовать, отмените голос.' };
-        const pick = [...new Set([].concat(m.opts || []).map(Number))].filter((i) => Number.isInteger(i) && i >= 0 && i < p.opts.length).sort((a, b) => a - b);
-        if (!pick.length) return { error: 'Выберите вариант ответа.' };
-        if (!p.multi && pick.length > 1) return { error: 'Можно выбрать только один вариант.' };
-        p.votes[user.id] = pick; this.store.save();
-        return { msg: 'Голос принят.', topic: f.t.id };
+        const r = this.pollVote(f.t.poll, user, m.opts, m.op === 'pollunvote', now); if (r.error) return r;
+        this.store.save(); return { msg: r.msg, topic: f.t.id };
       }
       case 'pollclose': case 'polldel': { // завершить (итоги остаются) / удалить опрос — модераторы
         const f = this.forumTopic(m.topic); if (!f || !f.t.poll) return { error: 'Опрос не найден.' };

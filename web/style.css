@@ -735,6 +735,19 @@ textarea.ainput { resize: vertical; }
 .smilebox button { border: 0; background: none; padding: 4px; } .smilebox img { height: 40px; }
 #sheetBody .chatlist.short { height: calc(100dvh - 480px); }
 .cm { cursor: pointer; }
+/* общий чат: фото и опросы администратора, закреплённый опрос, кнопки админа в строке ввода */
+#sheetBody .chatlist.pinned { height: calc(100dvh - 352px); } #sheetBody .chatlist.short.pinned { height: calc(100dvh - 542px); }
+.cpin { display: flex; align-items: center; gap: 8px; width: 100%; margin: 0 0 6px; padding: 8px 12px; border: 2px solid #c8963e; border-radius: 8px; background: #fff3d6; color: #2a1408;
+  font: min(18px, 4.2vw) var(--serif); text-align: left; cursor: pointer; }
+.cpin span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .cpin b { flex: none; color: #2f6a12; }
+#sheetBody .cm.cspecial { cursor: default; }
+#sheetBody .cm.cspecial .fpoll { margin: 6px 0 2px; }
+.cpic { display: block; margin: 6px 0 2px; padding: 0; border: 2px solid #c8a070; border-radius: 8px; background: none; overflow: hidden; max-width: 100%; cursor: zoom-in; }
+.cpic img { display: block; max-width: 100%; max-height: 300px; }
+.cpic.sz img { width: 100%; height: 100%; max-height: none; object-fit: cover; }
+.cpcap { margin-top: 4px; }
+.cadmbtn { width: 44px; height: 46px; flex: none; border: 2px solid #c8963e; border-radius: 8px; background: #5a3418; font-size: 22px; line-height: 1; padding: 0; }
+.cadmbtn:active { filter: brightness(1.2); }
 .cpop-bg { position: fixed; inset: 0; z-index: 50; background: #0006; display: grid; place-items: center; }
 .cpop { position: relative; width: min(78vw, 340px); padding: 34px 18px 22px; background: linear-gradient(#ecd2ae, #d8b890); border: 3px solid #b08a5a; border-radius: 6px; box-shadow: 0 0 0 2px #6a4020, 0 8px 20px #000a; }
 .cpop-x { position: absolute; top: -8px; right: 22px; width: 44px; height: 50px; border: 0; background: linear-gradient(#e02020, #901010); color: #fff; font: 700 24px system-ui; clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 82%, 0 100%); }

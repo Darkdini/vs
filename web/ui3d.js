@@ -163,7 +163,9 @@ function chatWin() {
   const n = S.chatUsers ? S.chatUsers.length : '…';
   return `${ribbon('Главный чат')}
     <div class="chattop"><button class="lbar" data-chatexit><img src="${GFX}chat/exit.png" alt=""> Выход</button><button class="lbar" data-chatusers><img src="${GFX}chat/players.png" alt=""> Игроки (${n})</button></div>
-    <div id="chatList" class="chatlist ${S.smileOpen ? 'short' : ''}">${S.chat.filter((m) => !isBlack(m.fromId)).slice(-30).reverse().map((m) => { const hit = m.fromId !== me() && m.text.toLowerCase().includes(my);
+    ${chatPinHtml()}
+    <div id="chatList" class="chatlist ${S.smileOpen ? 'short' : ''} ${chatPinHtml() ? 'pinned' : ''}">${S.chat.filter((m) => !isBlack(m.fromId)).slice(-30).reverse().map((m) => { const hit = m.fromId !== me() && m.text.toLowerCase().includes(my);
+      if (m.poll || m.pic || m.picGone) return chatSpecialHtml(m);
       return `<div class="cm ${hit ? 'hit' : ''} ${m.fromId === me() ? 'mine' : ''} ${m.role === 'smod' ? 'smodmsg' : ''}" data-chatpop="${m.fromId}" data-nick="${esc(m.from)}" data-mid="${m.id}"><small>${new Date(m.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</small> <b>[${esc(m.from)}]</b>${m.role ? ` <img class="admbadge s" src="${GFX}${m.role === 'admin' ? 'admin_badge_s.png' : m.role === 'smod' ? 'chat/smoder.png' : 'chat/moder.png'}" alt="">` : ''}${m.rep >= 10 ? ` ${repIcons(m.rep)}` : ''} ${chatText(m)}${chatVotes(m)}</div>`; }).join('') || '<p class="parch-note">Сообщений пока нет — напишите первым.</p>'}</div>
     ${S.smileOpen ? `<div class="smilebox">${SMILES.map((k) => `<button data-smile="${k}"><img src="${smileSrc(k)}" alt=""></button>`).join('')}</div>` : ''}
     ${S.chatPop ? `<div class="cpop-bg" data-cpopclose><div class="cpop"><button class="cpop-x" data-cpopclose aria-label="Закрыть">✕</button><div class="cpop-nick">${esc(S.chatPop.nick)}</div>
@@ -177,7 +179,78 @@ function chatWin() {
         <button class="ptile" data-cpop="del"><img src="${GFX}chat/delete.png" alt=""><span>Удалить</span></button>
         <button class="ptile" data-cpop="ban"><img src="${GFX}chat/ban.png" alt=""><span>Бан в чате</span></button></div>
         ${S.chatPop.ban ? `<div class="cpop-ban">${[[1, '1 час'], [2, '2 часа'], [8, '8 часов'], [-1, 'Навсегда'], [0, 'Снять бан']].map(([h, t]) => `<button class="pbtn" data-cban="${h}">${t}</button>`).join('')}</div>` : ''}` : ''}</div></div>` : ''}
-    <form class="chatbar" data-form="chat"><button type="button" class="smilebtn" data-smiletoggle aria-label="Смайлы"><img src="${GFX}chat/smiles.png" alt=""></button><input name="text" maxlength="300" autocomplete="off" value="${esc(S.chatDraft || '')}"><button class="sendbtn" aria-label="Отправить"><img src="${GFX}chat/send.png" alt=""></button></form>`;
+    <form class="chatbar" data-form="chat">${S.st.user.admin ? `<button type="button" class="cadmbtn" data-cadmpic aria-label="Фото в чат">${S.chatPicBusy ? '⏳' : '📷'}</button><button type="button" class="cadmbtn" data-cadmpoll aria-label="Опрос в чат">📊</button>` : ''}<button type="button" class="smilebtn" data-smiletoggle aria-label="Смайлы"><img src="${GFX}chat/smiles.png" alt=""></button><input name="text" maxlength="300" autocomplete="off" value="${esc(S.chatDraft || '')}"><button class="sendbtn" aria-label="Отправить"><img src="${GFX}chat/send.png" alt=""></button></form>`;
+}
+// ---- фото и опросы администратора в общем чате (server: pics.js, chatpoll.js) ----
+S.cpolls = {}; S.cpollPin = 0; S.cpollSel = {};
+const chatHead = (m) => `<small>${new Date(m.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</small> <b>[${esc(m.from)}]</b>${m.role ? ` <img class="admbadge s" src="${GFX}${m.role === 'admin' ? 'admin_badge_s.png' : m.role === 'smod' ? 'chat/smoder.png' : 'chat/moder.png'}" alt="">` : ''}`;
+// закреплённый вверху чата открытый опрос: вопрос и «Голосовать» / «Итоги» — открывает окно опроса
+function chatPinHtml() { const p = S.cpollPin && S.cpolls[S.cpollPin]; if (!p) return '';
+  return `<button class="cpin" data-cpollopen="${S.cpollPin}"><span>📌 📊 ${esc(p.q)}</span><b>${p.mine ? 'Итоги' : 'Голосовать'} ›</b></button>`; }
+// сообщение с фото (нажатие — во весь экран) или с опросом (карточка как на форуме); без меню «Обратиться/Профиль…»
+function chatSpecialHtml(m) {
+  if (m.poll) { const p = S.cpolls[m.poll]; return `<div class="cm cspecial">${chatHead(m)}${p ? fPollCard(p, S.st.user.admin, { pre: 'c', id: m.poll, sel: S.cpollSel[m.poll] }) : ' <span class="muted">опрос удалён</span>'}</div>`; }
+  const cap = m.text && m.text !== '📷 Фото' ? `<div class="cpcap">${chatText(m)}</div>` : '';
+  // место под фото — заранее по его размерам (не выше 300): лента не прыгает, когда картинка догрузится
+  const pw = Math.floor(Number(m.picW)) || 0, ph = Math.floor(Number(m.picH)) || 0;
+  const sz = pw > 0 && ph > 0 ? ` sz" style="width:min(100%,${Math.min(pw, Math.round(300 * pw / ph))}px);aspect-ratio:${pw}/${ph}` : '';
+  return `<div class="cm cspecial">${chatHead(m)}${m.pic ? `<button class="cpic${sz}" data-dlgview="pic/${m.pic}.png" data-exp="${m.picExp || 0}"><img src="pic/${m.pic}.png" alt="Фото"></button>` : ' <span class="muted">📷 фото удалено (хранится сутки)</span>'}${cap}</div>`;
+}
+function chatPollWin() { const id = S.cpollOpen, p = S.cpolls[id];
+  return `${ribbon('Опрос')}${p ? fPollCard(p, S.st.user.admin, { pre: 'c', id, sel: S.cpollSel[id] }) : '<p class="parch-note">Опрос удалён.</p>'}`; }
+function chatPollNewWin() { return `${ribbon('Опрос в общий чат')}<div class="bwline center small">Опрос увидят все игроки — он закрепится вверху чата, пока открыт.</div>${pollFormHtml('cpoll')}`; }
+// фото в общий чат: как в личных сообщениях (dialogs.js: picPack) — браузер сжимает, сервер собирает новый PNG
+async function chatPicSend(file) {
+  if (typeof CompressionStream === 'undefined' || typeof createImageBitmap === 'undefined') return toast('Ваш браузер не умеет отправлять фото — обновите его.', 'err');
+  S.chatPicBusy = true; refreshSheet();
+  try {
+    let p = null;
+    for (const side of [PIC_SIDE, 720, 540, 400]) { p = await picPack(file, side); if (p.z.length <= PIC_MAXZ) break; }
+    if (p.z.length > PIC_MAXZ) throw new Error('big');
+    const parts = []; for (let i = 0; i < p.z.length; i += PIC_PART) parts.push(b64(p.z.subarray(i, i + PIC_PART)));
+    const inp = $('.chatbar input'), caption = inp ? inp.value.trim() : ''; if (inp) inp.value = ''; S.chatDraft = '';
+    S.chatPicQ = { parts }; send({ t: 'chatpic', op: 'begin', w: p.w, h: p.h, n: parts.length, caption });
+  } catch (e) { S.chatPicBusy = false; refreshSheet(); toast('Не удалось прочитать картинку — выберите другую.', 'err'); }
+}
+let chatPicInput = null;
+$('#sheetBody').addEventListener('click', (e) => {
+  const t = e.target.closest('[data-cadmpic],[data-cadmpoll],[data-cpollopen],[data-cpoll],[data-cpollgo],[data-cpollun],[data-cpollclose],[data-cpolldel]'); if (!t) return;
+  e.stopImmediatePropagation(); const d = t.dataset, id = Number(d.pid || d.cpollopen || 0);
+  if (d.cadmpoll !== undefined) return openSheet(chatPollNewWin);
+  if (d.cadmpic !== undefined) {
+    if (S.chatPicBusy) return;
+    if (!chatPicInput) { chatPicInput = document.createElement('input'); chatPicInput.type = 'file'; chatPicInput.accept = 'image/*'; chatPicInput.style.display = 'none'; document.body.appendChild(chatPicInput);
+      chatPicInput.addEventListener('change', () => { const f = chatPicInput.files && chatPicInput.files[0]; chatPicInput.value = ''; if (f) chatPicSend(f); }); }
+    return chatPicInput.click();
+  }
+  if (d.cpollopen !== undefined) { S.cpollOpen = id; return openSheet(chatPollWin); }
+  const p = S.cpolls[id]; if (!p) return;
+  if (d.cpoll !== undefined) { const i = Number(d.cpoll);
+    if (!p.multi) return send({ t: 'chatpoll', op: 'vote', id, opts: [i] });
+    const sel = S.cpollSel[id] || []; S.cpollSel[id] = sel.includes(i) ? sel.filter((x) => x !== i) : [...sel, i]; return S.sheets[S.sheets.length - 1] === chatWin ? chatListUpdate() : refreshSheet(); }
+  if (d.cpollgo !== undefined) return send({ t: 'chatpoll', op: 'vote', id, opts: S.cpollSel[id] || [] });
+  if (d.cpollun !== undefined) return send({ t: 'chatpoll', op: 'unvote', id });
+  if (d.cpollclose !== undefined) { if (confirm('Завершить опрос? Голосовать больше будет нельзя, итоги увидят все.')) send({ t: 'chatpoll', op: 'close', id }); return; }
+  if (d.cpolldel !== undefined) { if (confirm('Удалить опрос вместе с голосами и его сообщение из чата?')) send({ t: 'chatpoll', op: 'del', id }); }
+}, true);
+$('#sheetBody').addEventListener('submit', (e) => {
+  const f = e.target; if (f.dataset.form !== 'cpoll') return; e.preventDefault(); e.stopImmediatePropagation();
+  send({ t: 'chatpoll', op: 'create', q: f.q.value, opts: Array.from({ length: 10 }, (_, i) => f[`o${i}`].value.trim()).filter(Boolean), multi: f.multi.checked, public: f.public.checked, days: Number(f.days.value) });
+}, true);
+// ответы сервера: опрос обновился (голос, завершение, удаление) / части фото
+function chatPollMsg(m) {
+  if (m.gone) { delete S.cpolls[m.id]; if (m.msgId) S.chat = S.chat.filter((x) => x.id !== m.msgId); } else if (m.poll) S.cpolls[m.id] = m.poll;
+  if (m.poll && m.poll.mine) delete S.cpollSel[m.id];
+  S.cpollPin = m.pin || 0;
+  if (m.made && S.sheets[S.sheets.length - 1] === chatPollNewWin) closeSheet();
+  const top = S.sheets[S.sheets.length - 1];
+  if (top === chatWin) { const pinNow = !!$('.cpin'); if (pinNow !== !!chatPinHtml()) refreshSheet(); else { const pb = $('.cpin'); if (pb) pb.outerHTML = chatPinHtml(); chatListUpdate(); } } else if (top === chatPollWin) refreshSheet();
+  chatLine();
+}
+function chatPicMsg(m) {
+  const q = S.chatPicQ;
+  if (m.done || !q) { S.chatPicQ = null; S.chatPicBusy = false; if (S.sheets[S.sheets.length - 1] === chatWin) refreshSheet(); return; }
+  if (m.i < q.parts.length) send({ t: 'chatpic', op: 'part', i: m.i, data: q.parts[m.i] });
 }
 // обновить только ленту сообщений (поле ввода не трогаем — можно печатать, пока приходят сообщения)
 function chatListUpdate() {
@@ -531,7 +604,9 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
   if (m.t === 'chatvote') { const x = S.chat.find((q) => q.id === m.id); if (x) { x.up = m.up; x.dn = m.dn; chatListUpdate(); } return; }
   if (m.t === 'chatdel') { S.chat = S.chat.filter((x) => x.id !== m.id); chatLine(); chatListUpdate(); return; }
   if (m.t === 'chatusers') { S.chatUsers = m.list; const b = $('[data-chatusers]'); if (b) b.innerHTML = `<img src="${GFX}chat/players.png" alt=""> Игроки (${m.list.length})`; return refreshSheet(); }
-  if (m.t === 'chatlog') { S.chat = m.list; chatLine(); refreshSheet(); const l = $('#chatList'); if (l) l.scrollTop = l.scrollHeight; return; }
+  if (m.t === 'chatlog') { S.chat = m.list; S.cpolls = m.polls || {}; S.cpollPin = m.pin || 0; chatLine(); refreshSheet(); const l = $('#chatList'); if (l) l.scrollTop = l.scrollHeight; return; }
+  if (m.t === 'chatpoll') return chatPollMsg(m);
+  if (m.t === 'chatpicok') return chatPicMsg(m);
   if (m.t === 'chatmsg') { S.chat.push(m.msg); if (S.chat.length > 50) S.chat.shift(); chatLine(); chatListUpdate(); return; }
   if (m.t === 'allyinfo') { S.allyInfo = m.ally; return refreshSheet(); }
   if (m.t === 'hall') { S.hall = m.hall; return refreshSheet(); }

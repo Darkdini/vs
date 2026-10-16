@@ -39,8 +39,9 @@ function client() {
     open: () => opened,
     send: (m) => ws.send(JSON.stringify(m)),
     expect: (t, pred = () => true) => new Promise((resolve, reject) => {
-      waiters.push({ pred: (m) => m.t === t && pred(m), resolve }); flush();
-      setTimeout(() => reject(new Error(`timeout waiting ${t}`)), 5000);
+      const w = { pred: (m) => m.t === t && pred(m), resolve }; waiters.push(w); flush();
+      // не дождались — ожидание снимается, иначе оно «съест» следующее такое сообщение (например, проигравшее в Promise.race)
+      setTimeout(() => { const i = waiters.indexOf(w); if (i >= 0) waiters.splice(i, 1); reject(new Error(`timeout waiting ${t}`)); }, 5000);
     }),
     close: () => ws.close(),
     closed: () => isClosed,
@@ -351,6 +352,22 @@ function client() {
     adm.send({ t: 'chatmod', op: 'ban', login: 'Советник', hours: -1 });
     await adm.expect('error', (m) => /забанить нельзя/.test(m.msg));
     sp.close();
+    // опрос в общем чате: создаёт только админ; приходит всем (у игрока — без итогов до голоса), голос, удаление
+    a.send({ t: 'chatpoll', op: 'create', q: 'Свой опрос?', opts: ['Да', 'Нет'] });
+    await a.expect('error', (m) => /только администратор/.test(m.msg));
+    adm.send({ t: 'chatpoll', op: 'create', q: 'Когда турнир?', opts: ['Суббота', 'Воскресенье'], days: 1 });
+    const cpa = await adm.expect('chatpoll', (m) => m.poll && m.poll.q === 'Когда турнир?'), cpp = await a.expect('chatpoll', (m) => m.id === cpa.id);
+    assert.ok(cpa.made && !cpp.made && cpp.pin === cpp.id && cpa.poll.results && !cpp.poll.results && cpp.poll.canVote, 'опрос пришёл всем и закреплён; итоги игроку — после голоса');
+    await a.expect('chatmsg', (m) => m.msg.poll === cpp.id);
+    a.send({ t: 'chatpoll', op: 'vote', id: cpp.id, opts: [1] });
+    await a.expect('toast', (m) => /Голос принят/.test(m.msg));
+    const cpv = await a.expect('chatpoll', (m) => m.id === cpp.id && m.poll && m.poll.mine);
+    assert.ok(cpv.poll.results && cpv.poll.opts[1].n === 1, 'после голоса — итоги');
+    a.send({ t: 'chatpoll', op: 'del', id: cpp.id });
+    await a.expect('error', (m) => /Нет прав/.test(m.msg));
+    adm.send({ t: 'chatpoll', op: 'del', id: cpp.id });
+    await a.expect('chatpoll', (m) => m.id === cpp.id && m.gone && m.pin === 0);
+    console.log('✓ опрос в общем чате — только админ, рассылка всем, голос, удаление');
     // модератор удаляет сообщение в форуме альянса (права «Новости и форум» у него нет) и может открыть форум чужого альянса
     adm.send({ t: 'ally', op: 'get' });
     const fa = (await adm.expect('ally', (m) => m.data.forum.length > 0)).data, ftopic = fa.forum[0];

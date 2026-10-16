@@ -522,7 +522,7 @@ const API = {
   chatmod(m) {
     const r = m.op === 'del' ? this.game.chatDelete(this.user, m.id) : this.game.chatBanUser(this.user, m.login, m.hours);
     if (r.error) return this.error(r.error);
-    if (m.op === 'del') for (const s of WebSession.all || []) if (s.user) s.send({ t: 'chatdel', id: Number(m.id) });
+    if (m.op === 'del') for (const s of WebSession.all || []) if (s.user) { s.send({ t: 'chatdel', id: Number(m.id) }); if (r.poll) s.send({ t: 'chatpoll', id: r.poll, gone: 1, pin: this.game.chatPollPin() }); }
     this.toast(r.msg || 'Сообщение удалено.');
   },
   // «Модерация» старшего модератора (smod.js): данные, сведения об игроке, действия
@@ -536,7 +536,28 @@ const API = {
     this.send({ t: 'smod', view: 'main', data: g.smodView(this.user) });
     if (m.login && op !== 'nick') { const p = g.smodPlayer(this.user, m.login); if (!p.error) this.send({ t: 'smod', view: 'player', data: p }); }
   },
-  chatlog() { this.send({ t: 'chatlog', list: this.game.chatLog() }); },
+  chatlog() { this.send({ t: 'chatlog', list: this.game.chatLog(), ...this.game.chatPollViews(this.user) }); },
+  // опрос в общем чате (chatpoll.js): создаёт и ведёт только админ, голосуют все; итоги — каждому своим видом
+  chatpoll(m) {
+    const g = this.game, r = g.chatPollOp(this.user, { ...m, op: String(m.op || '') });
+    if (r.error) return this.error(r.error);
+    if (r.note) this.toast(r.note);
+    const all = [...(WebSession.all || [])].filter((s) => s.user);
+    if (r.gone) { for (const s of all) s.send({ t: 'chatpoll', id: r.poll, gone: 1, msgId: r.msgId, pin: g.chatPollPin() }); return; }
+    // сначала опрос (каждому — свой вид: итоги после голоса), потом сообщение «📊 Опрос: …» — карточка появляется сразу целиком
+    for (const s of all) s.send({ t: 'chatpoll', id: r.poll, poll: g.chatPollView(r.poll, s.user), pin: g.chatPollPin(), ...(s === this && r.msg ? { made: 1 } : {}) });
+    if (r.msg) for (const s of all) if (s.sendChat) s.sendChat(r.msg);
+  },
+  // фото в общий чат — только админ (pics.js): begin — размеры, part — сжатые части; готово — сообщение всем
+  async chatpic(m) {
+    if (m.op === 'begin') { const r = this.game.picBeginChat(this.user, m.w, m.h, m.n, m.caption); if (r.error) return this.error(r.error); this.chatPicUp = r.up; return this.send({ t: 'chatpicok', i: 0 }); }
+    if (m.op !== 'part' || !this.chatPicUp) return this.error('Фото: начните отправку заново.');
+    const up = this.chatPicUp, r = await this.game.picPart(this.user, up, m.i, m.data);
+    if (r.error) { this.chatPicUp = null; return this.error(r.error); }
+    if (r.more) return this.send({ t: 'chatpicok', i: up.parts.length });
+    this.chatPicUp = null; this.send({ t: 'chatpicok', done: true });
+    for (const s of WebSession.all || []) if (s.user && s.sendChat) s.sendChat(r.chat);
+  },
   // «Игроки (N)» в главном чате: кто сейчас в игре (только ники)
   chatusers() {
     const seen = onlineUsers();

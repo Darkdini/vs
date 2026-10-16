@@ -77,23 +77,27 @@ function forumPostsWin() {
       : `<div class="bwline center small">${d.closed ? 'Тема закрыта — отвечать нельзя.' : esc(d.ban || '')}</div>`}`;
 }
 // опрос: пока игрок не голосовал — варианты-кнопки (один вариант — голос сразу, несколько — галочки и «Голосовать»);
-// после голоса или завершения — полоски с процентами, ✔ у своего выбора; модератору итоги видны сразу
-function fPollCard(p, mod) {
-  const sel = S.fr.pollSel || [], when = p.open ? (p.until ? ` · до ${repDate(p.until)}` : '') : ' · завершён';
+// после голоса или завершения — полоски с процентами, ✔ у своего выбора; модератору итоги видны сразу.
+// Та же карточка — в общем чате (ui3d.js): o.pre = 'c' (кнопки data-cpoll…), o.id — номер опроса, o.sel — отмеченные варианты
+function fPollCard(p, mod, o = {}) {
+  const pre = o.pre || 'f', pid = o.id ? ` data-pid="${o.id}"` : '', sel = o.sel || (pre === 'f' ? S.fr.pollSel : null) || [], when = p.open ? (p.until ? ` · до ${repDate(p.until)}` : '') : ' · завершён';
   const row = (o, i) => { const inner = `${p.results ? `<span class="fpbar" style="width:${o.pct}%"></span>` : ''}<span class="fpt2">${p.multi && p.canVote ? (sel.includes(i) ? '☑ ' : '☐ ') : ''}${o.mine ? '✔ ' : ''}${esc(o.text)}</span>${p.results ? `<b class="fpp">${o.pct}%</b>` : ''}`;
     const who = o.voters && (o.voters.length || o.more) ? `<small class="fpvote">${o.voters.map(esc).join(', ')}${o.more ? ` и ещё ${o.more}` : ''}</small>` : '';
-    return `${p.canVote ? `<button class="fpopt ${sel.includes(i) ? 'on' : ''}" data-fpoll="${i}">${inner}</button>` : `<div class="fpopt ${o.mine ? 'mine' : ''}">${inner}</div>`}${who}`; };
+    return `${p.canVote ? `<button class="fpopt ${sel.includes(i) ? 'on' : ''}" data-${pre}poll="${i}"${pid}>${inner}</button>` : `<div class="fpopt ${o.mine ? 'mine' : ''}">${inner}</div>`}${who}`; };
   return `<div class="fpoll"><div class="fpq">📊 ${esc(p.q)}</div><div class="fpm2">${p.public ? 'Открытый опрос' : 'Анонимный опрос'}${p.multi ? ' · можно выбрать несколько' : ''}${when}</div>
     ${p.opts.map(row).join('')}
-    <div class="fpfoot"><span>Проголосовало: <b>${p.total}</b></span>${p.canVote && p.multi ? `<button class="pbtn small" data-fpollgo ${sel.length ? '' : 'disabled'}>Голосовать</button>` : ''}
-      ${p.mine && p.open ? '<button class="pbtn small" data-fpollun>Отменить голос</button>' : ''}</div>
-    ${mod ? `<div class="fpm">${p.open ? '<button data-fpollclose>Завершить опрос</button>' : ''}<button data-fpolldel>Удалить опрос</button></div>` : ''}</div>`;
+    <div class="fpfoot"><span>Проголосовало: <b>${p.total}</b></span>${p.canVote && p.multi ? `<button class="pbtn small" data-${pre}pollgo${pid} ${sel.length ? '' : 'disabled'}>Голосовать</button>` : ''}
+      ${p.mine && p.open ? `<button class="pbtn small" data-${pre}pollun${pid}>Отменить голос</button>` : ''}</div>
+    ${mod ? `<div class="fpm">${p.open ? `<button data-${pre}pollclose${pid}>Завершить опрос</button>` : ''}<button data-${pre}polldel${pid}>Удалить опрос</button></div>` : ''}</div>`;
 }
 // новый опрос (модератор): вопрос, 2–10 вариантов (4 поля сразу, «Ещё вариант» — следующее), несколько ответов, открытый, срок
 function forumPollNewWin() {
   const d = S.fr.posts;
-  return `${ribbon('Новый опрос')}<div class="bwline center small">Тема: <b>${esc(d ? d.title : '')}</b></div>
-    <form class="fform fpollnew" data-form="fpoll"><input name="q" maxlength="200" placeholder="Вопрос, например: Кто победит?" required>
+  return `${ribbon('Новый опрос')}<div class="bwline center small">Тема: <b>${esc(d ? d.title : '')}</b></div>${pollFormHtml('fpoll')}`;
+}
+// форма нового опроса: form — 'fpoll' (форум) или 'cpoll' (общий чат, ui3d.js)
+function pollFormHtml(form) {
+  return `<form class="fform fpollnew" data-form="${form}"><input name="q" maxlength="200" placeholder="Вопрос, например: Кто победит?" required>
       ${Array.from({ length: 10 }, (_, i) => `<input name="o${i}" maxlength="100" placeholder="Вариант ${i + 1}${i < 2 ? '' : ' (необязательно)'}" ${i < 2 ? 'required' : ''} class="${i < 4 ? '' : 'hidden'}">`).join('')}
       <button type="button" class="pbtn small" data-fpolladd>+ Ещё вариант</button>
       <label class="check"><input type="checkbox" name="multi"> Можно выбрать несколько вариантов</label>

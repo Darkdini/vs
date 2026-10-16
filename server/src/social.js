@@ -280,10 +280,10 @@ function install(Game) {
   P.canModerate = (u) => !!(u && (u.admin || u.mod));
   P.chatDelete = function chatDelete(user, id) {
     if (!this.canModerate(user)) return { error: 'Нет прав.' };
-    const n = (this.db.chat || []).length;
-    this.db.chat = (this.db.chat || []).filter((m) => m.id !== Number(id));
-    if (this.db.chat.length === n) return { error: 'Сообщение не найдено.' };
-    this.store.save(); return { ok: true };
+    const gone = (this.db.chat || []).find((m) => m.id === Number(id)); if (!gone) return { error: 'Сообщение не найдено.' };
+    this.db.chat = this.db.chat.filter((m) => m !== gone);
+    if (gone.poll) this.db.chatPolls = (this.db.chatPolls || []).filter((p) => p.id !== gone.poll); // удалили «📊 Опрос» — исчезает и опрос (с закрепа)
+    this.store.save(); return { ok: true, poll: gone.poll || 0 };
   };
   P.chatBanUser = function chatBanUser(user, login, hours) {
     if (!this.canModerate(user)) return { error: 'Нет прав.' };
@@ -297,14 +297,15 @@ function install(Game) {
     this.store.save();
     return { ok: true, msg: hours === 0 ? `Бан снят: ${t.login}.` : `${t.login}: бан в чате ${hours < 0 ? 'навсегда' : `на ${hours} ч.`}` };
   };
-  P.chatPost = function chatPost(user, text) {
+  // extra — только от сервера: { pic, picExp } — фото администратора (pics.js), { poll } — опрос администратора (chatpoll.js)
+  P.chatPost = function chatPost(user, text, extra) {
     if (user.chatBan === -1) return { error: 'Вам запрещено писать в чат навсегда.' };
     if (user.chatBan > Date.now()) return { error: `Вам запрещено писать в чат ещё ${Math.ceil((user.chatBan - Date.now()) / 60000)} мин.` };
     text = String(text || '').trim().slice(0, 300);
     if (!text) return { error: 'Пустое сообщение.' };
     const lim = this.tooOften(user, 'chat'); if (lim) return { error: lim }; // не чаще раза в 1,5 с и 15 в минуту
     this.db.chat = this.db.chat || [];
-    const m = { id: this.db.nextId++, from: user.login, fromId: user.id, text, at: Date.now(), rep: user.reputation ?? START_REP, role: user.admin ? 'admin' : user.smod ? 'smod' : user.mod ? 'mod' : '', color: this.msgColor ? this.msgColor(user) : '' }; // цвет текста — премиум
+    const m = { id: this.db.nextId++, from: user.login, fromId: user.id, text, at: Date.now(), rep: user.reputation ?? START_REP, role: user.admin ? 'admin' : user.smod ? 'smod' : user.mod ? 'mod' : '', color: this.msgColor ? this.msgColor(user) : '', ...(extra || {}) }; // цвет текста — премиум
     this.db.chat.push(m);
     if (this.db.chat.length > CHAT_KEEP) this.db.chat.splice(0, this.db.chat.length - CHAT_KEEP); // в чате хранятся последние 30
     this.store.save();
@@ -321,7 +322,8 @@ function install(Game) {
     if (!m.up.length) delete m.up; if (!m.dn.length) delete m.dn;
     this.store.save(); return { ok: true, id: m.id, up: m.up || [], dn: m.dn || [] };
   };
-  P.chatLog = function chatLog() { return (this.db.chat || []).slice(-CHAT_KEEP).map((m) => { const u = this.userById(m.fromId); return { ...m, rep: u ? u.reputation ?? START_REP : m.rep, role: u ? (u.admin ? 'admin' : u.smod ? 'smod' : u.mod ? 'mod' : '') : m.role }; }); };
+  P.chatLog = function chatLog() { return (this.db.chat || []).slice(-CHAT_KEEP).map((m) => { const u = this.userById(m.fromId); return { ...m, rep: u ? u.reputation ?? START_REP : m.rep, role: u ? (u.admin ? 'admin' : u.smod ? 'smod' : u.mod ? 'mod' : '') : m.role,
+    ...(m.pic && !(this.picGet && this.picGet(m.pic)) ? { pic: undefined, picGone: true } : {}) }; }); }; // фото администратора живёт сутки
 
   P.setNotes = function setNotes(user, text) { user.notes = String(text || '').slice(0, 5000); this.store.save(); return { ok: true }; };
   P.setAbout = function setAbout(user, text) { user.about = String(text || '').slice(0, 500); this.store.save(); return { ok: true }; };

@@ -333,6 +333,26 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(g.forumOp(md, { op: 'polldel', topic: t2 }).msg && !g.forumPosts(pl, t2, -1).poll, 'модератор удаляет опрос');
   console.log('✓ форум: опросы как в Telegram — создаёт модератор, один голос (или несколько), отмена, итоги после голоса, кто как голосовал — открыто или админу, завершение и срок');
 }
+// опрос в общем чате: создаёт только админ; сообщение «📊 Опрос», опрос закреплён, пока открыт; голоса как на форуме;
+// удалили сообщение опроса — исчез и опрос
+{
+  const [cp1, cp2] = ['cq1', 'cq2'].map((l) => g.register({ login: `${l}_acc`, nick: l, password: '12345', race: 0 }).user);
+  const adm = Object.values(g.db.users).find((x) => x.admin) || Object.assign(g.register({ login: 'cqadmin', password: '12345', race: 0 }).user, { admin: true });
+  assert.ok(g.chatPollOp(cp1, { op: 'create', q: 'Когда турнир?', opts: ['Суббота', 'Воскресенье'] }).error, 'игрок опрос в чат не создаёт');
+  const r = g.chatPollOp(adm, { op: 'create', q: 'Когда турнир?', opts: ['Суббота', 'Воскресенье'] }); assert.ok(r.poll && r.msg && r.msg.poll === r.poll, JSON.stringify(r));
+  let pv = g.chatPollViews(cp1); assert.ok(pv.pin === r.poll && pv.polls[r.poll] && !pv.polls[r.poll].results && g.chatLog().some((x) => x.poll === r.poll && /📊 Опрос: Когда турнир\?/.test(x.text)), 'опрос в чате и закреплён');
+  assert.ok(!g.chatPollOp(cp1, { op: 'vote', id: r.poll, opts: [0] }).error && !g.chatPollOp(cp2, { op: 'vote', id: r.poll, opts: [1] }).error);
+  assert.ok(g.chatPollOp(cp1, { op: 'vote', id: r.poll, opts: [1] }).error, 'один голос');
+  const v1 = g.chatPollView(r.poll, cp1), va = g.chatPollView(r.poll, adm);
+  assert.ok(v1.results && v1.total === 2 && v1.opts[0].pct === 50 && v1.opts[0].voters === undefined && va.opts[1].voters.includes('cq2'), 'итоги после голоса; кто как — только админу');
+  assert.ok(g.chatPollOp(cp1, { op: 'close', id: r.poll }).error && !g.chatPollOp(adm, { op: 'close', id: r.poll }).error && g.chatPollPin() === 0, 'завершает админ — опрос откреплён');
+  const r2 = g.chatPollOp(adm, { op: 'create', q: 'Новый ивент?', opts: ['Да', 'Нет'], days: 1 });
+  const mid = g.db.chat.find((x) => x.poll === r2.poll).id; adm.chatBan = 0;
+  assert.ok(!g.chatDelete(adm, mid).error && !g.db.chatPolls.some((x) => x.id === r2.poll), 'удалили сообщение опроса — опроса нет');
+  const r3 = g.chatPollOp(adm, { op: 'create', q: 'Ещё опрос?', opts: ['Да', 'Нет'] }), d3 = g.chatPollOp(adm, { op: 'del', id: r3.poll });
+  assert.ok(d3.gone && !g.db.chat.some((x) => x.poll === r3.poll) && !g.chatPollView(r3.poll, adm), 'админ удаляет опрос вместе с сообщением');
+  console.log('✓ общий чат: опрос — только админ, закреплён, один голос, итоги после голоса, завершение и удаление');
+}
 // секретный логин админа: ADMIN_LOGIN — вход только под ним, «admin» отклоняется, в игре ник остаётся admin
 {
   const adm = g.ensureAdmin('secretpass');
@@ -1994,6 +2014,20 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.strictEqual(g.runesOf(R).def, def0 + 2, 'генерал — Охотник за рунами: отряд принёс две руны');
     assert.ok(g.reportsOf(R.id).some((x) => x.title === 'Собраны 2 руны: Руна Стойкости'), 'отчёт: две руны');
     console.log('✓ Руны: снаряжение только ковкой (в боях и наградах не выпадает), «Охотник за рунами» — две руны; 3 рунных камня в провинции, руну забирает отряд, пришедший первым, камень возвращается через 3 часа; ковка за руны в Кузнице (рунное — с 20 ур.), вещь — в Оружейную, Кузнец один на ковку и усиление');
+  }
+  { // фото в общем чате — только админ: тот же безопасный путь, что у фото в письмах (сервер сам собирает PNG), видят все, живёт сутки
+    const zlib = require('zlib'), adm = Object.values(g.db.users).find((x) => x.admin), pl = g.register({ login: 'chatpic1', password: '12345', race: 0 }).user;
+    const w = 32, h = 24, z = zlib.deflateSync(Buffer.alloc(w * h * 3, 150)).toString('base64');
+    assert.ok(g.picBeginChat(pl, w, h, 1).error, 'игрок фото в чат не шлёт');
+    const b = g.picBeginChat(adm, w, h, 1, 'Новый ивент!'); assert.ok(b.ok);
+    const r = await g.picPart(adm, b.up, 0, z); assert.ok(r.ok && r.chat && r.chat.pic && r.chat.text === 'Новый ивент!' && r.chat.picW === w && r.chat.picH === h, JSON.stringify(r));
+    const png = g.picGet(r.chat.pic); assert.ok(png && png.png.slice(1, 4).toString() === 'PNG', 'сервер собрал PNG');
+    assert.ok(g.chatLog().some((x) => x.pic === r.chat.pic), 'фото в общем чате');
+    const shell = g.picBeginChat(adm, w, h, 1); adm.chatPicAt = 0; const b2 = g.picBeginChat(adm, w, h, 1);
+    assert.ok(shell.error && b2.ok && (await g.picPart(adm, b2.up, 0, Buffer.from('<?php echo 1; ?>').toString('base64'))).error, 'не чаще раза в 5 секунд; не картинка — отказ');
+    g.picSweep(Date.now() + 25 * 3600000);
+    assert.ok(g.chatLog().some((x) => x.picGone && !x.pic && x.text === 'Новый ивент!'), 'через сутки фото исчезает, подпись остаётся');
+    console.log('✓ общий чат: фото — только админ, сервер собирает PNG, видят все, живёт сутки');
   }
   { // почта (mail.js): привязка кодом из письма, смена и отвязка — с паролем, «Забыли пароль?» по коду из письма
     const env0 = ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS'].map((k) => [k, process.env[k]]);
