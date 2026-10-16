@@ -770,6 +770,8 @@ textarea.ainput { resize: vertical; }
 .ptl .admbadge { height: 1.45em; width: auto; margin: -.3em .05em -.2em 0; vertical-align: middle; }
 .ptl .admbadge.crownp { height: 1.15em; }
 .ptl .admbadge.honor { height: 1.6em; }
+/* 👍 «Авторитет»: кулак с манжетой внизу картинки — чуть выше, чтобы рука стояла вровень с текстом */
+.ptl .admbadge.thumb { position: relative; top: -.16em; } .acinfo .acico.thumb { position: relative; top: -.2em; }
 .ptl .honb { display: inline; white-space: nowrap; vertical-align: baseline; }
 .honwin { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 12px 18px; text-align: center; font: min(20px, 4.6vw) var(--serif); }
 .honwin img { width: min(220px, 55vw); height: auto; filter: drop-shadow(0 4px 6px #0006); }
