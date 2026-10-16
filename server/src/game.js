@@ -835,6 +835,7 @@ require('./premium').install(Game);
 require('./security').install(Game);
 require('./forum').install(Game);
 require('./chatpoll').install(Game); // опрос в общем чате (только админ)
+require('./wheel').install(Game); // Колесо Фортуны в общем чате (запускает админ)
 require('./news').install(Game);
 require('./smod').install(Game);
 require('./stash').install(Game);

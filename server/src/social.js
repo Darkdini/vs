@@ -297,13 +297,14 @@ function install(Game) {
     this.store.save();
     return { ok: true, msg: hours === 0 ? `Бан снят: ${t.login}.` : `${t.login}: бан в чате ${hours < 0 ? 'навсегда' : `на ${hours} ч.`}` };
   };
-  // extra — только от сервера: { pic, picExp } — фото администратора (pics.js), { poll } — опрос администратора (chatpoll.js)
-  P.chatPost = function chatPost(user, text, extra) {
-    if (user.chatBan === -1) return { error: 'Вам запрещено писать в чат навсегда.' };
-    if (user.chatBan > Date.now()) return { error: `Вам запрещено писать в чат ещё ${Math.ceil((user.chatBan - Date.now()) / 60000)} мин.` };
+  // extra — только от сервера: { pic, picExp } — фото администратора (pics.js), { poll } — опрос администратора (chatpoll.js),
+  // { wheel, wph } — Колесо Фортуны (wheel.js); opt.sys — сообщение ставит сам сервер (колесо): без бана и без «не чаще»
+  P.chatPost = function chatPost(user, text, extra, opt = {}) {
+    if (!opt.sys && user.chatBan === -1) return { error: 'Вам запрещено писать в чат навсегда.' };
+    if (!opt.sys && user.chatBan > Date.now()) return { error: `Вам запрещено писать в чат ещё ${Math.ceil((user.chatBan - Date.now()) / 60000)} мин.` };
     text = String(text || '').trim().slice(0, 300);
     if (!text) return { error: 'Пустое сообщение.' };
-    const lim = this.tooOften(user, 'chat'); if (lim) return { error: lim }; // не чаще раза в 1,5 с и 15 в минуту
+    if (!opt.sys) { const lim = this.tooOften(user, 'chat'); if (lim) return { error: lim }; } // не чаще раза в 1,5 с и 15 в минуту
     this.db.chat = this.db.chat || [];
     const m = { id: this.db.nextId++, from: user.login, fromId: user.id, text, at: Date.now(), rep: user.reputation ?? START_REP, role: user.admin ? 'admin' : user.smod ? 'smod' : user.mod ? 'mod' : '', color: this.msgColor ? this.msgColor(user) : '', ...(extra || {}) }; // цвет текста — премиум
     this.db.chat.push(m);

@@ -183,6 +183,16 @@ class WebSession {
       if (this.presMs >= 60000) { const m = Math.floor(this.presMs / 60000); this.presMs -= m * 60000; this.game.addStat(this.user.id, 'presence', m); } }
   }
 }
+// Колесо Фортуны (wheel.js) — всем в игре: вид колеса (каждому свой: «вы участвуете»), сообщение чата, число участников.
+// Сначала колесо, потом сообщение — карточка в чате появляется сразу целиком. from — кто запустил (ему закрыть окно запуска)
+function wheelCast(g, out, from) {
+  const all = [...(WebSession.all || [])].filter((s) => s.user);
+  for (const ev of out) {
+    if (ev.view) for (const s of all) s.send({ t: 'wheel', w: g.wheelView(ev.view, s.user), ...(ev.made && s === from ? { made: 1 } : {}) });
+    if (ev.chat) for (const s of all) s.sendChat(ev.chat);
+    if (ev.cnt) for (const s of all) s.send({ t: 'wheeln', id: ev.cnt, n: ev.n });
+  }
+}
 // «МАСТЕРА»: тем, кто открыл эту тему, — свежие сообщения; в списке тем — свежий список; остальным мастерам — счётчик непрочитанного
 function staffNotify(g, topic) {
   for (const s of WebSession.all || []) {
@@ -536,7 +546,7 @@ const API = {
     this.send({ t: 'smod', view: 'main', data: g.smodView(this.user) });
     if (m.login && op !== 'nick') { const p = g.smodPlayer(this.user, m.login); if (!p.error) this.send({ t: 'smod', view: 'player', data: p }); }
   },
-  chatlog() { this.send({ t: 'chatlog', list: this.game.chatLog(), ...this.game.chatPollViews(this.user) }); },
+  chatlog() { this.send({ t: 'chatlog', list: this.game.chatLog(), ...this.game.chatPollViews(this.user), ...this.game.chatWheelViews(this.user) }); },
   // опрос в общем чате (chatpoll.js): создаёт и ведёт только админ, голосуют все; итоги — каждому своим видом
   chatpoll(m) {
     const g = this.game, r = g.chatPollOp(this.user, { ...m, op: String(m.op || '') });
@@ -547,6 +557,14 @@ const API = {
     // сначала опрос (каждому — свой вид: итоги после голоса), потом сообщение «📊 Опрос: …» — карточка появляется сразу целиком
     for (const s of all) s.send({ t: 'chatpoll', id: r.poll, poll: g.chatPollView(r.poll, s.user), pin: g.chatPollPin(), ...(s === this && r.msg ? { made: 1 } : {}) });
     if (r.msg) for (const s of all) if (s.sendChat) s.sendChat(r.msg);
+  },
+  // «Колесо Фортуны» (wheel.js): запускает и ведёт админ, «Участвую» — игроки (с одного телефона — один аккаунт)
+  wheel(m) {
+    const g = this.game, op = String(m.op || '');
+    if (op === 'join') { const r = g.wheelJoin(this.user, m.id, this.dev); if (r.error) return this.error(r.error); this.toast(r.msg); return this.send({ t: 'wheel', w: g.wheelView(m.id, this.user) }); }
+    const r = g.wheelOp(this.user, { ...m, op }); if (r.error) return this.error(r.error);
+    if (r.note) this.toast(r.note);
+    wheelCast(g, r.out || [], this);
   },
   // фото в общий чат — только админ (pics.js): begin — размеры, part — сжатые части; готово — сообщение всем
   async chatpic(m) {
@@ -987,4 +1005,4 @@ function startWeb(game, sessions, { port, host, log }) {
   return server;
 }
 
-module.exports = { startWeb, WebSession };
+module.exports = { startWeb, WebSession, wheelCast };

@@ -747,6 +747,58 @@ textarea.ainput { resize: vertical; }
 .cpic.sz img { width: 100%; height: 100%; max-height: none; object-fit: cover; }
 .cpcap { margin-top: 4px; }
 .cadmbtn { width: 44px; height: 46px; flex: none; border: 2px solid #c8963e; border-radius: 8px; background: #5a3418; font-size: 22px; line-height: 1; padding: 0; }
+/* Колесо Фортуны в общем чате (wheel.js): лента, таблички, рамки Лавки, кнопка награды — готовая графика игры */
+.rl { margin: 6px 0 2px; text-align: center; color: #3a1a0a; }
+.rl-rib { height: 84px; margin: 0 auto -6px; background: url(gfx/reward/ribbon.png) center top / auto 84px no-repeat; color: #fff1c0; font: 700 21px/56px var(--serif); text-shadow: 0 2px 2px #0009; letter-spacing: .5px; }
+.rl-cap { font: 16px var(--serif); color: #5a4030; margin: 2px 0; }
+.rl-sheet .rl-rib { display: none; } /* в окне из закрепа название уже на ленте окна */
+.rl-list { display: flex; justify-content: center; gap: 2px; margin: 4px 0 2px; }
+.rl-card { flex: none; width: 100px; display: flex; flex-direction: column; align-items: center; position: relative; }
+.rl-card .afr { width: 92px; height: 92px; min-width: 0; min-height: 0; z-index: 1; }
+.rl-nk { width: 100px; height: 45px; margin-top: -4px; background: url(gfx/reward/plaque.png) center / 100% 100% no-repeat; display: grid; place-items: center; padding: 0 16px;
+  font: 700 14px var(--serif); color: #3a1a0a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; z-index: 1; }
+.rl-list .rl-card { width: 86px; } .rl-list .rl-card .afr { width: 78px; height: 78px; } .rl-list .rl-nk { width: 88px; height: 40px; font-size: 12.5px; padding: 0 11px; }
+.rl-prz .afr-in { background: radial-gradient(circle at 50% 45%, #7a5530, #2a1408 72%) !important; }
+.rl .rl-prz .afr-in img { object-fit: contain !important; padding: 5px; }
+.rl .rl-prz .afr-in img.top { object-fit: cover !important; object-position: 50% 8%; padding: 0; }
+.rl .rl-prz .afr-in img.unit { object-fit: cover !important; object-position: 50% 35%; padding: 0; transform: scale(1.15); }
+.rl-win { position: relative; margin: 6px 0 2px; border: 16px solid transparent; border-image: url(gfx/ui/frame_window.png) 48 round; background: radial-gradient(ellipse at center, #6a4020, #2a1408 75%) padding-box; overflow: hidden; }
+.rl-win::before, .rl-win::after { content: ''; position: absolute; top: 0; bottom: 0; width: 46px; z-index: 2; pointer-events: none; }
+.rl-win::before { left: 0; background: linear-gradient(to right, #2a1408, #2a140800); } .rl-win::after { right: 0; background: linear-gradient(to left, #2a1408, #2a140800); }
+.rl-track { position: relative; display: flex; align-items: center; gap: 6px; width: max-content; padding: 12px 0; }
+.rl-run { animation: rlSpin 5000ms cubic-bezier(.08, .6, .12, 1) both; }
+.rl-ptr { position: absolute; left: 50%; width: 0; height: 0; transform: translateX(-50%); z-index: 3; border-left: 11px solid transparent; border-right: 11px solid transparent; filter: drop-shadow(0 1px 1px #000c); }
+.rl-ptr.t { top: 0; border-top: 15px solid #ffd24a; } .rl-ptr.b { bottom: 0; border-bottom: 15px solid #ffd24a; }
+.rl-card .rl-burst { position: absolute; left: 50%; top: 46px; width: 170px; height: 170px; transform: translate(-50%, -50%); z-index: 0; pointer-events: none; }
+.rl-run .rl-card.win { animation: rlWin .5s ease-out var(--wd) both; }
+.rl-run .rl-card.win .rl-burst { animation: rlFade .5s ease-out var(--wd) both; }
+.rl-run .rl-card.win .rl-nk { animation: rlGlow .5s ease-out var(--wd) both; }
+@keyframes rlSpin { from { transform: translateX(0); } to { transform: translateX(var(--d)); } }
+@keyframes rlWin { from { transform: scale(1); } to { transform: scale(1.12); } }
+@keyframes rlFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rlGlow { from { filter: none; } to { filter: drop-shadow(0 0 5px #ffe27a); } }
+@keyframes rlPop { from { transform: scale(.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.rl-who { display: flex; align-items: center; justify-content: center; gap: 8px; font: 19px var(--serif); margin: 0 0 4px; }
+.rl-who .afr { width: 48px; height: 48px; min-width: 0; min-height: 0; flex: none; }
+.rl-go { display: block; width: 230px; height: 80px; margin: 8px auto 0; border: 0; background: url(gfx/reward/button.png) center / 100% 100% no-repeat; color: #fff; font: 700 22px var(--serif); text-shadow: 0 2px 2px #000a; cursor: pointer; }
+.rl-go:active { filter: brightness(1.15); }
+.rl-in { margin: 10px auto 2px; font: 700 18px var(--serif); color: #2f6a12; }
+.rl-adm { justify-content: center; margin: 8px 0 2px; }
+.rl-foot { font: 17px var(--serif); color: #5a4030; margin-top: 4px; }
+.rl-res { position: relative; padding: 4px 0 2px; }
+.rl-res .rl-burst { position: absolute; left: 50%; top: 80px; width: 280px; height: 280px; transform: translate(-50%, -50%); z-index: 0; pointer-events: none; }
+.rl-res .afr { width: 150px; height: 150px; min-width: 0; min-height: 0; margin: 0 auto; position: relative; z-index: 1; }
+.rl-big { position: relative; z-index: 1; width: 250px; height: 113px; margin: -14px auto 0; background: url(gfx/reward/plaque.png) center / 100% 100% no-repeat; display: grid; place-items: center; padding: 0 34px;
+  font: 700 28px var(--serif); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rl-got { position: relative; z-index: 1; font: 20px var(--serif); margin-top: 2px; }
+.rl-sub { position: relative; z-index: 1; font: 16px var(--serif); color: #5a4030; }
+.rl-pop .afr, .rl-pop .rl-big { animation: rlPop .6s cubic-bezier(.2, 1.4, .4, 1) both; }
+.rl-pop .rl-burst { animation: rlFade .8s ease-out both; }
+#sheetBody .whform label { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0; font: 19px var(--serif); color: #3a1a0a; }
+#sheetBody .whform label input, #sheetBody .whform label select { width: 46%; flex: none; margin: 0; }
+.cadmplus { color: #ffd76a; font: 700 32px/1 var(--serif); text-shadow: 0 1px 2px #000a; }
+.cpop-grid.cadm-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+#sheetBody .ptile .ptem { font: 36px/1 system-ui, sans-serif; text-shadow: none; }
 .cadmbtn:active { filter: brightness(1.2); }
 .cpop-bg { position: fixed; inset: 0; z-index: 50; background: #0006; display: grid; place-items: center; }
 .cpop { position: relative; width: min(78vw, 340px); padding: 34px 18px 22px; background: linear-gradient(#ecd2ae, #d8b890); border: 3px solid #b08a5a; border-radius: 6px; box-shadow: 0 0 0 2px #6a4020, 0 8px 20px #000a; }

@@ -157,7 +157,7 @@ const chatVotes = (m) => { const up = (m.up || []).length, dn = (m.dn || []).len
 const chatText = (m) => (/^#[0-9a-f]{6}$/i.test(m.color || '') ? `<span class="ccol" style="color:${m.color}">${smiles(esc(m.text))}</span>` : smiles(esc(m.text)));
 const smiles = (html) => html.replace(/:([A-Za-z]{2,12}):/g, (m, k) => (SMILE_SET.has(k) || OLD_SMILES.includes(k) ? `<img class="csm" src="${smileSrc(k)}" alt="">` : m));
 S.chatUsers = null; S.smileOpen = false;
-function openChat() { send({ t: 'chatlog' }); send({ t: 'chatusers' }); S.smileOpen = false; openSheet(chatWin); setTimeout(() => { const l = $('#chatList'); if (l) l.scrollTop = l.scrollHeight; }, 50); }
+function openChat() { send({ t: 'chatlog' }); send({ t: 'chatusers' }); S.smileOpen = false; S.chatAdm = false; openSheet(chatWin); setTimeout(() => { const l = $('#chatList'); if (l) l.scrollTop = l.scrollHeight; }, 50); }
 function chatWin() {
   const my = S.st.user.login.toLowerCase();
   const n = S.chatUsers ? S.chatUsers.length : '…';
@@ -165,7 +165,7 @@ function chatWin() {
     <div class="chattop"><button class="lbar" data-chatexit><img src="${GFX}chat/exit.png" alt=""> Выход</button><button class="lbar" data-chatusers><img src="${GFX}chat/players.png" alt=""> Игроки (${n})</button></div>
     ${chatPinHtml()}
     <div id="chatList" class="chatlist ${S.smileOpen ? 'short' : ''} ${chatPinHtml() ? 'pinned' : ''}">${S.chat.filter((m) => !isBlack(m.fromId)).slice(-30).reverse().map((m) => { const hit = m.fromId !== me() && m.text.toLowerCase().includes(my);
-      if (m.poll || m.pic || m.picGone) return chatSpecialHtml(m);
+      if (m.poll || m.pic || m.picGone || m.wheel) return chatSpecialHtml(m);
       return `<div class="cm ${hit ? 'hit' : ''} ${m.fromId === me() ? 'mine' : ''} ${m.role === 'smod' ? 'smodmsg' : ''}" data-chatpop="${m.fromId}" data-nick="${esc(m.from)}" data-mid="${m.id}"><small>${new Date(m.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</small> <b>[${esc(m.from)}]</b>${m.role ? ` <img class="admbadge s" src="${GFX}${m.role === 'admin' ? 'admin_badge_s.png' : m.role === 'smod' ? 'chat/smoder.png' : 'chat/moder.png'}" alt="">` : ''}${m.rep >= 10 ? ` ${repIcons(m.rep)}` : ''} ${chatText(m)}${chatVotes(m)}</div>`; }).join('') || '<p class="parch-note">Сообщений пока нет — напишите первым.</p>'}</div>
     ${S.smileOpen ? `<div class="smilebox">${SMILES.map((k) => `<button data-smile="${k}"><img src="${smileSrc(k)}" alt=""></button>`).join('')}</div>` : ''}
     ${S.chatPop ? `<div class="cpop-bg" data-cpopclose><div class="cpop"><button class="cpop-x" data-cpopclose aria-label="Закрыть">✕</button><div class="cpop-nick">${esc(S.chatPop.nick)}</div>
@@ -179,16 +179,29 @@ function chatWin() {
         <button class="ptile" data-cpop="del"><img src="${GFX}chat/delete.png" alt=""><span>Удалить</span></button>
         <button class="ptile" data-cpop="ban"><img src="${GFX}chat/ban.png" alt=""><span>Бан в чате</span></button></div>
         ${S.chatPop.ban ? `<div class="cpop-ban">${[[1, '1 час'], [2, '2 часа'], [8, '8 часов'], [-1, 'Навсегда'], [0, 'Снять бан']].map(([h, t]) => `<button class="pbtn" data-cban="${h}">${t}</button>`).join('')}</div>` : ''}` : ''}</div></div>` : ''}
-    <form class="chatbar" data-form="chat">${S.st.user.admin ? `<button type="button" class="cadmbtn" data-cadmpic aria-label="Фото в чат">${S.chatPicBusy ? '⏳' : '📷'}</button><button type="button" class="cadmbtn" data-cadmpoll aria-label="Опрос в чат">📊</button>` : ''}<button type="button" class="smilebtn" data-smiletoggle aria-label="Смайлы"><img src="${GFX}chat/smiles.png" alt=""></button><input name="text" maxlength="300" autocomplete="off" value="${esc(S.chatDraft || '')}"><button class="sendbtn" aria-label="Отправить"><img src="${GFX}chat/send.png" alt=""></button></form>`;
+    ${S.chatAdm ? `<div class="cpop-bg" data-cadmclose><div class="cpop"><button class="cpop-x" data-cadmclose aria-label="Закрыть">✕</button><div class="cpop-nick">В общий чат</div>
+      <div class="cpop-grid cadm-grid"><button class="ptile" data-cadmpic><span class="ptem">📷</span><span>Фото</span></button><button class="ptile" data-cadmpoll><span class="ptem">📊</span><span>Опрос</span></button>
+      <button class="ptile" data-cadmwheel><span class="ptem">🎰</span><span>Колесо Фортуны</span></button></div></div></div>` : ''}
+    <form class="chatbar" data-form="chat">${S.st.user.admin ? `<button type="button" class="cadmbtn cadmplus" data-cadmmenu aria-label="Фото, опрос или Колесо Фортуны">${S.chatPicBusy ? '⏳' : '+'}</button>` : ''}<button type="button" class="smilebtn" data-smiletoggle aria-label="Смайлы"><img src="${GFX}chat/smiles.png" alt=""></button><input name="text" maxlength="300" autocomplete="off" value="${esc(S.chatDraft || '')}"><button class="sendbtn" aria-label="Отправить"><img src="${GFX}chat/send.png" alt=""></button></form>`;
 }
 // ---- фото и опросы администратора в общем чате (server: pics.js, chatpoll.js) ----
 S.cpolls = {}; S.cpollPin = 0; S.cpollSel = {};
 const chatHead = (m) => `<small>${new Date(m.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</small> <b>[${esc(m.from)}]</b>${m.role ? ` <img class="admbadge s" src="${GFX}${m.role === 'admin' ? 'admin_badge_s.png' : m.role === 'smod' ? 'chat/smoder.png' : 'chat/moder.png'}" alt="">` : ''}`;
-// закреплённый вверху чата открытый опрос: вопрос и «Голосовать» / «Итоги» — открывает окно опроса
-function chatPinHtml() { const p = S.cpollPin && S.cpolls[S.cpollPin]; if (!p) return '';
+// закреплённый вверху чата открытый опрос: вопрос и «Голосовать» / «Итоги» — открывает окно опроса;
+// пока идёт запись на Колесо Фортуны (wheel.js), закреплено оно
+function chatPinHtml() { const wp = typeof whPinHtml === 'function' ? whPinHtml() : ''; if (wp) return wp;
+  const p = S.cpollPin && S.cpolls[S.cpollPin]; if (!p) return '';
   return `<button class="cpin" data-cpollopen="${S.cpollPin}"><span>📌 📊 ${esc(p.q)}</span><b>${p.mine ? 'Итоги' : 'Голосовать'} ›</b></button>`; }
+// закреп в открытом чате — заменить, убрать или добавить, не перерисовывая окно (поле ввода не теряет фокус)
+function chatPinUpdate() {
+  const l = $('#chatList'); if (!l) return;
+  const html = chatPinHtml(), pb = $('.cpin');
+  if (pb) { if (html) pb.outerHTML = html; else pb.remove(); } else if (html) l.insertAdjacentHTML('beforebegin', html);
+  l.classList.toggle('pinned', !!html);
+}
 // сообщение с фото (нажатие — во весь экран) или с опросом (карточка как на форуме); без меню «Обратиться/Профиль…»
 function chatSpecialHtml(m) {
+  if (m.wheel) return `<div class="cm cspecial">${chatHead(m)}${whCardHtml(m)}</div>`;
   if (m.poll) { const p = S.cpolls[m.poll]; return `<div class="cm cspecial">${chatHead(m)}${p ? fPollCard(p, S.st.user.admin, { pre: 'c', id: m.poll, sel: S.cpollSel[m.poll] }) : ' <span class="muted">опрос удалён</span>'}</div>`; }
   const cap = m.text && m.text !== '📷 Фото' ? `<div class="cpcap">${chatText(m)}</div>` : '';
   // место под фото — заранее по его размерам (не выше 300): лента не прыгает, когда картинка догрузится
@@ -214,11 +227,16 @@ async function chatPicSend(file) {
 }
 let chatPicInput = null;
 $('#sheetBody').addEventListener('click', (e) => {
-  const t = e.target.closest('[data-cadmpic],[data-cadmpoll],[data-cpollopen],[data-cpoll],[data-cpollgo],[data-cpollun],[data-cpollclose],[data-cpolldel]'); if (!t) return;
+  const t = e.target.closest('[data-cadmmenu],[data-cadmclose],[data-cadmpic],[data-cadmpoll],[data-cadmwheel],[data-cpollopen],[data-cpoll],[data-cpollgo],[data-cpollun],[data-cpollclose],[data-cpolldel]'); if (!t) return;
   e.stopImmediatePropagation(); const d = t.dataset, id = Number(d.pid || d.cpollopen || 0);
-  if (d.cadmpoll !== undefined) return openSheet(chatPollNewWin);
+  // меню админа «+»: поле ввода теряет фокус — иначе окно не перерисуется (refreshSheet бережёт набираемый текст)
+  if (d.cadmmenu !== undefined) { if (S.chatPicBusy) return; const a = document.activeElement; if (a && a.blur) a.blur(); S.chatAdm = !S.chatAdm; return refreshSheet(); }
+  if (d.cadmclose !== undefined) { if (e.target === t || t.classList.contains('cpop-x')) { S.chatAdm = false; refreshSheet(); } return; }
+  if (d.cadmpoll !== undefined) { S.chatAdm = false; return openSheet(chatPollNewWin); }
+  if (d.cadmwheel !== undefined) { S.chatAdm = false; return openSheet(wheelNewWin); } // Колесо Фортуны — wheel.js
   if (d.cadmpic !== undefined) {
     if (S.chatPicBusy) return;
+    S.chatAdm = false; setTimeout(refreshSheet, 0);
     if (!chatPicInput) { chatPicInput = document.createElement('input'); chatPicInput.type = 'file'; chatPicInput.accept = 'image/*'; chatPicInput.style.display = 'none'; document.body.appendChild(chatPicInput);
       chatPicInput.addEventListener('change', () => { const f = chatPicInput.files && chatPicInput.files[0]; chatPicInput.value = ''; if (f) chatPicSend(f); }); }
     return chatPicInput.click();
@@ -244,7 +262,7 @@ function chatPollMsg(m) {
   S.cpollPin = m.pin || 0;
   if (m.made && S.sheets[S.sheets.length - 1] === chatPollNewWin) closeSheet();
   const top = S.sheets[S.sheets.length - 1];
-  if (top === chatWin) { const pinNow = !!$('.cpin'); if (pinNow !== !!chatPinHtml()) refreshSheet(); else { const pb = $('.cpin'); if (pb) pb.outerHTML = chatPinHtml(); chatListUpdate(); } } else if (top === chatPollWin) refreshSheet();
+  if (top === chatWin) { chatPinUpdate(); chatListUpdate(); } else if (top === chatPollWin) refreshSheet();
   chatLine();
 }
 function chatPicMsg(m) {

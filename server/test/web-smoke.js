@@ -368,6 +368,21 @@ function client() {
     adm.send({ t: 'chatpoll', op: 'del', id: cpp.id });
     await a.expect('chatpoll', (m) => m.id === cpp.id && m.gone && m.pin === 0);
     console.log('✓ опрос в общем чате — только админ, рассылка всем, голос, удаление');
+    // Колесо Фортуны: запускает админ; «Участвую» — игрок; «Крутить сейчас» — всем полосы, победитель и сообщение «крутится»
+    const WH = { t: 'wheel', op: 'create', gold: 1, exp: 5000, unit: 'rand', res: 10000, cells: 12, mins: 1 };
+    a.send(WH); await a.expect('error', (m) => /только администратор/.test(m.msg));
+    adm.send(WH);
+    const wha = await adm.expect('wheel', (m) => m.made && m.w && m.w.st === 'join'), whp = await a.expect('wheel', (m) => m.w && m.w.id === wha.w.id);
+    assert.ok(!whp.made && whp.w.cells.length === 12 && !whp.w.mine && !whp.w.strip1, 'колесо пришло всем, победителя ещё нет');
+    await a.expect('chatmsg', (m) => m.msg.wheel === wha.w.id && m.msg.wph === 'join');
+    a.send({ t: 'wheel', op: 'join', id: wha.w.id }); await a.expect('toast', (m) => /Вы участвуете/.test(m.msg));
+    assert.ok((await a.expect('wheel', (m) => m.w && m.w.id === wha.w.id && m.w.mine)).w.n === 1, 'игрок участвует');
+    a.send({ t: 'wheel', op: 'spin', id: wha.w.id }); await a.expect('error', (m) => /Нет прав/.test(m.msg));
+    adm.send({ t: 'wheel', op: 'spin', id: wha.w.id });
+    const whs = (await a.expect('wheel', (m) => m.w && m.w.id === wha.w.id && m.w.st === 'spin')).w;
+    assert.ok(whs.strip1[whs.at] === whs.win && whs.people[whs.win].login === 'Webby' && whs.prize, 'розыгрыш: полосы, победитель, приз');
+    await a.expect('chatmsg', (m) => m.msg.wheel === wha.w.id && m.msg.wph === 'spin');
+    console.log('✓ Колесо Фортуны — запускает админ, «Участвую», розыгрыш у всех одинаковый');
     // модератор удаляет сообщение в форуме альянса (права «Новости и форум» у него нет) и может открыть форум чужого альянса
     adm.send({ t: 'ally', op: 'get' });
     const fa = (await adm.expect('ally', (m) => m.data.forum.length > 0)).data, ftopic = fa.forum[0];

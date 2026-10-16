@@ -353,6 +353,53 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(d3.gone && !g.db.chat.some((x) => x.poll === r3.poll) && !g.chatPollView(r3.poll, adm), 'админ удаляет опрос вместе с сообщением');
   console.log('✓ общий чат: опрос — только админ, закреплён, один голос, итоги после голоса, завершение и удаление');
 }
+// Колесо Фортуны (wheel.js): запускает только админ; ячейки — золото, опыт, воин по одной, остальные — ресурсы;
+// «Участвую» — с одного телефона один аккаунт; по таймеру — победитель и приз сразу, полосы одинаковые у всех, итог — отчётом
+{
+  const adm = Object.values(g.db.users).find((x) => x.admin), D = (c) => c.repeat(16);
+  const [w1, w2, w3] = ['wh1', 'wh2', 'wh3'].map((l, i) => g.register({ login: `${l}_acc`, nick: l, password: '12345', race: i }).user);
+  const W = { op: 'create', gold: 1, exp: 5000, unit: 'rand', res: 10000, cells: 12, mins: 1 };
+  assert.ok(/только администратор/.test(g.wheelOp(w1, W).error || ''), 'игрок колесо не запускает');
+  for (const bad of [{ cells: 3 }, { cells: 21 }, { gold: 1001 }, { gold: -1 }, { exp: 1.5 }, { res: 'x' }, { mins: 7 }, { unit: 200 }, { gold: 0, exp: 0, unit: 0, res: 0 }])
+    assert.ok(g.wheelOp(adm, { ...W, ...bad }).error, `неверный запуск отклонён: ${JSON.stringify(bad)}`);
+  const r = g.wheelOp(adm, W); assert.ok(!r.error && r.out.some((e) => e.chat && e.chat.wheel), JSON.stringify(r));
+  const w = g.db.wheels[g.db.wheels.length - 1], kinds = (k) => w.cells.filter((c) => c.k === k).length;
+  assert.ok(w.cells.length === 12 && kinds('gold') === 1 && kinds('exp') === 1 && kinds('unit') === 1 && ['wood', 'stone', 'iron', 'food'].reduce((s, k) => s + kinds(k), 0) === 9, 'золото, опыт и воин — по ячейке, 9 ячеек ресурсов');
+  assert.ok(require('../src/army').UNIT[w.cells.find((c) => c.k === 'unit').id].undead, 'случайный воин — из нежити сундуков');
+  assert.ok(g.wheelOp(adm, W).error, 'второе колесо, пока идёт первое, — нельзя');
+  assert.ok(g.wheelJoin(adm, w.id, D('a')).error, 'админ не участвует');
+  assert.ok(g.wheelJoin(w1, w.id, D('b')).ok && g.wheelJoin(w1, w.id, D('b')).error, 'участвовать — один раз');
+  assert.ok(/телефона/.test(g.wheelJoin(w2, w.id, D('b')).error || ''), 'с того же телефона второй аккаунт — нельзя');
+  assert.ok(g.wheelJoin(w2, w.id, D('c')).ok && g.wheelJoin(w3, w.id, '').ok, 'с другого телефона — можно');
+  let v = g.chatWheelViews(w1); const v1 = v.wheels[w.id];
+  assert.ok(v.wpin === w.id && v1.mine && v1.n === 3 && v1.st === 'join' && !v1.strip1 && v1.win === undefined && !g.wheelView(w.id, adm).mine, 'запись: колесо закреплено, победителя ещё нет');
+  assert.ok(g.wheelCheck(w.until - 2000).some((e) => e.cnt === w.id && e.n === 3) && !g.wheelCheck(w.until - 1000).length, 'число участников — всем, один раз');
+  const snap = (u) => JSON.stringify([u.gold || 0, g.stashOf(u)]), before = new Map([w1, w2, w3].map((u) => [u.id, snap(u)]));
+  const out = g.wheelCheck(w.until + 1), msg = (out.find((e) => e.chat) || {}).chat;
+  assert.ok(w.st === 'spin' && msg && msg.wheel === w.id && msg.wph === 'spin' && msg.text === '🎰 Колесо Фортуны крутится!', 'время вышло — колесо крутится, в чате сообщение');
+  const win = g.userById(w.win), c = w.cells[w.cell], s = g.stashOf(win);
+  assert.ok([w1.id, w2.id, w3.id].includes(w.win) && w.strip1[34] === w.win && w.strip2[34] === w.cell && w.strip1.length === 40 && w.strip1.every((id) => [w1.id, w2.id, w3.id].includes(id)), 'полосы: выигрыш — под стрелкой');
+  assert.ok(c.k === 'gold' ? (win.goldLog || []).some((x) => x.delta === 1 && /Колесо Фортуны/.test(x.reason)) : c.k === 'exp' ? s.exp === 5000 : c.k === 'unit' ? s.units[c.id] === 1 : s.res[c.k] === 10000, `приз начислен сразу: ${JSON.stringify(c)}`);
+  assert.ok([w1, w2, w3].filter((u) => u !== win).every((u) => snap(u) === before.get(u.id)), 'остальным — ничего');
+  const vA = g.wheelView(w.id, w1), vB = g.wheelView(w.id, w2);
+  assert.ok(JSON.stringify([vA.strip1, vA.strip2, vA.jit1, vA.jit2]) === JSON.stringify([vB.strip1, vB.strip2, vB.jit1, vB.jit2]) && vA.people[w.win].login === win.login && vA.prize === g.wheelPrize(c), 'у всех одни и те же полосы');
+  assert.ok(g.wheelOp(adm, { op: 'cancel', id: w.id }).error && !g.chatWheelViews(w1).wpin, 'после розыгрыша не отменить, закреп снят');
+  const rep0 = g.reportsOf(w.win).length; g.wheelCheck(w.spinAt + 5000);
+  assert.ok(w.st === 'spin' && g.reportsOf(w.win).length === rep0, 'отчёт — не раньше конца прокрутки');
+  g.wheelCheck(w.spinAt + 12501);
+  assert.ok(w.st === 'done' && g.reportsOf(w.win).length === rep0 + 1 && /выигрыш/.test(g.reportsOf(w.win)[0].title) && /выигрывает/.test(g.db.chat.find((x) => x.id === w.msg).text), 'итог: отчёт победителю, в чате — кто выиграл');
+  const before2 = snap(win); g.wheelCheck(w.spinAt + 99999); assert.ok(snap(win) === before2, 'приз — один раз');
+  assert.ok(g.wheelOp(adm, { ...W, gold: 0, exp: 0, unit: 0, res: 500, cells: 4 }).out && g.db.wheels[g.db.wheels.length - 1].cells.length === 4, 'колесо из одних ресурсов');
+  const e = g.db.wheels[g.db.wheels.length - 1]; g.wheelCheck(e.until + 1);
+  assert.ok(e.st === 'cancel' && e.why === 'empty', 'никто не записался — розыгрыш отменён');
+  const r3 = g.wheelOp(adm, { ...W, unit: 323 }), w4 = g.db.wheels[g.db.wheels.length - 1];
+  assert.ok(!r3.error && w4.cells.some((x) => x.k === 'unit' && x.id === 323), 'выбранный воин — в колесе');
+  assert.ok(g.wheelOp(w1, { op: 'cancel', id: w4.id }).error && !g.wheelOp(adm, { op: 'cancel', id: w4.id }).error && w4.st === 'cancel' && g.wheelJoin(w1, w4.id, D('b')).error, 'отменяет только админ; после отмены не записаться');
+  const w5r = g.wheelOp(adm, W), w5 = g.db.wheels[g.db.wheels.length - 1]; g.wheelJoin(w2, w5.id, D('d'));
+  assert.ok(!w5r.error && g.wheelOp(adm, { op: 'spin', id: w5.id }).out.some((x) => x.chat) && w5.win === w2.id, '«Крутить сейчас» — розыгрыш без ожидания');
+  g.wheelCheck(w5.spinAt + 12501);
+  console.log('✓ Колесо Фортуны: запускает админ, ячейки по призам, «Участвую» — один аккаунт с телефона, приз сразу, полосы у всех одинаковые, отчёт после прокрутки');
+}
 // секретный логин админа: ADMIN_LOGIN — вход только под ним, «admin» отклоняется, в игре ник остаётся admin
 {
   const adm = g.ensureAdmin('secretpass');
