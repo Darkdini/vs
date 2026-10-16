@@ -143,7 +143,7 @@ function install(Game) {
 
   P.playerInfo = function playerInfo(u) {
     const cs = this.castlesOf(u);
-    return { id: u.id, login: u.login, acct: u.acct || '', email: u.email || '', race: C.RACE_NAMES[u.race], castles: cs.length, rating: this.userRating(u), gold: u.gold || 0,
+    return { id: u.id, login: u.login, acct: u.acct || '', email: u.email || '', emailOk: !!u.emailOk, race: C.RACE_NAMES[u.race], castles: cs.length, rating: this.userRating(u), gold: u.gold || 0,
       online: !!u.online, banned: !!u.banned, admin: !!u.admin, mod: !!u.mod, smod: !!u.smod, created: u.created, lastSeen: u.lastSeen || u.created, x: cs[0] && cs[0].x, y: cs[0] && cs[0].y };
   };
 
@@ -285,7 +285,7 @@ function install(Game) {
         const l = (this.db.alerts || []).slice(-150).reverse(); data = l.map((x) => ({ ...x })); for (const x of this.db.alerts || []) x.seen = true; break;
       }
       case 'alertsclear': this.db.alerts = []; msg = 'Список подозрительного очищен.'; break;
-      case 'sec': data = { ...this.secView(arg.ip), tg: this.tgBackupInfo() }; break; // «Безопасность» (secwatch.js); arg.ip — адрес самого админа (от web.js)
+      case 'sec': data = { ...this.secView(arg.ip), tg: this.tgBackupInfo(), mail: this.mailStatus() }; break; // «Безопасность» (secwatch.js); arg.ip — адрес самого админа (от web.js)
       case 'ipban': { const r = this.ipBan(arg.target, arg.why, arg.ip); if (r.error) return r; msg = r.msg; break; }
       case 'ipunban': msg = this.ipUnban(arg.target).msg; break;
       case 'tgbackup': { if (!this.tgBackupInfo().on) return { error: 'Копия в Telegram не настроена: на сервере sh /opt/war/game/tgbackup.sh' }; this.tgBackupSend('manual').then((r) => { if (this.event) this.event(user.id, r.error || r.msg); }); msg = 'Отправляю копию в Telegram…'; break; } // tgbackup.js

@@ -1,6 +1,6 @@
 'use strict';
-// «Забыли пароль?» на экране входа: логин → код от бота в Telegram → код + новый пароль (server/src/tgauth.js).
-// Бот присылает только код — сам пароль игрок придумывает здесь, нигде он не пересылается.
+// «Забыли пароль?» на экране входа: логин или почта → код на привязанную почту и/или от бота в Telegram → код + новый пароль
+// (server/src/mail.js, tgauth.js). Присылается только код — сам пароль игрок придумывает здесь, нигде он не пересылается.
 const resetUi = (step2) => { $('#resetStep2').classList.toggle('hidden', !step2); $('#resetBtn').textContent = step2 ? 'Сменить пароль' : 'Получить код';
   const f = $('#resetForm'); f.code.required = step2; f.password.required = step2; f.password2.required = step2; };
 $('#forgotBtn').addEventListener('click', () => {
@@ -19,6 +19,6 @@ function resetMsg(m) {
   const msg = $('#resetMsg'); msg.textContent = m.msg || ''; msg.className = m.ok ? 'okmsg' : 'err';
   if (m.op === 'request' && m.ok) { resetUi(true); $('#resetForm').code.focus(); }
   if (m.op === 'confirm' && m.ok) { // пароль сменён — назад ко входу, логин уже вписан
-    setTimeout(() => { $('#resetBack').click(); const a = $('#authForm'); a.login.value = $('#resetForm').login.value; a.password.value = ''; a.password.focus(); $('#authErr').textContent = ''; toast('Пароль изменён — войдите с новым паролем.'); }, 1200);
+    setTimeout(() => { $('#resetBack').click(); const a = $('#authForm'); a.login.value = m.login || $('#resetForm').login.value; a.password.value = ''; a.password.focus(); $('#authErr').textContent = ''; toast('Пароль изменён — войдите с новым паролем.'); }, 1200);
   }
 }

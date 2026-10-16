@@ -278,17 +278,27 @@ const API = {
     if (res.error) return this.error(res.error);
     this.pushState();
   },
-  // «Забыли пароль?» (tgauth.js) — без входа: request — код в Telegram, confirm — код + новый пароль
+  // «Забыли пароль?» (mail.js, tgauth.js) — без входа: request — код на привязанную почту и в Telegram, confirm — код + новый пароль
   reset(m) {
     const g = this.game, op = String(m.op || '');
-    if (op === 'info') return this.send({ t: 'reset', info: g.tgAuthInfo(null) });
-    const r = op === 'confirm' ? g.tgResetConfirm(m.login, m.code, m.password, this.ip) : g.tgResetRequest(m.login, this.ip);
+    if (op === 'info') return this.send({ t: 'reset', info: g.tgAuthInfo(null), mail: g.mailInfo(null).on });
+    const r = op === 'confirm' ? g.resetConfirm(m.login, m.code, m.password, this.ip) : g.resetRequest(m.login, this.ip);
     if (r.error) { if (op === 'confirm') g.secEvent(this.ip, 'login', `сброс пароля: ${String(m.login || '').slice(0, 30)}`); return this.send({ t: 'reset', op, ok: false, msg: r.error }); }
     if (r.uid) for (const s of WebSession.all || []) if (s.user && s.user.id === r.uid) s.socket.destroy(); // прежние входы — из игры
     this.send({ t: 'reset', op, ok: true, msg: r.msg, login: r.login });
   },
   // окно «Поход»: точное время пути (army.js marchEta) — как при отправке армии
   eta(m) { const r = this.game.marchEta(this.game.castleOf(this.user), m || {}); this.send({ t: 'eta', key: String((m && m.key) || '').slice(0, 400), sec: r.sec }); },
+  // привязка почты в Профиле (mail.js): link — код на адрес (с паролем от аккаунта), confirm — код из письма, unlink — с паролем, cancel
+  email(m) {
+    const g = this.game, u = this.user, op = String(m.op || '');
+    const reply = (r) => this.send({ t: 'email', info: g.mailInfo(u), note: r ? { ok: !r.error, msg: r.error || r.msg } : null, done: r && !r.error ? op : '' });
+    if (op === 'link') return g.mailLinkStart(u, m.addr, m.password).then(reply);
+    if (op === 'confirm') return reply(g.mailLinkConfirm(u, m.code));
+    if (op === 'unlink') return reply(g.mailUnlink(u, m.password));
+    if (op === 'cancel') return reply(g.mailCancel(u));
+    reply(null);
+  },
   // привязка Telegram в Профиле
   tg(m) {
     const g = this.game, op = String(m.op || '');
@@ -392,7 +402,7 @@ const API = {
     const profile = this.game.profileOf(u, this.user);
     if (m.acct && u.id === this.user.id) { // «Кабинет → Профиль»: настройки своего аккаунта
       const c = this.castle, v = this.user.violations || 0;
-      profile.acct = { castleName: c.name, castleDesc: c.desc || '', premium: this.game.isPremium(this.user), violations: v, uid: this.user.id, acctLogin: this.user.admin ? '' : this.user.acct || '', tg: this.game.tgAuthInfo(this.user) };
+      profile.acct = { castleName: c.name, castleDesc: c.desc || '', premium: this.game.isPremium(this.user), violations: v, uid: this.user.id, acctLogin: this.user.admin ? '' : this.user.acct || '', tg: this.game.tgAuthInfo(this.user), mail: this.game.mailInfo(this.user) };
     }
     this.send({ t: 'profile', acct: !!profile.acct, refresh: !!m.refresh, profile });
   },
@@ -740,6 +750,7 @@ const API = {
     this.pushState();
   },
   admin(m) {
+    if (m.op === 'mailtest' && this.user.admin) return this.game.mailTest(this.user, m.addr).then((r) => this.send({ t: 'admininfo', op: 'mailtest', data: r })); // проверочное письмо (mail.js)
     const r = this.game.adminOp(this.user, m.op, { ...m, ip: this.ip, online: onlineCount() }); // ip и онлайн — с сервера, не от клиента
     if (r.error) return this.error(r.error);
     if (r.data) this.send({ t: 'admininfo', op: m.op, data: r.data });

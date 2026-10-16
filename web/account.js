@@ -2,7 +2,25 @@
 // «Кабинет → Профиль» — настройки своего аккаунта, как в оригинале: аватар (Изменить/Удалить), ник, раса, звание, рейтинг,
 // репутация, альянс; тип аккаунта, премиум, нарушения; безопасность (уникальный номер, смена пароля); замок (название, описание);
 // управление (личная информация, мой публичный профиль). Сервер: profile(acct), avatar, passwd, castleinfo.
-function openAccount() { S.acctView = true; S.tgNote = null; send({ t: 'profile', id: S.st.user.id, acct: 1 }); }
+function openAccount() { S.acctView = true; S.tgNote = null; S.mailNote = null; S.mailEdit = ''; send({ t: 'profile', id: S.st.user.id, acct: 1 }); }
+// Почта: привязка кодом из письма — чтобы восстановить пароль, если забудете (server/src/mail.js).
+// S.mailEdit: '' — кнопки, 'link'/'change' — адрес и пароль от аккаунта, 'unlink' — пароль для отвязки
+function mailBlock(ml) {
+  if (!ml || !ml.on || S.st.user.admin) return '';
+  const ed = S.mailEdit || '', note = S.mailNote ? `<div class="smnote ${S.mailNote.ok ? 'ok' : ''}">${S.mailNote.ok ? '✔' : '⛔'} ${esc(S.mailNote.msg)}</div>` : '';
+  const head = `<div class="actg"><span class="actgi">✉</span><div>${ml.email ? `Почта привязана: <b>${esc(ml.email)}</b><br><small>Забудете пароль — пришлём код на почту.</small>`
+    : 'Почта не привязана.<br><small>Привяжите — и если забудете пароль, код для смены придёт на почту.</small>'}</div></div>`;
+  const pass = '<label>Пароль от аккаунта:<input name="password" type="password" autocomplete="current-password" required></label>';
+  const back = '<button class="pbar acbar" data-ml="close">Отмена</button>';
+  const body = ml.pending ? `${S.mailNote ? '' : `<div class="smnote ok">✔ Код отправлен на ${esc(ml.pending)}</div>`}<form class="acform" data-mlcode><label>Код из письма:<input name="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" required></label>
+      <button class="pbar">Подтвердить</button></form><button class="pbar acbar" data-ml="cancel">Отмена</button>`
+    : ed === 'link' || ed === 'change' ? `<form class="acform" data-mllink><label>${ml.email ? 'Новая почта' : 'Ваша почта'}:<input name="addr" type="email" inputmode="email" autocapitalize="none" spellcheck="false" maxlength="100" placeholder="name@mail.ru" value="${esc(ml.email ? '' : ml.suggest || '')}" required></label>
+      ${pass}<button class="pbar">Получить код</button></form>${back}`
+    : ed === 'unlink' ? `<form class="acform" data-mlun>${pass}<button class="pbar">Отвязать почту</button></form>${back}`
+    : ml.email ? '<button class="pbar acbar" data-ml="change">Сменить почту</button><button class="pbar acbar" data-ml="unlink">Отвязать почту</button>'
+    : '<button class="pbar acbar gold" data-ml="link">✉ Привязать почту</button>';
+  return `${head}${note}${body}`;
+}
 // Telegram: привязка для восстановления пароля (server/src/tgauth.js)
 function tgBlock(t) {
   if (!t || !t.on || S.st.user.admin) return '';
@@ -32,6 +50,7 @@ function accountWin(p) {
     <div class="acuid">Ваш уникальный номер в игре:<br><b>${a.uid}</b>${a.acctLogin ? `<br>Логин для входа: <b>${esc(a.acctLogin)}</b>` : ''}</div>
     ${bar('data-acct="pass"', '', '🔑 Изменить пароль')}
     ${tgBlock(a.tg)}
+    ${mailBlock(a.mail)}
     ${p.self !== false && !(S.st.user.admin) ? `<form class="acform" data-form="nickcase"><label>Новый ник (3–10 английских букв и цифр):<input name="nick" maxlength="10" value="${esc(p.login)}" autocapitalize="none" required></label><button class="pbar">Сменить ник за ${coinsZa(S.st.nickPrice || 100)}</button></form>` : ''}
     ${ribbon('Цвет сообщений')}<div class="mcolhead"><img src="${GFX}chat/color.png" alt=""><span>Цвет текста в чате, письмах и на форуме (премиум)</span></div><div class="mcolors">${(S.st.msgColors || ['']).map((c, i) => `<button type="button" class="mcol ${i === (S.st.msgColor || 0) ? 'on' : ''}" data-mcol="${i}" style="background:${c || '#3a2410'}" aria-label="цвет ${i}">${i ? '' : 'Аа'}</button>`).join('')}</div>
     <div class="bwline small center">${a.premium ? 'Этим цветом будут видны ваши сообщения в диалогах и на форуме.' : '🔒 Выбор цвета — с премиумом.'}</div>
@@ -83,6 +102,23 @@ $('#sheetBody').addEventListener('submit', (e) => {
   const f = e.target.closest('[data-tgun]'); if (!f) return; e.preventDefault(); e.stopImmediatePropagation();
   send({ t: 'tg', op: 'unlinkok', code: f.code.value.trim() });
 });
+$('#sheetBody').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-ml]'); if (!b) return;
+  S.mailNote = null;
+  if (b.dataset.ml === 'cancel') return send({ t: 'email', op: 'cancel' });
+  S.mailEdit = b.dataset.ml === 'close' ? '' : b.dataset.ml; refreshSheet();
+});
+$('#sheetBody').addEventListener('submit', (e) => {
+  const f = e.target.closest('[data-mllink],[data-mlcode],[data-mlun]'); if (!f) return; e.preventDefault(); e.stopImmediatePropagation();
+  if (f.dataset.mllink !== undefined) { f.querySelector('button').disabled = true; return send({ t: 'email', op: 'link', addr: f.addr.value.trim(), password: f.password.value }); }
+  if (f.dataset.mlcode !== undefined) return send({ t: 'email', op: 'confirm', code: f.code.value.trim() });
+  send({ t: 'email', op: 'unlink', password: f.password.value });
+});
+// ответ сервера по почте: удалось — назад к кнопкам (после «Получить код» — поле для кода), не удалось — форма остаётся
+function mailMsg(m) {
+  S.mailNote = m.note || null; if (m.done) S.mailEdit = '';
+  if (S.acctView) send({ t: 'profile', id: S.st.user.id, acct: 1 });
+}
 function tgMsg(m) {
   if (m.note) S.tgNote = m.note;
   if (m.buyErr) { if (S.tgWin && !S.tgWin.closed) S.tgWin.close(); S.tgWin = null; toast(m.buyErr); return; }

@@ -144,11 +144,11 @@ function devCard(p) {
     <div class="mhead">IP-адреса</div><div class="small">Регистрация: <b>${esc(d.regIp || p.regIp || '—')}</b><br>${(d.ips || []).slice(0, 10).map((x) => `${esc(x.ip)} <small>${fmtDate(x.at)}</small>`).join('<br>') || '—'}</div>
     ${d.sameIp && d.sameIp.length ? `<div class="small">🌐 Та же сеть (IP): ${who(d.sameIp)} — не доказательство: так бывает у семьи на одном Wi‑Fi и у абонентов одного оператора.</div>` : ''}`;
 }
-const PASS_BY = (b) => (b === 'reg' ? 'регистрация' : b === 'self' ? 'сменил сам' : b === 'server' ? 'сброс на сервере' : String(b || '').startsWith('admin') ? `админ (${esc(String(b).slice(6))})` : 'до журнала');
+const PASS_BY = (b) => (b === 'reg' ? 'регистрация' : b === 'self' ? 'сменил сам' : b === 'server' ? 'сброс на сервере' : b === 'telegram' ? 'по коду из Telegram' : b === 'mail' ? 'по коду из письма' : String(b || '').startsWith('admin') ? `админ (${esc(String(b).slice(6))})` : 'до журнала');
 function playerCard(p) {
   const pc = S.adm.passcheck && S.adm.passcheck.login === p.login ? S.adm.passcheck : null;
   return `<div class="acard"><div class="cwname">${esc(p.login)}${p.admin ? ` <img class="admbadge s" src="${GFX}admin_badge_s.png" alt="">` : ''}${p.banned ? ' <span class="bad">[заблокирован]</span>' : ''}</div>
-    <div class="akv"><span>Ник в игре</span><b>${esc(p.login)}</b><span>Логин для входа</span><b>${esc(p.acct || '—')}</b><span>Email</span><b>${esc(p.email || '—')}</b>
+    <div class="akv"><span>Ник в игре</span><b>${esc(p.login)}</b><span>Логин для входа</span><b>${esc(p.acct || '—')}</b><span>Email</span><b>${esc(p.email || '—')}${p.email ? (p.emailOk ? ' <span class="ok">✔ подтверждена</span>' : ' <small>(не подтверждена)</small>') : ''}</b>
       <span>Раса</span><b>${esc(p.race)}</b><span>Рейтинг</span><b>${fmtFull(p.rating)}</b><span>Монеты</span><b>${fmtFull(p.gold)}</b>
       <span>Регистрация</span><b>${fmtDate(p.created)}</b><span>Был в игре</span><b>${p.online ? 'сейчас' : fmtDate(p.lastSeen)}</b></div>
     ${(p.nickLog || []).length ? `<div class="small">Прежние ники: ${p.nickLog.map((x) => `${esc(x.from)} → ${esc(x.to)} <small>${fmtDate(x.at)}</small>`).join('; ')}</div>` : ''}
@@ -319,6 +319,7 @@ $('#sheetBody').addEventListener('submit', (e) => {
   if (k === 'testmark') { const l = f.login.value.trim(); if (!l) return; f.login.value = ''; return send({ t: 'admin', op: 'testmark', login: l, on: 1 }); }
   if (k === 'honorgive') { const v = f.nicks.value.trim(); if (!v) return toast('Впишите ники через запятую.', 'err'); return send({ t: 'admin', op: 'honorgive', id: f.dataset.id, nicks: v }); }
   if (k === 'passcheck') { admSend('passcheck', { password: f.password.value }); f.password.value = ''; return; }
+  if (k === 'mailtest') { S.adm.mailTest = { ok: true, msg: 'Отправляю…' }; refreshSheet(); return send({ t: 'admin', op: 'mailtest', addr: f.addr.value.trim() }); }
   if (k === 'goldall') { const n = Math.floor(Number(f.n.value)); if (!(n >= 1 && n <= 1000)) return toast('От 1 до 1000 золота.', 'err'); if (!confirm(`Выдать КАЖДОМУ игроку по ${n} золота?`)) return; S.adm.goldAll = { msg: 'Выдаю…', last: (S.adm.goldAll || { last: [] }).last }; refreshSheet(); return send({ t: 'admin', op: 'goldall', n, why: f.why.value }); }
   if (k === 'mailall') send({ t: 'admin', op: 'mailall', subject: f.subject.value, text: f.text.value });
   if (k === 'chat') { send({ t: 'admin', op: 'chat', text: f.text.value }); f.text.value = ''; }
@@ -348,6 +349,7 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
       return;
     }
     if (m.op === 'passcheck') S.adm.passcheck = m.data;
+    if (m.op === 'mailtest') S.adm.mailTest = { ok: !m.data.error, msg: m.data.error || m.data.msg };
     if (m.op === 'goldall' || m.op === 'goldallget') S.adm.goldAll = { ...m.data, at: Date.now() };
     return refreshSheet();
   }
@@ -420,6 +422,15 @@ function admAlertsHtml(l) {
 }
 
 // копия базы в Telegram (server/src/tgbackup.js): включена ли, когда ушла последняя, кнопка «Отправить сейчас»
+// ✉ Почта игры (server/src/mail.js): подключена ли, сколько игроков привязали почту, проверочное письмо
+function admMailHtml(m) {
+  if (!m) return '';
+  const t = S.adm.mailTest;
+  return aSec('✉ Почта игры', m.on ? `<p class="small">Письма с кодами (привязка почты, «Забыли пароль?») уходят с <b>${esc(m.from)}</b> через ${esc(m.host)}:${m.port}. За час отправлено: ${m.hour}. Почту привязали игроков: <b>${m.bound}</b>.</p>
+      ${t ? `<div class="smnote ${t.ok ? 'ok' : ''}">${t.ok ? '✔' : '⛔'} ${esc(t.msg)}</div>` : ''}
+      <form class="chatform" data-aform="mailtest"><input name="addr" type="email" placeholder="Куда прислать проверочное письмо" autocapitalize="none" required><button class="btn primary small">Проверить</button></form>`
+    : '<p class="small">Почта не подключена — у игроков нет кнопки «Привязать почту». Подключить: на сервере <b>sh /opt/war/game/mail.sh</b> (адрес ящика на домене игры и пароль приложения). Как завести ящик — README, раздел «Почта игры».</p>');
+}
 function admTgHtml(t) {
   if (!t) return '';
   if (!t.on) return aSec('🗄 Копия базы в Telegram', '<p class="small">Не настроена. Раз в сутки база игроков будет приходить файлом в чат с Вашим ботом — если с сервером что-то случится, игроки не пропадут. Настройка на сервере: <code>sh /opt/war/game/tgbackup.sh</code> (инструкция — в README.txt).</p>');
@@ -443,6 +454,7 @@ function admSecHtml(d) {
       ${d.list.length ? `<div class="alist">${d.list.map(row).join('')}</div>` : '<p class="parch-note">Пока ничего подозрительного.</p>'}
       <button class="btn small" data-asec>↻ Обновить</button> ${aBtn2('secclear', 'Очистить журнал', 'data-confirm="Очистить журнал адресов? Блокировки останутся."', 'danger')}`)}
     ${admTgHtml(d.tg)}
+    ${admMailHtml(d.mail)}
     ${aSec('⛔ Заблокированные адреса', `${d.bans.length ? d.bans.map((b) => `<div class="srow"><span><b>${esc(b.ip)}</b> · ${fmtDate(b.at)}${b.until ? ` · до ${fmtDate(b.until)}` : ''}${b.why ? ` · ${esc(b.why)}` : ''}</span><button class="btn small" data-ipunban="${esc(b.ip)}">Снять</button></div>`).join('') : '<p class="small">Нет.</p>'}
       <form class="chatform" data-aform="ipban"><input name="ip" placeholder="IP вручную, например 1.2.3.4" autocomplete="off" required><button class="btn small danger">Заблокировать</button></form>`)}`;
 }

@@ -1938,6 +1938,96 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.ok(g.reportsOf(R.id).some((x) => x.title === 'Собраны 2 руны: Руна Стойкости'), 'отчёт: две руны');
     console.log('✓ Руны: снаряжение только ковкой (в боях и наградах не выпадает), «Охотник за рунами» — две руны; 3 рунных камня в провинции, руну забирает отряд, пришедший первым, камень возвращается через 3 часа; ковка за руны в Кузнице (рунное — с 20 ур.), вещь — в Оружейную, Кузнец один на ковку и усиление');
   }
+  { // почта (mail.js): привязка кодом из письма, смена и отвязка — с паролем, «Забыли пароль?» по коду из письма
+    const env0 = ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS'].map((k) => [k, process.env[k]]);
+    Object.assign(process.env, { SMTP_HOST: 'smtp.test', SMTP_USER: 'noreply@middle-ages.ru', SMTP_PASS: 'apppass123' });
+    const sent = [], realSend = g.mailSend; g.mailSend = async (to, subject, text) => { sent.push({ to, subject, text }); };
+    const last = async () => { await g.mailQ; return sent[sent.length - 1]; }, codeOf = async () => (/(\d{6})/.exec((await last()).text) || [])[1];
+    const mu = g.register({ login: 'mailuser1', nick: 'MailOne', password: 'secret1', race: 0 }).user, mu2 = g.register({ login: 'mailuser2', nick: 'MailTwo', password: 'secret2', race: 0 }).user;
+    assert.ok(g.mailInfo(mu).on && !g.mailInfo(mu).email, 'почта подключена, у игрока не привязана');
+    assert.ok((await g.mailLinkStart(mu, 'not-an-email', 'secret1')).error, 'неверный адрес');
+    assert.ok((await g.mailLinkStart(mu, 'a@b.ru\r\nRCPT TO:<x@y.ru>', 'secret1')).error, 'перевод строки в адресе — отказ (команду почтовому серверу не подсунуть)');
+    assert.ok(/парол/i.test((await g.mailLinkStart(mu, 'mail.one@mail.ru', '')).error || '') && !sent.length, 'привязать почту — только с паролем (украденный вход не даст забрать аккаунт)');
+    assert.ok((await g.mailLinkStart(mu, 'Mail.One@Mail.RU', 'secret1')).msg && (await last()).to === 'mail.one@mail.ru', 'код ушёл на адрес');
+    assert.strictEqual(g.mailInfo(mu).pending, 'mail.one@mail.ru');
+    assert.ok(g.mailLinkConfirm(mu, '000000').error && mu.emailReq.tries === 1, 'неверный код');
+    assert.ok(g.mailLinkConfirm(mu, await codeOf()).msg && mu.emailOk && mu.email === 'mail.one@mail.ru' && !mu.emailReq, 'почта привязана');
+    assert.ok(/другому аккаунту/.test((await g.mailLinkStart(mu2, 'MAIL.ONE@mail.ru', 'secret2')).error || ''), 'одна почта — один аккаунт');
+    assert.ok(/парол/i.test((await g.mailLinkStart(mu, 'new@mail.ru', 'wrong')).error || ''), 'сменить почту — только с паролем');
+    assert.ok((await g.mailLinkStart(mu, 'new@mail.ru', 'secret1')).msg && g.mailLinkConfirm(mu, await codeOf()).msg && mu.email === 'new@mail.ru', 'почта сменена');
+    await g.mailQ; assert.ok(sent.some((x) => x.to === 'mail.one@mail.ru' && /изменена на n\*\*\*w@mail\.ru/.test(x.text)), 'на прежний адрес — письмо о смене');
+    assert.ok((await g.mailLinkStart(mu, 'third@mail.ru', 'secret1')).msg && /через час/.test((await g.mailLinkStart(mu, 'fourth@mail.ru', 'secret1')).error || ''), 'не больше 3 кодов в час');
+    // «Забыли пароль?»: по почте или логину; ответ одинаковый — есть такой аккаунт или нет
+    mu.mailSent = []; const k0 = sent.length;
+    const q0 = g.resetRequest('nobody@nowhere.ru', '7.7.7.1'), q1 = g.resetRequest(' NEW@mail.ru ', '7.7.7.1'); await g.mailQ;
+    assert.ok(q0.msg && q0.msg === q1.msg && sent.length === k0 + 1 && sent[k0].to === 'new@mail.ru' && /смены пароля/.test(sent[k0].subject), 'одинаковый ответ, код — на привязанную почту');
+    const c = await codeOf();
+    assert.ok(/коротк/.test(g.resetConfirm('new@mail.ru', c, '123').error || '') && mu.mailReset.tries === 0, 'короткий пароль — код не тратится');
+    assert.ok(g.resetConfirm('new@mail.ru', '000000', 'newpass1').error && mu.mailReset.tries === 1, 'неверный код');
+    const tok = g.issueToken(mu), ok = g.resetConfirm('mailuser1', c, 'NewPass1', '7.7.7.1');
+    assert.ok(ok.msg && ok.login === 'mailuser1' && g.login('mailuser1', 'newpass1') && !g.tokenLogin('MailOne', tok), 'пароль сменён по коду из письма, прежние входы завершены');
+    assert.strictEqual(mu.passLog[mu.passLog.length - 1].by, 'mail', 'в журнале паролей — «по коду из письма»');
+    assert.ok(g.resetConfirm('mailuser1', c, 'again123').error, 'код одноразовый');
+    await g.mailQ; assert.ok(/Пароль изменён/.test(sent[sent.length - 1].subject), 'письмо «Пароль изменён»');
+    // отвязка — с паролем; админ почту не привязывает; без настроек ящика почта скрыта
+    assert.ok(g.mailUnlink(mu, 'secret1').error && g.mailUnlink(mu, 'newpass1').msg && !mu.emailOk && !g.mailInfo(mu).email, 'отвязка — с верным паролем');
+    assert.ok((await g.mailLinkStart(g.adminUser(), 'adm@mail.ru', '')).error, 'админ почту не привязывает');
+    const sendFail = g.mailSend, ce = console.error; g.mailSend = async () => { throw new Error('535 auth failed'); }; console.error = () => {}; // ошибка почты пишется в журнал — здесь она ожидаемая
+    assert.ok(/Не получилось/.test((await g.mailLinkStart(mu2, 'two@mail.ru', 'secret2')).error || '') && !mu2.emailReq && !(mu2.mailSent || []).length, 'письмо не ушло — понятная ошибка, попытка не тратится');
+    assert.ok(/не отправилось: 535/.test((await g.mailTest(g.adminUser(), 'adm@mail.ru')).error || ''), 'проверочное письмо: видно ошибку почтового сервера');
+    g.mailSend = sendFail; console.error = ce;
+    delete process.env.SMTP_PASS; assert.ok(!g.mailInfo(mu2).on && (await g.mailLinkStart(mu2, 'x@mail.ru', '')).error, 'без пароля ящика — почта скрыта');
+    g.mailSend = realSend; for (const [k, v] of env0) if (v === undefined) delete process.env[k]; else process.env[k] = v;
+    console.log('✓ Почта: привязка кодом, одна почта — один аккаунт, смена/отвязка с паролем, «Забыли пароль?» по коду из письма, лимиты');
+  }
+  { // разговор с почтовым сервером: TLS сразу (465) и STARTTLS (587); без шифрования пароль не уходит; письмо — UTF-8 base64
+    const M = require('../src/mail'), tlsM = require('tls'), netM = require('net'), { execFileSync } = require('child_process');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'smtp-')); let key = null, cert = null;
+    try {
+      execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', path.join(dir, 'k.pem'), '-out', path.join(dir, 'c.pem'), '-days', '1', '-subj', '/CN=localhost', '-addext', 'subjectAltName=DNS:localhost'], { stdio: 'ignore' });
+      key = fs.readFileSync(path.join(dir, 'k.pem')); cert = fs.readFileSync(path.join(dir, 'c.pem'));
+    } catch { console.log('… разговор с почтовым сервером не проверен: нет openssl'); }
+    fs.rmSync(dir, { recursive: true, force: true });
+    if (cert) {
+      const got = [];
+      // простой почтовый сервер: greet — приветствие, tlsUp — предлагает STARTTLS
+      const talk = (sock, greet, tlsUp) => {
+        let buf = '', data = null, auth = false, plainAuth = false; const out = (l) => sock.write(`${l}\r\n`);
+        sock.on('error', () => {});
+        if (greet) out('220 test ESMTP');
+        const onData = (d) => { buf += d; let i;
+          while ((i = buf.indexOf('\r\n')) >= 0) { const line = buf.slice(0, i); buf = buf.slice(i + 2);
+            if (data) { if (line === '.') { got.push({ auth, data: data.join('\r\n') }); data = null; out('250 ok'); } else data.push(line); continue; }
+            if (/^EHLO /.test(line)) { out('250-test'); out(tlsUp ? '250 STARTTLS' : '250 AUTH PLAIN'); }
+            else if (line === 'STARTTLS' && tlsUp) { out('220 go'); sock.off('data', onData); talk(new tlsM.TLSSocket(sock, { isServer: true, secureContext: tlsM.createSecureContext({ key, cert }) }), false, false); return; }
+            else if (/^AUTH PLAIN /.test(line)) { plainAuth = !(sock instanceof tlsM.TLSSocket); auth = Buffer.from(line.slice(11), 'base64').toString() === '\0noreply@middle-ages.ru\0apppass123'; out(auth && !plainAuth ? '235 ok' : '535 bad'); }
+            else if (/^(MAIL FROM|RCPT TO):<[^>]+>$/.test(line)) out(auth ? '250 ok' : '530 auth');
+            else if (line === 'DATA') { data = []; out('354 go'); }
+            else if (line === 'QUIT') { out('221 bye'); sock.end(); }
+            else out('500 ?'); } };
+        sock.on('data', onData);
+      };
+      const listen = (srv) => new Promise((ok) => srv.listen(0, 'localhost', () => ok(srv.address().port)));
+      const s465 = tlsM.createServer({ key, cert }, (s) => talk(s, true, false)), s587 = netM.createServer((s) => talk(s, true, true)), sBad = netM.createServer((s) => talk(s, true, false));
+      const [p465, p587, pBad] = [await listen(s465), await listen(s587), await listen(sBad)];
+      const C = (port, secure, pass = 'apppass123') => ({ host: 'localhost', port, secure, user: 'noreply@middle-ages.ru', pass, name: 'Средневековье', ca: cert, timeout: 5000 });
+      const subj = 'Код для смены пароля — проверка длинной темы письма на русском языке', text = 'Код: 123456\nВторая строка.';
+      await M.smtp(C(p465, true), { to: 'player@mail.ru', data: M.letter(C(p465, true), 'player@mail.ru', subj, text) });
+      await M.smtp(C(p587, false), { to: 'player@mail.ru', data: M.letter(C(p587, false), 'player@mail.ru', subj, text) });
+      assert.strictEqual(got.length, 2, 'оба письма дошли (TLS сразу и STARTTLS)');
+      const dec = (raw) => { const [head, body] = raw.split('\r\n\r\n'); const h = head.replace(/\r\n /g, ' ');
+        const s = (/^Subject: (.*)$/m.exec(h) || [])[1].split(' ').map((w) => Buffer.from(/=\?UTF-8\?B\?(.*)\?=/.exec(w)[1], 'base64').toString('utf8')).join('');
+        return { h, subject: s, text: Buffer.from(body.replace(/\r\n/g, ''), 'base64').toString('utf8') }; };
+      const L = dec(got[0].data);
+      assert.ok(L.subject === subj && L.text === 'Код: 123456\r\nВторая строка.' && /^To: <player@mail\.ru>$/m.test(L.h) && /<noreply@middle-ages\.ru>$/m.test(L.h), 'тема и текст — без искажений');
+      assert.ok(got[0].data.split('\r\n').every((l) => l.length <= 78 && l[0] !== '.'), 'строки письма короткие и не начинаются с точки');
+      await assert.rejects(M.smtp(C(pBad, false), null), /не предлагает шифрование/, 'сервер без STARTTLS — пароль не отправлен');
+      await assert.rejects(M.smtp(C(p465, true, 'wrongpass1'), null), /535/, 'неверный пароль — ошибка почтового сервера');
+      await assert.rejects(M.smtp({ ...C(p465, true), ca: undefined }, null), /self[- ]signed|certificate/i, 'чужой сертификат — отказ');
+      for (const s of [s465, s587, sBad]) s.close();
+      console.log('✓ Почтовый сервер: TLS сразу и STARTTLS, без шифрования пароль не уходит, чужой сертификат — отказ, письмо UTF-8 без искажений');
+    }
+  }
   try { fs.unlinkSync(DB); } catch {}
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });

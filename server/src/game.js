@@ -431,7 +431,7 @@ class Game {
     return { ok: true };
   }
   // новый пароль по коду из Telegram (tgauth.js): старый не нужен, все входы завершаются
-  setPasswordReset(user, newPass, ip = '') { user.pass = hashPassword(newPass); user.tokens = []; passLogPush(user, 'telegram', ip); this.store.save(); }
+  setPasswordReset(user, newPass, ip = '', by = 'telegram') { user.pass = hashPassword(newPass); user.tokens = []; passLogPush(user, by, ip); this.store.save(); } // «Забыли пароль?»: по коду из Telegram или из письма (mail.js)
   // смена ника — только за золото (цена NICK_PRICE, по умолчанию 100); новый ник должен быть свободен, вход — по новому нику
   changeNick(user, nick) {
     nick = String(nick || '').trim();
@@ -843,6 +843,7 @@ require('./secwatch').install(Game);
 require('./tgbackup').install(Game);
 require('./shop').install(Game);
 require('./tgauth').install(Game);
+require('./mail').install(Game); // привязка почты и «Забыли пароль?» по коду на почту
 require('./tgpay').install(Game);
 require('./shield').install(Game);
 require('./friends').install(Game);

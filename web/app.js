@@ -290,6 +290,7 @@ function onMsg(m) {
     case 'myfriends': case 'bday': friendsMsg(m); break;
     case 'reset': resetMsg(m); break;
     case 'tg': tgMsg(m); break;
+    case 'email': mailMsg(m); break;
     case 'eta': if (m.key === S.etaKey) { S.eta = { key: m.key, sec: m.sec }; const el = $('#cmpTime'); if (el && m.sec) el.textContent = fmtT(m.sec); } break; // окно «Поход»: время от сервера
     case 'smod': smodMsg(m); break;
     case 'welcome': welcomeShow(m); break;

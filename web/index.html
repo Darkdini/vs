@@ -44,10 +44,10 @@
     </form>
     <form id="resetForm" class="hidden" autocomplete="off">
       <div class="rstitle">Восстановление пароля</div>
-      <p class="rshint" id="resetHint">Введите логин — бот в Telegram пришлёт код. Telegram должен быть привязан в игре: Кабинет → Профиль → «Привязать Telegram».</p>
-      <label>Email / Логин<input name="login" autocapitalize="none" spellcheck="false" maxlength="40" required></label>
+      <p class="rshint" id="resetHint">Введите логин или почту — код придёт на привязанную почту или в Telegram. Привязать их можно в игре: Кабинет → Профиль.</p>
+      <label>Логин или почта<input name="login" autocapitalize="none" spellcheck="false" maxlength="100" required></label>
       <div id="resetStep2" class="hidden">
-        <label>Код из Telegram<input name="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code"></label>
+        <label>Код из письма или Telegram<input name="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code"></label>
         <label>Новый пароль<input name="password" type="password" autocomplete="new-password" placeholder="от 5 символов"></label>
         <label>Повторите пароль<input name="password2" type="password" autocomplete="new-password"></label>
       </div>
