@@ -50,7 +50,7 @@ const EVIL = [-1, -1e9, 1e300, 0.5, '-5', '1e400', 'Infinity', 'NaN', null, true
   };
   const allyOps = ['gold', 'store', 'transfer', 'rank', 'diplo', 'mail', 'news', 'post', 'postdel', 'topic', 'topicop', 'ad', 'charter', 'desc', 'rights', 'kick', 'leave', 'give'];
   const squadOps = ['create', 'move', 'rename', 'delete', 'split', 'merge', 'back', 'recall'];
-  const genOps = ['dist', 'reset', 'rename', 'revive', 'kill'];
+  const genOps = ['dist', 'reset', 'rename', 'revive', 'rekind', 'kill'];
   const shopOps = ['speed', 'res', 'treasure', 'frame', 'frameuse', 'move', 'moveprov', 'fest', 'rep'];
   const missions = ['attack', 'raid', 'scout', 'trade', 'expedition', 'reinforce', 'settle', 'rally', '__proto__', 'constructor', 'rune'];
   const msgs = [];
@@ -61,7 +61,7 @@ const EVIL = [-1, -1e9, 1e300, 0.5, '-5', '1e400', 'Infinity', 'NaN', null, true
   for (const op of allyOps) for (const e of EVIL) msgs.push({ t: 'ally', ...base.ally, op, n: e }, { t: 'ally', ...base.ally, op, res: { wood: e, stone: e } });
   for (const op of squadOps) for (const e of EVIL) msgs.push({ t: 'squad', ...base.squad, op, units: { 200: e, __proto__: e } });
   for (const op of genOps) for (const e of EVIL) msgs.push({ t: 'general', op, pts: { atk: e, def: e } });
-  for (const e of EVIL) msgs.push({ t: 'general', op: 'revive', idx: e, gold: true }, { t: 'general', op: 'revive', idx: 0, gold: e });
+  for (const e of EVIL) msgs.push({ t: 'general', op: 'revive', idx: e, gold: true }, { t: 'general', op: 'revive', idx: 0, gold: e }, { t: 'general', op: 'rekind', unit: e });
   for (const op of shopOps) for (const e of EVIL) msgs.push({ t: 'shop', op, id: e, key: e, mode: e, x: e, y: e, res: e, size: e, prov: e, coins: e });
   for (const e of EVIL) msgs.push({ t: 'hero', op: 'forge', slot: e, r: e }, { t: 'hero', op: 'forge', slot: 'weapon', r: e }, { t: 'hero', op: 'forge', slot: e, r: 0 }); // ковка за руны
   for (const e of EVIL) msgs.push({ t: 'shield', op: 'buy', kind: e, days: e }, { t: 'shield', op: 'off', kind: e }, { t: 'send', ...base.send, dropShield: e }, { t: 'coinbet', res: 'wood', amount: e, side: 'tails', to: '' }, { t: 'calm', pct: e }, { t: 'marketsell', id: e, price: e });

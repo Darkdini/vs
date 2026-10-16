@@ -1,6 +1,6 @@
 'use strict';
 // Окно «Генерал» — как в оригинальном клиенте (сервер: generalOp / generalView в server/src/army.js).
-// Очки опыта за уровень распределяются по шести характеристикам; сброс, переименование, «Убить».
+// Очки опыта за уровень распределяются по шести характеристикам; сброс, переименование, «Убить», «Сменить воина».
 
 const GS = (n) => `${GFX}smallicon/${n}.png`;
 const GEN_ROWS = [
@@ -55,6 +55,8 @@ function generalWin() {
       ${tile('data-genname', GS('softedit'), 'Переименовать')}
       ${tile('data-genkill', GS('l7day'), 'Убить')}
     </div>
+    ${g.dead ? '' : g.rekind ? `<p class="cinfo">Переобучается в воина «${esc((unitById(g.rekind.kindId) || {}).name || '')}»: <span class="cd" data-e="${g.rekind.end}"></span></p>`
+    : '<button class="pbar" data-genrkopen>Сменить воина</button>'}
     <p class="small muted">За уровень — ${g.perLevel} очка опыта. Командование: первые очки — около +0,3% к атаке (защите) армии за очко, дальше прибавка убывает: 100 очков — +25%, 300 — +50%, предел — +100%. Личная защита генерала прикрывает войско в бою. Восстановление ускоряет воскрешение, карьера — получение опыта (+0,5% за очко).</p>
     ${ribbon('Как получить опыт')}
     <div class="gexp">
@@ -121,15 +123,33 @@ function genTrainWin() {
   const x = (MY().genUnits || []).find((y) => y.id === S.gtu); if (!x) return noGeneralWin();
   return `${ribbon('Генерал')}<div class="upbody center">Стоимость тренировки ${gico(x.id)} генерала:</div>${genCost(x)}<button class="pbar" data-gentdo>Тренировать</button>`;
 }
+// сменить воина: уровень, опыт, очки и снаряжение остаются; цена — как найм, переобучение — полчаса (сервер: rekindGeneral)
+function genRekindWin() {
+  const g = MY().general; if (!g) return generalWin();
+  const list = (MY().genUnits || []).filter((x) => x.id !== g.kindId);
+  return `${ribbon('Сменить воина')}<div class="upbody center">Сейчас: ${gico(g.kindId)} Генерал (${esc(g.kind || '')}), ${fmtFull(g.level)} ур.</div>
+    <p class="coinhint">Уровень, опыт, очки и снаряжение останутся. Воин меняет облик генерала и цену воскрешения ресурсами, сила зависит от уровня и очков. Переобучение — ${Math.max(1, Math.round(g.rekindSec / S.cat.speed / 60))} мин, цена — как найм нового генерала.</p>
+    <div class="upbody center">Выберите юнита из замковой армии:</div>
+    ${list.map((x) => { const u = unitById(x.id); return `<button class="pbar" data-genrk="${x.id}"><img class="fi" src="${unitSrc(u)}" alt=""> ${esc(u.name)}</button>`; }).join('') || '<p class="parch-note">В замковой армии нет подходящих юнитов.</p>'}`;
+}
+S.grk = null;
+function genRekindDoWin() {
+  const g = MY().general, x = (MY().genUnits || []).find((y) => y.id === S.grk); if (!g || !x) return genRekindWin();
+  return `${ribbon('Сменить воина')}<div class="upbody center">Переобучить генерала в ${gico(x.id)} ${esc(unitById(x.id).name)}:</div>${genCost({ ...x, sec: g.rekindSec })}
+    <div class="upbody center small">Уровень ${fmtFull(g.level)}, опыт, очки и снаряжение останутся.</div><button class="pbar" data-genrkdo>Сменить воина</button>`;
+}
 function openGeneral() { openSheet(generalWin); }
 $('#sheetBody').addEventListener('click', (e) => {
-  const t = e.target.closest('[data-genrev],[data-genrevg],[data-gendel],[data-gentu],[data-gentdo]'); if (!t) return;
+  const t = e.target.closest('[data-genrev],[data-genrevg],[data-gendel],[data-gentu],[data-gentdo],[data-genrkopen],[data-genrk],[data-genrkdo]'); if (!t) return;
   const d = t.dataset;
   if (d.genrev) return send({ t: 'general', op: 'revive', idx: Number(d.genrev) });
   if (d.genrevg) return send({ t: 'general', op: 'revive', idx: Number(d.genrevg), gold: true });
   if (d.gendel) { if (confirm('Удалить генерала навсегда?')) send({ t: 'general', op: 'delete', idx: Number(d.gendel) }); return; }
   if (d.gentu) { S.gtu = Number(d.gentu); return openSheet(genTrainWin); }
   if (d.gentdo !== undefined) return send({ t: 'general', op: 'train', unit: S.gtu });
+  if (d.genrkopen !== undefined) return openSheet(genRekindWin);
+  if (d.genrk) { S.grk = Number(d.genrk); return openSheet(genRekindDoWin); }
+  if (d.genrkdo !== undefined) { send({ t: 'general', op: 'rekind', unit: S.grk }); closeSheet(); return closeSheet(); } // назад — в окно генерала
 });
 
 $('#sheetBody').addEventListener('click', (e) => {
@@ -142,7 +162,7 @@ $('#sheetBody').addEventListener('click', (e) => {
     return send({ t: 'general', op: 'reset' });
   }
   if (d.genname !== undefined) { const n = prompt('Новое имя генерала:', g ? g.name : ''); if (n) send({ t: 'general', op: 'rename', name: n }); return; }
-  if (d.genkill !== undefined) { if (confirm('Убить генерала? Его уровень и опыт пропадут навсегда.')) send({ t: 'general', op: 'kill' }); return; }
+  if (d.genkill !== undefined) { if (confirm('Убить генерала? Его уровень, опыт и очки пропадут навсегда.\nЧтобы сменить воина и сохранить уровень — кнопка «Сменить воина».')) send({ t: 'general', op: 'kill' }); return; }
   if (d.gddo !== undefined) {
     document.activeElement && document.activeElement.blur();
     send({ t: 'general', op: 'dist', pts: { ...S.gd } }); S.gd = {};

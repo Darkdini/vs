@@ -210,6 +210,8 @@ const unitsForRace = (race) => UNITS.filter((u) => u.race === race || u.race ===
 // Личная атака/защита — +1 за очко; командование атакой/защитой — к армии, с убывающей отдачей (cmdBonus); восстановление — быстрее воскрешение; карьера — больше опыта.
 const GEN = { battleCap: 0.15, dayLevels: 1, perLevel: 2, maxLevel: 500, revive: 0.5, cmd: 0.003, cmdMax: 1, cmdK: 300, heal: 0.02, career: 0.005, resetGold: 100 };
 const REVIVE_GOLD = 3, REVIVE_RES_MAX = 100; // воскрешение генерала: монет за каждые 25 уровней; выше этого уровня — только за монеты
+const REVIVE_MIN = 10; // время воскрешения генерала — (уровень + 10) минут: 10 ур. — 20 мин, каждый уровень — ещё минута
+const GEN_HIRE_SEC = 1800, GEN_HIRE_K = 2.5, REKIND_SEC = 1800; // найм генерала: полчаса + время воина ×2,5 (Мечник — 1 ч, Мародер — 1,5 ч); смена воина — полчаса
 // командование генерала (атакой/защитой): первые очки — почти по +0,33% (как раньше +0,3%), дальше отдача убывает:
 // 100 очков — +25%, 300 — +50%, 1000 (500 ур.) — +77%, не больше +100%. Раньше росло без предела (+299% на 500 ур.) и решало любой бой.
 const cmdBonus = (pts) => (pts > 0 ? GEN.cmdMax * pts / (pts + GEN.cmdK) : 0);
@@ -590,6 +592,11 @@ function install(Game, helpers) {
     if (g && g.dead && g.reviveAt && g.reviveAt <= now) { g.dead = false; delete g.reviveAt; delete g.reviveStart; this.event(owner, 'Генерал снова в строю.'); }
     for (const d of castle.deadGenerals || []) if (d.reviveAt && d.reviveAt <= now && !castle.general) { // воскрешённый из списка павших — снова генерал замка
       castle.deadGenerals = castle.deadGenerals.filter((x) => x !== d); d.dead = false; delete d.reviveAt; delete d.reviveStart; delete d.away; delete d.squad; castle.general = d; this.event(owner, 'Генерал снова в строю.'); }
+    // генерал сменил воина: полчаса переобучения прошли (уровень, опыт, очки и снаряжение — прежние)
+    for (const x of [castle.general, ...(castle.deadGenerals || [])]) if (x && x.rekind && x.rekind.end <= now) {
+      const ku = UNIT[x.rekind.kindId]; delete x.rekind; if (!ku) continue;
+      x.kindId = ku.id; x.kind = ku.name; this.event(owner, `Генерал «${x.name}» переобучен: теперь он из воина «${ku.name}».`);
+    }
     // экспедиции из здания вернулись
     if (castle.expeds && castle.expeds.some((x) => x.end <= now)) { const done = castle.expeds.filter((x) => x.end <= now); castle.expeds = castle.expeds.filter((x) => x.end > now); for (const x of done) this.expedBack(castle, x); }
     // улучшение в Кузнице
@@ -714,7 +721,7 @@ function install(Game, helpers) {
     return { exp: Math.round(exp), weak, repeat };
   };
   const genLine = (who, r, e) => (r ? `${who} «${r.name}» получил ${r.got.toLocaleString('ru-RU')} опыта${e.weak ? ' (слабый противник ×0,25)' : ''}${e.repeat ? ` (${e.repeat + 1}-й бой с этим игроком за сутки)` : ''}${r.capped === 'battle' ? ' — лимит за бой' : r.capped === 'day' ? ' — дневной лимит опыта исчерпан' : ''}${r.level > r.from ? `. Новый уровень: ${r.level}!` : ''}` : null);
-  // окно «Генерал»: rename, dist (распределить очки), reset (сбросить очки), kill (убить)
+  // окно «Генерал»: rename, dist (распределить очки), reset (сбросить очки), kill (убить), rekind (сменить воина)
   P.generalOp = function generalOp(castle, user, { op, name, pts, idx, gold, unit } = {}) {
     this.tick(castle); this.mil(castle);
     const g = castle.general;
@@ -722,6 +729,7 @@ function install(Game, helpers) {
     if (op === 'delete') return this.deleteDeadGeneral(castle, idx);
     if (op === 'train') return this.trainGeneral(castle, Number(unit));
     if (!g) return { error: 'Генерала нет.' };
+    if (op === 'rekind') return this.rekindGeneral(castle, Number(unit));
     if (op === 'rename') {
       name = String(name || '').trim().slice(0, 20); if (!name) return { error: 'Введите имя.' };
       g.name = name;
@@ -748,8 +756,8 @@ function install(Game, helpers) {
   };
   // ----- генерал как в оригинале: павшие генералы списком (воскресить за ресурсы или золото, удалить),
   // тренировка нового — из юнита Замковой армии («Генерал (Мародер)»). Цены по скринам оригинала:
-  // тренировка = цена юнита ×20 (ресурсы и люди), время ×10; воскрешение = цена юнита ×10×уровень (с долей опыта),
-  // люди ×уровень, время = время юнита ×уровень, или ⌈уровень/25⌉ золота (сразу).
+  // тренировка = цена юнита ×20 (ресурсы и люди), время — полчаса + время юнита ×2,5; воскрешение = цена юнита ×10×уровень (с долей опыта),
+  // люди ×уровень, время — (уровень + 10) минут, или монеты (сразу).
   const genUnit = (g) => UNIT[g.kindId] || UNIT[GENERAL_ID];
   P.genLevelF = function genLevelF(g) {
     const need = this.generalNeed(g.level), prev = g.level > 1 ? this.generalNeed(g.level - 1) : 0;
@@ -758,7 +766,7 @@ function install(Game, helpers) {
   // воскрешение: до REVIVE_RES_MAX уровня — за ресурсы (не больше вместимости Склада замка) или монеты, выше — только за монеты; монеты — по REVIVE_GOLD за каждые 25 уровней
   P.reviveCostOf = function reviveCostOf(g, castle) {
     const u = genUnit(g), L = this.genLevelF(g), cap = castle ? this.capacity(castle) : null, lim = (k, v) => (cap ? Math.min(v, cap[k]) : v);
-    return { cost: Object.fromEntries(RES4.map((r) => [r, lim(r, Math.round(u.cost[r] * 10 * L))])), people: lim('people', Math.round(u.pop * L)), sec: Math.round(u.time * g.level),
+    return { cost: Object.fromEntries(RES4.map((r) => [r, lim(r, Math.round(u.cost[r] * 10 * L))])), people: lim('people', Math.round(u.pop * L)), sec: (g.level + REVIVE_MIN) * 60,
       gold: REVIVE_GOLD * Math.max(1, Math.ceil(g.level / 25)), coinsOnly: g.level > REVIVE_RES_MAX };
   };
   // ресурсы, внесённые частями до новых правил, возвращаются в замок
@@ -783,7 +791,7 @@ function install(Game, helpers) {
     // генералом не может стать разведчик, бунтарь, таран (и прочие особые/осадные), юниты Портала
     return UNITS.filter((u) => u.race === race && !u.quest && u.building !== B.PORTAL && !['scout', 'eye', 'rebel', 'ram', 'catapult', 'merchant', 'settler', 'sage', 'archaeologist'].includes(u.role) && (castle.units[u.id] || 0) > 0);
   };
-  P.genTrainCost = (u) => ({ cost: Object.fromEntries(RES4.map((r) => [r, u.cost[r] * 20])), people: u.pop * 20, sec: u.time * 10 });
+  P.genTrainCost = (u) => ({ cost: Object.fromEntries(RES4.map((r) => [r, u.cost[r] * 20])), people: u.pop * 20, sec: GEN_HIRE_SEC + Math.round(u.time * GEN_HIRE_K) });
   P.reviveGeneral = function reviveGeneral(castle, user, idx = 0, gold = false) {
     this.tick(castle);
     const list = this.deadList(castle), g = list[Number(idx) || 0];
@@ -844,6 +852,26 @@ function install(Game, helpers) {
     castle.training.push({ id: this.db.nextId++, unit: GENERAL_ID, kindId: u.id, building: B.HQ, count: 1, done: 0, each, start: Date.now() });
     this.store.save();
     return { ok: true, msg: 'Тренировка генерала начата!' };
+  };
+  // сменить воина: уровень, опыт, очки и снаряжение остаются; цена — как найм нового генерала (воин из армии уходит), переобучение — полчаса.
+  // Сила генерала от воина не зависит — только облик и цена воскрешения ресурсами
+  P.rekindGeneral = function rekindGeneral(castle, unitId) {
+    const g = castle.general;
+    if (!g) return { error: 'Генерала нет.' };
+    if (g.dead) return { error: 'Генерал погиб — сначала воскресите его.' };
+    if (g.away) return { error: 'Генерал в походе.' };
+    if (g.rekind) return { error: 'Генерал уже переобучается.' };
+    const u = UNIT[unitId]; if (!u || !this.genTrainUnits(castle).includes(u)) return { error: 'Выберите юнита из замковой армии.' };
+    if (u.id === g.kindId) return { error: 'Генерал уже из этого воина.' };
+    const c = this.genTrainCost(u);
+    for (const r of RES4) if (castle.res[r] < c.cost[r]) return { error: 'Недостаточно ресурсов.' };
+    if (castle.res.people < c.people) return { error: 'Не хватает людей.' };
+    for (const r of RES4) castle.res[r] -= c.cost[r];
+    castle.res.people -= c.people;
+    castle.units[u.id] -= 1; if (!castle.units[u.id]) delete castle.units[u.id];
+    g.rekind = { kindId: u.id, end: Date.now() + Math.max(1, Math.round(REKIND_SEC / SPEED)) * 1000 };
+    this.store.save();
+    return { ok: true, msg: `Генерал переобучается в воина «${u.name}» — полчаса. Уровень, опыт, очки и снаряжение останутся.` };
   };
 
   // ----- марши -----
@@ -2184,7 +2212,7 @@ function install(Game, helpers) {
     const today = new Date().toISOString().slice(0, 10), dayExp = g.day && g.day.d === today ? g.day.exp : 0;
     const lim = { battle: Math.max(20, Math.ceil(span * GEN.battleCap * mult)), day: Math.ceil(span * GEN.dayLevels * mult), dayExp };
     return { ...g, foes: undefined, lim, stats: gs, need: this.generalNeed(g.level), prevNeed: g.level > 1 ? this.generalNeed(g.level - 1) : 0, where: `${where}, замок ${castle.name}`, health,
-      reviveCost: Object.fromEntries(RES4.map((r) => [r, Math.round(UNIT[GENERAL_ID].cost[r] * GEN.revive * g.level)])), resetGold: GEN.resetGold, perLevel: GEN.perLevel };
+      reviveCost: Object.fromEntries(RES4.map((r) => [r, Math.round(UNIT[GENERAL_ID].cost[r] * GEN.revive * g.level)])), resetGold: GEN.resetGold, perLevel: GEN.perLevel, rekindSec: REKIND_SEC };
   };
 
   // цвет строки в списке отчётов: зелёный — успех, красный — неудача, коричневый — прочее

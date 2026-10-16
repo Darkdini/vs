@@ -214,7 +214,7 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
 // Зал Славы: бонус репутации за 1/2/3 место (Грабежи: 80/40/20)
 {
   const us = ['hball1', 'hball2', 'hball3'].map((l) => g.register({ login: `${l}_acc`, nick: l, password: '12345', race: 0 }).user);
-  us.forEach((u, i) => g.addStat(u.id, 'loot', (3 - i) * 100000));
+  us.forEach((u, i) => g.addStat(u.id, 'loot', (3 - i) * 1e9)); // больше любой добычи игроков других тестов (лагеря дают до 160 000 за набег)
   g.seasonClose();
   const got = us.map((u) => (u.awards || []).find((a) => a.hall === 'loot'));
   assert.deepStrictEqual(got.map((a) => [a.place, a.bonus]), [[1, 80], [2, 40], [3, 20]]);
@@ -438,10 +438,13 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
 { // генерал как в оригинале: тренировка из юнита замковой армии, павшие — воскресить за ресурсы/золото, удалить
   const { UNIT } = require('../src/army');
   const u = g.register({ login: 'gentest', password: '12345', nick: 'GenTest', race: 3 }).user, c = g.castleOf(u); g.mil(c);
-  const tc = g.genTrainCost(UNIT[245]); assert.deepStrictEqual([tc.cost.wood, tc.cost.stone, tc.cost.iron, tc.cost.food, tc.people, tc.sec], [1700, 1600, 1800, 3600, 120, 14400], 'Мародер → генерал: как на скрине');
+  const tc = g.genTrainCost(UNIT[245]); assert.deepStrictEqual([tc.cost.wood, tc.cost.stone, tc.cost.iron, tc.cost.food, tc.people, tc.sec], [1700, 1600, 1800, 3600, 120, 5400], 'Мародер → генерал: цена как на скрине, найм — полтора часа');
+  assert.strictEqual(g.genTrainCost(UNIT[200]).sec, 3600, 'Мечник → генерал: час');
   const rc = g.reviveCostOf({ kindId: 247, level: 716, exp: g.generalNeed(715) + 1 });
-  assert.deepStrictEqual([rc.cost.wood, rc.cost.stone, rc.cost.iron, rc.cost.food, rc.people, rc.sec, rc.gold], [537000, 572800, 608600, 1181400, 8592, 1403360, 87].map((v, i) => (i < 4 ? rc.cost[['wood', 'stone', 'iron', 'food'][i]] : v)), 'Бугай 716');
-  assert.ok(Math.abs(rc.cost.wood - 537060) / 537060 < 0.002 && rc.people === 8592 && rc.sec === 1403360 && rc.gold === 87 && rc.coinsOnly, `Бугай 716 (выше 100 ур. — только за монеты, 3 монеты за каждые 25 ур.): ${JSON.stringify(rc)}`);
+  assert.deepStrictEqual([rc.cost.wood, rc.cost.stone, rc.cost.iron, rc.cost.food, rc.people, rc.sec, rc.gold], [537000, 572800, 608600, 1181400, 8592, 726 * 60, 87].map((v, i) => (i < 4 ? rc.cost[['wood', 'stone', 'iron', 'food'][i]] : v)), 'Бугай 716');
+  assert.ok(Math.abs(rc.cost.wood - 537060) / 537060 < 0.002 && rc.people === 8592 && rc.sec === 726 * 60 && rc.gold === 87 && rc.coinsOnly, `Бугай 716 (выше 100 ур. — только за монеты, 3 монеты за каждые 25 ур.): ${JSON.stringify(rc)}`);
+  // воскрешение: 10 ур. — 20 минут, каждый уровень — ещё минута; от воина не зависит
+  assert.ok(g.reviveCostOf({ kindId: 200, level: 10, exp: 0 }).sec === 1200 && g.reviveCostOf({ kindId: 249, level: 10, exp: 0 }).sec === 1200 && g.reviveCostOf({ kindId: 245, level: 11, exp: 0 }).sec === 1260, 'воскрешение: 10 ур. — 20 мин, 11 ур. — 21 мин');
   g.maxOut(c); c.units = { 245: 5 }; c.general = null; Object.assign(c.res, { wood: 5e4, stone: 5e4, iron: 5e4, food: 5e4, people: 5000 });
   c.units[252] = 3; c.units[233] = 3; c.units[243] = 3;
   for (const id of [252, 233, 243]) assert.ok(g.trainGeneral(c, id).error, `${UNIT[id].name} — не генерал`);
@@ -453,7 +456,23 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(g.reviveGeneral(c, u, 0, true).ok && !c.general.dead && u.gold === 7, 'воскрешение за 3 монеты');
   c.general.dead = true; c.units[245] = 2; assert.ok(g.trainGeneral(c, 245).ok); assert.strictEqual(c.deadGenerals.length, 1, 'павший остаётся в списке');
   assert.ok(g.deleteDeadGeneral(c, 0).ok && !c.deadGenerals.length);
-  console.log('✓ Генерал: тренировка из юнита (цены по скрину), воскрешение за ресурсы/золото, павшие списком, удаление');
+  // сменить воина: уровень, опыт, очки и снаряжение остаются; цена — как найм; полчаса переобучения
+  { c.training = c.training.filter((t) => t.unit !== 236); c.deadGenerals = [];
+    c.general = g.newGeneral(c, 30); Object.assign(c.general, { kind: 'Мародер', kindId: 245 }); c.general.pts.atk = 10; c.general.free -= 10;
+    const g0 = JSON.parse(JSON.stringify(c.general)); c.units = { 245: 2, 247: 1 }; Object.assign(c.res, { wood: 5e4, stone: 5e4, iron: 5e4, food: 5e4, people: 5000 });
+    assert.ok(/уже из этого/.test(g.generalOp(c, u, { op: 'rekind', unit: 245 }).error || ''), 'тот же воин — нельзя');
+    assert.ok(/замковой армии/.test(g.generalOp(c, u, { op: 'rekind', unit: 246 }).error || ''), 'воина нет в Замковой армии — нельзя');
+    c.general.away = 99; assert.ok(/в походе/.test(g.generalOp(c, u, { op: 'rekind', unit: 247 }).error || ''), 'генерал в походе — нельзя'); delete c.general.away;
+    g.tick(c); const w0 = c.res.wood, rk = g.generalOp(c, u, { op: 'rekind', unit: 247 }), tc7 = g.genTrainCost(UNIT[247]);
+    assert.ok(rk.ok && !c.units[247] && Math.abs((w0 - c.res.wood) - tc7.cost.wood) < 5 && c.general.kindId === 245 && c.general.rekind, `смена начата, цена — как найм: ${JSON.stringify(rk)}`);
+    assert.ok(/уже переобучается/.test(g.generalOp(c, u, { op: 'rekind', unit: 245 }).error || ''), 'вторая смена сразу — нельзя');
+    assert.strictEqual(c.general.rekind.end - Date.now() <= 1800 * 1000 && c.general.rekind.end - Date.now() > 1790 * 1000, true, 'переобучение — полчаса');
+    g.tickTraining(c, c.general.rekind.end + 1);
+    const g1 = c.general;
+    assert.ok(g1.kindId === 247 && g1.kind === 'Бугай' && !g1.rekind && g1.level === g0.level && g1.exp === g0.exp && g1.pts.atk === 10 && g1.free === g0.free && JSON.stringify(g1.eq) === JSON.stringify(g0.eq), 'через полчаса — новый воин; уровень, опыт, очки, снаряжение прежние');
+    assert.ok(g.generalView(c).rekindSec === 1800, 'окно знает время смены');
+    c.general.dead = true; assert.ok(/погиб/.test(g.generalOp(c, u, { op: 'rekind', unit: 245 }).error || ''), 'павшего — сначала воскресить'); c.general = null; }
+  console.log('✓ Генерал: найм — Мечник 1 ч, Мародер 1,5 ч; воскрешение — (уровень + 10) мин; «Сменить воина» без потери уровня; павшие списком, удаление');
 }
 { // админ: смена расы и сброс на старт
   const { UNIT } = require('../src/army');
@@ -1703,7 +1722,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     const luck0 = process.env.LUCK; process.env.LUCK = '0';
     const mk = (login) => { const u = g.register({ login, password: '12345', race: 0 }).user; u.created = Date.now() - 60 * DAY; u.royal = 1e6; u.royalAt = Date.now(); u.lastSeen = Date.now(); return u; };
     const U = mk('setlA1'), B = mk('setlB1'), Cc = mk('setlC1'), c = g.castleOf(U), cb = g.castleOf(B), cc = g.castleOf(Cc); for (const k of [c, cb, cc]) { g.mil(k); g.maxOut(k); }
-    let spot = null; for (let r = 4; r < 14 && !spot; r++) for (let dx = -r; dx <= r && !spot; dx++) for (const dy of [-r, r]) if (!spot && !g.settleError(U, c.x + dx, c.y + dy, 10)) spot = { x: c.x + dx, y: c.y + dy };
+    let spot = null; for (let r = 4; r < 60 && !spot; r++) for (let dx = -r; dx <= r && !spot; dx++) for (const dy of [-r, r]) if (!spot && !g.settleError(U, c.x + dx, c.y + dy, 10)) spot = { x: c.x + dx, y: c.y + dy };
     assert.ok(spot, 'есть пустое место');
     c.units = { 200: 500, 224: 9 }; c.squads = []; c.armies = [];
     assert.ok(/10 путешественников/.test(g.sendArmy(c, { units: { 200: 500, 224: 9 }, mission: 'settle', ...spot }).error || ''), '9 путешественников — мало');
