@@ -670,7 +670,9 @@ input.num { width: 76px; padding: 7px; text-align: center; }
 .pgift img { width: 100%; aspect-ratio: 1; object-fit: contain; border-radius: 8px; }
 .pgift i { font-size: 12px; opacity: .8; overflow-wrap: anywhere; }
 .repi { display: inline-flex; align-items: center; gap: 1px; vertical-align: middle; }
-.repi img { height: 40px; width: auto; } /* значки репутации: в профиле */
+.repi img { height: 30px; width: auto; } /* значки репутации: в профиле — ростом со строку текста */
+/* в строке с текстом «Репутация (N):» — середина значков на середине цифр (middle ставит их чуть ниже) */
+.plink2 .repi, .acinfo .repi, .bwline .repi { position: relative; top: -.14em; }
 .reprow .repi img { height: 38px; } /* в таблице репутации */
 .rrow .repi img { height: 20px; }
 .pline.plink2 { display: block; width: 100%; border: 0; border-bottom: 1px solid #b08a5a44; background: none; padding: 3px 0; text-align: left; color: inherit; font: 20px/1.5 var(--serif); }
