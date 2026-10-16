@@ -261,7 +261,7 @@ function profileWin(p) {
     ${p.brank ? `<button class="brline" data-brank="${p.id}"><span class="brl-t">Боевой ранг:</span><span class="brl-r"><img src="${BR_IMG(p.brank.icon)}" alt="">${brStars(p.brank.idx < 0 ? 0 : p.brank.stars)}<small>${esc(p.brank.title)}</small></span><b class="brarr">›</b></button>` : ''}
     <button class="pline plink2" data-reptable>Репутация (${fmtFull(p.reputation)}): ${repIcons(p.reputation)}</button>
     ${best.length ? `<div class="pline">Зал Славы: ${medals}</div>` : ''}
-    ${(p.titles || []).length || hon.length ? `<div class="ptitle ptl">Звание: ${[...(p.titles || []).map((t) => `${t === 'Администратор' ? `<img class="admbadge" src="${GFX}admin_badge.png" alt="">` : t === 'Старший модератор' ? `<img class="admbadge" src="${GFX}smod_badge.png" alt="">` : t === 'Модератор форума' ? `<img class="admbadge" src="${GFX}mod_badge.png" alt="">` : `<img class="admbadge crownp" src="${GFX}premium_crown.png" alt="">`} ${esc(t)}`),
+    ${(p.titles || []).length || hon.length ? `<div class="ptitle ptl">Звание: ${[...(p.titles || []).map((t) => `${t === 'Администратор' ? `<img class="admbadge" src="${GFX}admin_badge.png" alt="">` : t === 'Старший модератор' ? `<img class="admbadge" src="${GFX}smod_badge.png" alt="">` : t === 'Модератор форума' ? `<img class="admbadge" src="${GFX}mod_badge.png" alt="">` : t === 'Авторитет' ? `<img class="admbadge" src="${GFX}zags/thumb.png" alt="">` : `<img class="admbadge crownp" src="${GFX}premium_crown.png" alt="">`} ${esc(t)}`),
       ...hon.map((h) => `<button class="honb" data-honor="${esc(h.id)}"><img class="admbadge honor" src="${GFX}${h.small}" alt=""> ${esc(h.name)}</button>`)].join(', ')}</div>` : ''}
     ${p.marriage ? `<div class="pline zmar"><img class="zring" src="${GFX}zags/rings.png" alt=""> ${p.marriage.role === 'king' ? 'Женат на Королеве' : 'Замужем за Королем'} <a class="plink" data-zpair="${p.marriage.id}">${esc(p.marriage.spouse.login)}</a></div>
       <div class="pline">Рейтинг пары: <a class="plink" data-zpair="${p.marriage.id}">${ZSTAR} ${p.marriage.place}</a>, ${ZTHUMB} ${fmtFull(p.marriage.votes)}</div>` : ''}
@@ -695,7 +695,12 @@ const REP_TIERS = [
   ['axe_bronze', 'Бронзовые топоры', [16150, 17650, 19150, 20650]], ['axe_silver', 'Серебряные топоры', [22150, 24150, 26150, 28150]],
   ['axe_gold', 'Золотые топоры', [30150, 32650, 35150, 37650]], ['axe_gnome', 'Топоры гномов', [40150, 45150, 50150, 55150, 60150], true],
   ['axe_orc', 'Топоры орков', [65150, 80150, 95150, 110150, 125150], true], ['axe_elf', 'Топоры эльфов', [140150, 165150, 190150, 215150, 240150], true],
-  ['axe_human', 'Топоры людей', [265150, 295150, 325150, 355150, 385150], true], ['crystal', 'Хрустальные мечи', [418000]],
+  ['axe_human', 'Топоры людей', [265150, 295150, 325150, 355150, 385150], true],
+  // высшие звания (5 цветов в каждом): каждый следующий значок звания — свой цвет, <key>_1…_5
+  ['crystal', 'Хрустальные мечи', [415150, 465150, 515150, 565150, 615150], true], ['hammer', 'Боевые молоты', [665150, 725150, 785150, 845150, 905150], true],
+  ['scythe', 'Косы', [965150, 1115150, 1265150, 1415150, 1565150], true], ['kris', 'Изогнутые клинки', [1715150, 1865150, 2015150, 2165150, 2315150], true],
+  ['bow', 'Луки', [2465150, 2615150, 2765150, 2915150, 3065150], true], ['spear', 'Копья', [3215150, 3365150, 3515150, 3665150, 3815150], true],
+  ['morning', 'Моргенштерны', [3965150, 4115150, 4265150, 4415150, 4565150], true], ['staraxe', 'Звёздные секиры', [4715150, 4902650, 5090150, 5277650, 5465150], true],
 ];
 function repTier(rep) {
   let res = null;

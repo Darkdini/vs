@@ -176,6 +176,15 @@ function install(Game) {
     const rank = this.cached('rank', 15000, () => new Map(this.leaderboard().map((x, i) => [x.u.id, i + 1])));
     return rank.get(userId) || 0;
   };
+  // звание «Авторитет» (как в оригинале): у игрока №1 рейтинга «Авторитет» — по репутации; админ и боты не в счёт,
+  // нужна репутация выше стартовой; при равенстве — тот, кто выше в списке рейтинга
+  P.authorityId = function authorityId() {
+    return this.cached('auth', 15000, () => {
+      let best = 0, top = START_REP;
+      for (const u of Object.values(this.db.users)) { if (u.bot || u.admin) continue; const r = u.reputation ?? START_REP; if (r > top) { best = u.id; top = r; } }
+      return best;
+    });
+  };
 
   // полный профиль для окна «Профиль»
   P.sendGift = function sendGift(user, toId, giftId, text) {
@@ -207,7 +216,7 @@ function install(Game) {
       rating: this.userRating(u), rank: this.rankOf(u.id), reputation: u.reputation ?? START_REP,
       title: u.admin ? 'Администратор' : u.smod ? 'Старший модератор' : u.mod ? 'Модератор форума' : this.isPremium(u) ? 'VIP' : null,
       // звания в профиле: VIP — пока действует купленный премиум (закончился — строка пропадает), плюс админ/модератор
-      titles: [...((u.premium || 0) > Date.now() ? ['VIP'] : []), ...(u.admin ? ['Администратор'] : u.smod ? ['Старший модератор'] : u.mod ? ['Модератор форума'] : [])], premium: this.isPremium(u) && !u.admin ? u.premium : 0,
+      titles: [...((u.premium || 0) > Date.now() ? ['VIP'] : []), ...(u.admin ? ['Администратор'] : u.smod ? ['Старший модератор'] : u.mod ? ['Модератор форума'] : []), ...(this.authorityId() === u.id ? ['Авторитет'] : [])], premium: this.isPremium(u) && !u.admin ? u.premium : 0,
       honors: this.honorsOf ? this.honorsOf(u) : [], // медали «для красоты» (honors.js) — в той же строке «Звание»
       chatBan: viewer.admin || viewer.mod || u.id === viewer.id ? u.chatBan || 0 : undefined,
       alliance: al ? { id: al.id, name: al.name, tag: al.tag, ...(this.allyTitle ? (({ title, ep }) => ({ role: title, ep }))(this.allyTitle(al, u.id)) : { role: al.leader === u.id ? 'Глава' : 'Участник', ep: 0 }) } : null,

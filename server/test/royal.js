@@ -318,6 +318,21 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   const adm = g.adminUser(); adm.premium = Date.now() + 86400000; assert.deepStrictEqual(g.profileOf(adm, adm).titles, ['VIP', 'Администратор']);
   console.log('✓ звание VIP в профиле: есть, пока действует премиум; у админа — «VIP, Администратор»');
 }
+// звание «Авторитет» — у игрока №1 рейтинга «Авторитет» (по репутации); админ и боты не в счёт
+{
+  const adm = g.adminUser(), keep = adm.reputation, max = Math.max(...Object.values(g.db.users).map((u) => u.reputation ?? 10));
+  const [a, b] = ['autha', 'authb'].map((l) => g.register({ login: l, password: '12345', race: 0 }).user);
+  const has = (u) => g.profileOf(u, a).titles.includes('Авторитет');
+  a.reputation = max + 100; adm.reputation = max * 10 + 1000; g.cache = {};
+  assert.ok(has(a) && !has(b) && !has(adm), 'первый по репутации — «Авторитет», админ не в счёт');
+  assert.ok(g.profileOf(a, b).titles.at(-1) === 'Авторитет', 'видят и другие игроки');
+  b.reputation = a.reputation - 1; g.cache = {}; assert.ok(!has(b), 'на 1 меньше — ещё не «Авторитет»');
+  b.gold = 1; assert.ok(g.giveReputation(b, b.id, 1).ok); // +2 — звание переходит сразу, без ожидания кэша рейтинга
+  assert.ok(has(b) && !has(a), 'обогнал по репутации — звание перешло');
+  assert.strictEqual(Object.values(g.db.users).filter((u) => g.authorityId() === u.id).length, 1, 'звание — только у одного');
+  adm.reputation = keep; a.reputation = b.reputation = 10; g.cache = {};
+  console.log('✓ звание «Авторитет»: у №1 по репутации, переходит к обогнавшему, админ не в счёт');
+}
 // подарок приходит получателю и сообщением от дарителя
 {
   const [a, b] = ['gfa', 'gfb'].map((l) => g.register({ login: `${l}_acc`, nick: l, password: '12345', race: 0 }).user); a.gold = 100; a.premium = Date.now() + 86400000; // Шлем Легиона — уникальный (премиум) подарок
