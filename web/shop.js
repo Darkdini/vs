@@ -75,7 +75,7 @@ function shopResKind(k) {
 }
 
 // ---------- Сокровища: сундуки и окно «Содержит: от … до …» ----------
-const SHOP_ITEM = () => ({ res: ['Ресурсы (каждого)', SG('res')], runes: ['Руны (каждой)', `${GFX}world/rune_str.png`],
+const SHOP_ITEM = () => ({ res: ['Ресурсы (каждого)', SG('res')], runes: ['Руны (случайные)', `${GFX}world/rune_str.png`],
   art0: ['Артефакт обычный', `${GFX}${ART_ICON.def}`, 'artr0'], art1: ['Артефакт редкий', `${GFX}${ART_ICON.def}`, 'artr1'], art2: ['Артефакт легендарный', `${GFX}${ART_ICON.def}`, 'artr2'],
   royal: ['Лояльность', `${GFX}smallicon/bonus_status/coronalgold.png`], exp: ['Опыт генерала', `${GFX}stash/exp.png`], rep: ['Репутация', SG('reputation')],
   ...Object.fromEntries([320, 321, 322, 323].map((id) => { const u = unitById(id); return [`u${id}`, [u ? u.name : 'Нежить', u ? unitSrc(u) : '', 'shunit']]; })) }); // нежить (army.js UNDEAD)

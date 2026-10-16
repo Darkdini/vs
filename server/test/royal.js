@@ -1067,8 +1067,8 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   { const T = require('../src/shop').TREASURES, ru0 = { ...g.runesOf(su) }, rep0 = su.reputation ?? 10, k1 = { ...g.stashOf(su) }, kr = { ...k1.res }, ku = { ...(k1.units || {}) };
     su.gold = 2000; g.mil(sc); sc.artifacts = [];
     const rt = g.shopTreasure(su, 't7'); assert.ok(rt.msg && su.gold === 1, 'Сокровище Дракона за 1999');
-    const it = Object.fromEntries(T.t7.items.map(([k, a, b]) => [k, [a, b]])), dRes = g.stashOf(su).res.wood - (kr.wood || 0), dRune = g.runesOf(su).str - ru0.str;
-    assert.ok(dRes >= it.res[0] && dRes <= it.res[1] && dRune >= it.runes[0] && dRune <= it.runes[1] && g.runesOf(su).path - ru0.path === dRune, `ресурсы ${dRes} и руны ${dRune} — в пределах`);
+    const it = Object.fromEntries(T.t7.items.map(([k, a, b]) => [k, [a, b]])), dRes = g.stashOf(su).res.wood - (kr.wood || 0), dRune = ['str', 'def', 'path'].reduce((q, k) => q + g.runesOf(su)[k] - ru0[k], 0);
+    assert.ok(dRes >= it.res[0] && dRes <= it.res[1] && dRune >= it.runes[0] && dRune <= it.runes[1], `ресурсы ${dRes} и руны ${dRune} (всего, вид случайный) — в пределах`);
     assert.ok(sc.artifacts.length >= it.art1[0] + it.art2[0] && sc.artifacts.length <= it.art1[1] + it.art2[1] && sc.artifacts.every((a) => a.rarity >= 1 && !a.active), 'артефакты в Сокровищнице: ' + sc.artifacts.length);
     const dRep = su.reputation - rep0, dExp = (g.stashOf(su).exp || 0) - (k1.exp || 0), dRoyal = (g.stashOf(su).royal || 0) - (k1.royal || 0);
     assert.ok(dRep >= it.rep[0] && dRep <= it.rep[1] && dExp >= it.exp[0] && dExp <= it.exp[1] && dRoyal >= it.royal[0] && dRoyal <= it.royal[1], 'репутация, опыт, лояльность — в пределах');

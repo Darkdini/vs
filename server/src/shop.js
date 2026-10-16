@@ -21,15 +21,15 @@ const RES_SIZES = [['S', 1000, 1], ['M', 5000, 5], ['L', 10000, 9], ['XL', 15000
 const PACK_GOLD = [3, 13, 24, 35, 65, 110];
 // сундуки «Сокровищ»: что внутри — [вид, от, до]. res — каждого ресурса, runes — каждой из трёх рун,
 // art0/art1/art2 — артефакты (обычный / редкий / легендарный), royal — лояльность населения, exp — опыт генерала, rep — репутация
-// предметы сундука: [вид, от, до] или [вид, от, до, шанс]; uNNN — воины-нежить (army.js UNDEAD) в Кладовую
+// предметы сундука: [вид, от, до] или [вид, от, до, шанс]; uNNN — воины-нежить (army.js UNDEAD) в Кладовую; runes — всего рун, вид случайный
 const TREASURES = {
-  t1: { name: 'Дубовый сундук', img: 'chest1', gold: 9, items: [['res', 1000, 4000], ['runes', 1, 3], ['royal', 10, 40], ['exp', 20, 60]] },
-  t2: { name: 'Кованый сундук', img: 'chest2', gold: 49, items: [['res', 4000, 12000], ['runes', 3, 10], ['art0', 1, 1], ['royal', 40, 120], ['exp', 60, 250]] },
-  t3: { name: 'Серебряный сундук', img: 'chest3', gold: 99, items: [['res', 8000, 25000], ['u320', 2, 5], ['runes', 6, 20], ['art0', 1, 2], ['royal', 80, 200], ['exp', 150, 500], ['rep', 5, 20]] },
-  t4: { name: 'Изумрудный сундук', img: 'chest4', gold: 199, items: [['res', 15000, 40000], ['u320', 3, 8], ['u321', 1, 2], ['runes', 12, 35], ['art0', 1, 2], ['art1', 1, 1], ['royal', 150, 400], ['exp', 300, 1500], ['rep', 20, 60]] },
-  t5: { name: 'Сундук Чёрной Короны', img: 'chest5', gold: 499, items: [['res', 35000, 90000], ['u320', 8, 20], ['u321', 2, 5], ['u322', 1, 3], ['runes', 30, 80], ['art0', 1, 3], ['art1', 1, 2], ['art2', 1, 1], ['royal', 400, 1000], ['exp', 1000, 4000], ['rep', 50, 200]] },
-  t6: { name: 'Сапфировый сундук Короля', img: 'chest6', gold: 999, items: [['res', 60000, 160000], ['u320', 15, 40], ['u321', 4, 10], ['u322', 3, 8], ['u323', 1, 1, 0.25], ['runes', 60, 150], ['art1', 1, 3], ['art2', 1, 2], ['royal', 800, 2500], ['exp', 3000, 10000], ['rep', 150, 600]] },
-  t7: { name: 'Сокровище Дракона', img: 'chest7', gold: 1999, items: [['res', 120000, 300000], ['u320', 30, 80], ['u321', 8, 20], ['u322', 6, 15], ['u323', 1, 2], ['runes', 120, 300], ['art1', 2, 4], ['art2', 1, 3], ['royal', 2000, 6000], ['exp', 8000, 25000], ['rep', 400, 1500]] },
+  t1: { name: 'Дубовый сундук', img: 'chest1', gold: 9, items: [['res', 1000, 4000], ['runes', 1, 2], ['royal', 10, 40], ['exp', 20, 60]] },
+  t2: { name: 'Кованый сундук', img: 'chest2', gold: 49, items: [['res', 4000, 12000], ['u320', 1, 2], ['runes', 2, 4], ['art0', 1, 1], ['royal', 40, 120], ['exp', 60, 250]] },
+  t3: { name: 'Серебряный сундук', img: 'chest3', gold: 99, items: [['res', 8000, 25000], ['u320', 4, 10], ['runes', 3, 6], ['art0', 1, 2], ['royal', 80, 200], ['exp', 150, 500], ['rep', 5, 20]] },
+  t4: { name: 'Изумрудный сундук', img: 'chest4', gold: 199, items: [['res', 15000, 40000], ['u320', 6, 16], ['u321', 2, 4], ['runes', 5, 10], ['art0', 1, 2], ['art1', 1, 1], ['royal', 150, 400], ['exp', 300, 1500], ['rep', 20, 60]] },
+  t5: { name: 'Сундук Чёрной Короны', img: 'chest5', gold: 499, items: [['res', 35000, 90000], ['u320', 16, 40], ['u321', 4, 10], ['u322', 2, 6], ['runes', 10, 20], ['art0', 1, 3], ['art1', 1, 2], ['art2', 1, 1], ['royal', 400, 1000], ['exp', 1000, 4000], ['rep', 50, 200]] },
+  t6: { name: 'Сапфировый сундук Короля', img: 'chest6', gold: 999, items: [['res', 60000, 160000], ['u320', 30, 80], ['u321', 8, 20], ['u322', 6, 16], ['u323', 1, 1, 0.5], ['runes', 20, 40], ['art1', 1, 3], ['art2', 1, 2], ['royal', 800, 2500], ['exp', 3000, 10000], ['rep', 150, 600]] },
+  t7: { name: 'Сокровище Дракона', img: 'chest7', gold: 1999, items: [['res', 120000, 300000], ['u320', 60, 160], ['u321', 16, 40], ['u322', 12, 30], ['u323', 2, 3], ['runes', 40, 80], ['art1', 2, 4], ['art2', 1, 3], ['royal', 2000, 6000], ['exp', 8000, 25000], ['rep', 400, 1500]] },
 };
 const FRAMES = {
   silver: { name: 'Серебряная рамка', gold: 90 },
@@ -116,7 +116,11 @@ function install(Game) {
       const n = k === 'res' ? Math.round(rnd(min, max) / 100) * 100 : rnd(min, max);
       if (k[0] === 'u') { const id = Number(k.slice(1)); (stash.units = stash.units || {})[id] = (stash.units[id] || 0) + n; lines.push(`${Ar.UNIT[id].name} ×${n} — в Кладовой.`); }
       else if (k === 'res') { for (const r of RES4) stash[r] = (stash[r] || 0) + n; lines.push(`Ресурсы: по ${fmt(n)} каждого — в Кладовой.`); }
-      else if (k === 'runes') { const have = this.runesOf(u); for (const r of require('./runes').RUNE_KEYS) have[r] += n; lines.push(`Руны: по ${n} каждой (Силы, Стойкости, Пути).`); }
+      else if (k === 'runes') { // всего n рун, вид каждой случайный — как в Сундуке дня
+        const { RUNE_KEYS, RUNE_NAME } = require('./runes'), have = this.runesOf(u), got = {};
+        for (let j = 0; j < n; j++) { const rk = RUNE_KEYS[rnd(0, RUNE_KEYS.length - 1)]; have[rk]++; got[rk] = (got[rk] || 0) + 1; }
+        lines.push(`Руны (${n}): ${Object.entries(got).map(([rk, m]) => `${RUNE_NAME[rk]} ×${m}`).join(', ')}.`);
+      }
       else if (k === 'royal') { stash.royal = n; lines.push(`Лояльность населения +${fmt(n)} — в Кладовой.`); }
       else if (k === 'exp') { stash.exp = n; lines.push(`Опыт генерала +${fmt(n)} — в Кладовой.`); }
       else if (k === 'rep') { u.reputation = (u.reputation ?? 10) + n; lines.push(`Репутация +${fmt(n)}.`); }
