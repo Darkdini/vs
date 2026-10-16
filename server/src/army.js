@@ -199,6 +199,21 @@ for (const [id, name, race, base, slot, key] of UNIQUE) {
   const u = { ...b, id, name, race, img, base, slot, quest: true, notrain: true, hp: k(b.hp), attack: k(b.attack), magic: k(b.magic), def: { inf: k(b.def.inf), cav: k(b.def.cav), mag: k(b.def.mag) } };
   UNITS.push(u); UNIT[id] = u;
 }
+// нежить — только из сундуков Лавки (Сокровища), служит любой расе. Сильнее любого воина игры: атака (у Лича — магия), защита и здоровье
+// выше, чем у самых сильных (Изувер: атака 263, здоровье 227; Джин: защита 63). Не тренируется, не ест, не лечится в Лазарете,
+// генералом не становится (как уникальные воины заданий — quest). Картинка — gfx/units/undead/<key>.png
+const UNDEAD = [
+  // id, имя, картинка, род войск, здоровье, атака, магия, защита [пехота, кавалерия, магия], скорость, груз, население
+  [320, 'Скелет-латник', 'skeleton', 'infantry', 250, 280, 0, [70, 70, 55], 8, 100, 75],
+  [321, 'Рыцарь смерти', 'death_knight', 'cavalry', 320, 340, 45, [80, 85, 60], 14, 150, 90],
+  [322, 'Лич', 'lich', 'magic', 260, 40, 300, [70, 70, 90], 8, 60, 75],
+  [323, 'Костяной дракон', 'bone_dragon', 'cavalry', 1000, 650, 160, [130, 130, 110], 16, 300, 200],
+];
+for (const [id, name, key, type, hp, attack, magic, [inf, cav, mag], speed, carry, pop] of UNDEAD) {
+  const u = { id, name, race: 'all', img: `undead/${key}`, role: 'undead', building: null, level: 0, req: {}, spy: 0, type, hp, attack, magic, def: { inf, cav, mag },
+    speed, carry, upkeep: 0, pop, cost: { wood: 0, stone: 0, iron: 0, food: 0 }, time: 0, undead: true, quest: true, notrain: true };
+  UNITS.push(u); UNIT[id] = u;
+}
 const uniqueFor = (race, slot) => UNITS.find((u) => u.quest && u.race === race && u.slot === slot);
 // у общих юнитов цена бывает разной по расам (скрины оригинала): Путешественник у орков — 5000/5000/5000/7500
 UNIT[224].raceOvr = { orcs: { cost: { wood: 5000, stone: 5000, iron: 5000, food: 7500 } }, elves: { cost: { wood: 7500, stone: 5000, iron: 5000, food: 5000 } } };
@@ -545,7 +560,7 @@ function install(Game, helpers) {
     this.tick(castle);
     const unit = raceUnit(UNIT[unitId], this.raceOf(castle)); count = Math.floor(Number(count));
     if (!unit) return { error: 'Неизвестный юнит.' };
-    if (unit.notrain) return { error: unit.quest ? 'Уникальные воины не тренируются — их дают задания (Кладовая).' : 'Торговцы не тренируются — их 20 на Рынке.' };
+    if (unit.notrain) return { error: unit.undead ? 'Нежить не тренируется — она приходит из сундуков Лавки (Кладовая).' : unit.quest ? 'Уникальные воины не тренируются — их дают задания (Кладовая).' : 'Торговцы не тренируются — их 20 на Рынке.' };
     if (!(count > 0)) return { error: 'Укажите количество.' };
     if (ORDER_MAX[unit.id] && count > ORDER_MAX[unit.id]) return { error: `${unit.name}: не больше ${ORDER_MAX[unit.id]} за один заказ.` };
     const lock = this.unitLock(castle, unit); if (lock) return { error: lock };
@@ -2092,7 +2107,7 @@ function install(Game, helpers) {
       castle.grid[1][i] = id; castle.levels[1][i] = C.LANDS_MAX;
     }
     castle.queue = [];
-    for (const u of unitsForRace(race)) if (u.id !== GENERAL_ID) castle.units[u.id] = Math.max(castle.units[u.id] || 0, u.role === 'merchant' ? 200 : u.race === 'all' && !['giant', 'valkyrie', 'ram', 'catapult', 'eye', 'shadow'].includes(u.role) ? 20 : 1000);
+    for (const u of unitsForRace(race)) if (u.id !== GENERAL_ID && !u.undead) castle.units[u.id] = Math.max(castle.units[u.id] || 0, u.role === 'merchant' ? 200 : u.race === 'all' && !['giant', 'valkyrie', 'ram', 'catapult', 'eye', 'shadow'].includes(u.role) ? 20 : 1000);
     if (!this.generalHome(castle.owner, castle)) { // генерал один на королевство: если он в другом замке — здесь не появляется
       castle.general = this.newGeneral(castle, 100); // полная прокачка: очки уже распределены
       Object.assign(castle.general.pts, { atk: 20, def: 20, catk: 80, cdef: 60, heal: 10, career: 8 }); castle.general.free = 0;

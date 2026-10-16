@@ -77,7 +77,8 @@ function shopResKind(k) {
 // ---------- Сокровища: сундуки и окно «Содержит: от … до …» ----------
 const SHOP_ITEM = () => ({ res: ['Ресурсы (каждого)', SG('res')], runes: ['Руны (каждой)', `${GFX}world/rune_str.png`],
   art0: ['Артефакт обычный', `${GFX}${ART_ICON.def}`, 'artr0'], art1: ['Артефакт редкий', `${GFX}${ART_ICON.def}`, 'artr1'], art2: ['Артефакт легендарный', `${GFX}${ART_ICON.def}`, 'artr2'],
-  royal: ['Лояльность', `${GFX}smallicon/bonus_status/coronalgold.png`], exp: ['Опыт генерала', `${GFX}stash/exp.png`], rep: ['Репутация', SG('reputation')] });
+  royal: ['Лояльность', `${GFX}smallicon/bonus_status/coronalgold.png`], exp: ['Опыт генерала', `${GFX}stash/exp.png`], rep: ['Репутация', SG('reputation')],
+  ...Object.fromEntries([320, 321, 322, 323].map((id) => { const u = unitById(id); return [`u${id}`, [u ? u.name : 'Нежить', u ? unitSrc(u) : '', 'shunit']]; })) }); // нежить (army.js UNDEAD)
 function shopTreasWin() {
   const s = S.shop, gold = S.st.user.gold || 0;
   return `${shopHead('Сокровища')}${shopCash()}${s ? shGrid(s.treasures.map((t) => `<button class="ptile shchest ${gold >= t.gold ? 'ok' : ''}" data-shtr="${t.id}"><img src="${SG(t.img)}" alt=""><span class="shszp">${shopCoin(t.gold)}</span></button>`)) : shopBusy()}
@@ -86,11 +87,12 @@ function shopTreasWin() {
 function shopTreasOne(id) {
   const s = S.shop, t = s && s.treasures.find((x) => x.id === id); if (!t) return `${shopHead('Сокровища')}${shopBusy()}`;
   const IT = SHOP_ITEM(), gold = S.st.user.gold || 0, got = S.shopGot && S.shopGot.id === id ? S.shopGot.lines : null;
-  const rows = t.items.map(([k, a, b]) => `<div class="shtrow"><img class="${IT[k][2] || ''}" src="${IT[k][1]}" alt=""><span class="shtrn">${IT[k][0]}</span>${a === b ? `<b class="shtrv">${fmtFull(a)}</b>` : `<span class="shtrf">от</span><b>${fmtFull(a)}</b><span class="shtrf">до</span><b>${fmtFull(b)}</b>`}</div>`).join('');
+  const rows = t.items.map(([k, a, b, p]) => `<div class="shtrow"><img class="${IT[k][2] || ''}" src="${IT[k][1]}" alt=""><span class="shtrn">${IT[k][0]}</span>${p ? `<b class="shtrv">${a === b ? fmtFull(a) : `${fmtFull(a)}–${fmtFull(b)}`} <span class="shtrf">(шанс ${Math.round(p * 100)}%)</span></b>`
+    : a === b ? `<b class="shtrv">${fmtFull(a)}</b>` : `<span class="shtrf">от</span><b>${fmtFull(a)}</b><span class="shtrf">до</span><b>${fmtFull(b)}</b>`}</div>`).join('');
   return `${shopHead('Сокровища')}<div class="shtrhead"><img src="${SG(t.img)}" alt=""><b>${esc(t.name)}</b></div>
     <div class="shtrbox"><div class="shtrcap">Содержит:</div>${rows}</div>
     ${got ? `<div class="shgot"><b>Выпало:</b>${got.map((l) => `<div>${esc(l)}</div>`).join('')}</div><button class="pbar" data-shstash>📦 Открыть Кладовую</button>` : ''}
-    <p class="parch-note small">Ресурсы, лояльность и опыт генерала — в Кладовую, руны — к вашим рунам, артефакты — в Сокровищницу столицы (полна — разбиваются на осколки). Всё, что выпало, придёт и отчётом.</p>
+    <p class="parch-note small">Ресурсы, нежить, лояльность и опыт генерала — в Кладовую, руны — к вашим рунам, артефакты — в Сокровищницу столицы (полна — разбиваются на осколки). Всё, что выпало, придёт и отчётом.</p>
     ${shopLack(t.gold) || `<button class="shbuy" data-shtrbuy="${t.id}" data-cost="${t.gold}" data-name="${esc(t.name)}">Купить за ${shopCoin(t.gold)}</button>`}`;
 }
 

@@ -1064,7 +1064,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(g.shopRes(su, sc, 'stone', 0, now + 86400000).msg, 'на следующий день — снова можно');
   assert.ok(g.shopRes(su, sc, 'gold', 0, now + 2 * 86400000).error && g.shopRes(su, sc, 'wood', 6, now + 2 * 86400000).error && g.shopRes(su, sc, '__proto__', 1, now + 2 * 86400000).error, 'нет такого товара');
   // «Сокровища»: всё по таблице «от … до …»; артефакты — в Сокровищницу столицы, полна — осколки в Кладовую
-  { const T = require('../src/shop').TREASURES, ru0 = { ...g.runesOf(su) }, rep0 = su.reputation ?? 10, k1 = { ...g.stashOf(su) }, kr = { ...k1.res };
+  { const T = require('../src/shop').TREASURES, ru0 = { ...g.runesOf(su) }, rep0 = su.reputation ?? 10, k1 = { ...g.stashOf(su) }, kr = { ...k1.res }, ku = { ...(k1.units || {}) };
     su.gold = 2000; g.mil(sc); sc.artifacts = [];
     const rt = g.shopTreasure(su, 't7'); assert.ok(rt.msg && su.gold === 1, 'Сокровище Дракона за 1999');
     const it = Object.fromEntries(T.t7.items.map(([k, a, b]) => [k, [a, b]])), dRes = g.stashOf(su).res.wood - (kr.wood || 0), dRune = g.runesOf(su).str - ru0.str;
@@ -1073,6 +1073,13 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     const dRep = su.reputation - rep0, dExp = (g.stashOf(su).exp || 0) - (k1.exp || 0), dRoyal = (g.stashOf(su).royal || 0) - (k1.royal || 0);
     assert.ok(dRep >= it.rep[0] && dRep <= it.rep[1] && dExp >= it.exp[0] && dExp <= it.exp[1] && dRoyal >= it.royal[0] && dRoyal <= it.royal[1], 'репутация, опыт, лояльность — в пределах');
     assert.ok(g.db.reports.slice(-1)[0].title === 'Сокровища: Сокровище Дракона', 'отчёт со списком находок');
+    // нежить: в Кладовую, количество — в пределах таблицы; сильнее любого воина игры; не тренируется, генералом не становится
+    const du = (id) => (g.stashOf(su).units[id] || 0) - (ku[id] || 0);
+    assert.ok([320, 321, 322, 323].every((id) => du(id) >= it[`u${id}`][0] && du(id) <= it[`u${id}`][1]), `нежить в Кладовой: ${[320, 321, 322, 323].map(du)}`);
+    { const { UNITS, UNIT } = require('../src/army'), others = UNITS.filter((x) => !x.undead && x.hp > 0), mx = (f) => Math.max(...others.map(f));
+      assert.ok([320, 321, 322, 323].every((id) => { const u = UNIT[id]; return Math.max(u.attack, u.magic) > mx((x) => Math.max(x.attack, x.magic || 0)) && u.def.inf > mx((x) => x.def.inf)
+        && u.def.cav > mx((x) => x.def.cav) && u.def.mag > mx((x) => x.def.mag) && u.hp > mx((x) => x.hp) && u.upkeep === 0; }), 'нежить сильнее любого воина игры и не ест');
+      assert.ok(/сундуков Лавки/.test(g.train(sc, 320, 1).error || '') && !g.genTrainUnits(sc).some((x) => x.undead) && !g.toInfirmary(sc, { 320: 5 }), 'нежить не тренируется, генералом не становится, в Лазарет не попадает'); }
     assert.ok(/Не хватает/.test(g.shopTreasure(su, 't1').error || '') && su.gold === 1, 'мало монет');
     su.gold = 49; sc.artifacts = Array.from({ length: g.bonus(sc).artStore }, (_, i) => ({ id: 9000 + i, type: 'atk', rarity: 0, active: false }));
     const w0 = g.stashOf(su).res.wood, rf = g.shopTreasure(su, 't2');

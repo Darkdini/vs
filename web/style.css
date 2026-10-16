@@ -2089,6 +2089,9 @@ img.artr2 { filter: drop-shadow(0 0 3px #ffd34a) drop-shadow(0 0 7px #ff8a1a); }
 #sheetBody .shgrid .ptile { position: relative; padding: 6px 4px 5px; gap: 2px; justify-content: space-between; }
 #sheetBody .shgrid .ptile img { width: 74%; height: auto; max-height: 68%; aspect-ratio: 1; object-fit: contain; image-rendering: auto; filter: drop-shadow(0 2px 2px #0008); }
 #sheetBody .shgrid .ptile span { font-size: min(14px, 3.5vw); }
+/* простые плитки Лавки: картинка — ровно по центру плитки, подпись — внизу на рамке */
+#sheetBody .shgrid .shtile { justify-content: center; }
+#sheetBody .shgrid .shtile > span { position: absolute; left: 4px; right: 4px; bottom: 5px; }
 #sheetBody .shgrid .shempty { background: none; border: 2px dashed #b89a6a; border-radius: 10px; }
 #sheetBody .shgrid .ptile.off { filter: grayscale(.85) brightness(.85); }
 #sheetBody .shgrid .shsz, #sheetBody .shgrid .shchest { aspect-ratio: .8; justify-content: flex-start; }
@@ -2106,7 +2109,7 @@ img.artr2 { filter: drop-shadow(0 0 3px #ffd34a) drop-shadow(0 0 7px #ff8a1a); }
 .shtrcap { background: linear-gradient(#f5c46a, #c8862a); color: #3a1f08; font: 700 19px/1.6 var(--serif); text-align: center; }
 .shtrow { display: grid; grid-template-columns: 34px 1fr auto auto auto auto; align-items: center; column-gap: 6px; padding: 5px 8px; color: #f6e6c6; font: min(16px, 3.9vw)/1.2 var(--serif); border-top: 1px solid #ffffff14; }
 .shtrow:nth-child(even) { background: #ffffff0d; }
-.shtrow img { width: 32px; height: 32px; object-fit: contain; }
+.shtrow img { width: 32px; height: 32px; object-fit: contain; } .shtrow img.shunit { height: 44px; } /* нежить — фигура в рост */
 .shtrow b { min-width: 3.6em; text-align: right; font-weight: 600; }
 .shtrow .shtrv { grid-column: 3 / -1; }
 .shtrf { color: #e8a060; font-size: .85em; }
