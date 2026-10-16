@@ -225,6 +225,10 @@ const unitsForRace = (race) => UNITS.filter((u) => u.race === race || u.race ===
 // Личная атака/защита — +1 за очко; командование атакой/защитой — к армии, с убывающей отдачей (cmdBonus); восстановление — воскрешение быстрее на 1% за очко
 // (не больше 50 очков — вдвое быстрее); карьера — больше опыта.
 const GEN = { battleCap: 0.15, dayLevels: 1, perLevel: 2, maxLevel: 500, revive: 0.5, cmd: 0.003, cmdMax: 1, cmdK: 300, heal: 0.01, healMax: 50, career: 0.005, resetGold: 100 };
+// с 25 уровня прокачка тяжелее и дороже: каждый уровень требует больше опыта (+25% за каждый уровень сверх 24-го:
+// 25-й — ×1,25, 30-й — ×2,5, 40-й — ×5 к прежней шкале), за бой — не больше 10% уровня, за сутки — не больше полуровня.
+// Игрокам лимиты не показываются (ни в окне «Генерал», ни в отчётах)
+const GEN_HARD = { from: 25, k: 0.25, battle: 0.10, day: 0.5 };
 const REVIVE_GOLD = 3, REVIVE_RES_MAX = 100; // воскрешение генерала: монет за каждые 25 уровней; выше этого уровня — только за монеты
 const REVIVE_MIN = 10; // время воскрешения генерала — (уровень + 10) минут: 10 ур. — 20 мин, каждый уровень — ещё минута
 const GEN_HIRE_SEC = 1800, GEN_HIRE_K = 2.5, REKIND_SEC = 1800; // найм генерала: полчаса + время воина ×2,5 (Мечник — 1 ч, Мародер — 1,5 ч); смена воина — полчаса
@@ -672,14 +676,23 @@ function install(Game, helpers) {
   P.magicOp = function magicOp(castle, m) { return ['m', 'md'].includes(m.kind) ? this.upgradeOp(castle, m) : { error: 'Неверный параметр.' }; };
 
   // ----- генерал -----
-  P.generalNeed = (level) => 50 * level * level; // всего опыта для следующего уровня: 10 ур. — 5 000, 100 ур. — 500 000, 500 ур. — 12,5 млн
+  // всего опыта для следующего уровня: до 24 ур. — 50 × уровень² (10 ур. — 5 000, 24 ур. — 28 800); дальше каждый уровень дороже (GEN_HARD):
+  // уровень L стоит 50 × (2L − 1) × (1 + 0,25 × (L − 24)); сумма — по формуле, без перебора (уровни бывают и выше 500 — старые записи)
+  P.generalNeed = (level) => { const m = Math.max(0, level - (GEN_HARD.from - 1)); return Math.round(50 * level * level + 50 * GEN_HARD.k * (m * (m + 1) * (2 * m + 1) / 3 + 47 * m * (m + 1) / 2)); };
   P.newGeneral = function newGeneral(castle, level = 1) {
-    return this.normGeneral({ name: 'Генерал', level, exp: level > 1 ? this.generalNeed(level - 1) : 0, expV: 2, dead: false }, castle);
+    return this.normGeneral({ name: 'Генерал', level, exp: level > 1 ? this.generalNeed(level - 1) : 0, expV: 3, dead: false }, castle);
   };
   // дополняет старые записи генерала полями нового окна (очки, имя, сбросы)
   P.normGeneral = function normGeneral(g, castle) {
     if (!g.pts) { g.pts = Object.fromEntries(GEN_STATS.map((k) => [k, 0])); g.free = GEN.perLevel * Math.max(0, g.level - 1); }
-    if (g.expV !== 2) { g.exp = Math.round((g.exp || 0) / 2); g.expV = 2; } // шкала опыта ×0,5 (новая кривая уровней), уровень не меняется
+    if (!g.expV || g.expV < 2) { g.exp = Math.round((g.exp || 0) / 2); g.expV = 2; } // шкала опыта ×0,5 (новая кривая уровней), уровень не меняется
+    if (g.expV === 2) { // с 25 уровня уровни дороже (GEN_HARD): уровень и доля полоски опыта сохраняются
+      if (g.level >= GEN_HARD.from) {
+        const o0 = 50 * (g.level - 1) ** 2, o1 = 50 * g.level ** 2, f = Math.max(0, Math.min(0.999, ((g.exp || 0) - o0) / Math.max(1, o1 - o0)));
+        const n0 = this.generalNeed(g.level - 1), n1 = this.generalNeed(g.level); g.exp = Math.round(n0 + f * (n1 - n0));
+      }
+      g.expV = 3;
+    }
     if (g.free === undefined) g.free = 0;
     if (!g.name) g.name = 'Генерал';
     if (g.level > GEN.maxLevel) g.level = GEN.maxLevel;
@@ -692,9 +705,9 @@ function install(Game, helpers) {
     return { atk: base.attack + g.pts.atk, def: base.def.inf + g.pts.def, catk: cmdBonus(g.pts.catk), cdef: cmdBonus(g.pts.cdef),
       heal: GEN.heal * Math.min(GEN.healMax, g.pts.heal), career: GEN.career * g.pts.career };
   };
-  // опыт генерала за бой. Чтобы генерал не качался «за пару секунд», действуют ограничения:
-  //  • за один бой — не больше 15% опыта текущего уровня (минимум 7 боёв на уровень);
-  //  • за сутки — не больше опыта на 1 уровень (≈ 30 уровней в месяц при активной войне, 500 ур. — больше года);
+  // опыт генерала за бой. Чтобы генерал не качался «за пару секунд», действуют ограничения (игрокам не показываются):
+  //  • за один бой — не больше 15% опыта текущего уровня (минимум 7 боёв на уровень), с 25 ур. — 10%;
+  //  • за сутки — не больше опыта на 1 уровень, с 25 ур. — на полуровня (и сами уровни там дороже — GEN_HARD);
   //  • карьера (+0,5% за очко) и премиум (×2) увеличивают и опыт, и оба лимита.
   P.addGeneralExp = function addGeneralExp(castle, exp) {
     const g = castle.general; if (!g || g.dead || !(exp > 0)) return null;
@@ -703,7 +716,8 @@ function install(Game, helpers) {
     const span = this.generalNeed(g.level) - (g.level > 1 ? this.generalNeed(g.level - 1) : 0);
     const day = new Date().toISOString().slice(0, 10);
     if (!g.day || g.day.d !== day) g.day = { d: day, exp: 0 };
-    const battleCap = Math.max(20, Math.ceil(span * GEN.battleCap * mult)), dayCap = Math.ceil(span * GEN.dayLevels * mult);
+    const hard = g.level >= GEN_HARD.from;
+    const battleCap = Math.max(20, Math.ceil(span * (hard ? GEN_HARD.battle : GEN.battleCap) * mult)), dayCap = Math.ceil(span * (hard ? GEN_HARD.day : GEN.dayLevels) * mult);
     const raw = Math.round(exp * mult), got = Math.max(0, Math.min(raw, battleCap, dayCap - g.day.exp));
     const capped = got < raw ? (g.day.exp + got >= dayCap ? 'day' : 'battle') : null;
     g.day.exp += got; if (got > 0) this.addStat(castle.owner, 'genExp', got);
@@ -736,7 +750,7 @@ function install(Game, helpers) {
     }
     return { exp: Math.round(exp), weak, repeat };
   };
-  const genLine = (who, r, e) => (r ? `${who} «${r.name}» получил ${r.got.toLocaleString('ru-RU')} опыта${e.weak ? ' (слабый противник ×0,25)' : ''}${e.repeat ? ` (${e.repeat + 1}-й бой с этим игроком за сутки)` : ''}${r.capped === 'battle' ? ' — лимит за бой' : r.capped === 'day' ? ' — дневной лимит опыта исчерпан' : ''}${r.level > r.from ? `. Новый уровень: ${r.level}!` : ''}` : null);
+  const genLine = (who, r, e) => (r ? `${who} «${r.name}» получил ${r.got.toLocaleString('ru-RU')} опыта${e.weak ? ' (слабый противник ×0,25)' : ''}${e.repeat ? ` (${e.repeat + 1}-й бой с этим игроком за сутки)` : ''}${r.level > r.from ? `. Новый уровень: ${r.level}!` : ''}` : null);
   // окно «Генерал»: rename, dist (распределить очки), reset (сбросить очки), kill (убить), rekind (сменить воина)
   P.generalOp = function generalOp(castle, user, { op, name, pts, idx, gold, unit } = {}) {
     this.tick(castle); this.mil(castle);
@@ -2225,10 +2239,8 @@ function install(Game, helpers) {
     const g = castle.general, gs = this.genStats(g), q = g.squad && castle.squads.find((x) => x.id === g.squad), a = g.away && castle.armies.find((x) => x.id === g.away);
     const where = a ? `армия в походе (${MISSIONS[a.mission]} ${a.x}:${a.y})` : q ? `Армия: ${q.name}` : 'Замковая армия';
     const health = g.dead ? (g.reviveAt && g.reviveStart ? Math.min(99, Math.floor((Date.now() - g.reviveStart) / (g.reviveAt - g.reviveStart) * 100)) : 0) : 100;
-    const span = this.generalNeed(g.level) - (g.level > 1 ? this.generalNeed(g.level - 1) : 0), mult = (1 + GEN.career * g.pts.career) * (this.isPremium(this.userById(castle.owner)) ? 2 : 1);
-    const today = new Date().toISOString().slice(0, 10), dayExp = g.day && g.day.d === today ? g.day.exp : 0;
-    const lim = { battle: Math.max(20, Math.ceil(span * GEN.battleCap * mult)), day: Math.ceil(span * GEN.dayLevels * mult), dayExp };
-    return { ...g, foes: undefined, lim, stats: gs, need: this.generalNeed(g.level), prevNeed: g.level > 1 ? this.generalNeed(g.level - 1) : 0, where: `${where}, замок ${castle.name}`, health,
+    // лимиты опыта игроку не отправляются (их нет и в окне): day и foes — служебные
+    return { ...g, foes: undefined, day: undefined, stats: gs, need: this.generalNeed(g.level), prevNeed: g.level > 1 ? this.generalNeed(g.level - 1) : 0, where: `${where}, замок ${castle.name}`, health,
       reviveCost: Object.fromEntries(RES4.map((r) => [r, Math.round(UNIT[GENERAL_ID].cost[r] * GEN.revive * g.level)])), resetGold: GEN.resetGold, perLevel: GEN.perLevel, rekindSec: REKIND_SEC, healMax: GEN.healMax };
   };
 

@@ -126,13 +126,34 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   c1.general = g.newGeneral(c1, 100);
   const r1 = g.battleExp({ killedPop: 10000, win: true, mission: 'attack', mine: c1, enemy: c2 }), r2 = g.battleExp({ killedPop: 10000, win: true, mission: 'attack', mine: c1, enemy: c2 });
   assert.ok(r1.repeat === 0 && r2.repeat === 1 && r2.exp === r1.exp / 2, JSON.stringify([r1, r2]));
-  // огромный бой: генерал 100 ур. получает не больше четверти уровня, за сутки — не больше двух уровней
+  // огромный бой: генерал 100 ур. (с 25 ур. — «тяжёлые» уровни) получает за бой не больше 10% уровня, за сутки — не больше полуровня
   const span = g.generalNeed(100) - g.generalNeed(99);
   const a = g.addGeneralExp(c1, 10000000);
-  assert.ok(a.got === Math.ceil(span * 0.15) && a.capped === 'battle' && a.level === 100, JSON.stringify(a));
+  assert.ok(a.got === Math.ceil(span * 0.10) && a.capped === 'battle' && a.level === 100, JSON.stringify(a));
   let lv = 100; for (let i = 0; i < 50; i++) lv = g.addGeneralExp(c1, 10000000).level;
-  assert.ok(lv <= 101, `за сутки не больше 1 уровня, а стало ${lv}`);
-  console.log(`✓ генерал: 1 опыт за 10 населения, повторный бой ×0,5, лимит за бой ${fmt(Math.ceil(span * 0.15))}, за сутки 100 → ${lv} ур. даже за 50 огромных боёв`);
+  assert.ok(lv === 100 && c1.general.day.exp === Math.ceil(span * 0.5), `за сутки не больше полуровня: ${lv} ур., ${c1.general.day.exp} опыта`);
+  // до 25 ур. — как раньше: 15% уровня за бой и целый уровень за сутки
+  c1.general = g.newGeneral(c1, 10); const s10 = g.generalNeed(10) - g.generalNeed(9);
+  assert.ok(g.addGeneralExp(c1, 10000000).got === Math.ceil(s10 * 0.15), 'до 25 ур. — 15% уровня за бой');
+  let l10 = 10; for (let i = 0; i < 50; i++) l10 = g.addGeneralExp(c1, 10000000).level;
+  assert.strictEqual(l10, 11, 'до 25 ур. — уровень за сутки');
+  // лимиты игроку не показываются: ни в окне «Генерал», ни в отчёте о бое
+  const gv = g.generalView(c1); assert.ok(gv.lim === undefined && gv.day === undefined, 'в окно генерала лимиты не уходят');
+  console.log(`✓ генерал: 1 опыт за 10 населения, повторный бой ×0,5; с 25 ур. за бой ≤10% уровня (${fmt(Math.ceil(span * 0.1))} на 100 ур.), за сутки ≤ полуровня; лимиты скрыты`);
+}
+// с 25 уровня каждый уровень дороже: 25-й — ×1,25, 30-й — ×2,5, 40-й — ×5; до 24 — прежняя шкала; старые генералы — с той же долей полоски
+{
+  const old = (l) => 50 * l * l, sp = (l) => g.generalNeed(l) - g.generalNeed(l - 1), so = (l) => old(l) - old(l - 1);
+  assert.ok([1, 5, 10, 24].every((l) => g.generalNeed(l) === old(l)), 'до 24 ур. шкала прежняя');
+  assert.ok(Math.abs(sp(25) / so(25) - 1.25) < 0.001 && Math.abs(sp(30) / so(30) - 2.5) < 0.001 && Math.abs(sp(40) / so(40) - 5) < 0.001, 'с 25 ур. дороже');
+  let ok = true; for (let l = 2; l <= 600; l++) if (!(sp(l) > 0 && Number.isInteger(g.generalNeed(l)))) ok = false; assert.ok(ok, 'шкала растёт и в целых числах');
+  const U3 = g.register({ login: 'gexp3', password: '12345', race: 0 }).user, c3 = g.castleOf(U3); g.mil(c3);
+  c3.general = { name: 'Старый', level: 30, exp: old(29) + (old(30) - old(29)) / 2, expV: 2, dead: false }; g.mil(c3);
+  const G = c3.general, f = (G.exp - g.generalNeed(29)) / (g.generalNeed(30) - g.generalNeed(29));
+  assert.ok(G.level === 30 && G.expV === 3 && Math.abs(f - 0.5) < 0.001, `генерал 30 ур. на новой шкале: тот же уровень и полполоски (${f})`);
+  c3.general = { name: 'Молодой', level: 12, exp: 7000, expV: 2, dead: false }; g.mil(c3);
+  assert.ok(c3.general.level === 12 && c3.general.exp === 7000 && c3.general.expV === 3, 'до 25 ур. опыт не меняется');
+  console.log(`✓ генерал: с 25 ур. уровни дороже (25-й ×1,25, 30-й ×2,5, 40-й ×5), до 24 — как раньше; старые генералы — тот же уровень и доля полоски`);
 }
 // перевод генерала в свой другой замок подкреплением и переформирование генерала в армию
 {
