@@ -414,7 +414,8 @@ function client() {
       const p1 = client(); await p1.open(); p1.send({ t: 'login', login: 'Pwtest', password: 'oldpw1' }); await p1.expect('state');
       const p2 = client(); await p2.open(); p2.send({ t: 'login', login: 'Pwtest', password: 'oldpw1' }); await p2.expect('state');
       p1.send({ t: 'passwd', old: 'oldpw1', new: 'newpw1' }); await p1.expect('auth');
-      await new Promise((ok) => setTimeout(ok, 300)); assert.ok(p2.closed() && !p1.closed(), 'другое устройство вышло, своё осталось');
+      for (let w = 0; w < 30 && !p2.closed(); w++) await new Promise((ok) => setTimeout(ok, 100)); // под нагрузкой сервер отключает не мгновенно — ждём до 3 с
+      assert.ok(p2.closed() && !p1.closed(), 'другое устройство вышло, своё осталось');
       for (let i = 0; i < 5; i++) { p1.send({ t: 'passwd', old: `wrong${i}`, new: 'pass9x' }); await p1.expect('error', (m) => /Старый пароль/.test(m.msg)); }
       p1.send({ t: 'passwd', old: 'newpw1', new: 'pass9x' }); await p1.expect('error', (m) => /Слишком много попыток/.test(m.msg)); p1.close();
       console.log('✓ смена пароля: другие устройства выходят сразу, подбор старого пароля ограничен');

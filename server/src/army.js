@@ -541,8 +541,8 @@ function install(Game, helpers) {
     }
     for (const r of RES4) castle.res[r] -= cost[r];
     for (const [id, n] of list) { castle.units[id] = (castle.units[id] || 0) + n; w[id] -= n; if (!w[id]) delete w[id]; }
-    castle.wounded = w; this.store.save();
     const total = list.reduce((q, [, n]) => q + n, 0);
+    castle.wounded = w; this.addStat(castle.owner, 'healed', total); this.store.save(); // для «Подозрительного»: вылеченные — законный прирост армии
     return { ok: true, msg: `Лекари вылечили раненых: ${total}. Они уже в Замковой армии.`, cost };
   };
   P.unitLock = function unitLock(castle, unit) {
@@ -600,7 +600,7 @@ function install(Game, helpers) {
       return t.done < t.count;
     });
     if (castle.healing) { // Лазарет: очередь лечения прежней версии — лечение теперь сразу, оплаченные встают в строй
-      for (const t of castle.healing) if (t.count > t.done) { castle.units[t.unit] = (castle.units[t.unit] || 0) + t.count - t.done; this.event(owner, `Лазарет: вылечены ${UNIT[t.unit] ? UNIT[t.unit].name : 'воины'} ×${t.count}`); }
+      for (const t of castle.healing) if (t.count > t.done) { castle.units[t.unit] = (castle.units[t.unit] || 0) + t.count - t.done; this.addStat(owner, 'healed', t.count - t.done); this.event(owner, `Лазарет: вылечены ${UNIT[t.unit] ? UNIT[t.unit].name : 'воины'} ×${t.count}`); }
       delete castle.healing;
     }
     // генерал воскрес

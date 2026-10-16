@@ -869,9 +869,14 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   g.adminOp(adm, 'gold', { login: 'cheatsus', n: 100 }); g.adminOp(adm, 'units', { login: 'cheatsus' }); g.anomalyScan();
   assert.strictEqual(mine().length, k, 'выдача от админа — без тревоги');
   g.stashAdd(u, { u: { inf: 40 } }); g.anomalyScan(); g.stashTake(u, c, 'unit', 300, 40); g.anomalyScan(); assert.strictEqual(mine().length, k, 'воины из Кладовой — законно');
+  { // вылеченные в Лазарете возвращаются в армию сразу — это не тревога (раньше считалось «без объяснения»)
+    const i = c.grid[0].indexOf(-1); c.grid[0][i] = 41; c.levels[0][i] = 10; c.wounded = { 200: 600 }; Object.assign(c.res, { wood: 1e6, stone: 1e6, iron: 1e6, food: 1e6 });
+    g.anomalyScan(); const hr = g.healWounded(c, null); g.anomalyScan();
+    assert.ok(hr.ok && !c.wounded[200] && mine().length === k, `600 вылеченных — без тревоги (${hr.error || 'ок'})`);
+    c.grid[0][i] = -1; c.levels[0][i] = 0; }
   assert.ok(g.alertsNew() > 0 && g.adminOp(adm, 'alerts', {}).data.length >= k && g.alertsNew() === 0, 'открыл список — новые прочитаны');
   assert.ok(g.adminOp(adm, 'player', { login: 'cheatsus' }).data.goldLog.length >= 2, 'история золота в карточке');
-  void n0; console.log('✓ Подозрительное: армия, золото мимо журнала и не от админа, лояльность, ресурсы; админ и Кладовая не тревожат');
+  void n0; console.log('✓ Подозрительное: армия, золото мимо журнала и не от админа, лояльность, ресурсы; админ, Кладовая и Лазарет не тревожат');
 }
 { // «Безопасность»: подозрительные адреса и блокировка IP
   const adm = g.adminUser();

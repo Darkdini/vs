@@ -1,6 +1,6 @@
 'use strict';
 // «Подозрительное» для админа: раз в 10 минут сервер сравнивает каждого игрока с прошлым замером и записывает
-// необъяснимые скачки — армия выросла больше, чем обучено и взято из Кладовой; золото пришло не от администрации
+// необъяснимые скачки — армия выросла больше, чем обучено, взято из Кладовой и вылечено в Лазарете; золото пришло не от администрации
 // или изменилось мимо журнала золота; лояльность населения выросла быстрее, чем позволяют правила; ресурсы сверх Склада.
 // Действия админа над игроком (выдал золото, войска и т. п.) тревогу не вызывают: после них замер начинается заново.
 
@@ -36,14 +36,15 @@ function install(Game) {
     for (const u of Object.values(this.db.users)) {
       if (u.bot || u.admin) continue;
       const st = this.stats(u), cs = this.castlesOf(u);
-      const snap = { at: now, army: this.armyTotal(u), trained: st.trained || 0, stashUnits: st.stashUnits || 0, gold: u.gold || 0, royal: u.royal || 0, castles: cs.length };
+      const snap = { at: now, army: this.armyTotal(u), trained: st.trained || 0, stashUnits: st.stashUnits || 0, healed: st.healed || 0, gold: u.gold || 0, royal: u.royal || 0, castles: cs.length };
       const p = u.snap;
       const fresh = !p || (u.admTouch && u.admTouch >= p.at); // первый замер или админ менял игрока — только запоминаем
       if (!fresh) {
-        // армия: рост сверх обученного и взятого из Кладовой
-        const grow = snap.army - p.army, legal = (snap.trained - p.trained) + (snap.stashUnits - p.stashUnits);
+        // армия: рост сверх обученного, взятого из Кладовой и вылеченного в Лазарете (раненые в армию не входят — вернулись лечением)
+        const trained = snap.trained - p.trained, fromStash = snap.stashUnits - p.stashUnits, healed = snap.healed - (p.healed || 0);
+        const grow = snap.army - p.army, legal = trained + fromStash + healed;
         if (snap.castles === p.castles && grow - legal > Math.max(30, p.army * 0.1)) {
-          this.alert(u, 'army', `Армия ${p.army.toLocaleString('ru-RU')} → ${snap.army.toLocaleString('ru-RU')} (+${(grow).toLocaleString('ru-RU')})`, `обучено ${legal >= 0 ? legal : 0}, из Кладовой ${snap.stashUnits - p.stashUnits} — без объяснения +${(grow - legal).toLocaleString('ru-RU')}`);
+          this.alert(u, 'army', `Армия ${p.army.toLocaleString('ru-RU')} → ${snap.army.toLocaleString('ru-RU')} (+${(grow).toLocaleString('ru-RU')})`, `обучено ${Math.max(0, trained)}, из Кладовой ${fromStash}, из Лазарета ${healed} — без объяснения +${(grow - legal).toLocaleString('ru-RU')}`);
         }
         // золото: изменилось мимо журнала или пришло не от администрации
         const log = (u.goldLog || []).filter((x) => !x.chk), logged = log.reduce((s, x) => s + x.delta, 0); // каждая запись журнала проверяется один раз
