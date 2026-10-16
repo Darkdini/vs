@@ -3,10 +3,9 @@
 // разделы → темы → сообщения. Темы создают только модераторы (админ, модераторы форума, модераторы раздела),
 // отвечают все игроки. Модераторы закрепляют/закрывают/удаляют темы, удаляют сообщения и запрещают писать на форуме.
 
-const SECTIONS = [
-  'Помощь новичкам. Обсуждение игровых моментов', 'Альянсы', 'Пресс-служба союзов', 'Общение',
-  'Спорт', 'Hi-Tech технологии', 'Музыка', 'Клуб по интересам',
-];
+const SECTIONS = ['Помощь новичкам. Обсуждение игровых моментов', 'Альянсы', 'Общение', 'Спорт'];
+// убранные разделы: их темы (если были) переезжают в «Общение», назначенные в них модераторы снимаются
+const REMOVED = ['Пресс-служба союзов', 'Hi-Tech технологии', 'Музыка', 'Клуб по интересам'];
 const TOPICS_PAGE = 10, POSTS_PAGE = 10;
 const TITLE_MAX = 80, TEXT_MAX = 1500, POST_GAP_MS = 10000;
 
@@ -16,7 +15,13 @@ function install(Game) {
 
   P.forumDb = function forumDb() {
     if (!this.db.forum) this.db.forum = { sections: SECTIONS.map((name, i) => ({ id: i + 1, name, mods: [], topics: [] })), nextId: 1 };
-    return this.db.forum;
+    const f = this.db.forum, gone = f.sections.filter((s) => REMOVED.includes(s.name));
+    if (gone.length) {
+      const to = f.sections.find((s) => s.name === 'Общение') || f.sections.find((s) => !gone.includes(s));
+      for (const s of gone) to.topics.push(...s.topics);
+      f.sections = f.sections.filter((s) => !gone.includes(s)); this.store.save();
+    }
+    return f;
   };
   P.forumSection = function forumSection(id) { return this.forumDb().sections.find((s) => s.id === Number(id)) || null; };
   P.forumTopic = function forumTopic(id) {

@@ -270,7 +270,11 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(last.reply && last.reply.by === pl.login && last.reply.text === 'Как строить?' && last.reply.id === q.id, 'в ответе — кому и цитата');
   assert.ok((g.events || []).some((e) => e.userId === pl.id && /ответил\(а\) вам на форуме/.test(e.msg)), 'уведомление автору');
   md.forumLast = 0; assert.ok(g.forumOp(md, { op: 'post', topic: t, text: 'просто так', reply: '__proto__' }).msg && !g.forumPosts(md, t, -1).posts.slice(-1)[0].reply, 'неверный ответ — обычное сообщение');
-  console.log('✓ форум: темы — только модераторы (админ назначает модератора раздела), ответы всех, антифлуд, закрытие темы, запрет писать, «Ответить» с цитатой');
+  // убранные разделы (Пресс-служба союзов, Hi-Tech, Музыка, Клуб по интересам): исчезают из старой базы, их темы — в «Общение»
+  g.db.forum.sections.push({ id: 7, name: 'Музыка', mods: [md.id], topics: [{ id: 99901, title: 'Песни', by: md.login, byId: md.id, at: Date.now(), pinned: false, closed: false, deleted: false, posts: [] }] });
+  const secs = g.forumSections(ad).map((s) => s.name), talk = g.db.forum.sections.find((s) => s.name === 'Общение');
+  assert.ok(secs.join() === 'Помощь новичкам. Обсуждение игровых моментов,Альянсы,Общение,Спорт' && talk.topics.some((x) => x.id === 99901) && g.forumTopic(99901).s === talk, `разделы: ${secs}`);
+  console.log('✓ форум: темы — только модераторы (админ назначает модератора раздела), ответы всех, антифлуд, закрытие темы, запрет писать, «Ответить» с цитатой; 4 раздела, темы убранных — в «Общение»');
 }
 // секретный логин админа: ADMIN_LOGIN — вход только под ним, «admin» отклоняется, в игре ник остаётся admin
 {

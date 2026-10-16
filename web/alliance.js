@@ -170,7 +170,7 @@ function allyTopicWin() {
   const t = S.allyTopic; if (!t) return loading('Тема');
   return `${ribbon('Тема')}<div class="bwline center"><b>${esc(t.title)}</b>${t.closed ? ' 🔒' : ''}</div>
     <div class="two2">${S.allyForeign ? '' : '<button class="lbar" data-aw="post">Написать</button>'}<button class="lbar" data-aw="forum">Темы</button></div>
-    ${t.posts.map((p, i) => `<div class="fpost">${canMod() && !p.deleted ? `<button class="fdel" data-apostdel="${i}" title="Удалить">✕</button>` : ''}<div class="fauthor">${repCrown(p.rep)} <a data-cprof="${p.byId}" style="color:${nameColor(p.rep)}">${esc(p.by)}</a></div>${repIcons(p.rep)}<div class="ftext">${esc(p.text)}</div><small>${dt(p.at)}</small></div>`).join('')}`;
+    ${t.posts.map((p, i) => `<div class="fpost">${canMod() && !p.deleted ? `<button class="apdel" data-apostdel="${i}" title="Удалить">✕</button>` : ''}<div class="fauthor">${repCrown(p.rep)} <a data-cprof="${p.byId}" style="color:${nameColor(p.rep)}">${esc(p.by)}</a></div>${repIcons(p.rep)}<div class="ftext">${esc(p.text)}</div><small>${dt(p.at)}</small></div>`).join('')}`;
 }
 function allyNewTopicWin() { return formWin('Создать тему', '<div class="clabel">Тема:</div><input class="ainput" name="title" maxlength="60" required><div class="clabel">Текст:</div><textarea class="ainput" name="text" rows="5" maxlength="2000" required></textarea><div class="center"><button class="pbtn">Создать</button></div>'); }
 function allyPostWin() { return formWin('Написать', '<textarea class="ainput" name="text" rows="6" maxlength="2000" required></textarea><div class="center"><button class="pbtn">Отправить</button></div>'); }
