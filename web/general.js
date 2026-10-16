@@ -40,7 +40,7 @@ function generalWin() {
     ${line('phidef', 'Личная защита', `${s.def.toFixed(1)}+0`)}
     ${line('magattack', 'Командование атакой', fmtFull(g.pts.catk))}
     ${line('magdef', 'Командование защитой', fmtFull(g.pts.cdef))}
-    ${line('plus', 'Скорость восстановления', fmtFull(g.pts.heal))}
+    ${line('plus', 'Скорость восстановления', `${fmtFull(g.pts.heal)}${s.heal ? ` (−${Math.round(s.heal * 100)}%)` : ''}`)}
     <div class="gline"><img src="${G3}menu/locations.svg" alt=""><span>Находится в армии:</span><b>${g.dead ? 'погиб' : esc(g.where)}</b></div>
     ${line('maxupgrade', 'Карьера', fmtFull(g.pts.career))}
     ${line('greenball', 'Свободные очки опыта', fmtFull(g.free))}
@@ -57,7 +57,7 @@ function generalWin() {
     </div>
     ${g.dead ? '' : g.rekind ? `<p class="cinfo">Переобучается в воина «${esc((unitById(g.rekind.kindId) || {}).name || '')}»: <span class="cd" data-e="${g.rekind.end}"></span></p>`
     : '<button class="pbar" data-genrkopen>Сменить воина</button>'}
-    <p class="small muted">За уровень — ${g.perLevel} очка опыта. Командование: первые очки — около +0,3% к атаке (защите) армии за очко, дальше прибавка убывает: 100 очков — +25%, 300 — +50%, предел — +100%. Личная защита генерала прикрывает войско в бою. Восстановление ускоряет воскрешение, карьера — получение опыта (+0,5% за очко).</p>
+    <p class="small muted">За уровень — ${g.perLevel} очка опыта. Командование: первые очки — около +0,3% к атаке (защите) армии за очко, дальше прибавка убывает: 100 очков — +25%, 300 — +50%, предел — +100%. Личная защита генерала прикрывает войско в бою. Скорость восстановления — воскрешение быстрее на 1% за очко (не больше ${fmtFull(g.healMax)} очков — вдвое быстрее), карьера — получение опыта (+0,5% за очко).</p>
     ${ribbon('Как получить опыт')}
     <div class="gexp">
       <div><b>⚔ Нападение и набег с генералом</b> — 1 опыт за каждые 10 единиц населения убитых врагов. Победа ×1,5, поражение ×0,5, набег ×0,75.</div>

@@ -207,8 +207,9 @@ const ORDER_MAX = { 224: 3, 233: 3 }; // Путешественник, Бунт�
 const raceUnit = (u, race) => (u && u.raceOvr && u.raceOvr[race] ? { ...u, ...u.raceOvr[race] } : u);
 const unitsForRace = (race) => UNITS.filter((u) => u.race === race || u.race === 'all');
 // генерал как в оригинале: за уровень — очки опыта, игрок распределяет их в окне «Генерал».
-// Личная атака/защита — +1 за очко; командование атакой/защитой — к армии, с убывающей отдачей (cmdBonus); восстановление — быстрее воскрешение; карьера — больше опыта.
-const GEN = { battleCap: 0.15, dayLevels: 1, perLevel: 2, maxLevel: 500, revive: 0.5, cmd: 0.003, cmdMax: 1, cmdK: 300, heal: 0.02, career: 0.005, resetGold: 100 };
+// Личная атака/защита — +1 за очко; командование атакой/защитой — к армии, с убывающей отдачей (cmdBonus); восстановление — воскрешение быстрее на 1% за очко
+// (не больше 50 очков — вдвое быстрее); карьера — больше опыта.
+const GEN = { battleCap: 0.15, dayLevels: 1, perLevel: 2, maxLevel: 500, revive: 0.5, cmd: 0.003, cmdMax: 1, cmdK: 300, heal: 0.01, healMax: 50, career: 0.005, resetGold: 100 };
 const REVIVE_GOLD = 3, REVIVE_RES_MAX = 100; // воскрешение генерала: монет за каждые 25 уровней; выше этого уровня — только за монеты
 const REVIVE_MIN = 10; // время воскрешения генерала — (уровень + 10) минут: 10 ур. — 20 мин, каждый уровень — ещё минута
 const GEN_HIRE_SEC = 1800, GEN_HIRE_K = 2.5, REKIND_SEC = 1800; // найм генерала: полчаса + время воина ×2,5 (Мечник — 1 ч, Мародер — 1,5 ч); смена воина — полчаса
@@ -674,7 +675,7 @@ function install(Game, helpers) {
   P.genStats = function genStats(g) {
     const base = UNIT[GENERAL_ID];
     return { atk: base.attack + g.pts.atk, def: base.def.inf + g.pts.def, catk: cmdBonus(g.pts.catk), cdef: cmdBonus(g.pts.cdef),
-      heal: GEN.heal * g.pts.heal, career: GEN.career * g.pts.career };
+      heal: GEN.heal * Math.min(GEN.healMax, g.pts.heal), career: GEN.career * g.pts.career };
   };
   // опыт генерала за бой. Чтобы генерал не качался «за пару секунд», действуют ограничения:
   //  • за один бой — не больше 15% опыта текущего уровня (минимум 7 боёв на уровень);
@@ -738,6 +739,7 @@ function install(Game, helpers) {
       const sum = GEN_STATS.reduce((s, k) => s + add[k], 0);
       if (!sum) return { error: 'Укажите, сколько очков куда распределить.' };
       if (sum > g.free) return { error: `Свободных очков только ${g.free}.` };
+      if (add.heal && g.pts.heal + add.heal > GEN.healMax) return { error: `Скорость восстановления — не больше ${GEN.healMax} очков (воскрешение вдвое быстрее). Можно добавить ещё ${Math.max(0, GEN.healMax - g.pts.heal)}.` };
       for (const k of GEN_STATS) g.pts[k] += add[k];
       g.free -= sum;
     } else if (op === 'reset') {
@@ -757,7 +759,7 @@ function install(Game, helpers) {
   // ----- генерал как в оригинале: павшие генералы списком (воскресить за ресурсы или золото, удалить),
   // тренировка нового — из юнита Замковой армии («Генерал (Мародер)»). Цены по скринам оригинала:
   // тренировка = цена юнита ×20 (ресурсы и люди), время — полчаса + время юнита ×2,5; воскрешение = цена юнита ×10×уровень (с долей опыта),
-  // люди ×уровень, время — (уровень + 10) минут, или монеты (сразу).
+  // люди ×уровень, время — (уровень + 10) минут (Скорость восстановления — на 1% быстрее за очко), или монеты (сразу).
   const genUnit = (g) => UNIT[g.kindId] || UNIT[GENERAL_ID];
   P.genLevelF = function genLevelF(g) {
     const need = this.generalNeed(g.level), prev = g.level > 1 ? this.generalNeed(g.level - 1) : 0;
@@ -766,7 +768,7 @@ function install(Game, helpers) {
   // воскрешение: до REVIVE_RES_MAX уровня — за ресурсы (не больше вместимости Склада замка) или монеты, выше — только за монеты; монеты — по REVIVE_GOLD за каждые 25 уровней
   P.reviveCostOf = function reviveCostOf(g, castle) {
     const u = genUnit(g), L = this.genLevelF(g), cap = castle ? this.capacity(castle) : null, lim = (k, v) => (cap ? Math.min(v, cap[k]) : v);
-    return { cost: Object.fromEntries(RES4.map((r) => [r, lim(r, Math.round(u.cost[r] * 10 * L))])), people: lim('people', Math.round(u.pop * L)), sec: (g.level + REVIVE_MIN) * 60,
+    return { cost: Object.fromEntries(RES4.map((r) => [r, lim(r, Math.round(u.cost[r] * 10 * L))])), people: lim('people', Math.round(u.pop * L)), sec: Math.round((g.level + REVIVE_MIN) * 60 * (1 - GEN.heal * Math.min(GEN.healMax, (g.pts && g.pts.heal) || 0))),
       gold: REVIVE_GOLD * Math.max(1, Math.ceil(g.level / 25)), coinsOnly: g.level > REVIVE_RES_MAX };
   };
   // ресурсы, внесённые частями до новых правил, возвращаются в замок
@@ -2212,7 +2214,7 @@ function install(Game, helpers) {
     const today = new Date().toISOString().slice(0, 10), dayExp = g.day && g.day.d === today ? g.day.exp : 0;
     const lim = { battle: Math.max(20, Math.ceil(span * GEN.battleCap * mult)), day: Math.ceil(span * GEN.dayLevels * mult), dayExp };
     return { ...g, foes: undefined, lim, stats: gs, need: this.generalNeed(g.level), prevNeed: g.level > 1 ? this.generalNeed(g.level - 1) : 0, where: `${where}, замок ${castle.name}`, health,
-      reviveCost: Object.fromEntries(RES4.map((r) => [r, Math.round(UNIT[GENERAL_ID].cost[r] * GEN.revive * g.level)])), resetGold: GEN.resetGold, perLevel: GEN.perLevel, rekindSec: REKIND_SEC };
+      reviveCost: Object.fromEntries(RES4.map((r) => [r, Math.round(UNIT[GENERAL_ID].cost[r] * GEN.revive * g.level)])), resetGold: GEN.resetGold, perLevel: GEN.perLevel, rekindSec: REKIND_SEC, healMax: GEN.healMax };
   };
 
   // цвет строки в списке отчётов: зелёный — успех, красный — неудача, коричневый — прочее

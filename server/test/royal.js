@@ -445,6 +445,12 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(Math.abs(rc.cost.wood - 537060) / 537060 < 0.002 && rc.people === 8592 && rc.sec === 726 * 60 && rc.gold === 87 && rc.coinsOnly, `Бугай 716 (выше 100 ур. — только за монеты, 3 монеты за каждые 25 ур.): ${JSON.stringify(rc)}`);
   // воскрешение: 10 ур. — 20 минут, каждый уровень — ещё минута; от воина не зависит
   assert.ok(g.reviveCostOf({ kindId: 200, level: 10, exp: 0 }).sec === 1200 && g.reviveCostOf({ kindId: 249, level: 10, exp: 0 }).sec === 1200 && g.reviveCostOf({ kindId: 245, level: 11, exp: 0 }).sec === 1260, 'воскрешение: 10 ур. — 20 мин, 11 ур. — 21 мин');
+  // Скорость восстановления: воскрешение быстрее на 1% за очко, не больше 50 очков (вдвое быстрее)
+  const rv = (heal) => g.reviveCostOf({ kindId: 200, level: 10, exp: 0, pts: { heal } }).sec;
+  assert.ok(rv(10) === 1080 && rv(50) === 600 && rv(80) === 600, `восстановление: 10 очков — 18 мин, 50 и больше — 10 мин (${rv(10)}, ${rv(50)}, ${rv(80)})`);
+  { const gh = g.newGeneral(c, 40); gh.free = 78; c.general = gh;
+    assert.ok(g.generalOp(c, u, { op: 'dist', pts: { heal: 40 } }).ok && /не больше 50/.test(g.generalOp(c, u, { op: 'dist', pts: { heal: 11 } }).error || '') && gh.pts.heal === 40, 'больше 50 очков в восстановление не вложить');
+    assert.ok(g.generalOp(c, u, { op: 'dist', pts: { heal: 10 } }).ok && gh.pts.heal === 50 && g.genStats(gh).heal === 0.5, '50 очков — вдвое быстрее'); c.general = null; }
   g.maxOut(c); c.units = { 245: 5 }; c.general = null; Object.assign(c.res, { wood: 5e4, stone: 5e4, iron: 5e4, food: 5e4, people: 5000 });
   c.units[252] = 3; c.units[233] = 3; c.units[243] = 3;
   for (const id of [252, 233, 243]) assert.ok(g.trainGeneral(c, id).error, `${UNIT[id].name} — не генерал`);
