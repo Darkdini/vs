@@ -2,9 +2,11 @@
 // Защита регистрации и учёт мультов.
 // • Капча: картинка SVG с примером (цифры повёрнуты и сдвинуты, шум) — ответ хранится только на сервере, одноразовый, 5 минут.
 // • Лимиты: регистраций с одного IP — 3 в час и 10 в сутки, всего на сервере — 30 в минуту; ошибок входа с IP — 20 за 10 минут.
-// • Мульты: у каждого игрока запоминаются IP и id устройства (случайный id, который браузер хранит у себя);
-//   админ видит группы аккаунтов с общим IP или общим устройством. Сам сервер никого не банит:
-//   при появлении аккаунта на уже знакомом устройстве админам приходит оповещение, а решение принимает админ.
+// • Мульты: у каждого телефона (браузера, приложения) свой случайный id — он хранится в самом телефоне.
+//   Мульт — несколько аккаунтов с одного id: почти наверняка один человек. Общий IP (семья на одном Wi‑Fi, абоненты
+//   одного оператора) и одинаковое «железо» (оно у всех телефонов одной модели) — не доказательство; только вместе
+//   (то же железо и та же сеть, но другой id) — подсказка «похоже на тот же телефон после очистки данных», без оповещений.
+//   Сам сервер никого не банит: при входе в новый аккаунт с уже знакомого телефона админам приходит оповещение.
 const crypto = require('crypto');
 
 const LIM = { regHour: 3, regDay: 10, regMinuteAll: 30, failWindow: 600000, failMax: 3, failLoginMax: 10, lockMs: 180000 };
@@ -107,32 +109,21 @@ function install(Game) {
     d.ips = [...new Set([ip, ...(d.ips || [])])].slice(0, 10);
     if (!old) list.push(d);
     user.devInfo = list.filter((x) => !x._keep).slice(-10);
-    if (d.fp && !user.bot) this.fpAlert(user, d.fp);
-    // железо в бане — блокируется и этот id устройства (игрок очистил данные / сменил браузер)
-    const banned = !user.admin && d.fp && this.db.fpBans && this.db.fpBans[d.fp];
-    if (banned) { this.db.devBans = this.db.devBans || {}; this.db.devBans[dev] = { at: now, by: `железо ${d.fp.slice(0, 8)}` }; }
     this.store.save();
-    return banned ? 'banned' : '';
+    return !user.admin && this.devBanned(dev) ? 'banned' : '';
   };
-  // тот же «отпечаток» железа, но другой id устройства — аккаунт с того же телефона после очистки данных / из другого браузера
-  P.fpAlert = function fpAlert(user, fp) {
-    const others = Object.values(this.db.users).filter((u) => u !== user && !u.bot && (u.devInfo || []).some((x) => x.fp === fp)).map((u) => u.login);
-    if (!others.length) return;
-    user.fpSeen = user.fpSeen || [];
-    if (user.fpSeen.includes(fp)) return; user.fpSeen.push(fp);
-    const log = this.db.multiLog = this.db.multiLog || [];
-    log.push({ at: Date.now(), login: user.login, with: others.slice(0, 10), dev: `отпечаток ${fp.slice(0, 8)}` }); if (log.length > 200) log.shift();
-    for (const a of Object.values(this.db.users)) if (a.admin) this.event(a.id, `⚠ Возможный мульт: ${user.login} — то же железо телефона, что у ${others.slice(0, 3).join(', ')}${others.length > 3 ? '…' : ''}`);
-  };
-  // всё об устройствах игрока для админки + совпадения с другими аккаунтами (по id устройства, отпечатку железа, IP)
+  // подсказка «похоже на тот же телефон после очистки данных»: другой id, но то же железо И общая сеть (IP) у этих записей.
+  // Одно железо — у всех телефонов одной модели, один IP — у семьи на Wi‑Fi и у абонентов оператора; вместе — повод проверить
+  const fpNet = (d, e) => !!(d.fp && d.fp === e.fp && d.dev !== e.dev && (d.ips || []).some((ip) => (e.ips || []).includes(ip)));
+  // всё об устройствах игрока для админки + совпадения с другими аккаунтами: тот же телефон (id), подсказка «железо + сеть», общая сеть
   P.devReport = function devReport(user) {
     const users = Object.values(this.db.users).filter((u) => u !== user && !u.bot);
     const byDev = (dev) => users.filter((u) => (u.devs || []).some((x) => x.dev === dev) || (u.devInfo || []).some((x) => x.dev === dev)).map((u) => u.login);
-    const byFp = (fp) => (fp ? users.filter((u) => (u.devInfo || []).some((x) => x.fp === fp)).map((u) => u.login) : []);
+    const byFp = (d, skip) => users.filter((u) => !skip.includes(u.login) && (u.devInfo || []).some((e) => fpNet(d, e))).map((u) => u.login);
     const ips = (user.ips || []).map((x) => x.ip);
     const byIp = [...new Set(users.filter((u) => (u.ips || []).some((x) => ips.includes(x.ip)) || (u.regIp && ips.includes(u.regIp))).map((u) => u.login))];
     const known = new Set((user.devInfo || []).map((x) => x.dev));
-    const devices = [...(user.devInfo || []).slice().reverse().map((d) => ({ ...d, banned: !!(this.db.devBans && this.db.devBans[d.dev]), fpBanned: !!(d.fp && this.db.fpBans && this.db.fpBans[d.fp]), sameDev: byDev(d.dev), sameFp: byFp(d.fp) })),
+    const devices = [...(user.devInfo || []).slice().reverse().map((d) => { const sameDev = byDev(d.dev); return { ...d, banned: !!(this.db.devBans && this.db.devBans[d.dev]), sameDev, sameFp: byFp(d, sameDev) }; }),
       ...(user.devs || []).filter((x) => !known.has(x.dev)).map((x) => ({ dev: x.dev, last: x.at, old: true, banned: !!(this.db.devBans && this.db.devBans[x.dev]), sameDev: byDev(x.dev), sameFp: [] }))];
     return { devices, ips: (user.ips || []).slice().reverse(), regIp: user.regIp || '', sameIp: byIp.slice(0, 50) };
   };
@@ -176,20 +167,49 @@ function install(Game) {
   };
   P.loginOk = (ip) => hits.delete(`fail:${ip}`);
   P.loginTriesLeft = (ip, now = Date.now()) => Math.max(0, LIM.failMax - count(`fail:${ip}`, LIM.failWindow, now));
-  // группы подозрительных аккаунтов: общий id устройства или общий IP
+  // мульты для админки: «один телефон — несколько аккаунтов» (общий id телефона) и подсказки «то же железо и та же сеть».
+  // Группы по одному IP не показываются: так выглядят семья на одном Wi‑Fi и абоненты одного оператора.
+  // Группа, отмеченная админом «Не мульт», скрыта (hidden), пока в ней не появится новый аккаунт.
   P.multis = function multis() {
-    const byDev = new Map(), byIp = new Map();
-    for (const u of Object.values(this.db.users)) {
-      if (u.bot) continue;
-      for (const d of u.devs || []) (byDev.get(d.dev) || byDev.set(d.dev, new Set()).get(d.dev)).add(u);
-      for (const x of u.ips || []) (byIp.get(x.ip) || byIp.set(x.ip, new Set()).get(x.ip)).add(u);
+    const users = Object.values(this.db.users).filter((u) => !u.bot), bans = this.db.devBans || {}, ok = this.db.multiOk || {};
+    const info = (u) => ({ id: u.id, login: u.login, rating: this.userRating(u), lastSeen: u.lastSeen || u.created, banned: !!u.banned, admin: !!u.admin });
+    const phoneOf = (d) => ({ model: d.model || '', os: d.os || '', browser: d.browser || '', app: !!d.app });
+    const phone = (dev, list) => { for (const u of list) { const d = (u.devInfo || []).find((x) => x.dev === dev); if (d) return phoneOf(d); } return null; };
+    const hidden = (key, list) => { const o = ok[key]; return !!(o && list.every((u) => o.ids.includes(u.id))); };
+    const groups = [], byDev = new Map();
+    for (const u of users) for (const d of u.devs || []) (byDev.get(d.dev) || byDev.set(d.dev, new Set()).get(d.dev)).add(u);
+    for (const [dev, set] of byDev) {
+      if (set.size < 2 && !bans[dev]) continue;
+      const list = [...set]; groups.push({ kind: 'dev', key: dev, dev, phone: phone(dev, list), devBanned: !!bans[dev], hidden: hidden(dev, list), users: list.map(info) });
     }
-    const info = (u) => ({ login: u.login, rating: this.userRating(u), lastSeen: u.lastSeen || u.created, banned: !!u.banned, admin: !!u.admin });
-    const groups = [];
-    const bans = this.db.devBans || {};
-    for (const [dev, set] of byDev) if (set.size > 1 || bans[dev]) groups.push({ kind: 'dev', key: dev.slice(0, 8), dev, devBanned: !!bans[dev], strong: true, users: [...set].map(info) });
-    for (const [ip, set] of byIp) if (set.size > 1) groups.push({ kind: 'ip', key: ip, strong: false, users: [...set].map(info) });
-    return groups.sort((a, b) => (b.strong - a.strong) || (b.users.length - a.users.length)).slice(0, 100);
+    // подсказки: записи разных игроков с одним отпечатком железа и общим IP, но с разными id — связываем в группы
+    const byFp = new Map();
+    for (const u of users) for (const d of u.devInfo || []) if (d.fp) (byFp.get(d.fp) || byFp.set(d.fp, []).get(d.fp)).push([u, d]);
+    const devsOf = (u) => new Set((u.devs || []).map((x) => x.dev));
+    for (const [fp, recs] of byFp) {
+      if (new Set(recs.map(([u]) => u)).size < 2) continue;
+      const root = new Map(recs.map(([u]) => [u, u])), find = (u) => { while (root.get(u) !== u) u = root.get(u); return u; };
+      const byIp = new Map();
+      for (const r of recs) for (const ip of r[1].ips || []) (byIp.get(ip) || byIp.set(ip, []).get(ip)).push(r);
+      for (const rs of byIp.values()) for (let i = 1; i < rs.length; i++) for (let j = 0; j < i; j++) if (rs[i][0] !== rs[j][0] && rs[i][1].dev !== rs[j][1].dev) root.set(find(rs[i][0]), find(rs[j][0]));
+      const comps = new Map();
+      for (const [u] of recs) { const r = find(u); (comps.get(r) || comps.set(r, new Set()).get(r)).add(u); }
+      for (const set of comps.values()) {
+        const list = [...set]; if (list.length < 2) continue;
+        const d0 = devsOf(list[0]); if ([...d0].some((dv) => list.every((u) => devsOf(u).has(dv)))) continue; // все уже в группе одного телефона
+        const key = `fp:${fp}:${Math.min(...list.map((u) => u.id))}`;
+        groups.push({ kind: 'hint', key, phone: phoneOf(recs.find(([u]) => u === list[0])[1]), hidden: hidden(key, list), users: list.map(info) });
+      }
+    }
+    return groups.sort((a, b) => (a.kind === 'dev' ? 0 : 1) - (b.kind === 'dev' ? 0 : 1) || b.users.length - a.users.length).slice(0, 150);
+  };
+  // баны «железа» больше не действуют: одинаковое железо у всех телефонов одной модели — такой бан задевал невиновных.
+  // Снимаются и баны телефонов, поставленные автоматически по «железу»; телефоны, забаненные админом, остаются в бане
+  P.multiCleanup = function multiCleanup() {
+    delete this.db.fpBans;
+    for (const [dev, b] of Object.entries(this.db.devBans || {})) if (/^железо /.test(String((b && b.by) || ''))) delete this.db.devBans[dev];
+    if (this.db.multiLog) this.db.multiLog = this.db.multiLog.filter((x) => !/^отпечаток /.test(String(x.dev || '')));
+    for (const u of Object.values(this.db.users)) delete u.fpSeen;
   };
 }
 

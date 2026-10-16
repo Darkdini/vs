@@ -100,19 +100,28 @@ function armyForm(g) {
     <div class="gabtns"><button type="button" class="btn small" data-gafill="100">всем по 100</button><button type="button" class="btn small" data-gafill="1000">всем по 1000</button><button type="button" class="btn small" data-gafill="">очистить</button></div>
     <button class="btn primary" style="width:100%;margin-top:8px">Выдать войска</button></form>`;
 }
+// «Мульты»: только «один телефон — несколько аккаунтов» (у каждого телефона в игре свой номер) и подсказки «то же железо и та же сеть»;
+// общий Wi‑Fi и мобильный интернет мультом не считаются. «Не мульт» скрывает группу, пока в ней не появится новый аккаунт
 function multiHtml(m) {
   const row = (u) => `<div class="mrow"><button class="rrow" data-apick="${esc(u.login)}"><span class="rn"><b>${esc(u.login)}${u.admin ? ` <img class="admbadge s" src="${GFX}admin_badge_s.png" alt="">` : ''}${u.banned ? ' <span class="bad">[бан]</span>' : ''}</b><small>был ${fmtDate(u.lastSeen)}</small></span><span class="rv">${fmtFull(u.rating)}</span></button>
     ${u.admin ? '' : `<button class="btn small ${u.banned ? '' : 'danger'}" data-mban="${esc(u.login)}" data-on="${u.banned ? 0 : 1}">${u.banned ? 'Разбан' : 'Бан'}</button>`}</div>`;
-  return `<div class="bwline small">Сервер никого не банит сам — только сообщает. Общее <b>устройство</b> — почти наверняка один человек, общий <b>IP</b> — возможно, одна сеть (дом, Wi‑Fi, мобильный оператор). Решаете вы.</div>
+  const phone = (p) => (p ? [p.model || 'Телефон', p.app ? 'приложение' : p.browser || p.os].filter(Boolean).join(' · ') : 'Телефон (модель появится при следующем входе)');
+  const grp = (g) => {
+    const free = g.users.filter((u) => !u.banned && !u.admin).map((u) => u.login);
+    return `<div class="mgroup ${g.kind === 'dev' ? 'strong' : ''}"><div class="mhead">${g.kind === 'dev' ? '📱' : '🔎'} ${esc(phone(g.phone))} · ${g.users.length} акк.${g.devBanned ? ' <span class="bad">[телефон в бане]</span>' : ''}</div>
+      ${g.users.map(row).join('')}
+      <div class="mact">${g.kind === 'dev' && free.length > 1 ? `<button class="btn small danger" data-mall="${esc(free.join(','))}">Бан всех (${free.length})</button>` : ''}
+      ${g.dev ? `<button class="btn small ${g.devBanned ? '' : 'danger'}" data-mdev="${esc(g.dev)}" data-on="${g.devBanned ? 0 : 1}">${g.devBanned ? 'Разблокировать телефон' : 'Бан телефона'}</button>` : ''}
+      ${g.users.length > 1 ? `<button class="btn small" data-mok="${esc(g.key)}">Не мульт</button>` : ''}</div></div>`;
+  };
+  const shown = m ? m.groups.filter((g) => !g.hidden) : [], dev = shown.filter((g) => g.kind === 'dev'), hint = shown.filter((g) => g.kind === 'hint'), hid = m ? m.groups.filter((g) => g.hidden) : [];
+  return `<div class="bwline small">Мульт — несколько аккаунтов с <b>одного телефона</b>: у каждого телефона в игре свой номер, он хранится в самом телефоне. Общий Wi‑Fi и мобильный интернет мультом не считаются. Сервер никого не банит сам — решаете вы.</div>
     <button class="pbar" data-adm="multis">Проверить мультов</button>
-    ${m ? `<div class="mhead">🔔 Оповещения</div>${m.log.length ? `<div class="mlog">${m.log.slice(0, 15).map((x) => `<div class="${x.fresh ? 'fresh' : ''}">${x.fresh ? '<b class="newtag">новое</b> ' : ''}<b>${esc(x.login)}</b> — устройство ${esc(x.dev)}, как у ${x.with.map(esc).join(', ')} <small>${fmtDate(x.at)}</small></div>`).join('')}</div>` : '<p class="parch-note">Пока тихо.</p>'}
-      ${m.groups.length ? m.groups.map((g) => {
-        const free = g.users.filter((u) => !u.banned && !u.admin).map((u) => u.login);
-        return `<div class="mgroup ${g.strong ? 'strong' : ''}"><div class="mhead">${g.strong ? '📱 Одно устройство' : '🌐 Один IP'} <small>${esc(g.key)}</small> · ${g.users.length} акк.${g.devBanned ? ' <span class="bad">[устройство в бане]</span>' : ''}</div>
-        ${g.users.map(row).join('')}
-        <div class="mact">${free.length > 1 ? `<button class="btn small danger" data-mall="${esc(free.join(','))}">Забанить все (${free.length})</button>` : ''}
-        ${g.dev ? `<button class="btn small ${g.devBanned ? '' : 'danger'}" data-mdev="${esc(g.dev)}" data-on="${g.devBanned ? 0 : 1}">${g.devBanned ? 'Разблокировать устройство' : 'Бан устройства'}</button>` : ''}</div></div>`;
-      }).join('') : '<p class="parch-note">Мультов не найдено.</p>'}` : ''}`;
+    ${m ? `<div class="mhead">🔔 Оповещения</div>${m.log.length ? `<div class="mlog">${m.log.slice(0, 15).map((x) => `<div class="${x.fresh ? 'fresh' : ''}">${x.fresh ? '<b class="newtag">новое</b> ' : ''}<b>${esc(x.login)}</b> — тот же телефон, что у ${x.with.map(esc).join(', ')} <small>${fmtDate(x.at)}</small></div>`).join('')}</div>` : '<p class="parch-note">Пока тихо.</p>'}
+      <div class="mhead">📱 Один телефон — несколько аккаунтов (${dev.length})</div>
+      ${dev.length ? dev.map(grp).join('') : '<p class="parch-note">Мультов не найдено.</p>'}
+      ${hint.length ? `<div class="mhead">🔎 Похоже на тот же телефон (${hint.length})</div><p class="small">Номера телефонов разные, но то же железо и та же сеть — возможно, один телефон после очистки данных или другой браузер. Проверьте сами: это только подсказка.</p>${hint.map(grp).join('')}` : ''}
+      ${hid.length ? `<details class="mhid"><summary>Отмечены «Не мульт» (${hid.length})</summary>${hid.map((g) => `<div class="arow"><span>${g.kind === 'dev' ? '📱' : '🔎'} ${g.users.map((u) => esc(u.login)).join(', ')}</span><button class="btn small" data-munok="${esc(g.key)}">Вернуть</button></div>`).join('')}</details>` : ''}` : ''}`;
 }
 
 // «Устройства» в карточке игрока: модель, система, браузер, экран, железо, часовой пояс, IP; совпадения с другими аккаунтами; бан устройства
@@ -126,14 +135,14 @@ function devCard(p) {
       ${kv('Первый вход', fmtDate(x.first))}${kv('Последний', fmtDate(x.last))}${kv('Входов', x.count)}${kv('IP', esc((x.ips || []).join(', ')))}
       ${kv('ID / железо', `<small>${esc(x.dev.slice(0, 12))} / ${esc((x.fp || '—').slice(0, 12))}</small>`)}</div>`}
     ${x.old ? `<div class="small">id ${esc(x.dev.slice(0, 12))} · ${fmtDate(x.last)} — подробности появятся при следующем входе игрока.</div>` : ''}
-    ${x.sameDev.length ? `<div class="dwarn">⚠ Тот же телефон (id): ${who(x.sameDev)}</div>` : ''}${x.sameFp.length ? `<div class="dwarn">⚠ То же железо: ${who(x.sameFp)}</div>` : ''}
-    ${p.admin ? '' : `<button class="btn small ${x.banned ? '' : 'danger'}" data-mdev="${esc(x.dev)}" data-fp="${esc(x.fp || '')}" data-on="${x.banned ? 0 : 1}">${x.banned ? 'Разблокировать устройство' : '⛔ Бан устройства'}</button>`}</div>`;
+    ${x.sameDev.length ? `<div class="dwarn">⚠ С этого телефона входили: ${who(x.sameDev)}</div>` : ''}${x.sameFp.length ? `<div class="dwarn">🔎 Похоже на тот же телефон (то же железо и та же сеть): ${who(x.sameFp)}</div>` : ''}
+    ${p.admin ? '' : `<button class="btn small ${x.banned ? '' : 'danger'}" data-mdev="${esc(x.dev)}" data-on="${x.banned ? 0 : 1}">${x.banned ? 'Разблокировать телефон' : '⛔ Бан телефона'}</button>`}</div>`;
   const full = d.devices.filter((x) => !x.old), old = d.devices.filter((x) => x.old);
   const oldRow = (x) => `<div class="doldrow ${x.banned ? 'ban' : ''}"><span>id ${esc(x.dev.slice(0, 10))} · ${fmtDate(x.last)}${x.sameDev.length ? ` · <span class="dwarn">⚠ ${who(x.sameDev)}</span>` : ''}</span>${p.admin ? '' : `<button class="btn small ${x.banned ? '' : 'danger'}" data-mdev="${esc(x.dev)}" data-on="${x.banned ? 0 : 1}">${x.banned ? 'Разбан' : 'Бан'}</button>`}</div>`;
   return `<div class="mhead">Устройства (${d.devices.length})</div>${full.map(dev).join('') || '<p class="small">Подробностей пока нет — появятся при следующем входе игрока.</p>'}
     ${old.length ? `<div class="dcard"><div class="dhead">Старые входы (без подробностей)</div>${old.map(oldRow).join('')}</div>` : ''}
     <div class="mhead">IP-адреса</div><div class="small">Регистрация: <b>${esc(d.regIp || p.regIp || '—')}</b><br>${(d.ips || []).slice(0, 10).map((x) => `${esc(x.ip)} <small>${fmtDate(x.at)}</small>`).join('<br>') || '—'}</div>
-    ${d.sameIp && d.sameIp.length ? `<div class="dwarn">🌐 Те же IP: ${who(d.sameIp)}</div>` : ''}`;
+    ${d.sameIp && d.sameIp.length ? `<div class="small">🌐 Та же сеть (IP): ${who(d.sameIp)} — не доказательство: так бывает у семьи на одном Wi‑Fi и у абонентов одного оператора.</div>` : ''}`;
 }
 const PASS_BY = (b) => (b === 'reg' ? 'регистрация' : b === 'self' ? 'сменил сам' : b === 'server' ? 'сброс на сервере' : String(b || '').startsWith('admin') ? `админ (${esc(String(b).slice(6))})` : 'до журнала');
 function playerCard(p) {
@@ -245,12 +254,14 @@ $('#sheetBody').addEventListener('click', (e) => {
   const mq = e.target.closest('[data-amodreq]'); if (mq) { const ok = mq.dataset.ok === '1'; if (!confirm(ok ? 'Принять заявку — назначить игрока модератором?' : 'Отклонить заявку?')) return; send({ t: 'admin', op: 'modreq', id: Number(mq.dataset.amodreq), ok: ok ? 1 : 0 }); return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
   const md = e.target.closest('[data-amod]'); if (md) { if (!confirm(`Снять ${md.dataset.amod} с модераторов?`)) return; send({ t: 'admin', op: 'mod', login: md.dataset.amod, on: 0 }); return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
   const tb = e.target.closest('[data-atab]'); if (tb) { S.adm.tab = tb.dataset.atab; if (S.adm.tab === 'mod') { send({ t: 'admin', op: 'mods' }); send({ t: 'admin', op: 'multis' }); } if (S.adm.tab === 'stats') send({ t: 'admin', op: 'stats' }); if (S.adm.tab === 'alerts') send({ t: 'admin', op: 'alerts' }); if (S.adm.tab === 'pay') send({ t: 'admin', op: 'payments' }); if (S.adm.tab === 'sec') send({ t: 'admin', op: 'sec' }); if (S.adm.tab === 'test') send({ t: 'admin', op: 'testview' }); return refreshSheet(); }
-  const mb = e.target.closest('[data-mban],[data-mall],[data-mdev]');
+  const mb = e.target.closest('[data-mban],[data-mall],[data-mdev],[data-mok],[data-munok]');
   if (mb) { // решения по мультам — только вручную и с подтверждением
     const d = mb.dataset, on = d.on === '1';
     if (d.mban !== undefined) { if (on && !confirm(`Заблокировать ${d.mban}?`)) return; send({ t: 'admin', op: on ? 'ban' : 'unban', login: d.mban }); }
     if (d.mall !== undefined) { if (!confirm(`Заблокировать аккаунты: ${d.mall.split(',').join(', ')}?`)) return; send({ t: 'admin', op: 'banmany', logins: d.mall.split(',') }); }
-    if (d.mdev !== undefined) { if (on && !confirm(`Заблокировать устройство? С него нельзя будет войти и зарегистрироваться${d.fp ? ' — даже после очистки данных или из другого браузера' : ''}.`)) return; send({ t: 'admin', op: on ? 'devban' : 'devunban', dev: d.mdev, fp: d.fp || undefined }); }
+    if (d.mdev !== undefined) { if (on && !confirm('Заблокировать этот телефон? С него нельзя будет войти и зарегистрироваться.')) return; send({ t: 'admin', op: on ? 'devban' : 'devunban', dev: d.mdev }); }
+    if (d.mok !== undefined) { if (!confirm('Отметить «Не мульт»? Группа скроется, пока в ней не появится новый аккаунт.')) return; send({ t: 'admin', op: 'multiok', key: d.mok }); }
+    if (d.munok !== undefined) send({ t: 'admin', op: 'multiunok', key: d.munok });
     return setTimeout(() => (S.adm.tab === 'player' && S.adm.login ? send({ t: 'admin', op: 'player', login: S.adm.login }) : send({ t: 'admin', op: 'multis' })), 200);
   }
   const hn = e.target.closest('[data-ahonall],[data-ahontake]');

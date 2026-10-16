@@ -277,6 +277,7 @@ class Game {
     this.provEdgeFix();
     this.npcCleanup();
     if (this.allyCleanup) this.allyCleanup(); // пустые альянсы (участники удалены) — убрать отовсюду
+    if (this.multiCleanup) this.multiCleanup(); // баны «железа» больше не действуют (security.js)
   }
   castleAt(x, y) { return this.byXY.get(x * WORLD + y); }
   // ----- руины и лагеря провинций -----

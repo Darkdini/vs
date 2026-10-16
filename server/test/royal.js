@@ -379,23 +379,45 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(g.armyPower(c, { 203: 10 }, false).mag > mag0, 'маг. атака выросла');
   console.log('✓ Школа магии: юниты с маг. атакой, +1 за уровень, по одному улучшению на параметр, стоимость по скринам');
 }
-{ // устройства: подробности, совпадение «железа» на другом аккаунте, бан устройства вместе с железом
+{ // мульты: только общий телефон (id); один Wi‑Fi и одна модель телефона — не мульт; «железо + сеть» — подсказка; «Не мульт»; бан только телефона
   const a = g.register({ login: 'devtest1', password: '12345', race: 0 }).user, b = g.register({ login: 'devtest2', password: '12345', race: 0 }).user;
   const ua = 'Mozilla/5.0 (Linux; Android 13; SM-A525F Build/TP1A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36';
   const info = { ua, fp: 'abcdef0123456789abcd', scr: '412x915', dpr: 2.6, cores: 8, mem: 4, tz: 'Europe/Moscow', lang: 'ru-RU', touch: 5 };
   g.devInfo(a, '1.2.3.4', { ...info, dev: 'a'.repeat(32) }); g.devInfo(a, '1.2.3.4', { ...info, dev: 'a'.repeat(32) });
   assert.strictEqual(a.devInfo.length, 1, 'повторный вход — та же запись'); assert.strictEqual(a.devInfo[0].count, 2);
   assert.strictEqual(a.devInfo[0].model, 'SM-A525F'); assert.strictEqual(a.devInfo[0].os, 'Android 13'); assert.ok(/Chrome/.test(a.devInfo[0].browser));
-  g.devInfo(b, '5.6.7.8', { ...info, dev: 'b'.repeat(32) }); // другой id, то же железо
-  assert.deepStrictEqual(g.devReport(b).devices[0].sameFp, ['devtest1'], 'то же железо у другого аккаунта');
-  assert.ok((g.db.multiLog || []).some((x) => x.login === 'devtest2'), 'оповещение о мульте');
+  const inG = (kind, ...ls) => g.multis().some((x) => x.kind === kind && ls.every((l) => x.users.some((u) => u.login === l)));
+  const log0 = (g.db.multiLog || []).length;
+  g.devInfo(b, '5.6.7.8', { ...info, dev: 'b'.repeat(32) }); // другой телефон той же модели, другая сеть
+  assert.deepStrictEqual(g.devReport(b).devices[0].sameFp, [], 'одна модель телефона в разных сетях — не мульт');
+  assert.ok(!inG('hint', 'devtest1', 'devtest2') && (g.db.multiLog || []).length === log0, 'ни подсказки, ни оповещения по «железу»');
+  g.devInfo(b, '1.2.3.4', { ...info, dev: 'b'.repeat(32) }); // то же железо и та же сеть — похоже на один телефон после очистки данных
+  assert.deepStrictEqual(g.devReport(b).devices[0].sameFp, ['devtest1'], 'железо + сеть — подсказка в карточке');
+  assert.ok(inG('hint', 'devtest1', 'devtest2') && !inG('dev', 'devtest1', 'devtest2'), 'подсказка, но не «один телефон»');
+  assert.strictEqual((g.db.multiLog || []).length, log0, 'подсказка — без оповещения');
+  const [c, e] = ['devtest3', 'devtest4'].map((l) => g.register({ login: l, password: '12345', race: 0 }).user);
+  g.trackLogin(c, '9.9.9.9', 'c'.repeat(32)); g.trackLogin(e, '9.9.9.9', 'e'.repeat(32));
+  assert.ok(!g.multis().some((x) => ['devtest3', 'devtest4'].every((l) => x.users.some((u) => u.login === l))), 'один Wi‑Fi (общий IP) — не мульт');
+  g.trackLogin(e, '9.9.9.9', 'c'.repeat(32)); // вошёл с телефона devtest3
+  assert.ok(inG('dev', 'devtest3', 'devtest4') && g.db.multiLog.some((x) => x.login === 'devtest4' && x.with.includes('devtest3')), 'один телефон — мульт и оповещение');
   const adm = Object.values(g.db.users).find((x) => x.admin) || Object.assign(g.register({ login: 'devadm', password: '12345', race: 0 }).user, { admin: true });
+  const key = g.multis().find((x) => x.kind === 'dev' && x.users.some((u) => u.login === 'devtest3')).key, grp = () => g.multis().find((x) => x.key === key);
+  assert.ok(g.adminOp(adm, 'multiok', { key }).ok && grp().hidden, '«Не мульт» — группа скрыта');
+  const f = g.register({ login: 'devtest5', password: '12345', race: 0 }).user; g.trackLogin(f, '8.8.8.8', 'c'.repeat(32));
+  assert.ok(!grp().hidden && grp().users.length === 3, 'новый аккаунт на том же телефоне — группа снова в списке');
+  assert.ok(g.adminOp(adm, 'multiok', { key }).ok && grp().hidden); g.adminOp(adm, 'multiunok', { key }); assert.ok(!grp().hidden, '«Вернуть»');
   assert.ok(!g.adminOp(adm, 'devban', { dev: 'a'.repeat(32), fp: info.fp }).error);
-  assert.ok(g.devBanned('a'.repeat(32)));
-  assert.strictEqual(g.devInfo(b, '5.6.7.8', { ...info, dev: 'c'.repeat(32) }), 'banned', 'новый id с забаненным железом — бан');
-  assert.ok(g.devBanned('c'.repeat(32)));
-  g.adminOp(adm, 'devunban', { dev: 'a'.repeat(32), fp: info.fp }); assert.ok(!g.devBanned('a'.repeat(32)));
-  console.log('✓ Устройства: модель/система/браузер, совпадение железа, бан устройства вместе с железом');
+  assert.ok(g.devBanned('a'.repeat(32)) && !g.db.fpBans, 'бан телефона — без «железа»');
+  assert.strictEqual(g.devInfo(b, '5.6.7.8', { ...info, dev: 'd'.repeat(32) }), '', 'другой телефон той же модели — не в бане');
+  assert.ok(!g.devBanned('d'.repeat(32)));
+  g.adminOp(adm, 'devunban', { dev: 'a'.repeat(32) }); assert.ok(!g.devBanned('a'.repeat(32)));
+  // старые баны «железа» снимаются при запуске; телефоны, забаненные админом, остаются в бане
+  g.db.fpBans = { [info.fp]: { at: 1, by: 'Советник' } }; g.db.devBans['f'.repeat(32)] = { at: 1, by: `железо ${info.fp.slice(0, 8)}` }; g.db.devBans['9'.repeat(32)] = { at: 1, by: 'Советник' };
+  g.db.multiLog.push({ at: 1, login: 'devtest2', with: ['devtest1'], dev: 'отпечаток abcdef01' }); g.multiCleanup();
+  assert.ok(!g.db.fpBans && !g.devBanned('f'.repeat(32)) && g.devBanned('9'.repeat(32)), 'баны «железа» сняты, бан телефона админом остался');
+  assert.ok(!g.db.multiLog.some((x) => /^отпечаток /.test(x.dev)), 'старые оповещения по «железу» убраны');
+  delete g.db.devBans['9'.repeat(32)];
+  console.log('✓ Мульты: только общий телефон; один Wi‑Fi и одна модель — не мульт; «железо + сеть» — подсказка; «Не мульт»; бан только телефона');
 }
 { // регистрация: логин (для входа) + пароль + ник (в игре, с учётом регистра); смена ника — только за золото
   const z = g.register({ login: 'zevs@mail.ru', password: '12345', nick: 'Zevs', race: 0 }).user;

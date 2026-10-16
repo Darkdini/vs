@@ -51,8 +51,9 @@ function install(Game) {
   P.smodView = function smodView(me) {
     if (!this.isSmod(me)) return { error: 'Нет прав.' };
     const users = Object.values(this.db.users).filter((u) => !u.bot && !u.admin);
-    // журнал мультов без администратора: его в группах не видно; группа из одного игрока не показывается
-    const multis = (this.multis ? this.multis() : []).map((g) => ({ kind: g.kind, key: g.kind === 'ip' ? g.key : g.key, users: g.users.filter((x) => !x.admin) })).filter((g) => g.users.length > 1).slice(0, 60);
+    // журнал мультов: только «один телефон — несколько аккаунтов», без отмеченных админом «Не мульт» и без администратора;
+    // группа из одного игрока не показывается
+    const multis = (this.multis ? this.multis() : []).filter((g) => g.kind === 'dev' && !g.hidden).map((g) => ({ kind: g.kind, key: g.key.slice(0, 8), phone: g.phone, users: g.users.filter((x) => !x.admin).map(({ login, banned }) => ({ login, banned })) })).filter((g) => g.users.length > 1).slice(0, 60);
     return {
       mods: users.filter((u) => u.mod && !u.smod).map((u) => ({ login: u.login, online: !!u.online })),
       reqs: this.modReqList().map((r) => ({ id: r.id, login: r.login, by: r.by, why: r.why, at: r.at, mine: r.byId === me.id })),

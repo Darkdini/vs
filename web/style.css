@@ -832,6 +832,8 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .btn.small.danger { background: linear-gradient(#b8332a, #6e1510); color: #fff; }
 .mlog { font: 14px/1.35 var(--serif); display: grid; gap: 4px; margin: 4px 0 10px; }
 .mlog > div { padding: 5px 8px; border-radius: 6px; background: #fff8e44d; } .mlog > div.fresh { background: #ffd9a8; border-left: 4px solid #c0392b; }
+/* «Мульты»: группы, отмеченные «Не мульт», — свёрнутым списком с кнопкой «Вернуть» */
+.mhid { margin: 8px 0; } .mhid summary { cursor: pointer; font: 700 min(16px, 3.8vw) var(--serif); padding: 4px 0; color: #6a4a2a; }
 .mlog small { color: #7a5a3a; } .newtag, .abadge { background: #c0392b; color: #fff; border-radius: 8px; padding: 0 6px; font: 700 12px system-ui, sans-serif; }
 /* ---------- Университет: науки ---------- */
 .sbar > img { width: 40px; height: 48px; }

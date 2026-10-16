@@ -192,7 +192,7 @@ function install(Game) {
     const num = (v, d) => (Number.isFinite(Number(v)) && v !== '' ? Number(v) : d);
     const now = Date.now();
     // админ что-то меняет у игрока — «Подозрительное» (anomaly.js) начнёт замер заново, без ложной тревоги
-    if (!['player', 'players', 'stats', 'alerts', 'mods', 'modreq', 'multis', 'bugs', 'passcheck', 'armyinfo', 'inspect', 'sec', 'ipban', 'ipunban', 'secclear', 'alertsclear', 'tgbackup'].includes(op)) target.admTouch = now;
+    if (!['player', 'players', 'stats', 'alerts', 'mods', 'modreq', 'multis', 'multiok', 'multiunok', 'bugs', 'passcheck', 'armyinfo', 'inspect', 'sec', 'ipban', 'ipunban', 'secclear', 'alertsclear', 'tgbackup'].includes(op)) target.admTouch = now;
     let data = null, msg = 'Готово.';
     switch (op) {
       // --- ресурсы, золото ---
@@ -402,16 +402,25 @@ function install(Game) {
         data = { groups: this.multis(), log: (this.db.multiLog || []).slice(-50).reverse().map((x) => ({ ...x, dev: x.dev.slice(0, 8), fresh: x.at > seen })) };
         break;
       }
-      // бан устройства: с него нельзя ни войти, ни зарегистрироваться (решает только админ)
+      // бан телефона: с него нельзя ни войти, ни зарегистрироваться (решает только админ). Только этот телефон (id),
+      // без «железа»: одинаковое железо у всех телефонов одной модели — бан задел бы невиновных
       case 'devban': case 'devunban': {
         const dev = String(arg.dev || ''); if (!/^[a-f0-9]{16,40}$/.test(dev)) return { error: 'Нет такого устройства.' };
-        const fp = /^[a-f0-9]{8,40}$/.test(String(arg.fp || '')) ? String(arg.fp) : ''; // «отпечаток» железа — бан переживёт очистку данных и другой браузер
-        this.db.devBans = this.db.devBans || {}; this.db.fpBans = this.db.fpBans || {};
+        this.db.devBans = this.db.devBans || {};
         if (op === 'devban') {
-          this.db.devBans[dev] = { at: now, by: user.login }; if (fp) this.db.fpBans[fp] = { at: now, by: user.login };
-          for (const u of Object.values(this.db.users)) if (!u.admin && ((u.devs || []).some((x) => x.dev === dev) || (fp && (u.devInfo || []).some((x) => x.fp === fp)))) u.online = false;
-          msg = `Устройство ${dev.slice(0, 8)}${fp ? ' и его железо' : ''} заблокировано.`;
-        } else { delete this.db.devBans[dev]; if (fp) delete this.db.fpBans[fp]; msg = `Устройство ${dev.slice(0, 8)} разблокировано.`; }
+          this.db.devBans[dev] = { at: now, by: user.login };
+          for (const u of Object.values(this.db.users)) if (!u.admin && (u.devs || []).some((x) => x.dev === dev)) u.online = false;
+          msg = `Телефон ${dev.slice(0, 8)} заблокирован.`;
+        } else { delete this.db.devBans[dev]; msg = `Телефон ${dev.slice(0, 8)} разблокирован.`; }
+        break;
+      }
+      // «Не мульт»: группа скрывается, пока в ней не появится новый аккаунт; «Вернуть» — снова в списке
+      case 'multiok': case 'multiunok': {
+        const key = String(arg.key || '').slice(0, 100); this.db.multiOk = this.db.multiOk || {};
+        if (op === 'multiok') {
+          const gr = this.multis().find((x) => x.key === key); if (!gr) return { error: 'Группа не найдена — обновите список.' };
+          this.db.multiOk[key] = { at: now, by: user.login, ids: gr.users.map((u) => u.id) }; msg = 'Отмечено: не мульт. Группа скрыта.';
+        } else { delete this.db.multiOk[key]; msg = 'Группа снова в списке мультов.'; }
         break;
       }
       case 'banmany': {
