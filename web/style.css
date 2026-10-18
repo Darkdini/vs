@@ -1205,7 +1205,7 @@ button.fpopt { cursor: pointer; } button.fpopt:active { filter: brightness(.94);
 #sheet:has(.chatbar) #sheetBack, #sheet:has(.chatbar) #sheetClose { display: none; }
 #sheetBody:has(> .chatbar) { display: flex; flex-direction: column; padding-bottom: 0; overflow: hidden; }
 #sheetBody:has(> .chatbar) .chatlist, #sheetBody:has(> .chatbar) .chatlist.short { flex: 1; height: auto; min-height: 0; overflow-y: auto; }
-#sheetBody:has(> .chatbar) .chatbar { position: relative; margin: 4px -10px 0; padding: 6px 8px calc(6px + var(--safe-b)); }
+#sheetBody:has(> .chatbar) .chatbar { position: relative; bottom: auto; margin: 4px -10px 0; padding: 6px 8px calc(6px + var(--safe-b)); }
 .cnewbtn { position: absolute; left: 50%; bottom: calc(100% + 10px); transform: translateX(-50%); z-index: 5; padding: 8px 18px; border: 2px solid #c8963e; border-radius: 20px;
   background: linear-gradient(#7a3a14, #4a1e08); color: #ffe9b0; font: 700 min(17px, 4.2vw) var(--serif); box-shadow: 0 3px 8px #000a; white-space: nowrap; cursor: pointer; }
 .cnewbtn:active { filter: brightness(1.2); }
