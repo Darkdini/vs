@@ -37,12 +37,14 @@ function chatLockHtml() {
 function chatClosedUpdate() {
   if (S.sheets[S.sheets.length - 1] !== chatWin) return;
   const top = $('.chattop'); if (!top) return;
+  const keep = chatScrollSave(); // плашка появилась или ушла — лента на том же месте
   const old = $('.cclosed'), html = chatClosedHtml();
   if (old) { if (html) old.outerHTML = html; else old.remove(); } else if (html) top.insertAdjacentHTML('afterend', html);
   const lb = $('[data-chatlock]'); if (lb) lb.classList.toggle('on', chatClosedNow());
   const inp = $('.chatbar input'), off = chatClosedNow() && !chatIsMod();
   if (inp) { inp.disabled = off; inp.placeholder = off ? 'Чат закрыт' : ''; }
   const sb = $('.chatbar .sendbtn'); if (sb) sb.disabled = off;
+  chatScrollRestore(keep);
   if (S.chatLock) refreshSheet();
 }
 setInterval(() => {

@@ -20,22 +20,22 @@ function smodPlayerCard(p) {
     ${p.login === S.st.user.login ? '' : `<div class="smsec">Блокировка аккаунта</div>
     <div class="smrow">${ruleSelect('data-smrule', 0)}</div>
     <div class="smrow"><input data-smwhy placeholder="Причина (обязательно)" maxlength="120"></div>
-    <div class="smrow">${S.smod.banDays.map((d) => smBtn('ban', `${d} дн.`, `data-days="${d}"`, 'cbno')).join('')}${p.banned ? smBtn('unban', 'Разблокировать') : ''}</div>
+    <div class="smrow g3">${S.smod.banDays.map((d) => smBtn('ban', `${d} дн.`, `data-days="${d}"`, 'cbno')).join('')}${p.banned ? smBtn('unban', 'Разблокировать', '', 'smfull') : ''}</div>
     <div class="smsec">Запрет в чате</div>
-    <div class="smrow">${[1, 6, 24, 72].map((h) => smBtn('chat', `${h} ч`, `data-hours="${h}"`)).join('')}${p.chatBan ? smBtn('chat', 'Снять', 'data-hours="0"') : ''}</div>
+    <div class="smrow g4">${[1, 6, 24, 72].map((h) => smBtn('chat', `${h} ч`, `data-hours="${h}"`)).join('')}${p.chatBan ? smBtn('chat', 'Снять запрет', 'data-hours="0"', 'smfull') : ''}</div>
     <div class="smsec">Нарушения и сброс</div>
-    <div class="smrow">${smBtn('viol', '+1 нарушение', 'data-d="1"')}${smBtn('viol', '−1', 'data-d="-1"')}</div>
-    <div class="smrow">${smBtn('nick', 'Сбросить ник', 'data-confirm="Сбросить ник игрока на «PlayerN»?"')}${smBtn('castles', 'Названия замков', 'data-confirm="Сбросить названия и описания замков?"')}${p.avatar ? smBtn('avatar', 'Удалить аватар', 'data-confirm="Удалить аватар игрока?"') : ''}</div>
+    <div class="smrow g2">${smBtn('viol', '+1 нарушение', 'data-d="1"')}${smBtn('viol', '−1 нарушение', 'data-d="-1"')}</div>
+    <div class="smrow g2">${smBtn('nick', 'Сбросить ник', 'data-confirm="Сбросить ник игрока на «PlayerN»?"')}${smBtn('castles', 'Названия замков', 'data-confirm="Сбросить названия и описания замков?"')}${p.avatar ? smBtn('avatar', 'Удалить аватар', 'data-confirm="Удалить аватар игрока?"', 'smfull') : ''}</div>
     ${p.smod ? '' : `<div class="smsec">Команда</div>${smodTeamCard(p)}`}`}</div>`;
 }
 // «Команда» в карточке игрока: модератора снимают сразу; назначает администратор — старший модератор отправляет ему заявку с причиной
 function smodTeamCard(p) {
-  if (p.mod) return `<div class="smrow">${smBtn('mod', 'Снять с модераторов', 'data-on="0" data-confirm="Снять права модератора?"')}</div>`;
-  if (S.st.user.admin) return `<div class="smrow">${smBtn('mod', 'Назначить модератором', 'data-on="1" data-confirm="Назначить модератором?"')}</div>`;
+  if (p.mod) return `<div class="smrow g2">${smBtn('mod', 'Снять с модераторов', 'data-on="0" data-confirm="Снять права модератора?"', 'smfull')}</div>`;
+  if (S.st.user.admin) return `<div class="smrow g2">${smBtn('mod', 'Назначить модератором', 'data-on="1" data-confirm="Назначить модератором?"', 'smfull')}</div>`;
   const r = ((S.smod && S.smod.reqs) || []).find((x) => x.login === p.login);
   if (r) return `<p class="coinhint">Заявка в модераторы ждёт решения администратора (предложил ${esc(r.by)}).</p>${r.mine ? `<div class="smrow">${smBtn('modreqcancel', 'Отозвать заявку', 'data-confirm="Отозвать заявку?"')}</div>` : ''}`;
-  return `<div class="smrow"><input data-smmodwhy placeholder="Почему он подходит в модераторы (обязательно)" maxlength="200"></div>
-    <div class="smrow">${smBtn('mod', 'Предложить в модераторы', 'data-on="1"')}</div><p class="coinhint">Заявку рассмотрит администратор: примет или отклонит.</p>`;
+  return `<div class="smrow"><input data-smmodwhy placeholder="Почему он подходит (обязательно)" maxlength="200"></div>
+    <div class="smrow g2">${smBtn('mod', 'Предложить в модераторы', 'data-on="1"', 'smfull')}</div><p class="coinhint">Заявку рассмотрит администратор: примет или отклонит.</p>`;
 }
 function smodWin() {
   const d = S.smod, T = [['player', 'Игрок'], ['team', 'Команда'], ['bans', 'Наказания'], ['multi', 'Мульты'], ['ally', 'Альянсы'], ['news', 'Новость'], ['log', 'Журнал'], ['rules', 'Правила']];

@@ -157,16 +157,22 @@ const chatVotes = (m) => { const up = (m.up || []).length, dn = (m.dn || []).len
 const chatText = (m) => (/^#[0-9a-f]{6}$/i.test(m.color || '') ? `<span class="ccol" style="color:${m.color}">${smiles(esc(m.text))}</span>` : smiles(esc(m.text)));
 const smiles = (html) => html.replace(/:([A-Za-z]{2,12}):/g, (m, k) => (SMILE_SET.has(k) || OLD_SMILES.includes(k) ? `<img class="csm" src="${smileSrc(k)}" alt="">` : m));
 S.chatUsers = null; S.smileOpen = false;
-function openChat() { send({ t: 'chatlog' }); send({ t: 'chatusers' }); S.smileOpen = false; S.chatAdm = false; S.chatLock = false; openSheet(chatWin); setTimeout(() => { const l = $('#chatList'); if (l) l.scrollTop = l.scrollHeight; }, 50); }
+function openChat() { send({ t: 'chatlog' }); send({ t: 'chatusers' }); S.smileOpen = false; S.chatAdm = false; S.chatLock = false; S.chatNew = 0; S.chatSaved = null; openSheet(chatWin); setTimeout(() => { const l = $('#chatList'); if (l) l.scrollTop = l.scrollHeight; }, 50); }
+// одно сообщение ленты; лента перевёрнута — новое первым в разметке, внизу на экране
+const CHAT_SHOW = 100;
+function chatMsgHtml(m, my = S.st.user.login.toLowerCase()) {
+  if (m.poll || m.pic || m.picGone || m.wheel) return chatSpecialHtml(m);
+  const hit = m.fromId !== me() && m.text.toLowerCase().includes(my);
+  return `<div class="cm ${hit ? 'hit' : ''} ${m.fromId === me() ? 'mine' : ''} ${m.role === 'smod' ? 'smodmsg' : ''}" data-chatpop="${m.fromId}" data-nick="${esc(m.from)}" data-mid="${m.id}" data-k="${m.id}"><small>${new Date(m.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</small> <b>[${esc(m.from)}]</b>${m.role ? ` <img class="admbadge s" src="${GFX}${m.role === 'admin' ? 'admin_badge_s.png' : m.role === 'smod' ? 'chat/smoder.png' : 'chat/moder.png'}" alt="">` : ''}${m.rep >= 10 ? ` ${repIcons(m.rep)}` : ''} ${chatText(m)}${chatVotes(m)}</div>`;
+}
+const chatListHtml = (my) => S.chat.filter((m) => !isBlack(m.fromId)).slice(-CHAT_SHOW).reverse().map((m) => chatMsgHtml(m, my)).join('') || '<p class="parch-note">Сообщений пока нет — напишите первым.</p>';
 function chatWin() {
   const my = S.st.user.login.toLowerCase();
   const n = S.chatUsers ? S.chatUsers.length : '…';
   return `${ribbon('Главный чат')}
     <div class="chattop ${chatIsMod() ? 'withlock' : ''}"><button class="lbar" data-chatexit><img src="${GFX}chat/exit.png" alt=""> Выход</button><button class="lbar" data-chatusers><img src="${GFX}chat/players.png" alt=""> Игроки (${n})</button>${chatIsMod() ? `<button class="lbar clock ${chatClosedNow() ? 'on' : ''}" data-chatlock aria-label="Закрыть чат на время"><img src="${GFX}menu/privacy.png" alt=""></button>` : ''}</div>
     ${chatClosedHtml()}${chatPinHtml()}
-    <div id="chatList" class="chatlist ${S.smileOpen ? 'short' : ''} ${chatPinHtml() ? 'pinned' : ''}">${S.chat.filter((m) => !isBlack(m.fromId)).slice(-30).reverse().map((m) => { const hit = m.fromId !== me() && m.text.toLowerCase().includes(my);
-      if (m.poll || m.pic || m.picGone || m.wheel) return chatSpecialHtml(m);
-      return `<div class="cm ${hit ? 'hit' : ''} ${m.fromId === me() ? 'mine' : ''} ${m.role === 'smod' ? 'smodmsg' : ''}" data-chatpop="${m.fromId}" data-nick="${esc(m.from)}" data-mid="${m.id}"><small>${new Date(m.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</small> <b>[${esc(m.from)}]</b>${m.role ? ` <img class="admbadge s" src="${GFX}${m.role === 'admin' ? 'admin_badge_s.png' : m.role === 'smod' ? 'chat/smoder.png' : 'chat/moder.png'}" alt="">` : ''}${m.rep >= 10 ? ` ${repIcons(m.rep)}` : ''} ${chatText(m)}${chatVotes(m)}</div>`; }).join('') || '<p class="parch-note">Сообщений пока нет — напишите первым.</p>'}</div>
+    <div id="chatList" class="chatlist ${S.smileOpen ? 'short' : ''} ${chatPinHtml() ? 'pinned' : ''}">${chatListHtml(my)}</div>
     ${S.smileOpen ? `<div class="smilebox">${SMILES.map((k) => `<button data-smile="${k}"><img src="${smileSrc(k)}" alt=""></button>`).join('')}</div>` : ''}
     ${S.chatPop ? `<div class="cpop-bg" data-cpopclose><div class="cpop"><button class="cpop-x" data-cpopclose aria-label="Закрыть">✕</button><div class="cpop-nick">${esc(S.chatPop.nick)}</div>
       <div class="cpop-grid"><button class="ptile" data-cpop="reply"><img src="${GFX}chat/reply.png" alt=""><span>Обратиться</span></button>
@@ -190,7 +196,7 @@ function chatWin() {
     ${S.chatAdm ? `<div class="cpop-bg" data-cadmclose><div class="cpop"><button class="cpop-x" data-cadmclose aria-label="Закрыть">✕</button><div class="cpop-nick">В общий чат</div>
       <div class="cpop-grid cadm-grid"><button class="ptile" data-cadmpic><img src="${GFX}dlg/file.png" alt=""><span>Фото</span></button><button class="ptile" data-cadmpoll><img src="${GFX}menu/blogs.png" alt=""><span>Опрос</span></button>
       <button class="ptile" data-cadmwheel><img src="${GFX}shop/fair.png" alt=""><span>Колесо Фортуны</span></button></div></div></div>` : ''}
-    <form class="chatbar" data-form="chat">${S.st.user.admin ? `<button type="button" class="cadmbtn cadmplus" data-cadmmenu aria-label="Фото, опрос или Колесо Фортуны">${S.chatPicBusy ? '⏳' : '+'}</button>` : ''}<button type="button" class="smilebtn" data-smiletoggle aria-label="Смайлы"><img src="${GFX}chat/smiles.png" alt=""></button><input name="text" maxlength="300" autocomplete="off" value="${esc(S.chatDraft || '')}"${chatClosedNow() && !chatIsMod() ? ' disabled placeholder="Чат закрыт"' : ''}><button class="sendbtn" aria-label="Отправить"${chatClosedNow() && !chatIsMod() ? ' disabled' : ''}><img src="${GFX}chat/send.png" alt=""></button></form>`;
+    <form class="chatbar" data-form="chat"><button type="button" class="cnewbtn ${S.chatNew ? '' : 'hidden'}" data-cnew>${chatNewText()}</button>${S.st.user.admin ? `<button type="button" class="cadmbtn cadmplus" data-cadmmenu aria-label="Фото, опрос или Колесо Фортуны">${S.chatPicBusy ? '⏳' : '+'}</button>` : ''}<button type="button" class="smilebtn" data-smiletoggle aria-label="Смайлы"><img src="${GFX}chat/smiles.png" alt=""></button><input name="text" maxlength="300" autocomplete="off" value="${esc(S.chatDraft || '')}"${chatClosedNow() && !chatIsMod() ? ' disabled placeholder="Чат закрыт"' : ''}><button class="sendbtn" aria-label="Отправить"${chatClosedNow() && !chatIsMod() ? ' disabled' : ''}><img src="${GFX}chat/send.png" alt=""></button></form>`;
 }
 // модератор нажал «Предупредить» или «Бан в чате» — окно длинное: прокрутить к выбору пункта правил и кнопкам
 function cpopShowAction() { setTimeout(() => { const bg = $('.cpop-bg'); if (bg && ($('.cwarnbtn') || $('.cpop-ban'))) bg.scrollTop = bg.scrollHeight; }, 30); }
@@ -205,19 +211,20 @@ function chatPinHtml() { const wp = typeof whPinHtml === 'function' ? whPinHtml(
 // закреп в открытом чате — заменить, убрать или добавить, не перерисовывая окно (поле ввода не теряет фокус)
 function chatPinUpdate() {
   const l = $('#chatList'); if (!l) return;
-  const html = chatPinHtml(), pb = $('.cpin');
+  const keep = chatScrollSave(), html = chatPinHtml(), pb = $('.cpin');
   if (pb) { if (html) pb.outerHTML = html; else pb.remove(); } else if (html) l.insertAdjacentHTML('beforebegin', html);
   l.classList.toggle('pinned', !!html);
+  chatScrollRestore(keep);
 }
 // сообщение с фото (нажатие — во весь экран) или с опросом (карточка как на форуме); без меню «Обратиться/Профиль…»
 function chatSpecialHtml(m) {
-  if (m.wheel) return `<div class="cm cspecial">${chatHead(m)}${whCardHtml(m)}</div>`;
-  if (m.poll) { const p = S.cpolls[m.poll]; return `<div class="cm cspecial">${chatHead(m)}${p ? fPollCard(p, S.st.user.admin, { pre: 'c', id: m.poll, sel: S.cpollSel[m.poll] }) : ' <span class="muted">опрос удалён</span>'}</div>`; }
+  if (m.wheel) return `<div class="cm cspecial" data-k="${m.id}">${chatHead(m)}${whCardHtml(m)}</div>`;
+  if (m.poll) { const p = S.cpolls[m.poll]; return `<div class="cm cspecial" data-k="${m.id}">${chatHead(m)}${p ? fPollCard(p, S.st.user.admin, { pre: 'c', id: m.poll, sel: S.cpollSel[m.poll] }) : ' <span class="muted">опрос удалён</span>'}</div>`; }
   const cap = m.text && m.text !== '📷 Фото' ? `<div class="cpcap">${chatText(m)}</div>` : '';
   // место под фото — заранее по его размерам (не выше 300): лента не прыгает, когда картинка догрузится
   const pw = Math.floor(Number(m.picW)) || 0, ph = Math.floor(Number(m.picH)) || 0;
   const sz = pw > 0 && ph > 0 ? ` sz" style="width:min(100%,${Math.min(pw, Math.round(300 * pw / ph))}px);aspect-ratio:${pw}/${ph}` : '';
-  return `<div class="cm cspecial">${chatHead(m)}${m.pic ? `<button class="cpic${sz}" data-dlgview="pic/${m.pic}.png" data-exp="${m.picExp || 0}"><img src="pic/${m.pic}.png" alt="Фото"></button>` : ' <span class="muted">📷 фото удалено (хранится сутки)</span>'}${cap}</div>`;
+  return `<div class="cm cspecial" data-k="${m.id}">${chatHead(m)}${m.pic ? `<button class="cpic${sz}" data-dlgview="pic/${m.pic}.png" data-exp="${m.picExp || 0}"><img src="pic/${m.pic}.png" alt="Фото"></button>` : ' <span class="muted">📷 фото удалено (хранится сутки)</span>'}${cap}</div>`;
 }
 function chatPollWin() { const id = S.cpollOpen, p = S.cpolls[id];
   return `${ribbon('Опрос')}${p ? fPollCard(p, S.st.user.admin, { pre: 'c', id, sel: S.cpollSel[id] }) : '<p class="parch-note">Опрос удалён.</p>'}`; }
@@ -280,18 +287,68 @@ function chatPicMsg(m) {
   if (m.done || !q) { S.chatPicQ = null; S.chatPicBusy = false; if (S.sheets[S.sheets.length - 1] === chatWin) refreshSheet(); return; }
   if (m.i < q.parts.length) send({ t: 'chatpic', op: 'part', i: m.i, data: q.parts[m.i] });
 }
-// обновить только ленту сообщений (поле ввода не трогаем — можно печатать, пока приходят сообщения)
+// ---- лента общего чата не «бросает» вниз: игрок листает историю — лента стоит на месте, новое — кнопкой «Новые сообщения» ----
+// Место чтения запоминается по сообщению, которое сейчас на экране (data-k), и возвращается после любой перерисовки окна.
+S.chatNew = 0; S.chatSaved = null;
+let chatAnchor = null; // пока игрок сам не листал — держим то же место до доли пикселя (иначе лента «ползёт» на 1 px с каждым сообщением)
+const chatOff = (l, el) => el.getBoundingClientRect().top - l.getBoundingClientRect().top;
+const chatNewText = () => `▼ Новые сообщения${S.chatNew > 1 ? `: ${S.chatNew}` : ''}`;
+// игрок внизу ленты (видит самое новое)? Новое — первое в разметке (лента перевёрнута)
+const chatAtNewest = (l) => { const n = l.querySelector('.cm'); return !n || n.getBoundingClientRect().bottom <= l.getBoundingClientRect().bottom + 40; };
+function chatScrollSave() {
+  const l = $('#chatList'); if (!l) return null;
+  if (chatAtNewest(l)) return { newest: true };
+  const p = chatAnchor, pe = p && l.querySelector(`.cm[data-k="${p.k}"]`);
+  if (pe && Math.abs(chatOff(l, pe) - p.off) < 2) return p;
+  const lr = l.getBoundingClientRect();
+  for (const el of l.querySelectorAll('.cm[data-k]')) { const r = el.getBoundingClientRect(); if (r.top < lr.bottom && r.bottom > lr.top) return (chatAnchor = { k: el.dataset.k, off: r.top - lr.top, top: l.scrollTop }); }
+  return { top: l.scrollTop };
+}
+function chatScrollRestore(a) {
+  const l = $('#chatList'); if (!l) return;
+  if (!a || a.newest) { l.scrollTop = l.scrollHeight; S.chatNew = 0; }
+  else {
+    // браузер обычно сам держит место (overflow-anchor) — тогда прокрутку не трогаем: не сбиваем лёгкий «бросок» пальцем
+    const el = a.k && l.querySelector(`.cm[data-k="${a.k}"]`);
+    if (el) { const d = chatOff(l, el) - a.off; if (Math.abs(d) >= 0.5) l.scrollTop = Math.round(l.scrollTop + d); } else l.scrollTop = a.top;
+  }
+  chatNewBtn();
+}
+function chatNewBtn() { const b = $('[data-cnew]'); if (!b) return; b.classList.toggle('hidden', !S.chatNew); b.textContent = chatNewText(); }
+function chatToNewest() { const l = $('#chatList'); if (l) l.scrollTop = l.scrollHeight; S.chatNew = 0; S.chatSaved = null; chatAnchor = null; chatNewBtn(); }
+// перерисовка окна чата (app.js: showSheet) — место чтения остаётся; вернулись из профиля и т. п. — тоже
+function sheetKeep(top, fresh) { if (top !== chatWin) return null; const a = fresh ? S.chatSaved : chatScrollSave(); return () => chatScrollRestore(a); }
+// обновить только ленту сообщений (голоса, удалённое, опрос); поле ввода не трогаем — можно печатать, пока приходят сообщения
 function chatListUpdate() {
   const l = $('#chatList'); if (!l) return;
-  const tmp = document.createElement('div'); tmp.innerHTML = chatWin();
-  const nl = tmp.querySelector('#chatList'); if (nl) { l.innerHTML = nl.innerHTML; l.scrollTop = l.scrollHeight; }
+  const a = chatScrollSave(); l.innerHTML = chatListHtml(); chatScrollRestore(a);
 }
+// пришло новое сообщение — добавить только его, остальную ленту не трогать; своё — лента вниз
+function chatAddMsg(m, mine) {
+  const l = $('#chatList');
+  if (!l) { if (!mine && S.chatSaved && !S.chatSaved.newest && S.sheets.includes(chatWin)) S.chatNew++; return; } // чат под другим окном (профиль и т. п.)
+  if (isBlack(m.fromId)) return;
+  const a = mine ? null : chatScrollSave();
+  const pn = l.querySelector(':scope > .parch-note'); if (pn) pn.remove();
+  l.insertAdjacentHTML('afterbegin', chatMsgHtml(m));
+  for (const x of [...l.querySelectorAll(':scope > .cm')].slice(CHAT_SHOW)) x.remove(); // самые старые — вверху ленты
+  if (a && !a.newest) S.chatNew++;
+  chatScrollRestore(a);
+}
+// листает — запоминаем место; дошёл до низа — кнопка «Новые сообщения» прячется
+let chatScrollRaf = 0;
+$('#sheetBody').addEventListener('scroll', (e) => {
+  if (!e.target || e.target.id !== 'chatList' || chatScrollRaf) return;
+  chatScrollRaf = requestAnimationFrame(() => { chatScrollRaf = 0; const l = $('#chatList'); if (!l) return;
+    S.chatSaved = chatScrollSave(); if (S.chatNew && chatAtNewest(l)) { S.chatNew = 0; chatNewBtn(); } });
+}, true);
 function chatUsersWin() {
   const l = S.chatUsers; if (!l) return `${ribbon('Игроки в игре')}<p class="parch-note">Загрузка…</p>`;
   return `${ribbon(`Игроки в игре (${l.length})`)}${l.map((u) => `<button class="rrow" data-cprof="${u.id}"><span class="rn"><b>${esc(u.login)} ${repIcons(u.rep)}</b></span></button>`).join('')}`;
 }
 $('#sheetBody').addEventListener('click', (e) => {
   const cv = e.target.closest('[data-cvote]'); if (cv) { e.stopPropagation(); S.chatPop = null; refreshSheet(); return send({ t: 'chatvote', id: Number(cv.dataset.mid), v: Number(cv.dataset.cvote) }); } // оценил — окно закрывается
+  if (e.target.closest('[data-cnew]')) return chatToNewest();
   const t = e.target.closest('[data-cban],[data-cpop],[data-cpopclose],[data-chatpop],[data-chatexit],[data-chatusers],[data-smile],[data-smiletoggle]'); if (!t) return;
   const d = t.dataset, inp = $('.chatbar input');
   if (d.cban !== undefined) { const pp = S.chatPop; S.chatPop = null; send({ t: 'chatmod', op: 'ban', login: pp.nick, hours: Number(d.cban), rule: pp.rule || 0 }); return refreshSheet(); }
@@ -320,7 +377,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (inp && !d.cpop) S.chatDraft = inp.value;
   if (d.smile) { S.chatDraft = `${S.chatDraft || ''}:${d.smile}:`; S.smileOpen = false; }
   if (d.smiletoggle !== undefined) S.smileOpen = !S.smileOpen;
-  refreshSheet(); const l = $('#chatList'); if (l) l.scrollTop = l.scrollHeight;
+  refreshSheet();
   const i2 = $('.chatbar input'); if (i2 && !d.smiletoggle) { i2.focus(); i2.setSelectionRange(i2.value.length, i2.value.length); }
 });
 $('#sheetBody').addEventListener('input', (e) => { if (e.target.closest('.chatbar')) S.chatDraft = e.target.value; });
@@ -636,10 +693,10 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
   if (m.t === 'chatvote') { const x = S.chat.find((q) => q.id === m.id); if (x) { x.up = m.up; x.dn = m.dn; chatListUpdate(); } return; }
   if (m.t === 'chatdel') { S.chat = S.chat.filter((x) => x.id !== m.id); chatLine(); chatListUpdate(); return; }
   if (m.t === 'chatusers') { S.chatUsers = m.list; const b = $('[data-chatusers]'); if (b) b.innerHTML = `<img src="${GFX}chat/players.png" alt=""> Игроки (${m.list.length})`; return refreshSheet(); }
-  if (m.t === 'chatlog') { S.chat = m.list; S.cpolls = m.polls || {}; S.cpollPin = m.pin || 0; chatLine(); refreshSheet(); const l = $('#chatList'); if (l) l.scrollTop = l.scrollHeight; return; }
+  if (m.t === 'chatlog') { S.chat = m.list; S.cpolls = m.polls || {}; S.cpollPin = m.pin || 0; chatLine(); S.chatSaved = null; refreshSheet(); chatToNewest(); return; }
   if (m.t === 'chatpoll') return chatPollMsg(m);
   if (m.t === 'chatpicok') return chatPicMsg(m);
-  if (m.t === 'chatmsg') { S.chat.push(m.msg); if (S.chat.length > 50) S.chat.shift(); chatLine(); chatListUpdate(); return; }
+  if (m.t === 'chatmsg') { S.chat.push(m.msg); if (S.chat.length > 120) S.chat.shift(); chatLine(); chatAddMsg(m.msg, m.msg.fromId === me()); return; }
   if (m.t === 'allyinfo') { S.allyInfo = m.ally; return refreshSheet(); }
   if (m.t === 'hall') { S.hall = m.hall; return refreshSheet(); }
   if (m.t === 'halls') { S.hallWho = m.who; S.halls = m.list; S.hallPages = m.pages; S.hallSeason = m.season; S.hallLast = m.last; return refreshSheet(); }

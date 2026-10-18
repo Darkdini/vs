@@ -997,6 +997,10 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const m = g.chatPost(u, 'привет').msg; assert.strictEqual(m.color, require('../src/premium').MSG_COLORS[2], 'цвет премиума в чате');
   const u2 = g.register({ login: 'colorchat2', password: '12345', race: 0 }).user; assert.strictEqual(g.chatPost(u2, 'ещё').msg.color, '', 'без премиума — обычный');
   assert.ok(/Не так часто/.test(g.chatPost(u, 'и ещё').error || ''), 'чат — не чаще раза в 1,5 с');
+  { // история общего чата — последние 100 сообщений (игрок листает вверх)
+    for (let k = 0; k < 105; k++) assert.ok(!g.chatPost(u2, `история ${k}`, null, { sys: true }).error);
+    const log = g.chatLog(); assert.ok(log.length === 100 && log[0].text === 'история 5' && log[99].text === 'история 104', 'чат помнит 100 сообщений');
+  }
   { // личные сообщения: без лимита в час и в сутки (было 40 в час, 300 в сутки) — только не чаще раза в секунду
     const { tooOften, RATE } = require('../src/security'), mu = { id: -777 }, t0 = Date.now();
     for (let k = 0; k < 400; k++) assert.ok(!tooOften(mu, 'mailtest', RATE.mail, t0 + k * 1100), `письмо ${k + 1} — можно`);

@@ -78,7 +78,9 @@ const whTimers = {};
 function whSchedule(id, ms) { if (whTimers[id]) return; whTimers[id] = setTimeout(() => { delete whTimers[id]; whUpdate(id); }, Math.max(30, ms + 30)); }
 function whUpdate(id) {
   const w = S.wheels[id]; if (!w) return;
+  const keep = $('#chatList') ? chatScrollSave() : null; // карточка поменяла высоту — лента чата на том же месте
   for (const el of document.querySelectorAll(`[data-wcard^="${id}:"]`)) el.innerHTML = el.dataset.wcard.endsWith(':spin') ? whSpinHtml(w) : whJoinHtml(w);
+  if (keep) chatScrollRestore(keep);
 }
 // окно из закрепа: та же карточка записи
 function wheelWin() { const w = S.wheels[S.wheelOpen];

@@ -628,8 +628,10 @@ function showSheet(scrollTop) {
   const top = S.sheets[S.sheets.length - 1];
   $('#sheet').classList.toggle('show', !!top); $('#backdrop').classList.toggle('show', !!top);
   if (!top) return;
+  const keep = typeof sheetKeep === 'function' ? sheetKeep(top, scrollTop) : null; // лента чата: место чтения (ui3d.js)
   $('#sheetBody').innerHTML = top();
   if (scrollTop) $('#sheetBody').scrollTop = 0;
+  if (keep) keep();
   tick();
 }
 // пока палец держит ползунок (тренировка), окно не перерисовывается — иначе ползунок под пальцем заменяется и «слетает»

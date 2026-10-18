@@ -50,7 +50,7 @@ function install(Game) {
   const announce = (g, u, text) => {
     g.db.chat = g.db.chat || [];
     g.db.chat.push({ id: g.db.nextId++, from: '🎁 Сундучки', fromId: 0, text: `${u.login} открыл(а) сундучок и нашёл(ла): ${text}!`, at: Date.now(), rep: 0, role: 'sys', color: '' });
-    if (g.db.chat.length > 30) g.db.chat.splice(0, g.db.chat.length - 30);
+    const keep = require('./social').CHAT_KEEP; if (g.db.chat.length > keep) g.db.chat.splice(0, g.db.chat.length - keep); // как у обычных сообщений
     return g.db.chat[g.db.chat.length - 1];
   };
   P.chestsState = function chestsState(u, now = Date.now()) {

@@ -78,7 +78,7 @@ const GIFT_CATS = [['premium', 'Премиум'], ['girls', 'Девушкам'],
 const GIFTS_DAY = 20;
 const REP_PER_GOLD = 2; // 1 монета = 2 репутации // сколько подарков игрок может отправить за сутки
 
-const CHAT_KEEP = 30; // сколько последних сообщений хранит общий чат
+const CHAT_KEEP = 100; // сколько последних сообщений хранит общий чат (листать вверх — история)
 function install(Game) {
   const P = Game.prototype;
 
@@ -312,7 +312,7 @@ function install(Game) {
     this.db.chat = this.db.chat || [];
     const m = { id: this.db.nextId++, from: user.login, fromId: user.id, text, at: Date.now(), rep: user.reputation ?? START_REP, role: user.admin ? 'admin' : user.smod ? 'smod' : user.mod ? 'mod' : '', color: this.msgColor ? this.msgColor(user) : '', ...(extra || {}) }; // цвет текста — премиум
     this.db.chat.push(m);
-    if (this.db.chat.length > CHAT_KEEP) this.db.chat.splice(0, this.db.chat.length - CHAT_KEEP); // в чате хранятся последние 30
+    if (this.db.chat.length > CHAT_KEEP) this.db.chat.splice(0, this.db.chat.length - CHAT_KEEP); // в чате хранятся последние 100
     this.store.save();
     return { msg: m };
   };
@@ -352,4 +352,4 @@ function install(Game) {
   };
 }
 
-module.exports = { REP_PER_GOLD, GIFTS, GIFT_CATS, install, HALLS, HALL_PAGES };
+module.exports = { REP_PER_GOLD, GIFTS, GIFT_CATS, install, HALLS, HALL_PAGES, CHAT_KEEP };
