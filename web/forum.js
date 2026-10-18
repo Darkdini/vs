@@ -5,6 +5,7 @@
 // Сервер: server/src/forum.js, API { t: 'forum', op }.
 const FG = 'gfx3d/forum/';
 const FORUM_RULES = [
+  ['Правила игры', null], // текст — из каталога (rules.js: gameRulesHtml)
   ['Общее', `  Данные правила созданы для максимального комфорта при общении пользователей на форуме игры. Трактовка этих правил является исключительно прерогативой Администрации проекта. Администрация ориентируется на данные правила, но оставляет за собой возможность использования банов по своему усмотрению. Данные правила могут быть изменены и дополнены Администрацией проекта без предварительного согласования с пользователем. Вход на форум означает, что пользователь ознакомлен и безоговорочно согласен с правилами форума.
   За нарушение правил, Администрация проекта может ограничить доступ к общению на форуме для пользователя.
 Текущие правила распространяются не только на форум, но и на игровые новости.`],
@@ -113,8 +114,8 @@ function forumNewTopicWin() {
 }
 function forumRulesWin() {
   const k = S.frRule || 0;
-  return `${ribbon('Правила форума')}<div class="frtabs">${FORUM_RULES.map(([t], i) => `<button class="${i === k ? 'on' : ''}" data-frrule="${i}">${t}</button>`).join('')}</div>
-    <div class="frtext">${esc(FORUM_RULES[k][1])}</div>`;
+  return `${ribbon('Правила')}<div class="frtabs">${FORUM_RULES.map(([t], i) => `<button class="${i === k ? 'on' : ''}" data-frrule="${i}">${t}</button>`).join('')}</div>
+    ${FORUM_RULES[k][1] === null ? `<div class="frtext grbox">${gameRulesHtml()}</div>` : `<div class="frtext">${esc(FORUM_RULES[k][1])}</div>`}`;
 }
 function forumModsWin() {
   const list = S.fr && S.fr.sections; if (!list) return forumSecWin();

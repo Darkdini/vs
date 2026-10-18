@@ -157,13 +157,13 @@ const chatVotes = (m) => { const up = (m.up || []).length, dn = (m.dn || []).len
 const chatText = (m) => (/^#[0-9a-f]{6}$/i.test(m.color || '') ? `<span class="ccol" style="color:${m.color}">${smiles(esc(m.text))}</span>` : smiles(esc(m.text)));
 const smiles = (html) => html.replace(/:([A-Za-z]{2,12}):/g, (m, k) => (SMILE_SET.has(k) || OLD_SMILES.includes(k) ? `<img class="csm" src="${smileSrc(k)}" alt="">` : m));
 S.chatUsers = null; S.smileOpen = false;
-function openChat() { send({ t: 'chatlog' }); send({ t: 'chatusers' }); S.smileOpen = false; S.chatAdm = false; openSheet(chatWin); setTimeout(() => { const l = $('#chatList'); if (l) l.scrollTop = l.scrollHeight; }, 50); }
+function openChat() { send({ t: 'chatlog' }); send({ t: 'chatusers' }); S.smileOpen = false; S.chatAdm = false; S.chatLock = false; openSheet(chatWin); setTimeout(() => { const l = $('#chatList'); if (l) l.scrollTop = l.scrollHeight; }, 50); }
 function chatWin() {
   const my = S.st.user.login.toLowerCase();
   const n = S.chatUsers ? S.chatUsers.length : '…';
   return `${ribbon('Главный чат')}
-    <div class="chattop"><button class="lbar" data-chatexit><img src="${GFX}chat/exit.png" alt=""> Выход</button><button class="lbar" data-chatusers><img src="${GFX}chat/players.png" alt=""> Игроки (${n})</button></div>
-    ${chatPinHtml()}
+    <div class="chattop ${chatIsMod() ? 'withlock' : ''}"><button class="lbar" data-chatexit><img src="${GFX}chat/exit.png" alt=""> Выход</button><button class="lbar" data-chatusers><img src="${GFX}chat/players.png" alt=""> Игроки (${n})</button>${chatIsMod() ? `<button class="lbar clock ${chatClosedNow() ? 'on' : ''}" data-chatlock aria-label="Закрыть чат на время"><img src="${GFX}menu/privacy.png" alt=""></button>` : ''}</div>
+    ${chatClosedHtml()}${chatPinHtml()}
     <div id="chatList" class="chatlist ${S.smileOpen ? 'short' : ''} ${chatPinHtml() ? 'pinned' : ''}">${S.chat.filter((m) => !isBlack(m.fromId)).slice(-30).reverse().map((m) => { const hit = m.fromId !== me() && m.text.toLowerCase().includes(my);
       if (m.poll || m.pic || m.picGone || m.wheel) return chatSpecialHtml(m);
       return `<div class="cm ${hit ? 'hit' : ''} ${m.fromId === me() ? 'mine' : ''} ${m.role === 'smod' ? 'smodmsg' : ''}" data-chatpop="${m.fromId}" data-nick="${esc(m.from)}" data-mid="${m.id}"><small>${new Date(m.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</small> <b>[${esc(m.from)}]</b>${m.role ? ` <img class="admbadge s" src="${GFX}${m.role === 'admin' ? 'admin_badge_s.png' : m.role === 'smod' ? 'chat/smoder.png' : 'chat/moder.png'}" alt="">` : ''}${m.rep >= 10 ? ` ${repIcons(m.rep)}` : ''} ${chatText(m)}${chatVotes(m)}</div>`; }).join('') || '<p class="parch-note">Сообщений пока нет — напишите первым.</p>'}</div>
@@ -177,13 +177,23 @@ function chatWin() {
         return `<div class="cpop-mod">Оценить сообщение:</div><div class="cpop-votes"><button class="cvbtn ${my > 0 ? 'on' : ''}" data-cvote="1" data-mid="${cm.id}">👍 Нравится${(cm.up || []).length ? ` · ${cm.up.length}` : ''}</button><button class="cvbtn dn ${my < 0 ? 'on' : ''}" data-cvote="-1" data-mid="${cm.id}">👎 Не нравится${(cm.dn || []).length ? ` · ${cm.dn.length}` : ''}</button></div>`; })()}
       ${S.st.user.admin || S.st.user.mod ? `<div class="cpop-mod">Модерация:</div><div class="cpop-grid">
         <button class="ptile" data-cpop="del"><img src="${GFX}chat/delete.png" alt=""><span>Удалить</span></button>
-        <button class="ptile" data-cpop="ban"><img src="${GFX}chat/ban.png" alt=""><span>Бан в чате</span></button></div>
+        <button class="ptile ${S.chatPop.warn ? 'on' : ''}" data-cpop="warn"><img src="${GFX}menu/events.png" alt=""><span>Предупредить</span></button>
+        <button class="ptile ${S.chatPop.ban ? 'on' : ''}" data-cpop="ban"><img src="${GFX}chat/ban.png" alt=""><span>Бан в чате</span></button>
+        <button class="ptile" data-cpop="lock"><img src="${GFX}menu/privacy.png" alt=""><span>${chatClosedNow() ? 'Чат закрыт' : 'Закрыть чат'}</span></button></div>
+        ${S.chatPop.warn || S.chatPop.ban ? `<div class="cpop-info">${(() => { const i = S.chatPop.info; if (!i) return 'Загрузка…';
+          const w = i.warns ? `Предупреждений за неделю: <b>${i.warns}</b>${i.last ? `<br><small>последнее ${new Date(i.last.at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} · ${esc(i.last.why)}</small>` : ''}` : 'Предупреждений за неделю нет';
+          return `${w}${i.chatBan ? `<br><b class="smred">Сейчас запрет в чате ${i.chatBan < 0 ? 'навсегда' : `до ${new Date(i.chatBan).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`}</b>` : ''}`; })()}</div>
+          <div class="cpop-rule">${ruleSelect('data-crule', S.chatPop.rule)}</div>` : ''}
+        ${S.chatPop.warn ? '<button class="lbar cwarnbtn" data-cwarn>Отправить предупреждение</button>' : ''}
         ${S.chatPop.ban ? `<div class="cpop-ban">${[[1, '1 час'], [2, '2 часа'], [8, '8 часов'], [-1, 'Навсегда'], [0, 'Снять бан']].map(([h, t]) => `<button class="pbtn" data-cban="${h}">${t}</button>`).join('')}</div>` : ''}` : ''}</div></div>` : ''}
+    ${chatLockHtml()}
     ${S.chatAdm ? `<div class="cpop-bg" data-cadmclose><div class="cpop"><button class="cpop-x" data-cadmclose aria-label="Закрыть">✕</button><div class="cpop-nick">В общий чат</div>
-      <div class="cpop-grid cadm-grid"><button class="ptile" data-cadmpic><span class="ptem">📷</span><span>Фото</span></button><button class="ptile" data-cadmpoll><span class="ptem">📊</span><span>Опрос</span></button>
-      <button class="ptile" data-cadmwheel><span class="ptem">🎰</span><span>Колесо Фортуны</span></button></div></div></div>` : ''}
-    <form class="chatbar" data-form="chat">${S.st.user.admin ? `<button type="button" class="cadmbtn cadmplus" data-cadmmenu aria-label="Фото, опрос или Колесо Фортуны">${S.chatPicBusy ? '⏳' : '+'}</button>` : ''}<button type="button" class="smilebtn" data-smiletoggle aria-label="Смайлы"><img src="${GFX}chat/smiles.png" alt=""></button><input name="text" maxlength="300" autocomplete="off" value="${esc(S.chatDraft || '')}"><button class="sendbtn" aria-label="Отправить"><img src="${GFX}chat/send.png" alt=""></button></form>`;
+      <div class="cpop-grid cadm-grid"><button class="ptile" data-cadmpic><img src="${GFX}dlg/file.png" alt=""><span>Фото</span></button><button class="ptile" data-cadmpoll><img src="${GFX}menu/blogs.png" alt=""><span>Опрос</span></button>
+      <button class="ptile" data-cadmwheel><img src="${GFX}shop/fair.png" alt=""><span>Колесо Фортуны</span></button></div></div></div>` : ''}
+    <form class="chatbar" data-form="chat">${S.st.user.admin ? `<button type="button" class="cadmbtn cadmplus" data-cadmmenu aria-label="Фото, опрос или Колесо Фортуны">${S.chatPicBusy ? '⏳' : '+'}</button>` : ''}<button type="button" class="smilebtn" data-smiletoggle aria-label="Смайлы"><img src="${GFX}chat/smiles.png" alt=""></button><input name="text" maxlength="300" autocomplete="off" value="${esc(S.chatDraft || '')}"${chatClosedNow() && !chatIsMod() ? ' disabled placeholder="Чат закрыт"' : ''}><button class="sendbtn" aria-label="Отправить"${chatClosedNow() && !chatIsMod() ? ' disabled' : ''}><img src="${GFX}chat/send.png" alt=""></button></form>`;
 }
+// модератор нажал «Предупредить» или «Бан в чате» — окно длинное: прокрутить к выбору пункта правил и кнопкам
+function cpopShowAction() { setTimeout(() => { const bg = $('.cpop-bg'); if (bg && ($('.cwarnbtn') || $('.cpop-ban'))) bg.scrollTop = bg.scrollHeight; }, 30); }
 // ---- фото и опросы администратора в общем чате (server: pics.js, chatpoll.js) ----
 S.cpolls = {}; S.cpollPin = 0; S.cpollSel = {};
 const chatHead = (m) => `<small>${new Date(m.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</small> <b>[${esc(m.from)}]</b>${m.role ? ` <img class="admbadge s" src="${GFX}${m.role === 'admin' ? 'admin_badge_s.png' : m.role === 'smod' ? 'chat/smoder.png' : 'chat/moder.png'}" alt="">` : ''}`;
@@ -284,13 +294,16 @@ $('#sheetBody').addEventListener('click', (e) => {
   const cv = e.target.closest('[data-cvote]'); if (cv) { e.stopPropagation(); S.chatPop = null; refreshSheet(); return send({ t: 'chatvote', id: Number(cv.dataset.mid), v: Number(cv.dataset.cvote) }); } // оценил — окно закрывается
   const t = e.target.closest('[data-cban],[data-cpop],[data-cpopclose],[data-chatpop],[data-chatexit],[data-chatusers],[data-smile],[data-smiletoggle]'); if (!t) return;
   const d = t.dataset, inp = $('.chatbar input');
-  if (d.cban !== undefined) { const pp = S.chatPop; S.chatPop = null; send({ t: 'chatmod', op: 'ban', login: pp.nick, hours: Number(d.cban) }); return refreshSheet(); }
+  if (d.cban !== undefined) { const pp = S.chatPop; S.chatPop = null; send({ t: 'chatmod', op: 'ban', login: pp.nick, hours: Number(d.cban), rule: pp.rule || 0 }); return refreshSheet(); }
   if (d.cpopclose !== undefined && (e.target === t || t.classList.contains('cpop-x'))) { S.chatPop = null; return refreshSheet(); }
   if (d.cpopclose !== undefined) return;
   if (d.chatpop) { if (inp) S.chatDraft = inp.value; S.chatPop = { id: Number(d.chatpop), nick: d.nick, mid: Number(d.mid) }; return refreshSheet(); }
   if (d.cpop) {
     const pp = S.chatPop;
-    if (d.cpop === 'ban') { pp.ban = !pp.ban; return refreshSheet(); }
+    if (d.cpop === 'lock') { S.chatPop = null; S.chatLock = true; return refreshSheet(); } // «Закрыть чат» — окно выбора времени (rules.js)
+    if (d.cpop === 'ban' || d.cpop === 'warn') { // пункт правил и сведения о нарушителе (сколько предупреждений за неделю)
+      const k = d.cpop; pp[k] = !pp[k]; pp[k === 'ban' ? 'warn' : 'ban'] = false; if (pp[k] && !pp.info) send({ t: 'chatmod', op: 'info', login: pp.nick });
+      refreshSheet(); return cpopShowAction(); }
     S.chatPop = null;
     if (d.cpop === 'del') { if (confirm('Удалить сообщение?')) send({ t: 'chatmod', op: 'del', id: pp.mid }); return refreshSheet(); }
     if (d.cpop === 'profile') { refreshSheet(); return send({ t: 'profile', id: pp.id }); }
@@ -609,7 +622,8 @@ const menuDescWin = () => `${ribbon('Описание меню')}<div class="pst
 const helpWin = () => `${ribbon('Справка')}<div class="mitems light">
   <button class="mitem" data-act="book"><img src="${GFX}build/hd3/university.png" alt=""><span>Справочник зданий</span></button>
   <button class="mitem" data-act="army"><img src="${GFX}units/human/hd/knight.png" alt=""><span>Войска</span></button>
-  <button class="mitem" data-act="rules"><img src="${GFX}smallicon/Ekoscience.png" alt=""><span>Формулы</span></button></div>`;
+  <button class="mitem" data-act="rules"><img src="${GFX}smallicon/Ekoscience.png" alt=""><span>Формулы</span></button>
+  <button class="mitem" data-gamerules><img src="${GFX}menu/news.png" alt=""><span>Правила игры</span></button></div>`;
 const settingsWin = () => `${ribbon('Настройки')}<div class="pstats">Игрок: <b>${esc(S.st.user.login)}</b> · ${esc(S.st.user.raceName)}<br>Скорость мира ×${S.cat.speed}</div>
   <label class="cchk setchk"><input type="checkbox" data-showlvl ${S.showLvl ? 'checked' : ''}><i></i><img src="gfx3d/top/btn_lvl.png" alt=""> Показывать уровни зданий (замок и земли)</label>
   <div class="mitems light"><button class="mitem" data-act="bug"><img src="${GFX}smallicon/soft_help.png" alt=""><span>Сообщить об ошибке</span></button>

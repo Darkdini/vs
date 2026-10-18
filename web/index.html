@@ -36,6 +36,7 @@
         <div class="capt"><img id="capImg" alt="пример"><button type="button" id="capNew" aria-label="Другой пример">↻</button></div>
         <input name="captcha" type="number" inputmode="numeric" placeholder="Ответ" autocomplete="off"></div>
       <label class="check"><input type="checkbox" name="remember" checked> Запомнить меня</label>
+      <p id="rulesNote" class="rulesnote hidden">Регистрируясь, вы принимаете <button type="button" class="linkbtn" id="rulesBtn">Правила игры</button></p>
       <div id="lockBox" class="lockbox hidden" role="alert"><div class="lockt1">🔒 Вход временно закрыт</div>
         <div class="lockt2">Три раза введён неверный логин или пароль.<br>Попробуйте через</div><div class="lockt" id="lockT">3:00</div></div>
       <div id="authErr" class="err"></div>
@@ -138,6 +139,7 @@
 <script src="premium.js"></script>
 <script src="account.js"></script>
 <script src="forum.js"></script>
+<script src="rules.js"></script>
 <script src="wheel.js"></script>
 <script src="dialogs.js"></script>
 <script src="staff.js"></script>

@@ -714,6 +714,8 @@ textarea.ainput { resize: vertical; }
 
 /* ---------- Главный чат ---------- */
 .chattop { display: grid; grid-template-columns: 1fr 1.4fr; gap: 8px; margin: 2px 0 4px; }
+.chattop.withlock { grid-template-columns: 1fr 1.4fr 56px; } /* модератору — кнопка 🔒 «закрыть чат на время» */
+.chattop .lbar.clock { font-size: 24px; padding: 0; }
 .chattop .lbar { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0; }
 .chattop .lbar img { height: 34px; width: 34px; object-fit: contain; }
 #sheetBody .chatlist { gap: 4px; height: calc(100dvh - 290px); max-height: none; align-content: start; padding: 0; }
@@ -805,11 +807,45 @@ textarea.ainput { resize: vertical; }
   background: #fff6e4; color: #2a1408; font: 19px var(--serif); } /* поля и списки — одинаковые, как в окне опроса */
 .cadmplus { color: #ffd76a; font: 700 32px/1 var(--serif); text-shadow: 0 1px 2px #000a; }
 .cpop-grid.cadm-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.cadm-grid .ptile { justify-content: flex-start; padding: 12px 4px 8px; } /* значки — на одной высоте, подпись в одну или две строки */
+/* Правила игры (rules.js) и мягкая модерация чата (chatmod.js): предупреждение, закрытый чат */
+.grintro { margin: 4px 2px 8px; font: 17px/1.35 var(--serif); color: #5a3418; }
+.grhead { font: 700 20px var(--serif); color: #3a1a0a; margin: 6px 2px 4px; }
+.grlist { margin: 0 0 8px; padding-left: 30px; font: 17px/1.4 var(--serif); color: #2a1408; }
+.grlist > li { margin: 0 0 8px; padding-left: 2px; } .grlist > li::marker { font-weight: 700; color: #8a1a0a; }
+.grsub { list-style: none; margin: 4px 0 0; padding-left: 6px; } .grsub li { margin: 2px 0; }
+.frtext.grbox, .grbox { white-space: normal; }
+.warnpop, .rulespop { color: #2a1408; } .warnpop .cpop-nick, .rulespop .cpop-nick { color: #5a1008; font-weight: 700; }
+.cpop-grid .ptile.on { background-image: url(gfx/ui/tile_on.png); }
+.cpop-info { margin: 12px 0 8px; font: 16px/1.35 var(--serif); color: #3a1a0a; text-align: center; } .cpop-info small { color: #6b4523; }
+.cpop-rule select.crule, select.crule { width: 100%; height: 44px; padding: 0 8px; border: 2px solid #d8a070; border-radius: 6px; background: #fff6e4; color: #2a1408; font: 17px var(--serif); }
+.cwarnbtn { width: 100%; margin-top: 10px; } .cpop .lbar.cwarnbtn { font-size: min(19px, 4.4vw); white-space: nowrap; }
+.cpop-ban .pbtn:last-child:nth-child(odd) { grid-column: 1 / -1; } /* «Снять бан» — во всю ширину, без дырки */
+.chattop .lbar.clock img { width: 34px; height: 34px; } .chattop .lbar.clock.on { box-shadow: inset 0 0 0 3px #b0302a; background-color: #f6cfc4; }
+.cclosed { display: flex; align-items: center; gap: 10px; margin: 0 0 6px; padding: 8px 12px; border: 2px solid #b0302a; border-radius: 8px; background: #fde3dc; color: #5a1008; font: min(17px, 4vw)/1.35 var(--serif); text-align: left; }
+.cclosed img { width: 40px; height: 40px; flex: none; object-fit: contain; }
+.cclosed small { color: #7a3a2a; }
+.clnote { margin: 4px 0 10px; font: 16px/1.35 var(--serif); color: #3a1a0a; text-align: center; }
+.cpop-ban .pbtn.cl-open { background: #e6f2d8; border-color: #5a8a3a; color: #1f4a0a; }
+.chatbar input:disabled { opacity: .6; }
+.warnbg { z-index: 900; }
+.warnpop { text-align: center; } .warnpop p { margin: 6px 0; font: 17px/1.4 var(--serif); color: #2a1408; }
+.warnic { margin-top: -10px; } .warnic img { width: 80px; height: 80px; object-fit: contain; }
+.warnpop .warnwhy { font-weight: 700; font-size: 19px; color: #8a1a0a; }
+.warnpop .warnrule { font-size: 15px; color: #5a3418; background: #fff6e4aa; border-radius: 6px; padding: 6px 8px; text-align: left; }
+.warnpop .warnnote { font-size: 15px; color: #5a3418; }
+.warnpop .lbar { width: 100%; margin-top: 8px; }
+.rulesnote { margin: 6px 0 2px; font-size: 14px; text-align: center; } .rulesnote .linkbtn { display: inline; padding: 0; margin: 0; }
+.cpop.rulespop { width: min(92vw, 520px); max-height: 82dvh; display: flex; flex-direction: column; }
+.rulesscroll { overflow: auto; text-align: left; margin-top: 6px; } .rulesscroll .grlist { font-size: 16px; }
+.warnrules { margin-top: 8px; border: 0; background: none; color: #2f5a8a; font: 16px var(--serif); text-decoration: underline; cursor: pointer; }
+
+.cpop-grid.cadm-grid .ptile { aspect-ratio: auto; height: 118px; justify-content: space-between; padding: 12px 4px 10px; } /* три одинаковые плитки: значок сверху, подпись снизу */
+.cpop-grid.cadm-grid .ptile img { width: 56px; height: 56px; }
 #sheetBody .cadm-grid .ptile span:last-child { min-height: 2.3em; display: flex; align-items: center; justify-content: center; }
-#sheetBody .ptile .ptem { font: 36px/1 system-ui, sans-serif; text-shadow: none; }
+
 .cadmbtn:active { filter: brightness(1.2); }
-.cpop-bg { position: fixed; inset: 0; z-index: 50; background: #0006; display: grid; place-items: center; }
+.cpop-bg { position: fixed; inset: 0; z-index: 50; background: #0006; display: flex; overflow-y: auto; padding: 14px 0; }
+.cpop-bg > .cpop { margin: auto; flex: none; } /* по центру; выше экрана — окно прокручивается, верх и низ не обрезаются */
 .cpop { position: relative; width: min(78vw, 340px); padding: 34px 18px 22px; background: linear-gradient(#ecd2ae, #d8b890); border: 3px solid #b08a5a; border-radius: 6px; box-shadow: 0 0 0 2px #6a4020, 0 8px 20px #000a; }
 .cpop-x { position: absolute; top: -8px; right: 22px; width: 44px; height: 50px; border: 0; background: linear-gradient(#e02020, #901010); color: #fff; font: 700 24px system-ui; clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 82%, 0 100%); }
 .cpop-nick { text-align: center; font: min(22px, 5vw) var(--serif); margin-bottom: 10px; }

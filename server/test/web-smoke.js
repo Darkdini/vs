@@ -383,6 +383,24 @@ function client() {
     assert.ok(whs.strip1[whs.at] === whs.win && whs.people[whs.win].login === 'Webby' && whs.prize, 'розыгрыш: полосы, победитель, приз');
     await a.expect('chatmsg', (m) => m.msg.wheel === wha.w.id && m.msg.wph === 'spin');
     console.log('✓ Колесо Фортуны — запускает админ, «Участвую», розыгрыш у всех одинаковый');
+    // мягкая модерация чата: предупреждение по пункту правил (окно у игрока до «Понятно»), чат закрыт на время
+    b.send({ t: 'chatmod', op: 'warn', login: 'Webby', rule: 2 }); await b.expect('error', (m) => /Нет прав/.test(m.msg));
+    a.send({ t: 'chatmod', op: 'warn', login: 'Second', rule: 0 }); await a.expect('error', (m) => /пункт правил/.test(m.msg));
+    a.send({ t: 'chatmod', op: 'warn', login: 'Second', rule: 2 }); await a.expect('toast', (m) => /Second: предупреждение отправлено/.test(m.msg));
+    const wst = await b.expect('state', (m) => m.user.warn);
+    assert.ok(wst.user.warn.by === 'Webby' && /п\. 2 — Оскорбление игроков/.test(wst.user.warn.why), JSON.stringify(wst.user.warn));
+    assert.ok((await a.expect('chatmodinfo', (m) => m.data.login === 'Second')).data.warns === 1, 'модератор видит: предупреждений за неделю — 1');
+    b.send({ t: 'chatmod', op: 'warnseen' }); await b.expect('state', (m) => !m.user.warn);
+    adm.send({ t: 'chatmod', op: 'close', minutes: 7 }); await adm.expect('error', (m) => /5, 10, 15 или 30/.test(m.msg));
+    adm.send({ t: 'chatmod', op: 'close', minutes: 5 });
+    assert.ok((await b.expect('chatclosed', (m) => m.until > Date.now())).until - Date.now() > 290000, 'чат закрыт на 5 минут — всем');
+    await b.expect('chatmsg', (m) => /Чат закрыт на 5 мин/.test(m.msg.text));
+    b.send({ t: 'chat', text: 'можно?' }); await b.expect('error', (m) => /Чат закрыт модератором/.test(m.msg));
+    a.send({ t: 'chat', text: 'Модератор пишет' }); await b.expect('chatmsg', (m) => m.msg.text === 'Модератор пишет');
+    b.send({ t: 'chatlog' }); assert.ok((await b.expect('chatlog')).closed > Date.now(), 'в чате — плашка «закрыт»');
+    a.send({ t: 'chatmod', op: 'close', minutes: 0 }); await b.expect('chatclosed', (m) => m.until === 0);
+    b.send({ t: 'chat', text: 'снова можно' }); await a.expect('chatmsg', (m) => m.msg.text === 'снова можно');
+    console.log('✓ модерация чата — предупреждение по пункту правил (окно у игрока), закрыть чат на 5 мин и открыть');
     // модератор удаляет сообщение в форуме альянса (права «Новости и форум» у него нет) и может открыть форум чужого альянса
     adm.send({ t: 'ally', op: 'get' });
     const fa = (await adm.expect('ally', (m) => m.data.forum.length > 0)).data, ftopic = fa.forum[0];

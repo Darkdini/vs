@@ -69,6 +69,7 @@ function install(Game) {
     const t = v.t || me, al = this.allianceOf(t);
     return { id: t.id, login: t.login, race: t.race, created: t.created, lastSeen: t.lastSeen || t.created, online: !!t.online, mod: !!t.mod, smod: !!t.smod,
       banned: !!t.banned, banUntil: t.banUntil || 0, banWhy: t.banWhy || '', chatBan: t.chatBan || 0, forumBan: t.forumBan || 0, violations: t.violations || 0,
+      warns: (t.warns || []).filter((x) => x.at > Date.now() - 7 * 86400000).length, // предупреждения в чате за неделю (chatmod.js)
       alliance: al ? { id: al.id, tag: al.tag, name: al.name } : null, avatar: t.avatar || 0, nickLog: (t.nickLog || []).slice(-10).reverse(),
       ips: (t.ips || []).slice(-5).reverse().map((x) => ({ ip: x.ip, at: x.at })), castles: this.castlesOf(t).map((c) => ({ name: c.name, x: c.x, y: c.y, rating: this.rating(c) })) };
   };

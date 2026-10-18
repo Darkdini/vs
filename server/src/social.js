@@ -285,15 +285,16 @@ function install(Game) {
     if (gone.poll) this.db.chatPolls = (this.db.chatPolls || []).filter((p) => p.id !== gone.poll); // удалили «📊 Опрос» — исчезает и опрос (с закрепа)
     this.store.save(); return { ok: true, poll: gone.poll || 0 };
   };
-  P.chatBanUser = function chatBanUser(user, login, hours) {
+  P.chatBanUser = function chatBanUser(user, login, hours, rule) {
     if (!this.canModerate(user)) return { error: 'Нет прав.' };
     const t = this.db.users[String(login || '').trim()]; if (!t) return { error: 'Игрок не найден.' };
     if (t.admin || (t.smod && !user.admin) || (t.mod && !user.admin && !user.smod)) return { error: 'Этого игрока забанить нельзя.' }; // модератора — старший модератор, старшего — только админ
     hours = Number(hours);
+    const why = hours !== 0 ? require('./rules').ruleLabel(rule) : ''; // пункт правил (rules.js), если модератор его выбрал
     t.chatBan = hours === 0 ? 0 : hours < 0 ? -1 : Date.now() + hours * 3600000;
     if (hours !== 0) t.violations = (t.violations || 0) + 1; // «Нарушения» в профиле
-    if (this.modLog) this.modLog(user, 'chat', t.login, hours === 0 ? 'запрет в чате снят' : `чат ${hours < 0 ? 'навсегда' : `на ${hours} ч.`}`); // журнал модерации
-    this.event(t.id, hours === 0 ? 'Бан в чате снят.' : `Вам запрещено писать в чат ${hours < 0 ? 'навсегда' : `на ${hours} ч.`} (модератор ${user.login}).`);
+    if (this.modLog) this.modLog(user, 'chat', t.login, hours === 0 ? 'запрет в чате снят' : `чат ${hours < 0 ? 'навсегда' : `на ${hours} ч.`}${why ? ` (${why})` : ''}`); // журнал модерации
+    this.event(t.id, hours === 0 ? 'Бан в чате снят.' : `Вам запрещено писать в чат ${hours < 0 ? 'навсегда' : `на ${hours} ч.`} (модератор ${user.login})${why ? `. Нарушение: ${why}` : ''}.`);
     this.store.save();
     return { ok: true, msg: hours === 0 ? `Бан снят: ${t.login}.` : `${t.login}: бан в чате ${hours < 0 ? 'навсегда' : `на ${hours} ч.`}` };
   };
@@ -304,6 +305,9 @@ function install(Game) {
     if (!opt.sys && user.chatBan > Date.now()) return { error: `Вам запрещено писать в чат ещё ${Math.ceil((user.chatBan - Date.now()) / 60000)} мин.` };
     text = String(text || '').trim().slice(0, 300);
     if (!text) return { error: 'Пустое сообщение.' };
+    // модератор закрыл чат на время (chatmod.js): пишут только модераторы и админ
+    const closed = !opt.sys && this.chatClosedUntil ? this.chatClosedUntil() : 0;
+    if (closed && !this.canModerate(user)) return { error: `Чат закрыт модератором — ещё ${Math.max(1, Math.ceil((closed - Date.now()) / 60000))} мин. Отдохните немного 🙂` };
     if (!opt.sys) { const lim = this.tooOften(user, 'chat'); if (lim) return { error: lim }; } // не чаще раза в 1,5 с и 15 в минуту
     this.db.chat = this.db.chat || [];
     const m = { id: this.db.nextId++, from: user.login, fromId: user.id, text, at: Date.now(), rep: user.reputation ?? START_REP, role: user.admin ? 'admin' : user.smod ? 'smod' : user.mod ? 'mod' : '', color: this.msgColor ? this.msgColor(user) : '', ...(extra || {}) }; // цвет текста — премиум

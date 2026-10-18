@@ -79,6 +79,7 @@ function catalogJson() {
     speed: G.SPEED,
     shopOpen: process.env.SHOP_OPEN === '1', // «Лавка Короля» для всех (иначе — только администратор)
     pay: require('./tgpay').payInfo(), // покупка монет за звёзды Telegram: курс и пакеты
+    gameRules: { intro: require('./rules').RULES_INTRO, list: require('./rules').RULES }, // «Правила игры» (rules.js): Справка, форум, модераторам
     campFast: require('./army').CAMP_FAST,
     march: require('./army').MARCH, // армии ходят быстрее во столько раз
     maxQueue: G.MAX_QUEUE,
@@ -131,7 +132,8 @@ class WebSession {
       now: Date.now(),
       quests: this.questsLite(),
       user: { id: u.id, login: u.login, avatar: u.avatar || 0, ally: u.alliance || null, race: u.race, raceName: C.RACE_NAMES[u.race], premium: u.premium || 0, gold: u.gold || 0, goldLog: (u.goldLog || []).slice(-50).reverse(), admin: !!u.admin, mod: !!u.mod, smod: !!u.smod, alertsNew: u.admin ? this.game.alertsNew() : 0, payNew: u.admin ? this.game.payNew() : 0, secNew: u.admin ? this.game.secNew() : 0, zagsNew: this.game.zagsNew(u), friendsNew: this.game.friendsNew(u), staff: this.game.staffOk(u), staffNew: this.game.staffUnread(u), brank: (({ idx, icon, stars, title }) => ({ idx, icon, stars, title }))(require('./battlerank').rankInfo(this.game.brRank(u))), brNew: this.game.brChests ? this.game.brChests(u) : 0, // сундуков наград ранга ждёт (метка на значке) black: this.game.privacyOf(u).black, multiNew: u.admin ? (this.game.db.multiLog || []).filter((x) => x.at > (u.multiSeen || 0)).length : 0,
-        modReqNew: u.admin && this.game.modReqList ? this.game.modReqList().length : 0 }, // заявки в модераторы, ждущие решения админа
+        modReqNew: u.admin && this.game.modReqList ? this.game.modReqList().length : 0, // заявки в модераторы, ждущие решения админа
+        warn: u.warnPending || null }, // предупреждение модератора в чате (chatmod.js) — окно, пока игрок не нажмёт «Понятно»
       castle: {
         id: c.id, name: c.name, x: c.x, y: c.y, grid: { 0: Array.from(c.grid[0]), 1: Array.from(c.grid[1]) }, levels: { 0: Array.from(c.levels[0]), 1: Array.from(c.levels[1]) },
         res: c.res, rate: this.game.rates(c), cap: this.game.capacity(c),
@@ -192,6 +194,10 @@ function wheelCast(g, out, from) {
     if (ev.chat) for (const s of all) s.sendChat(ev.chat);
     if (ev.cnt) for (const s of all) s.send({ t: 'wheeln', id: ev.cnt, n: ev.n });
   }
+}
+// чат закрыт или открыт (chatmod.js) — всем в игре: плашка с отсчётом и сообщение модератора в ленте
+function chatClosedCast(g, r) {
+  for (const s of WebSession.all || []) if (s.user) { s.send({ t: 'chatclosed', until: r.until || 0 }); if (r.chat) s.sendChat(r.chat); }
 }
 // «МАСТЕРА»: тем, кто открыл эту тему, — свежие сообщения; в списке тем — свежий список; остальным мастерам — счётчик непрочитанного
 function staffNotify(g, topic) {
@@ -530,9 +536,16 @@ const API = {
     for (const s of WebSession.all || []) if (s.user) s.send({ t: 'chatvote', id: r.id, up: r.up, dn: r.dn });
   },
   chatmod(m) {
-    const r = m.op === 'del' ? this.game.chatDelete(this.user, m.id) : this.game.chatBanUser(this.user, m.login, m.hours);
+    const g = this.game, op = String(m.op || '');
+    // мягкие меры (chatmod.js): предупреждение — игрок видит окно, пока не нажмёт «Понятно»; закрыть чат на время
+    if (op === 'warnseen') { g.chatWarnSeen(this.user); return this.pushState(); }
+    if (op === 'info') { const r = g.chatWarnInfo(this.user, m.login); if (r.error) return this.error(r.error); return this.send({ t: 'chatmodinfo', data: r }); }
+    if (op === 'warn') { const r = g.chatWarn(this.user, m.login, m.rule); if (r.error) return this.error(r.error); this.toast(r.msg); pushTo(r.to);
+      const i = g.chatWarnInfo(this.user, r.to.login); if (!i.error) this.send({ t: 'chatmodinfo', data: i }); return; }
+    if (op === 'close') { const r = g.chatClose(this.user, m.minutes); if (r.error) return this.error(r.error); this.toast(r.msg); return chatClosedCast(g, r); }
+    const r = op === 'del' ? g.chatDelete(this.user, m.id) : g.chatBanUser(this.user, m.login, m.hours, m.rule);
     if (r.error) return this.error(r.error);
-    if (m.op === 'del') for (const s of WebSession.all || []) if (s.user) { s.send({ t: 'chatdel', id: Number(m.id) }); if (r.poll) s.send({ t: 'chatpoll', id: r.poll, gone: 1, pin: this.game.chatPollPin() }); }
+    if (op === 'del') for (const s of WebSession.all || []) if (s.user) { s.send({ t: 'chatdel', id: Number(m.id) }); if (r.poll) s.send({ t: 'chatpoll', id: r.poll, gone: 1, pin: g.chatPollPin() }); }
     this.toast(r.msg || 'Сообщение удалено.');
   },
   // «Модерация» старшего модератора (smod.js): данные, сведения об игроке, действия
@@ -546,7 +559,7 @@ const API = {
     this.send({ t: 'smod', view: 'main', data: g.smodView(this.user) });
     if (m.login && op !== 'nick') { const p = g.smodPlayer(this.user, m.login); if (!p.error) this.send({ t: 'smod', view: 'player', data: p }); }
   },
-  chatlog() { this.send({ t: 'chatlog', list: this.game.chatLog(), ...this.game.chatPollViews(this.user), ...this.game.chatWheelViews(this.user) }); },
+  chatlog() { this.send({ t: 'chatlog', list: this.game.chatLog(), closed: this.game.chatClosedUntil(), ...this.game.chatPollViews(this.user), ...this.game.chatWheelViews(this.user) }); },
   // опрос в общем чате (chatpoll.js): создаёт и ведёт только админ, голосуют все; итоги — каждому своим видом
   chatpoll(m) {
     const g = this.game, r = g.chatPollOp(this.user, { ...m, op: String(m.op || '') });
@@ -1005,4 +1018,4 @@ function startWeb(game, sessions, { port, host, log }) {
   return server;
 }
 
-module.exports = { startWeb, WebSession, wheelCast };
+module.exports = { startWeb, WebSession, wheelCast, chatClosedCast };

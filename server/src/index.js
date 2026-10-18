@@ -6,7 +6,7 @@
 
 const path = require('path');
 const { Game, Store } = require('./game');
-const { startWeb, WebSession, wheelCast } = require('./web');
+const { startWeb, WebSession, wheelCast, chatClosedCast } = require('./web');
 
 const HOST = process.env.HOST || '0.0.0.0';
 const WEB_PORT = Number(process.env.WEB_PORT || process.env.PORT || 8080); // PORT задают хостинги (Render, Railway и т.п.)
@@ -21,6 +21,7 @@ WebSession.all = sessions;
 setInterval(() => {
   try { game.tickWorld(); game.seasonCheck(); game.bossCheck(); } catch (e) { console.error(e); }
   try { const wo = game.wheelCheck(); if (wo.length) wheelCast(game, wo); } catch (e) { console.error(e); } // Колесо Фортуны: розыгрыш, итог
+  try { const cc = game.chatCloseCheck(); if (cc) chatClosedCast(game, cc); } catch (e) { console.error(e); } // закрытый чат открывается сам
   for (const s of sessions) { try { s.onTick(); } catch (e) { console.error(e); } }
   for (const ev of game.drainEvents()) for (const s of sessions) if (s.user && s.user.id === ev.userId && s.notify) s.notify(ev.msg);
 }, 1000);

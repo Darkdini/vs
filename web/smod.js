@@ -12,12 +12,13 @@ function smodPlayerCard(p) {
   const chat = p.chatBan === -1 ? 'навсегда' : p.chatBan > Date.now() ? `до ${smDate(p.chatBan)}` : 'нет';
   return `<div class="smcard"><div class="smhead"><span class="avasm">${p.avatar ? `<img src="avatar/${p.id}.png?v=${p.avatar}" alt="">` : raceAva(p.race)}</span>
       <div><b>${esc(p.login)}</b>${p.smod ? ' · старший модератор' : p.mod ? ' · модератор' : ''}<br><small>${p.online ? 'в игре' : `был ${smDate(p.lastSeen)}`} · с ${smDate(p.created)}</small></div></div>
-    <dl class="kv smkv"><dt>Блокировка</dt><dd>${ban}</dd><dt>Чат</dt><dd>${chat}</dd><dt>Нарушения</dt><dd>${p.violations}</dd>
+    <dl class="kv smkv"><dt>Блокировка</dt><dd>${ban}</dd><dt>Чат</dt><dd>${chat}</dd><dt>Нарушения</dt><dd>${p.violations}</dd><dt>Предупреждения</dt><dd>${p.warns ? `${p.warns} за неделю` : 'нет'}</dd>
       <dt>Альянс</dt><dd>${p.alliance ? `[${esc(p.alliance.tag)}] ${esc(p.alliance.name)}` : '—'}</dd>
       <dt>Замки</dt><dd>${p.castles.map((c) => `${esc(c.name)} (${c.x}:${c.y})`).join(', ') || '—'}</dd>
       <dt>Ники</dt><dd>${p.nickLog.length ? p.nickLog.map((n) => `${esc(n.from)} → ${esc(n.to)}`).join(', ') : '—'}</dd>
       <dt>IP</dt><dd>${p.ips.map((x) => esc(x.ip)).join(', ') || '—'}</dd></dl>
     ${p.login === S.st.user.login ? '' : `<div class="smsec">Блокировка аккаунта</div>
+    <div class="smrow">${ruleSelect('data-smrule', 0)}</div>
     <div class="smrow"><input data-smwhy placeholder="Причина (обязательно)" maxlength="120"></div>
     <div class="smrow">${S.smod.banDays.map((d) => smBtn('ban', `${d} дн.`, `data-days="${d}"`, 'cbno')).join('')}${p.banned ? smBtn('unban', 'Разблокировать') : ''}</div>
     <div class="smsec">Запрет в чате</div>
@@ -37,7 +38,7 @@ function smodTeamCard(p) {
     <div class="smrow">${smBtn('mod', 'Предложить в модераторы', 'data-on="1"')}</div><p class="coinhint">Заявку рассмотрит администратор: примет или отклонит.</p>`;
 }
 function smodWin() {
-  const d = S.smod, T = [['player', 'Игрок'], ['team', 'Команда'], ['bans', 'Наказания'], ['multi', 'Мульты'], ['ally', 'Альянсы'], ['news', 'Новость'], ['log', 'Журнал']];
+  const d = S.smod, T = [['player', 'Игрок'], ['team', 'Команда'], ['bans', 'Наказания'], ['multi', 'Мульты'], ['ally', 'Альянсы'], ['news', 'Новость'], ['log', 'Журнал'], ['rules', 'Правила']];
   const tabs = `<div class="coin-tabs smtabs">${T.map(([k, t]) => `<button class="${S.smodTab === k ? 'on' : ''}" data-smtab="${k}">${t}</button>`).join('')}</div>`;
   if (!d) return `${ribbon('Модерация')}${tabs}<p class="parch-note">Загрузка…</p>`;
   let body = '';
@@ -62,10 +63,12 @@ function smodWin() {
     body = `<p class="coinhint">Альянс с оскорбительным названием — переименовать; описание и устав — сбросить. Укажите тег или номер альянса.</p>
       <form class="smform" data-smally><input name="id" placeholder="Тег альянса (сейчас)" autocapitalize="characters"><input name="tag" placeholder="Новый тег (2–5)" maxlength="5"><input name="name" placeholder="Новое название" maxlength="24">
         <div class="smrow"><button class="btn primary small" name="go" value="name">Переименовать</button><button class="btn small cbno" name="go" value="desc">Сбросить описание</button></div></form>`;
+  } else if (S.smodTab === 'rules') { // «Правила игры» — по ним выбирают пункт в причине блокировки и в предупреждении в чате
+    body = `<div class="grbox">${gameRulesHtml()}</div>`;
   } else if (S.smodTab === 'news') {
     body = `<p class="coinhint">Новость увидят все игроки: фиолетовый конверт в верхней панели, потом — в «Инфо → Новости». До 4 скриншотов. Публикация записывается в журнал модерации.</p>${newsPubForm()}`;
   } else {
-    const OP = { news: 'Новость', mod: 'Модератор', modreq: 'Заявка в модераторы', ban: 'Блокировка', unban: 'Разблокировка', chat: 'Чат', viol: 'Нарушения', nick: 'Ник', castles: 'Замки', avatar: 'Аватар', allyname: 'Альянс', allydesc: 'Альянс' };
+    const OP = { news: 'Новость', mod: 'Модератор', modreq: 'Заявка в модераторы', ban: 'Блокировка', unban: 'Разблокировка', chat: 'Чат', viol: 'Нарушения', nick: 'Ник', castles: 'Замки', avatar: 'Аватар', allyname: 'Альянс', allydesc: 'Альянс', warn: 'Предупреждение', chatclose: 'Закрытие чата' };
     body = d.log.map((x) => `<div class="smlog"><small>${smDate(x.at)} · <b>${esc(x.by)}</b></small><div>${OP[x.op] || esc(x.op)}: <b>${esc(x.target)}</b> — ${esc(x.text)}</div></div>`).join('') || '<p class="parch-note">Журнал пуст.</p>';
   }
   const n = S.smodNote && Date.now() - S.smodNote.at < 6000 ? `<div class="smnote ${S.smodNote.ok ? 'ok' : ''}">${S.smodNote.ok ? '✔' : '⛔'} ${esc(S.smodNote.msg)}</div>` : '';
@@ -107,3 +110,9 @@ $('#sheetBody').addEventListener('submit', (e) => {
     if (confirm(`Переименовать [${id}] в [${E.tag.value.trim()}] ${E.name.value.trim()}?`)) send({ t: 'smod', op: 'allyname', id, tag: E.tag.value, name: E.name.value });
   }
 }, true);
+
+// пункт правил → причина блокировки («п. 2 — Оскорбление игроков»); причину можно дописать
+$('#sheetBody').addEventListener('change', (e) => {
+  if (!e.target.matches('[data-smrule]')) return;
+  const n = Number(e.target.value), w = $('[data-smwhy]'); if (w && n) w.value = ruleLabelC(n);
+});

@@ -353,6 +353,35 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(d3.gone && !g.db.chat.some((x) => x.poll === r3.poll) && !g.chatPollView(r3.poll, adm), 'админ удаляет опрос вместе с сообщением');
   console.log('✓ общий чат: опрос — только админ, закреплён, один голос, итоги после голоса, завершение и удаление');
 }
+// мягкая модерация чата (chatmod.js, rules.js): предупреждение по пункту правил — окно у игрока до «Понятно»;
+// закрыть чат на 5/10/15/30 минут — пишут только модераторы и админ, по таймеру открывается сам
+{
+  const R = require('../src/rules'), adm = Object.values(g.db.users).find((x) => x.admin);
+  assert.ok(R.RULES.length === 18 && R.ruleLabel(2) === 'п. 2 — Оскорбление игроков' && !R.ruleLabel(0) && !R.ruleLabel(19) && R.RULES.every((r) => r.short && r.text), 'правила игры: 18 пунктов');
+  const [md, p1, p2] = ['cm_mod1', 'cm_pl01', 'cm_pl02'].map((l) => g.register({ login: l, password: '12345', race: 0 }).user); md.mod = true;
+  assert.ok(g.chatWarn(p1, 'cm_pl02', 2).error, 'игрок не предупреждает');
+  assert.ok(/пункт правил/.test(g.chatWarn(md, 'cm_pl01', 0).error || '') && /пункт правил/.test(g.chatWarn(md, 'cm_pl01', '__proto__').error || ''), 'без пункта правил — нельзя');
+  assert.ok(g.chatWarn(md, adm.login, 1).error && g.chatWarn(md, 'cm_mod1', 1).error, 'админа и себя — нельзя');
+  const t0 = Date.now(), w = g.chatWarn(md, 'cm_pl01', 2, t0);
+  assert.ok(w.ok && p1.warnPending && p1.warnPending.why === 'п. 2 — Оскорбление игроков' && p1.warnPending.by === 'cm_mod1', JSON.stringify(p1.warnPending));
+  assert.ok(g.chatWarn(md, 'cm_pl01', 3, t0 + 1000).error && g.chatWarn(md, 'cm_pl01', 3, t0 + 61000).ok, 'не чаще раза в минуту');
+  assert.ok(g.chatWarnInfo(md, 'cm_pl01', t0 + 62000).warns === 2 && g.chatWarnInfo(md, 'cm_pl01', t0 + 8 * 86400000).warns === 0, 'за неделю — 2, через 8 дней — 0');
+  assert.ok(g.db.modLog.some((x) => x.op === 'warn' && x.target === 'cm_pl01' && /п\. 2/.test(x.text)), 'в журнале модерации');
+  g.chatWarnSeen(p1); assert.ok(!p1.warnPending, '«Понятно» — окно больше не показывается');
+  g.chatBanUser(md, 'cm_pl02', 1, 6); const ev = g.drainEvents().filter((x) => x.userId === p2.id).map((x) => x.msg).join(' ');
+  assert.ok(/Нарушение: п\. 6 — Ссылки и реклама/.test(ev), `бан в чате — с пунктом правил: ${ev}`); p2.chatBan = 0;
+  // закрыть чат
+  assert.ok(g.chatClose(p1, 10).error && g.chatClose(md, 7).error, 'закрывает только модератор, на 5/10/15/30 минут');
+  const c = g.chatClose(md, 10, t0);
+  assert.ok(c.ok && c.until === t0 + 600000 && c.chat && /Чат закрыт на 10 мин/.test(c.chat.text), JSON.stringify(c));
+  p1.chatAt = 0; p1.rate = {}; assert.ok(/Чат закрыт модератором/.test(g.chatPost(p1, 'привет').error || ''), 'игрок не пишет');
+  assert.ok(!g.chatPost(md, 'Модератор на связи').error, 'модератор пишет');
+  assert.ok(!g.chatCloseCheck(t0 + 599000), 'время не вышло — закрыт');
+  const o = g.chatCloseCheck(t0 + 600001);
+  assert.ok(o && o.until === 0 && /Чат снова открыт/.test(o.chat.text) && !g.chatClosedUntil(t0 + 600002), 'по таймеру открылся сам');
+  const c2 = g.chatClose(md, 5); assert.ok(c2.ok && g.chatClose(md, 0).ok && !g.chatClosedUntil() && g.chatClose(md, 0).error, 'открыть раньше срока');
+  console.log('✓ модерация чата: 18 правил, предупреждение по пункту (окно до «Понятно», раз в минуту, счёт за неделю, журнал), бан с пунктом, чат закрыт на 5–30 мин и открывается сам');
+}
 // Колесо Фортуны (wheel.js): запускает только админ; ячейки — золото, опыт, воин по одной, остальные — ресурсы;
 // «Участвую» — с одного телефона один аккаунт; по таймеру — победитель и приз сразу, полосы одинаковые у всех, итог — отчётом
 {
