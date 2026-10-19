@@ -23,9 +23,9 @@ const asend = (m) => send({ ...m, ally: S.allyForeign || undefined });
 function openAllyForum(id) { S.allyForeign = id; S.ally = null; asend({ t: 'ally', op: 'get' }); openSheet(allyForumWin); }
 const dt = (t) => { const d = new Date(t), today = new Date(); const hm = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }); return d.toDateString() === today.toDateString() ? `Сегодня, ${hm}` : `${d.toLocaleDateString('ru-RU')} ${hm}`; };
 const loading = (t) => `${ribbon(t)}<p class="parch-note">Загрузка…</p>`;
-// статус в составе (сервер: ally.js allyOnline, web.js allyPresenceCast): зелёная точка — в игре, серая — нет.
+// статус в составе (сервер: ally.js allyOnline, web.js allyPresenceCast): зелёная точка — в сети, серая — нет.
 // Меняется сразу (сообщение allyon). В чужом альянсе (модератор) статуса нет
-const allyDot = (on) => `<i class="aon${on ? ' on' : ''}" title="${on ? 'В игре' : 'Не в игре'}"></i>`;
+const allyDot = (on) => `<i class="aon${on ? ' on' : ''}" title="${on ? 'В сети' : 'Не в сети'}"></i>`;
 const allyOn = (m) => (m.on === undefined ? '' : allyDot(m.on));
 const allyHasOn = (a) => a.members.some((m) => m.on !== undefined);
 const allyOnN = (a) => a.members.filter((m) => m.on).length;
@@ -40,7 +40,7 @@ function allyMainWin() {
   return `${ribbon('Альянс')}
     <div class="atable"><div class="atr head"><img src="${AI('alliance')}" alt=""> ${esc(a.name)}</div>
       ${row('Название', esc(a.tag))}${row('Ранг', a.rank)}${row('Рейтинг', fmtFull(a.score))}${row('Участников', `${a.members.length} из ${a.slots}`)}
-      ${allyHasOn(a) ? row('Сейчас в игре', `${allyDot(true)}${allyOnN(a)}`) : ''}
+      ${allyHasOn(a) ? row('В сети', `${allyDot(true)}${allyOnN(a)}`) : ''}
       ${row('Создатель', `<a data-cprof="${a.leader}">${esc(a.leaderLogin || '—')}</a>`)}</div>
     ${ribbon('Верховенство')}
     <div class="atable"><div class="atr3 head"><span>Звание</span><span>Имя</span><span>Погоны</span></div>
@@ -66,9 +66,9 @@ function allyMainWin() {
 
 function allyMembersWin() {
   const a = S.ally; if (!a) return loading('Весь состав');
-  const on = allyOnN(a);
-  return `${ribbon('Весь состав')}${allyHasOn(a) ? `<div class="aonline"><span>${allyDot(true)}В игре: <b>${on}</b></span><span>${allyDot(false)}Не в игре: <b>${a.members.length - on}</b></span></div>` : ''}
-    <div class="atable">${a.members.map((m, i) => `<div class="atr4"><span>${i + 1}</span><span>${allyName(m)}${repIcons(m.rep)}${allyMedalsRow(m)} <small>рейтинг&nbsp;${fmtFull(m.rating)} + репутация&nbsp;${fmtFull(m.rep)}</small></span><span>${epImg(m.ep)}</span><span>${fmtFull(m.score)}</span></div>`).join('')}</div>`;
+  // справа — рейтинг с учётом репутации; вверху — сколько сейчас в сети
+  return `${ribbon('Весь состав')}${allyHasOn(a) ? `<div class="aonline">${allyDot(true)}В сети: <b>${allyOnN(a)}</b></div>` : ''}
+    <div class="atable">${a.members.map((m, i) => `<div class="atr4"><span>${i + 1}</span><span>${allyName(m)}${repIcons(m.rep)}${allyMedalsRow(m)}</span><span>${epImg(m.ep)}</span><span>${fmtFull(m.score)}</span></div>`).join('')}</div>`;
 }
 function allyTitlesWin() {
   const a = S.ally; if (!a) return loading('Звания и погоны');
@@ -144,18 +144,32 @@ function allyReqWin() {
     ${a.invited.length ? `<div class="bwline">Приглашены: ${a.invited.map(esc).join(', ')}</div>` : ''}`;
 }
 
+// история кладовой и казны (сервер: ally.js allyMoves) — видна всем участникам: «+» внёс, «−» выдал
+S.allyMoveF = 'all';
+const allyMoveAmt = (e) => (e.gold ? `${gimg('coins_s.png', 'ri')} ${fmtFull(e.gold)}` : RES4.filter((r) => e.res && e.res[r]).map((r) => `${RES_IC[r]} ${fmtFull(e.res[r])}`).join(' '));
+const allyMoveRow = (e) => (e.op ? `<div class="amove ${e.op === '+' ? 'in' : 'out'}"><i>${e.op === '+' ? '+' : '−'}</i>
+    <span><b>${esc(e.by)}</b> ${e.op === '+' ? 'внёс' : `выдал <b>${esc(e.to)}</b>`}<br>${allyMoveAmt(e)}</span><small>${dt(e.at)}</small></div>`
+  : `<div class="logrow">${esc(e.text)}<br><small>${dt(e.at)}</small></div>`);
+function allyMovesHtml(list) {
+  const f = S.allyMoveF, n = (op) => list.filter((e) => e.op === op).length;
+  const chips = [['all', 'Все'], ['+', `Пополнения (${n('+')})`], ['-', `Списания (${n('-')})`]].map(([x, t]) => `<button class="${x === f ? 'on' : ''}" data-amovef="${x}">${t}</button>`).join('');
+  const rows = list.filter((e) => f === 'all' || e.op === f).slice(0, 50).map(allyMoveRow).join('');
+  return `${ribbon('История')}<div class="warchips">${chips}</div>${rows || '<p class="parch-note">Пока пусто.</p>'}`;
+}
 function allyGoldWin() {
   const a = S.ally; if (!a) return loading('Казна Альянса');
   return `${ribbon('Казна Альянса')}<div class="bwline center">В казне: ${gimg('coins_s.png', 'ri')} <b>${fmtFull(a.treasury)}</b> · у вас ${fmtFull(S.st.user.gold || 0)}</div>
     <form class="chatform" data-aform="gold"><input name="n" type="number" min="1" placeholder="Сколько внести" required><button class="pbtn small">Внести</button></form>
-    ${can('treasury') ? `${ribbon('Выдать из казны')}<form class="aform" data-aform="goldto"><div class="combo"><select name="to">${a.members.map((m) => `<option>${esc(m.login)}</option>`).join('')}</select></div><input class="ainput" name="n" type="number" min="1" placeholder="Сколько" required><div class="center"><button class="pbtn">Выдать</button></div></form>` : ''}`;
+    ${can('treasury') ? `${ribbon('Выдать из казны')}<form class="aform" data-aform="goldto"><div class="combo"><select name="to">${a.members.map((m) => `<option>${esc(m.login)}</option>`).join('')}</select></div><input class="ainput" name="n" type="number" min="1" placeholder="Сколько" required><div class="center"><button class="pbtn">Выдать</button></div></form>` : ''}
+    ${allyMovesHtml(a.moves.filter((e) => e.gold))}`;
 }
 function allyStoreWin() {
   const a = S.ally; if (!a) return loading('Кладовая');
   const inputs = RES4.map((r) => `<label class="resin">${RES_IC[r]}<input name="${r}" type="number" min="0" placeholder="0"></label>`).join('');
-  return `${ribbon('Кладовая')}<div class="chips">${RES4.map((r) => `<span>${RES_IC[r]} ${fmtFull(a.storage[r] || 0)}</span>`).join('')}</div>
+  return `${ribbon('Кладовая')}<div class="astock">${RES4.map((r) => `<span>${RES_IC[r]}<b>${fmtFull(a.storage[r] || 0)}</b></span>`).join('')}</div>
     ${ribbon('Внести из замка')}<form class="aform" data-aform="store"><div class="resins">${inputs}</div><div class="center"><button class="pbtn">Внести</button></div></form>
-    ${can('treasury') ? `${ribbon('Выдать участнику')}<form class="aform" data-aform="storeto"><div class="combo"><select name="to">${a.members.map((m) => `<option>${esc(m.login)}</option>`).join('')}</select></div><div class="resins">${inputs}</div><div class="center"><button class="pbtn">Выдать</button></div></form>` : ''}`;
+    ${can('treasury') ? `${ribbon('Выдать участнику')}<form class="aform" data-aform="storeto"><div class="combo"><select name="to">${a.members.map((m) => `<option>${esc(m.login)}</option>`).join('')}</select></div><div class="resins">${inputs}</div><div class="center"><button class="pbtn">Выдать</button></div></form>` : ''}
+    ${allyMovesHtml(a.moves.filter((e) => e.res))}`;
 }
 function allyDiploWin() {
   const a = S.ally; if (!a) return loading('Дипломатия');
@@ -202,25 +216,25 @@ function allyNewsWin() {
 function allyNewsAddWin() { return formWin('Новость', '<div class="clabel">Тема:</div><input class="ainput" name="title" maxlength="80" required><div class="clabel">Текст новости:</div><textarea class="ainput" name="text" rows="5" maxlength="2000" required></textarea><button class="pbar">Добавить</button>'); }
 
 // ----- логи -----
-S.allyLogKind = 'war';
-// категории военного лога: подпись, иконка, фильтр
+S.allyLogTab = 'def';
+// категории военного лога: подпись, иконка, отдел журнала
 const WAR_CAT = { att: ['Нападение', 'smallicon/swordred.png', 'att'], def: ['Оборона', 'smallicon/shieldblue.png', 'def'], scout: ['Разведка', 'units/human/hd/scout.png', 'scout'],
   sdef: ['Вражеская разведка', 'smallicon/shieldgreen.png', 'scout'], rout: ['Подкрепление союзнику', 'smallicon/swordgreen.png', 'reinf'], rin: ['Подкрепление получено', 'smallicon/shieldgreen.png', 'reinf'] };
+// журнал по отделам: военные отчёты участников (оборона, нападения, разведка, подкрепления), состав и дипломатия, кладовая и казна
+const LOG_TABS = [['def', 'Оборона', `${G3}smiles2/shield.png`], ['att', 'Нападения', `${G3}smiles2/swords.png`], ['scout', 'Разведка', `${GFX}shop/spy.png`],
+  ['reinf', 'Подкрепления', `${G3}rep/kingdef.png`], ['log', 'Состав', `${AL}diplo.png`], ['moves', 'Кладовая', `${GFX}quest/chest.png`]];
+const LOG_TITLE = { def: 'Оборона', att: 'Нападения', scout: 'Разведка', reinf: 'Подкрепления', log: 'Состав и дипломатия', moves: 'Кладовая и казна' };
 function allyLogsWin() {
-  const a = S.ally; if (!a) return loading('Военный журнал');
-  const k = S.allyLogKind, title = { war: 'Военный журнал', log: 'Журнал дипломатии и состава', slog: 'Журнал кладовой' }[k];
-  const links = [['war', 'Военный журнал'], ['log', 'Журнал дипломатии и состава альянса'], ['slog', 'Журнал кладовой альянса']].filter(([x]) => x !== k)
-    .map(([x, t]) => `<div class="bwline center">${t} <a data-alog="${x}">&gt;</a></div>`).join('');
-  if (k === 'war') {
-    const f = S.warCat || 'all', list = a.reports.filter((r) => f === 'all' || WAR_CAT[r.cat][2] === f);
-    const chips = [['all', 'Все'], ['att', 'Нападения'], ['def', 'Оборона'], ['scout', 'Разведка'], ['reinf', 'Подкрепления']]
-      .map(([x, t]) => `<button class="${x === f ? 'on' : ''}" data-warcat="${x}">${t}${x === 'all' ? '' : ` (${a.reports.filter((r) => WAR_CAT[r.cat][2] === x).length})`}</button>`).join('');
-    const rows = list.map((r) => { const c = WAR_CAT[r.cat]; return `<button class="warrow ${r.cat}" data-report="${r.id}"><img src="${GFX}${c[1]}" alt="">
-      <span><b>${esc(r.login)}</b> · <i>${c[0]}</i><br>${esc(r.title)}${r.line ? `<small class="wl">${esc(r.line)}</small>` : ''}<small>${new Date(r.at).toLocaleString('ru-RU')}</small></span></button>`; });
-    return `${ribbon(title)}<div class="warchips">${chips}</div>${rows.join('') || '<p class="parch-note">Военных действий пока не было.</p>'}${links}`;
-  }
-  const rows = a[k].map((r) => `<div class="logrow">${esc(r.text)}<br><small>${new Date(r.at).toLocaleString('ru-RU')}</small></div>`);
-  return `${ribbon(title)}${links}${rows.join('') || '<p class="parch-note">Записей нет.</p>'}`;
+  const a = S.ally; if (!a) return loading('Журнал альянса');
+  const tab = S.allyLogTab, war = (g) => a.reports.filter((r) => WAR_CAT[r.cat][2] === g);
+  const n = (id) => (id === 'log' ? a.log.length : id === 'moves' ? a.moves.length : war(id).length);
+  const tabs = LOG_TABS.map(([id, t, ic]) => `<button class="${id === tab ? 'on' : ''}" data-alogtab="${id}"><img src="${ic}" alt="">${t}${n(id) ? `<b>${n(id)}</b>` : ''}</button>`).join('');
+  const mixed = tab === 'scout' || tab === 'reinf'; // в «Разведке» и «Подкреплениях» — чья и куда
+  const rows = tab === 'log' ? a.log.map((r) => `<div class="logrow">${esc(r.text)}<br><small>${new Date(r.at).toLocaleString('ru-RU')}</small></div>`)
+    : tab === 'moves' ? a.moves.map(allyMoveRow)
+    : war(tab).map((r) => { const c = WAR_CAT[r.cat]; return `<button class="warrow ${r.cat}" data-report="${r.id}"><img src="${GFX}${c[1]}" alt="">
+      <span><b>${esc(r.login)}</b>${mixed ? ` · <i>${c[0]}</i>` : ''}<br>${esc(r.title)}${r.line ? `<small class="wl">${esc(r.line)}</small>` : ''}<small>${new Date(r.at).toLocaleString('ru-RU')}</small></span></button>`; });
+  return `${ribbon('Журнал альянса')}<div class="jtabs">${tabs}</div>${ribbon(LOG_TITLE[tab])}${rows.join('') || '<p class="parch-note">Записей пока нет.</p>'}`;
 }
 
 const AW = { members: allyMembersWin, titles: allyTitlesWin, manage: allyManageWin, rights: allyRightsWin, descedit: allyDescEditWin, desc: allyDescWin, charter: allyCharterWin,
@@ -229,8 +243,9 @@ const AW = { members: allyMembersWin, titles: allyTitlesWin, manage: allyManageW
 const ALLY_FORMS = { 'Изменить описание': 'desc', Устав: 'charter', Реклама: 'ad', Рассылки: 'mail', 'Изменить отношения': 'diplo', 'Создать тему': 'topic', Написать: 'post', Новость: 'news' };
 
 $('#sheetBody').addEventListener('click', (e) => {
-  const wc = e.target.closest('[data-warcat]'); if (wc) { S.warCat = wc.dataset.warcat; return refreshSheet(); }
-  const t = e.target.closest('[data-apostdel],[data-aw],[data-aleave],[data-akick],[data-atransfer],[data-arankgo],[data-atopic],[data-atopicop],[data-atopicdel],[data-adel],[data-anewsdel],[data-alog],[data-areply],[data-areplyx]'); if (!t) return;
+  const lt = e.target.closest('[data-alogtab],[data-amovef]'); // вкладка журнала, фильтр истории кладовой/казны
+  if (lt) { if (lt.dataset.alogtab) S.allyLogTab = lt.dataset.alogtab; else S.allyMoveF = lt.dataset.amovef; return refreshSheet(); }
+  const t = e.target.closest('[data-apostdel],[data-aw],[data-aleave],[data-akick],[data-atransfer],[data-arankgo],[data-atopic],[data-atopicop],[data-atopicdel],[data-adel],[data-anewsdel],[data-areply],[data-areplyx]'); if (!t) return;
   const d = t.dataset;
   if (d.apostdel !== undefined) { if (confirm('Удалить сообщение?')) asend({ t: 'ally', op: 'postdel', topic: S.allyTopicId, idx: Number(d.apostdel) }); return; }
   if (d.aw) { if (t.classList.contains('off')) return toast('Нет прав на это действие.', 'err'); if (d.aw === 'post') S.allyReplyTo = null; if (d.aw === 'forum' && S.sheets.length && S.allyTopic) closeSheet(); return openSheet(AW[d.aw]); }
@@ -249,7 +264,6 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.atopicdel) { const tp = S.ally.forum.find((x) => x.id === Number(d.atopicdel)); if (tp && !tp.deleted && !confirm('Удалить тему?')) return; return asend({ t: 'ally', op: 'topicop', topic: d.atopicdel, act: tp && tp.deleted ? 'restore' : 'delete' }); }
   if (d.adel !== undefined) { S.allyShowDel = !S.allyShowDel; return refreshSheet(); }
   if (d.anewsdel) { if (confirm('Удалить новость?')) asend({ t: 'ally', op: 'news', del: d.anewsdel }); return; }
-  if (d.alog) { S.allyLogKind = d.alog; return refreshSheet(); }
   if (d.areply !== undefined) { // «Ответить»: окно «Написать» с адресатом, текст начинается с его ника
     const p = S.allyTopic && S.allyTopic.posts[Number(d.areply)]; if (!p) return;
     S.allyReplyTo = { at: p.at, by: p.by, text: p.text.length > 90 ? `${p.text.slice(0, 90)}…` : p.text };

@@ -69,10 +69,27 @@ function install(Game) {
     for (const m of u.awards || []) if (m.at > now - 35 * 86400000 && (!best[m.hall] || m.place < best[m.hall].place)) best[m.hall] = m;
     return Object.values(best).sort((a, b) => a.place - b.place).map((m) => ({ icon: m.icon, name: m.name, place: m.place, month: m.month }));
   };
-  P.allyLog = function allyLog(al, text, kind = 'log') {
+  // extra — для кладовой и казны: op '+' внёс / '-' выдал, by, to, gold или res (окна «Кладовая», «Казна», журнал)
+  P.allyLog = function allyLog(al, text, kind = 'log', extra = null) {
     const key = kind === 'store' ? 'slog' : 'log';
-    (al[key] = al[key] || []).push({ at: Date.now(), text });
+    (al[key] = al[key] || []).push({ at: Date.now(), text, ...extra });
     if (al[key].length > 300) al[key].splice(0, al[key].length - 300);
+  };
+  // история кладовой и казны (новые сверху): кто внёс (+) или кому выдали (−) ресурсы и монеты.
+  // Записи прежних версий — только текст: разбираются по тексту, который писал allyLog
+  const RES_WORD = { дерево: 'wood', камень: 'stone', железо: 'iron', еда: 'food' };
+  const resOf = (s) => Object.fromEntries([...String(s).matchAll(/(дерево|камень|железо|еда) (\d+)/g)].map(([, w, n]) => [RES_WORD[w], Number(n)]));
+  const coinsOf = (s) => Number(String(s).replace(/\D/g, '')) || 0;
+  P.allyMoves = function allyMoves(al) {
+    return (al.slog || []).map((e) => {
+      if (e.op) return { at: e.at, op: e.op, by: e.by, to: e.to || '', gold: e.gold || 0, res: e.res || null };
+      let x;
+      if ((x = /^(\S+) внёс в казну (.+)$/.exec(e.text))) return { at: e.at, op: '+', by: x[1], to: '', gold: coinsOf(x[2]), res: null };
+      if ((x = /^(\S+) выдал из казны (\S+): (.+)$/.exec(e.text))) return { at: e.at, op: '-', by: x[1], to: x[2], gold: coinsOf(x[3]), res: null };
+      if ((x = /^(\S+) внёс в кладовую: (.+)$/.exec(e.text))) return { at: e.at, op: '+', by: x[1], to: '', gold: 0, res: resOf(x[2]) };
+      if ((x = /^(\S+) выдал из кладовой (\S+): (.+)$/.exec(e.text))) return { at: e.at, op: '-', by: x[1], to: x[2], gold: 0, res: resOf(x[3]) };
+      return { at: e.at, text: e.text };
+    }).reverse();
   };
   P.allyRank = function allyRank(al) {
     if (!al) return 0;
@@ -110,7 +127,7 @@ function install(Game) {
         rights: id === al.leader ? Object.keys(RIGHTS) : ((al.ranks || {})[id] || {}).rights || [], ...(own ? { on: this.allyOnline(m, user) } : {}) }; }).filter(Boolean).sort((a, b) => b.score - a.score);
     const A = this.db.alliances || {};
     // военные логи: каждое военное действие участников — нападение, оборона, разведка (своя и вражеская), подкрепления
-    const reports = can('logs') ? (this.db.reports || []).filter((r) => !r.fwd && al.members.includes(r.owner) && ['battle', 'scout', 'reinforce'].includes(r.kind)).slice(-200).reverse()
+    const reports = can('logs') ? (this.db.reports || []).filter((r) => !r.fwd && al.members.includes(r.owner) && ['battle', 'scout', 'reinforce'].includes(r.kind)).slice(-200).sort((x, y) => y.at - x.at) // новые сверху
       .map((r) => ({ id: r.id, login: (this.userById(r.owner) || {}).login, title: r.title, at: r.at, cat: this.warCat(r), line: (r.lines || [])[0] || '' })) : [];
     return {
       id: al.id, tag: al.tag, name: al.name, desc: al.desc || '', charter: al.charter || '', ad: al.ad || '', created: al.created,
@@ -123,7 +140,7 @@ function install(Game) {
       news: (al.news || []).slice().reverse(),
       forum: (al.forum || []).filter((t) => !t.deleted || can('news') || this.canModerate(user)).map((t) => ({ id: t.id, title: t.title, by: t.by, at: t.at, pinned: !!t.pinned, closed: !!t.closed, deleted: !!t.deleted,
         replies: t.posts.length, last: t.posts[t.posts.length - 1] })).sort((a, b) => (b.pinned - a.pinned) || ((b.last ? b.last.at : b.at) - (a.last ? a.last.at : a.at))),
-      log: can('logs') ? (al.log || []).slice(-100).reverse() : [], slog: can('logs') ? (al.slog || []).slice(-100).reverse() : [], reports,
+      log: can('logs') ? (al.log || []).slice(-100).reverse() : [], moves: own ? this.allyMoves(al).slice(0, 150) : [], reports, // moves — история кладовой и казны: видна всем участникам
       rightsList: RIGHTS, now, foreign: user.alliance !== al.id, modr: this.canModerate(user),
     };
   };
@@ -185,12 +202,12 @@ function install(Game) {
           const t = member(m.to); if (!t) return { error: 'Игрок не в альянсе.' };
           if ((al.treasury || 0) < n) return { error: 'В казне столько нет.' };
           al.treasury -= n; this.goldChange(t, n, `Выдано из казны альянса [${al.tag}]`);
-          this.allyLog(al, `${user.login} выдал из казны ${t.login}: ${W.coinsAcc(n)}`, 'store');
+          this.allyLog(al, `${user.login} выдал из казны ${t.login}: ${W.coinsAcc(n)}`, 'store', { op: '-', gold: n, by: user.login, to: t.login });
           return done(`Игроку ${t.login} выдано из казны: ${W.coins(n)}.`);
         }
         if ((user.gold || 0) < n) return { error: 'Не хватает монет.' };
         this.goldChange(user, -n, `Взнос в казну альянса [${al.tag}]`); al.treasury = (al.treasury || 0) + n;
-        this.allyLog(al, `${user.login} внёс в казну ${W.coinsAcc(n)}`, 'store');
+        this.allyLog(al, `${user.login} внёс в казну ${W.coinsAcc(n)}`, 'store', { op: '+', gold: n, by: user.login });
         return done(`Внесено в казну: ${W.coins(n)}.`);
       }
       case 'store': { // кладовая: взнос ресурсов из своего замка или выдача участнику
@@ -198,19 +215,20 @@ function install(Game) {
         const res = Object.fromEntries(RES4.map((r) => [r, Math.max(0, Math.floor(Number((m.res || {})[r]) || 0))]));
         if (!RES4.some((r) => res[r])) return { error: 'Укажите ресурсы.' };
         const line = RES4.filter((r) => res[r]).map((r) => `${{ wood: 'дерево', stone: 'камень', iron: 'железо', food: 'еда' }[r]} ${res[r]}`).join(', ');
+        const moved = Object.fromEntries(RES4.filter((r) => res[r]).map((r) => [r, res[r]])); // для истории кладовой
         if (m.to) {
           const e = need('treasury'); if (e) return e;
           const t = member(m.to); if (!t) return { error: 'Игрок не в альянсе.' };
           for (const r of RES4) if (al.storage[r] < res[r]) return { error: 'В кладовой столько нет.' };
           const c = this.castleOf(t); this.tick(c); const cap = this.capacity(c);
           for (const r of RES4) { al.storage[r] -= res[r]; c.res[r] = Math.max(c.res[r], Math.min(cap[r], c.res[r] + res[r])); }
-          this.allyLog(al, `${user.login} выдал из кладовой ${t.login}: ${line}`, 'store');
+          this.allyLog(al, `${user.login} выдал из кладовой ${t.login}: ${line}`, 'store', { op: '-', res: moved, by: user.login, to: t.login });
           return done(`Выдано из кладовой: ${t.login}.`);
         }
         this.tick(castle);
         for (const r of RES4) if (castle.res[r] < res[r]) return { error: 'В замке столько нет.' };
         for (const r of RES4) { castle.res[r] -= res[r]; al.storage[r] += res[r]; }
-        this.allyLog(al, `${user.login} внёс в кладовую: ${line}`, 'store');
+        this.allyLog(al, `${user.login} внёс в кладовую: ${line}`, 'store', { op: '+', res: moved, by: user.login });
         return done('Ресурсы внесены в кладовую.');
       }
       case 'diplo': {

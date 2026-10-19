@@ -136,6 +136,23 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(!g.allyTopic(A, al, tid).posts[2].reply && !g.drainEvents().length, 'несуществующее сообщение — обычный ответ, без уведомления');
   console.log('✓ форум альянса: «Ответить» — цитата над ответом и уведомление автору');
 }
+// кладовая и казна: история пополнений и списаний — всем участникам; старые записи (только текст) тоже разбираются
+{
+  const mk = (login) => g.register({ login, password: '12345', race: 0 }).user;
+  const A = mk('stlead'), B = mk('stmemb'), O = mk('stout');
+  g.db.alliances = g.db.alliances || {}; const aid = g.db.nextId++;
+  const al = g.db.alliances[aid] = { id: aid, name: 'Store', tag: 'ST', leader: A.id, members: [A.id, B.id], created: Date.now(), treasury: 0, storage: { wood: 0, stone: 0, iron: 0, food: 0 },
+    slog: [{ at: 1, text: 'stlead внёс в казну 1 500 монет' }, { at: 2, text: 'stlead выдал из кладовой stmemb: дерево 300, еда 50' }, { at: 3, text: 'что-то непонятное' }] };
+  A.alliance = B.alliance = aid; B.gold = 100;
+  const cb = g.castleOf(B); g.tick(cb); cb.res.wood = Math.max(cb.res.wood, 500);
+  assert.ok(g.allyOp(B, cb, { op: 'store', res: { wood: 200 } }).ok && g.allyOp(B, cb, { op: 'gold', n: 40 }).ok);
+  assert.ok(g.allyOp(A, g.castleOf(A), { op: 'gold', n: 15, to: 'stmemb' }).ok && g.allyOp(A, g.castleOf(A), { op: 'store', res: { wood: 120 }, to: 'stmemb' }).ok);
+  const mv = g.allyView(B, al).moves, line = (e) => (e.op ? `${e.op}${e.by}${e.to ? `>${e.to}` : ''}:${e.gold || JSON.stringify(e.res)}` : `?${e.text}`);
+  assert.deepStrictEqual(mv.map(line), ['-stlead>stmemb:{"wood":120}', '-stlead>stmemb:15', '+stmemb:40', '+stmemb:{"wood":200}', '?что-то непонятное',
+    '-stlead>stmemb:{"wood":300,"food":50}', '+stlead:1500'], 'новые сверху; кто, кому, сколько; старые текстовые записи разобраны');
+  assert.ok(!g.allyView(B, al).log.length && g.allyView(O, al).moves.length === 0, 'история кладовой — участникам (и без права «Логи»), чужим — нет');
+  console.log('✓ кладовая и казна: история пополнений и списаний — всем участникам, старые записи разобраны');
+}
 // альянс: 5 мест за уровень Дипломатического центра главы, не больше 50
 {
   const L = g.register({ login: 'slotlead', password: '12345', race: 0 }).user, c = g.castleOf(L);
