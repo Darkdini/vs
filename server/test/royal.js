@@ -1501,10 +1501,9 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   // добыча (с лагерей, руин и игроков одинаково): в замок до вместимости Складов, сверх — пропадает, в Кладовую не идёт
   const capW = g.capacity(cr).wood, st0 = g.stashOf(g.userById(cr.owner)).res.wood || 0;
   for (const [mission, extra] of [['attack', { lootNpc: true }], ['raid', {}]]) { // lootNpc — армии, ушедшие в поход до этой версии
-    cr.res.wood = capW - 100; g.drainEvents();
+    cr.res.wood = capW - 100;
     g.returnHome(cr, { units: { 200: 1 }, mission, loot: { wood: 900, stone: 0, iron: 0, food: 0 }, ...extra });
-    const ev = g.drainEvents().find((e) => e.userId === cr.owner);
-    assert.ok(cr.res.wood >= capW - 1 && cr.res.wood <= capW && /Склады полны — 8\d\d пропало/.test(ev.msg), `${mission}: 100 в замок, 800 пропало (${ev.msg})`);
+    assert.ok(cr.res.wood >= capW - 1 && cr.res.wood <= capW, `${mission}: 100 в замок, 800 пропало`);
   }
   assert.strictEqual(g.stashOf(g.userById(cr.owner)).res.wood || 0, st0, 'добыча сверх Складов — не в Кладовую');
   if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;

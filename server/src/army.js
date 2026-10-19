@@ -1084,10 +1084,9 @@ function install(Game, helpers) {
     }
     const cap = this.capacity(c);
     // добыча — в замок до вместимости Складов, сверх — пропадает (с игроков, лагерей и руин одинаково; в Кладовую не идёт)
-    let lost = 0;
-    if (a.loot) for (const r of RES4) { const add = a.loot[r] || 0, k = Math.max(0, Math.min(add, Math.floor(cap[r] - c.res[r]))); c.res[r] += k; lost += add - k; }
+    if (a.loot) for (const r of RES4) c.res[r] = Math.max(c.res[r], Math.min(cap[r], c.res[r] + (a.loot[r] || 0)));
     c.armies = c.armies.filter((x) => x !== a);
-    const lootTxt = a.loot ? ` Добыча: ${RES4.map((r) => a.loot[r] || 0).join('/')}${lost >= 1 ? ` (Склады полны — ${Math.floor(lost).toLocaleString('ru-RU')} пропало)` : ''}` : '';
+    const lootTxt = a.loot ? ` Добыча: ${RES4.map((r) => a.loot[r] || 0).join('/')}` : '';
     this.event(c.owner, `Армия вернулась (${MISSIONS[a.mission]}).${lootTxt}`);
   };
   // подкрепление в свой замок: армия становится отдельной армией нового замка, генерал — генералом этого замка
