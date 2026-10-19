@@ -221,6 +221,34 @@ function client() {
     assert.ok(av.name === 'Короли Мира' && av.members.find((x) => x.login === 'Webby').title === 'Казначей' && av.forum[0].replies === 2 && av.log.length > 0);
     console.log('✓ окно альянса: права, описание, форум, казна, логи');
     console.log('✓ Дипломатический центр: приглашения, исключение, заявка и одобрение');
+    // статус в составе: вошедшие — «в игре», админ для игроков всегда «не в игре»; соальянсник вошёл или вышел — allyon сразу
+    {
+      const p1 = client(); await p1.open(); p1.send({ t: 'register', login: 'Pres1', password: 'pass1', race: '0' }); await p1.expect('registered');
+      p1.send({ t: 'login', login: 'Pres1', password: 'pass1' }); await p1.expect('state');
+      adm.send({ t: 'alliance', op: 'invite', login: 'Pres1' });
+      const pinv = (await p1.expect('state', (m) => (m.castle.mil.invites || []).length === 1)).castle.mil.invites[0];
+      p1.send({ t: 'alliance', op: 'accept', id: pinv.id }); await p1.expect('state', (m) => m.castle.mil.alliance && m.castle.mil.alliance.tag === 'KRL');
+      a.send({ t: 'ally', op: 'get' });
+      const v = (await a.expect('ally', (m) => m.data.members.some((x) => x.login === 'Pres1'))).data, M = (l) => v.members.find((x) => x.login === l);
+      const pid = M('Pres1').id, lead = v.members.find((x) => x.id === v.leader);
+      assert.ok(M('Pres1').on === true && M('Webby').on === true && M('Pres1').away === 0, 'вошедшие в игру — в игре');
+      assert.ok(lead.on === false && lead.away === 0, 'админ в составе — «не в игре» и без пометки «не заходил»');
+      assert.ok(v.members.every((x) => !('lastSeen' in x) && !('online' in x)), 'точное время входа не раскрывается');
+      p1.close();
+      assert.strictEqual((await a.expect('allyon', (m) => m.id === pid)).on, false, 'вышел — соальянсникам сразу');
+      const p2 = client(); await p2.open(); p2.send({ t: 'login', login: 'Pres1', password: 'pass1' });
+      assert.strictEqual((await a.expect('allyon', (m) => m.id === pid)).on, true, 'вошёл — соальянсникам сразу');
+      // с двух устройств: выход с одного — всё ещё в игре
+      const p3 = client(); await p3.open(); p3.send({ t: 'login', login: 'Pres1', password: 'pass1' }); await p3.expect('state');
+      p3.send({ t: 'logout' }); await p3.expect('loggedout');
+      a.send({ t: 'ally', op: 'get' });
+      assert.strictEqual((await a.expect('ally', (m) => m.data.members.some((x) => x.id === pid))).data.members.find((x) => x.id === pid).on, true, 'вышел с одного устройства из двух — в игре');
+      p2.close();
+      assert.strictEqual((await a.expect('allyon', (m) => m.id === pid)).on, false, 'закрыл последнее — не в игре');
+      p3.close();
+      adm.send({ t: 'alliance', op: 'kick', login: 'Pres1' });
+      console.log('✓ состав альянса: кто в игре, смена статуса сразу, вход с двух устройств');
+    }
     // союзники не нападают и не разведывают друг друга — дальше Webby вне альянса (разведка и набег на него)
     adm.send({ t: 'send', units: { 202: 5 }, x: target.x, y: target.y, mission: 'scout' });
     await adm.expect('error', (m) => /альянса/.test(m.msg || m.error || ''));

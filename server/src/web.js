@@ -111,6 +111,14 @@ function onlineUsers() {
   return seen;
 }
 const onlineCount = () => onlineUsers().size;
+// u.online — у игрока есть открытое соединение со входом (с любого устройства).
+// Игрок вошёл или вышел совсем — соальянсникам в игре сразу: точка в составе альянса (ally.js allyPresence, alliance.js).
+// Админ и боты для игроков всегда «не в игре» — о них не рассылается
+const liveSession = (u, except) => [...(WebSession.all || [])].some((s) => s !== except && s.user && s.user.id === u.id);
+function allyPresenceCast(u, on) {
+  if (!u || u.admin || u.bot || !u.alliance) return;
+  for (const s of WebSession.all || []) if (s.user && s.user.id !== u.id && s.user.alliance === u.alliance) s.send({ t: 'allyon', id: u.id, on });
+}
 
 // ---------- сессия браузера ----------
 class WebSession {
@@ -272,8 +280,10 @@ const API = {
     if (!u.admin && this.game.devBanned(m.dev)) return this.error('Это устройство заблокировано администрацией.');
     if (!this.game.closedAllows(u)) { this.log(`вход ${u.login}: закрытый тест, не тестер`); return this.error('Идёт закрытое тестирование — вход только для тестеров.'); }
     if (!this.game.banExpired(u)) return this.error(u.banUntil ? `Аккаунт заблокирован модерацией до ${new Date(u.banUntil + 3 * 3600000).toISOString().slice(0, 16).replace('T', ' ')} (МСК). Причина: ${u.banWhy || '—'}` : 'Аккаунт заблокирован администрацией.');
-    const prevSeen = u.lastSeen || 0;
+    const prevSeen = u.lastSeen || 0, was = liveSession(u, this), prev = this.user !== u ? this.user : null; // was — уже в игре с другого устройства
     this.user = u; u.online = true; u.lastSeen = Date.now(); this.game.markActive(u);
+    if (!was) allyPresenceCast(u, true);
+    if (prev && !liveSession(prev)) { prev.online = false; prev.lastSeen = Date.now(); allyPresenceCast(prev, false); } // вход под другим игроком без выхода
     this.log(`web login ${u.login}`);
     this.token = m.token ? String(m.token) : this.game.issueToken(u);
     if (this.mkey) MEDIA.delete(this.mkey);
@@ -285,7 +295,11 @@ const API = {
     // Сервер шлёт доклад при каждом входе; клиент показывает его один раз за открытие игры (после обрыва связи — не повторяет)
     this.send({ t: 'welcome', ...this.game.welcomeInfo(u, prevSeen), players: onlineCount() }); // сколько сейчас в игре — как «Игроки (N)» в чате
   },
-  logout() { this.game.dropToken(this.user, this.token); MEDIA.delete(this.mkey); this.mkey = null; this.user.online = false; this.user = null; this.send({ t: 'loggedout' }); },
+  logout() {
+    const u = this.user; this.game.dropToken(u, this.token); MEDIA.delete(this.mkey); this.mkey = null; this.user = null;
+    if (!liveSession(u)) { u.online = false; u.lastSeen = Date.now(); allyPresenceCast(u, false); } // с другого устройства ещё в игре — остаётся «в игре»
+    this.send({ t: 'loggedout' });
+  },
   sync() { this.pushState(); },
   ping() { this.send({ t: 'pong' }); }, // проверка живости соединения (клиент после сворачивания приложения)
   switch(m) { const r = this.game.switchCastle(this.user, m.id); if (r.error) return this.error(r.error); if (!m.quiet) this.toast(`Замок: ${this.castle.name}`); this.pushState(); }, // quiet — возврат в последний замок при входе
@@ -905,6 +919,9 @@ function assetManifest() {
 }
 
 function startWeb(game, sessions, { port, host, log }) {
+  // соединений ещё нет: отметки «в игре» с прошлого запуска (сервер остановили, когда игроки были в сети) снимаются —
+  // иначе игрок числился в игре до следующего входа (состав альянса, друзья, уведомления в Telegram)
+  for (const u of Object.values(game.db.users)) if (u.online) u.online = false;
   const server = http.createServer((req, res) => {
     const ip = clientIp(req, req.socket);
     if (game.ipBanned(ip)) { res.writeHead(403, { 'Content-Type': 'text/plain' }); return res.end('forbidden'); }
@@ -1006,7 +1023,12 @@ function startWeb(game, sessions, { port, host, log }) {
       }
     });
     socket.on('error', () => {});
-    socket.on('close', () => { sessions.delete(session); if (session.mkey) MEDIA.delete(session.mkey); if (session.user) { session.user.online = [...sessions].some((s) => s.user === session.user); session.user.lastSeen = Date.now(); } });
+    socket.on('close', () => {
+      sessions.delete(session); if (session.mkey) MEDIA.delete(session.mkey);
+      const u = session.user; if (!u) return;
+      u.online = liveSession(u); u.lastSeen = Date.now();
+      if (!u.online) allyPresenceCast(u, false);
+    });
   });
 
   server.on('error', (e) => {

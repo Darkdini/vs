@@ -5,6 +5,7 @@ const W = require('./words');
 // Основные операции (создать, пригласить, заявки, исключить, покинуть) — P.alliance в army.js.
 
 const START_REP = 10;
+const DAY = 86400000, AWAY_DAYS = 7; // в составе — «не заходил N дней», если игрока нет в игре больше недели
 // права (окно «Назначение прав»)
 const RIGHTS = { mail: 'Рассылка уведомлений', invite: 'Приглашение в альянс', kick: 'Исключение из альянса', rights: 'Назначение прав',
   desc: 'Изменение описания', news: 'Новости и форум', diplo: 'Дипломатия', treasury: 'Казначейство', logs: 'Чтение логов', albums: 'Альбомы',
@@ -99,12 +100,18 @@ function install(Game) {
     const al = this.allianceOf(user);
     return !!(al && al.members.includes(r.owner) && ['battle', 'scout', 'reinforce'].includes(r.kind) && this.allyCan(al, user.id, 'logs'));
   };
+  // статус в составе (видят только участники альянса): on — игра открыта сейчас (u.online ведёт web.js), away — сколько полных дней
+  // не заходил, если больше недели; точное время входа не раскрывается. Админ для игроков всегда «не в игре», как в друзьях и чате
+  P.allyPresence = function allyPresence(m, viewer, now = Date.now()) {
+    const on = m.id === viewer.id || (!!m.online && !m.admin), gone = now - (m.lastSeen || m.created || now);
+    return { on, away: on || m.admin || gone <= AWAY_DAYS * DAY ? 0 : Math.floor(gone / DAY) };
+  };
   // полная карточка альянса для окна «Альянс»
   P.allyView = function allyView(user, al) {
-    const me = user.id, can = (r) => this.allyCan(al, me, r), now = Date.now();
+    const me = user.id, can = (r) => this.allyCan(al, me, r), now = Date.now(), own = user.alliance === al.id;
     const members = al.members.map((id) => { const m = this.userById(id); if (!m) return null;
       const t = this.allyTitle(al, id); return { id, login: m.login, rating: this.userRating(m), rep: m.reputation ?? START_REP, score: this.userRating(m) + (m.reputation ?? START_REP), medals: this.allyMedals(m), ...t,
-        rights: id === al.leader ? Object.keys(RIGHTS) : ((al.ranks || {})[id] || {}).rights || [] }; }).filter(Boolean).sort((a, b) => b.score - a.score);
+        rights: id === al.leader ? Object.keys(RIGHTS) : ((al.ranks || {})[id] || {}).rights || [], ...(own ? this.allyPresence(m, user, now) : {}) }; }).filter(Boolean).sort((a, b) => b.score - a.score);
     const A = this.db.alliances || {};
     // военные логи: каждое военное действие участников — нападение, оборона, разведка (своя и вражеская), подкрепления
     const reports = can('logs') ? (this.db.reports || []).filter((r) => !r.fwd && al.members.includes(r.owner) && ['battle', 'scout', 'reinforce'].includes(r.kind)).slice(-200).reverse()

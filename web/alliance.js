@@ -23,6 +23,14 @@ const asend = (m) => send({ ...m, ally: S.allyForeign || undefined });
 function openAllyForum(id) { S.allyForeign = id; S.ally = null; asend({ t: 'ally', op: 'get' }); openSheet(allyForumWin); }
 const dt = (t) => { const d = new Date(t), today = new Date(); const hm = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }); return d.toDateString() === today.toDateString() ? `Сегодня, ${hm}` : `${d.toLocaleDateString('ru-RU')} ${hm}`; };
 const loading = (t) => `${ribbon(t)}<p class="parch-note">Загрузка…</p>`;
+// статус в составе (сервер: ally.js allyPresence, web.js allyPresenceCast): зелёная точка — в игре, серая — нет,
+// «не заходил N дней» — больше недели без входа. Меняется сразу (сообщение allyon). В чужом альянсе (модератор) статуса нет
+const allyDot = (on) => `<i class="aon${on ? ' on' : ''}" title="${on ? 'В игре' : 'Не в игре'}"></i>`;
+const allyOn = (m) => (m.on === undefined ? '' : allyDot(m.on));
+const allyAway = (m) => (m.away ? `<small class="aaway">не заходил ${m.away} ${plural(m.away, 'день', 'дня', 'дней')}</small>` : '');
+const allyHasOn = (a) => a.members.some((m) => m.on !== undefined);
+const allyOnN = (a) => a.members.filter((m) => m.on).length;
+const allyName = (m) => `${allyOn(m)}<a data-cprof="${m.id}" style="color:${nameColor(m.rep)}">${esc(m.login)}</a><br>${allyAway(m)}`;
 
 function openAlly() { S.allyForeign = null; S.ally = null; asend({ t: 'ally', op: 'get' }); openSheet(allyMainWin); }
 
@@ -33,6 +41,7 @@ function allyMainWin() {
   return `${ribbon('Альянс')}
     <div class="atable"><div class="atr head"><img src="${AI('alliance')}" alt=""> ${esc(a.name)}</div>
       ${row('Название', esc(a.tag))}${row('Ранг', a.rank)}${row('Рейтинг', fmtFull(a.score))}${row('Участников', `${a.members.length} из ${a.slots}`)}
+      ${allyHasOn(a) ? row('Сейчас в игре', `${allyDot(true)}${allyOnN(a)}`) : ''}
       ${row('Создатель', `<a data-cprof="${a.leader}">${esc(a.leaderLogin || '—')}</a>`)}</div>
     ${ribbon('Верховенство')}
     <div class="atable"><div class="atr3 head"><span>Звание</span><span>Имя</span><span>Погоны</span></div>
@@ -44,7 +53,7 @@ function allyMainWin() {
       ${aTile('data-aw="desc"', `${AL}desc.png`, 'Описание')}
     </div>
     ${ribbon('Состав')}
-    <div class="atable">${a.members.slice(0, 5).map((m, i) => `<div class="atr4"><span>${i + 1}</span><span><a data-cprof="${m.id}" style="color:${nameColor(m.rep)}">${esc(m.login)}</a><br>${repIcons(m.rep)}${allyMedalsRow(m)}</span><span>${epImg(m.ep)}</span><span>${fmtFull(m.score)}</span></div>`).join('')}</div>
+    <div class="atable">${a.members.slice(0, 5).map((m, i) => `<div class="atr4"><span>${i + 1}</span><span>${allyName(m)}${repIcons(m.rep)}${allyMedalsRow(m)}</span><span>${epImg(m.ep)}</span><span>${fmtFull(m.score)}</span></div>`).join('')}</div>
     <button class="pbar" data-aw="members">Весь состав</button>
     <div class="ptiles pbig">
       ${aTile('data-aw="manage"', `${AL}manage.png`, 'Управление')}
@@ -58,7 +67,9 @@ function allyMainWin() {
 
 function allyMembersWin() {
   const a = S.ally; if (!a) return loading('Весь состав');
-  return `${ribbon('Весь состав')}<div class="atable">${a.members.map((m, i) => `<div class="atr4"><span>${i + 1}</span><span><a data-cprof="${m.id}" style="color:${nameColor(m.rep)}">${esc(m.login)}</a><br>${repIcons(m.rep)}${allyMedalsRow(m)}<small>рейтинг ${fmtFull(m.rating)} + репутация ${fmtFull(m.rep)}</small></span><span>${epImg(m.ep)}</span><span>${fmtFull(m.score)}</span></div>`).join('')}</div>`;
+  const on = allyOnN(a);
+  return `${ribbon('Весь состав')}${allyHasOn(a) ? `<div class="aonline"><span>${allyDot(true)}В игре: <b>${on}</b></span><span>${allyDot(false)}Не в игре: <b>${a.members.length - on}</b></span></div>` : ''}
+    <div class="atable">${a.members.map((m, i) => `<div class="atr4"><span>${i + 1}</span><span>${allyName(m)}${repIcons(m.rep)}${allyMedalsRow(m)} <small>рейтинг&nbsp;${fmtFull(m.rating)} + репутация&nbsp;${fmtFull(m.rep)}</small></span><span>${epImg(m.ep)}</span><span>${fmtFull(m.score)}</span></div>`).join('')}</div>`;
 }
 function allyTitlesWin() {
   const a = S.ally; if (!a) return loading('Звания и погоны');
@@ -118,7 +129,7 @@ function allyKickWin() {
   const a = S.ally; if (!a) return loading('Удалить игрока');
   const list = a.members.filter((m) => m.id !== a.leader && m.login !== S.st.user.login);
   return `${ribbon('Удалить игрока')}<div class="bwline">Выберите члена альянса для удаления:</div>
-    ${list.map((m) => `<div class="mrow"><span>${esc(m.login)} ${repIcons(m.rep)}</span><button class="pbtn small" data-akick="${esc(m.login)}">Исключить</button></div>`).join('') || '<p class="parch-note">Некого исключать.</p>'}`;
+    ${list.map((m) => `<div class="mrow"><span>${allyOn(m)}${esc(m.login)} ${repIcons(m.rep)}${allyAway(m)}</span><button class="pbtn small" data-akick="${esc(m.login)}">Исключить</button></div>`).join('') || '<p class="parch-note">Некого исключать.</p>'}`;
 }
 function allyTransferWin() {
   const a = S.ally; if (!a) return loading('Сместить Создателя');
@@ -247,10 +258,23 @@ $('#sheetBody').addEventListener('submit', (e) => {
   if (['topic', 'post', 'news', 'mail'].includes(op)) closeSheet();
 });
 const prevMilA = milMsg;
+const ALLY_ON_WINS = [allyMainWin, allyMembersWin, allyKickWin]; // окна со статусом «в игре»
 milMsg = function (m) { // eslint-disable-line no-global-assign
   if (m.t === 'ally') { S.ally = m.data; return refreshSheet(); }
   if (m.t === 'allytopic') { S.allyTopic = m.data; if (m.data) S.allyTopicId = m.data.id; return refreshSheet(); }
+  if (m.t === 'allyon') { // соальянсник вошёл в игру или вышел — точка в составе меняется сразу
+    const x = S.ally && S.ally.members.find((y) => y.id === m.id && y.on !== undefined); if (!x) return;
+    x.on = !!m.on; x.away = 0;
+    if (ALLY_ON_WINS.includes(S.sheets[S.sheets.length - 1])) refreshSheet();
+    return;
+  }
   prevMilA(m);
+};
+// после обрыва связи (телефон спал, сменилась сеть) статус в открытом составе мог устареть — после входа состав берётся заново
+const prevOnMsgA = onMsg;
+onMsg = function (m) { // eslint-disable-line no-global-assign
+  prevOnMsgA(m);
+  if (m.t === 'auth' && !S.allyForeign && S.sheets.some((w) => ALLY_ON_WINS.includes(w))) asend({ t: 'ally', op: 'get' });
 };
 
 // ---------- карточка альянса для всех игроков (нажатие на название альянса в профиле, рейтинге) ----------

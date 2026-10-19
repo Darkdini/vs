@@ -692,6 +692,13 @@ input.num { width: 76px; padding: 7px; text-align: center; }
 .atr4 { grid-template-columns: .4fr 1.6fr .6fr 1fr; text-align: center; }
 .atable a { color: #7a1a0a; text-decoration: underline; text-decoration-color: #7a1a0a55; }
 .atable small { font-size: 13px; opacity: .8; }
+/* статус в составе (alliance.js allyDot): зелёная точка — в игре, серая — нет; «не заходил N дней» — больше недели без входа */
+.aon { display: inline-block; width: 10px; height: 10px; margin: 0 6px 0 0; border-radius: 50%; vertical-align: middle; position: relative; top: -1px;
+  background: radial-gradient(circle at 35% 35%, #e2dad2, #988e84 55%, #6a6158); box-shadow: 0 0 0 1px #0002; }
+.aon.on { background: radial-gradient(circle at 35% 35%, #c4ffbc, #2fb52f 55%, #147414); box-shadow: 0 0 0 1px #0a4a0a66, 0 0 6px #3cdc3c; }
+.atr4 .aon { margin-left: -16px; } /* имя по-прежнему по центру, точка — слева от него */
+.atable .aaway, .mrow .aaway { display: block; font-size: 13px; font-style: italic; color: #8a2a10; opacity: 1; }
+.aonline { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 24px; margin: 4px 0 6px; font: min(20px, 4.6vw) var(--serif); color: #2a1408; }
 .epaul { width: 30px; height: 30px; object-fit: contain; }
 .crown2 { height: 22px; vertical-align: middle; }
 .ainput { width: 100%; box-sizing: border-box; margin: 4px 0 8px; padding: 10px 12px; border: 3px solid #d8a850; border-radius: 6px; background: #6e7e5a; color: #f0e0a0; font: min(22px, 5vw) var(--serif); box-shadow: inset 0 2px 4px #0006; }
@@ -1056,7 +1063,9 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .repcard.info { background: linear-gradient(#c47c4c, #6e3218); }
 .repcard:active { filter: brightness(.85); transform: translateY(1px); }
 .renv { width: 26px; height: 20px; vertical-align: -2px; }
-.repclean { position: fixed; left: 6px; bottom: 8px; width: 70px; height: 70px; border: 0; background: none; padding: 0; z-index: 5; }
+/* «Удалить прочитанные» и «Новое сообщение» (.dnew) — по центру нижней полосы, на одной линии с ◀ и ✕
+   (были в левом углу поверх ◀, а на телефонах с полосой жестов ещё и ниже неё) */
+.repclean { position: fixed; left: 50%; bottom: calc(3px + var(--safe-b)); width: 70px; height: 70px; margin-left: -35px; border: 0; background: none; padding: 0; z-index: 5; }
 .repclean img { width: 100%; height: 100%; object-fit: contain; }
 .rp { font: min(22px, 5.2vw)/1.45 var(--serif); color: #2a1408; padding: 4px 2px; }
 .rp b { font-weight: 700; }
@@ -1092,12 +1101,16 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .hnav button, .hnav span { height: 44px; border: 0; border-radius: 6px; background: linear-gradient(#8a4424, #5a2410); color: #f0c060; font: 20px var(--serif); box-shadow: 0 2px 2px #0005; }
 .hnav button:disabled { opacity: .55; }
 .hnav span { display: grid; place-items: center; background: #6e7a58; color: #fff2c0; border: 3px solid #d8a850; font-size: 22px; }
-.htable { margin: 0 -4px; }
-.htable div { display: grid; grid-template-columns: 12% 1fr 26%; align-items: center; min-height: 42px; padding: 0 6px; font: min(23px, 5.4vw) var(--serif); color: #2a1408; background: #f0c898; }
+/* столбцы общие для всех строк (subgrid): число любой длины видно целиком и стоит ровно под остальными, длинное имя — с «…»;
+   где subgrid нет (старый WebView), строка подгоняет столбцы под себя — число тоже не вылезает за край */
+.htable { margin: 0 -4px; display: grid; grid-template-columns: minmax(12%, max-content) minmax(0, 1fr) minmax(26%, max-content); column-gap: 6px; }
+.htable > p { grid-column: 1 / -1; }
+.htable div { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(12%, max-content) minmax(0, 1fr) minmax(26%, max-content); grid-template-columns: subgrid; column-gap: 6px;
+  align-items: center; min-height: 42px; padding: 0 8px; font: min(23px, 5.4vw) var(--serif); color: #2a1408; background: #f0c898; }
 .htable div:nth-child(odd) { background: #e8b07a; }
 .htable div.me { outline: 2px solid #8a1010; outline-offset: -2px; }
 .htable a { justify-self: center; color: #8a1010; border-bottom: 1px solid #8a101088; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
-.htable div span:last-child { text-align: center; }
+.htable div span:last-child { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .hrow.harow { font-size: min(23px, 5.4vw); margin: 8px 0; } .hrow.harow img { height: 52px; image-rendering: auto; }
 /* рейтинги: полоса категории с меню */
 .rkbar { position: relative; display: flex; align-items: center; justify-content: center; min-height: 58px; margin: 0 -4px 6px; border: 2px solid #a86a3a; border-radius: 4px;
@@ -1254,7 +1267,7 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .dtx small { opacity: .75; }
 .denv { width: 26px; height: 20px; vertical-align: -3px; }
 .dcnt { position: absolute; right: 8px; top: 8px; min-width: 24px; height: 24px; padding: 0 6px; border-radius: 12px; background: #e01010; color: #fff; font: 700 14px/24px sans-serif; font-style: normal; text-align: center; }
-.dnew { position: fixed; left: 6px; bottom: 8px; width: 74px; height: 74px; border: 0; background: none; padding: 0; z-index: 5; }
+.dnew { position: fixed; left: 50%; bottom: calc(1px + var(--safe-b)); width: 74px; height: 74px; margin-left: -37px; border: 0; background: none; padding: 0; z-index: 5; }
 .dnew img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 3px 3px #0008); }
 .ddate { margin: 6px -10px 4px; }
 .dmsg { padding: 4px 0 6px; border-bottom: 1px solid #b08a5a66; }
@@ -1718,10 +1731,9 @@ img.artr2 { filter: drop-shadow(0 0 3px #ffd34a) drop-shadow(0 0 7px #ff8a1a); }
   #game { max-width: 560px !important; border-left: 2px solid #c9a15a !important; border-right: 2px solid #c9a15a !important; box-shadow: 0 0 0 1px #5a3a14, 0 0 40px #000; }
   #sheet { max-width: 556px !important; }
   /* всё, что «приклеено» к краям экрана, — к краям колонки игры (556 точек внутри рамки), а не монитора:
-     меню с нижней панелью, кнопки «Очистить отчёты» и «Новое письмо», сообщения, полоса «Нет связи» */
+     меню с нижней панелью, сообщения, полоса «Нет связи» (кнопки «Удалить прочитанные» и «Новое сообщение» — по центру, им не нужно) */
   #menu, #offline { left: calc(50% - 278px); right: calc(50% - 278px); }
   #toast { left: calc(50% - 266px); right: calc(50% - 266px); }
-  .repclean, .dnew { left: calc(50% - 272px); }
   #auth { background-attachment: scroll; }
   #auth .auth-box { max-width: 440px; }
 }
@@ -1966,7 +1978,8 @@ img.artr2 { filter: drop-shadow(0 0 3px #ffd34a) drop-shadow(0 0 7px #ff8a1a); }
 .zgifts { justify-content: center; }
 .zcom { position: relative; margin: 6px -4px; padding: 6px 30px 6px 8px; background: #e8a868; font: 20px/1.35 var(--serif); overflow-wrap: anywhere; }
 .zdel { position: absolute; top: 4px; right: 4px; border: 0; background: none; color: #8a1010; font-size: 18px; }
-.ztab div { grid-template-columns: 20% 1fr 24%; }
+.ztab { grid-template-columns: minmax(20%, max-content) minmax(0, 1fr) minmax(24%, max-content); }
+.ztab div { grid-template-columns: minmax(20%, max-content) minmax(0, 1fr) minmax(24%, max-content); grid-template-columns: subgrid; }
 .ztab a { white-space: normal; text-align: center; }
 .zhelp { font: 19px/1.45 var(--serif); }
 .zi { height: 1.25em; width: auto; vertical-align: -0.28em; }

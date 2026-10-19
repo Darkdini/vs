@@ -103,6 +103,25 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(!g.canSeeReport(O, rep), 'посторонний не видит');
   console.log('✓ военные логи альянса: нападение, оборона, разведка, вражеская разведка; отчёты видны только своим');
 }
+// состав альянса: кто в игре — только своим; админ всегда «не в игре»; «не заходил N дней» — если больше недели
+{
+  const D = 86400000, now = Date.now(), mk = (login, o) => Object.assign(g.register({ login, password: '12345', race: 0 }).user, o);
+  const L = mk('onlead'), U = {
+    on: mk('onact', { online: true, lastSeen: now - 20 * D }), week: mk('onweek', { lastSeen: now - 7 * D + 3600000 }), gone: mk('ongone', { lastSeen: now - 12 * D - 3600000 }),
+    never: mk('onnever', { created: now - 30 * D }), adm: mk('onadm', { admin: true, online: true, lastSeen: now - 40 * D }),
+  };
+  g.db.alliances = g.db.alliances || {}; const aid = g.db.nextId++;
+  const al = g.db.alliances[aid] = { id: aid, name: 'Online', tag: 'ON', leader: L.id, members: [L.id, ...Object.values(U).map((u) => u.id)], created: now };
+  for (const id of al.members) g.userById(id).alliance = aid;
+  const v = g.allyView(L, al), P = (u) => { const m = v.members.find((x) => x.id === u.id); return `${m.on}/${m.away}`; };
+  assert.strictEqual([L, U.on, U.week, U.gone, U.never, U.adm].map(P).join(' '), 'true/0 true/0 false/0 false/12 false/30 false/0', 'себя и вошедших — в игре; меньше недели — без пометки; админ — не в игре и без пометки');
+  assert.ok(v.members.every((m) => !('lastSeen' in m) && !('online' in m)), 'точное время входа не раскрывается');
+  const out = mk('onoutsider');
+  assert.ok(g.allyView(out, al).members.every((m) => !('on' in m) && !('away' in m)), 'не участнику (модератор форума) — без статуса');
+  assert.ok(g.allyPublic(al).members.every((m) => !('on' in m) && !('away' in m)), 'в карточке альянса для всех — без статуса');
+  U.adm.admin = U.adm.online = U.on.online = false; // дальше по тестам — обычные игроки не в игре
+  console.log('✓ состав альянса: кто в игре и кто не заходил больше недели — только своим, админ всегда «не в игре»');
+}
 // альянс: 5 мест за уровень Дипломатического центра главы, не больше 50
 {
   const L = g.register({ login: 'slotlead', password: '12345', race: 0 }).user, c = g.castleOf(L);

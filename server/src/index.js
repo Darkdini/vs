@@ -59,6 +59,7 @@ console.log(`Средневековье: скорость мира x${process.en
 // pid рядом с базой — по нему restore.sh аккуратно останавливает сервер, если он запущен не службой (SIGTERM → сохранение базы)
 const PID = path.join(path.dirname(path.resolve(DB)), 'server.pid');
 try { require('fs').writeFileSync(PID, String(process.pid)); } catch { /* нет доступа */ }
-const shutdown = () => { store.flush(); try { require('fs').unlinkSync(PID); } catch { /* уже нет */ } process.exit(0); };
+// кто был в игре до остановки — «последний раз в игре» сейчас (соединения закрываются вместе с процессом, без события close)
+const shutdown = () => { const t = Date.now(); for (const s of sessions) if (s.user) s.user.lastSeen = t; store.flush(); try { require('fs').unlinkSync(PID); } catch { /* уже нет */ } process.exit(0); };
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
