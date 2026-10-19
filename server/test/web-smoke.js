@@ -212,13 +212,18 @@ function client() {
     const tp = (await a.expect('allytopic')).data; assert.equal(tp.posts[0].text, 'Все на штурм');
     adm.send({ t: 'ally', op: 'post', topic: tp.id, text: 'Иду' });
     await adm.expect('toast', (m) => /Сообщение добавлено/.test(m.msg));
+    // «Ответить»: ответ с цитатой (ник и начало сообщения), автору — уведомление сразу
+    adm.send({ t: 'ally', op: 'post', topic: tp.id, text: 'Webby, иду с вами', reply: tp.posts[0].at });
+    { const rp = (await adm.expect('allytopic', (m) => m.data && m.data.posts.some((p) => p.reply))).data.posts.find((p) => p.reply);
+      assert.ok(rp.reply.by === 'Webby' && rp.reply.text === 'Все на штурм' && rp.text === 'Webby, иду с вами', 'ответ с цитатой'); }
+    await a.expect('toast', (m) => /ответил\(а\) вам на форуме альянса в теме «Сбор»/.test(m.msg));
     adm.send({ t: 'ally', op: 'gold', n: 100 });
     await adm.expect('toast', (m) => /Внесено в казну: 100/.test(m.msg));
     a.send({ t: 'ally', op: 'gold', n: 40, to: 'Webby' });
     await a.expect('toast', (m) => /Игроку webby выдано из казны: 40 монет/i.test(m.msg));
     adm.send({ t: 'ally', op: 'get' });
     const av = (await adm.expect('ally', (m) => m.data.treasury === 60)).data;
-    assert.ok(av.name === 'Короли Мира' && av.members.find((x) => x.login === 'Webby').title === 'Казначей' && av.forum[0].replies === 2 && av.log.length > 0);
+    assert.ok(av.name === 'Короли Мира' && av.members.find((x) => x.login === 'Webby').title === 'Казначей' && av.forum[0].replies === 3 && av.log.length > 0);
     console.log('✓ окно альянса: права, описание, форум, казна, логи');
     console.log('✓ Дипломатический центр: приглашения, исключение, заявка и одобрение');
     // статус в составе: вошедшие — «в игре», админ для игроков всегда «не в игре»; соальянсник вошёл или вышел — allyon сразу
@@ -231,9 +236,9 @@ function client() {
       a.send({ t: 'ally', op: 'get' });
       const v = (await a.expect('ally', (m) => m.data.members.some((x) => x.login === 'Pres1'))).data, M = (l) => v.members.find((x) => x.login === l);
       const pid = M('Pres1').id, lead = v.members.find((x) => x.id === v.leader);
-      assert.ok(M('Pres1').on === true && M('Webby').on === true && M('Pres1').away === 0, 'вошедшие в игру — в игре');
-      assert.ok(lead.on === false && lead.away === 0, 'админ в составе — «не в игре» и без пометки «не заходил»');
-      assert.ok(v.members.every((x) => !('lastSeen' in x) && !('online' in x)), 'точное время входа не раскрывается');
+      assert.ok(M('Pres1').on === true && M('Webby').on === true, 'вошедшие в игру — в игре');
+      assert.ok(lead.on === false, 'админ в составе — «не в игре»');
+      assert.ok(v.members.every((x) => !('lastSeen' in x) && !('online' in x) && !('away' in x)), 'время входа не раскрывается');
       p1.close();
       assert.strictEqual((await a.expect('allyon', (m) => m.id === pid)).on, false, 'вышел — соальянсникам сразу');
       const p2 = client(); await p2.open(); p2.send({ t: 'login', login: 'Pres1', password: 'pass1' });

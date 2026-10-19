@@ -3,7 +3,7 @@
 // исключение, казна, кладовая, дипломатия, рассылки, реклама, заявки), Форум, Новости, Логи.
 // Сервер: server/src/ally.js (allyView/allyOp/allyTopic) и P.alliance в army.js.
 
-S.ally = null; S.allyTopic = null; S.allyShowDel = false; S.allyRankFor = null;
+S.ally = null; S.allyTopic = null; S.allyShowDel = false; S.allyRankFor = null; S.allyReplyTo = null;
 const AI = (n) => `${G3}menu/${n}.svg`;
 const AL = 'gfx3d/ally/'; // родные иконки альянса (вырезаны из оригинала)
 const aTile = (attr, icon, text, off) => `<button class="ptile ${off ? 'off' : ''}" ${attr}><img src="${icon}" alt=""><span>${text}</span></button>`;
@@ -23,14 +23,13 @@ const asend = (m) => send({ ...m, ally: S.allyForeign || undefined });
 function openAllyForum(id) { S.allyForeign = id; S.ally = null; asend({ t: 'ally', op: 'get' }); openSheet(allyForumWin); }
 const dt = (t) => { const d = new Date(t), today = new Date(); const hm = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }); return d.toDateString() === today.toDateString() ? `Сегодня, ${hm}` : `${d.toLocaleDateString('ru-RU')} ${hm}`; };
 const loading = (t) => `${ribbon(t)}<p class="parch-note">Загрузка…</p>`;
-// статус в составе (сервер: ally.js allyPresence, web.js allyPresenceCast): зелёная точка — в игре, серая — нет,
-// «не заходил N дней» — больше недели без входа. Меняется сразу (сообщение allyon). В чужом альянсе (модератор) статуса нет
+// статус в составе (сервер: ally.js allyOnline, web.js allyPresenceCast): зелёная точка — в игре, серая — нет.
+// Меняется сразу (сообщение allyon). В чужом альянсе (модератор) статуса нет
 const allyDot = (on) => `<i class="aon${on ? ' on' : ''}" title="${on ? 'В игре' : 'Не в игре'}"></i>`;
 const allyOn = (m) => (m.on === undefined ? '' : allyDot(m.on));
-const allyAway = (m) => (m.away ? `<small class="aaway">не заходил ${m.away} ${plural(m.away, 'день', 'дня', 'дней')}</small>` : '');
 const allyHasOn = (a) => a.members.some((m) => m.on !== undefined);
 const allyOnN = (a) => a.members.filter((m) => m.on).length;
-const allyName = (m) => `${allyOn(m)}<a data-cprof="${m.id}" style="color:${nameColor(m.rep)}">${esc(m.login)}</a><br>${allyAway(m)}`;
+const allyName = (m) => `${allyOn(m)}<a data-cprof="${m.id}" style="color:${nameColor(m.rep)}">${esc(m.login)}</a><br>`;
 
 function openAlly() { S.allyForeign = null; S.ally = null; asend({ t: 'ally', op: 'get' }); openSheet(allyMainWin); }
 
@@ -129,7 +128,7 @@ function allyKickWin() {
   const a = S.ally; if (!a) return loading('Удалить игрока');
   const list = a.members.filter((m) => m.id !== a.leader && m.login !== S.st.user.login);
   return `${ribbon('Удалить игрока')}<div class="bwline">Выберите члена альянса для удаления:</div>
-    ${list.map((m) => `<div class="mrow"><span>${allyOn(m)}${esc(m.login)} ${repIcons(m.rep)}${allyAway(m)}</span><button class="pbtn small" data-akick="${esc(m.login)}">Исключить</button></div>`).join('') || '<p class="parch-note">Некого исключать.</p>'}`;
+    ${list.map((m) => `<div class="mrow"><span>${allyOn(m)}${esc(m.login)} ${repIcons(m.rep)}</span><button class="pbtn small" data-akick="${esc(m.login)}">Исключить</button></div>`).join('') || '<p class="parch-note">Некого исключать.</p>'}`;
 }
 function allyTransferWin() {
   const a = S.ally; if (!a) return loading('Сместить Создателя');
@@ -179,12 +178,20 @@ function allyForumWin() {
 }
 function allyTopicWin() {
   const t = S.allyTopic; if (!t) return loading('Тема');
+  const canReply = !S.allyForeign && (!t.closed || can('news')); // в закрытой теме отвечает только руководство с правом «Новости и форум»
   return `${ribbon('Тема')}<div class="bwline center"><b>${esc(t.title)}</b>${t.closed ? ' 🔒' : ''}</div>
     <div class="two2">${S.allyForeign ? '' : '<button class="lbar" data-aw="post">Написать</button>'}<button class="lbar" data-aw="forum">Темы</button></div>
-    ${t.posts.map((p, i) => `<div class="fpost">${canMod() && !p.deleted ? `<button class="apdel" data-apostdel="${i}" title="Удалить">✕</button>` : ''}<div class="fauthor">${repCrown(p.rep)} <a data-cprof="${p.byId}" style="color:${nameColor(p.rep)}">${esc(p.by)}</a></div>${repIcons(p.rep)}<div class="ftext">${esc(p.text)}</div><small>${dt(p.at)}</small></div>`).join('')}`;
+    ${t.posts.map((p, i) => `<div class="fpost">${canMod() && !p.deleted ? `<button class="apdel" data-apostdel="${i}" title="Удалить">✕</button>` : ''}<div class="fauthor">${repCrown(p.rep)} <a data-cprof="${p.byId}" style="color:${nameColor(p.rep)}">${esc(p.by)}</a></div>${repIcons(p.rep)}
+      ${p.reply ? `<div class="fquote">↪ <b>${esc(p.reply.by)}</b>: «${esc(p.reply.text)}»</div>` : ''}<div class="ftext">${esc(p.text)}</div>
+      <div class="afoot"><small>${dt(p.at)}</small>${canReply && !p.deleted ? `<button class="areply" data-areply="${i}">Ответить</button>` : ''}</div></div>`).join('')}`;
 }
 function allyNewTopicWin() { return formWin('Создать тему', '<div class="clabel">Тема:</div><input class="ainput" name="title" maxlength="60" required><div class="clabel">Текст:</div><textarea class="ainput" name="text" rows="5" maxlength="2000" required></textarea><div class="center"><button class="pbtn">Создать</button></div>'); }
-function allyPostWin() { return formWin('Написать', '<textarea class="ainput" name="text" rows="6" maxlength="2000" required></textarea><div class="center"><button class="pbtn">Отправить</button></div>'); }
+// «Ответить»: над полем — кому отвечаем (ник и начало его сообщения), ✕ — написать просто в тему
+function allyPostWin() {
+  const rt = S.allyReplyTo;
+  return formWin('Написать', `${rt ? `<div class="fquote fto"><span>↪ Ответ для <b>${esc(rt.by)}</b>: «${esc(rt.text)}»</span><button type="button" class="fxto" data-areplyx title="Не отвечать на это сообщение">✕</button></div>` : ''}
+    <textarea class="ainput" name="text" rows="6" maxlength="2000" required></textarea><div class="center"><button class="pbtn">Отправить</button></div>`);
+}
 
 // ----- новости -----
 function allyNewsWin() {
@@ -223,10 +230,10 @@ const ALLY_FORMS = { 'Изменить описание': 'desc', Устав: 'c
 
 $('#sheetBody').addEventListener('click', (e) => {
   const wc = e.target.closest('[data-warcat]'); if (wc) { S.warCat = wc.dataset.warcat; return refreshSheet(); }
-  const t = e.target.closest('[data-apostdel],[data-aw],[data-aleave],[data-akick],[data-atransfer],[data-arankgo],[data-atopic],[data-atopicop],[data-atopicdel],[data-adel],[data-anewsdel],[data-alog]'); if (!t) return;
+  const t = e.target.closest('[data-apostdel],[data-aw],[data-aleave],[data-akick],[data-atransfer],[data-arankgo],[data-atopic],[data-atopicop],[data-atopicdel],[data-adel],[data-anewsdel],[data-alog],[data-areply],[data-areplyx]'); if (!t) return;
   const d = t.dataset;
   if (d.apostdel !== undefined) { if (confirm('Удалить сообщение?')) asend({ t: 'ally', op: 'postdel', topic: S.allyTopicId, idx: Number(d.apostdel) }); return; }
-  if (d.aw) { if (t.classList.contains('off')) return toast('Нет прав на это действие.', 'err'); if (d.aw === 'forum' && S.sheets.length && S.allyTopic) closeSheet(); return openSheet(AW[d.aw]); }
+  if (d.aw) { if (t.classList.contains('off')) return toast('Нет прав на это действие.', 'err'); if (d.aw === 'post') S.allyReplyTo = null; if (d.aw === 'forum' && S.sheets.length && S.allyTopic) closeSheet(); return openSheet(AW[d.aw]); }
   if (d.aleave !== undefined) { if (confirm('Покинуть альянс?')) { send({ t: 'alliance', op: 'leave' }); closeAllSheets(); } return; }
   if (d.akick) { if (confirm(`Исключить ${d.akick} из альянса?`)) send({ t: 'alliance', op: 'kick', login: d.akick }); return setTimeout(() => asend({ t: 'ally', op: 'get' }), 200); }
   if (d.atransfer) { if (confirm(`Сделать ${d.atransfer} создателем альянса?`)) asend({ t: 'ally', op: 'transfer', login: d.atransfer }); return; }
@@ -243,6 +250,14 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.adel !== undefined) { S.allyShowDel = !S.allyShowDel; return refreshSheet(); }
   if (d.anewsdel) { if (confirm('Удалить новость?')) asend({ t: 'ally', op: 'news', del: d.anewsdel }); return; }
   if (d.alog) { S.allyLogKind = d.alog; return refreshSheet(); }
+  if (d.areply !== undefined) { // «Ответить»: окно «Написать» с адресатом, текст начинается с его ника
+    const p = S.allyTopic && S.allyTopic.posts[Number(d.areply)]; if (!p) return;
+    S.allyReplyTo = { at: p.at, by: p.by, text: p.text.length > 90 ? `${p.text.slice(0, 90)}…` : p.text };
+    openSheet(allyPostWin);
+    const f = $('[data-aform="Написать"]'); if (f) { f.text.value = `${p.by}, `; f.text.focus(); f.text.setSelectionRange(f.text.value.length, f.text.value.length); }
+    return;
+  }
+  if (d.areplyx !== undefined) { S.allyReplyTo = null; const q = t.closest('.fto'); if (q) q.remove(); return; } // написанное в поле остаётся
 });
 $('#sheetBody').addEventListener('change', (e) => { if (e.target.dataset.arank !== undefined) { S.allyRankFor = e.target.value; refreshSheet(); } if (e.target.dataset.aep !== undefined) { const pv = $('[data-aeppv]'); if (pv) pv.innerHTML = epImg(Number(e.target.value)); } });
 $('#sheetBody').addEventListener('submit', (e) => {
@@ -254,7 +269,9 @@ $('#sheetBody').addEventListener('submit', (e) => {
   if (k === 'store') { asend({ t: 'ally', op: 'store', res: res() }); f.reset(); return; }
   if (k === 'storeto') return asend({ t: 'ally', op: 'store', res: res(), to: v('to') });
   const op = ALLY_FORMS[k]; if (!op) return;
-  asend({ t: 'ally', op, tag: v('tag'), name: v('name'), desc: v('desc'), text: v('text'), title: v('title'), status: v('status'), topic: S.allyTopicId });
+  asend({ t: 'ally', op, tag: v('tag'), name: v('name'), desc: v('desc'), text: v('text'), title: v('title'), status: v('status'), topic: S.allyTopicId,
+    reply: op === 'post' && S.allyReplyTo ? S.allyReplyTo.at : undefined });
+  if (op === 'post') S.allyReplyTo = null;
   if (['topic', 'post', 'news', 'mail'].includes(op)) closeSheet();
 });
 const prevMilA = milMsg;
@@ -264,7 +281,7 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
   if (m.t === 'allytopic') { S.allyTopic = m.data; if (m.data) S.allyTopicId = m.data.id; return refreshSheet(); }
   if (m.t === 'allyon') { // соальянсник вошёл в игру или вышел — точка в составе меняется сразу
     const x = S.ally && S.ally.members.find((y) => y.id === m.id && y.on !== undefined); if (!x) return;
-    x.on = !!m.on; x.away = 0;
+    x.on = !!m.on;
     if (ALLY_ON_WINS.includes(S.sheets[S.sheets.length - 1])) refreshSheet();
     return;
   }

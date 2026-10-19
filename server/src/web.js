@@ -112,7 +112,7 @@ function onlineUsers() {
 }
 const onlineCount = () => onlineUsers().size;
 // u.online — у игрока есть открытое соединение со входом (с любого устройства).
-// Игрок вошёл или вышел совсем — соальянсникам в игре сразу: точка в составе альянса (ally.js allyPresence, alliance.js).
+// Игрок вошёл или вышел совсем — соальянсникам в игре сразу: точка в составе альянса (ally.js allyOnline, alliance.js).
 // Админ и боты для игроков всегда «не в игре» — о них не рассылается
 const liveSession = (u, except) => [...(WebSession.all || [])].some((s) => s !== except && s.user && s.user.id === u.id);
 function allyPresenceCast(u, on) {

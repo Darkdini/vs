@@ -103,24 +103,38 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(!g.canSeeReport(O, rep), 'посторонний не видит');
   console.log('✓ военные логи альянса: нападение, оборона, разведка, вражеская разведка; отчёты видны только своим');
 }
-// состав альянса: кто в игре — только своим; админ всегда «не в игре»; «не заходил N дней» — если больше недели
+// состав альянса: кто в игре — только своим; админ всегда «не в игре»
 {
-  const D = 86400000, now = Date.now(), mk = (login, o) => Object.assign(g.register({ login, password: '12345', race: 0 }).user, o);
-  const L = mk('onlead'), U = {
-    on: mk('onact', { online: true, lastSeen: now - 20 * D }), week: mk('onweek', { lastSeen: now - 7 * D + 3600000 }), gone: mk('ongone', { lastSeen: now - 12 * D - 3600000 }),
-    never: mk('onnever', { created: now - 30 * D }), adm: mk('onadm', { admin: true, online: true, lastSeen: now - 40 * D }),
-  };
+  const mk = (login, o) => Object.assign(g.register({ login, password: '12345', race: 0 }).user, o);
+  const L = mk('onlead'), U = { on: mk('onact', { online: true }), off: mk('onoff'), adm: mk('onadm', { admin: true, online: true }) };
   g.db.alliances = g.db.alliances || {}; const aid = g.db.nextId++;
-  const al = g.db.alliances[aid] = { id: aid, name: 'Online', tag: 'ON', leader: L.id, members: [L.id, ...Object.values(U).map((u) => u.id)], created: now };
+  const al = g.db.alliances[aid] = { id: aid, name: 'Online', tag: 'ON', leader: L.id, members: [L.id, ...Object.values(U).map((u) => u.id)], created: Date.now() };
   for (const id of al.members) g.userById(id).alliance = aid;
-  const v = g.allyView(L, al), P = (u) => { const m = v.members.find((x) => x.id === u.id); return `${m.on}/${m.away}`; };
-  assert.strictEqual([L, U.on, U.week, U.gone, U.never, U.adm].map(P).join(' '), 'true/0 true/0 false/0 false/12 false/30 false/0', 'себя и вошедших — в игре; меньше недели — без пометки; админ — не в игре и без пометки');
-  assert.ok(v.members.every((m) => !('lastSeen' in m) && !('online' in m)), 'точное время входа не раскрывается');
+  const v = g.allyView(L, al), on = (u) => v.members.find((x) => x.id === u.id).on;
+  assert.deepStrictEqual([L, U.on, U.off, U.adm].map(on), [true, true, false, false], 'себя и вошедших — в игре, админ — не в игре');
+  assert.ok(v.members.every((m) => !('lastSeen' in m) && !('online' in m) && !('away' in m)), 'время входа не раскрывается');
   const out = mk('onoutsider');
-  assert.ok(g.allyView(out, al).members.every((m) => !('on' in m) && !('away' in m)), 'не участнику (модератор форума) — без статуса');
-  assert.ok(g.allyPublic(al).members.every((m) => !('on' in m) && !('away' in m)), 'в карточке альянса для всех — без статуса');
+  assert.ok(g.allyView(out, al).members.every((m) => !('on' in m)), 'не участнику (модератор форума) — без статуса');
+  assert.ok(g.allyPublic(al).members.every((m) => !('on' in m)), 'в карточке альянса для всех — без статуса');
   U.adm.admin = U.adm.online = U.on.online = false; // дальше по тестам — обычные игроки не в игре
-  console.log('✓ состав альянса: кто в игре и кто не заходил больше недели — только своим, админ всегда «не в игре»');
+  console.log('✓ состав альянса: кто в игре — видно только своим, админ всегда «не в игре»');
+}
+// форум альянса: «Ответить» — ответ помнит, кому (ник и начало сообщения), автору — уведомление
+{
+  const mk = (login) => g.register({ login, password: '12345', race: 0 }).user;
+  const A = mk('frauthor'), B = mk('frreply'), C = mk('frother');
+  g.db.alliances = g.db.alliances || {}; const aid = g.db.nextId++;
+  const al = g.db.alliances[aid] = { id: aid, name: 'Forum', tag: 'FR', leader: A.id, members: [A.id, B.id, C.id], created: Date.now() };
+  for (const u of [A, B, C]) u.alliance = aid;
+  const tid = g.allyOp(A, g.castleOf(A), { op: 'topic', title: 'Набег', text: 'Кто идёт на лагерь разбойников? '.repeat(5) }).topic, first = g.allyTopic(A, al, tid).posts[0];
+  g.drainEvents();
+  assert.ok(g.allyOp(B, g.castleOf(B), { op: 'post', topic: tid, text: 'frauthor, я с тобой', reply: first.at }).ok);
+  const p = g.allyTopic(A, al, tid).posts[1], ev = g.drainEvents();
+  assert.ok(p.reply && p.reply.by === 'frauthor' && p.reply.text === `${first.text.slice(0, 90)}…`, 'ответ с цитатой: ник и начало сообщения');
+  assert.ok(ev.length === 1 && ev[0].userId === A.id && /frreply ответил\(а\) вам на форуме альянса в теме «Набег»/.test(ev[0].msg), 'автору — уведомление');
+  assert.ok(g.allyOp(C, g.castleOf(C), { op: 'post', topic: tid, text: 'просто так', reply: 12345 }).ok);
+  assert.ok(!g.allyTopic(A, al, tid).posts[2].reply && !g.drainEvents().length, 'несуществующее сообщение — обычный ответ, без уведомления');
+  console.log('✓ форум альянса: «Ответить» — цитата над ответом и уведомление автору');
 }
 // альянс: 5 мест за уровень Дипломатического центра главы, не больше 50
 {

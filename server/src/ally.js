@@ -5,7 +5,6 @@ const W = require('./words');
 // Основные операции (создать, пригласить, заявки, исключить, покинуть) — P.alliance в army.js.
 
 const START_REP = 10;
-const DAY = 86400000, AWAY_DAYS = 7; // в составе — «не заходил N дней», если игрока нет в игре больше недели
 // права (окно «Назначение прав»)
 const RIGHTS = { mail: 'Рассылка уведомлений', invite: 'Приглашение в альянс', kick: 'Исключение из альянса', rights: 'Назначение прав',
   desc: 'Изменение описания', news: 'Новости и форум', diplo: 'Дипломатия', treasury: 'Казначейство', logs: 'Чтение логов', albums: 'Альбомы',
@@ -100,18 +99,15 @@ function install(Game) {
     const al = this.allianceOf(user);
     return !!(al && al.members.includes(r.owner) && ['battle', 'scout', 'reinforce'].includes(r.kind) && this.allyCan(al, user.id, 'logs'));
   };
-  // статус в составе (видят только участники альянса): on — игра открыта сейчас (u.online ведёт web.js), away — сколько полных дней
-  // не заходил, если больше недели; точное время входа не раскрывается. Админ для игроков всегда «не в игре», как в друзьях и чате
-  P.allyPresence = function allyPresence(m, viewer, now = Date.now()) {
-    const on = m.id === viewer.id || (!!m.online && !m.admin), gone = now - (m.lastSeen || m.created || now);
-    return { on, away: on || m.admin || gone <= AWAY_DAYS * DAY ? 0 : Math.floor(gone / DAY) };
-  };
+  // в составе — в игре ли участник сейчас (u.online ведёт web.js); видят только участники альянса.
+  // Админ для игроков всегда «не в игре», как в друзьях и чате
+  P.allyOnline = (m, viewer) => m.id === viewer.id || (!!m.online && !m.admin);
   // полная карточка альянса для окна «Альянс»
   P.allyView = function allyView(user, al) {
     const me = user.id, can = (r) => this.allyCan(al, me, r), now = Date.now(), own = user.alliance === al.id;
     const members = al.members.map((id) => { const m = this.userById(id); if (!m) return null;
       const t = this.allyTitle(al, id); return { id, login: m.login, rating: this.userRating(m), rep: m.reputation ?? START_REP, score: this.userRating(m) + (m.reputation ?? START_REP), medals: this.allyMedals(m), ...t,
-        rights: id === al.leader ? Object.keys(RIGHTS) : ((al.ranks || {})[id] || {}).rights || [], ...(own ? this.allyPresence(m, user, now) : {}) }; }).filter(Boolean).sort((a, b) => b.score - a.score);
+        rights: id === al.leader ? Object.keys(RIGHTS) : ((al.ranks || {})[id] || {}).rights || [], ...(own ? { on: this.allyOnline(m, user) } : {}) }; }).filter(Boolean).sort((a, b) => b.score - a.score);
     const A = this.db.alliances || {};
     // военные логи: каждое военное действие участников — нападение, оборона, разведка (своя и вражеская), подкрепления
     const reports = can('logs') ? (this.db.reports || []).filter((r) => !r.fwd && al.members.includes(r.owner) && ['battle', 'scout', 'reinforce'].includes(r.kind)).slice(-200).reverse()
@@ -248,7 +244,12 @@ function install(Game) {
         if (t.closed && !can('news')) return { error: 'Тема закрыта.' };
         const text = clean(m.text, 2000); if (!text) return { error: 'Введите текст.' };
         const lim = this.tooOften(user, 'allypost'); if (lim) return { error: lim };
-        t.posts.push({ by: user.login, byId: user.id, at: now, text }); if (t.posts.length > 500) t.posts.shift();
+        // «Ответить» у сообщения, как в общем форуме: ответ помнит, кому (ник и начало его сообщения), автору — уведомление.
+        // Номеров у сообщений альянса нет — ищем по времени отправки (чаще раза в 5 с игрок не пишет)
+        const to = m.reply ? t.posts.find((p) => p.at === Number(m.reply) && !p.deleted) : null;
+        const reply = to ? { at: to.at, by: to.by, text: to.text.length > 90 ? `${to.text.slice(0, 90)}…` : to.text } : undefined;
+        t.posts.push({ by: user.login, byId: user.id, at: now, text, ...(reply ? { reply } : {}) }); if (t.posts.length > 500) t.posts.shift();
+        if (to && to.byId !== user.id && al.members.includes(to.byId)) this.event(to.byId, `💬 ${user.login} ответил(а) вам на форуме альянса в теме «${t.title}».`);
         return done('Сообщение добавлено.');
       }
       case 'postdel': { // удалить одно сообщение темы

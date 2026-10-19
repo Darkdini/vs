@@ -18,8 +18,7 @@ function dialogsWin() {
   return `${head}${nav}
     <div class="dlist">${L.list.map((x) => `<button class="dcard ${x.unread ? 'new' : ''}" data-dlgopen="${x.id}">${dlgAva(x)}
       <span class="dtx"><b>${esc(x.login)}</b><span>${x.unread ? '<img class="denv" src="gfx3d/rep/envnew.svg" alt=""> ' : x.mine ? '<small>Вы:</small> ' : ''}${smiles(esc(dlgCut(x.text)))}</span></span>
-      ${x.unread ? `<i class="dcnt">${x.unread}</i>` : ''}</button>`).join('') || `<p class="parch-note">${d.filter === 'unread' ? 'Непрочитанных нет.' : 'Переписок пока нет — напишите кому-нибудь!'}</p>`}</div>
-    <button class="dnew" data-dlgnew title="Новое сообщение"><img src="gfx3d/rep/mailset.png" alt="Новое сообщение"></button>`;
+      ${x.unread ? `<i class="dcnt">${x.unread}</i>` : ''}</button>`).join('') || `<p class="parch-note">${d.filter === 'unread' ? 'Непрочитанных нет.' : 'Переписок пока нет — написать игроку можно из его профиля.'}</p>`}</div>`;
 }
 
 // значок у сообщения — аватар игрока: своя картинка или портрет расы (как в списке переписок)
@@ -94,13 +93,12 @@ function dlgSend() {
   inp.value = ''; S.dlg.draft = ''; S.dlg.smile = false;
 }
 $('#sheetBody').addEventListener('click', (e) => {
-  const t = e.target.closest('[data-dlgmenu],[data-dlgf],[data-dlgpg],[data-dlgopen],[data-dlgnew],[data-dlgsmile],[data-dlgsm],[data-dlgsend],[data-dlglist],[data-dlgmore]'); if (!t) return;
+  const t = e.target.closest('[data-dlgmenu],[data-dlgf],[data-dlgpg],[data-dlgopen],[data-dlgsmile],[data-dlgsm],[data-dlgsend],[data-dlglist],[data-dlgmore]'); if (!t) return;
   const d = t.dataset;
   if (d.dlgmenu !== undefined) { S.dlg.menu = !S.dlg.menu; return refreshSheet(); }
   if (d.dlgf) { S.dlg.filter = d.dlgf; S.dlg.page = 0; S.dlg.menu = false; S.dlg.list = null; refreshSheet(); return send({ t: 'dialogs', page: 0, filter: S.dlg.filter }); }
   if (d.dlgpg !== undefined) { S.dlg.page = Math.max(0, Number(d.dlgpg)); return send({ t: 'dialogs', page: S.dlg.page, filter: S.dlg.filter }); }
   if (d.dlgopen) return openDialog(Number(d.dlgopen));
-  if (d.dlgnew !== undefined) { const who = prompt('Кому написать? Ник игрока:'); if (who && who.trim()) openDialog(who.trim()); return; }
   if (d.dlgsmile !== undefined) { const i = $('#sheetBody .dform input'); if (i) S.dlg.draft = i.value; S.dlg.smile = !S.dlg.smile; return refreshSheet(); }
   if (d.dlgsm) { const i = $('#sheetBody .dform input'); S.dlg.draft = `${i ? i.value : S.dlg.draft || ''}:${d.dlgsm}:`; S.dlg.smile = false; showSheet(false); $('#sheetBody').scrollTop = 1e9; return; }
   if (d.dlgsend !== undefined) return dlgSend();

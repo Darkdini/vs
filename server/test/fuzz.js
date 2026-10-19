@@ -34,7 +34,7 @@ const EVIL = [-1, -1e9, 1e300, 0.5, '-5', '1e400', 'Infinity', 'NaN', null, true
     sendmail: { to: 'victim', subject: 's', text: 't' }, train: { unit: 200, count: 1 }, send: { units: { 200: 1 }, x: 510, y: 510, mission: 'attack', res: { wood: 1 }, from: '', at: 0 },
     squad: { op: 'create', from: 'castle', to: 1, units: { 200: 1 }, id: 1, name: 'q' }, general: { op: 'dist', name: 'g', pts: { atk: 1 } }, exchange: { from: 'wood', to: 'stone', amount: 100 },
     research: { sci: 'eco' }, religion: { id: 'war' }, artifact: { id: 1, on: true }, artbreak: { id: 1 }, alliance: { op: 'request', id: 1, login: 'victim' }, report: { id: 1 }, admin: { op: 'gold', login: 'hacker', n: 1000 },
-    ally: { op: 'gold', n: 5, to: 'victim', res: { wood: 1 }, login: 'victim', rights: {}, text: 't', title: 't', topic: 1, idx: 0, act: 'delete', name: 'n', tag: 't', status: 'war', desc: 'd' },
+    ally: { op: 'gold', n: 5, to: 'victim', res: { wood: 1 }, login: 'victim', rights: {}, text: 't', title: 't', topic: 1, idx: 0, act: 'delete', name: 'n', tag: 't', status: 'war', desc: 'd', reply: 1 },
     avatar: { op: 'set', px: 'x' }, bug: { text: 'b' },
     // новые разделы: Защита, Лавка, Биржа замков, Орёл-решка, сундуки, ЗАГС, Кладовая, задания, бунт, генерал за золото, походы
     shield: { op: 'buy', kind: 'castle', days: 1 }, shop: { op: 'treasure', id: 't1', key: 'x', mode: 'hour', x: 500, y: 500, res: 'wood', size: 0, prov: 2, coins: 1 },
