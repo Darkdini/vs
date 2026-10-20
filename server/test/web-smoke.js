@@ -469,6 +469,15 @@ function client() {
     assert.ok(mb.list.some((x) => x.subject === 'Казна пополнена' && x.other === 'Советник'));
     console.log('✓ казна: пополнение админом, письмо игроку, история трат');
 
+    // ---- «Премиум всем»: админ дарит Премиум всем игрокам — кто в игре, видит сразу (уведомление и премиум в состоянии) ----
+    const pm0 = Date.now();
+    adm.send({ t: 'admin', op: 'premall', days: 2, why: 'Проверка' });
+    const pa = (await adm.expect('admininfo', (m) => m.op === 'premall')).data;
+    assert.ok(/^Премиум на 2 дня выдан \d+ игрок/.test(pa.msg) && pa.last[0].days === 2 && pa.last[0].why === 'Проверка', JSON.stringify(pa));
+    await a.expect('toast', (m) => m.msg === '👑 Проверка: Премиум Завоеватель на 2 дня!');
+    await a.expect('state', (m) => m.user.premium >= pm0 + 2 * 86400000);
+    console.log('✓ «Премиум всем»: админ дарит на выбранный срок, игрок в игре видит сразу');
+
     // ---- мульты: два аккаунта с одного устройства попадают в одну группу ----
     for (const lg of ['multa', 'multb']) {
       const c = client(); await c.open();

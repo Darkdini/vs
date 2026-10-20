@@ -59,8 +59,10 @@ function install(Game) {
     const gifts = (u.gifts || []).filter((x) => x.at > since).length;
     const b = this.bossNow(), bs = this.db.boss; // мировой босс: где он сейчас или когда появится
     void bs; const boss = b ? { on: true, kind: b.kind, name: b.name, x: b.x, y: b.y } : null;
-    const premGift = (u.premiumGift || 0) > Date.now() ? u.premiumGift : 0; // подарок новичку — Премиум до (game.js register)
-    return { reports: mine.length, attacks, mail, gifts, news: this.newsUnread(u), boss, premGift };
+    // подарок новичку — Премиум до (game.js register); продлили покупкой или «Премиум всем» — до конца премиума
+    const premGift = (u.premiumGift || 0) > Date.now() ? Math.max(u.premiumGift, u.premium || 0) : 0;
+    const pa = u.premAllGot, premAll = pa && pa.at > since && this.isPremium(u) ? { days: pa.days, why: pa.why, until: u.premium } : null; // «Премиум всем» (admin.js) — пока был не в игре
+    return { reports: mine.length, attacks, mail, gifts, news: this.newsUnread(u), boss, premGift, premAll };
   };
   P.newsUnread = function newsUnread(u) {
     const seen = new Set(u.newsRead || []);

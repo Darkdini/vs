@@ -30,6 +30,7 @@ function welcomeShow(m) {
     <h3>Приветствую, мой правитель!</h3><div class="wlc-who">${A.name}</div>
     <p>Сейчас в игре (онлайн): ${fmtFull(m.players)} ${plural(m.players, 'игрок', 'игрока', 'игроков')}.</p>
     ${m.premGift ? `<button type="button" class="wlc-row" data-wgo="premium"><i>👑</i><span>Подарок новичку — Премиум до ${new Date(m.premGift).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span><b>›</b></button>` : ''}
+    ${m.premAll ? `<button type="button" class="wlc-row" data-wgo="premium"><i>🎁</i><span>${esc(m.premAll.why)}: Премиум на ${m.premAll.days} ${plural(m.premAll.days, 'день', 'дня', 'дней')} — до ${new Date(m.premAll.until).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span><b>›</b></button>` : ''}
     ${items.length ? `<p>За Ваше отсутствие:</p>${items.map(([go, ic, t]) => `<button type="button" class="wlc-row" data-wgo="${go}"><i>${ic}</i><span>${t}</span><b>›</b></button>`).join('')}`
       : '<p>За Ваше отсутствие ничего не произошло.</p>'}${bossRow}
     <button type="button" class="wlc-close">Закрыть</button></div>`;

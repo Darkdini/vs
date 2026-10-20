@@ -20,6 +20,13 @@ const aBtn2 = (op, text, extra = '', cls = '') => `<button class="btn small ${cl
 // «Золото всем игрокам» — на вкладках «Выдать» (сверху) и «Мир»
 const goldAllLog = () => { const g = S.adm.goldAll; if (!g) { if (!S.adm.goldAllAsked) { S.adm.goldAllAsked = true; send({ t: 'admin', op: 'goldallget' }); } return ''; }
   return `${g.msg ? `<div class="smnote ok">✔ ${esc(g.msg)}</div>` : ''}${g.last.length ? `<p class="small"><b>Последние раздачи:</b><br>${g.last.map((x) => `${fmtDate(x.at)} — по ${x.n} зол. «${esc(x.why)}», игроков: ${x.players}`).join('<br>')}</p>` : '<p class="small">Раздач ещё не было.</p>'}`; };
+// «Премиум всем игрокам» — рядом с «Золото всем»: срок на выбор (кнопки или число), у кого премиум есть — продлится
+const premAllLog = () => { const g = S.adm.premAll; if (!g) { if (!S.adm.premAllAsked) { S.adm.premAllAsked = true; send({ t: 'admin', op: 'premallget' }); } return ''; }
+  return `${g.msg ? `<div class="smnote ok">✔ ${esc(g.msg)}</div>` : ''}${g.last.length ? `<p class="small"><b>Последние раздачи:</b><br>${g.last.map((x) => `${fmtDate(x.at)} — на ${x.days} дн. «${esc(x.why)}», игроков: ${x.players}`).join('<br>')}</p>` : '<p class="small">Раздач ещё не было.</p>'}`; };
+const PREM_ALL = () => { const pd = S.adm.premDays || 3; // выбранный срок помнится, пока окно перерисовывается
+  return aSec('👑 Премиум всем игрокам', `<p class="small">Каждому игроку на сервере (кроме ботов и Вас) — Премиум Завоеватель на выбранный срок; у кого уже есть — продлится. Кто в игре — увидит сразу, остальным скажет советник при входе.</p><form class="stack" data-aform="premall">
+  <div class="apdays">${[1, 3, 7, 14, 30].map((d) => `<button type="button" class="btn small${d === pd ? ' on' : ''}" data-apdays="${d}">${d} ${plural(d, 'день', 'дня', 'дней')}</button>`).join('')}</div>
+  <input class="anum" name="days" type="number" inputmode="numeric" min="1" max="30" value="${pd}" placeholder="Сколько дней (1–30)"><input name="why" maxlength="100" value="Подарок от администрации" placeholder="За что (видно игрокам)"><button class="btn primary">Выдать всем</button></form>${premAllLog()}`); };
 // «🏅 Медали» — медали для красоты (server/src/honors.js): вручить по никам или всем тестерам, список награждённых — забрать
 const HONOR_SEC = () => {
   const d = S.adm.honor;
@@ -45,7 +52,7 @@ function adminHtml() {
       ${a.players ? `<div class="rlist">${a.players.map((p) => `<button class="rrow" data-apick="${esc(p.login)}"><span class="rn"><b>${esc(p.login)}${p.admin ? ` <img class="admbadge s" src="${GFX}admin_badge_s.png" alt="">` : p.mod ? ` <img class="admbadge s" src="${GFX}chat/moder.png" alt="">` : ''}${p.banned ? ' <span class="bad">[бан]</span>' : ''}</b>
         <small>${esc(p.race)} · замков ${p.castles} · монет ${fmtFull(p.gold)} · ${p.online ? 'в игре' : `был ${fmtDate(p.lastSeen)}`}</small></span><span class="rv">${fmtFull(p.rating)}</span></button>`).join('')}</div>` : ''}`)}
       ${a.player ? playerCard(a.player) : a.login ? '<p class="parch-note">Загрузка карточки…</p>' : ''}`,
-    give: () => `${GOLD_ALL()}${HONOR_SEC()}${target}
+    give: () => `${GOLD_ALL()}${PREM_ALL()}${HONOR_SEC()}${target}
       ${aSec('💰 Казна и ресурсы', `
         ${aAct('Монеты', 'Добавить золото на счёт. Минус — забрать. Игроку придёт письмо.', `${aNum('gold', 100, 'монет')}${aBtn2('gold', 'Выдать', 'data-arg="gold:n"')}`)}
         ${aAct('Ресурсы', 'Дерево, камень, железо и еду — поровну, в пределах складов.', `${aNum('res', 100000, 'каждого')}${aBtn2('res', 'Выдать', 'data-arg="res:n"')}`)}
@@ -76,6 +83,7 @@ function adminHtml() {
         ${a.bugs ? `<div class="pstats">${a.bugs.length ? a.bugs.map((b) => `<b>${esc(b.from)}</b> · ${fmtDate(b.at)}<br>${esc(b.text)}`).join('<hr>') : 'Сообщений нет.'}</div>${a.bugs.length ? '<button class="pbar" data-adm="bugsclear">Очистить список</button>' : ''}` : ''}`)}`,
     world: () => `${aSec('📰 Новость', `<p class="small">Всем придёт фиолетовый конверт в верхней панели; новость останется в «Инфо → Новости».</p>${newsPubForm()}`)}
       ${GOLD_ALL()}
+      ${PREM_ALL()}
       ${aSec('✉ Письмо всем', `<p class="small">Личное письмо каждому игроку (в «Сообщения»).</p><form class="stack" data-aform="mailall"><input name="subject" placeholder="Тема письма" value="Сообщение администрации"><textarea name="text" rows="3" placeholder="Текст письма" required></textarea><button class="btn primary">Разослать всем</button></form>`)}
       ${aSec('💬 Объявление в чат', `<p class="small">Сообщение в общий чат с пометкой [Администрация].</p><form class="chatform" data-aform="chat"><input name="text" placeholder="Текст объявления" required><button class="btn primary small">В чат</button></form>`)}
       ${aSec('🐉 События', `
@@ -250,6 +258,7 @@ $('#sheetBody').addEventListener('change', (e) => {
 });
 $('#sheetBody').addEventListener('click', (e) => {
   const gf = e.target.closest('[data-gafill]'); if (gf) { $$('.gaunit input').forEach((i) => { i.value = gf.dataset.gafill; }); return; }
+  const pd = e.target.closest('[data-apdays]'); if (pd) { S.adm.premDays = Number(pd.dataset.apdays); const f = pd.closest('form'); f.days.value = S.adm.premDays; f.querySelectorAll('[data-apdays]').forEach((x) => x.classList.toggle('on', x === pd)); return; } // «Премиум всем»: срок кнопкой
   const sm = e.target.closest('[data-asmod]'); if (sm) { if (!confirm(`Снять ${sm.dataset.asmod} со старших модераторов? Обычным модератором он останется.`)) return; send({ t: 'admin', op: 'smod', login: sm.dataset.asmod, on: 0 }); return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
   const mq = e.target.closest('[data-amodreq]'); if (mq) { const ok = mq.dataset.ok === '1'; if (!confirm(ok ? 'Принять заявку — назначить игрока модератором?' : 'Отклонить заявку?')) return; send({ t: 'admin', op: 'modreq', id: Number(mq.dataset.amodreq), ok: ok ? 1 : 0 }); return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
   const md = e.target.closest('[data-amod]'); if (md) { if (!confirm(`Снять ${md.dataset.amod} с модераторов?`)) return; send({ t: 'admin', op: 'mod', login: md.dataset.amod, on: 0 }); return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
@@ -300,6 +309,10 @@ $('#sheetBody').addEventListener('click', (e) => {
   admSend(op, extra);
   if (S.adm.login) setTimeout(() => send({ t: 'admin', op: 'player', login: S.adm.login }), 150);
 });
+$('#sheetBody').addEventListener('input', (e) => { // «Премиум всем»: срок числом — запомнить и подсветить такую же кнопку
+  const i = e.target.closest('[data-aform="premall"] [name="days"]'); if (!i) return; const n = Math.floor(Number(i.value));
+  if (n >= 1 && n <= 30) S.adm.premDays = n; i.form.querySelectorAll('[data-apdays]').forEach((x) => x.classList.toggle('on', Number(x.dataset.apdays) === n));
+});
 $('#sheetBody').addEventListener('submit', (e) => {
   const f = e.target, k = f.dataset.aform; if (!k) return;
   e.preventDefault();
@@ -321,6 +334,7 @@ $('#sheetBody').addEventListener('submit', (e) => {
   if (k === 'passcheck') { admSend('passcheck', { password: f.password.value }); f.password.value = ''; return; }
   if (k === 'mailtest') { S.adm.mailTest = { ok: true, msg: 'Отправляю…' }; refreshSheet(); return send({ t: 'admin', op: 'mailtest', addr: f.addr.value.trim() }); }
   if (k === 'goldall') { const n = Math.floor(Number(f.n.value)); if (!(n >= 1 && n <= 1000)) return toast('От 1 до 1000 золота.', 'err'); if (!confirm(`Выдать КАЖДОМУ игроку по ${n} золота?`)) return; S.adm.goldAll = { msg: 'Выдаю…', last: (S.adm.goldAll || { last: [] }).last }; refreshSheet(); return send({ t: 'admin', op: 'goldall', n, why: f.why.value }); }
+  if (k === 'premall') { const n = Math.floor(Number(f.days.value)); if (!(n >= 1 && n <= 30)) return toast('Срок — от 1 до 30 дней.', 'err'); if (!confirm(`Выдать КАЖДОМУ игроку Премиум на ${n} ${plural(n, 'день', 'дня', 'дней')}?`)) return; S.adm.premAll = { msg: 'Выдаю…', last: (S.adm.premAll || { last: [] }).last }; refreshSheet(); return send({ t: 'admin', op: 'premall', days: n, why: f.why.value }); }
   if (k === 'mailall') send({ t: 'admin', op: 'mailall', subject: f.subject.value, text: f.text.value });
   if (k === 'chat') { send({ t: 'admin', op: 'chat', text: f.text.value }); f.text.value = ''; }
   if (k === 'pass') { if (!confirm(`Сменить пароль игроку ${S.adm.login}? Все его входы завершатся.`)) return; admSend('pass', { password: f.password.value }); f.password.value = ''; }
@@ -351,6 +365,7 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
     if (m.op === 'passcheck') S.adm.passcheck = m.data;
     if (m.op === 'mailtest') S.adm.mailTest = { ok: !m.data.error, msg: m.data.error || m.data.msg };
     if (m.op === 'goldall' || m.op === 'goldallget') S.adm.goldAll = { ...m.data, at: Date.now() };
+    if (m.op === 'premall' || m.op === 'premallget') S.adm.premAll = { ...m.data, at: Date.now() };
     return refreshSheet();
   }
   prevMil2(m);

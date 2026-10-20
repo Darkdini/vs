@@ -389,6 +389,22 @@ function install(Game) {
       }
       case 'goldallget': { data = { msg: '', last: (this.db.goldAll || []).slice(-5).reverse() }; break;
       }
+      // подарок от администрации: всем игрокам (кроме ботов и админа) Премиум на n дней; у кого есть — продлится (как покупка, premium.js).
+      // Кто в игре — увидит сразу, остальным скажет советник при входе (premAllGot → news.js welcomeInfo)
+      case 'premall': {
+        const n = Math.floor(Number(arg.days)); if (!(n >= 1 && n <= 30)) return { error: 'Срок — от 1 до 30 дней.' };
+        const why = String(arg.why || '').replace(/[<>]/g, '').trim().slice(0, 100) || 'Подарок от администрации', days = `${n} ${W.plural(n, 'день', 'дня', 'дней')}`;
+        let k = 0;
+        for (const u of Object.values(this.db.users)) {
+          if (u.bot || u.admin) continue;
+          u.premium = Math.max(u.premium || 0, now) + n * 86400000; u.premAllGot = { at: now, days: n, why };
+          this.event(u.id, `👑 ${why}: Премиум Завоеватель на ${days}!`); k++;
+        }
+        (this.db.premAll = this.db.premAll || []).push({ at: now, days: n, why, players: k }); msg = `Премиум на ${days} выдан ${k} ${W.plural(k, 'игроку', 'игрокам', 'игрокам')}.`;
+        data = { msg, last: this.db.premAll.slice(-5).reverse() }; break;
+      }
+      case 'premallget': { data = { msg: '', last: (this.db.premAll || []).slice(-5).reverse() }; break;
+      }
       case 'mailall': {
         const text = String(arg.text || '').trim(); if (!text) return { error: 'Введите текст.' };
         for (const u of Object.values(this.db.users)) if (u.id !== user.id) { this.sendMail(user, u.login, String(arg.subject || 'Сообщение администрации'), text); this.event(u.id, 'Новое письмо от администрации.'); }

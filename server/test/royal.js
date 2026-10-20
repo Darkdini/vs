@@ -1713,10 +1713,31 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const hi = g.db.messages.find((m) => m.to === N.id && m.from === g.adminUser().id);
   assert.ok(hi && hi.subject === 'Подарок новичку: Премиум на 3 дня' && /Премиум Завоеватель на 3 дня, до \d\d\.\d\d, \d\d:\d\d \(МСК\)/.test(hi.text) && !hi.read, 'приветственное письмо от Советника');
   N.gold = 100; assert.ok(g.buyPremium(N, 14).ok && N.premium === N.premiumGift + 14 * DAY, 'купленные дни — сверх подарка');
+  assert.strictEqual(g.welcomeInfo(N, 0).premGift, N.premium, 'советник называет конец премиума — с купленными днями');
   N.premium = N.premiumGift = Date.now() - 1; assert.ok(!g.isPremium(N) && !g.welcomeInfo(N, 0).premGift, 'через 3 дня подарок кончается сам');
   process.env.NEWBIE_PREMIUM_DAYS = '0';
   const O = g.register({ login: 'premOld1', password: '12345', race: 0 }).user; assert.ok(!O.premium && !g.isPremium(O) && !g.db.messages.some((m) => m.to === O.id), 'NEWBIE_PREMIUM_DAYS=0 — без подарка и письма');
   console.log('✓ подарок новичку: Премиум на 3 дня с регистрации, сам не продлевается, покупка — сверх подарка');
+}
+{ // «Премиум всем» (админка): каждому, кроме ботов и админа, +N дней (1–30); у кого есть — продлится; уведомление; кто был не в игре — скажет советник
+  const adm = g.adminUser(), now0 = Date.now(), reg = (l) => g.register({ login: l, password: '12345', race: 0 }).user;
+  const P1 = reg('premAll1'), P2 = reg('premAll2'), Bt = reg('premAllB'); Bt.bot = true; P2.premium = now0 + 10 * DAY;
+  const ap = adm.premium, bp = Bt.premium;
+  for (const d of [0, 31, 'x', -3, '']) assert.ok(/от 1 до 30/.test(g.adminOp(adm, 'premall', { days: d }).error || ''), `срок «${d}» — отказ`);
+  assert.ok(/Нет прав/.test(g.adminOp(P1, 'premall', { days: 3 }).error || ''), 'не админ — нет прав');
+  g.drainEvents();
+  const r = g.adminOp(adm, 'premall', { days: 7, why: 'В честь <праздника>' }), k = Object.values(g.db.users).filter((u) => !u.bot && !u.admin).length, l0 = r.data && r.data.last[0];
+  assert.ok(r.ok && l0.days === 7 && l0.players === k && l0.why === 'В честь праздника' && r.data.msg === `Премиум на 7 дней выдан ${k} ${require('../src/words').plural(k, 'игроку', 'игрокам', 'игрокам')}.`, JSON.stringify(r.data));
+  assert.ok(P1.premium >= now0 + 7 * DAY && P1.premium <= Date.now() + 7 * DAY && g.isPremium(P1), 'без премиума — 7 дней с этой минуты');
+  assert.strictEqual(P2.premium, now0 + 17 * DAY, 'у кого был — продлён на 7 дней');
+  assert.ok(Bt.premium === bp && adm.premium === ap, 'ботам и админу — нет');
+  const ev = g.drainEvents(); assert.ok(ev.length === k && ev.some((e) => e.userId === P1.id && e.msg === '👑 В честь праздника: Премиум Завоеватель на 7 дней!'), 'уведомление каждому');
+  const w = g.welcomeInfo(P1, now0 - 1000).premAll; assert.ok(w && w.days === 7 && w.why === 'В честь праздника' && w.until === P1.premium, 'был не в игре — советник скажет при входе');
+  assert.ok(!g.welcomeInfo(P1, Date.now() + 1).premAll, 'заходил после раздачи — советник молчит');
+  P1.premium = Date.now() - 1; assert.ok(!g.welcomeInfo(P1, now0 - 1000).premAll, 'премиум уже кончился — советник молчит');
+  assert.ok(g.adminOp(adm, 'premall', { days: '1' }).ok && P2.premium === now0 + 18 * DAY && g.db.premAll.slice(-1)[0].why === 'Подарок от администрации', 'срок строкой, причина по умолчанию');
+  const last = g.adminOp(adm, 'premallget', {}).data.last; assert.ok(last.length === 2 && last[0].days === 1 && last[1].days === 7, 'журнал раздач — новые сверху');
+  console.log('✓ «Премиум всем»: каждому (кроме ботов и админа) на 1–30 дней, у кого есть — продлится, уведомление, советник при входе, журнал раздач');
 }
 { // «Топ» по боевому рангу: больше очков — выше, по 10 на страницу; без ботов, админа и заблокированных; своё место
   const BR = require('../src/battlerank');
