@@ -179,7 +179,7 @@ function install(Game) {
     return { id: u.id, login: u.login, race: C.RACE_NAMES[u.race], online: !!u.online, lastSeen: u.lastSeen || u.created, created: u.created, focus: Number(focus) || 0,
       gold: u.gold || 0, premium: this.isPremium(u) ? u.premium : 0, royal: Math.floor(this.royalTick(u)), rep: u.reputation ?? START_REP, captures: u.captures || 0,
       brank: { pts: br.pts, rank: this.brRank(u) + 1, claimed: br.claimed + 1 }, runes: { ...this.runesOf(u) },
-      stash: { res: Object.fromEntries(RES4.map((r) => [r, Math.floor(s.res[r] || 0)])), units: units(s.units), exp: s.exp || 0, royal: s.royal || 0 },
+      stash: { res: Object.fromEntries(RES4.map((r) => [r, Math.floor(s.res[r] || 0)])), units: units(s.units), exp: s.exp || 0, royal: s.royal || 0, cut: u.stashCut || null },
       stats: { ...this.stats(u) }, shieldKingdom: (u.shieldKingdom || 0) > now ? u.shieldKingdom : 0, shieldSpy: (u.shieldSpy || 0) > now ? u.shieldSpy : 0, castles };
   };
 

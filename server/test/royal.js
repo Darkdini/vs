@@ -1628,9 +1628,9 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const A = g.register({ login: 'brAaa', password: '12345', race: 0 }).user, Bq = g.register({ login: 'brBbb', password: '12345', race: 1 }).user;
   assert.strictEqual(g.brRank(A), -1, 'без боёв — без ранга');
   A.br = undefined; g.brOf(A);
-  g.brAdd(A.id, 400, Bq.id); assert.ok(A.br.pts === 400 && g.brRank(A) === BR.rankIdx(400), 'очки — полностью, ранг вырос сразу');
-  g.brAdd(A.id, 400, null); assert.strictEqual(A.br.pts, 600, 'лагерь — вдвое меньше');
-  const r = BR.rankIdx(600), units = () => Object.values(g.stashOf(A).units || {}).reduce((a, n) => a + n, 0), u0 = units();
+  g.brAdd(A.id, 400, Bq.id); assert.ok(A.br.pts === 80 && g.brRank(A) === BR.rankIdx(80), 'очки — пятая часть населения погибших, ранг вырос сразу');
+  g.brAdd(A.id, 400, null); assert.strictEqual(A.br.pts, 120, 'лагерь — ещё вдвое меньше');
+  const r = BR.rankIdx(120), units = () => Object.values(g.stashOf(A).units || {}).reduce((a, n) => a + n, 0), u0 = units();
   assert.ok(g.brRank(A) === r && g.brChests(A) === r + 1 && g.profileOf(A, A).brank.idx === r, `ранг ${r + 1} сразу, в профиле — новое звание, сундуков — ${r + 1}`);
   assert.ok(g.brClaim(A, 0).ok && g.brChests(A) === r && units() === u0 + 150, 'сундук 1-го ранга: 150 воинов — в Кладовую (вдвое меньше прежнего)');
   const cl = g.brClaim(A); assert.ok(cl.ok && g.brChests(A) === 0, cl.error);
@@ -1641,16 +1641,40 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(g.brView(Bq, A).chests === 0, 'чужие сундуки не видны');
   assert.strictEqual(BR.rankInfo(77).title, 'Легенда'); assert.strictEqual(BR.bonusAt(77).atk, 0.2);
   assert.deepStrictEqual(BR.prizeAt(6), { army: 1050, res: 1750, exp: 100 }, 'награды — вдвое меньше: ранг 7 (новое звание) — армия 1 050, ресурсы по 1 750, опыт 100');
-  // пороги — сумма стоимостей рангов, как в оригинале: следующая звезда стоит своё (раньше внутри звания — почти даром)
-  assert.ok(BR.CUM[22] - BR.CUM[21] === 28000 && BR.CUM[77] === BR.NEED.reduce((a, n) => a + n, 0) && BR.rankIdx(1000000) === 30, 'звезда «Воина» — 28 000 очков; 1 млн очков — 31-й ранг');
-  { // переход: у набравших ранг по прежним порогам ранг остаётся, сверх порога — в счёт следующего ранга
-    const M = g.register({ login: 'brMig', password: '12345', race: 0 }).user; M.br = { v: 3, pts: 28300, claimed: 20 };
+  // пороги — прежние (таблица как в оригинале); очки недолгих порогов-сумм 20.10 (v4) — назад без потери ранга
+  assert.ok(BR.rankIdx(BR.NEED[22]) === 22 && BR.rankIdx(BR.NEED[22] - 1) === 21 && BR.rankIdx(5000000) === 77, 'пороги рангов — прежние');
+  {
+    const M = g.register({ login: 'brMig', password: '12345', race: 0 }).user, cum22 = BR.NEED.slice(0, 23).reduce((a, n) => a + n, 0);
+    M.br = { v: 4, pts: cum22 + 300, claimed: 20 };
     const mb = g.brOf(M);
-    assert.ok(mb.v === 4 && g.brRank(M) === 22 && mb.claimed === 20 && mb.pts === BR.CUM[22] + 300 && g.brChests(M) === 2, `ранг 23 сохранён (${mb.pts})`);
-    g.brAdd(M.id, 56216, null); assert.strictEqual(g.brRank(M), 22, 'до 24-го ранга — ещё 28 110 очков, а не 110 (лагерь — половина: +28 108)');
-    g.brAdd(M.id, 4, null); assert.strictEqual(g.brRank(M), 23, 'набрал — 24-й ранг');
+    assert.ok(mb.v === 3 && mb.pts === BR.NEED[22] + 300 && g.brRank(M) === 22 && mb.claimed === 20 && g.brChests(M) === 2, `ранг 23 сохранён (${mb.pts})`);
+    M.br = { v: 4, pts: 15, claimed: -1 }; assert.ok(g.brOf(M).pts === 15 && g.brRank(M) === -1, 'без ранга — очки как были');
+    M.br = { v: 3, pts: 28300, claimed: 20 }; assert.strictEqual(g.brOf(M).pts, 28300, 'прежние данные (v3) не меняются');
   }
-  console.log('✓ Боевой ранг: растёт сразу по очкам, звание в профиле, сундуки наград за каждый ранг, бонусы, таблица 78 рангов; пороги — сумма стоимостей рангов, набранные ранги сохранены');
+  console.log('✓ Боевой ранг: растёт сразу по очкам (пятая часть населения погибших), звание в профиле, сундуки наград за каждый ранг, бонусы, таблица 78 рангов; пороги — прежние');
+}
+{ // Кладовая: разовый сброс излишков при обновлении — каждого ресурса не больше 400 000; второй раз не срабатывает, дальше копить можно
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'royal-stcut-')), SDB = path.join(dir, 'db.json');
+  let gs = new Game(new Store(SDB));
+  assert.ok(gs.db.stashCut && gs.db.stashCut.users === 0, 'новая база — сброс отмечен сразу, списывать нечего');
+  const reg = (l) => gs.register({ login: l, password: '12345', race: 0 }).user, K = reg('stCutK'), L = reg('stCutL'), Z = reg('stCutZ');
+  const uid = Number(Object.keys(require('../src/army').UNIT)[0]);
+  gs.stashAdd(K, { wood: 1250000, stone: 400000, iron: 399999, food: 400001, units: { [uid]: 5 }, exp: 700000 });
+  gs.stashAdd(L, { wood: 1000 }); gs.castlesOf(L)[0].stash = { res: { food: 900000 } }; // прежняя кладовая замка — тоже в счёт
+  delete gs.db.stashCut; gs.store.flush(); // база до обновления
+  gs = new Game(new Store(SDB)); // запуск новой версии
+  const k2 = gs.userById(K.id), l2 = gs.userById(L.id), ks = gs.stashOf(k2);
+  assert.ok(ks.res.wood === 400000 && ks.res.stone === 400000 && ks.res.iron === 399999 && ks.res.food === 400000, 'каждого ресурса — не больше 400 000');
+  assert.ok(ks.units[uid] === 5 && ks.exp === 700000, 'воины и опыт не тронуты');
+  assert.deepStrictEqual(k2.stashCut.res, { wood: 850000, food: 1 }, 'сколько списано — записано у игрока');
+  assert.ok(gs.stashOf(l2).res.wood === 1000 && gs.stashOf(l2).res.food === 400000 && !gs.castlesOf(l2)[0].stash, 'прежняя кладовая замка — тоже');
+  assert.ok(!gs.userById(Z.id).stashCut && gs.db.stashCut.users === 2 && gs.db.stashCut.res.wood === 850000 && gs.db.stashCut.res.food === 500001, 'итог сброса');
+  assert.strictEqual(gs.adminInspect(k2).stash.cut.res.wood, 850000, 'в «Осмотре» админки видно, сколько списано');
+  gs.stashAdd(k2, { wood: 600000 }); gs.store.flush();
+  gs = new Game(new Store(SDB));
+  assert.strictEqual(gs.stashOf(gs.userById(K.id)).res.wood, 1000000, 'второй раз не срабатывает — дальше копить можно сколько угодно');
+  gs.store.flush(); fs.rmSync(dir, { recursive: true, force: true });
+  console.log('✓ Кладовая: разовый сброс излишков при обновлении — каждого ресурса не больше 400 000; второй раз не срабатывает');
 }
 { // аватар в хорошем качестве: только сжатые точки, сервер сам собирает PNG, шелл и неверный размер — отказ
   const zl = require('zlib'), U = g.register({ login: 'avaHq', password: '12345', race: 0 }).user;

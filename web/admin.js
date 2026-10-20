@@ -202,7 +202,7 @@ function admInspectWin() {
     <div class="akv">${kv('Монеты', fmtFull(d.gold))}${kv('Премиум', till(d.premium))}${kv('Лояльность населения', fmtFull(d.royal))}${kv('Репутация', fmtFull(d.rep))}
       ${kv('Боевой ранг', `${d.brank.rank} · очков ${fmtFull(d.brank.pts)} · наград забрано ${d.brank.claimed}`)}${kv('Захватов замков', d.captures)}
       ${kv('Руны', `Силы ${gp(d.runes, 'str')} · Стойкости ${gp(d.runes, 'def')} · Пути ${gp(d.runes, 'path')}`)}${kv('Купол королевства', till(d.shieldKingdom))}${kv('Контрразведка', till(d.shieldSpy))}${kv('Регистрация', fmtDate(d.created))}</div>
-    ${sec('📦 Кладовая', `${['wood', 'stone', 'iron', 'food'].map((r) => `${RES_IC[r]} ${fmtFull(st.res[r])}`).join(' ')}<br>Воины: ${ul(st.units)}<br>Опыт генерала: <b>${fmtFull(st.exp)}</b> · лояльность: <b>${fmtFull(st.royal)}</b>`)}
+    ${sec('📦 Кладовая', `${['wood', 'stone', 'iron', 'food'].map((r) => `${RES_IC[r]} ${fmtFull(st.res[r])}`).join(' ')}<br>Воины: ${ul(st.units)}<br>Опыт генерала: <b>${fmtFull(st.exp)}</b> · лояльность: <b>${fmtFull(st.royal)}</b>${st.cut ? `<br>Сброс излишков ${fmtDate(st.cut.at)} — списано: ${['wood', 'stone', 'iron', 'food'].filter((r) => st.cut.res[r]).map((r) => `${RES_IC[r]} ${fmtFull(st.cut.res[r])}`).join(' ')}` : ''}`)}
     ${sec('📈 Счётчики', Object.entries(d.stats).filter(([, v]) => typeof v === 'number').map(([k, v]) => `${INSP_STAT[k] || esc(k)}: <b>${fmtFull(v)}</b>`).join(' · ') || 'нет')}
     <button class="pbar" data-ainsprefresh>🔄 Обновить</button></div>`;
   const castle = (c) => { const g = c.general, p = (g && g.pts) || {};
