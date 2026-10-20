@@ -1083,10 +1083,20 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .repcard.info { background: linear-gradient(#c47c4c, #6e3218); }
 .repcard:active { filter: brightness(.85); transform: translateY(1px); }
 .renv { width: 26px; height: 20px; vertical-align: -2px; }
-/* «Удалить прочитанные» — по центру нижней полосы, на одной линии с ◀ и ✕
-   (была в левом углу поверх ◀, а на телефонах с полосой жестов ещё и ниже неё) */
-.repclean { position: fixed; left: 50%; bottom: calc(3px + var(--safe-b)); width: 70px; height: 70px; margin-left: -35px; border: 0; background: none; padding: 0; z-index: 5; }
-.repclean img { width: 100%; height: 100%; object-fit: contain; }
+/* конверт в списках «Отчёты» и «Сообщения» (dialogs.js mailMenuHtml), как в оригинале: внизу слева вместо ◀ (◀ — только
+   в открытом отчёте и диалоге); нажали — меню действий со списком над полосой «Закрыть», ◀ и ✕ под ней не видны */
+.mailset { position: fixed; left: 4px; bottom: calc(3px + var(--safe-b)); width: 70px; height: 70px; border: 0; background: none; padding: 0; z-index: 5; }
+.mailset img { width: 100%; height: 100%; object-fit: contain; }
+#sheet:has(.mailset) #sheetBack, #sheet:has(.mailbar) #sheetBack, #sheet:has(.mailbar) #sheetClose { display: none; }
+.mailshade { position: fixed; inset: 0; z-index: 5; background: #0004; }
+.mailmenu { position: fixed; left: 0; bottom: calc(60px + var(--safe-b)); z-index: 6; width: min(60%, 320px); display: grid; border: 2px solid #c8963e; border-left: 0;
+  background: linear-gradient(#8a4a1c, #6a3410); box-shadow: 0 -2px 10px #0008; }
+.mailmenu button { min-height: 52px; padding: 6px 12px; border: 0; border-bottom: 1px solid #3e1a0a; background: none; color: var(--cream); font: min(22px, 5.4vw)/1.15 var(--serif); text-align: left; }
+.mailmenu button:last-child { border-bottom: 0; }
+.mailmenu button:active { background: #fff3; }
+.mailbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; display: flex; align-items: center; padding: 6px 6px calc(6px + var(--safe-b));
+  background: linear-gradient(#5a2410, #3a1406); border-top: 2px solid #c8963e; }
+.mailbar button { height: 46px; padding: 0 18px; border: 2px solid #c8963e; border-radius: 6px; background: linear-gradient(#9a5a2a, #5a2a10); color: var(--cream); font: min(22px, 5.4vw) var(--serif); }
 .rp { font: min(22px, 5.2vw)/1.45 var(--serif); color: #2a1408; padding: 4px 2px; }
 .rp b { font-weight: 700; }
 .rhr { border: 0; border-top: 1px solid #b08a5a88; margin: 8px 0; }

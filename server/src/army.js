@@ -2253,13 +2253,28 @@ function install(Game, helpers) {
     if (r.kind === 'scout' || /напал|захвачен/.test(r.title)) return 'lose';
     return 'info';
   };
-  // удалить отчёты: ids — номера или 'read' (все прочитанные); пересланные в личку копии (fwd) живут при письме — их тут не удалить
+  // удалить отчёты: ids — номера или (конверт в списке) 'all' / 'read' / 'new' — все, прочитанные, новые;
+  // пересланные в личку копии (fwd) живут при письме — их тут не удалить
   P.reportDelete = function reportDelete(user, ids) {
-    const read = ids === 'read', set = new Set(read ? [] : [].concat(ids || []).map(Number));
+    const mode = ['all', 'read', 'new'].includes(ids) ? ids : null, set = new Set(mode ? [] : [].concat(ids || []).map(Number));
+    const hit = (r) => (mode === 'all' || (mode === 'read' && r.read) || (mode === 'new' && !r.read) || set.has(r.id));
     const before = (this.db.reports || []).length;
-    this.db.reports = (this.db.reports || []).filter((r) => !(r.owner === user.id && !r.fwd && (read ? r.read : set.has(r.id))));
+    this.db.reports = (this.db.reports || []).filter((r) => !(r.owner === user.id && !r.fwd && hit(r)));
     this.store.save();
     return { n: before - this.db.reports.length };
+  };
+  // конверт → «Отметить как прочитанные»: все свои отчёты
+  P.reportReadAll = function reportReadAll(user) {
+    let n = 0;
+    for (const r of this.db.reports || []) if (r.owner === user.id && !r.read) { r.read = true; n++; }
+    if (n) this.store.save();
+    return { n };
+  };
+  // список «Отчёты» по страницам, как в оригинале: по 10, новые сверху
+  P.reportsPage = function reportsPage(userId, page) {
+    const all = (this.db.reports || []).filter((r) => r.owner === userId && !r.fwd).reverse(), pages = Math.max(1, Math.ceil(all.length / 10));
+    const pg = Math.min(Math.max(0, Math.floor(Number(page)) || 0), pages - 1);
+    return { list: all.slice(pg * 10, pg * 10 + 10), page: pg, pages, total: all.length };
   };
   // переслать отчёт другому игроку — как в оригинале, в личные сообщения: письмо «Вам прислали отчёт» с кнопкой-названием.
   // Копия отчёта (fwd) — у получателя; в списке «Отчёты» её нет, открывается из переписки (получателем и отправителем)

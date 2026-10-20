@@ -110,6 +110,13 @@ function client() {
     a.send({ t: 'read', id: mail.list[0].id });
     assert.equal((await a.expect('letter')).letter.text, 'Из браузера');
     console.log('✓ почта между игроками');
+    { // конверт в списке «Сообщения»: отметить всё прочитанным, удалить прочитанные переписки — в ответ список той же страницы
+      a.send({ t: 'msgbulk', op: 'readall', page: 0, filter: 'all' }); await a.expect('toast', (m) => /Новых сообщений нет|Прочитано сообщений/.test(m.msg));
+      const d0 = await a.expect('dialogs'); assert.ok(d0.total >= 1 && d0.list.every((x) => !x.unread), 'всё прочитано, переписки на месте');
+      a.send({ t: 'msgbulk', op: 'read', page: 3, filter: 'all' }); await a.expect('toast', (m) => /Удалено переписок: \d/.test(m.msg));
+      const dl = await a.expect('dialogs'); assert.ok(dl.total === 0 && dl.page === 0, 'удалена, страница — не дальше последней');
+      console.log('✓ «Сообщения», конверт: отметить прочитанными, удалить прочитанные переписки');
+    }
 
     a.send({ t: 'rating' });
     const rows = (await a.expect('rating')).rows;
@@ -275,6 +282,15 @@ function client() {
     const sl = (await adm.expect('report')).report.lines;
     assert.ok(sl.some((l) => /Выжило разведчиков: 100%/.test(l)) && sl.some((l) => /^Подкрепления/.test(l)) && sl.some((l) => /^Здания/.test(l)), sl.join('\n'));
     console.log('✓ Центр разведки:', sl[1]);
+    { // «Отчёты» по 10 на страницу; конверт: «Отметить как прочитанные», «Удалить прочитанные» — в ответ та же страница
+      adm.send({ t: 'reports', page: 5 }); const pg = await adm.expect('reports');
+      assert.ok(pg.page === pg.pages - 1 && pg.list.length <= 10 && pg.total >= 2, `страница — не дальше последней (${pg.page}/${pg.pages})`);
+      adm.send({ t: 'repread', page: 0 }); await adm.expect('toast', (m) => /Прочитано отчётов|Новых отчётов нет/.test(m.msg));
+      assert.ok((await adm.expect('reports')).list.every((x) => x.read), 'все прочитаны');
+      adm.send({ t: 'repdel', ids: 'read', page: 0 }); await adm.expect('toast', (m) => /Удалено отчётов/.test(m.msg));
+      assert.strictEqual((await adm.expect('reports')).total, 0, '«Удалить прочитанные» — список пуст');
+      console.log('✓ «Отчёты»: страницы по 10, конверт — отметить прочитанными, удалить прочитанные');
+    }
 
     // ---- Караульная башня: оповещение о набеге (не о разведке), «Передвижения армий» ----
     adm.send({ t: 'send', units: { 200: 10 }, x: target.x, y: target.y, mission: 'raid' });

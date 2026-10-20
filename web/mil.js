@@ -330,7 +330,7 @@ function artifactsHtml() {
 // ---------- отправка войск — окно «Военный поход» в armies.js ----------
 
 // ---------- отчёты ----------
-function openReports() { S.reports = null; send({ t: 'reports' }); openSheet(reportsHtml); }
+function openReports() { S.reports = null; S.repPage = 0; S.mailMenu = null; send({ t: 'reports', page: 0 }); openSheet(reportsHtml); }
 // дата как в оригинале: «Сегодня, 14:03», «Вчера, 14:03», иначе «27.09.2026 13:07»
 function repDate(t) {
   const d = new Date(t), hm = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
@@ -340,12 +340,13 @@ function repDate(t) {
   return `${d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${hm}`;
 }
 const REPG = 'gfx3d/rep/';
+// список — по 10 на страницу (сервер: reports { page }), внизу слева конверт с меню (mailMenuHtml в dialogs.js)
 function reportsHtml() {
-  const list = S.reports || [];
-  return `<div class="ribbon"><span><img class="renv" src="${REPG}envnew.svg" alt=""> Отчеты ${S.reports ? list.length : ''}</span></div>
-    <div class="replist">${!S.reports ? '<p class="parch-note">Загрузка…</p>' : list.map((r) => `<button class="repcard ${r.tone || 'info'} ${r.read ? '' : 'new'}" data-report="${r.id}">
+  const R = S.reports;
+  return `<div class="ribbon"><span><img class="renv" src="${REPG}envnew.svg" alt=""> Отчеты ${R ? R.total : ''}</span></div>${R ? mailPager('reppg', R.page, R.pages) : ''}
+    <div class="replist">${!R ? '<p class="parch-note">Загрузка…</p>' : R.list.map((r) => `<button class="repcard ${r.tone || 'info'} ${r.read ? '' : 'new'}" data-report="${r.id}">
       <b><img class="renv" src="${REPG}${r.read ? 'env' : 'envnew'}.svg" alt=""> ${esc(r.title)}</b><span>От: ${esc(r.from || 'Советник')}</span><span>${repDate(r.at)}</span></button>`).join('') || '<p class="parch-note">Отчётов пока нет.</p>'}</div>
-    ${list.some((r) => r.read) ? `<button class="repclean" data-repclean title="Удалить прочитанные"><img src="${REPG}mailset.png" alt=""></button>` : ''}`;
+    ${mailMenuHtml('rep')}`;
 }
 // окно отчёта как в оригинале: шапка «От/Тема/дата», итог похода, стороны, армии с потерями по юнитам
 function reportHtml(r) {
@@ -479,8 +480,8 @@ function armyBookHtml() {
 // ---------- события ----------
 function milMsg(m) {
   if (m.t === 'alliances') { S.alliances = m.list; S.alFound = m.list; refreshSheet(); }
-  if (m.t === 'reports') { S.reports = m.list; refreshSheet(); }
-  if (m.t === 'report') openSheet(() => reportHtml(m.report));
+  if (m.t === 'reports') { S.reports = m; S.repPage = m.page; refreshSheet(); }
+  if (m.t === 'report') { const it = S.reports && S.reports.list.find((x) => x.id === m.report.id); if (it) it.read = true; S.mailMenu = null; openSheet(() => reportHtml(m.report)); } // ◀ — к списку: отчёт уже прочитан
 }
 function hqCell() { const i = S.st.castle.grid[0].indexOf(HQ); return i; }
 
@@ -496,8 +497,8 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.armyopen !== undefined) return openArmySheet({ mission: d.armyopen || 'raid', x: d.ax !== undefined ? Number(d.ax) : '', y: d.ay !== undefined ? Number(d.ay) : '' });
   if (d.reports !== undefined) return openReports();
   if (d.report) return send({ t: 'report', id: Number(d.report) });
-  if (d.repdel) { send({ t: 'repdel', ids: [Number(d.repdel)] }); return closeSheet(); }
-  if (d.repclean !== undefined) { if (confirm('Удалить все прочитанные отчёты?')) send({ t: 'repdel', ids: 'read' }); return; }
+  if (d.reppg !== undefined) { S.repPage = Math.max(0, Number(d.reppg)); return send({ t: 'reports', page: S.repPage }); }
+  if (d.repdel) { send({ t: 'repdel', ids: [Number(d.repdel)], page: S.repPage }); return closeSheet(); }
   if (d.repfwd) { const to = prompt('Кому переслать отчёт? Ник игрока:'); if (to) send({ t: 'repfwd', id: Number(d.repfwd), to }); return; }
   if (d.sci) return send({ t: 'research', sci: d.sci });
   if (d.religion) return send({ t: 'religion', id: d.religion });

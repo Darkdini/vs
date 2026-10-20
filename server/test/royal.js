@@ -315,7 +315,31 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(!g.reportsOf(a.id).some((x) => x.id === r1.id) && g.reportsOf(a.id).some((x) => x.id === r2.id), 'непрочитанный остался');
   assert.strictEqual(g.reportDelete(a, [r2.id]).n, 1);
   assert.ok(g.canSeeReport(b, fw), 'отправитель удалил свой отчёт — в письме у получателя он остался');
-  console.log('✓ отчёты: зелёный/красный в списке, «Переслать» — в личные сообщения (кнопка-отчёт), «Удалить» и «Удалить прочитанные» — только свои');
+  // как в оригинале: список по 10 на страницу; конверт — «Отметить как прочитанные», «Удалить новые / прочитанные / всё»
+  for (let i = 0; i < 23; i++) g.report(a.id, `Отчёт ${i}`, ['x'], 'battle');
+  const p0 = g.reportsPage(a.id, 0), p2 = g.reportsPage(a.id, 2), pBig = g.reportsPage(a.id, 99);
+  assert.ok(p0.pages === 3 && p0.total === 23 && p0.list.length === 10 && p0.list[0].title === 'Отчёт 22' && p2.list.length === 3 && pBig.page === 2, 'страницы по 10, новые сверху');
+  assert.ok(g.reportsPage(b.id, 0).total === 0 && g.reportsPage(b.id, 0).pages === 1, 'пересланная копия — не в списке получателя');
+  for (const r of p0.list.slice(0, 4)) r.read = true;
+  assert.strictEqual(g.reportDelete(a, 'new').n, 19, '«Удалить новые» — только непрочитанные');
+  g.report(a.id, 'Ещё один', ['x'], 'battle');
+  assert.ok(g.reportReadAll(a).n === 1 && g.reportsPage(a.id, 0).list.every((r) => r.read) && g.reportReadAll(a).n === 0, '«Отметить как прочитанные»');
+  assert.ok(g.reportDelete(a, 'all').n === 5 && g.reportsPage(a.id, 0).total === 0 && g.canSeeReport(b, fw), '«Удалить всё» — свои, пересланная копия у получателя цела');
+  console.log('✓ отчёты: зелёный/красный в списке, «Переслать» — в личные сообщения (кнопка-отчёт), «Удалить» и «Удалить прочитанные» — только свои; по 10 на страницу, меню конверта');
+}
+{ // «Сообщения», конверт: удалить все / прочитанные / с новыми переписки, отметить всё прочитанным — только у себя
+  const [a, b, c, d] = ['mbA', 'mbB', 'mbC', 'mbD'].map((l) => g.register({ login: `${l}_acc`, nick: l, password: '12345', race: 0 }).user);
+  g.sendMail(b, a.login, 'Сообщение', 'от B'); g.sendMail(c, a.login, 'Сообщение', 'от C'); g.sendMail(a, d.login, 'Сообщение', 'для D');
+  const mine = () => g.db.messages.filter((m) => g.msgSees(m, a.id)), seesB = () => g.db.messages.some((m) => m.from === b.id && g.msgSees(m, b.id));
+  g.db.messages.find((m) => m.from === b.id && m.to === a.id).read = true;
+  let r = g.msgBulk(a, 'read'); // B — прочитано, D — своё отправленное: удаляются; C — с новым: остаётся
+  assert.ok(r.dialogs === 2 && mine().length === 1 && mine()[0].from === c.id && seesB(), `«Удалить прочитанные» (${JSON.stringify(r)}), у собеседника сообщение осталось`);
+  g.sendMail(d, a.login, 'Сообщение', 'снова D');
+  r = g.msgBulk(a, 'new'); assert.ok(r.dialogs === 2 && mine().length === 0, '«Удалить новые» — переписки с непрочитанными');
+  g.sendMail(b, a.login, 'Сообщение', 'ещё B'); g.sendMail(c, a.login, 'Сообщение', 'ещё C');
+  assert.ok(g.msgBulk(a, 'readall').n === 2 && mine().every((m) => m.read) && g.msgBulk(a, 'readall').n === 0, '«Отметить как прочитанные»');
+  r = g.msgBulk(a, 'all'); assert.ok(r.dialogs === 2 && mine().length === 0 && g.msgBulk(a, 'all').dialogs === 0, '«Удалить всё»');
+  console.log('✓ Сообщения, конверт: удалить все / прочитанные / с новыми переписки, отметить всё прочитанным — только у себя');
 }
 // общий форум: темы создают только модераторы, отвечают все; закрытие, запрет, модератор раздела
 {

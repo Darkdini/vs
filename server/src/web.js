@@ -693,6 +693,13 @@ const API = {
     this.toast(r.n ? `Удалено сообщений: ${r.n}.` : 'Нечего удалять.'); this.pushState();
     if (w !== null || m.dlg) API.dialog.call(this, { id: w !== null ? w : Number(m.dlg), keep: 1 });
   },
+  // конверт в списке «Сообщения»: удалить все / прочитанные / с новыми переписки или отметить всё прочитанным; в ответ — та же страница
+  msgbulk(m) {
+    const op = ['all', 'read', 'new', 'readall'].includes(m.op) ? m.op : null; if (!op) return this.error('Неизвестное действие.');
+    const r = this.game.msgBulk(this.user, op);
+    this.toast(op === 'readall' ? (r.n ? `Прочитано сообщений: ${r.n}.` : 'Новых сообщений нет.') : r.dialogs ? `Удалено переписок: ${r.dialogs}.` : 'Нечего удалять.');
+    this.pushState(); API.dialogs.call(this, { page: m.page, filter: m.filter });
+  },
   msgfwd(m) { // «Переслать» сообщение: получателю — как новое письмо (открыта переписка — обновится сразу)
     const r = this.game.msgForward(this.user, m.id, m.to); if (r.error) return this.error(r.error); this.toast(r.msg);
     for (const s of WebSession.all || []) if (s.user && s.user.id === r.to.id) { if (s.dialogWith === this.user.id) API.dialog.call(s, { id: this.user.id, keep: 1 }); else if (s.notifyMail) s.notifyMail(this.user.login); }
@@ -802,8 +809,14 @@ const API = {
       leader: (this.game.userById(a.leader) || {}).login, ad: a.ad || '', requested: (a.requests || []).includes(this.user.id) })).sort((x, y) => y.members - x.members);
     this.send({ t: 'alliances', list });
   },
-  reports() { this.send({ t: 'reports', list: this.game.reportsOf(this.user.id).map((x) => ({ id: x.id, at: x.at, kind: x.kind, title: x.title, read: x.read, tone: this.game.reportTone(x), from: x.from })) }); },
-  repdel(m) { const r = this.game.reportDelete(this.user, m.ids === 'read' ? 'read' : [].concat(m.ids || [])); this.toast(r.n ? `Удалено отчётов: ${r.n}` : 'Нечего удалять.'); API.reports.call(this); this.pushState(); },
+  // «Отчёты» — по 10 на страницу (page), новые сверху
+  reports(m) {
+    const r = this.game.reportsPage(this.user.id, m && m.page);
+    this.send({ t: 'reports', page: r.page, pages: r.pages, total: r.total, list: r.list.map((x) => ({ id: x.id, at: x.at, kind: x.kind, title: x.title, read: x.read, tone: this.game.reportTone(x), from: x.from })) });
+  },
+  // удалить: номера или из конверта 'all' / 'read' / 'new'; в ответ — та же страница списка
+  repdel(m) { const r = this.game.reportDelete(this.user, ['all', 'read', 'new'].includes(m.ids) ? m.ids : [].concat(m.ids || [])); this.toast(r.n ? `Удалено отчётов: ${r.n}` : 'Нечего удалять.'); API.reports.call(this, { page: m.page }); this.pushState(); },
+  repread(m) { const r = this.game.reportReadAll(this.user); this.toast(r.n ? `Прочитано отчётов: ${r.n}` : 'Новых отчётов нет.'); API.reports.call(this, { page: m.page }); this.pushState(); },
   repfwd(m) { // пересланный отчёт приходит письмом: получателю — как новое письмо (открыта переписка — обновится сразу)
     const r = this.game.reportForward(this.user, m.id, m.to); if (r.error) return this.error(r.error); this.toast(r.msg);
     for (const s of WebSession.all || []) if (s.user && s.user.id === r.to.id) { if (s.dialogWith === this.user.id) API.dialog.call(s, { id: this.user.id, keep: 1 }); else { s.toast(`${this.user.login} переслал(а) вам отчёт — он в личных сообщениях.`); s.pushState(); } }

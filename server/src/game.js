@@ -793,6 +793,15 @@ class Game {
     if (n) { this.db.messages = this.db.messages.filter((m) => !(m.delFrom && m.delTo)); this.store.save(); }
     return { ok: true, n };
   }
+  // конверт в списке «Сообщения»: удалить все переписки ('all'), прочитанные ('read') или с новыми сообщениями ('new') —
+  // только у себя, как «Удалить разговор»; 'readall' — отметить все сообщения прочитанными. dialogs — сколько переписок затронуто
+  msgBulk(user, op) {
+    const me = user.id, mine = (this.db.messages || []).filter((m) => this.msgSees(m, me)), who = (m) => (m.from === me ? m.to : m.from);
+    if (op === 'readall') { let n = 0; for (const m of mine) if (m.to === me && !m.read) { m.read = true; n++; } if (n) this.store.save(); return { n }; }
+    const fresh = new Set(mine.filter((m) => m.to === me && !m.read).map(who));
+    const pick = mine.filter((m) => op === 'all' || (op === 'new' ? fresh.has(who(m)) : !fresh.has(who(m))));
+    return { ...this.msgDelete(user, pick.map((m) => m.id)), dialogs: new Set(pick.map(who)).size };
+  }
   // «Переслать» сообщение другому игроку — с пометкой, от кого оно; фото — той же картинкой (пока не истекла), отчёт — снова отчётом
   msgForward(user, id, toLogin) {
     const m = (this.db.messages || []).find((x) => x.id === Number(id) && this.msgSees(x, user.id));
