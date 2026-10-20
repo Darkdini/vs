@@ -1641,7 +1641,16 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(g.brView(Bq, A).chests === 0, 'чужие сундуки не видны');
   assert.strictEqual(BR.rankInfo(77).title, 'Легенда'); assert.strictEqual(BR.bonusAt(77).atk, 0.2);
   assert.deepStrictEqual(BR.prizeAt(6), { army: 1050, res: 1750, exp: 100 }, 'награды — вдвое меньше: ранг 7 (новое звание) — армия 1 050, ресурсы по 1 750, опыт 100');
-  console.log('✓ Боевой ранг: растёт сразу по очкам, звание в профиле, сундуки наград за каждый ранг, бонусы, таблица 78 рангов');
+  // пороги — сумма стоимостей рангов, как в оригинале: следующая звезда стоит своё (раньше внутри звания — почти даром)
+  assert.ok(BR.CUM[22] - BR.CUM[21] === 28000 && BR.CUM[77] === BR.NEED.reduce((a, n) => a + n, 0) && BR.rankIdx(1000000) === 30, 'звезда «Воина» — 28 000 очков; 1 млн очков — 31-й ранг');
+  { // переход: у набравших ранг по прежним порогам ранг остаётся, сверх порога — в счёт следующего ранга
+    const M = g.register({ login: 'brMig', password: '12345', race: 0 }).user; M.br = { v: 3, pts: 28300, claimed: 20 };
+    const mb = g.brOf(M);
+    assert.ok(mb.v === 4 && g.brRank(M) === 22 && mb.claimed === 20 && mb.pts === BR.CUM[22] + 300 && g.brChests(M) === 2, `ранг 23 сохранён (${mb.pts})`);
+    g.brAdd(M.id, 56216, null); assert.strictEqual(g.brRank(M), 22, 'до 24-го ранга — ещё 28 110 очков, а не 110 (лагерь — половина: +28 108)');
+    g.brAdd(M.id, 4, null); assert.strictEqual(g.brRank(M), 23, 'набрал — 24-й ранг');
+  }
+  console.log('✓ Боевой ранг: растёт сразу по очкам, звание в профиле, сундуки наград за каждый ранг, бонусы, таблица 78 рангов; пороги — сумма стоимостей рангов, набранные ранги сохранены');
 }
 { // аватар в хорошем качестве: только сжатые точки, сервер сам собирает PNG, шелл и неверный размер — отказ
   const zl = require('zlib'), U = g.register({ login: 'avaHq', password: '12345', race: 0 }).user;
