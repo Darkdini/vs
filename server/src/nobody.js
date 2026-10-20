@@ -3,7 +3,8 @@
 // а сам игрок исчезает отовсюду, как при «Удалить» (admin.js purgeUser): рейтинги, альянс, друзья, переписка, отчёты.
 // Ничейные замки («Ничейный замок») держит служебный бот «Ничейные земли» (u.nobody): столицы у него нет — захватить можно любой замок, как обычный:
 // победные нападения с Бунтарями, бунт +15% за каждое (army.js), нужна лояльность населения (royal.js).
-// Войска, генералы, стройки и очереди пропадают вместе с игроком; постройки и ресурсы остаются, ресурсы растут как обычно.
+// Армия остаётся и защищает замок (походы сразу возвращаются домой); генералы, стройки и очереди пропадают вместе с игроком;
+// постройки и ресурсы остаются, ресурсы растут как обычно.
 // Раса замка остаётся прежней (castle.abandon.race). Отчёты, лента друзей и лояльность ничейному владельцу не ведутся.
 const NOBODY = 'Ничейные земли', CASTLE = 'Ничейный замок', NO_OWNER = 'Ничейные земли — у них нет хозяина.';
 const RES4 = ['wood', 'stone', 'iron', 'food'];
@@ -22,7 +23,8 @@ function install(Game) {
   };
   P.isNobody = function isNobody(u) { if (u && typeof u !== 'object') u = this.userById(Number(u)); return !!(u && u.nobody); };
 
-  // замки игрока — ничьи, игрок — удалён отовсюду. Недострои (Освоение) просто исчезают. Возвращает, сколько замков заброшено
+  // замки игрока — ничьи (армия остаётся их защищать, генерал пропадает), игрок — удалён отовсюду. Недострои (Освоение) просто исчезают.
+  // Возвращает, сколько замков заброшено
   P.abandonUser = function abandonUser(t, now = Date.now()) {
     const nb = this.nobodyUser(), list = [];
     for (const c of this.castlesOf(t)) {
@@ -35,7 +37,11 @@ function install(Game) {
       this.tick(c); this.mil(c);
       c.abandon = { at: now, login: t.login, race: t.race, name: c.name };
       c.owner = nb.id; c.name = CASTLE;
-      c.units = {}; c.squads = []; c.training = []; c.armies = []; c.general = null; c.deadGenerals = []; c.research = null; c.queue = []; c.expeds = []; c.upJobs = {};
+      for (const a of c.armies) { // походы — сразу домой: войска в замок, груз торговцев — на склад (как при отзыве)
+        for (const [id, n] of Object.entries(a.units || {})) if (n > 0) c.units[id] = (c.units[id] || 0) + n;
+        if (a.cargo) for (const r of RES4) c.res[r] += a.cargo[r] || 0;
+      }
+      c.armies = []; c.general = null; c.deadGenerals = []; c.training = []; c.research = null; c.queue = []; c.expeds = []; c.upJobs = {}; // генерал — пропал
       delete c.wounded; delete c.healing; delete c.calmJob; delete c.shieldUntil; delete c.forgeJob; delete c.magicJob; delete c.magicJobs; // купол снят — замок можно брать сразу
       nb.castleIds.push(c.id); list.push({ x: c.x, y: c.y });
     }

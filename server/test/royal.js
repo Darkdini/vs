@@ -2118,12 +2118,14 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
   }
   { // «Забросить замки» (админка): замки давно не играющего — ничьи (служебный бот «Ничейные земли»), столицы нет — любой берут, как обычный:
-    // бунт +15% за победу с Бунтарями; войска пропадают, постройки и ресурсы остаются (и растут); игрок удаляется отовсюду; ничейному — ни отчётов, ни рейтинга
+    // бунт +15% за победу с Бунтарями; армия остаётся (походы — домой), генерал пропадает; постройки и ресурсы остаются (и растут);
+    // игрок удаляется отовсюду; ничейному — ни отчётов, ни рейтинга
     const luck0 = process.env.LUCK; process.env.LUCK = '0';
     const adm = g.adminUser(), mk = (login, race = 0) => { const u = g.register({ login, password: '12345', race }).user; u.created = Date.now() - 60 * DAY; u.royal = 1e6; u.royalAt = Date.now(); u.lastSeen = Date.now(); return u; };
     const A = mk('nbAtt1'), L = mk('nbLost1', 3), F = mk('nbFrnd1'); g.adminAddCastles(L, 1);
     const [cap, two] = g.castlesOf(L), ca = g.castleOf(A); g.mil(cap); g.mil(two); g.mil(ca); g.maxOut(ca); g.maxOut(cap);
     cap.units = { 245: 50 }; cap.loyalty = 100; two.loyalty = 40; F.friends = [L.id]; L.friends = [F.id];
+    cap.general = g.newGeneral(cap, 3); cap.armies = [{ id: g.db.nextId++, units: { 245: 10 }, general: true, mission: 'attack', x: 1, y: 1, depart: Date.now(), arrive: Date.now() + 1e9, sec: 1e6, state: 'go', loot: null }];
     two.shieldUntil = Date.now() + 3600000; g.sciOf(two).eco = 7; assert.ok(g.castleShield(two) && g.sciOf(cap).eco === 7, 'до: купол на замке, науки игрока');
     g.sendMail(F, L.login, 'Привет', 'Ты где?'); g.sendMail(L, F.login, 'Ответ', 'Тут');
     assert.ok(g.isCapital(cap), 'до: столица — первый замок');
@@ -2134,7 +2136,8 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     const nb = g.nobodyUser();
     assert.ok(nb.nobody && nb.bot && nb.login === 'Ничейные земли' && cap.owner === nb.id && two.owner === nb.id && g.castlesOf(nb).includes(cap), 'замки — у «Ничейных земель»');
     assert.ok(!g.db.users.nbLost1 && !g.userById(L.id), 'игрок удалён');
-    assert.ok(cap.name === 'Ничейный замок' && !Object.keys(cap.units).length && !cap.armies.length && !cap.general && cap.abandon.login === 'nbLost1' && g.buildingLevel(cap, 25) > 0, 'войска пропали, постройки остались');
+    assert.ok(cap.name === 'Ничейный замок' && cap.units[245] === 60 && !cap.armies.length && cap.abandon.login === 'nbLost1' && g.buildingLevel(cap, 25) > 0, `армия на месте, поход вернулся домой, постройки остались (${JSON.stringify(cap.units)})`);
+    assert.ok(!cap.general && !cap.deadGenerals.length, 'генерал пропал');
     assert.ok(g.raceOf(cap) === 'orcs' && nb.race === 'humans', 'раса замка — прежняя');
     assert.ok(!g.isCapital(cap) && !g.isCapital(two), 'столицы у ничейных замков нет');
     assert.ok(two.loyalty === 40, 'бунт в замке — какой был');
@@ -2180,7 +2183,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.ok(Number.isFinite(nb.royal), `лояльность ничейного — число (${nb.royal})`);
     const dl = g.adminOp(adm, 'castledel', { login: nb.login, cid: two.id }); assert.ok(dl.ok && !g.castleAt(two.x, two.y) && !nb.castleIds.includes(two.id), dl.error || 'админ убрал ничейный замок с карты');
     if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
-    console.log('✓ «Забросить замки»: замки — ничьи, столицы нет, войска пропали, постройки и ресурсы (растут) остались, игрок удалён; бывшую столицу берут за 7 побед с Бунтарями');
+    console.log('✓ «Забросить замки»: замки — ничьи, столицы нет, армия осталась (генерал пропал), постройки и ресурсы (растут) остались, игрок удалён; бывшую столицу берут за 7 побед с Бунтарями');
   }
   { // цены, которые раньше не влезали в Склад (75 200): науки 15–20, улучшения Кузницы/Школы магии; воскрешение генерала — до 100 ур. не дороже Склада, выше — за монеты
     const cat = require('../src/army').catalogJson();
