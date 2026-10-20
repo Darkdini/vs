@@ -1664,7 +1664,8 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const v = g.brView(A, A); assert.ok(v.table.length === 78 && v.title && v.next && v.chests === 0 && v.claimed === r, 'окно ранга');
   assert.ok(g.brView(Bq, A).chests === 0, 'чужие сундуки не видны');
   assert.strictEqual(BR.rankInfo(77).title, 'Легенда'); assert.strictEqual(BR.bonusAt(77).atk, 0.2);
-  assert.deepStrictEqual(BR.prizeAt(6), { army: 1050, res: 1750, exp: 100 }, 'награды — вдвое меньше: ранг 7 (новое звание) — армия 1 050, ресурсы по 1 750, опыт 100');
+  assert.deepStrictEqual(BR.prizeAt(6), { army: 1050, res: 1750, exp: 700 }, 'ранг 7 — армия 1 050, ресурсы по 1 750, опыт генерала 700');
+  assert.ok(BR.prizeAt(0).exp === 100 && BR.prizeAt(1).exp === 200 && BR.prizeAt(77).exp === 7800, 'опыт генерала — за каждый ранг: 100 × номер ранга');
   // пороги — прежние (таблица как в оригинале); очки недолгих порогов-сумм 20.10 (v4) — назад без потери ранга
   assert.ok(BR.rankIdx(BR.NEED[22]) === 22 && BR.rankIdx(BR.NEED[22] - 1) === 21 && BR.rankIdx(5000000) === 77, 'пороги рангов — прежние');
   {
