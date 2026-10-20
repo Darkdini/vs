@@ -1680,18 +1680,19 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   A.br = undefined; g.brOf(A);
   g.brAdd(A.id, 400, Bq.id); assert.ok(A.br.pts === 80 && g.brRank(A) === BR.rankIdx(80), 'очки — пятая часть населения погибших, ранг вырос сразу');
   g.brAdd(A.id, 400, null); assert.strictEqual(A.br.pts, 120, 'лагерь — ещё вдвое меньше');
-  const r = BR.rankIdx(120), units = () => Object.values(g.stashOf(A).units || {}).reduce((a, n) => a + n, 0), u0 = units();
+  const r = BR.rankIdx(120), units = () => Object.values(g.stashOf(A).units || {}).reduce((a, n) => a + n, 0), u0 = units(), e0 = g.stashOf(A).exp || 0;
   assert.ok(g.brRank(A) === r && g.brChests(A) === r + 1 && g.profileOf(A, A).brank.idx === r, `ранг ${r + 1} сразу, в профиле — новое звание, сундуков — ${r + 1}`);
   assert.ok(g.brClaim(A, 0).ok && g.brChests(A) === r && units() === u0 + 150, 'сундук 1-го ранга: 150 воинов — в Кладовую (вдвое меньше прежнего)');
   const cl = g.brClaim(A); assert.ok(cl.ok && g.brChests(A) === 0, cl.error);
   const want = Array.from({ length: r + 1 }, (_, k) => 150 * (k + 1)).reduce((a, n) => a + n, 0); assert.strictEqual(units() - u0, want, 'армия за все открытые ранги — в Кладовую');
+  assert.strictEqual((g.stashOf(A).exp || 0) - e0, want / 3, 'опыт генерала за все открытые ранги — в Кладовую: 50 × номер ранга');
   assert.ok(/Новых наград нет/.test(g.brClaim(A).error || ''), 'дважды не забрать');
   const b = g.brBonus(A); assert.ok(b.atk > 0 && b.prod > 0 && b.atk <= 0.2, 'бонус ранга — сразу');
   const v = g.brView(A, A); assert.ok(v.table.length === 78 && v.title && v.next && v.chests === 0 && v.claimed === r, 'окно ранга');
   assert.ok(g.brView(Bq, A).chests === 0, 'чужие сундуки не видны');
   assert.strictEqual(BR.rankInfo(77).title, 'Легенда'); assert.strictEqual(BR.bonusAt(77).atk, 0.2);
-  assert.deepStrictEqual(BR.prizeAt(6), { army: 1050, res: 1750, exp: 700 }, 'ранг 7 — армия 1 050, ресурсы по 1 750, опыт генерала 700');
-  assert.ok(BR.prizeAt(0).exp === 100 && BR.prizeAt(1).exp === 200 && BR.prizeAt(77).exp === 7800, 'опыт генерала — за каждый ранг: 100 × номер ранга');
+  assert.deepStrictEqual(BR.prizeAt(6), { army: 1050, res: 1750, exp: 350 }, 'ранг 7 — армия 1 050, ресурсы по 1 750, опыт генерала 350');
+  assert.ok(BR.prizeAt(0).exp === 50 && BR.prizeAt(1).exp === 100 && BR.prizeAt(77).exp === 3900, 'опыт генерала — за каждый ранг: 50 × номер ранга');
   // пороги — прежние (таблица как в оригинале); очки недолгих порогов-сумм 20.10 (v4) — назад без потери ранга
   assert.ok(BR.rankIdx(BR.NEED[22]) === 22 && BR.rankIdx(BR.NEED[22] - 1) === 21 && BR.rankIdx(5000000) === 77, 'пороги рангов — прежние');
   {
