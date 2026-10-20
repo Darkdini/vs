@@ -819,7 +819,7 @@ function worldInfo() {
   const o = w.objects.find((v) => v.x === x && v.y === y);
   // как в клиенте: название клетки, ниже координаты и владелец
   const title = !o ? 'Свободная земля' : o.kind === 'castle' ? esc(o.name) : esc(o.name);
-  box.innerHTML = `<b>${title}</b><br>X: ${x} Y: ${y}` + (o && o.kind === 'castle' ? ` · ${esc(o.owner)}${o.alliance ? ` [${esc(o.alliance)}]` : ''} · ★${fmtFull(o.rating)}` : '')
+  box.innerHTML = `<b>${title}</b><br>X: ${x} Y: ${y}` + (o && o.kind === 'castle' ? ` · ${o.nobody ? 'ничей' : esc(o.owner)}${o.alliance ? ` [${esc(o.alliance)}]` : ''} · ★${fmtFull(o.rating)}` : '')
     + (o ? '<small>нажмите — действия</small>' : '');
   box.classList.remove('hidden');
 }

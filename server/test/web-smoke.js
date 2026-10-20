@@ -478,6 +478,22 @@ function client() {
     await a.expect('state', (m) => m.user.premium >= pm0 + 2 * 86400000);
     console.log('✓ «Премиум всем»: админ дарит на выбранный срок, игрок в игре видит сразу');
 
+    // ---- «Забросить замки»: игрока, который в игре, выбрасывает; его замок на карте — ничей; профиль «Ничейных земель» не открыть ----
+    {
+      const z = client(); await z.open();
+      z.send({ t: 'register', login: 'zabros1', password: '12345', race: 0 }); await z.expect('registered');
+      z.send({ t: 'login', login: 'zabros1', password: '12345' }); const zc = (await z.expect('state')).castle;
+      adm.send({ t: 'admin', op: 'abandon', login: 'zabros1' });
+      await adm.expect('toast', (m) => /Замки игрока zabros1 заброшены \(1\)/.test(m.msg));
+      for (let w = 0; w < 30 && !z.closed(); w++) await new Promise((ok) => setTimeout(ok, 100));
+      assert.ok(z.closed(), 'заброшенного игрока выбросило из игры');
+      a.send({ t: 'world', cx: zc.x, cy: zc.y, r: 13 });
+      const zo = (await a.expect('world', (m) => m.objects.some((o) => o.x === zc.x && o.y === zc.y))).objects.find((o) => o.x === zc.x && o.y === zc.y);
+      assert.ok(zo.nobody === 1 && zo.name === 'Ничейный замок' && zo.owner === 'Ничейные земли', JSON.stringify(zo));
+      a.send({ t: 'profile', id: zo.ownerId }); await a.expect('error', (m) => /нет хозяина/.test(m.msg));
+      console.log('✓ «Забросить замки»: игрока выбросило, замок на карте — ничей, профиль «Ничейных земель» не открыть');
+    }
+
     // ---- мульты: два аккаунта с одного устройства попадают в одну группу ----
     for (const lg of ['multa', 'multb']) {
       const c = client(); await c.open();

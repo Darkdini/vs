@@ -407,7 +407,7 @@ function install(Game) {
       }
       case 'mailall': {
         const text = String(arg.text || '').trim(); if (!text) return { error: 'Введите текст.' };
-        for (const u of Object.values(this.db.users)) if (u.id !== user.id) { this.sendMail(user, u.login, String(arg.subject || 'Сообщение администрации'), text); this.event(u.id, 'Новое письмо от администрации.'); }
+        for (const u of Object.values(this.db.users)) if (u.id !== user.id && !u.nobody) { this.sendMail(user, u.login, String(arg.subject || 'Сообщение администрации'), text); this.event(u.id, 'Новое письмо от администрации.'); }
         msg = 'Письмо разослано всем.'; break;
       }
       case 'chat': { const r = this.chatPost(user, `[Администрация] ${String(arg.text || '')}`); if (r.error) return r; data = r.msg; msg = 'Отправлено в чат.'; break; }

@@ -429,6 +429,7 @@ const API = {
     const u = k !== null ? (Object.prototype.hasOwnProperty.call(U, k) ? U[k] : Object.values(U).find((x) => x.login.toLowerCase() === k.toLowerCase()))
       : this.game.userById(Number(m.id) || this.user.id);
     if (!u) return this.error('Игрок не найден.');
+    if (u.nobody) return this.error('Ничейные земли — у них нет хозяина.'); // служебный владелец ничейных замков (nobody.js)
     const profile = this.game.profileOf(u, this.user);
     if (m.acct && u.id === this.user.id) { // «Кабинет → Профиль»: настройки своего аккаунта
       const c = this.castle, v = this.user.violations || 0;
@@ -839,7 +840,7 @@ const API = {
     if (m.op === 'chat' && r.data) for (const s of WebSession.all || []) if (s.user && s.sendChat) s.sendChat(r.data);
     if (m.op === 'banmany' || m.op === 'devban') for (const s of WebSession.all || []) if (s.user && !s.user.admin && (s.user.banned || this.game.devBanned(s.dev))) s.socket.destroy();
     if (String(m.op || '').startsWith('test')) for (const s of WebSession.all || []) if (s.user && (!this.game.closedAllows(s.user) || s.user.id === r.kick)) { s.error('Идёт закрытое тестирование — вход только для тестеров.'); s.socket.destroy(); }
-    if (m.login && !String(m.op || '').startsWith('test')) for (const s of WebSession.all || []) if (s.user && s.user.login === String(m.login).trim() && s !== this) { if (m.op === 'ban' || m.op === 'delete') s.socket.destroy(); else s.pushState(); }
+    if (m.login && !String(m.op || '').startsWith('test')) for (const s of WebSession.all || []) if (s.user && s.user.login === String(m.login).trim() && s !== this) { if (m.op === 'ban' || m.op === 'delete' || m.op === 'abandon') s.socket.destroy(); else s.pushState(); }
     this.pushState();
   },
   bug(m) {

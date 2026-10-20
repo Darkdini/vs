@@ -761,7 +761,7 @@ class Game {
     for (const c of castles) {
       const owner = this.userById(c.owner);
       const al = this.allianceOf(owner);
-      out.push({ kind: 'castle', x: c.x, y: c.y, img: 10, prem: this.isPremium(owner) || undefined, castleId: c.id, name: c.name, ownerId: owner.id, owner: owner.login, race: owner.race, rating: this.rating(c), alliance: al ? al.tag : null, allyId: al ? al.id : null, newbie: this.isNewbie(owner) || undefined, shield: this.castleShield(c) ? 1 : undefined, site: c.site ? { start: c.site.start, end: c.site.end } : undefined }); // site — недострой (Освоение, army.js)
+      out.push({ kind: 'castle', x: c.x, y: c.y, img: 10, prem: this.isPremium(owner) || undefined, castleId: c.id, name: c.name, ownerId: owner.id, owner: owner.login, race: owner.nobody ? this.raceOf(c) : owner.race, nobody: owner.nobody ? 1 : undefined, rating: this.rating(c), alliance: al ? al.tag : null, allyId: al ? al.id : null, newbie: this.isNewbie(owner) || undefined, shield: this.castleShield(c) ? 1 : undefined, site: c.site ? { start: c.site.start, end: c.site.end } : undefined }); // site — недострой (Освоение, army.js)
     }
     for (const d of this.npcIn(x0, y0, w, h)) {
       const o = { kind: 'object', x: d.x, y: d.y, img: d.img, name: d.name };
@@ -886,5 +886,6 @@ require('./boss').install(Game);
 require('./closedtest').install(Game);
 require('./staff').install(Game); // «МАСТЕРА»: общение админа и тестеров // после admin.js: дополняет adminOp командами test…
 require('./honors').install(Game); // медали в профиле («Первопроходец»): дополняет adminOp командами honor…
+require('./nobody').install(Game); // «Забросить замки» (админ): замки — ничьи, захват без столицы; обёртки над army.js, royal.js, friends.js — последним
 
 module.exports = { PROV, PROV_CAP, PROV_N, PROV_EDGE, PROV_NPC, CAMP_IMGS, NPC_BACK_SEC, provinceOf, provNo, onProvEdge, passLogPush, checkPassword, meadowAt, fixPlaza, migrateLands, LANDS_N, WORLD, Game, Store, STORE, BASE_RATE, PEOPLE_FACTOR, storeBonus, RES_SPEED, buildTime, VIEW, GRID, landOptions, SPEED, MAX_QUEUE, LANDS_BASE, LANDS_DECOR, LANDS_EDGE };

@@ -2117,6 +2117,71 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     console.log(`✓ Захват: +15% бунта за победу с бунтарями, 7 атак — замок ваш (бунт 95%, бунтарь остался), бунт сам не утихает, Храм ${T} ур.: 1% = ${per.wood} каждого ресурса и ${Math.round(g.calmSec(tgt) / 60 * 10) / 10} мин`);
     if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
   }
+  { // «Забросить замки» (админка): замки давно не играющего — ничьи (служебный бот «Ничейные земли»), столицы нет — любой берут, как обычный:
+    // бунт +15% за победу с Бунтарями; войска пропадают, постройки и ресурсы остаются (и растут); игрок удаляется отовсюду; ничейному — ни отчётов, ни рейтинга
+    const luck0 = process.env.LUCK; process.env.LUCK = '0';
+    const adm = g.adminUser(), mk = (login, race = 0) => { const u = g.register({ login, password: '12345', race }).user; u.created = Date.now() - 60 * DAY; u.royal = 1e6; u.royalAt = Date.now(); u.lastSeen = Date.now(); return u; };
+    const A = mk('nbAtt1'), L = mk('nbLost1', 3), F = mk('nbFrnd1'); g.adminAddCastles(L, 1);
+    const [cap, two] = g.castlesOf(L), ca = g.castleOf(A); g.mil(cap); g.mil(two); g.mil(ca); g.maxOut(ca); g.maxOut(cap);
+    cap.units = { 245: 50 }; cap.loyalty = 100; two.loyalty = 40; F.friends = [L.id]; L.friends = [F.id];
+    two.shieldUntil = Date.now() + 3600000; g.sciOf(two).eco = 7; assert.ok(g.castleShield(two) && g.sciOf(cap).eco === 7, 'до: купол на замке, науки игрока');
+    g.sendMail(F, L.login, 'Привет', 'Ты где?'); g.sendMail(L, F.login, 'Ответ', 'Тут');
+    assert.ok(g.isCapital(cap), 'до: столица — первый замок');
+    assert.ok(/Нет прав/.test(g.adminOp(A, 'abandon', { login: L.login }).error || ''), 'не админ — нет прав');
+    assert.ok(/не игрок/.test(g.adminOp(adm, 'abandon', { login: adm.login }).error || '') && /не найден/.test(g.adminOp(adm, 'abandon', { login: 'nbNobody0' }).error || ''), 'админа и несуществующего — нельзя');
+    const r = g.adminOp(adm, 'abandon', { login: L.login });
+    assert.ok(r.ok && /заброшены \(2\)/.test(r.msg), r.error || r.msg);
+    const nb = g.nobodyUser();
+    assert.ok(nb.nobody && nb.bot && nb.login === 'Ничейные земли' && cap.owner === nb.id && two.owner === nb.id && g.castlesOf(nb).includes(cap), 'замки — у «Ничейных земель»');
+    assert.ok(!g.db.users.nbLost1 && !g.userById(L.id), 'игрок удалён');
+    assert.ok(cap.name === 'Ничейный замок' && !Object.keys(cap.units).length && !cap.armies.length && !cap.general && cap.abandon.login === 'nbLost1' && g.buildingLevel(cap, 25) > 0, 'войска пропали, постройки остались');
+    assert.ok(g.raceOf(cap) === 'orcs' && nb.race === 'humans', 'раса замка — прежняя');
+    assert.ok(!g.isCapital(cap) && !g.isCapital(two), 'столицы у ничейных замков нет');
+    assert.ok(two.loyalty === 40, 'бунт в замке — какой был');
+    assert.ok(!F.friends.includes(L.id) && !g.db.messages.some((m) => m.from === L.id || m.to === L.id), 'из друзей и переписки — тоже');
+    assert.ok(!g.leaderboard().some((x) => x.u.nobody), 'в рейтинге ничейного нет');
+    assert.ok(/не игрок/.test(g.adminOp(adm, 'abandon', { login: nb.login }).error || ''), 'ничейного не забросить');
+    const wo = g.worldObjects(cap.x, cap.y, 1, 1)[0]; assert.ok(wo.nobody === 1 && wo.race === 'orcs', 'на карте — ничей, раса прежняя');
+    const nv = g.adminOp(adm, 'nobodyview', {}).data; assert.ok(nv.castles.length >= 2 && nv.castles.some((c) => c.x === two.x && c.y === two.y && c.riot === 60 && c.was === 'nbLost1') && nv.log[0].login === 'nbLost1', 'список ничейных замков в админке');
+    two.res.wood = 0; g.tick(two, Date.now() + 3600000); assert.ok(two.res.wood > 0, 'ресурсы растут как обычно');
+    ca.units = { 200: 10 }; ca.squads = []; ca.armies = [];
+    assert.ok(/ничей/.test(g.sendArmy(ca, { from: 'castle', mission: 'reinforce', x: two.x, y: two.y }).error || '') && /ничей/.test(g.sendTrade(ca, { x: two.x, y: two.y, res: { wood: 10 } }).error || ''), 'в ничейный замок — ни подкреплений, ни торговцев');
+    assert.ok(!g.castleShield(two) && g.sciOf(two).eco === 7 && g.sciOf(cap).eco === 7, 'купол снят, науки замка — прежние');
+    assert.ok(!g.searchPlayers('ничей').length && !g.searchPlayers('земли').some((x) => x.id === nb.id), 'в поиске игроков ничейного нет');
+    assert.ok(!g.ratingCastlesCalc().some((x) => x.id === nb.id) && !g.ratingReputation().some((x) => x.id === nb.id), 'в рейтингах замков и репутации — тоже');
+    assert.ok(g.canReach(A, nb, 'msg') && g.canReach(A, nb, 'gift') && g.giveReputation(A, nb.id, 1).error, 'писать, дарить, поднимать репутацию ничейным — нельзя');
+    { const lead = mk('nbLead1'), aid = g.db.nextId++; g.db.alliances = g.db.alliances || {}; g.db.alliances[aid] = { id: aid, name: 'Ничейный тест', tag: 'NBT', leader: lead.id, members: [lead.id], created: Date.now() }; lead.alliance = aid;
+      const last = g.db.reports[g.db.reports.length - 1], from0 = last && last.from;
+      assert.ok(/не найден/.test(g.alliance(lead, g.castleOf(lead), { op: 'invite', id: nb.id }).error || '') && (!last || last.from === from0), 'в альянс ничейного не пригласить (и чужой отчёт не тронут)'); }
+    // торговцы шли в замок, а он стал ничьим — груз назад на склад, отчёт отправителю
+    { const tr = { id: g.db.nextId++, units: { 221: 1 }, general: false, mission: 'trade', x: two.x, y: two.y, depart: Date.now() - 2000, arrive: Date.now() - 1, sec: 2, state: 'go', loot: null, cargo: { wood: 0, stone: 777, iron: 0, food: 0 } };
+      ca.armies = [tr]; ca.res.stone = 0; const s0 = two.res.stone; g.tickWorld(Date.now());
+      assert.ok(tr.state === 'back' && !tr.cargo && ca.res.stone >= 777 && two.res.stone < s0 + 777, `груз вернулся (${ca.res.stone})`);
+      assert.ok(g.reportsOf(A.id).some((x) => /отменён/.test(x.title) && /ничей/.test((x.lines || []).join(' '))), 'отчёт: замок ничей'); ca.armies = []; }
+    // новичок нападает на ничейный замок — защита новичка остаётся (как с лагерем)
+    { const nd0 = process.env.NEWBIE_DAYS; process.env.NEWBIE_DAYS = '3';
+      const nw = g.register({ login: 'nbNewb1', password: '12345', race: 0 }).user, nc = g.castleOf(nw); g.mil(nc); g.maxOut(nc); nc.units = { 200: 50 };
+      const was = g.isNewbie(nw), sent = g.sendArmy(nc, { from: 'castle', mission: 'raid', x: two.x, y: two.y });
+      assert.ok(was && !sent.error && g.isNewbie(nw) && !nw.newbieOff, `новичок напал на ничейный — защита на месте (${was}, ${sent.error || 'ушла'})`);
+      nc.armies = []; process.env.NEWBIE_DAYS = nd0; }
+    // админ: с «Ничейными землями» — только смотреть и убирать замки
+    assert.ok(/служебный/.test(g.adminOp(adm, 'fill', { login: nb.login }).error || '') && /служебный/.test(g.adminOp(adm, 'delete', { login: nb.login }).error || '') && g.adminOp(adm, 'player', { login: nb.login }).data, 'админ-команды над ничейным — только просмотр');
+    // бывшая столица: берут, как обычный замок — 7 побед с Бунтарями
+    const riot = (c) => Math.round(100 - c.loyalty), rep0 = g.db.reports.length;
+    const hit = () => { ca.units = { 200: 3000, 233: 1 }; ca.squads = []; ca.armies = []; const s = g.sendArmy(ca, { from: 'castle', mission: 'attack', x: cap.x, y: cap.y }); assert.ok(!s.error, s.error); g.tickWorld(Date.now() + 1e10); g.tickWorld(Date.now() + 3e10); };
+    hit(); assert.ok(riot(cap) === 15 && cap.owner === nb.id, `первая победа — бунт 15% (${riot(cap)})`);
+    for (let k = 0; k < 5; k++) hit();
+    assert.ok(riot(cap) === 90 && cap.owner === nb.id, `6 побед — бунт 90% (${riot(cap)})`);
+    hit();
+    assert.ok(cap.owner === A.id && !cap.abandon && riot(cap) === 95 && !g.castlesOf(nb).includes(cap), `7-я — замок захвачен (${cap.owner === A.id}, ${riot(cap)}%)`);
+    const cr = g.reportsOf(A.id).find((x) => x.data && x.data.captured && x.data.x === cap.x && x.data.y === cap.y);
+    assert.ok(cr && cr.data.def.login === 'Ничейные земли' && cr.data.def.race === 'orcs', 'отчёт захватчику: «Ничейные земли», раса замка');
+    assert.ok(!g.db.reports.slice(rep0).some((x) => x.owner === nb.id) && !(g.db.friendFeed || []).some((e) => e.uid === nb.id), 'ничейному — ни отчётов, ни ленты друзей');
+    assert.ok(Number.isFinite(nb.royal), `лояльность ничейного — число (${nb.royal})`);
+    const dl = g.adminOp(adm, 'castledel', { login: nb.login, cid: two.id }); assert.ok(dl.ok && !g.castleAt(two.x, two.y) && !nb.castleIds.includes(two.id), dl.error || 'админ убрал ничейный замок с карты');
+    if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
+    console.log('✓ «Забросить замки»: замки — ничьи, столицы нет, войска пропали, постройки и ресурсы (растут) остались, игрок удалён; бывшую столицу берут за 7 побед с Бунтарями');
+  }
   { // цены, которые раньше не влезали в Склад (75 200): науки 15–20, улучшения Кузницы/Школы магии; воскрешение генерала — до 100 ур. не дороже Склада, выше — за монеты
     const cat = require('../src/army').catalogJson();
     const sci = (cat.scienceCost || []).filter(Boolean); assert.ok(sci.length === 20 && sci.every((c, i) => c.wood <= 75200 && (i === 0 || c.wood > sci[i - 1].wood)), 'науки 1–20 дорожают и влезают в Склад');

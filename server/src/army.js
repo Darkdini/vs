@@ -1997,6 +1997,7 @@ function install(Game, helpers) {
       const t = login !== undefined ? this.db.users[String(login).trim()] : this.userById(id);
       if (!t) return { error: 'Игрок не найден.' };
       if (op === 'invite') {
+        if (t.bot) return { error: 'Игрок не найден.' }; // боты и «Ничейные земли» (nobody.js): им и отчёт-приглашение не пишется
         if (t.alliance) return { error: 'Игрок уже в альянсе.' };
         t.invites = t.invites || [];
         if (!t.invites.includes(cur.id)) t.invites.push(cur.id);

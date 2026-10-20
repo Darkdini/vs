@@ -27,6 +27,15 @@ const PREM_ALL = () => { const pd = S.adm.premDays || 3; // выбранный �
   return aSec('👑 Премиум всем игрокам', `<p class="small">Каждому игроку на сервере (кроме ботов и Вас) — Премиум Завоеватель на выбранный срок; у кого уже есть — продлится. Кто в игре — увидит сразу, остальным скажет советник при входе.</p><form class="stack" data-aform="premall">
   <div class="apdays">${[1, 3, 7, 14, 30].map((d) => `<button type="button" class="btn small${d === pd ? ' on' : ''}" data-apdays="${d}">${d} ${plural(d, 'день', 'дня', 'дней')}</button>`).join('')}</div>
   <input class="anum" name="days" type="number" inputmode="numeric" min="1" max="30" value="${pd}" placeholder="Сколько дней (1–30)"><input name="why" maxlength="100" value="Подарок от администрации" placeholder="За что (видно игрокам)"><button class="btn primary">Выдать всем</button></form>${premAllLog()}`); };
+// «🏚 Ничейные замки» (server/src/nobody.js): замки заброшенных игроков — где, бунт, чьи были; «Забросить» — в карточке игрока
+const NOBODY_SEC = () => {
+  const d = S.adm.nobody;
+  if (!d) { if (!S.adm.nobodyAsked) { S.adm.nobodyAsked = true; send({ t: 'admin', op: 'nobodyview' }); } return aSec('🏚 Ничейные замки', '<p class="small">Загрузка…</p>'); }
+  return aSec(`🏚 Ничейные замки${d.castles.length ? ` (${d.castles.length})` : ''}`, `<p class="small">Замки игроков, которых Вы забросили (Игрок → «Забросить замки»). Их может захватить любой: победы с Бунтарями, бунт +15% за каждую.</p>
+    ${d.castles.length ? `<div class="rlist">${d.castles.map((c) => `<div class="rrow"><span class="rn"><b>X:${c.x} Y:${c.y}</b><small>был у ${esc(c.was || '?')}${c.at ? ` · ${fmtDate(c.at)}` : ''} · бунт ${c.riot}%</small></span><span class="rv">${fmtFull(c.rating)}</span>
+      <button class="btn small" data-goworld="${c.x},${c.y}">карта</button></div>`).join('')}</div>` : '<p class="small">Ничейных замков на карте нет.</p>'}
+    ${d.log.length ? `<p class="small"><b>Заброшены:</b><br>${d.log.map((x) => `${fmtDate(x.at)} — ${esc(x.login)}, замков: ${x.castles.length}`).join('<br>')}</p>` : ''}`);
+};
 // «🏅 Медали» — медали для красоты (server/src/honors.js): вручить по никам или всем тестерам, список награждённых — забрать
 const HONOR_SEC = () => {
   const d = S.adm.honor;
@@ -84,6 +93,7 @@ function adminHtml() {
     world: () => `${aSec('📰 Новость', `<p class="small">Всем придёт фиолетовый конверт в верхней панели; новость останется в «Инфо → Новости».</p>${newsPubForm()}`)}
       ${GOLD_ALL()}
       ${PREM_ALL()}
+      ${NOBODY_SEC()}
       ${aSec('✉ Письмо всем', `<p class="small">Личное письмо каждому игроку (в «Сообщения»).</p><form class="stack" data-aform="mailall"><input name="subject" placeholder="Тема письма" value="Сообщение администрации"><textarea name="text" rows="3" placeholder="Текст письма" required></textarea><button class="btn primary">Разослать всем</button></form>`)}
       ${aSec('💬 Объявление в чат', `<p class="small">Сообщение в общий чат с пометкой [Администрация].</p><form class="chatform" data-aform="chat"><input name="text" placeholder="Текст объявления" required><button class="btn primary small">В чат</button></form>`)}
       ${aSec('🐉 События', `
@@ -187,6 +197,8 @@ function playerCard(p) {
     ${aAct('Перенести', 'Переставить активный замок на свободную клетку карты.', '<form class="chatform" data-aform="move"><input name="x" type="number" placeholder="X" required><input name="y" type="number" placeholder="Y" required><button class="btn small primary">Перенести</button></form>', true)}
     ${aAct('Сменить расу', 'Юниты прежней расы пропадут.', `<select data-an="race">${S.cat.raceOrder.map((r) => `<option value="${r}">${esc(S.cat.races[r])}</option>`).join('')}</select>${aBtn2('race', 'Сменить', 'data-arg="race:race" data-confirm="Сменить расу? Юниты прежней расы пропадут."')}`)}
     ${aAct('Сброс на старт', 'Все замки, войска и постройки пропадут — один новый замок, как после регистрации.', aBtn2('reset', 'Сбросить', `data-confirm="Сбросить игрока ${esc(p.login)} к началу игры?"`, 'danger'))}
+    ${p.admin ? '' : aAct('Забросить замки', 'Для давно не играющих — вместо бана. Все замки станут ничьими («Ничейный замок»): войска пропадут, постройки и ресурсы останутся. Захватить можно любой (столицы нет) — победами с Бунтарями, бунт +15% за каждую. Сам игрок исчезнет отовсюду, как при удалении.',
+      aBtn2('abandon', 'Забросить', `data-confirm="Забросить замки игрока ${esc(p.login)}${p.online ? ' (сейчас в игре!)' : ` (не заходил ${Math.max(0, Math.floor((Date.now() - p.lastSeen) / 86400000))} дн.)`}? Замки (${p.castlesList.length}) станут ничьими, игрок удалится навсегда."`, 'danger'))}
     ${p.admin ? '' : aAct('Удалить игрока', 'Аккаунт и все замки — навсегда. Игрок пропадёт у всех: из друзей, альянса, брака; переписка с ним удалится, чужие подкрепления из его замков вернутся домой.', aBtn2('delete', 'Удалить', 'data-confirm="Удалить игрока и все его замки навсегда?"', 'danger'))}</div>
   <div class="acard">${devCard(p)}</div>`;
 }
@@ -305,7 +317,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (op === 'secclear') { send({ t: 'admin', op }); return setTimeout(() => send({ t: 'admin', op: 'sec' }), 200); }
   if (op === 'tgbackup') { send({ t: 'admin', op }); return setTimeout(() => send({ t: 'admin', op: 'sec' }), 4000); }
   if (op === 'bugsclear') { S.adm.bugs = null; return send({ t: 'admin', op }); }
-  if (op === 'delete') { admSend(op); S.adm.login = ''; S.adm.player = null; S.adm.players = null; return; }
+  if (op === 'delete' || op === 'abandon') { admSend(op); S.adm.login = ''; S.adm.player = null; S.adm.players = null; if (op === 'abandon') { S.adm.nobody = null; S.adm.nobodyAsked = false; } return; }
   admSend(op, extra);
   if (S.adm.login) setTimeout(() => send({ t: 'admin', op: 'player', login: S.adm.login }), 150);
 });
@@ -366,6 +378,7 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
     if (m.op === 'mailtest') S.adm.mailTest = { ok: !m.data.error, msg: m.data.error || m.data.msg };
     if (m.op === 'goldall' || m.op === 'goldallget') S.adm.goldAll = { ...m.data, at: Date.now() };
     if (m.op === 'premall' || m.op === 'premallget') S.adm.premAll = { ...m.data, at: Date.now() };
+    if (m.op === 'nobodyview') S.adm.nobody = m.data;
     return refreshSheet();
   }
   prevMil2(m);

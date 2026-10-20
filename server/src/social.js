@@ -265,7 +265,7 @@ function install(Game) {
   };
   P.searchPlayers = function searchPlayers(q) {
     q = String(q || '').trim().toLowerCase();
-    const list = q ? Object.values(this.db.users).filter((u) => u.login.toLowerCase().includes(q) || (u.nickLog || []).some((n) => !n.by && n.from.toLowerCase() === q)) : this.leaderboard().slice(0, 30).map((x) => x.u);
+    const list = q ? Object.values(this.db.users).filter((u) => !u.nobody && (u.login.toLowerCase().includes(q) || (u.nickLog || []).some((n) => !n.by && n.from.toLowerCase() === q))) : this.leaderboard().slice(0, 30).map((x) => x.u); // ничейные земли (nobody.js) — не игрок
     return list.slice(0, 30).map((u) => this.playerRow(u));
   };
   // земляки — игроки в радиусе от замка
@@ -273,7 +273,7 @@ function install(Game) {
     const c = this.castleOf(user), seen = new Set([user.id]), out = [];
     for (let y = c.y - radius; y <= c.y + radius; y++) for (let x = c.x - radius; x <= c.x + radius; x++) {
       const k = this.castleAt(x, y); if (!k || seen.has(k.owner)) continue; seen.add(k.owner);
-      const u = this.userById(k.owner); if (u) out.push(this.playerRow(u, c));
+      const u = this.userById(k.owner); if (u && !u.nobody) out.push(this.playerRow(u, c));
     }
     return out.filter((r) => r.dist <= radius).sort((a, b) => a.dist - b.dist).slice(0, 30);
   };
@@ -340,7 +340,7 @@ function install(Game) {
   // рейтинги по разделам «Рейтинг»
   P.ratingCastles = function ratingCastles() { return this.cached('rc', 15000, () => this.ratingCastlesCalc()); };
   P.ratingCastlesCalc = function ratingCastlesCalc() { // недострои (Освоение) — не замки рейтинга
-    return Object.values(this.db.castles).filter((c) => !c.site).map((c) => { const u = this.userById(c.owner); return { id: u.id, login: u.login, name: c.name, x: c.x, y: c.y, rating: this.rating(c) }; })
+    return Object.values(this.db.castles).filter((c) => !c.site && !(this.userById(c.owner) || {}).nobody).map((c) => { const u = this.userById(c.owner); return { id: u.id, login: u.login, name: c.name, x: c.x, y: c.y, rating: this.rating(c) }; }) // и не ничейные (nobody.js)
       .sort((a, b) => b.rating - a.rating).slice(0, 500);
   };
   // очки альянса = сумма (рейтинг + репутация) всех участников
@@ -351,7 +351,7 @@ function install(Game) {
       .sort((a, b) => b.rating - a.rating);
   };
   P.ratingReputation = function ratingReputation() {
-    return Object.values(this.db.users).map((u) => ({ id: u.id, login: u.login, raceName: C.RACE_NAMES[u.race], rating: u.reputation ?? START_REP }))
+    return Object.values(this.db.users).filter((u) => !u.nobody).map((u) => ({ id: u.id, login: u.login, raceName: C.RACE_NAMES[u.race], rating: u.reputation ?? START_REP }))
       .sort((a, b) => b.rating - a.rating).slice(0, 500);
   };
 }

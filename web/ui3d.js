@@ -594,13 +594,14 @@ function castleWin(o, x, y) {
   return `${ribbon('Замок')}
     <div class="cwin"><img class="cwimg" src="${GFX}${WORLD_NAME_IMG(o)}" alt=""><div>
       <div class="cwname">${esc(o.name)}</div><div>X: ${x} Y: ${y}</div><div>Рейтинг: ${gimg('ground/castle_small.png', 'rico')} ${fmtFull(o.rating)}</div></div></div>
-    <div class="cwrow"><span>Игрок:</span><button class="pbar cwplayer" data-cprof="${o.ownerId}">${esc(o.owner)}</button></div>
+    <div class="cwrow"><span>Игрок:</span>${o.nobody ? '<span>— ничей —</span>' : `<button class="pbar cwplayer" data-cprof="${o.ownerId}">${esc(o.owner)}</button>`}</div>
     <div class="cwrow"><span>Раса:</span><span>${raceIcon(o.race)} ${esc(S.cat.races[o.race] || '')}</span></div>
     ${o.alliance ? `<div class="cwrow"><span>Альянс:</span><span>[${esc(o.alliance)}]</span></div>` : ''}
+    ${o.nobody ? '<p class="parch-note">Хозяин забросил замок — теперь он ничей. Захватить его может любой: победные нападения с Бунтарями, бунт +15% за каждое. Столицы у ничейных замков нет.</p>' : ''}
     <hr class="cwhr">
     <div class="ptiles">
-      ${mine ? tile(`data-switchxy="${x},${y}"`, 'build/hd3/castle.png', 'Войти в замок') : tile(`data-write="${esc(o.owner)}"`, 'smallicon/unmes.png', 'Сообщение')}
-      ${tile(`data-armyopen="trade" data-ax="${x}" data-ay="${y}"`, 'build/hd3/storage.png', 'Торговля')}
+      ${mine ? tile(`data-switchxy="${x},${y}"`, 'build/hd3/castle.png', 'Войти в замок') : o.nobody ? '' : tile(`data-write="${esc(o.owner)}"`, 'smallicon/unmes.png', 'Сообщение')}
+      ${o.nobody ? '' : tile(`data-armyopen="trade" data-ax="${x}" data-ay="${y}"`, 'build/hd3/storage.png', 'Торговля')}
       ${!mine ? tile(`data-warpick data-ax="${x}" data-ay="${y}"`, 'smallicon/swordred.png', 'Война')
     : S.st.castle.x === x && S.st.castle.y === y ? '' : `<button class="ptile" data-armyopen="reinforce" data-ax="${x}" data-ay="${y}"><img src="${G3}top/reinf.png" alt=""><span>Подкрепление</span></button>`}
     </div>
