@@ -230,7 +230,10 @@ function install(Game) {
       // история ников: прежние ники с датой смены; неприличный ник, сброшенный модерацией, видят только админ и модераторы
       nicks: (u.nickLog || []).filter((n) => !n.by || viewer.admin || viewer.mod || viewer.smod).map((n) => ({ from: n.from, to: n.to, at: n.at, mod: n.by ? 1 : undefined })).reverse(),
       self: u.id === viewer.id,
-      friend: this.isFriend ? this.isFriend(viewer, u) : false, friendState: this.friendState ? this.friendState(viewer, u) : null, bday: u.bday ? this.bdayText(u.bday) : '', bdayRaw: u.id === viewer.id ? u.bday || '' : undefined,
+      friend: this.isFriend ? this.isFriend(viewer, u) : false, friendState: this.friendState ? this.friendState(viewer, u) : null,
+      // нельзя написать в личку / подарить подарок (privacy.js: администратору — только друзья, «кто пишет», чёрный список) — причина,
+      // кнопка в профиле серая, под кнопками — note
+      deny: this.canReach ? ((dm, dg) => ({ msg: dm, gift: dg, note: u.admin && dm && dg ? 'Писать в личку и дарить подарки администратору могут только его друзья.' : [...new Set([dm, dg].filter(Boolean))].join(' ') }))(this.canReach(viewer, u, 'msg') || '', this.canReach(viewer, u, 'gift') || '') : {}, bday: u.bday ? this.bdayText(u.bday) : '', bdayRaw: u.id === viewer.id ? u.bday || '' : undefined,
       repToday: ((viewer.repGiven || {})[u.id] || 0) > Date.now() - 86400000,
       about: u.about || '', avatar: u.avatar || 0, frame: u.frame || '', gold: u.id === viewer.id ? u.gold || 0 : undefined,
       gifts: (u.gifts || []).slice(-50).reverse().map((g) => ({ gift: g.gift, from: (this.userById(g.from) || { login: '—' }).login, fromId: g.from, at: g.at, text: g.text || '' })),

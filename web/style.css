@@ -429,6 +429,8 @@ input.num { width: 76px; padding: 7px; text-align: center; }
 .rico { height: 1.1em; width: auto; vertical-align: -0.2em; image-rendering: pixelated; }
 .online { color: #2f7a10; font-size: 14px; }
 .pline { font: 20px/1.5 var(--serif); padding: 3px 0; border-bottom: 1px solid #b08a5a44; }
+/* нельзя написать в личку / подарить (privacy.js) — под кнопками профиля и вместо поля ввода в диалоге */
+.pdeny, .dlock { margin: 6px 0; text-align: center; font: min(18px, 4.4vw)/1.35 var(--serif); color: #6a2a10; }
 .pline .ri { height: 22px; }
 .medal { height: 30px; width: auto; vertical-align: middle; margin-right: 4px; image-rendering: pixelated; }
 .ptitle { margin: 6px -4px; padding: 8px 12px; border: 2px solid #c8963e; border-radius: 6px; background: linear-gradient(#e9b24a, #b07a20); font: 22px var(--serif); color: var(--ink); }

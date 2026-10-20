@@ -682,7 +682,8 @@ const API = {
     let changed = false; for (const x of all) if (x.to === me && !x.read) { x.read = true; changed = true; }
     if (changed) { this.game.store.save(); this.pushState(); }
     const lim = Math.min(all.length, Math.max(30, Math.floor(Number(m.more)) || 30));
-    this.send({ t: 'dialog', with: { id: o.id, login: o.login, race: o.race, avatar: o.avatar || 0, frame: o.frame || '', friend: this.game.friendState ? this.game.friendState(this.user, o) : null }, more: all.length > lim,
+    this.send({ t: 'dialog', with: { id: o.id, login: o.login, race: o.race, avatar: o.avatar || 0, frame: o.frame || '', friend: this.game.friendState ? this.game.friendState(this.user, o) : null,
+      deny: this.game.canReach(this.user, o, 'msg') || '' }, more: all.length > lim, // писать нельзя — вместо поля ввода причина (dialogs.js)
       list: all.slice(-lim).map((x) => msgOut(this.game, x, me)), keep: !!m.keep });
   },
   // «История» переписки: страницы по 20 сообщений, под каждым — «Переслать»

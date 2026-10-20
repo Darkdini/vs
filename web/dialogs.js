@@ -81,15 +81,18 @@ function dialogWin() {
       <button class="pbar" data-dlgedit>Готово</button></div>`;
   }
   const fr = !w.friend || w.friend === 'in' ? `<button type="button" class="dsm dfr" data-dlgfriend title="${w.friend === 'in' ? 'Принять дружбу' : 'Добавить в друзья'}"><img src="gfx3d/prof/friend.png" alt="В друзья"></button>` : '';
-  return `${ribbon('Диалог')}
-    <div class="dbody">${dlgMsgsHtml(d.msgs, w) || '<p class="parch-note">Сообщений ещё нет — напишите первым.</p>'}</div>
-    <div class="dctl"><form class="dform" data-form="dlgsend"><input name="text" maxlength="4000" autocomplete="off" placeholder="Сообщение для ${esc(w.login)}" value="${esc(d.draft || '')}">
+  // писать нельзя (администратору — только друзья, «кто пишет», чёрный список — privacy.js): вместо поля ввода — причина
+  const write = w.deny ? `<p class="parch-note dlock">🔒 ${esc(w.deny)}</p>`
+    : `<form class="dform" data-form="dlgsend"><input name="text" maxlength="4000" autocomplete="off" placeholder="Сообщение для ${esc(w.login)}" value="${esc(d.draft || '')}">
       <button type="button" class="dsm" data-dlgsmile><img src="gfx3d/smiles2/smile.png" alt="Смайлы"></button>${fr}</form>
     ${S.dlg.picBusy ? `<div class="dpicst">📷 ${esc(S.dlg.picBusy)}</div>` : ''}
     ${d.smile ? `<div class="smilebox">${SMILES.map((k) => `<button data-dlgsm="${k}"><img src="${smileSrc(k)}" alt=""></button>`).join('')}</div>` : ''}
-    <button class="pbar dsend" data-dlgsend><img src="${GFX}dlg/send.png" alt=""> Отправить</button>
+    <button class="pbar dsend" data-dlgsend><img src="${GFX}dlg/send.png" alt=""> Отправить</button>`;
+  return `${ribbon('Диалог')}
+    <div class="dbody">${dlgMsgsHtml(d.msgs, w) || '<p class="parch-note">Сообщений ещё нет — напишите первым.</p>'}</div>
+    <div class="dctl">${write}
     <div class="two2"><button class="pbar" data-cprof="${w.id}"><img src="${GFX}dlg/profile.png" alt=""> Профиль</button><button class="pbar" data-dlghist><img src="${GFX}dlg/history.png" alt=""> История</button></div>
-    <div class="two2"><button class="pbar" data-dlgedit><img src="${GFX}dlg/edit.png" alt=""> Изменить</button><button class="pbar" data-dlgpic><img src="${GFX}dlg/file.png" alt=""> Файл</button></div></div>`; // значки кнопок — web/gfx/dlg
+    <div class="two2"><button class="pbar" data-dlgedit><img src="${GFX}dlg/edit.png" alt=""> Изменить</button>${w.deny ? '' : `<button class="pbar" data-dlgpic><img src="${GFX}dlg/file.png" alt=""> Файл</button>`}</div></div>`; // значки кнопок — web/gfx/dlg
 }
 // «История» переписки, как в оригинале: листать страницы и пересылать сообщения
 function dialogHistWin() {

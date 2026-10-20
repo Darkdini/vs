@@ -392,7 +392,8 @@ const AVA_FRAMES = ['silver', 'gold', 'fire'];
 const avaFramed = (p, inner) => (p.frame && AVA_FRAMES.includes(p.frame) ? `<span class="afr afr-${p.frame}"><span class="afr-in">${inner}</span><img class="afr-f" src="${GFX}shop/frame_${p.frame}.png" alt=""></span>` : inner);
 const avatarImg = (p, cls = '') => (cls === 'avabig' ? avatarImg0(p, cls) : avaFramed(p, avatarImg0(p, cls)));
 function profileWin(p) {
-  const tile = (key, icon, text, off) => `<button class="ptile ${off ? 'off' : ''}" data-ptile="${key}" data-pid="${p.id}"><img src="${icon.startsWith('gfx') ? icon : GFX + icon}" alt=""><span>${text}</span></button>`;
+  // off — кнопка серая; строка в off — причина (нельзя писать / дарить), показывается при нажатии
+  const tile = (key, icon, text, off) => `<button class="ptile ${off ? 'off' : ''}" data-ptile="${key}" data-pid="${p.id}"${typeof off === 'string' ? ` data-deny="${esc(off)}"` : ''}><img src="${icon.startsWith('gfx') ? icon : GFX + icon}" alt=""><span>${text}</span></button>`;
   // Зал Славы как в оригинале: в «Информации» — ряд значков (по лучшему месту в каждой категории),
   // в разделе ниже — последние 5 медалей крупно и «Посмотреть» (все медали с датами)
   const best = []; const seen = {};
@@ -432,14 +433,15 @@ function profileWin(p) {
     <div class="ptiles pbig">
       ${tile('treasury', 'gfx3d/prof/treasury.png', 'Пополнить Казну', !p.self)}
       ${tile('rep', 'gfx3d/prof/rep.png', 'Поднять Репутацию')}
-      ${tile('gift', 'gfx3d/prof/gift.png', 'Отправить Подарок')}
+      ${tile('gift', 'gfx3d/prof/gift.png', 'Отправить Подарок', (p.deny || {}).gift)}
       ${tile('friend', 'gfx3d/prof/friend.png', { friend: 'Убрать из друзей', sent: 'Заявка отправлена', in: 'Принять дружбу' }[p.friendState] || 'Добавить в друзья', p.self)}
-      ${tile('msg', M3('contacts'), 'Сообщение')}
+      ${tile('msg', M3('contacts'), 'Сообщение', (p.deny || {}).msg)}
       ${tile('hof', M3('hof'), 'Зал Славы')}
-      ${tile('premium', 'gfx3d/prof/premium.png', p.self ? 'Премиум' : 'Подарить Премиум')}
+      ${tile('premium', 'gfx3d/prof/premium.png', p.self ? 'Премиум' : 'Подарить Премиум', p.self ? '' : (p.deny || {}).gift)}
       ${tile('info', 'gfx3d/prof/info.png', 'Личная информация')}
       ${tile('more', 'gfx3d/prof/more.png', '')}
     </div>
+    ${p.deny && p.deny.note ? `<p class="pdeny">🔒 ${esc(p.deny.note)}</p>` : ''}
     ${giftsRow}${hof}${awards}${slayer}
     ${ribbon(`Замки - ${p.castles.length}`)}
     ${p.castles.map((c) => `<button class="pcastle" data-goworld="${c.x},${c.y}"><img src="${GFX}ground/castle_small.png" alt=""> ${esc(c.name)}<br>X: ${c.x}, Y: ${c.y}${c.capital ? ' (Столица)' : ''}</button>`).join('')}`;
@@ -734,7 +736,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.hof !== undefined) return openHalls(d.hof ? Number(d.hof) : undefined);
   if (d.soon) return openSoon(d.soon);
   if (d.ptile) {
-    if (t.classList.contains('off')) return;
+    if (t.classList.contains('off')) { if (d.deny) toast(d.deny, 'err'); return; }
     const p = S.lastProfile, id = Number(d.pid);
     if (d.ptile === 'treasury') return openSheet(S.cat.pay && S.cat.pay.on ? payWin : treasuryWin);
     if (d.ptile === 'premium') return openPremium(p.self ? null : p.login);

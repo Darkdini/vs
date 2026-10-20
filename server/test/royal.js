@@ -1648,7 +1648,20 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(g.propose(B, 'pvAaa', 'люблю', 'king').error && B.gold === 50, 'ЗАГС из ЧС — нельзя');
   assert.strictEqual(g.canReach(F, A), null, 'остальные пишут');
   assert.ok(g.blackDel(A, B.id).ok && g.canReach(B, A) === null, 'убрать из ЧС');
-  console.log('✓ Приватность: кто пишет в личку, чёрный список для писем, фото, подарков и ЗАГСа, админ пишет всегда');
+  { // администратору пишут в личку и дарят подарки только его друзья; модераторы — всегда; заявку в друзья — можно; причина видна в профиле и диалоге
+    const adm = g.adminUser(), M = g.register({ login: 'pvMod1', password: '12345', race: 0 }).user, fr0 = adm.friends; M.mod = true;
+    adm.friends = [F.id];
+    assert.ok(/только его друзья/.test(g.canReach(B, adm) || '') && /подарки/.test(g.canReach(B, adm, 'gift') || ''), 'не друг — ни лички, ни подарков');
+    B.gold = 50; assert.ok(/только его друзья/.test(g.sendGift(B, adm.id, 'gift_box').error || '') && B.gold === 50, 'подарок администратору — нельзя, монеты целы');
+    B.gold = 200; assert.ok(/только его друзья/.test(g.buyPremium(B, 14, adm.login).error || '') && B.gold === 200, 'премиум в подарок администратору — нельзя');
+    assert.ok(g.canReach(B, adm, 'coin') && g.canReach(B, adm, 'propose') && g.canReach(B, adm, 'friend') === null, 'ЗАГС и Орёл-решка — нельзя, заявку в друзья — можно');
+    assert.ok(g.canReach(F, adm) === null && g.canReach(F, adm, 'gift') === null && g.canReach(M, adm) === null && g.canReach(adm, B) === null, 'друг и модератор пишут, админ пишет всем');
+    const pb = g.profileOf(adm, B), pf = g.profileOf(adm, F);
+    assert.ok(pb.deny.msg && pb.deny.gift && /Писать в личку и дарить подарки администратору могут только его друзья/.test(pb.deny.note) && !pf.deny.msg && !pf.deny.note, 'в профиле — причина');
+    assert.ok(!g.profileOf(A, B).deny.note, 'у обычного игрока — без запрета');
+    adm.friends = fr0; M.mod = false;
+  }
+  console.log('✓ Приватность: кто пишет в личку, чёрный список для писем, фото, подарков и ЗАГСа, админ пишет всегда; администратору — только друзья');
 }
 { // админ: сброс одного замка (то же место и имя) и удаление замка (не единственного)
   const adm = g.adminUser(), P1 = g.register({ login: 'admCast', password: '12345', race: 0 }).user, cap = g.castlesOf(P1)[0];
