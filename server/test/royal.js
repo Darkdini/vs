@@ -587,6 +587,16 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(g.newsOp(u, { op: 'comment', id, text: 'Круто!' }).msg);
   assert.strictEqual(g.newsGet(u, id).comments.length, 1);
   assert.ok(g.newsOp(u, { op: 'cmtdel', id, comment: g.newsGet(u, id).comments[0].id }).error, 'комментарии удаляют модераторы');
+  { // при публикации — можно ли комментировать; потом админ может закрыть или открыть комментарии кнопкой
+    const nc = g.newsOp(ad, { op: 'publish', title: 'Техработы', text: 'Сервер перезапустится', comments: false });
+    assert.ok(/Комментарии закрыты/.test(nc.msg) && g.newsGet(u, nc.id).noCmt && g.newsList(u, 0).list.find((x) => x.id === nc.id).noCmt, 'опубликована без комментариев');
+    u.newsCmtAt = 0; assert.ok(/закрыты/.test(g.newsOp(u, { op: 'comment', id: nc.id, text: 'А когда?' }).error || ''), 'игрок не комментирует');
+    assert.ok(g.newsOp(u, { op: 'cmtlock', id: nc.id, on: false }).error && g.newsGet(u, nc.id).canLock === false, 'открыть — не игроку');
+    assert.ok(g.newsOp(ad, { op: 'cmtlock', id: nc.id, on: false }).msg && !g.newsGet(u, nc.id).noCmt && g.newsOp(u, { op: 'comment', id: nc.id, text: 'А когда?' }).msg, 'админ открыл — комментируют');
+    assert.ok(g.newsOp(ad, { op: 'cmtlock', id: nc.id, on: true }).msg && g.newsGet(u, nc.id).noCmt && g.newsGet(u, nc.id).comments.length === 1, 'закрыл снова — старые комментарии видны');
+    assert.ok(!g.newsGet(u, id).noCmt, 'по умолчанию комментарии открыты');
+    g.db.news = g.db.news.filter((n) => n.id !== nc.id); u.newsCmtAt = 0;
+  }
   const late = g.register({ login: 'newsl', password: '12345', race: 0 }).user; late.created = Date.now() + 5000;
   assert.strictEqual(g.newsUnread(late), 0, 'старые новости новичку не мигают');
   console.log('✓ новости: публикует админ, непрочитанная → конверт, после прочтения исчезает, остаётся в списке, комментарии');

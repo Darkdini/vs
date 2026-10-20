@@ -11,23 +11,25 @@ function newsListWin() {
   const nav = `<div class="hnav"><button data-npg="0" ${L.page ? '' : 'disabled'}>◀◀</button><button data-npg="${L.page - 1}" ${L.page ? '' : 'disabled'}>◀</button>
     <span>${L.page + 1}</span><button data-npg="${L.page + 1}" ${L.page < L.pages - 1 ? '' : 'disabled'}>▶</button><button data-npg="${L.pages - 1}" ${L.page < L.pages - 1 ? '' : 'disabled'}>▶▶</button></div>`;
   return `${ribbon('Новости')}${nav}<div class="nlist">${L.list.map((n) => `<button class="ncard ${n.read ? '' : 'new'}" data-news="${n.id}"><img src="gfx3d/news/scroll.png" alt="">
-    <span><b>${esc(n.title)}</b><small>${newsDate(n.at)}${n.comments ? ` · 💬 ${n.comments}` : ''}</small></span></button>`).join('') || '<p class="parch-note">Новостей пока нет.</p>'}</div>`;
+    <span><b>${esc(n.title)}</b><small>${newsDate(n.at)}${n.comments ? ` · 💬 ${n.comments}` : ''}${n.noCmt ? ' · 🔒' : ''}</small></span></button>`).join('') || '<p class="parch-note">Новостей пока нет.</p>'}</div>`;
 }
 function newsItemWin() {
   const n = S.news.item; if (!n) return `${ribbon('Новость')}<p class="parch-note">Загрузка…</p>`;
   return `${ribbon('Новость')}<div class="nitem"><h3>${esc(n.title)}</h3><div class="ndate">${newsDate(n.at)}</div><div class="ntext">${smiles(esc(n.text))}</div>${(n.pics || []).length ? `<div class="nshots">${n.pics.map((p) => `<img src="newspic/${p}.png" alt="" data-nshot="${p}" loading="lazy">`).join('')}</div>` : ''}
     ${S.st.user.admin ? `<button class="pbar" data-newsdel="${n.id}">Удалить новость</button>` : ''}
-    <form class="dform" data-form="newscmt"><input name="text" maxlength="300" autocomplete="off" placeholder="Ваш комментарий…"><button class="btn primary small">Отправить</button></form></div>
-    ${ribbon('Комментарии:')}<div class="ncmts">${n.comments.length ? n.comments.slice().reverse().map((c) => `<div class="ncmt"><a class="fnick" data-cprof="${c.byId}">${esc(c.by)}:</a>
-      <span>${smiles(esc(c.text))}</span><small>${newsDate(c.at)}</small>${n.canMod ? `<button class="ncdel" data-ncdel="${c.id}" aria-label="Удалить">✕</button>` : ''}</div>`).join('') : '<p class="parch-note">Комментариев пока нет — напишите первым.</p>'}</div>`;
+    ${n.canLock ? `<button class="pbar" data-ncmtlock="${n.noCmt ? 0 : 1}">${n.noCmt ? '🔓 Открыть комментарии' : '🔒 Закрыть комментарии'}</button>` : ''}
+    ${n.noCmt ? '<p class="parch-note">🔒 Комментарии к этой новости закрыты.</p>' : '<form class="dform" data-form="newscmt"><input name="text" maxlength="300" autocomplete="off" placeholder="Ваш комментарий…"><button class="btn primary small">Отправить</button></form>'}</div>
+    ${n.noCmt && !n.comments.length ? '' : `${ribbon('Комментарии:')}<div class="ncmts">${n.comments.length ? n.comments.slice().reverse().map((c) => `<div class="ncmt"><a class="fnick" data-cprof="${c.byId}">${esc(c.by)}:</a>
+      <span>${smiles(esc(c.text))}</span><small>${newsDate(c.at)}</small>${n.canMod ? `<button class="ncdel" data-ncdel="${c.id}" aria-label="Удалить">✕</button>` : ''}</div>`).join('') : '<p class="parch-note">Комментариев пока нет — напишите первым.</p>'}</div>`}`;
 }
 function newsMsg(m) {
   if (m.view === 'list') { S.news.list = m.data; S.news.page = m.data.page; if (!m.quiet || S.sheets.includes(newsListWin)) return refreshSheet(); return; }
   if (m.view === 'item') { S.news.item = m.data; refreshSheet(); }
 }
 $('#sheetBody').addEventListener('click', (e) => {
-  const t = e.target.closest('[data-news],[data-npg],[data-newsdel],[data-ncdel]'); if (!t) return;
+  const t = e.target.closest('[data-news],[data-npg],[data-newsdel],[data-ncdel],[data-ncmtlock]'); if (!t) return;
   const d = t.dataset;
+  if (d.ncmtlock !== undefined) return send({ t: 'news', op: 'cmtlock', id: S.news.item.id, on: d.ncmtlock === '1' });
   if (d.news) return openNewsItem(Number(d.news));
   if (d.npg !== undefined) return send({ t: 'news', op: 'list', page: Number(d.npg) });
   if (d.newsdel) { if (confirm('Удалить новость у всех игроков?')) { send({ t: 'news', op: 'delete', id: Number(d.newsdel) }); closeSheet(); } return; }
@@ -55,7 +57,7 @@ const newsPicsHtml = () => { const n = S.np || { ids: [] };
     ${n.ids.length < 4 ? `<button type="button" class="btn small" data-npadd ${n.busy ? 'disabled' : ''}>${n.busy ? esc(n.busy) : '📷 Добавить скриншот'}</button>` : ''}</div>`; };
 let npInput = null;
 // черновик новости: заголовок и текст не стираются, когда форма перерисовывается (загрузка скриншота)
-$('#sheetBody').addEventListener('input', (e) => { if (e.target.dataset.npdraft === undefined) return; const f = e.target.form; S.npDraft = { title: f.title.value, text: f.text.value }; });
+$('#sheetBody').addEventListener('input', (e) => { if (e.target.dataset.npdraft === undefined) return; const f = e.target.form; S.npDraft = { title: f.title.value, text: f.text.value, cmt: f.cmt.checked }; });
 async function newsPicUpload(file) {
   if (typeof CompressionStream === 'undefined' || typeof createImageBitmap === 'undefined') return toast('Браузер не умеет загружать картинки — обновите его.', 'err');
   S.np = S.np || { ids: [] }; S.np.busy = 'Готовлю…'; refreshSheet();
@@ -79,11 +81,12 @@ $('#sheetBody').addEventListener('click', (e) => {
   npInput.click();
 });
 function newsPubForm() {
-  return `<form class="stack" data-newspub><input name="title" maxlength="80" placeholder="Заголовок" required value="${esc((S.npDraft || {}).title || '')}" data-npdraft><textarea name="text" rows="5" maxlength="4000" placeholder="Текст новости" required data-npdraft>${esc((S.npDraft || {}).text || '')}</textarea>${newsPicsHtml()}<button class="btn primary">Опубликовать</button></form>`;
+  return `<form class="stack" data-newspub><input name="title" maxlength="80" placeholder="Заголовок" required value="${esc((S.npDraft || {}).title || '')}" data-npdraft><textarea name="text" rows="5" maxlength="4000" placeholder="Текст новости" required data-npdraft>${esc((S.npDraft || {}).text || '')}</textarea>${newsPicsHtml()}
+    <label class="npcmt"><input type="checkbox" name="cmt" ${(S.npDraft || {}).cmt === false ? '' : 'checked'} data-npdraft> 💬 Игроки могут комментировать</label><button class="btn primary">Опубликовать</button></form>`;
 }
 $('#sheetBody').addEventListener('submit', (e) => {
   const f = e.target.closest('[data-newspub]'); if (!f) return; e.preventDefault(); e.stopImmediatePropagation();
   if (S.np && S.np.busy) return toast('Дождитесь загрузки скриншота.', 'err');
-  if (!confirm(`Опубликовать новость всем игрокам${(S.np && S.np.ids.length) ? ` (скриншотов: ${S.np.ids.length})` : ''}?`)) return;
-  send({ t: 'news', op: 'publish', title: f.title.value, text: f.text.value, pics: S.np ? S.np.ids : [] }); f.reset(); S.np = null; S.npDraft = null; refreshSheet();
+  if (!confirm(`Опубликовать новость всем игрокам${(S.np && S.np.ids.length) ? ` (скриншотов: ${S.np.ids.length})` : ''}${f.cmt.checked ? '' : ' без комментариев'}?`)) return;
+  send({ t: 'news', op: 'publish', title: f.title.value, text: f.text.value, pics: S.np ? S.np.ids : [], comments: f.cmt.checked }); f.reset(); S.np = null; S.npDraft = null; refreshSheet();
 });

@@ -81,12 +81,12 @@ function install(Game) {
   P.newsList = function newsList(u, page = 0) {
     const all = this.newsDb().filter((n) => !n.deleted).slice().reverse(), seen = new Set(u.newsRead || []);
     const pages = Math.max(1, Math.ceil(all.length / PAGE)), pg = Math.max(0, Math.min(pages - 1, Math.floor(Number(page)) || 0));
-    return { page: pg, pages, list: all.slice(pg * PAGE, pg * PAGE + PAGE).map((n) => ({ id: n.id, title: n.title, at: n.at, read: seen.has(n.id), comments: n.comments.filter((c) => !c.deleted).length })) };
+    return { page: pg, pages, list: all.slice(pg * PAGE, pg * PAGE + PAGE).map((n) => ({ id: n.id, title: n.title, at: n.at, read: seen.has(n.id), comments: n.comments.filter((c) => !c.deleted).length, noCmt: !!n.noCmt })) };
   };
   P.newsGet = function newsGet(u, id) {
     const n = this.newsDb().find((x) => x.id === Number(id) && !x.deleted); if (!n) return { error: 'Новость не найдена.' };
     if (!(u.newsRead || []).includes(n.id)) { (u.newsRead = u.newsRead || []).push(n.id); if (u.newsRead.length > 500) u.newsRead.shift(); this.store.save(); }
-    return { id: n.id, title: n.title, text: n.text, at: n.at, pics: n.pics || [], canMod: this.canModerate(u),
+    return { id: n.id, title: n.title, text: n.text, at: n.at, pics: n.pics || [], canMod: this.canModerate(u), noCmt: !!n.noCmt, canLock: !!(u.admin || u.smod),
       comments: n.comments.filter((c) => !c.deleted).slice(-100).map((c) => ({ id: c.id, by: c.by, byId: c.byId, text: c.text, at: c.at })) };
   };
   P.newsOp = function newsOp(u, m) {
@@ -97,10 +97,17 @@ function install(Game) {
         const title = clean(m.title, TITLE_MAX), text = String(m.text || '').replace(/[<>]/g, '').slice(0, TEXT_MAX).trim();
         if (title.length < 3 || !text) return { error: 'Нужны заголовок (от 3 символов) и текст.' };
         const pics = [...new Set([].concat(m.pics || []).map(String))].filter((p) => { const f = this.newsPicFile(p); return f && fs.existsSync(f); }).slice(0, NP_MAX); // только загруженные на сервер
-        const n = { id: this.db.nextId++, title, text, at: now, by: u.login, comments: [], ...(pics.length ? { pics } : {}) }; db.push(n);
+        const noCmt = m.comments === false; // при публикации: «Игроки могут комментировать» снята — комментарии закрыты
+        const n = { id: this.db.nextId++, title, text, at: now, by: u.login, comments: [], ...(pics.length ? { pics } : {}), ...(noCmt ? { noCmt: true } : {}) }; db.push(n);
         if (db.length > 300) db.shift();
-        if (!u.admin && this.modLog) this.modLog(u, 'news', `«${title}»`, 'опубликована'); // старший модератор — в журнал модерации (админ видит)
-        this.store.save(); return { msg: 'Новость опубликована — игроки увидят фиолетовый конверт.', id: n.id };
+        if (!u.admin && this.modLog) this.modLog(u, 'news', `«${title}»`, `опубликована${noCmt ? ' (без комментариев)' : ''}`); // старший модератор — в журнал модерации (админ видит)
+        this.store.save(); return { msg: `Новость опубликована — игроки увидят фиолетовый конверт.${noCmt ? ' Комментарии закрыты.' : ''}`, id: n.id };
+      }
+      case 'cmtlock': { // закрыть (on) или открыть комментарии уже опубликованной новости — кто публикует
+        if (!u.admin && !u.smod) return { error: 'Нет прав.' };
+        const n = db.find((x) => x.id === Number(m.id) && !x.deleted); if (!n) return { error: 'Новость не найдена.' };
+        if (m.on) n.noCmt = true; else delete n.noCmt;
+        this.store.save(); return { msg: m.on ? 'Комментарии к новости закрыты.' : 'Комментарии к новости открыты.', id: n.id };
       }
       case 'delete': {
         if (!u.admin) return { error: 'Удаляет только администратор.' };
@@ -109,6 +116,7 @@ function install(Game) {
       }
       case 'comment': {
         const n = db.find((x) => x.id === Number(m.id) && !x.deleted); if (!n) return { error: 'Новость не найдена.' };
+        if (n.noCmt) return { error: 'Комментарии к этой новости закрыты.' };
         const text = clean(m.text, COMMENT_MAX); if (!text) return { error: 'Пустой комментарий.' };
         const ban = this.forumBanned ? this.forumBanned(u) : null; if (ban) return { error: ban };
         if (!this.canModerate(u) && u.newsCmtAt && now - u.newsCmtAt < COMMENT_GAP_MS) return { error: 'Не так часто — подождите несколько секунд.' };
