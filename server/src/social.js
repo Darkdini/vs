@@ -305,6 +305,7 @@ function install(Game) {
     if (!opt.sys && user.chatBan > Date.now()) return { error: `Вам запрещено писать в чат ещё ${Math.ceil((user.chatBan - Date.now()) / 60000)} мин.` };
     text = String(text || '').trim().slice(0, 300);
     if (!text) return { error: 'Пустое сообщение.' };
+    if (!opt.sys) text = require('./matfilter').censorMat(text); // мат — звёздочками «***», у всех (matfilter.js)
     // модератор закрыл чат на время (chatmod.js): пишут только модераторы и админ
     const closed = !opt.sys && this.chatClosedUntil ? this.chatClosedUntil() : 0;
     if (closed && !this.canModerate(user)) return { error: `Чат закрыт модератором — ещё ${Math.max(1, Math.ceil((closed - Date.now()) / 60000))} мин. Отдохните немного 🙂` };

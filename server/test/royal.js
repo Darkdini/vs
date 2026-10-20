@@ -1728,6 +1728,22 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   gs.store.flush(); fs.rmSync(dir, { recursive: true, force: true });
   console.log('✓ Кладовая: разовый сброс излишков при обновлении — каждого ресурса не больше 400 000; второй раз не срабатывает');
 }
+{ // общий чат: мат — звёздочками «***» (matfilter.js), хитрые написания тоже; похожие обычные слова — как есть
+  const { censorMat, isMat } = require('../src/matfilter');
+  const yes = ['нахуй', 'бля', 'Блять', 'заебал', 'ёбаный', 'пиздец', 'сука', 'мудак', 'пидор', 'xyй', '6лядь', 'х.у.й', 'бляяяять', 'отъебись', 'долбоёб', 'выблядок',
+    'хули', 'blyat', 'suka', 'fuck', 'sh1t', 'охуеть', 'ПИЗДА', 'уёбок', 'съебался', 'сучка', 'гандон'];
+  const no = ['корабля', 'рубля', 'употреблять', 'оскорблять', 'небо', 'хлеб', 'себя', 'требовать', 'ребята', 'застрахуй', 'психую', 'страхует', 'команда', 'мандарин',
+    'хулиган', 'художник', 'хуже', 'мудрый', 'педикюр', 'сукно', 'бляха', 'блин', 'black', 'ebay', 'поехали', 'уехал', 'обед', 'скука', 'Hugo', 'hello'];
+  assert.deepStrictEqual(yes.filter((w) => !isMat(w)), [], 'мат пойман');
+  assert.deepStrictEqual(no.filter((w) => isMat(w)), [], 'обычные слова не задеты');
+  assert.strictEqual(censorMat('иди нахуй, понял?'), 'иди ***, понял?');
+  assert.strictEqual(censorMat('х у й тебе'), '*** тебе', 'слово по буквам');
+  assert.strictEqual(censorMat('я и ты на корабле'), 'я и ты на корабле');
+  delete g.db.chatClosed;
+  const W = g.register({ login: 'matChat1', password: '12345', race: 0 }).user, r = g.chatPost(W, 'ну ты и мудак!!! бля');
+  assert.ok(r.msg && r.msg.text === 'ну ты и ***!!! ***', `в чат ушло: ${r.msg ? r.msg.text : r.error}`);
+  console.log('✓ общий чат: мат — звёздочками, хитрые написания тоже; похожие обычные слова не задеты');
+}
 { // аватар в хорошем качестве: только сжатые точки, сервер сам собирает PNG, шелл и неверный размер — отказ
   const zl = require('zlib'), U = g.register({ login: 'avaHq', password: '12345', race: 0 }).user;
   const z = zl.deflateSync(Buffer.alloc(256 * 256 * 3, 120)).toString('base64');
