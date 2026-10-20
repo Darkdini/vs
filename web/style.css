@@ -385,10 +385,10 @@ input.num { width: 76px; padding: 7px; text-align: center; }
   background: url(gfx/ui/parchment.jpg) 0 0 / 100% 100%; color: var(--ink); font-family: var(--serif); }
 #sheet.show { transform: none; }
 #sheetBody { position: absolute; inset: 0 0 0 0; padding: env(safe-area-inset-top, 0px) 10px calc(80px + var(--safe-b)); }
-#sheetBack, #sheetClose { position: absolute; bottom: calc(8px + var(--safe-b)); width: 64px; height: 60px; border: 0; z-index: 3; }
-#sheetBack { left: 8px; background: url(gfx3d/buildings/red_active.png) 0 0 / 100% 100%; }
-#sheetBack::after { content: ""; position: absolute; left: 20px; top: 16px; border: 14px solid transparent; border-right: 20px solid #f0b441; border-left: 0; filter: drop-shadow(1px 1px 0 #6a3500); }
-#sheetClose { right: 8px; top: auto; background: url(gfx3d/chat/close_button.png) 0 0 / 100% 100%; }
+/* ◀ и ✕ внизу окна, конверт списков, листалка и полосы меню — один набор кнопок gfx3d/btn (красные в золотой рамке, деревянные стрелки) */
+#sheetBack, #sheetClose { position: absolute; bottom: calc(8px + var(--safe-b)); width: 64px; height: 64px; border: 0; z-index: 3; background: center / contain no-repeat; }
+#sheetBack { left: 8px; background-image: url(gfx3d/btn/back.png); }
+#sheetClose { right: 8px; top: auto; background-image: url(gfx3d/btn/close.png); }
 #sheet { --text: var(--ink); --muted: var(--ink2); }
 #sheetBody .muted, #sheetBody .small.muted { color: var(--ink2); }
 #sheetBody .card, #sheetBody .row, #sheetBody .stat { background: #7a4a2214; border: 1px solid #b08a5a; color: var(--ink); }
@@ -1085,18 +1085,20 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .renv { width: 26px; height: 20px; vertical-align: -2px; }
 /* конверт в списках «Отчёты» и «Сообщения» (dialogs.js mailMenuHtml), как в оригинале: внизу слева вместо ◀ (◀ — только
    в открытом отчёте и диалоге); нажали — меню действий со списком над полосой «Закрыть», ◀ и ✕ под ней не видны */
-.mailset { position: fixed; left: 4px; bottom: calc(3px + var(--safe-b)); width: 70px; height: 70px; border: 0; background: none; padding: 0; z-index: 5; }
+.mailset { position: fixed; left: 8px; bottom: calc(8px + var(--safe-b)); width: 64px; height: 64px; border: 0; background: none; padding: 0; z-index: 5; }
 .mailset img { width: 100%; height: 100%; object-fit: contain; }
 #sheet:has(.mailset) #sheetBack, #sheet:has(.mailbar) #sheetBack, #sheet:has(.mailbar) #sheetClose { display: none; }
-.mailshade { position: fixed; inset: 0; z-index: 5; background: #0004; }
-.mailmenu { position: fixed; left: 0; bottom: calc(60px + var(--safe-b)); z-index: 6; width: min(60%, 320px); display: grid; border: 2px solid #c8963e; border-left: 0;
-  background: linear-gradient(#8a4a1c, #6a3410); box-shadow: 0 -2px 10px #0008; }
-.mailmenu button { min-height: 52px; padding: 6px 12px; border: 0; border-bottom: 1px solid #3e1a0a; background: none; color: var(--cream); font: min(22px, 5.4vw)/1.15 var(--serif); text-align: left; }
-.mailmenu button:last-child { border-bottom: 0; }
-.mailmenu button:active { background: #fff3; }
+.mailshade { position: fixed; inset: 0; z-index: 5; background: #0006; }
+/* пункты меню и «Закрыть» — деревянные полосы в золотой рамке (border-image: углы рамки не растягиваются) на тёмной панели */
+.mailmenu { position: fixed; left: 0; bottom: calc(68px + var(--safe-b)); z-index: 6; width: min(68%, 350px); display: grid; gap: 4px; padding: 6px 6px 6px 4px;
+  background: linear-gradient(#4a1c08, #2e1004); border: 2px solid #c8963e; border-left: 0; border-bottom: 0; border-radius: 0 8px 0 0; box-shadow: 0 -2px 10px #0008; }
+.mailmenu button, .mailbar button { border: 17px solid transparent; border-image: url(gfx3d/btn/bar.png) 42 fill / 17px stretch; background: none; color: var(--cream);
+  font: min(21px, 5.2vw)/1.15 var(--serif); text-shadow: 0 1px 2px #000; }
+.mailmenu button { min-height: 58px; padding: 0 6px; text-align: left; }
+.mailmenu button:active, .mailbar button:active { filter: brightness(1.25); }
 .mailbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; display: flex; align-items: center; padding: 6px 6px calc(6px + var(--safe-b));
   background: linear-gradient(#5a2410, #3a1406); border-top: 2px solid #c8963e; }
-.mailbar button { height: 46px; padding: 0 18px; border: 2px solid #c8963e; border-radius: 6px; background: linear-gradient(#9a5a2a, #5a2a10); color: var(--cream); font: min(22px, 5.4vw) var(--serif); }
+.mailbar button { height: 54px; padding: 0 12px; }
 .rp { font: min(22px, 5.2vw)/1.45 var(--serif); color: #2a1408; padding: 4px 2px; }
 .rp b { font-weight: 700; }
 .rhr { border: 0; border-top: 1px solid #b08a5a88; margin: 8px 0; }
@@ -1127,10 +1129,16 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .hinfo { font: min(23px, 5.4vw)/1.35 var(--serif); color: #2a1408; }
 .hdark { display: block; width: 100%; margin-top: 6px; border: 0; border-radius: 3px; background: #2e140a; color: #fff; font: min(23px, 5.4vw) var(--serif); padding: 4px; }
 .hdark:active { filter: brightness(1.4); }
-.hnav { display: grid; grid-template-columns: 1fr 1fr 1.6fr 1fr 1fr; gap: 8px; margin: 6px 0; }
-.hnav button, .hnav span { height: 44px; border: 0; border-radius: 6px; background: linear-gradient(#8a4424, #5a2410); color: #f0c060; font: 20px var(--serif); box-shadow: 0 2px 2px #0005; }
-.hnav button:disabled { opacity: .55; }
-.hnav span { display: grid; place-items: center; background: #6e7a58; color: #fff2c0; border: 3px solid #d8a850; font-size: 22px; }
+/* листалка (сообщения, история переписки, отчёты, новости, Зал славы, рейтинг, ЗАГС): стрелки — картинки gfx3d/btn, номер — на зелёной табличке */
+.hnav { display: grid; grid-template-columns: 52px 52px 1fr 52px 52px; gap: 8px; align-items: center; margin: 6px 0; }
+.hnav button { height: 52px; border: 0; padding: 0; background: center / contain no-repeat; font-size: 0; color: transparent; }
+.hnav button:nth-of-type(1) { background-image: url(gfx3d/btn/first.png); }
+.hnav button:nth-of-type(2) { background-image: url(gfx3d/btn/prev.png); }
+.hnav button:nth-of-type(3) { background-image: url(gfx3d/btn/next.png); }
+.hnav button:nth-of-type(4) { background-image: url(gfx3d/btn/last.png); }
+.hnav button:disabled { opacity: .45; filter: grayscale(.5); }
+.hnav span { height: 52px; display: grid; place-items: center; border: 15px solid transparent; border-image: url(gfx3d/btn/page.png) 40 fill / 15px stretch;
+  color: #fff2c0; font: 22px/1 var(--serif); text-shadow: 0 1px 2px #000a; white-space: nowrap; }
 /* столбцы общие для всех строк (subgrid): число любой длины видно целиком и стоит ровно под остальными, длинное имя — с «…»;
    где subgrid нет (старый WebView), строка подгоняет столбцы под себя — число тоже не вылезает за край */
 .htable { margin: 0 -4px; display: grid; grid-template-columns: minmax(12%, max-content) minmax(0, 1fr) minmax(26%, max-content); column-gap: 6px; }

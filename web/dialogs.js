@@ -13,7 +13,7 @@ function mailPager(key, page, pages) {
 }
 const MAIL_OPS = [['all', 'Удалить всё'], ['read', 'Удалить прочитанные'], ['new', 'Удалить новые'], ['readall', 'Отметить как прочитанные']];
 function mailMenuHtml(kind) { // kind: 'rep' — отчёты, 'dlg' — переписки
-  if (S.mailMenu !== kind) return `<button class="mailset" data-mailmenu="${kind}" aria-label="Действия со списком"><img src="gfx3d/rep/mailset.png" alt=""></button>`;
+  if (S.mailMenu !== kind) return `<button class="mailset" data-mailmenu="${kind}" aria-label="Действия со списком"><img src="gfx3d/btn/mail.png" alt=""></button>`;
   return `<div class="mailshade" data-mailmenu="close"></div><div class="mailmenu">${MAIL_OPS.map(([op, t]) => `<button data-mailop="${op}">${t}</button>`).join('')}</div>
     <div class="mailbar"><button data-mailmenu="close">Закрыть</button></div>`;
 }
