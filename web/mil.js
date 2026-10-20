@@ -76,7 +76,7 @@ function milEffect(def, L) {
     38: () => ({ text: 'призыв легендарных юнитов', short: '' }),
     39: () => ({ text: `+${2 * L}% магической атаки и защиты`, short: `+${2 * L}%` }),
     40: () => { const p = Math.round((1 - 1 / (1 + 0.05 * L)) * 100); return { text: `здания получают на ${p}% меньше урона (катапульты и осадные воины)`, short: `−${p}%` }; }, // урон ÷ (1 + 5% × ур.)
-    41: () => ({ text: `мест для раненых: ${fmtFull(1000 * L)}; лечение — за полцены тренировки, сразу`, short: `${fmtFull(1000 * L)} мест` }), // Лазарет (army.js INFIRM_CAP)
+    41: () => ({ text: `мест для раненых: ${fmtFull(1000 * L)}; лечение — за четверть цены тренировки, сразу`, short: `${fmtFull(1000 * L)} мест` }), // Лазарет (army.js INFIRM_CAP)
     42: () => ({ text: 'найм наёмников: Великан, Валькирия', short: '' }),
     43: () => ({ text: `тренировка быстрее на ${2 * L}%`, short: `−${2 * L}%` }),
     44: () => ({ text: `хранит ${3 + L} ${plural(3 + L, 'артефакт', 'артефакта', 'артефактов')}`, short: `${3 + L}` }),
@@ -85,7 +85,7 @@ function milEffect(def, L) {
   return fx ? fx() : null;
 }
 
-// ---------- Лазарет (здание 41): раненые воины и лечение — за полцены тренировки, сразу (server: army.js healWounded) ----------
+// ---------- Лазарет (здание 41): раненые воины и лечение — за четверть цены тренировки, сразу (server: army.js healWounded) ----------
 // Лазарет: цена лечения n раненых — как на сервере (healCostOf): цена одного без округления × n, округлить
 S.healN = {}; // сколько выбрано по видам (окно перерисовывается — число не теряется)
 const healCost = (w, n) => Object.fromEntries(RES4.map((r) => [r, Math.round(((w.one || {})[r] || 0) * n)]));
@@ -111,7 +111,7 @@ function infirmaryHtml() {
     <div class="hbtns"><button class="pbar" data-hmax="${w.id}" ${max ? '' : 'disabled'}>Сколько хватит</button><button class="pbar tbtn" data-heal="${w.id}" ${max ? '' : 'disabled'}>Вылечить</button></div>
     ${max < w.n ? `<p class="hnote">${max ? `Ресурсов хватит на ${fmtFull(max)} из ${fmtFull(w.n)}.` : 'Ресурсов не хватает даже на одного.'}</p>` : ''}</div>`; }).join('');
   return `${ribbon('Раненые')}<p class="coinhint">Мест: <b>${fmtFull(I.used)} из ${fmtFull(I.cap)}</b>. Сюда попадают Ваши воины, павшие в нападениях и набегах из этого замка и при его обороне.
-      Лечение — за полцены тренировки и сразу: ждать не нужно, вылеченные тут же возвращаются в Замковую армию.</p>
+      Лечение — за четверть цены тренировки и сразу: ждать не нужно, вылеченные тут же возвращаются в Замковую армию.</p>
     ${all ? `${rows}${I.wounded.length > 1 ? `<div class="tcost"><div class="tcost-h">Вылечить всех раненых (${fmtFull(all)}):</div><div class="tcost-r">${cost(allCost)}</div></div>
       <button class="pbar" data-heal="all">Вылечить всех</button>` : ''}` : '<p class="parch-note">Раненых нет.</p>'}`;
 }
@@ -424,8 +424,8 @@ function reportHtml(r) {
   // павшие: «Полевой лекарь» спас сразу (нападавшему); раненые — в Лазарет замка (нападавшему и защитнику)
   const ofW = (n) => `${fmtFull(n)} ${plural(n, 'воина', 'воинов', 'воинов')}`, cl = d.calc || {};
   const healWhy = (attV && cl.saved ? why(`Полевой лекарь спас ${ofW(cl.saved)} — они вернутся домой.`) : '')
-    + (attV && cl.wounded ? why(`В Лазарет отправлено раненых: ${fmtFull(cl.wounded)} — вылечите их там за полцены.`) : '');
-  const dHealWhy = !attV && cl.dWounded && !d.captured ? why(`В Лазарет отправлено раненых: ${fmtFull(cl.dWounded)} — вылечите их там за полцены.`) : '';
+    + (attV && cl.wounded ? why(`В Лазарет отправлено раненых: ${fmtFull(cl.wounded)} — вылечите их там за четверть цены.`) : '');
+  const dHealWhy = !attV && cl.dWounded && !d.captured ? why(`В Лазарет отправлено раненых: ${fmtFull(cl.dWounded)} — вылечите их там за четверть цены.`) : '';
   const dWhy = dL || !dW || d.win || kD < 2 ? '' : why(`Защита была в ${kD} ${plural(kD, 'раз', 'раза', 'раз')} сильнее атаки — при таком перевесе защитники почти не теряют войск.`);
   // «Армия атаки» / «Армия защиты» — раскрываются нажатием: потери, потери в ресурсах, по юнитам «погибло из было», генерал
   const unitRows = (units, race) => Object.entries(units || {}).map(([id, v]) => { const u = unitById(id); return u ? `<div class="rul"><img class="ric" src="${unitSrc(u, race)}" alt=""> ${esc(u.name)}: ${fmtFull(v.lost)} из ${fmtFull(v.was)}</div>` : ''; }).join('');

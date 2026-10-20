@@ -764,7 +764,7 @@ const API = {
     for (const s of WebSession.all || []) if (s.user && s.user.id === res.to.id) { if (s.dialogWith === this.user.id) API.dialog.call(s, { id: this.user.id, keep: 1 }); else if (s.notifyMail) s.notifyMail(this.user.login); }
   },
   // ---- функции зданий и армия (server/src/army.js) ----
-  // Лазарет: вылечить раненых (units { id: n } или всех) — за полцены тренировки, сразу (army.js healWounded)
+  // Лазарет: вылечить раненых (units { id: n } или всех) — за четверть цены тренировки, сразу (army.js healWounded)
   heal(m) { const c = pickCastle(this, m); if (!c) return; const r = this.game.healWounded(c, m.units && typeof m.units === 'object' && !Array.isArray(m.units) ? m.units : null); if (r && r.ok) this.toast(r.msg); this.result(r); },
   train(m) { const c = pickCastle(this, m); if (!c) return; const r = this.game.train(c, Number(m.unit), Number(m.count)); if (r && r.job) this.toast('Тренировка начата!'); this.result(r); if (c !== this.castle) API.kingdom.call(this); },
   kingdom() { if (!this.game.isPremium(this.user)) return this.error('Сводка королевства — с премиумом.'); this.send({ t: 'kingdom', list: this.game.kingdom(this.user) }); },

@@ -333,8 +333,9 @@ const CAMPS = [30, 31, 32]; // лагеря разбойников: лёгкий
 // бой (как в Travian): сила атаки против защиты, смешанной по составу нападающих; лечение раненых дома
 const HEAL_HOME = 0.25; // раненые защитники в своём замке: четверть павших выздоравливает
 // Лазарет (здание 41, бывшая Пивоварня): свои павшие в нападениях и набегах из этого замка и при его обороне попадают сюда ранеными —
-// INFIRM_CAP мест за уровень (10 ур. — 10 000); лечение — за HEAL_K цены тренировки, сразу (если хватает ресурсов), вне дневного лимита TRAIN_DAY
-const INFIRM_CAP = 1000, HEAL_K = 0.5;
+// INFIRM_CAP мест за уровень (10 ур. — 10 000); лечение — за HEAL_K цены тренировки (четверть; до 20.10 — половина), сразу (если хватает ресурсов),
+// вне дневного лимита TRAIN_DAY
+const INFIRM_CAP = 1000, HEAL_K = 0.25;
 const ROW = { infantry: 3, cavalry: 2, magic: 1, siege: 1, special: 1 }, DMG = 2, ROUT = 0.3; // бой с боссом (clashHp): ряды строя, множитель урона, бегство
 const DEF_HOME = 1.75; // замок помогает своим защитникам (и подкреплениям в нём): защита ×1,75 — иначе на равные ресурсы нападение всегда сильнее (атака у юнитов вдвое дешевле защиты)
 const LOSS_POW = 1.5; // бой как в Travian: потери победителя = (слабая сторона / сильная)^1,5
@@ -1557,7 +1558,7 @@ function install(Game, helpers) {
     }
     if (genDied) lines.push('Генерал пал в бою — воскресите его в Военном штабе.');
     lines.push(...genA.filter((x) => !genDied || !/пал в бою/.test(x)));
-    if (calc.wounded) lines.push(`В Лазарет отправлено раненых: ${calc.wounded} — вылечите их там за полцены.`);
+    if (calc.wounded) lines.push(`В Лазарет отправлено раненых: ${calc.wounded} — вылечите их там за четверть цены.`);
     if (calc.saved) lines.push(`Полевой лекарь спас ${Wd.ofWarriors(calc.saved)}.`);
     const title = `Атака на ${target ? (captured ? captured.prevLogin : defUser.login) : npc.name}`; // как в оригинале: «Атака на <игрок>» / «Оборона от <игрок>»
     this.report(c.owner, title, lines, 'battle', { ...data, side: 'att' });
@@ -1568,7 +1569,7 @@ function install(Game, helpers) {
         `Ваши войска: ${unitsLine(dAll, dLost)}`,
         loot ? `Унесено: дерево ${loot.wood}, камень ${loot.stone}, железо ${loot.iron}, еда ${loot.food}` : 'Враг разбит, ничего не унесено.',
         ...siege, ...(loyalty ? [`Бунт в замке: ${100 - loyalty.from}% → ${100 - loyalty.to}%`] : []), ...(took ? [`Ваш недострой ${a.x}:${a.y} захвачен игроком ${att.login}.`] : []), ...genD,
-        ...(calc.dWounded && !captured ? [`В Лазарет отправлено раненых: ${calc.dWounded} — вылечите их там за полцены.`] : []),
+        ...(calc.dWounded && !captured ? [`В Лазарет отправлено раненых: ${calc.dWounded} — вылечите их там за четверть цены.`] : []),
       ], 'battle', { ...data, side: 'def' });
     }
     if (took) { a.units[TRAVELER_ID] -= SETTLE_TAKE; if (!a.units[TRAVELER_ID]) delete a.units[TRAVELER_ID]; } // путешественники остаются строить
