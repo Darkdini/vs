@@ -78,6 +78,15 @@ function install(Game) {
     return { login: u.login, self, pts: b.pts, ...cur, next, prev, bonus: bonusAt(i), titles: TITLES, claimed: b.claimed, chests: self ? Math.max(0, i - b.claimed) : 0, units: prizeUnits(u.race),
       table: NEED.map((need, k) => ({ ...rankInfo(k), need, prize: prizeAt(k), bonus: bonusAt(k) })) };
   };
+  // вкладка «Топ»: игроки по очкам ранга (больше очков — выше), по 10 на страницу; без ботов, Советника (админ) и заблокированных;
+  // me — место смотрящего (0 — ещё нет очков). Список пересчитывается не чаще раза в 15 с
+  P.brTop = function brTop(viewer, page) {
+    const all = this.cached('brtop', 15000, () => Object.values(this.db.users).filter((u) => u.br && !u.bot && !u.admin && !u.banned)
+      .map((u) => ({ u, pts: this.brOf(u).pts })).filter((x) => x.pts > 0).sort((a, b) => b.pts - a.pts || a.u.id - b.u.id));
+    const pages = Math.max(1, Math.ceil(all.length / 10)), pg = Math.min(Math.max(0, Math.floor(Number(page)) || 0), pages - 1);
+    return { page: pg, pages, total: all.length, me: all.findIndex((x) => x.u.id === viewer.id) + 1,
+      list: all.slice(pg * 10, pg * 10 + 10).map(({ u, pts }, k) => ({ place: pg * 10 + k + 1, id: u.id, login: u.login, pts, ...rankInfo(rankIdx(pts)) })) };
+  };
 }
 
 module.exports = { install, TITLES, NEED, rankIdx, rankInfo, bonusAt, prizeAt };

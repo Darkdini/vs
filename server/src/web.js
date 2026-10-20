@@ -463,6 +463,7 @@ const API = {
       const r = this.game.brClaim(this.user, Number.isInteger(m.upto) ? m.upto : undefined); if (r.error) return this.error(r.error);
       this.toast(r.msg); this.send({ t: 'brank', data: this.game.brView(this.user, this.user) }); return this.pushState();
     }
+    if (m.op === 'top') return this.send({ t: 'brtop', data: this.game.brTop(this.user, m.page) }); // вкладка «Топ»: рейтинг по боевому рангу
     const u = this.game.userById(Number(m.id) || this.user.id); if (!u) return this.error('Игрок не найден.'); this.send({ t: 'brank', data: this.game.brView(this.user, u) });
   },
   // ---- «Приватность» (server/src/privacy.js) ----

@@ -9,7 +9,8 @@ const brStars = (n, cls = '') => `<span class="brstars ${cls}">${Array.from({ le
 function openBrank(id) { S.brank = null; S.brTab = 'prog'; send({ t: 'brank', id }); openSheet(brankWin); }
 function brankWin() {
   const b = S.brank;
-  const tabs = `<div class="coin-tabs">${[['prog', 'Прогресс'], ['table', 'Таблица уровней'], ['help', '❓ Справка']].map(([k, t]) => `<button class="${S.brTab === k ? 'on' : ''}" data-brtab="${k}">${t}</button>`).join('')}</div>`;
+  const tabs = `<div class="coin-tabs br4">${[['prog', 'Прогресс'], ['table', 'Таблица уровней'], ['top', '🏆 Топ'], ['help', '❓ Справка']].map(([k, t]) => `<button class="${S.brTab === k ? 'on' : ''}" data-brtab="${k}">${t}</button>`).join('')}</div>`;
+  if (S.brTab === 'top') return `${ribbon('Боевой ранг')}${tabs}${brTopHtml()}`;
   if (!b) return `${ribbon('Боевой ранг')}${tabs}<p class="parch-note">Загрузка…</p>`;
   let body;
   if (S.brTab === 'prog') {
@@ -60,6 +61,16 @@ function brPrizePopup(r) {
   document.body.appendChild(d);
 }
 function brankMsg(m) { S.brank = m.data; refreshSheet(); }
+// вкладка «Топ»: рейтинг игроков по боевому рангу — по 10 на страницу (сервер: brank op:'top' → brtop); ник — профиль игрока
+function brTopHtml() {
+  const T = S.brTop; if (!T) return '<p class="parch-note">Загрузка…</p>';
+  const MEDAL = ['🥇', '🥈', '🥉'], me = S.st.user.id;
+  return `<p class="brme">${T.me ? `Ваше место: <b>${T.me}</b> из ${fmtFull(T.total)}` : 'Вас пока нет в рейтинге — очки ранга дают бои.'}</p>${mailPager('brpg', T.page, T.pages)}
+    <div class="brtop">${T.list.map((r) => `<button class="brtrow ${r.id === me ? 'me' : ''}" data-profile="${r.id}"><span class="brpl">${MEDAL[r.place - 1] || r.place}</span>
+      <img src="${BR_IMG(r.icon)}" alt=""><span class="brtn"><b>${esc(r.login)}</b><small>${r.idx + 1}. ${esc(r.title)} ${brStars(r.stars, 'sm')}</small></span><span class="brtp">${fmtFull(r.pts)}</span></button>`).join('')
+      || '<p class="parch-note">В рейтинге пока никого — очки ранга дают бои.</p>'}</div>`;
+}
+function brTopMsg(m) { S.brTop = m.data; refreshSheet(); }
 // значок ранга вверху экрана (слева)
 function brankBadge() {
   let b = $('#btnRank');
@@ -70,8 +81,9 @@ function brankBadge() {
 }
 $('#sheetBody').addEventListener('click', (e) => {
   if (e.target.closest('[data-brclaim]')) return send({ t: 'brank', op: 'claim' }); // все сундуки наград — в Кладовую
-  const t = e.target.closest('[data-brtab],[data-brank],[data-brprize]'); if (!t) return;
-  if (t.dataset.brtab) { S.brTab = t.dataset.brtab; return refreshSheet(); }
+  const t = e.target.closest('[data-brtab],[data-brank],[data-brprize],[data-brpg]'); if (!t) return;
+  if (t.dataset.brpg !== undefined) return send({ t: 'brank', op: 'top', page: Math.max(0, Number(t.dataset.brpg)) });
+  if (t.dataset.brtab) { S.brTab = t.dataset.brtab; if (S.brTab === 'top') { S.brTop = null; send({ t: 'brank', op: 'top', page: 0 }); } return refreshSheet(); }
   if (t.dataset.brank !== undefined) return openBrank(Number(t.dataset.brank));
   const r = S.brank && S.brank.table[Number(t.dataset.brprize)]; if (r) brPrizePopup(r);
 });

@@ -1678,6 +1678,19 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   }
   console.log('✓ Боевой ранг: растёт сразу по очкам (пятая часть населения погибших), звание в профиле, сундуки наград за каждый ранг, бонусы, таблица 78 рангов; пороги — прежние');
 }
+{ // «Топ» по боевому рангу: больше очков — выше, по 10 на страницу; без ботов, админа и заблокированных; своё место
+  const BR = require('../src/battlerank');
+  const T = Array.from({ length: 12 }, (_, i) => g.register({ login: `brTop${i}`, password: '12345', race: 0 }).user);
+  T.forEach((u, i) => { g.brOf(u); u.br.pts = 1000000 + i * 1000; }); // выше всех прочих тестовых игроков
+  T[11].banned = true; T[10].bot = true;
+  const top = (page = 0) => { delete g.cache.brtop; return g.brTop(T[0], page); };
+  const t = top();
+  assert.ok(t.list.length === 10 && t.list[0].id === T[9].id && t.list[0].place === 1 && t.list[1].id === T[8].id, 'больше очков — выше; заблокированный и бот не в списке');
+  assert.ok(t.list.every((r) => r.pts > 0 && r.title === BR.rankInfo(BR.rankIdx(r.pts)).title && !g.userById(r.id).admin), 'звание по очкам, без админа');
+  assert.ok(t.me === 10 && t.total >= 10 && top(99).page === top(99).pages - 1, `своё место (${t.me}); страница — не дальше последней`);
+  T[11].banned = false; T[10].bot = false;
+  console.log('✓ Боевой ранг, «Топ»: больше очков — выше, по 10 на страницу, без ботов, админа и заблокированных, своё место');
+}
 { // Кладовая: разовый сброс излишков при обновлении — каждого ресурса не больше 400 000; второй раз не срабатывает, дальше копить можно
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'royal-stcut-')), SDB = path.join(dir, 'db.json');
   let gs = new Game(new Store(SDB));
