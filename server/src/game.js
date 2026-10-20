@@ -414,6 +414,10 @@ class Game {
     this.db.accts[acct] = login;
     this.db.users[login] = { id, login: nick, acct, pass: hashPassword(password), email: String(email || '').slice(0, 60), race: raceId, created: Date.now(), castleId: null, reputation: 10, gold: 0 }; // стартовая репутация 10; золото — только донат
     this.byId.set(id, this.db.users[login]);
+    // подарок новичку: Премиум на NEWBIE_PREMIUM_DAYS дней с регистрации (по умолчанию 3) — один раз, сам не продлевается;
+    // premiumGift — до какого времени подарок (советник напоминает при входе). Советнику (админ) и ботам — нет
+    const gift = system ? 0 : Number(process.env.NEWBIE_PREMIUM_DAYS ?? 3);
+    if (gift > 0) { const nu = this.db.users[login]; nu.premium = nu.premiumGift = nu.created + gift * 86400000; }
     const castle = this.createCastle(this.db.users[login]);
     this.db.users[login].castleId = castle.id;
     this.db.users[login].castleIds = [castle.id]; // первый — столица

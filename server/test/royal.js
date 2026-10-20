@@ -2,6 +2,7 @@
 // Баланс лояльности населения: самый активный игрок может захватить первый замок только через ~месяц.
 const assert = require('assert');
 process.env.NEWBIE_DAYS = process.env.NEWBIE_DAYS ?? '0'; // бои в тестах — без защиты новичка (её проверка — отдельно)
+process.env.NEWBIE_PREMIUM_DAYS = process.env.NEWBIE_PREMIUM_DAYS ?? '0'; // и без Премиума новичка (проверка — отдельно)
 process.env.LUCK = '0';
 const os = require('os'), path = require('path'), fs = require('fs');
 const DB = path.join(os.tmpdir(), `royal-${process.pid}.json`);
@@ -1677,6 +1678,17 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     M.br = { v: 3, pts: 28300, claimed: 20 }; assert.strictEqual(g.brOf(M).pts, 28300, 'прежние данные (v3) не меняются');
   }
   console.log('✓ Боевой ранг: растёт сразу по очкам (пятая часть населения погибших), звание в профиле, сундуки наград за каждый ранг, бонусы, таблица 78 рангов; пороги — прежние');
+}
+{ // подарок новичку: Премиум на 3 дня с регистрации — один раз, сам не продлевается; покупка — сверх подарка
+  process.env.NEWBIE_PREMIUM_DAYS = '3';
+  const N = g.register({ login: 'premNew1', password: '12345', race: 0 }).user;
+  assert.ok(g.isPremium(N) && N.premium === N.created + 3 * DAY && N.premiumGift === N.premium, 'новичок — Премиум на 3 дня');
+  assert.strictEqual(g.welcomeInfo(N, 0).premGift, N.premium, 'советник напоминает о подарке');
+  N.gold = 100; assert.ok(g.buyPremium(N, 14).ok && N.premium === N.premiumGift + 14 * DAY, 'купленные дни — сверх подарка');
+  N.premium = N.premiumGift = Date.now() - 1; assert.ok(!g.isPremium(N) && !g.welcomeInfo(N, 0).premGift, 'через 3 дня подарок кончается сам');
+  process.env.NEWBIE_PREMIUM_DAYS = '0';
+  const O = g.register({ login: 'premOld1', password: '12345', race: 0 }).user; assert.ok(!O.premium && !g.isPremium(O), 'NEWBIE_PREMIUM_DAYS=0 — без подарка');
+  console.log('✓ подарок новичку: Премиум на 3 дня с регистрации, сам не продлевается, покупка — сверх подарка');
 }
 { // «Топ» по боевому рангу: больше очков — выше, по 10 на страницу; без ботов, админа и заблокированных; своё место
   const BR = require('../src/battlerank');
