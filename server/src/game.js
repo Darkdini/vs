@@ -421,6 +421,14 @@ class Game {
     const castle = this.createCastle(this.db.users[login]);
     this.db.users[login].castleId = castle.id;
     this.db.users[login].castleIds = [castle.id]; // первый — столица
+    const adm = gift > 0 && this.adminUser ? this.adminUser() : null; // приветственное письмо о подарке — от Советника, в «Сообщения»
+    if (adm) {
+      const days = `${gift} ${require('./words').plural(gift, 'день', 'дня', 'дней')}`;
+      const until = new Date(this.db.users[login].premium).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      this.sendMail(adm, login, `Подарок новичку: Премиум на ${days}`, `Приветствую, правитель! Добро пожаловать в Средневековье!\n🎁 В подарок новичку — Премиум Завоеватель на ${days}, до ${until} (МСК).\n`
+        + 'С ним: 5 построек одновременно, опыт генерала ×2, прирост населения +50%, отправка армий по расписанию, ритуалы и тренировка во всех замках из одного окна, цвет сообщений и звание Премиум в профиле.\n'
+        + 'Стройте, собирайте армию и ищите союзников — удачи в битвах!');
+    }
     this.store.save();
     return { user: this.db.users[login] };
   }

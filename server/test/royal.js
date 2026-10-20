@@ -1684,10 +1684,12 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const N = g.register({ login: 'premNew1', password: '12345', race: 0 }).user;
   assert.ok(g.isPremium(N) && N.premium === N.created + 3 * DAY && N.premiumGift === N.premium, 'новичок — Премиум на 3 дня');
   assert.strictEqual(g.welcomeInfo(N, 0).premGift, N.premium, 'советник напоминает о подарке');
+  const hi = g.db.messages.find((m) => m.to === N.id && m.from === g.adminUser().id);
+  assert.ok(hi && hi.subject === 'Подарок новичку: Премиум на 3 дня' && /Премиум Завоеватель на 3 дня, до \d\d\.\d\d, \d\d:\d\d \(МСК\)/.test(hi.text) && !hi.read, 'приветственное письмо от Советника');
   N.gold = 100; assert.ok(g.buyPremium(N, 14).ok && N.premium === N.premiumGift + 14 * DAY, 'купленные дни — сверх подарка');
   N.premium = N.premiumGift = Date.now() - 1; assert.ok(!g.isPremium(N) && !g.welcomeInfo(N, 0).premGift, 'через 3 дня подарок кончается сам');
   process.env.NEWBIE_PREMIUM_DAYS = '0';
-  const O = g.register({ login: 'premOld1', password: '12345', race: 0 }).user; assert.ok(!O.premium && !g.isPremium(O), 'NEWBIE_PREMIUM_DAYS=0 — без подарка');
+  const O = g.register({ login: 'premOld1', password: '12345', race: 0 }).user; assert.ok(!O.premium && !g.isPremium(O) && !g.db.messages.some((m) => m.to === O.id), 'NEWBIE_PREMIUM_DAYS=0 — без подарка и письма');
   console.log('✓ подарок новичку: Премиум на 3 дня с регистрации, сам не продлевается, покупка — сверх подарка');
 }
 { // «Топ» по боевому рангу: больше очков — выше, по 10 на страницу; без ботов, админа и заблокированных; своё место
