@@ -825,12 +825,13 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const raid = fight({ 247: 200 }, { 247: 200 }, { m: 'raid' });
   assert.ok(raid.calc.aLossPct < 100 && raid.calc.dLossPct < 100, 'набег: никто не гибнет целиком');
   console.log('✓ Бой как в Travian: втрое больше — потери', big.calc.aLossPct + '%, вдесятеро —', x10.calc.aLossPct + '%; стена, Кузница, тараны, набег');
-  // Лазарет (здание 41, бывшая Пивоварня): павшие — ранеными в Лазарет (1000 мест за уровень); лечение — за четверть цены тренировки, сразу
+  // Лазарет (здание 41, бывшая Пивоварня): половина павших — ранеными в Лазарет (1000 мест за уровень), остальные гибнут; лечение — за четверть цены, сразу
   const atk0 = g.bonus(ca).atk, k = ca.grid[0].indexOf(-1) >= 0 ? ca.grid[0].indexOf(-1) : ca.grid[0].length - 1; ca.grid[0][k] = 41; ca.levels[0][k] = 10;
   assert.ok(g.infirmCap(ca) === 10000 && g.bonus(ca).atk === atk0, 'Лазарет 10 ур. — 10 000 мест, к атаке не прибавляет (бонус Пивоварни убран)');
   ca.wounded = {};
   const lz = fight({ 247: 100 }, { 247: 300 });
-  assert.ok(!lz.win && lz.aLost[247] === 100 && lz.calc.wounded === 100 && ca.wounded[247] === 100, `проигранное нападение: все 100 павших — ранеными в Лазарет (${lz.calc.wounded})`);
+  assert.ok(!lz.win && lz.aLost[247] === 100 && lz.calc.wounded === 50 && ca.wounded[247] === 50, `проигранное нападение: из 100 павших ранеными — половина, остальные погибли (${lz.calc.wounded})`);
+  { const one = fight({ 247: 1 }, { 247: 300 }); assert.ok(one.aLost[247] === 1 && !one.calc.wounded && ca.wounded[247] === 50, 'один павший — погиб (половина с округлением вниз)'); }
   const lzRam = fight({ 243: 20, 247: 300 }, { 247: 100 }, { wall: 10 });
   assert.ok(lzRam.aLost[243] === 20 && !ca.wounded[243], 'тараны одноразовые — в Лазарет не попадают');
   // лечение: четверть цены тренировки, сразу — вылеченные тут же в Замковой армии, дневной лимит тренировки не тратится
@@ -859,7 +860,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const df = fight({ 247: 300 }, { 247: 100 }); assert.ok(df.calc.dWounded > 0 && cd.wounded[247] === df.calc.dWounded, `оборона: раненые защитники — в Лазарет (${df.calc.dWounded})`);
   cd.grid[0][kd] = -1; cd.levels[0][kd] = 0; delete cd.wounded;
   ca.grid[0][k] = -1; ca.levels[0][k] = 0; delete ca.wounded;
-  console.log('✓ Лазарет: павшие — ранеными (1000 мест за уровень), лечение за четверть цены и сразу, тараны — нет, оборона — тоже');
+  console.log('✓ Лазарет: половина павших — ранеными (1000 мест за уровень), остальные гибнут; лечение за четверть цены и сразу, тараны — нет, оборона — тоже');
   if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
 }
 { // задания: обучение, ежедневные, поход в логово
@@ -950,6 +951,10 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   c.artifacts = [{ id: 1, type: 'atk', rarity: 0, active: false }];
   const a = g.activateArtifact(c, 1, true); assert.ok(a.ok && c.artifacts[0].until > Date.now(), 'пробуждение на время');
   assert.ok(g.activateArtifact(c, 1, false).error, 'усыпить нельзя');
+  c.artifacts.push({ id: 11, type: 'atk', rarity: 0, active: false }, { id: 12, type: 'atk', rarity: 1, active: false }, { id: 13, type: 'def', rarity: 0, active: false });
+  assert.ok(/уже пробуждён/.test(g.activateArtifact(c, 11, true).error || '') && g.activateArtifact(c, 13, true).ok, 'такой же артефакт этого вида уже действует — второй не пробудить; другого вида — можно');
+  assert.ok(g.activateArtifact(c, 12, true).ok && Math.abs(g.bonus(c).atk / g.bonus(Object.assign({}, c, { artifacts: [] })).atk - (1 + require('../src/army').RARITY[1].bonus)) < 1e-9, 'более сильный — можно, действует только он');
+  c.artifacts = c.artifacts.filter((x) => x.id === 1);
   c.artifacts[0].until = Date.now() - 1; g.mil(c); assert.ok(!c.artifacts.length, 'истёкший артефакт рассыпается');
   // разбить спящий артефакт: ресурсы — в замок до вместимости Складов, остаток — в Кладовую; пробуждённый не разбить
   c.artifacts = [{ id: 2, type: 'def', rarity: 2, active: false }, { id: 3, type: 'atk', rarity: 0, active: true, until: Date.now() + 1e6 }, { id: 4, type: 'prod', rarity: 0, active: false }];
@@ -997,7 +1002,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(g.heroOp(ca, A, { op: 'enhance', item: it.id }).ok && it.plus === 0 && ca.gearJob && ca.gearJob.end - ca.gearJob.start >= 9 * 60000 && g.runesOf(A).str === 6, 'усиление — по времени; легендарная вещь до +1 — 4 руны Силы');
   assert.ok(/уже усиливает/.test(g.heroOp(ca, A, { op: 'enhance', item: it.id }).error), 'одна вещь за раз');
   ca.gearJob.end = Date.now() - 1; g.heroGearTick(ca); assert.ok(it.plus === 1 && !ca.gearJob, 'по окончании +1');
-  const hb = g.heroBonus(ca.general); assert.ok(Math.abs(hb.atk - (0.10 + 0.15 * 1.15)) < 1e-9 && Math.abs(hb.mag - 0.15) < 1e-9, JSON.stringify(hb));
+  const hb = g.heroBonus(ca.general); assert.ok(Math.abs(hb.atk - (0.10 + 0.05 * 1.15)) < 1e-9 && Math.abs(hb.mag - 0.15) < 1e-9, JSON.stringify(hb)); // легендарное оружие — 5% (с 21.10; было 15%)
   const fight = (gen) => { cd.units = { 247: 100 }; cd.squads = []; ca.forge = {}; cd.forge = {}; return g.clash(ca, { units: { 247: 100 }, mission: 'attack', general: gen }, cd, null, Date.now()); };
   const plain = fight(false), hero = fight(true);
   assert.ok(hero.calc.att.total > plain.calc.att.total * 1.15 && hero.calc.aLossPct <= plain.calc.aLossPct && hero.calc.dLossPct >= plain.calc.dLossPct, 'генерал с умениями и мечом бьёт сильнее');
@@ -1710,10 +1715,10 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const want = Array.from({ length: r + 1 }, (_, k) => 15 * (k + 1)).reduce((a, n) => a + n, 0); assert.strictEqual(units() - u0, want, 'армия за все открытые ранги — в Кладовую');
   assert.strictEqual((g.stashOf(A).exp || 0) - e0, want / 15 * 50, 'опыт генерала за все открытые ранги — в Кладовую: 50 × номер ранга');
   assert.ok(/Новых наград нет/.test(g.brClaim(A).error || ''), 'дважды не забрать');
-  const b = g.brBonus(A); assert.ok(b.atk > 0 && b.prod > 0 && b.atk <= 0.2, 'бонус ранга — сразу');
+  const b = g.brBonus(A); assert.ok(b.atk > 0 && b.prod > 0 && b.atk <= 0.1, 'бонус ранга — сразу');
   const v = g.brView(A, A); assert.ok(v.table.length === 78 && v.title && v.next && v.chests === 0 && v.claimed === r, 'окно ранга');
   assert.ok(g.brView(Bq, A).chests === 0, 'чужие сундуки не видны');
-  assert.strictEqual(BR.rankInfo(77).title, 'Легенда'); assert.strictEqual(BR.bonusAt(77).atk, 0.2);
+  assert.strictEqual(BR.rankInfo(77).title, 'Легенда'); assert.ok(BR.bonusAt(77).atk === 0.1 && BR.bonusAt(77).prod === 0.3, 'Легенда 5★: урон и защита +10% (было +20%), прирост +30%');
   assert.deepStrictEqual(BR.prizeAt(6), { army: 105, res: 1750, exp: 350 }, 'ранг 7 — армия 105, ресурсы по 1 750, опыт генерала 350');
   assert.ok(Array.from({ length: 30 }, (_, i) => BR.prizeAt(i).army).reduce((a, n) => a + n, 0) === 6975, 'армия за ранги 1–30 — 6 975 (было 69 750)');
   assert.ok(BR.prizeAt(0).exp === 50 && BR.prizeAt(1).exp === 100 && BR.prizeAt(77).exp === 3900, 'опыт генерала — за каждый ранг: 50 × номер ранга');
@@ -1750,7 +1755,8 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   };
   const f1 = fight(), pop = require('../src/army').UNIT[200].pop;
   assert.ok(f1.home === 25 && f1.a === Math.round((75 + 25 * 0.25) * pop * 0.2), `нападающему: 75 павших полностью, 25 выздоровевших дома — четверть, путешественники — ничего (+${f1.a}; было бы ${Math.round((75 * pop + 2 * 3000) * 0.2)})`);
-  assert.ok(f1.lost > 0 && ca.wounded[200] === f1.lost && f1.d === Math.round(f1.lost * pop * 0.25 * 0.2), `защитнику за раненых в Лазарете нападающего — четверть (+${f1.d} за ${f1.lost})`);
+  { const w = Math.floor(f1.lost / 2); // ранеными — половина павших (Лазарет), остальные погибли
+    assert.ok(f1.lost > 0 && (ca.wounded[200] || 0) === w && f1.d === Math.round(((f1.lost - w) + w * 0.25) * pop * 0.2), `защитнику: за погибших — полностью, за раненых в Лазарете нападающего — четверть (+${f1.d} за ${f1.lost}, раненых ${w})`); }
   const f2 = fight(); assert.strictEqual(f2.a, Math.round((75 + 25 * 0.25) * pop * 0.2 / 2), `второй бой с тем же игроком за сутки — вдвое меньше (+${f2.a})`);
   console.log(`✓ Очки ранга: повтор за сутки 20 → 10 → 5, путешественники без очков, раненые за четверть (бой: +${f1.a}, повтор +${f2.a})`);
 }
@@ -2127,18 +2133,18 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   { // баланс боя: командование генерала с убывающей отдачей, одинаковые артефакты с убыванием, защита от кавалерии в бою
     const u = g.register({ login: 'balance1', password: '12345', race: 0 }).user, c = g.castleOf(u); g.mil(c);
     c.general = g.newGeneral(c, 500); c.general.pts.catk = 998;
-    const k = g.genStats(c.general).catk; assert.ok(k > 0.7 && k < 1, `командование 500 ур. не больше +100% (${k})`);
-    c.general.pts.catk = 10; assert.ok(Math.abs(g.genStats(c.general).catk - 10 / 310) < 1e-9, 'первые очки — около +0,3%');
+    const k = g.genStats(c.general).catk; assert.ok(k > 0.35 && k < 0.5, `командование 500 ур. не больше +50% (${k})`);
+    c.general.pts.catk = 10; assert.ok(Math.abs(g.genStats(c.general).catk - 0.5 * 10 / 310) < 1e-9, 'первые очки — около +0,17%');
     const b0 = g.bonus(c).train; c.artifacts = [0, 1, 2, 3, 4, 5, 6].map((i) => ({ id: 70000 + i, type: 'train', rarity: 2, active: true }));
     const tr = g.bonus(c).train; assert.ok(tr > 0.25 && tr < b0, `обучение ускоряется, но время не уходит в ноль (${tr})`);
     c.artifacts = [0, 1].map((i) => ({ id: 70100 + i, type: 'atk', rarity: 2, active: true })); const at = g.bonus(c).atk / g.bonus(Object.assign({}, c, { artifacts: [] })).atk;
-    assert.ok(Math.abs(at - 1.525) < 1e-6, `два легендарных артефакта атаки: +35% и +17,5% (${at})`);
+    assert.ok(Math.abs(at - 1.35) < 1e-6, `два легендарных артефакта атаки: действует один — +35% (${at})`);
     c.artifacts = []; delete c.general;
     const d = g.castleOf(g.register({ login: 'balance2', password: '12345', race: 0 }).user); g.mil(d);
     process.env.LUCK = '0'; c.units = {}; c.squads = []; c.armies = []; d.units = { 240: 100 }; d.squads = []; d.armies = [];
     const r = g.clash(c, { units: { 204: 100 }, general: false, mission: 'attack' }, d, null, Date.now()); delete process.env.LUCK;
     assert.ok(r.win, 'рыцари бьют катапульты: у катапульты слабая защита от кавалерии');
-    console.log('✓ Баланс боя: командование генерала до +100%, одинаковые артефакты с убыванием, защита от кавалерии в бою');
+    console.log('✓ Баланс боя: командование генерала до +50%, из одинаковых артефактов действует один, защита от кавалерии в бою');
   }
   { // карта мира: новый замок не встаёт вплотную к лагерю или руинам (картинки налезали)
     let near = 0; for (let i = 0; i < 60; i++) { const c = g.castleOf(g.register({ login: `mapnear${i}`, password: '12345', race: i % 4 }).user); if (g.worldObjects(c.x - 1, c.y - 1, 3, 3).some((o) => o.kind === 'object')) near++; }
@@ -2437,7 +2443,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     const forged = R.gear.find((x) => x.forged);
     assert.ok(forged && forged.slot === 'weapon' && forged.r === 4 && !forged.plus && !rc.runeJob, 'рунный клинок — в Оружейной');
     assert.ok(g.reportsOf(R.id).some((x) => x.title === 'Сковано: Клинок Древних Рун'), 'отчёт о ковке');
-    assert.ok(g.heroBonus({ eq: { weapon: forged }, tal: {} }).atk >= 0.2, 'рунный клинок: +20% атаки');
+    assert.ok(Math.abs(g.heroBonus({ eq: { weapon: forged }, tal: {} }).atk - 0.07) < 1e-9 && Math.abs(g.heroBonus({ eq: { weapon: { ...forged, plus: 5 } }, tal: {} }).atk - 0.1225) < 1e-9, 'рунный клинок: +7% атаки, на +5 — +12% (с 21.10; было +20% и +35%)');
     for (const k of ['wood', 'stone', 'iron', 'food']) rc.res[k] = 50000;
     g.runesOf(R).str += 5; // рунная вещь до +1 — 5 рун Силы
     const en = g.heroOp(rc, R, { op: 'enhance', item: forged.id }); assert.ok(en.ok && g.runesOf(R).str === 2, `рунную вещь можно усиливать у Кузнеца (за ресурсы и 5 рун): ${en.error}`);

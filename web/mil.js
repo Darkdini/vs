@@ -76,7 +76,7 @@ function milEffect(def, L) {
     38: () => ({ text: 'призыв легендарных юнитов', short: '' }),
     39: () => ({ text: `+${2 * L}% магической атаки и защиты`, short: `+${2 * L}%` }),
     40: () => { const p = Math.round((1 - 1 / (1 + 0.05 * L)) * 100); return { text: `здания получают на ${p}% меньше урона (катапульты и осадные воины)`, short: `−${p}%` }; }, // урон ÷ (1 + 5% × ур.)
-    41: () => ({ text: `мест для раненых: ${fmtFull(1000 * L)}; лечение — за четверть цены тренировки, сразу`, short: `${fmtFull(1000 * L)} мест` }), // Лазарет (army.js INFIRM_CAP)
+    41: () => ({ text: `мест для раненых: ${fmtFull(1000 * L)}; ранеными становится половина павших; лечение — за четверть цены тренировки, сразу`, short: `${fmtFull(1000 * L)} мест` }), // Лазарет (army.js INFIRM_CAP)
     42: () => ({ text: 'найм наёмников: Великан, Валькирия', short: '' }),
     43: () => ({ text: `тренировка быстрее на ${2 * L}%`, short: `−${2 * L}%` }),
     44: () => ({ text: `хранит ${3 + L} ${plural(3 + L, 'артефакт', 'артефакта', 'артефактов')}`, short: `${3 + L}` }),
@@ -320,9 +320,9 @@ function expedHtml() {
 const ART_HOURS = [12, 24, 48];
 function artifactsHtml() {
   const my = MY(), active = my.artifacts.filter((a) => a.active).length;
-  return `<div class="section">Артефакты</div><p class="small muted">Пробуждено ${active} из ${my.bonus.artSlots} (Башня артефактов), хранится ${my.artifacts.length} из ${my.bonus.artStore} (Сокровищница). Одинаковые артефакты складываются с убыванием: второй даёт половину, третий — четверть. Ненужный спящий артефакт можно разбить на осколки — освободится место, а взамен немного ресурсов.</p>
+  return `<div class="section">Артефакты</div><p class="small muted">Пробуждено ${active} из ${my.bonus.artSlots} (Башня артефактов), хранится ${my.artifacts.length} из ${my.bonus.artStore} (Сокровищница). Одновременно действует только один артефакт каждого вида — самый сильный. Ненужный спящий артефакт можно разбить на осколки — освободится место, а взамен немного ресурсов.</p>
     ${my.artifacts.map((a) => { const t = M().artifacts[a.type], r = M().rarity[a.rarity]; return `<div class="card unit"><div class="top">${gimg(ART_ICON[a.type] || ART_ICON.atk, `artico artr${a.rarity}`)}
-      <div class="grow"><b>${esc(t.name)}</b><span class="muted small">${r.name}: +${Math.round(r.bonus * 100)}% — ${esc(t.desc)}${a.active ? ` · <b class="good">пробуждён${a.eff !== undefined && a.eff < r.bonus - 1e-9 ? `, действует +${Math.round(a.eff * 100)}%` : ''}</b>` : ''}</span></div>
+      <div class="grow"><b>${esc(t.name)}</b><span class="muted small">${r.name}: +${Math.round(r.bonus * 100)}% — ${esc(t.desc)}${a.active ? ` · <b class="good">пробуждён${a.eff !== undefined && a.eff < r.bonus - 1e-9 ? (a.eff > 0 ? `, действует +${Math.round(a.eff * 100)}%` : ', не действует — пробуждён более сильный этого вида') : ''}</b>` : ''}</span></div>
       ${a.active ? '' : `<div class="artbtns"><button class="btn small primary" data-art="${a.id}" data-on="1" data-hours="${ART_HOURS[a.rarity]}">Пробудить</button><button class="btn small danger" data-artbreak="${a.id}">Разбить</button></div>`}</div>
       ${a.active && a.until ? `<div class="artlife"><div class="bar"><i data-s="${a.until - ART_HOURS[a.rarity] * 3600000 / S.cat.speed}" data-e="${a.until}"></i></div><span>иссякнет через <span class="cd" data-e="${a.until}"></span></span></div>` : `<p class="small muted">Пробуждённый действует ${ART_HOURS[a.rarity]} ч, затем рассыпается. Разбить — +${fmtFull(M().artBreak[a.rarity])} каждого ресурса.</p>`}</div>`; }).join('') || '<p class="muted small">Артефактов нет — их приносят экспедиции археологов (здание «Экспедиция»).</p>'}`;
 }
@@ -424,8 +424,8 @@ function reportHtml(r) {
   // павшие: «Полевой лекарь» спас сразу (нападавшему); раненые — в Лазарет замка (нападавшему и защитнику)
   const ofW = (n) => `${fmtFull(n)} ${plural(n, 'воина', 'воинов', 'воинов')}`, cl = d.calc || {};
   const healWhy = (attV && cl.saved ? why(`Полевой лекарь спас ${ofW(cl.saved)} — они вернутся домой.`) : '')
-    + (attV && cl.wounded ? why(`В Лазарет отправлено раненых: ${fmtFull(cl.wounded)} — вылечите их там за четверть цены.`) : '');
-  const dHealWhy = !attV && cl.dWounded && !d.captured ? why(`В Лазарет отправлено раненых: ${fmtFull(cl.dWounded)} — вылечите их там за четверть цены.`) : '';
+    + (attV && cl.wounded ? why(`В Лазарет отправлено раненых: ${fmtFull(cl.wounded)} (ранеными становится половина павших) — вылечите их там за четверть цены.`) : '');
+  const dHealWhy = !attV && cl.dWounded && !d.captured ? why(`В Лазарет отправлено раненых: ${fmtFull(cl.dWounded)} (ранеными становится половина павших) — вылечите их там за четверть цены.`) : '';
   const dWhy = dL || !dW || d.win || kD < 2 ? '' : why(`Защита была в ${kD} ${plural(kD, 'раз', 'раза', 'раз')} сильнее атаки — при таком перевесе защитники почти не теряют войск.`);
   // «Армия атаки» / «Армия защиты» — раскрываются нажатием: потери, потери в ресурсах, по юнитам «погибло из было», генерал
   const unitRows = (units, race) => Object.entries(units || {}).map(([id, v]) => { const u = unitById(id); return u ? `<div class="rul"><img class="ric" src="${unitSrc(u, race)}" alt=""> ${esc(u.name)}: ${fmtFull(v.lost)} из ${fmtFull(v.was)}</div>` : ''; }).join('');

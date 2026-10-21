@@ -224,7 +224,7 @@ const unitsForRace = (race) => UNITS.filter((u) => u.race === race || u.race ===
 // генерал как в оригинале: за уровень — очки опыта, игрок распределяет их в окне «Генерал».
 // Личная атака/защита — +1 за очко; командование атакой/защитой — к армии, с убывающей отдачей (cmdBonus); восстановление — воскрешение быстрее на 1% за очко
 // (не больше 50 очков — вдвое быстрее); карьера — больше опыта.
-const GEN = { battleCap: 0.15, dayLevels: 1, perLevel: 2, maxLevel: 500, revive: 0.5, cmd: 0.003, cmdMax: 1, cmdK: 300, heal: 0.01, healMax: 50, career: 0.005, resetGold: 100 };
+const GEN = { battleCap: 0.15, dayLevels: 1, perLevel: 2, maxLevel: 500, revive: 0.5, cmd: 0.003, cmdMax: 0.5, cmdK: 300, heal: 0.01, healMax: 50, career: 0.005, resetGold: 100 };
 // с 25 уровня прокачка тяжелее и дороже: каждый уровень требует больше опыта (+25% за каждый уровень сверх 24-го:
 // 25-й — ×1,25, 30-й — ×2,5, 40-й — ×5 к прежней шкале), за бой — не больше 10% уровня, за сутки — не больше полуровня.
 // Игрокам лимиты не показываются (ни в окне «Генерал», ни в отчётах)
@@ -232,14 +232,15 @@ const GEN_HARD = { from: 25, k: 0.25, battle: 0.10, day: 0.5 };
 const REVIVE_GOLD = 3, REVIVE_RES_MAX = 100; // воскрешение генерала: монет за каждые 25 уровней; выше этого уровня — только за монеты
 const REVIVE_MIN = 10; // время воскрешения генерала — (уровень + 10) минут: 10 ур. — 20 мин, каждый уровень — ещё минута
 const GEN_HIRE_SEC = 1800, GEN_HIRE_K = 2.5, REKIND_SEC = 1800; // найм генерала: полчаса + время воина ×2,5 (Мечник — 1 ч, Мародер — 1,5 ч); смена воина — полчаса
-// командование генерала (атакой/защитой): первые очки — почти по +0,33% (как раньше +0,3%), дальше отдача убывает:
-// 100 очков — +25%, 300 — +50%, 1000 (500 ур.) — +77%, не больше +100%. Раньше росло без предела (+299% на 500 ур.) и решало любой бой.
+// командование генерала (атакой/защитой): первые очки — около +0,17%, дальше отдача убывает: 100 очков — +12,5%, 300 — +25%,
+// 1000 (500 ур.) — +38%, не больше +50% (с 21.10 вдвое меньше — по решению владельца: вместе с наукой, рангом, артефактами и
+// снаряжением генерал давал армии ×2,8). Ещё раньше росло без предела (+299% на 500 ур.) и решало любой бой.
 const cmdBonus = (pts) => (pts > 0 ? GEN.cmdMax * pts / (pts + GEN.cmdK) : 0);
-// артефакты одного вида складываются с убывающей отдачей: самый сильный — полностью, второй — наполовину, третий — на четверть…
-// (раньше 7 легендарных давали +245%, а «ускорение обучения» уводило время обучения ниже нуля)
+// артефакты одного вида: действует только самый сильный (с 21.10 — по решению владельца; до этого второй — наполовину, третий —
+// на четверть…: 4 легендарных давали +66%; ещё раньше 7 легендарных — +245%, а «ускорение обучения» уводило время ниже нуля)
 const artEffects = (arts) => { const eff = new Map(), by = {};
   for (const a of arts || []) if (a.active && RARITY[a.rarity]) (by[a.type] = by[a.type] || []).push(a);
-  for (const list of Object.values(by)) list.sort((x, y) => RARITY[y.rarity].bonus - RARITY[x.rarity].bonus).forEach((a, i) => eff.set(a.id, RARITY[a.rarity].bonus / 2 ** i));
+  for (const list of Object.values(by)) list.sort((x, y) => RARITY[y.rarity].bonus - RARITY[x.rarity].bonus).forEach((a, i) => eff.set(a.id, i ? 0 : RARITY[a.rarity].bonus));
   return eff; };
 const GEN_STATS = ['atk', 'def', 'catk', 'cdef', 'heal', 'career'];
 // звание генерала в скобках — сильнейший боевой юнит расы (у орков «Бугай» и т. п.)
@@ -335,8 +336,9 @@ const CAMPS = [30, 31, 32]; // лагеря разбойников: лёгкий
 const HEAL_HOME = 0.25; // раненые защитники в своём замке: четверть павших выздоравливает
 // Лазарет (здание 41, бывшая Пивоварня): свои павшие в нападениях и набегах из этого замка и при его обороне попадают сюда ранеными —
 // INFIRM_CAP мест за уровень (10 ур. — 10 000); лечение — за HEAL_K цены тренировки (четверть; до 20.10 — половина), сразу (если хватает ресурсов),
-// вне дневного лимита TRAIN_DAY
-const INFIRM_CAP = 1000, HEAL_K = 0.25;
+// вне дневного лимита TRAIN_DAY. Ранеными становится INFIRM_SHARE павших — половина, вторая половина гибнет насовсем (с 21.10 — по
+// решению владельца: раньше в Лазарет шли все павшие, и разбитая армия возвращалась почти целиком)
+const INFIRM_CAP = 1000, HEAL_K = 0.25, INFIRM_SHARE = 0.5;
 // очки боевого ранга: мирные юниты — без очков, раненые (в Лазарет и выздоровевшие дома) — за четверть (army.js rankPop)
 const RANK_NONE = ['merchant', 'settler', 'sage', 'archaeologist', 'rebel'], RANK_WOUND = 0.25;
 const ROW = { infantry: 3, cavalry: 2, magic: 1, siege: 1, special: 1 }, DMG = 2, ROUT = 0.3; // бой с боссом (clashHp): ряды строя, множитель урона, бегство
@@ -512,14 +514,15 @@ function install(Game, helpers) {
   P.infirmUsed = function infirmUsed(castle) {
     return Object.values(castle.wounded || {}).reduce((q, n) => q + n, 0) + (castle.healing || []).reduce((q, j) => q + j.count - j.done, 0);
   };
-  // павшие lost { id: n } — ранеными в Лазарет замка, пока есть места; не поместились — погибли. Возвращает, сколько попало;
-  // into { id: n } — сколько каких попало (очки боевого ранга за раненых — четверть)
+  // павшие lost { id: n } — половина (INFIRM_SHARE, с округлением вниз) ранеными в Лазарет замка, пока есть места; остальные погибли.
+  // Возвращает, сколько попало; into { id: n } — сколько каких попало (очки боевого ранга за раненых — четверть)
   P.toInfirmary = function toInfirmary(castle, lost, into) {
     if (!castle || !lost) return 0;
     let free = this.infirmCap(castle) - this.infirmUsed(castle), n = 0;
     for (const [id, k] of Object.entries(lost)) {
       if (free <= 0) break; if (!(k > 0) || !healable(id)) continue;
-      const t = Math.min(k, free); castle.wounded = castle.wounded || {}; castle.wounded[id] = (castle.wounded[id] || 0) + t; free -= t; n += t;
+      const t = Math.min(Math.floor(k * INFIRM_SHARE), free); if (!t) continue;
+      castle.wounded = castle.wounded || {}; castle.wounded[id] = (castle.wounded[id] || 0) + t; free -= t; n += t;
       if (into) into[id] = (into[id] || 0) + t;
     }
     return n;
@@ -1588,7 +1591,7 @@ function install(Game, helpers) {
     }
     if (genDied) lines.push('Генерал пал в бою — воскресите его в Военном штабе.');
     lines.push(...genA.filter((x) => !genDied || !/пал в бою/.test(x)));
-    if (calc.wounded) lines.push(`В Лазарет отправлено раненых: ${calc.wounded} — вылечите их там за четверть цены.`);
+    if (calc.wounded) lines.push(`В Лазарет отправлено раненых: ${calc.wounded} (ранеными становится половина павших) — вылечите их там за четверть цены.`);
     if (calc.saved) lines.push(`Полевой лекарь спас ${Wd.ofWarriors(calc.saved)}.`);
     const title = `Атака на ${target ? (captured ? captured.prevLogin : defUser.login) : npc.name}`; // как в оригинале: «Атака на <игрок>» / «Оборона от <игрок>»
     this.report(c.owner, title, lines, 'battle', { ...data, side: 'att' });
@@ -1599,7 +1602,7 @@ function install(Game, helpers) {
         `Ваши войска: ${unitsLine(dAll, dLost)}`,
         loot ? `Унесено: дерево ${loot.wood}, камень ${loot.stone}, железо ${loot.iron}, еда ${loot.food}` : 'Враг разбит, ничего не унесено.',
         ...siege, ...(loyalty ? [`Бунт в замке: ${100 - loyalty.from}% → ${100 - loyalty.to}%`] : []), ...(took ? [`Ваш недострой ${a.x}:${a.y} захвачен игроком ${att.login}.`] : []), ...genD,
-        ...(calc.dWounded && !captured ? [`В Лазарет отправлено раненых: ${calc.dWounded} — вылечите их там за четверть цены.`] : []),
+        ...(calc.dWounded && !captured ? [`В Лазарет отправлено раненых: ${calc.dWounded} (ранеными становится половина павших) — вылечите их там за четверть цены.`] : []),
       ], 'battle', { ...data, side: 'def' });
     }
     if (took) { a.units[TRAVELER_ID] -= SETTLE_TAKE; if (!a.units[TRAVELER_ID]) delete a.units[TRAVELER_ID]; } // путешественники остаются строить
@@ -1850,6 +1853,8 @@ function install(Game, helpers) {
     }
     if (!on) return { error: 'Пробуждённый артефакт не усыпить — его сила иссякнет сама.' };
     if (a.active) return { error: 'Артефакт уже пробуждён.' };
+    // действует один артефакт каждого вида (artEffects): такой же или сильнее уже пробуждён — новый не добавил бы силы
+    if (castle.artifacts.some((x) => x.active && x.type === a.type && (x.rarity || 0) >= (a.rarity || 0))) return { error: 'Артефакт этого вида уже пробуждён (такой же или сильнее) — одновременно действует только один артефакт каждого вида.' };
     this.addStat(castle.owner, 'boost', 1); // Зал Славы «Усиление»
     a.active = true; a.until = Date.now() + ART_HOURS[a.rarity || 0] * 3600000 / SPEED; this.store.save();
     return { ok: true, msg: `«${ART_TYPES[a.type].name}» пробуждён на ${ART_HOURS[a.rarity || 0]} ч. Потом он рассыплется.` };
