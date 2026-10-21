@@ -708,7 +708,7 @@ function costChips(cost) {
 // строка «Текущая …» в окне здания (как в оригинале: «Текущая вместимость склада: 5000 ед.»)
 function currentLine(def, lvl) {
   if ([13, 21, 25, 46].includes(def.id)) return ''; // в оригинале у Дипломатического центра и Резиденции этой строки нет
-  if (S.cat.mil && S.cat.mil.units.some((u) => u.building === def.id)) return ''; // и у зданий тренировки (видео оригинала)
+  if (S.cat.mil && S.cat.mil.units.some((u) => u.building === def.id && !u.retired)) return ''; // и у зданий тренировки (видео оригинала); Портал больше не тренирует
   if (def.id === 1) return `Текущая вместимость склада: <b>${fmtFull(R().store.levels[lvl])} ед.</b>`;
   const e = effect(def, lvl).text;
   return e && e !== '—' ? `Сейчас даёт: <b>${esc(e)}</b>` : '';

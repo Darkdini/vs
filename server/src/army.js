@@ -176,6 +176,15 @@ const UNIT = Object.fromEntries(UNITS.map((u) => [u.id, u]));
 // груз — 45 ед. за уровень Рынка (20 ур. — 900 ед.)
 const MERCHANT_ID = 221, MERCHANTS = 20;
 Object.assign(UNIT[MERCHANT_ID], { speed: 60, notrain: true, carry: 45 }); // торговцы втрое быстрее оригинала (было 20 полей/час)
+// как в оригинале: в Центре разведки тренируется только разведчик своей расы, Портал воинов не тренирует — он ускоряет походы.
+// Око и Тень (были в Центре разведки), Джин и Изувер (были в Портале) больше не тренируются; у кого уже есть — остаются в армии
+const RETIRED = [241, 242, 206, 251];
+for (const id of RETIRED) Object.assign(UNIT[id], { notrain: true, retired: true });
+// разведчики — вдвое дешевле и вдвое быстрее в тренировке
+for (const u of UNITS) if (u.role === 'scout') {
+  u.cost = Object.fromEntries(Object.entries(u.cost).map(([r, v]) => [r, Math.round(v / 2)]));
+  u.time = Math.round(u.time / 2);
+}
 const GENERAL_ID = 236;
 const TRADE_MAX = Math.max(5, Math.round(600 / SPEED)); // торговцы идут не дольше 10 минут куда угодно
 const OWN_TRADE = 3; // торговцы между своими замками — втрое быстрее (180 полей/час)
@@ -516,8 +525,9 @@ function install(Game, helpers) {
     return Math.max(1, Math.round(unit.time * this.bonus(castle).train / SPEED));
   };
   // ----- Лазарет (здание 41): раненые и лечение -----
-  // кто попадает в Лазарет: воины с ценой тренировки (не тараны и прочие одноразовые, не уникальные воины заданий, не генерал)
-  const healable = (id) => { const u = UNIT[id]; return !!(u && u.cost && !u.oneUse && !u.notrain && Number(id) !== GENERAL_ID); };
+  // кто попадает в Лазарет: воины с ценой тренировки (не тараны и прочие одноразовые, не уникальные воины заданий, не генерал);
+  // снятые с тренировки (Око, Тень, Джин, Изувер) у тех, у кого остались, лечатся как раньше
+  const healable = (id) => { const u = UNIT[id]; return !!(u && u.cost && !u.oneUse && (!u.notrain || u.retired) && Number(id) !== GENERAL_ID); };
   P.infirmCap = function infirmCap(castle) { return INFIRM_CAP * this.buildingLevel(castle, B.INFIRMARY); };
   // занято мест: раненые (и очередь лечения прежней версии, пока замок не обновился)
   P.infirmUsed = function infirmUsed(castle) {
@@ -582,7 +592,7 @@ function install(Game, helpers) {
     this.tick(castle);
     const unit = raceUnit(UNIT[unitId], this.raceOf(castle)); count = Math.floor(Number(count));
     if (!unit) return { error: 'Неизвестный юнит.' };
-    if (unit.notrain) return { error: unit.undead ? 'Нежить не тренируется — она приходит из сундуков Лавки (Кладовая).' : unit.quest ? 'Уникальные воины не тренируются — их дают задания (Кладовая).' : 'Торговцы не тренируются — их 20 на Рынке.' };
+    if (unit.notrain) return { error: unit.retired ? (unit.building === B.PORTAL ? 'Портал воинов не тренирует — он ускоряет походы.' : 'В Центре разведки тренируются только разведчики.') : unit.undead ? 'Нежить не тренируется — она приходит из сундуков Лавки (Кладовая).' : unit.quest ? 'Уникальные воины не тренируются — их дают задания (Кладовая).' : 'Торговцы не тренируются — их 20 на Рынке.' };
     if (!(count > 0)) return { error: 'Укажите количество.' };
     if (ORDER_MAX[unit.id] && count > ORDER_MAX[unit.id]) return { error: `${unit.name}: не больше ${ORDER_MAX[unit.id]} за один заказ.` };
     const lock = this.unitLock(castle, unit); if (lock) return { error: lock };

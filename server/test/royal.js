@@ -1807,6 +1807,27 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(!g.maintBoot(flag) && !g.maintOn(), 'администратор открыл игру — следующий запуск обычный');
   console.log('✓ Закрыть игру: только администратор, на 8 или 24 часа — потом открывается сама; без времени для игроков; файл maint.on — запуск сразу закрытой');
 }
+{ // Центр разведки — только разведчик своей расы, вдвое дешевле и быстрее оригинала; Портал воинов не тренирует — он ускоряет походы.
+  // Око, Тень, Джин и Изувер больше не тренируются; у кого уже есть — остаются и лечатся в Лазарете
+  const { UNITS, UNIT, B } = require('../src/army');
+  const scouts = { humans: 202, elves: 209, dwarves: 217, orcs: 252 };
+  for (const [race, id] of Object.entries(scouts)) {
+    const list = UNITS.filter((u) => u.building === B.SPY && !u.notrain && (u.race === race || u.race === 'all')).map((u) => u.id);
+    assert.deepStrictEqual(list, [id], `Центр разведки (${race}): только ${UNIT[id].name}, а не ${list}`);
+  }
+  assert.ok(!UNITS.some((u) => u.building === B.PORTAL && !u.notrain), 'Портал не тренирует');
+  const half = { 202: [45, 50, 35, 28, 600], 209: [53, 35, 23, 15, 960], 217: [28, 53, 35, 35, 1090], 252: [40, 38, 43, 85, 1190] }; // оригинал / 2
+  for (const [id, v] of Object.entries(half)) { const u = UNIT[id]; assert.deepStrictEqual([u.cost.wood, u.cost.stone, u.cost.iron, u.cost.food, u.time], v, `${u.name}: вдвое дешевле и быстрее`); }
+  const pl = g.register({ login: 'spyPl1', password: '12345', race: 0 }).user, c = g.castleOf(pl); g.maxOut(c); c.training = [];
+  assert.ok(/только разведчики/.test(g.train(c, 241, 1).error) && /только разведчики/.test(g.train(c, 242, 1).error), 'Око и Тень не тренируются');
+  assert.ok(/ускоряет походы/.test(g.train(c, 206, 1).error), 'Джин не тренируется');
+  assert.ok(!g.train(c, 202, 1).error, 'Разведчик тренируется');
+  const d = g.register({ login: 'spyDef1', password: '12345', race: 0 }).user, cd = g.castleOf(d); g.maxOut(cd); cd.units = { 201: 50000 }; cd.squads = [];
+  c.units = { 206: 100 }; c.wounded = {}; c.general = null; c.squads = [];
+  g.clash(c, { units: { 206: 100 }, mission: 'attack', general: false }, cd, null, Date.now());
+  assert.ok((c.wounded[206] || 0) > 0, `Джин, который уже был, лечится в Лазарете (${JSON.stringify(c.wounded)})`);
+  console.log('✓ Центр разведки — только разведчик своей расы (вдвое дешевле и быстрее); Портал не тренирует; Око, Тень, Джин, Изувер — не тренируются, у кого есть — остаются');
+}
 { // новые правила боя — проба (админка): по умолчанию выключены; Кузница — до половины базы, тараны — только при победе,
   // подкрепления — со своими бонусами, магия ¾; «Сравнить бой» — по прежним и новым правилам, в игре ничего не меняется
   const adm = g.adminUser(), mk = (login) => g.register({ login, password: '12345', race: 0 }).user;
