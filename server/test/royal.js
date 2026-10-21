@@ -725,13 +725,14 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   const tc = g.genTrainCost(UNIT[245]); assert.deepStrictEqual([tc.cost.wood, tc.cost.stone, tc.cost.iron, tc.cost.food, tc.people, tc.sec], [1700, 1600, 1800, 3600, 120, 5400], 'Мародер → генерал: цена как на скрине, найм — полтора часа');
   assert.strictEqual(g.genTrainCost(UNIT[200]).sec, 3600, 'Мечник → генерал: час');
   const rc = g.reviveCostOf({ kindId: 247, level: 716, exp: g.generalNeed(715) + 1 });
-  assert.deepStrictEqual([rc.cost.wood, rc.cost.stone, rc.cost.iron, rc.cost.food, rc.people, rc.sec, rc.gold], [537000, 572800, 608600, 1181400, 8592, 726 * 60, 87].map((v, i) => (i < 4 ? rc.cost[['wood', 'stone', 'iron', 'food'][i]] : v)), 'Бугай 716');
-  assert.ok(Math.abs(rc.cost.wood - 537060) / 537060 < 0.002 && rc.people === 8592 && rc.sec === 726 * 60 && rc.gold === 87 && rc.coinsOnly, `Бугай 716 (выше 100 ур. — только за монеты, 3 монеты за каждые 25 ур.): ${JSON.stringify(rc)}`);
-  // воскрешение: 10 ур. — 20 минут, каждый уровень — ещё минута; от воина не зависит
-  assert.ok(g.reviveCostOf({ kindId: 200, level: 10, exp: 0 }).sec === 1200 && g.reviveCostOf({ kindId: 249, level: 10, exp: 0 }).sec === 1200 && g.reviveCostOf({ kindId: 245, level: 11, exp: 0 }).sec === 1260, 'воскрешение: 10 ур. — 20 мин, 11 ур. — 21 мин');
+  assert.deepStrictEqual([rc.cost.wood, rc.cost.stone, rc.cost.iron, rc.cost.food, rc.people, rc.sec, rc.gold], [537000, 572800, 608600, 1181400, 8592, 726 * 60 * 3, 716].map((v, i) => (i < 4 ? rc.cost[['wood', 'stone', 'iron', 'food'][i]] : v)), 'Бугай 716');
+  assert.ok(Math.abs(rc.cost.wood - 537060) / 537060 < 0.002 && rc.people === 8592 && rc.sec === 726 * 60 * 3 && rc.gold === 716 && rc.coinsOnly, `Бугай 716 (выше 100 ур. — только за монеты, монета за уровень): ${JSON.stringify(rc)}`);
+  // воскрешение: (уровень + 10) × 3 минуты — 10 ур. — час, каждый уровень — ещё 3 минуты; от воина не зависит (с 21.10; было втрое быстрее)
+  assert.ok(g.reviveCostOf({ kindId: 200, level: 10, exp: 0 }).sec === 3600 && g.reviveCostOf({ kindId: 249, level: 10, exp: 0 }).sec === 3600 && g.reviveCostOf({ kindId: 245, level: 11, exp: 0 }).sec === 3780, 'воскрешение: 10 ур. — 1 ч, 11 ур. — 1 ч 3 мин');
+  assert.strictEqual(g.reviveCostOf({ kindId: 200, level: 100, exp: 0 }).gold, 100, 'за монеты — монета за уровень: 100 ур. — 100 (было 12)');
   // Скорость восстановления: воскрешение быстрее на 1% за очко, не больше 50 очков (вдвое быстрее)
   const rv = (heal) => g.reviveCostOf({ kindId: 200, level: 10, exp: 0, pts: { heal } }).sec;
-  assert.ok(rv(10) === 1080 && rv(50) === 600 && rv(80) === 600, `восстановление: 10 очков — 18 мин, 50 и больше — 10 мин (${rv(10)}, ${rv(50)}, ${rv(80)})`);
+  assert.ok(rv(10) === 3240 && rv(50) === 1800 && rv(80) === 1800, `восстановление: 10 очков — 54 мин, 50 и больше — 30 мин (${rv(10)}, ${rv(50)}, ${rv(80)})`);
   { const gh = g.newGeneral(c, 40); gh.free = 78; c.general = gh;
     assert.ok(g.generalOp(c, u, { op: 'dist', pts: { heal: 40 } }).ok && /не больше 50/.test(g.generalOp(c, u, { op: 'dist', pts: { heal: 11 } }).error || '') && gh.pts.heal === 40, 'больше 50 очков в восстановление не вложить');
     assert.ok(g.generalOp(c, u, { op: 'dist', pts: { heal: 10 } }).ok && gh.pts.heal === 50 && g.genStats(gh).heal === 0.5, '50 очков — вдвое быстрее'); c.general = null; }
@@ -742,8 +743,8 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(g.trainGeneral(c, 245).error, 'второй генерал не тренируется');
   c.training.find((t) => t.unit === 236).start = 0; g.tick(c);
   assert.ok(c.general && c.general.kind === 'Мародер');
-  c.general.dead = true; u.gold = 10;
-  assert.ok(g.reviveGeneral(c, u, 0, true).ok && !c.general.dead && u.gold === 7, 'воскрешение за 3 монеты');
+  c.general.dead = true; u.gold = 10; const lv = c.general.level;
+  assert.ok(g.reviveGeneral(c, u, 0, true).ok && !c.general.dead && u.gold === 10 - lv, `воскрешение ${lv} ур. — за ${lv} монет`);
   c.general.dead = true; c.units[245] = 2; assert.ok(g.trainGeneral(c, 245).ok); assert.strictEqual(c.deadGenerals.length, 1, 'павший остаётся в списке');
   assert.ok(g.deleteDeadGeneral(c, 0).ok && !c.deadGenerals.length);
   // сменить воина: уровень, опыт, очки и снаряжение остаются; цена — как найм; полчаса переобучения
@@ -1760,6 +1761,24 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const f2 = fight(); assert.strictEqual(f2.a, Math.round((75 + 25 * 0.25) * pop * 0.2 / 2), `второй бой с тем же игроком за сутки — вдвое меньше (+${f2.a})`);
   console.log(`✓ Очки ранга: повтор за сутки 20 → 10 → 5, путешественники без очков, раненые за четверть (бой: +${f1.a}, повтор +${f2.a})`);
 }
+{ // генерал гибнет по исходу боя (21.10): «Полевой лекарь» и выздоровевшие дома больше не спасают его; набег — не гибнет; уцелеть — до 30%
+  const mk = (login) => g.register({ login, password: '12345', race: 0 }).user;
+  const A = mk('gdAtt1'), D = mk('gdDef1'), ca = g.castleOf(A), cd = g.castleOf(D); g.maxOut(ca); g.maxOut(cd);
+  const go = (mission) => { ca.squads = []; ca.armies = []; cd.squads = []; cd.armies = []; const s = g.sendArmy(ca, { from: 'castle', mission, x: cd.x, y: cd.y }); assert.ok(!s.error, s.error); g.tickWorld(Date.now() + 1e10); g.tickWorld(Date.now() + 3e10); };
+  // нападение проиграно: «Полевой лекарь» (15%) спас часть воинов — генерал всё равно пал
+  ca.general = g.newGeneral(ca, 20); ca.general.tal = { d1: 5, d2: 5 }; cd.general = null; ca.units = { 200: 100 }; cd.units = { 201: 3000 };
+  go('attack'); assert.ok(ca.general.dead && (ca.units[200] || 0) > 0, `нападение проиграно — генерал пал, спасённые лекарем вернулись (${ca.units[200] || 0})`);
+  // оборона проиграна: четверть защитников выздоровела дома — генерал в замке всё равно пал
+  ca.general = null; cd.general = g.newGeneral(cd, 20); cd.units = { 201: 100 }; ca.units = { 200: 5000 };
+  go('attack'); assert.ok(cd.general.dead && (cd.units[201] || 0) > 0, `оборона проиграна — генерал пал, хотя ${cd.units[201] || 0} копейщиков выздоровели дома`);
+  // набег — короткая стычка: генерал защитника жив
+  cd.general = g.newGeneral(cd, 20); cd.units = { 201: 100 }; ca.units = { 200: 5000 };
+  go('raid'); assert.ok(!cd.general.dead, 'набег — генерал защитника жив');
+  // шанс уцелеть: «Несокрушимый» (40%) и рунный щит +5 (56%) — вместе не больше 30%
+  const sv = g.heroBonus({ tal: { d4: 5 }, eq: { shield: { slot: 'shield', r: 4, plus: 5 } } }).survive;
+  assert.strictEqual(sv, 0.3, `шанс уцелеть — не больше 30% (${sv})`);
+  console.log('✓ Генерал: гибнет, когда нападение или оборона проиграны (лекарь и выздоровевшие не спасают), в набеге — нет; уцелеть — до 30%');
+}
 { // подарок новичку: Премиум на 3 дня с регистрации — один раз, сам не продлевается; покупка — сверх подарка
   process.env.NEWBIE_PREMIUM_DAYS = '3';
   const N = g.register({ login: 'premNew1', password: '12345', race: 0 }).user;
@@ -2313,14 +2332,14 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
       assert.ok(H.forge.runes.join() === '5,15,40,100,200' && H.enhanceRunes[4].reduce((q, v) => q + v, 0) === 75, 'руны: ковка 5…200, рунная вещь до +5 — ещё 75 рун');
     }
     const cap = g.capacity(c), full = g.reviveCostOf(c.general), rc = g.reviveCostOf(c.general, c);
-    assert.ok(full.cost.wood > cap.wood && rc.cost.wood === cap.wood && !rc.coinsOnly && rc.gold === 9, `60 ур.: цена урезана до Склада (${full.cost.wood} → ${rc.cost.wood}), монет — 9`);
+    assert.ok(full.cost.wood > cap.wood && rc.cost.wood === cap.wood && !rc.coinsOnly && rc.gold === 60, `60 ур.: цена урезана до Склада (${full.cost.wood} → ${rc.cost.wood}), монет — 60`);
     Object.assign(c.res, { ...cap }); assert.ok(g.reviveGeneral(c, u, 0, false).ok && c.general.reviveAt && !c.general.fund, 'полный Склад — воскрешение сразу');
     // выше 100 уровня — только за монеты; ресурсы, внесённые частями раньше, возвращаются
-    c.general = { ...g.newGeneral(c, 101), dead: true, fund: { wood: 500, stone: 0, iron: 0, food: 0, people: 0 } }; c.res.wood = 0; u.gold = 20;
-    const r101 = g.reviveCostOf(c.general, c); assert.ok(r101.coinsOnly && r101.gold === 15, '101 ур.: только монеты, 15 шт.');
+    c.general = { ...g.newGeneral(c, 101), dead: true, fund: { wood: 500, stone: 0, iron: 0, food: 0, people: 0 } }; c.res.wood = 0; u.gold = 110;
+    const r101 = g.reviveCostOf(c.general, c); assert.ok(r101.coinsOnly && r101.gold === 101, '101 ур.: только монеты, 101 шт.');
     assert.ok(/только за монеты/.test(g.reviveGeneral(c, u, 0, false).error || '') && c.res.wood >= 500 && c.res.wood < 600 && !c.general.fund, `за ресурсы нельзя, внесённое вернулось (${Math.round(c.res.wood)})`);
-    assert.ok(g.reviveGeneral(c, u, 0, true).ok && !c.general.dead && u.gold === 5, 'воскрешён за 15 монет');
-    console.log(`✓ Цены в пределах Склада: науки до 20 ур., Кузница; генерал 60 ур. — ресурсы не больше Склада (${rc.cost.wood.toLocaleString('ru-RU')} дерева) или 9 монет, 101 ур. — только 15 монет`);
+    assert.ok(g.reviveGeneral(c, u, 0, true).ok && !c.general.dead && u.gold === 9, 'воскрешён за 101 монету');
+    console.log(`✓ Цены в пределах Склада: науки до 20 ур., Кузница; генерал 60 ур. — ресурсы не больше Склада (${rc.cost.wood.toLocaleString('ru-RU')} дерева) или 60 монет, 101 ур. — только 101 монета`);
   }
   { // Освоение: 10 путешественников строят замок 3 дня, недострой атакуют и подкрепляют, 3 выживших путешественника забирают его
     const luck0 = process.env.LUCK; process.env.LUCK = '0';

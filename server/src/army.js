@@ -229,8 +229,11 @@ const GEN = { battleCap: 0.15, dayLevels: 1, perLevel: 2, maxLevel: 500, revive:
 // 25-й — ×1,25, 30-й — ×2,5, 40-й — ×5 к прежней шкале), за бой — не больше 10% уровня, за сутки — не больше полуровня.
 // Игрокам лимиты не показываются (ни в окне «Генерал», ни в отчётах)
 const GEN_HARD = { from: 25, k: 0.25, battle: 0.10, day: 0.5 };
-const REVIVE_GOLD = 3, REVIVE_RES_MAX = 100; // воскрешение генерала: монет за каждые 25 уровней; выше этого уровня — только за монеты
-const REVIVE_MIN = 10; // время воскрешения генерала — (уровень + 10) минут: 10 ур. — 20 мин, каждый уровень — ещё минута
+// воскрешение генерала: REVIVE_GOLD монет за уровень (100 ур. — 100 монет; до 21.10 — 3 монеты за каждые 25 уровней, 100 ур. — 12:
+// смерть ничего не стоила); выше REVIVE_RES_MAX уровня — только за монеты
+const REVIVE_GOLD = 1, REVIVE_RES_MAX = 100;
+// время воскрешения за ресурсы — (уровень + 10) × 3 минуты: 10 ур. — 1 ч, 100 ур. — 5,5 ч (с 21.10 втрое дольше)
+const REVIVE_MIN = 10, REVIVE_TIME_K = 3;
 const GEN_HIRE_SEC = 1800, GEN_HIRE_K = 2.5, REKIND_SEC = 1800; // найм генерала: полчаса + время воина ×2,5 (Мечник — 1 ч, Мародер — 1,5 ч); смена воина — полчаса
 // командование генерала (атакой/защитой): первые очки — около +0,17%, дальше отдача убывает: 100 очков — +12,5%, 300 — +25%,
 // 1000 (500 ур.) — +38%, не больше +50% (с 21.10 вдвое меньше — по решению владельца: вместе с наукой, рангом, артефактами и
@@ -806,8 +809,8 @@ function install(Game, helpers) {
   // воскрешение: до REVIVE_RES_MAX уровня — за ресурсы (не больше вместимости Склада замка) или монеты, выше — только за монеты; монеты — по REVIVE_GOLD за каждые 25 уровней
   P.reviveCostOf = function reviveCostOf(g, castle) {
     const u = genUnit(g), L = this.genLevelF(g), cap = castle ? this.capacity(castle) : null, lim = (k, v) => (cap ? Math.min(v, cap[k]) : v);
-    return { cost: Object.fromEntries(RES4.map((r) => [r, lim(r, Math.round(u.cost[r] * 10 * L))])), people: lim('people', Math.round(u.pop * L)), sec: Math.round((g.level + REVIVE_MIN) * 60 * (1 - GEN.heal * Math.min(GEN.healMax, (g.pts && g.pts.heal) || 0))),
-      gold: REVIVE_GOLD * Math.max(1, Math.ceil(g.level / 25)), coinsOnly: g.level > REVIVE_RES_MAX };
+    return { cost: Object.fromEntries(RES4.map((r) => [r, lim(r, Math.round(u.cost[r] * 10 * L))])), people: lim('people', Math.round(u.pop * L)), sec: Math.round((g.level + REVIVE_MIN) * 60 * REVIVE_TIME_K * (1 - GEN.heal * Math.min(GEN.healMax, (g.pts && g.pts.heal) || 0))),
+      gold: REVIVE_GOLD * Math.max(1, g.level), coinsOnly: g.level > REVIVE_RES_MAX };
   };
   // ресурсы, внесённые частями до новых правил, возвращаются в замок
   // внесённое в фонд воскрешения — назад в замок, но не выше Склада: лишнее — в Кладовую (раньше замок переполнялся сверх Склада)
@@ -1460,17 +1463,22 @@ function install(Game, helpers) {
     // снаряжение генерала в боях не выпадает — его куёт Кузнец за руны (hero.js runeForge)
     // генералы
     const genA = [], genD = []; let genExpA = 0, genExpD = 0, genDiedD = false; // опыт генералов — в отчёт числом
+    // генерал гибнет, когда армия разбита в бою: нападение проиграно (или не уцелел никто) — даже если «Полевой лекарь» кого-то спас
+    // (до 21.10 спасённые воины спасали и генерала — он не погибал почти никогда); шанс уцелеть — умения и снаряжение (не больше 30%)
+    const wipedA = aLoss >= 1 && (!win || !aliveAfter);
     if (a.general && c.general) {
       const hb = this.heroBonus(c.general);
-      if (!aliveAfter && aLoss >= 1 && Math.random() < hb.survive) genA.push('Армия разбита, но генерал чудом уцелел и вернулся домой (умения и снаряжение).');
-      else if (!aliveAfter && aLoss >= 1) { c.general.dead = true; delete c.general.away; a.general = false; this.heroStrip(c, c.general); genA.push('Генерал пал в бою — опыт не получен. Его снаряжение вернулось в Оружейную.'); }
+      if (wipedA && Math.random() < hb.survive) genA.push('Армия разбита, но генерал чудом уцелел и вернулся домой (умения и снаряжение).');
+      else if (wipedA) { c.general.dead = true; delete c.general.away; a.general = false; this.heroStrip(c, c.general); genA.push('Генерал пал в бою — опыт не получен. Его снаряжение вернулось в Оружейную.'); }
       else {
         const e = this.battleExp({ killedPop: popOf(dLost), win, mission: a.mission, npc: target ? null : npc, dLoss, mine: c, enemy: target });
         const ge = this.addGeneralExp(c, e.exp); genExpA = ge ? ge.got : 0; const l = genLine('Генерал', ge, e); if (l) genA.push(l);
       }
     }
+    // генерал защитника гибнет, когда оборона проиграла нападение — даже если часть защитников потом выздоровела дома (HEAL_HOME;
+    // до 21.10 выздоровевшие спасали и генерала). Набег — короткая стычка: генерал не гибнет, как и войска целиком
     if (target && target.general && !target.general.dead && !target.general.away) {
-      if (dLoss >= 1 && !Object.keys(dAll).length && Math.random() >= this.heroBonus(target.general).survive) { target.general.dead = true; this.heroStrip(target, target.general); genD.push('Ваш генерал пал, защищая замок.'); genDiedD = true; }
+      if (win && a.mission === 'attack' && dLoss >= 1 && Math.random() >= this.heroBonus(target.general).survive) { target.general.dead = true; this.heroStrip(target, target.general); genD.push('Ваш генерал пал, защищая замок.'); genDiedD = true; }
       else {
         const e = this.battleExp({ killedPop: popOf(aLost), win: !win, mission: 'attack', mine: target, enemy: c });
         const ge = this.addGeneralExp(target, e.exp); genExpD = ge ? ge.got : 0; const l = genLine('Ваш генерал', ge, e); if (l) genD.push(l);
