@@ -24,7 +24,7 @@ const goldAllLog = () => { const g = S.adm.goldAll; if (!g) { if (!S.adm.goldAll
 const premAllLog = () => { const g = S.adm.premAll; if (!g) { if (!S.adm.premAllAsked) { S.adm.premAllAsked = true; send({ t: 'admin', op: 'premallget' }); } return ''; }
   return `${g.msg ? `<div class="smnote ok">✔ ${esc(g.msg)}</div>` : ''}${g.last.length ? `<p class="small"><b>Последние раздачи:</b><br>${g.last.map((x) => `${fmtDate(x.at)} — на ${x.days} дн. «${esc(x.why)}», игроков: ${x.players}`).join('<br>')}</p>` : '<p class="small">Раздач ещё не было.</p>'}`; };
 const PREM_ALL = () => { const pd = S.adm.premDays || 3; // выбранный срок помнится, пока окно перерисовывается
-  return aSec('👑 Премиум всем игрокам', `<p class="small">Каждому игроку на сервере (кроме ботов и Вас) — Премиум Завоеватель на выбранный срок; у кого уже есть — продлится. Кто в игре — увидит сразу, остальным скажет советник при входе.</p><form class="stack" data-aform="premall">
+  return aSec('👑 Премиум всем игрокам', `<p class="small">Каждому живому игроку (в игре от 3 дней, заходил за последние 30 дней, не заблокирован) — Премиум Завоеватель на выбранный срок; у кого уже есть — продлится. Кто в игре — увидит сразу, остальным скажет советник при входе.</p><form class="stack" data-aform="premall">
   <div class="apdays">${[1, 3, 7, 14, 30].map((d) => `<button type="button" class="btn small${d === pd ? ' on' : ''}" data-apdays="${d}">${d} ${plural(d, 'день', 'дня', 'дней')}</button>`).join('')}</div>
   <input class="anum" name="days" type="number" inputmode="numeric" min="1" max="30" value="${pd}" placeholder="Сколько дней (1–30)"><input name="why" maxlength="100" value="Подарок от администрации" placeholder="За что (видно игрокам)"><button class="btn primary">Выдать всем</button></form>${premAllLog()}`); };
 // «🏚 Ничейные замки» (server/src/nobody.js): замки заброшенных игроков — где, бунт, чьи были; «Забросить» — в карточке игрока
@@ -46,7 +46,7 @@ const HONOR_SEC = () => {
     <p class="small"><b>Награждены: ${h.who.length}</b></p>
     ${h.who.map((w) => `<div class="arow"><span><b>${esc(w.login)}</b>${w.tester ? ' · тестер' : ''} · ${fmtDate(w.at)}</span><button class="btn small" data-ahontake="${h.id}" data-login="${esc(w.login)}">Забрать</button></div>`).join('')}`).join('<hr>')}`);
 };
-const GOLD_ALL = () => aSec('🎁 Золото всем игрокам', `<p class="small">Каждому игроку на сервере (кроме ботов и Вас) — золото в Казну и сообщение в игре.</p><form class="stack" data-aform="goldall"><input class="anum" name="n" type="number" inputmode="numeric" min="1" max="1000" value="5" placeholder="Сколько каждому"><input name="why" maxlength="100" value="Подарок от администрации" placeholder="За что (видно игрокам)"><button class="btn primary">Выдать всем</button></form>${goldAllLog()}`);
+const GOLD_ALL = () => aSec('🎁 Золото всем игрокам', `<p class="small">Каждому живому игроку (в игре от 3 дней, заходил за последние 30 дней, не заблокирован) — золото в Казну и сообщение в игре.</p><form class="stack" data-aform="goldall"><input class="anum" name="n" type="number" inputmode="numeric" min="1" max="1000" value="5" placeholder="Сколько каждому"><input name="why" maxlength="100" value="Подарок от администрации" placeholder="За что (видно игрокам)"><button class="btn primary">Выдать всем</button></form>${goldAllLog()}`);
 const aSec = (title, body) => `<div class="acard"><div class="cwname">${title}</div>${body}</div>`;
 function adminHtml() {
   const a = S.adm, tab = ADM_TABS.some(([k]) => k === a.tab) ? a.tab : 'player';

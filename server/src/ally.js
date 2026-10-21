@@ -201,12 +201,12 @@ function install(Game) {
           const e = need('treasury'); if (e) return e;
           const t = member(m.to); if (!t) return { error: 'Игрок не в альянсе.' };
           if ((al.treasury || 0) < n) return { error: 'В казне столько нет.' };
-          al.treasury -= n; this.goldChange(t, n, `Выдано из казны альянса [${al.tag}]`);
+          al.treasury -= n; this.goldChange(t, n, `Выдано из казны альянса [${al.tag}]`, true);
           this.allyLog(al, `${user.login} выдал из казны ${t.login}: ${W.coinsAcc(n)}`, 'store', { op: '-', gold: n, by: user.login, to: t.login });
           return done(`Игроку ${t.login} выдано из казны: ${W.coins(n)}.`);
         }
         if ((user.gold || 0) < n) return { error: 'Не хватает монет.' };
-        this.goldChange(user, -n, `Взнос в казну альянса [${al.tag}]`); al.treasury = (al.treasury || 0) + n;
+        this.goldChange(user, -n, `Взнос в казну альянса [${al.tag}]`, true); al.treasury = (al.treasury || 0) + n;
         this.allyLog(al, `${user.login} внёс в казну ${W.coinsAcc(n)}`, 'store', { op: '+', gold: n, by: user.login });
         return done(`Внесено в казну: ${W.coins(n)}.`);
       }
@@ -221,9 +221,14 @@ function install(Game) {
           const t = member(m.to); if (!t) return { error: 'Игрок не в альянсе.' };
           for (const r of RES4) if (al.storage[r] < res[r]) return { error: 'В кладовой столько нет.' };
           const c = this.castleOf(t); this.tick(c); const cap = this.capacity(c);
-          for (const r of RES4) { al.storage[r] -= res[r]; c.res[r] = Math.max(c.res[r], Math.min(cap[r], c.res[r] + res[r])); }
-          this.allyLog(al, `${user.login} выдал из кладовой ${t.login}: ${line}`, 'store', { op: '-', res: moved, by: user.login, to: t.login });
-          return done(`Выдано из кладовой: ${t.login}.`);
+          // выдаётся сколько влезает на Склад участника, остальное остаётся в кладовой (раньше лишнее сгорало)
+          for (const r of RES4) { const k = Math.max(0, Math.min(res[r], Math.floor(cap[r] - c.res[r]))); res[r] = k; al.storage[r] -= k; c.res[r] += k; }
+          if (!RES4.some((r) => res[r])) return { error: `У ${t.login} Склады полны — выдать некуда.` };
+          const asked = RES4.reduce((q, r) => q + (moved[r] || 0), 0), got = RES4.reduce((q, r) => q + res[r], 0);
+          for (const r of RES4) if (res[r]) moved[r] = res[r]; else delete moved[r];
+          const gotLine = RES4.filter((r) => res[r]).map((r) => `${{ wood: 'дерево', stone: 'камень', iron: 'железо', food: 'еда' }[r]} ${res[r]}`).join(', ');
+          this.allyLog(al, `${user.login} выдал из кладовой ${t.login}: ${gotLine}`, 'store', { op: '-', res: moved, by: user.login, to: t.login });
+          return done(got < asked ? `Выдано из кладовой: ${t.login} — сколько влезло на Склады (${gotLine}), остальное осталось в кладовой.` : `Выдано из кладовой: ${t.login}.`);
         }
         this.tick(castle);
         for (const r of RES4) if (castle.res[r] < res[r]) return { error: 'В замке столько нет.' };

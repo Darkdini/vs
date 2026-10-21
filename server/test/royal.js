@@ -3,6 +3,7 @@
 const assert = require('assert');
 process.env.NEWBIE_DAYS = process.env.NEWBIE_DAYS ?? '0'; // бои в тестах — без защиты новичка (её проверка — отдельно)
 process.env.NEWBIE_PREMIUM_DAYS = process.env.NEWBIE_PREMIUM_DAYS ?? '0'; // и без Премиума новичка (проверка — отдельно)
+process.env.GRANT_MIN_DAYS = process.env.GRANT_MIN_DAYS ?? '0'; // раздачи админа «всем» — и свежим тестовым аккаунтам (правило 3 дней — отдельно)
 process.env.LUCK = '0';
 const os = require('os'), path = require('path'), fs = require('fs');
 const DB = path.join(os.tmpdir(), `royal-${process.pid}.json`);
@@ -1719,14 +1720,18 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const O = g.register({ login: 'premOld1', password: '12345', race: 0 }).user; assert.ok(!O.premium && !g.isPremium(O) && !g.db.messages.some((m) => m.to === O.id), 'NEWBIE_PREMIUM_DAYS=0 — без подарка и письма');
   console.log('✓ подарок новичку: Премиум на 3 дня с регистрации, сам не продлевается, покупка — сверх подарка');
 }
-{ // «Премиум всем» (админка): каждому, кроме ботов и админа, +N дней (1–30); у кого есть — продлится; уведомление; кто был не в игре — скажет советник
-  const adm = g.adminUser(), now0 = Date.now(), reg = (l) => g.register({ login: l, password: '12345', race: 0 }).user;
+{ // «Премиум всем» (админка): каждому живому игроку (в игре от 3 дней, заходил за 30 дней, не заблокирован; не боты и не админ) +N дней (1–30);
+  // у кого есть — продлится; уведомление; кто был не в игре — скажет советник
+  const adm = g.adminUser(), now0 = Date.now(), reg = (l) => { const x = g.register({ login: l, password: '12345', race: 0 }).user; x.created = now0 - 4 * DAY; x.lastSeen = now0; return x; };
   const P1 = reg('premAll1'), P2 = reg('premAll2'), Bt = reg('premAllB'); Bt.bot = true; P2.premium = now0 + 10 * DAY;
-  const ap = adm.premium, bp = Bt.premium;
+  const Fresh = g.register({ login: 'pmNew1', password: '12345', race: 0 }).user, Ban = reg('pmBan1'), Idle = reg('pmIdle1'); Ban.banned = true; Idle.lastSeen = now0 - 40 * DAY;
+  const ap = adm.premium, bp = Bt.premium, gm0 = process.env.GRANT_MIN_DAYS; process.env.GRANT_MIN_DAYS = '3';
   for (const d of [0, 31, 'x', -3, '']) assert.ok(/от 1 до 30/.test(g.adminOp(adm, 'premall', { days: d }).error || ''), `срок «${d}» — отказ`);
   assert.ok(/Нет прав/.test(g.adminOp(P1, 'premall', { days: 3 }).error || ''), 'не админ — нет прав');
   g.drainEvents();
-  const r = g.adminOp(adm, 'premall', { days: 7, why: 'В честь <праздника>' }), k = Object.values(g.db.users).filter((u) => !u.bot && !u.admin).length, l0 = r.data && r.data.last[0];
+  const live = (u) => !u.bot && !u.admin && !u.banned && now0 - (u.created || 0) >= 3 * DAY && now0 - (u.lastSeen || u.created || 0) <= 30 * DAY;
+  const r = g.adminOp(adm, 'premall', { days: 7, why: 'В честь <праздника>' }), k = Object.values(g.db.users).filter(live).length, l0 = r.data && r.data.last[0];
+  assert.ok(!g.isPremium(Fresh) && !g.isPremium(Ban) && !g.isPremium(Idle), 'новичку младше 3 дней, заблокированному и давно не заходившему — нет');
   assert.ok(r.ok && l0.days === 7 && l0.players === k && l0.why === 'В честь праздника' && r.data.msg === `Премиум на 7 дней выдан ${k} ${require('../src/words').plural(k, 'игроку', 'игрокам', 'игрокам')}.`, JSON.stringify(r.data));
   assert.ok(P1.premium >= now0 + 7 * DAY && P1.premium <= Date.now() + 7 * DAY && g.isPremium(P1), 'без премиума — 7 дней с этой минуты');
   assert.strictEqual(P2.premium, now0 + 17 * DAY, 'у кого был — продлён на 7 дней');
@@ -1737,7 +1742,34 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   P1.premium = Date.now() - 1; assert.ok(!g.welcomeInfo(P1, now0 - 1000).premAll, 'премиум уже кончился — советник молчит');
   assert.ok(g.adminOp(adm, 'premall', { days: '1' }).ok && P2.premium === now0 + 18 * DAY && g.db.premAll.slice(-1)[0].why === 'Подарок от администрации', 'срок строкой, причина по умолчанию');
   const last = g.adminOp(adm, 'premallget', {}).data.last; assert.ok(last.length === 2 && last[0].days === 1 && last[1].days === 7, 'журнал раздач — новые сверху');
-  console.log('✓ «Премиум всем»: каждому (кроме ботов и админа) на 1–30 дней, у кого есть — продлится, уведомление, советник при входе, журнал раздач');
+  if (gm0 === undefined) delete process.env.GRANT_MIN_DAYS; else process.env.GRANT_MIN_DAYS = gm0;
+  console.log('✓ «Премиум всем»: каждому живому игроку (не новичку младше 3 дней, не заблокированному, не пропавшему на месяц) на 1–30 дней, у кого есть — продлится, уведомление, советник при входе, журнал раздач');
+}
+{ // лазейки: вступление по тегу — только заявка; выдача из кладовой альянса — сколько влезет (остальное остаётся); взнос и выдача
+  // казны по кругу — не в Зал Славы; фонд воскрешения генерала — назад не выше Склада; цели заданий — от лучшей Ратуши
+  const mk = (login) => g.register({ login, password: '12345', race: 0 }).user;
+  const L = mk('lhLead1'), J = mk('lhJoin1'), M = mk('lhMemb1');
+  g.db.alliances = g.db.alliances || {}; const aid = g.db.nextId++;
+  const al = g.db.alliances[aid] = { id: aid, name: 'Лазейки', tag: 'LZK', leader: L.id, members: [L.id, M.id], created: Date.now(), treasury: 0, storage: { wood: 0, stone: 0, iron: 0, food: 0 } };
+  L.alliance = M.alliance = aid;
+  const cj = g.castleOf(J); g.mil(cj); g.maxOut(cj);
+  const jr = g.alliance(J, cj, { op: 'join', tag: 'lzk' });
+  assert.ok(jr.ok && /Заявка/.test(jr.msg) && !J.alliance && !al.members.includes(J.id) && (al.requests || []).includes(J.id), `по тегу — только заявка главе (${jr.error || jr.msg})`);
+  al.storage.wood = 500000; const cm = g.castleOf(M); g.mil(cm); g.maxOut(cm); g.tick(cm); const capW = g.capacity(cm).wood; cm.res.wood = capW - 1000;
+  const sr = g.allyOp(L, g.castleOf(L), { op: 'store', res: { wood: 50000 }, to: M.login });
+  assert.ok(sr.ok && cm.res.wood <= capW && cm.res.wood >= capW - 1 && al.storage.wood >= 499000 && al.storage.wood <= 499001 && /остальное осталось/.test(sr.msg), `кладовая: выдано сколько влезло, остальное — в кладовой (${al.storage.wood}, ${sr.msg})`);
+  cm.res.wood = capW + 5; assert.ok(/Склады полны/.test(g.allyOp(L, g.castleOf(L), { op: 'store', res: { wood: 10 }, to: M.login }).error || ''), 'Склад полон — выдать некуда');
+  L.gold = 1000; const st0 = { ...g.stats(L) };
+  for (let i = 0; i < 5; i++) { assert.ok(g.allyOp(L, g.castleOf(L), { op: 'gold', n: 500 }).ok); assert.ok(g.allyOp(L, g.castleOf(L), { op: 'gold', n: 500, to: L.login }).ok); }
+  const st1 = g.stats(L); assert.ok((st1.goldIn || 0) === (st0.goldIn || 0) && (st1.goldOut || 0) === (st0.goldOut || 0) && L.gold === 1000, 'взнос и выдача по кругу — не Богатство и не Расточительство');
+  const cg = g.castleOf(M), capG = g.capacity(cg); M.gold = 100;
+  cg.general = { ...g.newGeneral(cg, 30), dead: true, fund: { wood: 50000, stone: 0, iron: 0, food: 0, people: 0 } }; cg.deadGenerals = []; cg.res.wood = capG.wood - 100;
+  const sw0 = g.stashOf(M).res.wood || 0, rv = g.reviveGeneral(cg, M, 0, true), toStash = (g.stashOf(M).res.wood || 0) - sw0;
+  assert.ok(rv.ok && cg.res.wood <= capG.wood + 1 && Math.abs(toStash - 49900) <= 2, `фонд генерала: в замок до Склада, остальное в Кладовую (${Math.round(cg.res.wood)}/${capG.wood}, в Кладовую ${toStash})`);
+  const Q = mk('lhQuest1'), qc1 = g.castleOf(Q); g.mil(qc1); g.maxOut(qc1); const qc2 = g.createCastle(Q); Q.castleIds = [qc1.id, qc2.id];
+  const D = require('../src/quests').DAILY, loot = D.find((d) => d.id === 'd_loot'), train = D.find((d) => d.id === 'd_train');
+  assert.ok(loot.n(g, qc2) === loot.n(g, qc1) && loot.n(g, qc2) === 1500 * g.buildingLevel(qc1, 0) && train.n(g, qc2) === train.n(g, qc1), `цели заданий — от лучшей Ратуши, из любого замка (${loot.n(g, qc2)} / ${loot.n(g, qc1)})`);
+  console.log('✓ Лазейки: по тегу — только заявка; кладовая альянса — сколько влезет; казна по кругу — не в Зал Славы; фонд генерала — не выше Склада; задания — от лучшей Ратуши');
 }
 { // «Топ» по боевому рангу: больше очков — выше, по 10 на страницу; без ботов, админа и заблокированных; своё место
   const BR = require('../src/battlerank');

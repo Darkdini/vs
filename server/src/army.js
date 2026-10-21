@@ -802,7 +802,16 @@ function install(Game, helpers) {
       gold: REVIVE_GOLD * Math.max(1, Math.ceil(g.level / 25)), coinsOnly: g.level > REVIVE_RES_MAX };
   };
   // ресурсы, внесённые частями до новых правил, возвращаются в замок
-  const refundFund = (castle, g) => { if (!g.fund) return; for (const k of Object.keys(g.fund)) castle.res[k] = (castle.res[k] || 0) + (g.fund[k] || 0); delete g.fund; };
+  // внесённое в фонд воскрешения — назад в замок, но не выше Склада: лишнее — в Кладовую (раньше замок переполнялся сверх Склада)
+  const refundFund = (game, castle, g) => {
+    if (!g.fund) return; const cap = game.capacity(castle), over = {};
+    for (const k of Object.keys(g.fund)) {
+      const v = g.fund[k] || 0, put = Math.min(v, Math.max(0, Math.floor((cap[k] ?? Infinity) - (castle.res[k] || 0))));
+      castle.res[k] = (castle.res[k] || 0) + put; if (v > put && k !== 'people') over[k] = v - put;
+    }
+    delete g.fund;
+    const u = Object.keys(over).length && game.userById(castle.owner); if (u && game.stashAdd) game.stashAdd(u, over);
+  };
   P.deadList = function deadList(castle) { return [...(castle.general && castle.general.dead ? [castle.general] : []), ...(castle.deadGenerals || [])]; };
   // генерал — один на всё королевство: где он сейчас, кроме замка except — живой (дома или в походе), в тренировке или воскрешается
   P.generalHome = function generalHome(ownerId, except = null) {
@@ -837,12 +846,12 @@ function install(Game, helpers) {
     if (gold) {
       if ((user.gold || 0) < c.gold) return { error: `Нужно ${c.gold} монет.` };
       this.goldChange(user, -c.gold, `Воскрешение генерала (${g.kind})`);
-      refundFund(castle, g);
+      refundFund(this, castle, g);
       if (g !== castle.general) { castle.deadGenerals = castle.deadGenerals.filter((x) => x !== g); castle.general = g; }
       g.dead = false; delete g.reviveAt; delete g.reviveStart; delete g.away; this.store.save();
       return { ok: true, msg: 'Генерал воскрешён!' };
     }
-    if (c.coinsOnly) { refundFund(castle, g); this.store.save(); return { error: `Генерала выше ${REVIVE_RES_MAX} уровня можно воскресить только за монеты.` }; }
+    if (c.coinsOnly) { refundFund(this, castle, g); this.store.save(); return { error: `Генерала выше ${REVIVE_RES_MAX} уровня можно воскресить только за монеты.` }; }
     // ресурсы можно вносить частями (g.fund), когда собрано всё — воскрешение начинается
     const fund = g.fund = g.fund || { wood: 0, stone: 0, iron: 0, food: 0, people: 0 }, need = { ...Object.fromEntries(RES4.map((r) => [r, c.cost[r]])), people: c.people };
     const keys = [...RES4, 'people'], left = (k) => Math.max(0, need[k] - (fund[k] || 0));
@@ -2050,10 +2059,10 @@ function install(Game, helpers) {
       this.db.alliances[id] = { id, name, tag, leader: user.id, members: [user.id], created: Date.now() };
       user.alliance = id; user.invites = []; this.store.save(); return { ok: true };
     }
-    if (op === 'join') {
-      const al = Object.values(this.db.alliances).find((x) => x.tag === tag);
+    if (op === 'join') { // по тегу — тоже только заявка: вступает тот, кого одобрит глава (раньше по тегу вступали сразу, без одобрения)
+      const al = Object.values(this.db.alliances).find((x) => x.tag === String(tag || '').trim().toUpperCase());
       if (!al) return { error: 'Альянс не найден.' };
-      return this.joinAlliance(user, al);
+      return this.alliance(user, castle, { op: 'request', id: al.id });
     }
     return { error: 'Неизвестное действие.' };
   };

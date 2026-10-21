@@ -10,6 +10,11 @@ const ADMIN_NICK = 'Советник';
 const ADMIN_CASTLES = Number(process.env.ADMIN_CASTLES || 20);
 const START_REP = 10; // стартовая репутация (как в social.js)
 const RES4 = ['wood', 'stone', 'iron', 'food'];
+// раздачи «всем» (золото, премиум) — только живым игрокам: в игре от 3 дней, заходили за 30 дней, не заблокированы
+// (иначе свежие запасные аккаунты собирали подарки и переводили их основному через казну альянса)
+// GRANT_MIN_DAYS — сколько дней в игре нужно (3; в тестах — 0)
+const GRANT_IDLE = 30 * 86400000;
+const grantable = (u, now) => !u.bot && !u.admin && !u.banned && now - (u.created || 0) >= Number(process.env.GRANT_MIN_DAYS ?? 3) * 86400000 && now - (u.lastSeen || u.created || 0) <= GRANT_IDLE;
 
 function install(Game) {
   const P = Game.prototype;
@@ -383,7 +388,7 @@ function install(Game) {
       case 'goldall': { // подарок от администрации: всем игрокам (кроме ботов и админа) по n золота, в Казну, с письмом
         const n = Math.floor(Number(arg.n)); if (!(n >= 1 && n <= 1000)) return { error: 'Сумма — от 1 до 1000 золота каждому.' };
         const why = String(arg.why || '').replace(/[<>]/g, '').trim().slice(0, 100) || 'Подарок от администрации';
-        let k = 0; for (const u of Object.values(this.db.users)) { if (u.bot || u.admin) continue; this.goldChange(u, n, `${why} (+${n})`); this.event(u.id, `🎁 ${why}: +${n} золота в Казну!`); k++; }
+        let k = 0; for (const u of Object.values(this.db.users)) { if (!grantable(u, now)) continue; this.goldChange(u, n, `${why} (+${n})`); this.event(u.id, `🎁 ${why}: +${n} золота в Казну!`); k++; }
         (this.db.goldAll = this.db.goldAll || []).push({ at: Date.now(), n, why, players: k }); msg = `Выдано по ${n} золота: ${k} игрокам (всего ${n * k}).`;
         data = { msg, last: this.db.goldAll.slice(-5).reverse() }; break; // итог — прямо в админке (строку над картой закрывает окно)
       }
@@ -396,7 +401,7 @@ function install(Game) {
         const why = String(arg.why || '').replace(/[<>]/g, '').trim().slice(0, 100) || 'Подарок от администрации', days = `${n} ${W.plural(n, 'день', 'дня', 'дней')}`;
         let k = 0;
         for (const u of Object.values(this.db.users)) {
-          if (u.bot || u.admin) continue;
+          if (!grantable(u, now)) continue;
           u.premium = Math.max(u.premium || 0, now) + n * 86400000; u.premAllGot = { at: now, days: n, why };
           this.event(u.id, `👑 ${why}: Премиум Завоеватель на ${days}!`); k++;
         }

@@ -540,10 +540,11 @@ class Game {
 
   // активный замок игрока (все старые места работают через него); у игрока может быть несколько замков
   // золото (монеты) игрока: все изменения — через goldChange, с историей для окна «Казна»
-  goldChange(user, delta, reason) {
+  // noHall — перевод внутри альянса (казна): в Зал Славы не идёт, иначе «взнос — выдача» по кругу накручивал Богатство и Расточительство
+  goldChange(user, delta, reason, noHall = false) {
     delta = Math.round(delta); if (!delta) return;
     const before = user.gold || 0; user.gold = before < 0 ? before + delta : Math.max(0, before + delta); // минус (возврат звёзд, tgpay.js) закрывается новыми монетами
-    if (this.addStat) this.addStat(user.id, delta > 0 ? 'goldIn' : 'goldOut', Math.abs(delta)); // Зал Славы: Богатство / Расточительство
+    if (this.addStat && !noHall) this.addStat(user.id, delta > 0 ? 'goldIn' : 'goldOut', Math.abs(delta)); // Зал Славы: Богатство / Расточительство
     (user.goldLog = user.goldLog || []).push({ at: Date.now(), delta, reason, left: user.gold });
     if (user.goldLog.length > 200) user.goldLog.splice(0, user.goldLog.length - 200);
   }
