@@ -374,6 +374,13 @@ function client() {
     assert.ok(gp.gifts[0].gift === 'diamond' && gp.gifts[0].from === 'Советник' && gp.gifts[0].text === 'Удачи!');
     adm.send({ t: 'gift', to: as.user.id, gift: 'diamond' }); // себе — тоже можно
     await adm.expect('toast', (m) => /отправлен игроку Советник/.test(m.msg));
+    // даритель удаляет свой подарок у получателя — за ту же цену (3 монеты); второй раз — уже нет
+    adm.send({ t: 'giftdel', to: s3.user.id, at: gp.gifts[0].at, gift: 'diamond' });
+    await adm.expect('toast', (m) => /Подарок «Большой диамант» удалён у игрока webby/i.test(m.msg));
+    await adm.expect('giftdel', (m) => m.to === s3.user.id && m.gift === 'diamond' && m.at === gp.gifts[0].at);
+    adm.send({ t: 'giftdel', to: s3.user.id, at: gp.gifts[0].at, gift: 'diamond' });
+    await adm.expect('error', (m) => /только свой подарок/.test(m.msg));
+    console.log('✓ подарки: даритель удаляет свой подарок за его цену');
     adm.send({ t: 'rep', id: s3.user.id, coins: 50 });
     await adm.expect('toast', (m) => /Репутация \+100/.test(m.msg));
     console.log('✓ репутация за золото: 50 монет = +100');

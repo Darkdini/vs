@@ -706,15 +706,27 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
   if (m.t === 'ratings') { S.rlist = m.list; return refreshSheet(); }
   if (m.t === 'players') { S.plist = m.list; return refreshSheet(); }
   if (m.t === 'notes') { S.notes = m.text; return refreshSheet(); }
+  if (m.t === 'giftdel') { // свой подарок удалён: убрать из открытого профиля (то же окно профиля под списком)
+    const p = S.lastProfile; if (p && p.id === m.to) p.gifts = (p.gifts || []).filter((g) => !(g.at === m.at && g.gift === m.gift && g.fromId === S.st.user.id && !g.ally));
+    return refreshSheet();
+  }
   prevMilMsg(m);
 };
 // полные списки разделов профиля (нажатие на ряд значков)
 function profileListWin(kind) {
   const p = S.lastProfile; if (!p) return '';
-  if (kind === 'gifts') return `${ribbon(`Подарки - ${(p.gifts || []).length}`)}<p class="center"><b>${esc(p.login)}</b></p><div class="pgifts">${(p.gifts || []).map((g) => { const G = S.cat.gifts[g.gift] || {}; return `<button class="pgift" data-cprof="${g.fromId}" title="${esc(G.name || '')}"><img src="${GFX}${G.img}" alt=""><small>от ${g.ally ? `альянса [${esc(g.ally)}]` : esc(g.from)}</small>${g.text ? `<i>«${esc(g.text)}»</i>` : ''}</button>`; }).join('')}</div>`;
+  // свой подарок (не из казны альянса) даритель может удалить — за столько же монет, сколько он стоил (social.js deleteGift)
+  if (kind === 'gifts') return `${ribbon(`Подарки - ${(p.gifts || []).length}`)}<p class="center"><b>${esc(p.login)}</b></p><div class="pgifts">${(p.gifts || []).map((g) => { const G = S.cat.gifts[g.gift] || {}, mine = g.fromId === S.st.user.id && !g.ally;
+    return `<div class="pgiftw"><button class="pgift" data-cprof="${g.fromId}" title="${esc(G.name || '')}"><img src="${GFX}${G.img}" alt=""><small>от ${g.ally ? `альянса [${esc(g.ally)}]` : esc(g.from)}</small>${g.text ? `<i>«${esc(g.text)}»</i>` : ''}</button>${mine ? `<button class="btn small pgdel" data-gdel="${g.at}" data-gid="${esc(g.gift)}">Удалить · ${G.gold || 1} ${gimg('coins_s.png', 'ri')}</button>` : ''}</div>`; }).join('')}</div>`;
   return `${ribbon('Награждения')}<p class="center"><b>${esc(p.login)}</b></p>${(p.awards || []).map((m) => `<div class="award"><img src="${GFX}smallicon/status/${m.kind}.png" alt=""><div><b>${esc(ALLY_MEDAL[m.kind] || 'Медаль')} от альянса [${esc(m.tag)}]</b><small>${m.text ? `«${esc(m.text)}» · ` : ''}вручил ${esc(m.by)} · получено ${fmtDay(m.at)}</small></div></div>`).join('')}`;
 }
 $('#sheetBody').addEventListener('click', (e) => { const t = e.target.closest('[data-plist]'); if (t) openSheet(() => profileListWin(t.dataset.plist)); });
+$('#sheetBody').addEventListener('click', (e) => { // «Удалить» под своим подарком в чужом профиле
+  const t = e.target.closest('[data-gdel]'); if (!t) return;
+  const p = S.lastProfile, G = S.cat.gifts[t.dataset.gid] || {}, n = G.gold || 1;
+  if (!p || !confirm(`Удалить подарок «${G.name || 'Подарок'}» у ${p.login}? Это стоит ${n} ${plural(n, 'монету', 'монеты', 'монет')}.`)) return;
+  send({ t: 'giftdel', to: p.id, at: Number(t.dataset.gdel), gift: t.dataset.gid });
+});
 // профиль — новый вид
 profileSheet = function (p) { S.lastProfile = p; return profileWin(p); }; // eslint-disable-line no-global-assign
 

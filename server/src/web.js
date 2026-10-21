@@ -430,6 +430,13 @@ const API = {
     for (const s of WebSession.all || []) if (s.user && to && s.user.id === to.id) { s.pushState(); if (s.dialogWith === this.user.id) API.dialog.call(s, { id: this.user.id, keep: 1 }); } // получателю — оповещение и сообщение сразу
     this.send({ t: 'profile', refresh: true, profile: this.game.profileOf(to, this.user) });
   },
+  // даритель удаляет свой подарок у получателя за монеты (social.js deleteGift); клиент убирает его из открытого профиля
+  giftdel(m) {
+    const r = this.game.deleteGift(this.user, m.to, m.at, m.gift);
+    if (r.error) return this.error(r.error);
+    this.toast(r.msg); this.pushState();
+    this.send({ t: 'giftdel', to: Number(m.to), at: Number(m.at), gift: String(m.gift) });
+  },
   avalike(m) { const r = this.game.avaLike(this.user, m.id); if (r.error) return this.error(r.error); this.send({ t: 'avalikes', done: r.msg, ...this.game.avaLikes(this.user, m.id) }); },
   avalikes(m) { const r = this.game.avaLikes(this.user, m.id); if (r.error) return this.error(r.error); this.send({ t: 'avalikes', ...r }); },
   profile(m) {

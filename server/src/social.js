@@ -226,6 +226,19 @@ function install(Game) {
     this.store.save();
     return { ok: true, msg: al ? `Подарок «${g.name}» из казны альянса отправлен игроку ${to.login}.` : `Подарок «${g.name}» отправлен игроку ${to.login}.` };
   };
+  // даритель удаляет свой подарок из профиля получателя — за столько же монет, сколько подарок стоил.
+  // Подарки из казны альянса так не удаляются; очки «Благодарности» у получателя остаются (иначе — способ ронять соперника в рейтинге)
+  P.deleteGift = function deleteGift(user, toId, at, giftId) {
+    const to = this.userById(Number(toId)); if (!to) return { error: 'Игрок не найден.' };
+    const i = (to.gifts || []).findIndex((x) => x.from === user.id && !x.ally && x.at === Number(at) && x.gift === String(giftId));
+    if (i < 0) return { error: 'Подарок не найден — удалить можно только свой подарок.' };
+    const g = GIFTS[giftId] || { name: 'Подарок', gold: 1 };
+    if ((user.gold || 0) < g.gold) return { error: `Нужно монет: ${g.gold} (у вас ${user.gold || 0}).` };
+    this.goldChange(user, -g.gold, `Удаление подарка «${g.name}» у игрока ${to.login}`);
+    to.gifts.splice(i, 1);
+    this.store.save();
+    return { ok: true, msg: `Подарок «${g.name}» удалён у игрока ${to.login} (−${W.coinsAcc(g.gold)}).` };
+  };
   P.profileOf = function profileOf(u, viewer) {
     const al = this.allianceOf(u);
     return {

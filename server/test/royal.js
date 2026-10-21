@@ -1839,6 +1839,22 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok((c.wounded[206] || 0) > 0, `Джин, который уже был, лечится в Лазарете (${JSON.stringify(c.wounded)})`);
   console.log('✓ Все воины вдвое дешевле и быстрее (Кузница и генерал — по прежней цене); Центр разведки — только разведчик своей расы; Портал не тренирует; Око, Тень, Джин, Изувер — у кого есть, остаются');
 }
+{ // подарки: даритель удаляет свой подарок у получателя за столько же монет, сколько подарок стоил; чужой, из казны и без монет — нельзя
+  const mk = (l) => g.register({ login: l, password: '12345', race: 0 }).user;
+  const A = mk('gdelA1'), Bq = mk('gdelB1'), Cq = mk('gdelC1'); A.gold = 100; Cq.gold = 100;
+  assert.ok(g.sendGift(A, Bq.id, 'treasure', 'от А').ok && g.sendGift(Cq, Bq.id, 'gold_coin', '').ok, 'подарили');
+  const ga = Bq.gifts.find((x) => x.from === A.id), gc = Bq.gifts.find((x) => x.from === Cq.id), a0 = A.gold, stat = g.stats(Bq).giftGold; // Сундук сокровищ — 3 монеты
+  assert.ok(/только свой/.test(g.deleteGift(A, Bq.id, gc.at, gc.gift).error), 'чужой подарок удалить нельзя');
+  assert.ok(/только свой/.test(g.deleteGift(Bq, Bq.id, ga.at, ga.gift).error), 'получатель так не удаляет');
+  A.gold = 2; assert.ok(/Нужно монет: 3/.test(g.deleteGift(A, Bq.id, ga.at, ga.gift).error) && Bq.gifts.includes(ga), 'не хватает монет — подарок остаётся');
+  A.gold = a0;
+  const r = g.deleteGift(A, Bq.id, ga.at, ga.gift);
+  assert.ok(r.ok && A.gold === a0 - 3 && !Bq.gifts.includes(ga) && Bq.gifts.includes(gc) && g.stats(Bq).giftGold === stat, `удалён за 3 монеты, очки «Благодарности» остались: ${r.msg}`);
+  assert.ok(g.deleteGift(A, Bq.id, ga.at, ga.gift).error, 'второй раз — уже нет');
+  Bq.gifts.push({ gift: 'treasure', from: A.id, at: 1, text: '', ally: 'KRL' });
+  assert.ok(g.deleteGift(A, Bq.id, 1, 'treasure').error, 'подарок из казны альянса так не удаляется');
+  console.log('✓ Подарки: даритель удаляет свой подарок за его цену; чужой, из казны альянса и без монет — нельзя');
+}
 { // новые правила боя — проба (админка): по умолчанию выключены; Кузница — до половины базы, тараны — только при победе,
   // подкрепления — со своими бонусами, магия ¾; «Сравнить бой» — по прежним и новым правилам, в игре ничего не меняется
   const adm = g.adminUser(), mk = (login) => g.register({ login, password: '12345', race: 0 }).user;
