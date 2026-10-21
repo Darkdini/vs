@@ -682,7 +682,6 @@ const menuDescWin = () => `${ribbon('Описание меню')}<div class="pst
 const helpWin = () => `${ribbon('Справка')}<div class="mitems light">
   <button class="mitem" data-act="book"><img src="${GFX}build/hd3/university.png" alt=""><span>Справочник зданий</span></button>
   <button class="mitem" data-act="army"><img src="${GFX}units/human/hd/knight.png" alt=""><span>Войска</span></button>
-  <button class="mitem" data-act="elite"><img src="${GFX}units/human/hd/paladin.png" alt=""><span>Элита и мясо</span></button>
   <button class="mitem" data-act="rules"><img src="${GFX}smallicon/Ekoscience.png" alt=""><span>Формулы</span></button>
   <button class="mitem" data-gamerules><img src="${GFX}menu/news.png" alt=""><span>Правила игры</span></button></div>`;
 const settingsWin = () => `${ribbon('Настройки')}<div class="pstats">Игрок: <b>${esc(S.st.user.login)}</b> · ${esc(S.st.user.raceName)}<br>Скорость мира ×${S.cat.speed}</div>
