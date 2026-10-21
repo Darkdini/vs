@@ -1809,7 +1809,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
 }
 { // Центр разведки — только разведчик своей расы, вдвое дешевле и быстрее оригинала; Портал воинов не тренирует — он ускоряет походы.
   // Око, Тень, Джин и Изувер больше не тренируются; у кого уже есть — остаются и лечатся в Лазарете
-  const { UNITS, UNIT, B } = require('../src/army');
+  const { UNITS, UNIT, B, GENERAL_ID } = require('../src/army');
   const scouts = { humans: 202, elves: 209, dwarves: 217, orcs: 252 };
   for (const [race, id] of Object.entries(scouts)) {
     const list = UNITS.filter((u) => u.building === B.SPY && !u.notrain && (u.race === race || u.race === 'all')).map((u) => u.id);
@@ -1818,7 +1818,15 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(!UNITS.some((u) => u.building === B.PORTAL && !u.notrain), 'Портал не тренирует');
   const half = { 202: [45, 50, 35, 28, 600], 209: [53, 35, 23, 15, 960], 217: [28, 53, 35, 35, 1090], 252: [40, 38, 43, 85, 1190] }; // оригинал / 2
   for (const [id, v] of Object.entries(half)) { const u = UNIT[id]; assert.deepStrictEqual([u.cost.wood, u.cost.stone, u.cost.iron, u.cost.food, u.time], v, `${u.name}: вдвое дешевле и быстрее`); }
+  // и все остальные воины — вдвое дешевле и быстрее (и цена для отдельных рас); генерал, Кузница и наём генерала — по прежней цене
+  for (const u of UNITS.filter((x) => x.id !== GENERAL_ID && !x.undead)) {
+    assert.ok(u.refCost && Object.keys(u.cost).every((r) => u.cost[r] === Math.round(u.refCost[r] / 2)) && u.time === Math.round(u.refTime / 2), `${u.name}: вдвое дешевле и быстрее`);
+  }
+  assert.deepStrictEqual(UNIT[224].raceOvr.orcs.cost, { wood: 2500, stone: 2500, iron: 2500, food: 3750 }, 'Путешественник орков — тоже вдвое');
+  assert.deepStrictEqual(UNIT[200].cost, { wood: 35, stone: 40, iron: 48, food: 25 }, 'Мечник вдвое дешевле (было 70/80/95/50)');
+  assert.ok(!UNIT[GENERAL_ID].refCost && g.genTrainCost(UNIT[200]).cost.wood === UNIT[200].refCost.wood * 20 && g.forgeCost(UNIT[200], 'a', 0).cost.wood > UNIT[200].cost.wood, 'наём генерала и Кузница — по прежней цене');
   const pl = g.register({ login: 'spyPl1', password: '12345', race: 0 }).user, c = g.castleOf(pl); g.maxOut(c); c.training = [];
+  const w0 = c.res.wood; assert.ok(!g.train(c, 200, 10).error && w0 - c.res.wood === 10 * UNIT[200].cost.wood, `10 Мечников — за новую цену (${w0 - c.res.wood})`);
   assert.ok(/только разведчики/.test(g.train(c, 241, 1).error) && /только разведчики/.test(g.train(c, 242, 1).error), 'Око и Тень не тренируются');
   assert.ok(/ускоряет походы/.test(g.train(c, 206, 1).error), 'Джин не тренируется');
   assert.ok(!g.train(c, 202, 1).error, 'Разведчик тренируется');
@@ -1826,7 +1834,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   c.units = { 206: 100 }; c.wounded = {}; c.general = null; c.squads = [];
   g.clash(c, { units: { 206: 100 }, mission: 'attack', general: false }, cd, null, Date.now());
   assert.ok((c.wounded[206] || 0) > 0, `Джин, который уже был, лечится в Лазарете (${JSON.stringify(c.wounded)})`);
-  console.log('✓ Центр разведки — только разведчик своей расы (вдвое дешевле и быстрее); Портал не тренирует; Око, Тень, Джин, Изувер — не тренируются, у кого есть — остаются');
+  console.log('✓ Все воины вдвое дешевле и быстрее (Кузница и генерал — по прежней цене); Центр разведки — только разведчик своей расы; Портал не тренирует; Око, Тень, Джин, Изувер — у кого есть, остаются');
 }
 { // новые правила боя — проба (админка): по умолчанию выключены; Кузница — до половины базы, тараны — только при победе,
   // подкрепления — со своими бонусами, магия ¾; «Сравнить бой» — по прежним и новым правилам, в игре ничего не меняется

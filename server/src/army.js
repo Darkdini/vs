@@ -180,11 +180,6 @@ Object.assign(UNIT[MERCHANT_ID], { speed: 60, notrain: true, carry: 45 }); // т
 // Око и Тень (были в Центре разведки), Джин и Изувер (были в Портале) больше не тренируются; у кого уже есть — остаются в армии
 const RETIRED = [241, 242, 206, 251];
 for (const id of RETIRED) Object.assign(UNIT[id], { notrain: true, retired: true });
-// разведчики — вдвое дешевле и вдвое быстрее в тренировке
-for (const u of UNITS) if (u.role === 'scout') {
-  u.cost = Object.fromEntries(Object.entries(u.cost).map(([r, v]) => [r, Math.round(v / 2)]));
-  u.time = Math.round(u.time / 2);
-}
 const GENERAL_ID = 236;
 const TRADE_MAX = Math.max(5, Math.round(600 / SPEED)); // торговцы идут не дольше 10 минут куда угодно
 const OWN_TRADE = 3; // торговцы между своими замками — втрое быстрее (180 полей/час)
@@ -227,6 +222,13 @@ const uniqueFor = (race, slot) => UNITS.find((u) => u.quest && u.race === race &
 // у общих юнитов цена бывает разной по расам (скрины оригинала): Путешественник у орков — 5000/5000/5000/7500
 UNIT[224].raceOvr = { orcs: { cost: { wood: 5000, stone: 5000, iron: 5000, food: 7500 } }, elves: { cost: { wood: 7500, stone: 5000, iron: 5000, food: 5000 } } };
 UNIT[233].raceOvr = { elves: { cost: { wood: 13316, stone: 10412, iron: 12012, food: 24031 } }, humans: { cost: { wood: 10412, stone: 12012, iron: 13316, food: 24031 } } }; // Бунтарь у эльфов и людей
+// цена и время тренировки всех воинов — вдвое меньше оригинала (и у разных рас — тоже). refCost / refTime — прежние:
+// от них считаются Кузница, наём и воскрешение генерала (их не меняли); лечение в Лазарете — четверть новой цены
+const halfCost = (c) => Object.fromEntries(Object.entries(c).map(([r, v]) => [r, Math.round(v / 2)]));
+for (const u of UNITS) if (u.id !== GENERAL_ID && !u.undead) {
+  Object.assign(u, { refCost: u.cost, refTime: u.time, cost: halfCost(u.cost), time: Math.round(u.time / 2) });
+  for (const o of Object.values(u.raceOvr || {})) if (o.cost) Object.assign(o, { refCost: o.cost, cost: halfCost(o.cost) });
+}
 const ORDER_MAX = { 224: 3, 233: 3 }; // Путешественник, Бунтарь: не больше 3 за один заказ (оригинал: «Количество: … /3»)
 const raceUnit = (u, race) => (u && u.raceOvr && u.raceOvr[race] ? { ...u, ...u.raceOvr[race] } : u);
 const unitsForRace = (race) => UNITS.filter((u) => u.race === race || u.race === 'all');
@@ -676,7 +678,7 @@ function install(Game, helpers) {
   // время (T+2)×30 мин. Коэффициенты подобраны по скринам (Мародер, Шаман — Кузница; Тиран, Урук-хай — Школа магии).
   P.forgeCost = function forgeCost(u, kind, T) {
     const f = UP[kind].c * UP[kind].g ** T;
-    return { cost: Object.fromEntries(RES4.map((r) => [r, Math.min(UP_CAP, Math.round(u.cost[r] * f))])), people: Math.round(u.pop * f * 0.97), sec: Math.max(5, Math.round((T + 2) * 1800 / SPEED)) };
+    return { cost: Object.fromEntries(RES4.map((r) => [r, Math.min(UP_CAP, Math.round((u.refCost || u.cost)[r] * f))])), people: Math.round(u.pop * f * 0.97), sec: Math.max(5, Math.round((T + 2) * 1800 / SPEED)) };
   };
   P.magicUnits = function magicUnits(castle) { return unitsForRace(this.raceOf(castle)).filter((u) => u.magic > 0 && u.id !== GENERAL_ID && !u.quest); };
   P.upgradeOp = function upgradeOp(castle, { unit, kind }) {
@@ -826,7 +828,7 @@ function install(Game, helpers) {
   // воскрешение: до REVIVE_RES_MAX уровня — за ресурсы (не больше вместимости Склада замка) или монеты, выше — только за монеты; монеты — по REVIVE_GOLD за каждые 25 уровней
   P.reviveCostOf = function reviveCostOf(g, castle) {
     const u = genUnit(g), L = this.genLevelF(g), cap = castle ? this.capacity(castle) : null, lim = (k, v) => (cap ? Math.min(v, cap[k]) : v);
-    return { cost: Object.fromEntries(RES4.map((r) => [r, lim(r, Math.round(u.cost[r] * 10 * L))])), people: lim('people', Math.round(u.pop * L)), sec: Math.round((g.level + REVIVE_MIN) * 60 * REVIVE_TIME_K * (1 - GEN.heal * Math.min(GEN.healMax, (g.pts && g.pts.heal) || 0))),
+    return { cost: Object.fromEntries(RES4.map((r) => [r, lim(r, Math.round((u.refCost || u.cost)[r] * 10 * L))])), people: lim('people', Math.round(u.pop * L)), sec: Math.round((g.level + REVIVE_MIN) * 60 * REVIVE_TIME_K * (1 - GEN.heal * Math.min(GEN.healMax, (g.pts && g.pts.heal) || 0))),
       gold: REVIVE_GOLD * Math.max(1, g.level), coinsOnly: g.level > REVIVE_RES_MAX };
   };
   // ресурсы, внесённые частями до новых правил, возвращаются в замок
@@ -860,7 +862,7 @@ function install(Game, helpers) {
     // генералом не может стать разведчик, бунтарь, таран (и прочие особые/осадные), юниты Портала
     return UNITS.filter((u) => u.race === race && !u.quest && u.building !== B.PORTAL && !['scout', 'eye', 'rebel', 'ram', 'catapult', 'merchant', 'settler', 'sage', 'archaeologist'].includes(u.role) && (castle.units[u.id] || 0) > 0);
   };
-  P.genTrainCost = (u) => ({ cost: Object.fromEntries(RES4.map((r) => [r, u.cost[r] * 20])), people: u.pop * 20, sec: GEN_HIRE_SEC + Math.round(u.time * GEN_HIRE_K) });
+  P.genTrainCost = (u) => ({ cost: Object.fromEntries(RES4.map((r) => [r, (u.refCost || u.cost)[r] * 20])), people: u.pop * 20, sec: GEN_HIRE_SEC + Math.round((u.refTime || u.time) * GEN_HIRE_K) }); // по прежней цене воина
   P.reviveGeneral = function reviveGeneral(castle, user, idx = 0, gold = false) {
     this.tick(castle);
     const list = this.deadList(castle), g = list[Number(idx) || 0];
