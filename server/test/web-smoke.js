@@ -206,7 +206,9 @@ function client() {
     { const rl = (await adm.expect('ratings', (m) => m.kind === 'alliances')).list.find((x) => x.tag === 'KRL');
       adm.send({ t: 'sync' }); const st = (await adm.expect('state', (m) => m.castle.mil.alliance && m.castle.mil.alliance.info.length === 2)).castle.mil.alliance;
       assert.equal(rl.rating, st.info.reduce((q, u) => q + u.rating + u.rep, 0)); }
-    adm.send({ t: 'alliance', op: 'award', login: 'Webby', kind: 'gold', text: 'За оборону' });
+    adm.send({ t: 'admin', op: 'allygold', tag: 'KRL', n: 100 }); // казна альянса пополняется только отдельно — звёздами Telegram или администрацией
+    await adm.expect('toast', (m) => /Казна \[KRL\]: \+100 монет/.test(m.msg));
+    adm.send({ t: 'alliance', op: 'award', login: 'Webby', kind: 'gold', text: 'За оборону' }); // медаль — 20 монет из казны
     await adm.expect('toast', (m) => /Медаль вручена: webby/i.test(m.msg));
     adm.send({ t: 'profile', id: s3.user.id });
     { const pr = (await adm.expect('profile', (m) => (m.profile.awards || []).length > 0)).profile; assert.equal(pr.awards[0].tag, 'KRL'); }
@@ -224,12 +226,16 @@ function client() {
     { const rp = (await adm.expect('allytopic', (m) => m.data && m.data.posts.some((p) => p.reply))).data.posts.find((p) => p.reply);
       assert.ok(rp.reply.by === 'Webby' && rp.reply.text === 'Все на штурм' && rp.text === 'Webby, иду с вами', 'ответ с цитатой'); }
     await a.expect('toast', (m) => /ответил\(а\) вам на форуме альянса в теме «Сбор»/.test(m.msg));
-    adm.send({ t: 'ally', op: 'gold', n: 100 });
-    await adm.expect('toast', (m) => /Внесено в казну: 100/.test(m.msg));
-    a.send({ t: 'ally', op: 'gold', n: 40, to: 'Webby' });
-    await a.expect('toast', (m) => /Игроку webby выдано из казны: 40 монет/i.test(m.msg));
+    adm.send({ t: 'ally', op: 'gold', n: 100 }); // свои монеты в казну альянса не переводятся
+    await adm.expect('error', (m) => /не переводятся/.test(m.msg));
+    a.send({ t: 'ally', op: 'gold', n: 40, to: 'Webby' }); // и игрокам казна не выдаётся
+    await a.expect('error', (m) => /нельзя выдать/.test(m.msg));
+    adm.send({ t: 'gift', to: s3.user.id, gift: 'gift_box', text: 'Спасибо', ally: 1 }); // подарок участнику — из казны (1 монета)
+    await adm.expect('toast', (m) => /из казны альянса отправлен игроку webby/i.test(m.msg));
+    { const gp = (await adm.expect('profile', (m) => m.refresh && m.profile.id === s3.user.id)).profile; // профиль получателя — с подарком «от альянса»
+      assert.ok(gp.gifts[0].gift === 'gift_box' && gp.gifts[0].ally === 'KRL', 'подарок из казны — «от альянса [KRL]»'); }
     adm.send({ t: 'ally', op: 'get' });
-    const av = (await adm.expect('ally', (m) => m.data.treasury === 60)).data;
+    const av = (await adm.expect('ally', (m) => m.data.treasury === 79)).data; // 100 − 20 (медаль) − 1 (подарок)
     assert.ok(av.name === 'Короли Мира' && av.members.find((x) => x.login === 'Webby').title === 'Казначей' && av.forum[0].replies === 3 && av.log.length > 0);
     console.log('✓ окно альянса: права, описание, форум, казна, логи');
     console.log('✓ Дипломатический центр: приглашения, исключение, заявка и одобрение');
@@ -463,7 +469,7 @@ function client() {
     adm.send({ t: 'admin', op: 'gold', login: 'Webby', n: 50 });
     await a.expect('toast', (m) => /Ваша казна пополнена на 50 монет/.test(m.msg));
     const gl = (await a.expect('state', (m) => (m.user.goldLog || []).some((x) => x.delta === 50))).user.goldLog;
-    assert.ok(gl[0].reason === 'Пополнение казны администрацией' && gl.some((x) => /казны альянса/.test(x.reason)), JSON.stringify(gl));
+    assert.ok(gl[0].reason === 'Пополнение казны администрацией' && !gl.some((x) => /казны альянса/.test(x.reason)), JSON.stringify(gl)); // из казны альянса монеты игрокам не выдаются
     a.send({ t: 'mail', folder: 'in' });
     const mb = await a.expect('mail');
     assert.ok(mb.list.some((x) => x.subject === 'Казна пополнена' && x.other === 'Советник'));

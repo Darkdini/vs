@@ -10,6 +10,10 @@ const RIGHTS = { mail: 'Рассылка уведомлений', invite: 'Пр�
   desc: 'Изменение описания', news: 'Новости и форум', diplo: 'Дипломатия', treasury: 'Казначейство', logs: 'Чтение логов', albums: 'Альбомы',
   rally: 'Созыв на мирового босса' };
 const DIPLO = { ally: 'Союз', nap: 'Пакт о ненападении', war: 'Война' };
+// Казна альянса (с 21.10, по решению владельца): пополняется только отдельно — покупкой за звёзды Telegram (tgpay.js) или
+// администрацией (admin.js allygold); игрокам не выдаётся и своими монетами не пополняется — тратится только на медали альянса
+// (army.js, op award) и подарки участникам (social.js sendGift с ally). Цена медали из казны:
+const MEDAL_COST = { gold: 20, silver: 10, bronze: 5 };
 const RES4 = ['wood', 'stone', 'iron', 'food'];
 const clean = (s, n) => String(s || '').trim().slice(0, n);
 
@@ -69,7 +73,9 @@ function install(Game) {
     for (const m of u.awards || []) if (m.at > now - 35 * 86400000 && (!best[m.hall] || m.place < best[m.hall].place)) best[m.hall] = m;
     return Object.values(best).sort((a, b) => a.place - b.place).map((m) => ({ icon: m.icon, name: m.name, place: m.place, month: m.month }));
   };
-  // extra — для кладовой и казны: op '+' внёс / '-' выдал, by, to, gold или res (окна «Кладовая», «Казна», журнал)
+  // extra — для кладовой и казны: op '+' внёс / '-' выдал, by, to, gold или res; via — откуда или куда монеты казны: stars —
+  // покупка за звёзды Telegram, refund — возврат звёзд, admin — администрация, medal — медаль, gift — подарок (what — какой)
+  // (окна «Кладовая», «Казна», журнал)
   P.allyLog = function allyLog(al, text, kind = 'log', extra = null) {
     const key = kind === 'store' ? 'slog' : 'log';
     (al[key] = al[key] || []).push({ at: Date.now(), text, ...extra });
@@ -82,7 +88,7 @@ function install(Game) {
   const coinsOf = (s) => Number(String(s).replace(/\D/g, '')) || 0;
   P.allyMoves = function allyMoves(al) {
     return (al.slog || []).map((e) => {
-      if (e.op) return { at: e.at, op: e.op, by: e.by, to: e.to || '', gold: e.gold || 0, res: e.res || null };
+      if (e.op) return { at: e.at, op: e.op, by: e.by, to: e.to || '', gold: e.gold || 0, res: e.res || null, via: e.via || '', what: e.what || '' };
       let x;
       if ((x = /^(\S+) внёс в казну (.+)$/.exec(e.text))) return { at: e.at, op: '+', by: x[1], to: '', gold: coinsOf(x[2]), res: null };
       if ((x = /^(\S+) выдал из казны (\S+): (.+)$/.exec(e.text))) return { at: e.at, op: '-', by: x[1], to: x[2], gold: coinsOf(x[3]), res: null };
@@ -135,7 +141,7 @@ function install(Game) {
       members, my: { lead: al.leader === me, rights: Object.keys(RIGHTS).filter(can).concat(this.canModerate(user) && !can('news') ? ['modnews'] : []) },
       requests: can('invite') ? (al.requests || []).map((id) => { const m = this.userById(id); return m ? { id, login: m.login, rating: this.userRating(m) } : null; }).filter(Boolean) : [],
       invited: can('invite') ? Object.values(this.db.users).filter((u) => (u.invites || []).includes(al.id)).map((u) => u.login) : [],
-      treasury: al.treasury || 0, storage: al.storage || { wood: 0, stone: 0, iron: 0, food: 0 },
+      treasury: al.treasury || 0, medalCost: MEDAL_COST, storage: al.storage || { wood: 0, stone: 0, iron: 0, food: 0 },
       diplo: Object.entries(al.diplo || {}).map(([id, st]) => (A[id] ? { id: Number(id), tag: A[id].tag, name: A[id].name, status: st, statusName: DIPLO[st] } : null)).filter(Boolean),
       news: (al.news || []).slice().reverse(),
       forum: (al.forum || []).filter((t) => !t.deleted || can('news') || this.canModerate(user)).map((t) => ({ id: t.id, title: t.title, by: t.by, at: t.at, pinned: !!t.pinned, closed: !!t.closed, deleted: !!t.deleted,
@@ -195,21 +201,10 @@ function install(Game) {
         for (const id of al.members) { const u = this.userById(id); if (u && u.id !== user.id) { this.sendMail(user, u.login, `Рассылка альянса [${al.tag}]`, text); this.event(u.id, `Рассылка альянса [${al.tag}] от ${user.login}.`); } }
         return done('Рассылка отправлена всем участникам.');
       }
-      case 'gold': { // казна: взнос (любой) или выдача (казначейство)
-        const n = Math.floor(Number(m.n)); if (!(n > 0)) return { error: 'Укажите количество.' };
-        if (m.to) {
-          const e = need('treasury'); if (e) return e;
-          const t = member(m.to); if (!t) return { error: 'Игрок не в альянсе.' };
-          if ((al.treasury || 0) < n) return { error: 'В казне столько нет.' };
-          al.treasury -= n; this.goldChange(t, n, `Выдано из казны альянса [${al.tag}]`, true);
-          this.allyLog(al, `${user.login} выдал из казны ${t.login}: ${W.coinsAcc(n)}`, 'store', { op: '-', gold: n, by: user.login, to: t.login });
-          return done(`Игроку ${t.login} выдано из казны: ${W.coins(n)}.`);
-        }
-        if ((user.gold || 0) < n) return { error: 'Не хватает монет.' };
-        this.goldChange(user, -n, `Взнос в казну альянса [${al.tag}]`, true); al.treasury = (al.treasury || 0) + n;
-        this.allyLog(al, `${user.login} внёс в казну ${W.coinsAcc(n)}`, 'store', { op: '+', gold: n, by: user.login });
-        return done(`Внесено в казну: ${W.coins(n)}.`);
-      }
+      // казна: до 21.10 — взнос своих монет любым участником и выдача монет участникам (запасные аккаунты перегоняли монеты
+      // основному). Теперь ни того ни другого (MEDAL_COST выше)
+      case 'gold': return { error: m.to ? 'Казну альянса нельзя выдать игрокам — она тратится только на медали и подарки участникам.'
+        : 'Свои монеты в казну альянса не переводятся — она пополняется отдельно: покупкой за звёзды Telegram или администрацией.' };
       case 'store': { // кладовая: взнос ресурсов из своего замка или выдача участнику
         al.storage = al.storage || { wood: 0, stone: 0, iron: 0, food: 0 };
         const res = Object.fromEntries(RES4.map((r) => [r, Math.max(0, Math.floor(Number((m.res || {})[r]) || 0))]));
@@ -306,4 +301,4 @@ function install(Game) {
   };
 }
 
-module.exports = { install, RIGHTS, DIPLO };
+module.exports = { install, RIGHTS, DIPLO, MEDAL_COST };

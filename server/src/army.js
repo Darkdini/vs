@@ -320,12 +320,13 @@ const NPC = {
   // охрана — в том же масштабе, что и юниты (сила атаки воина: мечник 10, рыцарь 45)
   // лагеря разбойников — боты трёх уровней сложности, в каждой провинции по одному (game.js PROV_NPC); добыча скромная (не заменяет свою экономику).
   // Были слишком слабые (тяжёлый — ~150 мечников): охрана ×3 / ×6 / ×10, руины — ×4.
-  // Поход не должен уходить в минус: добыча покрывает потери (в бою с лагерем и руинами потери победителя вдвое меньше — CAMP_LOSS):
-  // армия вдвое больше нужной — примерно в ноль, втрое — в плюс (больше — ещё выгоднее; Лазарет вернёт часть павших)
-  30: { name: 'Лагерь разбойников (лёгкий)', level: 'Лёгкий', def: { inf: 270, cav: 240, mag: 120 }, loot: { wood: 1000, stone: 1000, iron: 700, food: 1300 } },
-  31: { name: 'Лагерь разбойников (средний)', level: 'Средний', def: { inf: 2700, cav: 2400, mag: 1080 }, loot: { wood: 7500, stone: 7500, iron: 6000, food: 9000 } },
-  32: { name: 'Лагерь разбойников (тяжёлый)', level: 'Тяжёлый', def: { inf: 15000, cav: 13500, mag: 6000 }, loot: { wood: 40000, stone: 40000, iron: 35000, food: 45000 } },
-  24: { name: 'Заброшенный замок', def: { inf: 10080, cav: 9240, mag: 4200 }, loot: { wood: 27500, stone: 27500, iron: 27500, food: 27500 }, ruins: true },
+  // В бою с лагерем и руинами потери победителя вдвое меньше (CAMP_LOSS), павшие уходят в Лазарет.
+  // Добыча с 21.10 в 4 раза меньше (тяжёлый лагерь — 40 000 вместо 160 000, руины — 27 500 вместо 110 000): лагеря каждый час
+  // давали больше своей экономики — по решению владельца; лагеря и руины по-прежнему возвращаются через час
+  30: { name: 'Лагерь разбойников (лёгкий)', level: 'Лёгкий', def: { inf: 270, cav: 240, mag: 120 }, loot: { wood: 250, stone: 250, iron: 175, food: 325 } },
+  31: { name: 'Лагерь разбойников (средний)', level: 'Средний', def: { inf: 2700, cav: 2400, mag: 1080 }, loot: { wood: 1875, stone: 1875, iron: 1500, food: 2250 } },
+  32: { name: 'Лагерь разбойников (тяжёлый)', level: 'Тяжёлый', def: { inf: 15000, cav: 13500, mag: 6000 }, loot: { wood: 10000, stone: 10000, iron: 8750, food: 11250 } },
+  24: { name: 'Заброшенный замок', def: { inf: 10080, cav: 9240, mag: 4200 }, loot: { wood: 6875, stone: 6875, iron: 6875, food: 6875 }, ruins: true },
 };
 const NPC_REGEN_SEC = 3600;
 const CAMP_LOSS = 0.5; // в бою с лагерем разбойников и руинами победитель теряет вдвое меньше (поражение — по-прежнему вся армия)
@@ -336,6 +337,8 @@ const HEAL_HOME = 0.25; // раненые защитники в своём за�
 // INFIRM_CAP мест за уровень (10 ур. — 10 000); лечение — за HEAL_K цены тренировки (четверть; до 20.10 — половина), сразу (если хватает ресурсов),
 // вне дневного лимита TRAIN_DAY
 const INFIRM_CAP = 1000, HEAL_K = 0.25;
+// очки боевого ранга: мирные юниты — без очков, раненые (в Лазарет и выздоровевшие дома) — за четверть (army.js rankPop)
+const RANK_NONE = ['merchant', 'settler', 'sage', 'archaeologist', 'rebel'], RANK_WOUND = 0.25;
 const ROW = { infantry: 3, cavalry: 2, magic: 1, siege: 1, special: 1 }, DMG = 2, ROUT = 0.3; // бой с боссом (clashHp): ряды строя, множитель урона, бегство
 const DEF_HOME = 1.75; // замок помогает своим защитникам (и подкреплениям в нём): защита ×1,75 — иначе на равные ресурсы нападение всегда сильнее (атака у юнитов вдвое дешевле защиты)
 const LOSS_POW = 1.5; // бой как в Travian: потери победителя = (слабая сторона / сильная)^1,5
@@ -509,13 +512,15 @@ function install(Game, helpers) {
   P.infirmUsed = function infirmUsed(castle) {
     return Object.values(castle.wounded || {}).reduce((q, n) => q + n, 0) + (castle.healing || []).reduce((q, j) => q + j.count - j.done, 0);
   };
-  // павшие lost { id: n } — ранеными в Лазарет замка, пока есть места; не поместились — погибли. Возвращает, сколько попало
-  P.toInfirmary = function toInfirmary(castle, lost) {
+  // павшие lost { id: n } — ранеными в Лазарет замка, пока есть места; не поместились — погибли. Возвращает, сколько попало;
+  // into { id: n } — сколько каких попало (очки боевого ранга за раненых — четверть)
+  P.toInfirmary = function toInfirmary(castle, lost, into) {
     if (!castle || !lost) return 0;
     let free = this.infirmCap(castle) - this.infirmUsed(castle), n = 0;
     for (const [id, k] of Object.entries(lost)) {
       if (free <= 0) break; if (!(k > 0) || !healable(id)) continue;
       const t = Math.min(k, free); castle.wounded = castle.wounded || {}; castle.wounded[id] = (castle.wounded[id] || 0) + t; free -= t; n += t;
+      if (into) into[id] = (into[id] || 0) + t;
     }
     return n;
   };
@@ -1181,6 +1186,14 @@ function install(Game, helpers) {
     for (const [id, n] of Object.entries(lost)) { const u = UNIT[id]; if (!u || !n) continue; RES4.forEach((r, i) => { o[r] += ((Array.isArray(u.cost) ? u.cost[i] : (u.cost || {})[r]) || 0) * n; }); o.people += (u.pop || 0) * n; }
     return o; };
   const popOf = (units) => Object.entries(units).reduce((s, [id, n]) => s + (UNIT[id] ? UNIT[id].pop * n : 0), 0);
+  // население павших для очков боевого ранга (с 21.10): торговцы, путешественники, учёные, археологи и бунтари очков не дают
+  // (путешественник «весит» 3 000 — вдвоём качали ранг, убивая их друг у друга); раненые — ушедшие в Лазарет (wnd) и выздоровевшие
+  // дома (heal) — за четверть
+  const rankPop = (lost, wnd = {}, heal = {}) => Object.keys({ ...lost, ...heal }).reduce((s, id) => {
+    const u = UNIT[id]; if (!u || RANK_NONE.includes(u.role)) return s;
+    const n = lost[id] || 0, w = Math.min(n, wnd[id] || 0);
+    return s + u.pop * (n - w + RANK_WOUND * (w + (heal[id] || 0)));
+  }, 0);
 
   // отчёт: title и lines — текстом, data — для оформленного окна отчёта в клиенте (стороны, потери, добыча, захват)
   P.report = function report(userId, title, lines, kind = 'battle', data = null) {
@@ -1258,10 +1271,10 @@ function install(Game, helpers) {
     const aLost = {}, dLost = {}, dAll = {}, dOwn = {}; // dOwn — павшие свои защитники замка (без подкреплений)
     let saved = 0; // умение «Полевой лекарь»: часть павших в походе выживает (тараны одноразовые — нет)
     for (const s of A) { let l = aLostN.get(s); if (l && hA && hA.heal && !UNIT[s.id].oneUse) { const h = Math.floor(l * hA.heal); l -= h; saved += h; } if (l) { s.m[s.id] -= l; aLost[s.id] = (aLost[s.id] || 0) + l; } }
-    let healed = 0;
+    let healed = 0; const dHeal = {}; // dHeal — выздоровевшие дома защитники { id: n }
     for (const s of D) {
       let l = dLostN.get(s); if (!l) { if (s.m) dAll[s.id] = (dAll[s.id] || 0) + s.n; continue; }
-      if (s.own && !target.site) { const h = Math.floor(l * HEAL_HOME); l -= h; healed += h; }
+      if (s.own && !target.site) { const h = Math.floor(l * HEAL_HOME); l -= h; healed += h; if (h) dHeal[s.id] = (dHeal[s.id] || 0) + h; }
       if (s.own && l) dOwn[s.id] = (dOwn[s.id] || 0) + l;
       if (s.m) { s.m[s.id] -= l; if (!s.m[s.id]) delete s.m[s.id]; }
       dLost[s.id] = (dLost[s.id] || 0) + l;
@@ -1270,8 +1283,10 @@ function install(Game, helpers) {
     // тараны одноразовые: после боя их больше нет
     const ramsUsed = Object.entries(a.units).filter(([id]) => UNIT[id] && UNIT[id].oneUse).reduce((q, [id, n]) => { if (n) { aLost[id] = (aLost[id] || 0) + n; a.units[id] = 0; } return q + n; }, 0);
     for (const id of Object.keys(a.units)) if (!a.units[id]) delete a.units[id];
-    // Лазарет: павшие — ранеными в Лазарет замка, откуда вышла армия, и замка защитников (с мировым боссом — нет: там потери задаёт босс)
-    const wounded = npc && npc.boss ? 0 : this.toInfirmary(c, aLost), dWounded = target ? this.toInfirmary(target, dOwn) : 0;
+    // Лазарет: павшие — ранеными в Лазарет замка, откуда вышла армия, и замка защитников (с мировым боссом — нет: там потери задаёт босс);
+    // aWnd / dWnd — сколько каких попало (для очков боевого ранга)
+    const aWnd = {}, dWnd = {};
+    const wounded = npc && npc.boss ? 0 : this.toInfirmary(c, aLost, aWnd), dWounded = target ? this.toInfirmary(target, dOwn, dWnd) : 0;
     const cnt = (L) => sum(L, (s) => s.n) || 1;
     const aLoss = sum(A, (s) => aLostN.get(s)) / cnt(A), dLoss = D.length ? sum(D, (s) => dLostN.get(s)) / cnt(D) : 1;
     const calc = { rule: a.mission === 'attack' ? 'attack' : 'raid', model: 3, luck, morale: Math.round(morale * 100),
@@ -1279,7 +1294,7 @@ function install(Game, helpers) {
       def: { npc: !target, phys: Math.round(PD), mag: Math.round(MD), bonusPct: bD ? Math.round((bD.def - 1) * 100) : 0, wall: wallL, wall0, wallPct: Math.round((wallK - 1) * 100), total: Math.round(DP), hpLostPct: Math.round(dShare * 100) },
       aLossPct: Math.round(aLoss * 100), dLossPct: Math.round(dLoss * 100), routed, healed, ramsUsed, saved, wounded, dWounded };
     const garrison = target ? null : D.map((s) => ({ name: s.npc.name, n: s.n, lost: dLostN.get(s) }));
-    return { garrison, win, luck, calc, aLost, dLost, dAll, aLoss: aShare >= 1 ? 1 : aLoss, dLoss: dShare >= 1 || !D.length ? 1 : dLoss, siege, siegeN };
+    return { garrison, win, luck, calc, aLost, dLost, dAll, aWnd, dWnd, dHeal, aLoss: aShare >= 1 ? 1 : aLoss, dLoss: dShare >= 1 || !D.length ? 1 : dLoss, siege, siegeN };
   };
 
   // бой по здоровью (прежняя модель) — только для мирового босса (boss.js): урон по сегментам его здоровья
@@ -1533,7 +1548,10 @@ function install(Game, helpers) {
     this.addStat(c.owner, 'kills', target ? popOf(dLost) : (npc ? Math.round(npc.def.inf / 20 * dLoss) : 0));
     if (target) { this.addStat(target.owner, 'defKills', popOf(aLost)); this.addStat(target.owner, 'defLost', popOf(dLost)); this.addStat(target.owner, 'attLost', popOf(dLost)); }
     this.addStat(c.owner, 'attLost', popOf(aLost)); // Зал Гибели: все потери — нападения на замки и NPC, защита своего замка (выше), бой с боссом (boss.js)
-    if (this.brAdd) { if (target) { this.brAdd(c.owner, popOf(dLost), target.owner); this.brAdd(target.owner, popOf(aLost), c.owner); } else if (npc) this.brAdd(c.owner, Math.round(npc.def.inf / 20 * dLoss), null); } // боевой ранг (battlerank.js)
+    if (this.brAdd) { // боевой ранг (battlerank.js): мирные юниты очков не дают, раненые — за четверть
+      if (target) { this.brAdd(c.owner, rankPop(dLost, R.dWnd, R.dHeal), target.owner); this.brAdd(target.owner, rankPop(aLost, R.aWnd), c.owner); }
+      else if (npc) this.brAdd(c.owner, Math.round(npc.def.inf / 20 * dLoss), null);
+    }
     if (siegeN) this.addStat(c.owner, 'ruins', siegeN);
     const took = siteTaken && siteTaken.taken ? siteTaken : null;
     const defUser = target && (took ? this.userById(took.prevOwner) : this.ownerOf(target));
@@ -2027,12 +2045,16 @@ function install(Game, helpers) {
         if (t.alliance) { this.store.save(); return { error: 'Игрок уже в другом альянсе.' }; }
         return this.joinAlliance(t, cur);
       }
-      if (op === 'award') { // медаль за заслуги от альянса (не больше 5 в сутки от главы)
+      if (op === 'award') { // медаль за заслуги от альянса (не больше 5 в сутки от главы) — за монеты казны альянса (ally.js MEDAL_COST)
         if (!cur.members.includes(t.id)) return { error: 'Игрок не в вашем альянсе.' };
+        if (t.id === user.id) return { error: 'Себе медаль из казны вручить нельзя.' };
         kind = ['gold', 'silver', 'bronze'].includes(kind) ? kind : 'bronze';
         const now = Date.now(); user.awardLog = (user.awardLog || []).filter((x) => x > now - 86400000);
         if (user.awardLog.length >= 5) return { error: 'Не больше 5 наград в сутки.' };
-        user.awardLog.push(now);
+        const cost = require('./ally').MEDAL_COST[kind], name = { gold: 'золотая', silver: 'серебряная', bronze: 'бронзовая' }[kind];
+        if ((cur.treasury || 0) < cost) return { error: `Медаль (${name}) стоит ${Wd.coinsAcc(cost)} из казны альянса, в казне — ${Wd.coins(cur.treasury || 0)}.` };
+        cur.treasury -= cost; user.awardLog.push(now);
+        this.allyLog(cur, `${user.login} вручил медаль (${name}) ${t.login}: ${Wd.coinsAcc(cost)} из казны`, 'store', { op: '-', gold: cost, by: user.login, to: t.login, via: 'medal', what: `${name} медаль` });
         (t.allyAwards = t.allyAwards || []).push({ kind, tag: cur.tag, by: user.login, at: now, text: String(text || '').trim().slice(0, 80) });
         this.event(t.id, `Альянс [${cur.tag}] наградил Вас медалью за заслуги!`);
         this.store.save(); return { ok: true, msg: `Медаль вручена: ${t.login}.` };

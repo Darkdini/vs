@@ -147,8 +147,13 @@ function allyReqWin() {
 // история кладовой и казны (сервер: ally.js allyMoves) — видна всем участникам: «+» внёс, «−» выдал
 S.allyMoveF = 'all';
 const allyMoveAmt = (e) => (e.gold ? `${gimg('coins_s.png', 'ri')} ${fmtFull(e.gold)}` : RES4.filter((r) => e.res && e.res[r]).map((r) => `${RES_IC[r]} ${fmtFull(e.res[r])}`).join(' '));
+// via — откуда или куда монеты казны: stars — покупка за звёзды Telegram, refund — возврат звёзд, admin — администрация,
+// medal — медаль участнику, gift — подарок участнику (what — какой)
+const allyMoveWhat = (e) => (e.via === 'stars' ? 'пополнил за звёзды Telegram' : e.via === 'refund' ? 'вернул звёзды — списано из казны'
+  : e.via === 'admin' ? (e.op === '+' ? 'пополнила казну' : 'списала из казны') : e.via === 'medal' ? `вручил медаль <b>${esc(e.to)}</b>${e.what ? ` (${esc(e.what)})` : ''}`
+    : e.via === 'gift' ? `подарил <b>${esc(e.to)}</b>${e.what ? ` «${esc(e.what)}»` : ''}` : e.op === '+' ? 'внёс' : `выдал <b>${esc(e.to)}</b>`);
 const allyMoveRow = (e) => (e.op ? `<div class="amove ${e.op === '+' ? 'in' : 'out'}"><i>${e.op === '+' ? '+' : '−'}</i>
-    <span><b>${esc(e.by)}</b> ${e.op === '+' ? 'внёс' : `выдал <b>${esc(e.to)}</b>`}<br>${allyMoveAmt(e)}</span><small>${dt(e.at)}</small></div>`
+    <span><b>${esc(e.by)}</b> ${allyMoveWhat(e)}<br>${allyMoveAmt(e)}</span><small>${dt(e.at)}</small></div>`
   : `<div class="logrow">${esc(e.text)}<br><small>${dt(e.at)}</small></div>`);
 function allyMovesHtml(list) {
   const f = S.allyMoveF, n = (op) => list.filter((e) => e.op === op).length;
@@ -156,11 +161,18 @@ function allyMovesHtml(list) {
   const rows = list.filter((e) => f === 'all' || e.op === f).slice(0, 50).map(allyMoveRow).join('');
   return `${ribbon('История')}<div class="warchips">${chips}</div>${rows || '<p class="parch-note">Пока пусто.</p>'}`;
 }
+// казна альянса пополняется только отдельно — покупкой за звёзды Telegram (server/src/tgpay.js) или администрацией;
+// свои монеты игроков сюда не переводятся, игрокам казна не выдаётся — тратится только на медали и подарки участникам
+const MEDAL_KINDS = [['gold', 'Золотая'], ['silver', 'Серебряная'], ['bronze', 'Бронзовая']];
 function allyGoldWin() {
   const a = S.ally; if (!a) return loading('Казна Альянса');
-  return `${ribbon('Казна Альянса')}<div class="bwline center">В казне: ${gimg('coins_s.png', 'ri')} <b>${fmtFull(a.treasury)}</b> · у вас ${fmtFull(S.st.user.gold || 0)}</div>
-    <form class="chatform" data-aform="gold"><input name="n" type="number" min="1" placeholder="Сколько внести" required><button class="pbtn small">Внести</button></form>
-    ${can('treasury') ? `${ribbon('Выдать из казны')}<form class="aform" data-aform="goldto"><div class="combo"><select name="to">${a.members.map((m) => `<option>${esc(m.login)}</option>`).join('')}</select></div><input class="ainput" name="n" type="number" min="1" placeholder="Сколько" required><div class="center"><button class="pbtn">Выдать</button></div></form>` : ''}
+  const pay = S.cat.pay && S.cat.pay.on ? S.cat.pay : null, mc = a.medalCost || {}, me = S.st.user.id;
+  const who = `<div class="combo"><select name="to">${a.members.filter((m) => m.id !== me).map((m) => `<option value="${m.id}">${esc(m.login)}</option>`).join('')}</select></div>`; // себе из казны — нельзя
+  return `${ribbon('Казна Альянса')}<div class="bwline center">В казне: ${gimg('coins_s.png', 'ri')} <b>${fmtFull(a.treasury)}</b></div>
+    <p class="parch-note">Казна пополняется отдельно — ${pay ? 'покупкой за звёзды Telegram (монеты сразу придут в казну) или администрацией' : 'администрацией'}. Свои монеты в казну не переводятся, игрокам монеты из казны не выдаются — она тратится только на медали и подарки участникам.</p>
+    ${pay ? `${ribbon('Пополнить казну')}<div class="paypacks">${pay.packs.map((p, i) => `<button class="pbar paypack" data-buyally="${i}"><img src="${GFX}coins_s.png" alt=""><b>${fmtFull(p.gold)}</b> монет<span>${fmtFull(p.stars)} ⭐</span></button>`).join('')}</div>` : ''}
+    ${can('rights') && a.members.length > 1 ? `${ribbon('Медаль из казны')}<form class="aform" data-aform="medalto">${who}<div class="combo"><select name="kind">${MEDAL_KINDS.map(([k, t]) => `<option value="${k}">${t} — ${fmtFull(mc[k] || 0)} ${plural(mc[k] || 0, 'монета', 'монеты', 'монет')}</option>`).join('')}</select></div><input class="ainput" name="text" maxlength="80" placeholder="За что (необязательно)"><div class="center"><button class="pbtn">Вручить</button></div></form>` : ''}
+    ${can('treasury') && a.members.length > 1 ? `${ribbon('Подарок из казны')}<form class="aform" data-aform="giftto">${who}<div class="center"><button class="pbtn">Выбрать подарок</button></div></form>` : ''}
     ${allyMovesHtml(a.moves.filter((e) => e.gold))}`;
 }
 function allyStoreWin() {
@@ -278,8 +290,8 @@ $('#sheetBody').addEventListener('submit', (e) => {
   const f = e.target, k = f.dataset.aform; if (!k) return;
   e.preventDefault(); document.activeElement && document.activeElement.blur();
   const v = (n) => (f[n] ? f[n].value : undefined), res = () => Object.fromEntries(RES4.map((r) => [r, Number(v(r)) || 0]));
-  if (k === 'gold') { asend({ t: 'ally', op: 'gold', n: v('n') }); f.reset(); return; }
-  if (k === 'goldto') return asend({ t: 'ally', op: 'gold', n: v('n'), to: v('to') });
+  if (k === 'medalto') { const m = S.ally.members.find((x) => String(x.id) === v('to')); if (!m) return; send({ t: 'alliance', op: 'award', login: m.login, kind: v('kind'), text: v('text') }); return setTimeout(() => asend({ t: 'ally', op: 'get' }), 200); }
+  if (k === 'giftto') { const m = S.ally.members.find((x) => String(x.id) === v('to')); if (!m) return; S.giftTo = { id: m.id, login: m.login }; S.giftAlly = true; S.giftCat = 'all'; S.giftNew = false; S.giftPage = 0; return openSheet(giftsWin); } // подарок из казны (ui3d.js)
   if (k === 'store') { asend({ t: 'ally', op: 'store', res: res() }); f.reset(); return; }
   if (k === 'storeto') return asend({ t: 'ally', op: 'store', res: res(), to: v('to') });
   const op = ALLY_FORMS[k]; if (!op) return;

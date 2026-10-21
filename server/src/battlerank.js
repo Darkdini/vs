@@ -1,7 +1,9 @@
 'use strict';
 // «Боевой ранг», как в оригинале: 78 рангов — 13 званий по 6 ступеней (0–5 звёзд). Очки — за уничтоженных воинов противника
 // (пятая часть населения погибших юнитов, PTS_K): в нападениях и набегах на игроков и в защите своего замка, лагеря разбойников — ещё вполовину.
-// Если противник слабее больше чем на 5 рангов — очков меньше (за избиение новичков ранг почти не растёт).
+// Раненые (ушли в Лазарет или выздоровели дома) — за четверть, мирные юниты (торговцы, путешественники, учёные, археологи, бунтари) —
+// без очков: это считает army.js (rankPop). Если противник слабее больше чем на 5 рангов — очков меньше (за избиение новичков ранг
+// почти не растёт); повторные бои с тем же игроком за сутки — каждый следующий вдвое меньше (против «качания» ранга вдвоём).
 // Ранг растёт сразу, как набраны очки (звание видно в профиле и на значке); за каждый новый ранг — сундук с наградой:
 // игрок забирает его сам в окне «Боевой ранг» (армия, ресурсы и опыт генерала — в Кладовую).
 // Пока ранг держится — постоянный бонус: урон и защита воинов до +20%, прирост ресурсов до +30% (на Легенде 5★).
@@ -16,7 +18,7 @@ const N = NEED.length, MAX_ATK = 0.20, MAX_PROD = 0.30, NPC_K = 0.5;
 // Очки — население уничтоженных воинов, без дневных ограничений; ранг — сразу по очкам (rankIdx). b.claimed — до какого ранга
 // сундуки наград уже забраны (раньше ранг и награды обновлялись 1-го числа месяца — теперь сразу)
 // PTS_K: очки за бой — пятая часть населения погибших (до 20.10 — всё население: ранг рос слишком быстро)
-const PTS_K = 0.2, START_MAX = 11;
+const PTS_K = 0.2, START_MAX = 11, DAY = 86400000;
 const fmtN = (n) => Number(n).toLocaleString('ru-RU'); // 8 400, 14 000
 
 const rankIdx = (pts) => { let i = -1; while (i + 1 < N && pts >= NEED[i + 1]) i++; return i; }; // -1 — ещё без ранга
@@ -65,12 +67,18 @@ function install(Game) {
   };
   P.brRank = function brRank(u) { return u ? rankIdx(this.brOf(u).pts) : -1; }; // ранг — сразу по очкам
   P.brBonus = function brBonus(u) { return bonusAt(u ? this.brRank(u) : -1); };
-  // очки за бой: who — кто получает, vs — противник (null для лагеря разбойников)
-  P.brAdd = function brAdd(whoId, pts, vsId) {
+  // очки за бой: who — кто получает, vs — противник (null для лагеря разбойников). С тем же игроком за сутки (b.foes — когда
+  // были бои) каждый следующий бой вдвое меньше: второй — половина, третий — четверть (как опыт генерала, army.js battleExp)
+  P.brAdd = function brAdd(whoId, pts, vsId, time = Date.now()) {
     const u = this.userById(whoId); if (!u || u.bot || !(pts > 0)) return;
     const b = this.brOf(u), was = rankIdx(b.pts);
     let k = PTS_K * (vsId === null ? NPC_K : 1);
-    if (vsId) { const v = this.userById(vsId), d = was - (v ? this.brRank(v) : -1); if (d > 5) k *= Math.max(0.1, 1 - 0.15 * (d - 5)); }
+    if (vsId) {
+      const v = this.userById(vsId), d = was - (v ? this.brRank(v) : -1); if (d > 5) k *= Math.max(0.1, 1 - 0.15 * (d - 5));
+      const foes = b.foes = b.foes || {}, key = String(vsId);
+      for (const id of Object.keys(foes)) { foes[id] = foes[id].filter((t) => t > time - DAY); if (!foes[id].length) delete foes[id]; }
+      k /= 2 ** (foes[key] || []).length; (foes[key] = foes[key] || []).push(time);
+    }
     b.pts += Math.round(pts * k);
     const now = rankIdx(b.pts);
     if (now > was && this.event) { const inf = rankInfo(now); this.event(u.id, `⚔ Боевой ранг повышен: ${now + 1}. ${inf.title} ${'★'.repeat(inf.stars) || '☆'}! Заберите сундук с наградой в окне «Боевой ранг».`); }

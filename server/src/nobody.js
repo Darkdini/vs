@@ -114,7 +114,7 @@ function install(Game) {
   // очки боевого ранга за гарнизон ничейного замка — как за лагерь (battlerank.js NPC_K, без поправки на ранг соперника):
   // иначе новичок низкого ранга, разбив большой гарнизон, сразу получал десятки тысяч очков
   const baseBr = P.brAdd;
-  P.brAdd = function brAdd(whoId, pts, vsId) { return baseBr.call(this, whoId, pts, vsId && this.isNobody(vsId) ? null : vsId); };
+  P.brAdd = function brAdd(whoId, pts, vsId, ...rest) { return baseBr.call(this, whoId, pts, vsId && this.isNobody(vsId) ? null : vsId, ...rest); };
   // рейтинг игроков — без ничейного владельца
   const board = P.leaderboard;
   P.leaderboard = function leaderboard() { return board.call(this).filter((x) => !x.u.nobody); };

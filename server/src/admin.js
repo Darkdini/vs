@@ -394,6 +394,18 @@ function install(Game) {
       }
       case 'goldallget': { data = { msg: '', last: (this.db.goldAll || []).slice(-5).reverse() }; break;
       }
+      // казна альянса пополняется только отдельно (свои монеты игроков туда не переводятся, ally.js): покупкой за звёзды Telegram
+      // (tgpay.js) или здесь — администрацией; n < 0 — списать
+      case 'allygold': {
+        const tag = String(arg.tag || '').trim().toUpperCase(), al = Object.values(this.db.alliances || {}).find((x) => x.tag === tag);
+        if (!al) return { error: 'Альянс не найден.' };
+        const n = Math.trunc(Number(arg.n)); if (!n || Math.abs(n) > 100000) return { error: 'Сумма — от 1 до 100 000 монет (с минусом — списать).' };
+        if ((al.treasury || 0) + n < 0) return { error: `В казне [${al.tag}] только ${W.coins(al.treasury || 0)}.` };
+        al.treasury = (al.treasury || 0) + n;
+        this.allyLog(al, n > 0 ? `Администрация пополнила казну: ${W.coinsAcc(n)}` : `Администрация списала из казны: ${W.coinsAcc(-n)}`, 'store', { op: n > 0 ? '+' : '-', gold: Math.abs(n), by: 'Администрация', via: 'admin' });
+        this.event(al.leader, n > 0 ? `Казна альянса [${al.tag}] пополнена администрацией: +${W.coinsAcc(n)}.` : `Из казны альянса [${al.tag}] администрация списала ${W.coinsAcc(-n)}.`);
+        msg = `Казна [${al.tag}]: ${n > 0 ? '+' : '−'}${W.coinsAcc(Math.abs(n))}, теперь ${W.coins(al.treasury)}.`; break;
+      }
       // подарок от администрации: всем игрокам (кроме ботов и админа) Премиум на n дней; у кого есть — продлится (как покупка, premium.js).
       // Кто в игре — увидит сразу, остальным скажет советник при входе (premAllGot → news.js welcomeInfo)
       case 'premall': {

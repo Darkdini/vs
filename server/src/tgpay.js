@@ -6,8 +6,11 @@
 // • Возврат звёзд (refunded_payment: магазин вернул игроку деньги за звёзды или администратор вернул звёзды) — монеты списываются,
 //   даже если уже потрачены: баланс уходит в минус, и пока минус не закрыт, тратить монеты нельзя (все траты проверяют «хватает ли»).
 // • /paysupport — вопросы об оплате (Telegram требует его у ботов, которые продают за звёзды).
+// • Казна альянса (с 21.10) пополняется только так — отдельной покупкой за звёзды (или администрацией): счёт с ally, монеты —
+//   прямо в казну альянса покупателя, не ему; возврат звёзд списывает их из казны (альянса уже нет — с покупателя).
 const crypto = require('crypto');
 const { enabled } = require('./tgauth');
+const W = require('./words');
 
 const STARS_PER_GOLD = 3;
 const PACKS = [5, 25, 50, 100, 250, 500].map((gold) => ({ gold, stars: gold * STARS_PER_GOLD }));
@@ -23,21 +26,25 @@ function install(Game) {
   const P = Game.prototype;
   const st = (g) => { if (!g.db.pay) g.db.pay = { inv: {}, list: [] }; return g.db.pay; };
 
-  // счёт на пакет: Promise → { url } (ссылка t.me/$… открывает оплату в Telegram) или { error }
-  P.payStart = function payStart(u, pack, now = Date.now()) {
+  // счёт на пакет: Promise → { url } (ссылка t.me/$… открывает оплату в Telegram) или { error }; ally — в казну своего альянса
+  P.payStart = function payStart(u, pack, now = Date.now(), ally = false) {
     if (!enabled()) return Promise.resolve({ error: 'Оплата звёздами пока не подключена.' });
     const p = PACKS[Number(pack)];
     if (!u || u.bot || !Number.isInteger(Number(pack)) || !p) return Promise.resolve({ error: 'Нет такого пакета.' });
+    const al = ally ? this.allianceOf(u) : null;
+    if (ally && !al) return Promise.resolve({ error: 'Вы не в альянсе.' });
     const reqs = (u.payReq || []).filter((t) => t > now - HOUR);
     if (reqs.length >= INV_PER_HOUR) return Promise.resolve({ error: 'Слишком много счетов — попробуйте через час.' });
     u.payReq = [...reqs, now];
     const S = st(this);
     for (const [k, v] of Object.entries(S.inv)) if (now - v.at > INV_MS) delete S.inv[k]; // неоплаченные счета живут двое суток
     const id = crypto.randomBytes(16).toString('hex');
-    S.inv[id] = { uid: u.id, gold: p.gold, stars: p.stars, at: now };
+    S.inv[id] = { uid: u.id, gold: p.gold, stars: p.stars, at: now, ...(al ? { ally: al.id } : {}) };
     this.store.save();
     return this.tgApi('createInvoiceLink', {
-      title: `${p.gold} монет`, description: `Монеты для игры «Средневековье», аккаунт «${u.login}». Придут сразу после оплаты.`,
+      title: al ? `${p.gold} монет в казну [${al.tag}]` : `${p.gold} монет`,
+      description: al ? `Казна альянса [${al.tag}] в игре «Средневековье» — от «${u.login}». Монеты придут в казну альянса сразу после оплаты.`
+        : `Монеты для игры «Средневековье», аккаунт «${u.login}». Придут сразу после оплаты.`,
       payload: `g:${id}`, currency: 'XTR', prices: [{ label: `${p.gold} монет`, amount: p.stars }],
     }).then((url) => (typeof url === 'string' && /^https:\/\/t\.me\//.test(url) ? { url } : { error: 'Telegram не выдал счёт — попробуйте ещё раз.' }),
       (e) => { console.error('оплата звёздами (счёт):', e.message); return { error: 'Telegram не ответил — попробуйте ещё раз.' }; });
@@ -67,7 +74,17 @@ function install(Game) {
     }
     delete S.inv[m[1]];
     rec.gold = inv.gold;
-    this.goldChange(u, inv.gold, `Покупка ${inv.gold} монет за ${inv.stars} ⭐ (звёзды Telegram)`);
+    const al = inv.ally && (this.db.alliances || {})[inv.ally];
+    if (al) { // в казну альянса (альянса уже нет — монеты покупателю, ниже)
+      al.treasury = (al.treasury || 0) + inv.gold; rec.ally = al.id; rec.tag = al.tag;
+      this.allyLog(al, `${u.login} пополнил казну за звёзды Telegram: ${W.coinsAcc(inv.gold)}`, 'store', { op: '+', gold: inv.gold, by: u.login, via: 'stars' });
+      S.list.push(rec); if (S.list.length > LIST_MAX) S.list.splice(0, S.list.length - LIST_MAX);
+      this.store.save();
+      this.event(u.id, `✅ В казну альянса [${al.tag}] зачислено ${inv.gold} монет за звёзды Telegram`);
+      if (al.leader !== u.id) this.event(al.leader, `${u.login} пополнил казну альянса [${al.tag}]: +${W.coinsAcc(inv.gold)}.`);
+      return this.tgSay(msg.chat.id, `✅ Оплата получена: ${inv.gold} монет зачислено в казну альянса [${al.tag}]. Спасибо!`);
+    }
+    this.goldChange(u, inv.gold, `Покупка ${inv.gold} монет за ${inv.stars} ⭐ (звёзды Telegram)${inv.ally ? ' — альянса уже нет, монеты вам' : ''}`);
     S.list.push(rec); if (S.list.length > LIST_MAX) S.list.splice(0, S.list.length - LIST_MAX);
     this.store.save();
     this.event(u.id, `✅ Зачислено ${inv.gold} монет за звёзды Telegram`);
@@ -80,8 +97,12 @@ function install(Game) {
     const rec = st(this).list.find((x) => x.charge === charge);
     if (!rec || rec.refunded) return null;
     rec.refunded = now;
-    const u = this.userById(rec.uid);
-    if (u && rec.gold) {
+    const u = this.userById(rec.uid), al = rec.ally && (this.db.alliances || {})[rec.ally];
+    if (al && rec.gold) { // покупка в казну альянса — списываются из казны (хоть в минус: выдавать тогда нечего)
+      al.treasury = (al.treasury || 0) - rec.gold;
+      this.allyLog(al, `Возврат ${rec.stars} ⭐ (${rec.login}): из казны списано ${W.coinsAcc(rec.gold)}`, 'store', { op: '-', gold: rec.gold, by: rec.login, via: 'refund' });
+      if (this.alert) this.alert(u || this.adminUser(), 'gold', `Возврат ${rec.stars} ⭐: −${rec.gold} монет из казны [${al.tag}]`, `в казне теперь ${al.treasury}${al.treasury < 0 ? ' (минус — выдавать нечего)' : ''}`);
+    } else if (u && rec.gold) {
       u.gold = (u.gold || 0) - rec.gold;
       (u.goldLog = u.goldLog || []).push({ at: now, delta: -rec.gold, reason: `Возврат ${rec.stars} ⭐: списано ${rec.gold} монет`, left: u.gold });
       if (u.goldLog.length > 200) u.goldLog.splice(0, u.goldLog.length - 200);
@@ -89,7 +110,7 @@ function install(Game) {
       if (this.alert) this.alert(u, 'gold', `Возврат ${rec.stars} ⭐: −${rec.gold} монет`, `монет теперь ${u.gold}${u.gold < 0 ? ' (минус — тратить нельзя)' : ''}`);
     }
     this.store.save();
-    return msg.chat ? this.tgSay(msg.chat.id, `Возврат ${rec.stars} ⭐ получен — ${rec.gold} монет списано с аккаунта «${rec.login}».`) : null;
+    return msg.chat ? this.tgSay(msg.chat.id, `Возврат ${rec.stars} ⭐ получен — ${rec.gold} монет списано ${al ? `из казны альянса [${al.tag}]` : `с аккаунта «${rec.login}»`}.`) : null;
   };
 
   P.paySupport = function paySupport(chat) { return this.tgSay(chat, SUPPORT); };

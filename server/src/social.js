@@ -3,6 +3,7 @@
 // общий чат, Зал Славы (текущие топ-3 по категориям) и статистика боёв. Подключается к Game — см. install().
 
 const C = require('./catalog');
+const W = require('./words'); // слова после чисел: 1 монета, 5 монет
 const START_REP = 10; // стартовая репутация у всех игроков
 
 // Залы Славы — 20 категорий, как в оригинале (4 страницы по 5). stat — счётчик за месяц (mstats), bonus — репутация за 1/2/3 место.
@@ -187,27 +188,43 @@ function install(Game) {
   };
 
   // полный профиль для окна «Профиль»
-  P.sendGift = function sendGift(user, toId, giftId, text) {
+  // ally — подарок из казны альянса (право «Казначейство»): только участнику своего альянса, не себе; монеты — из казны
+  // (казна альянса тратится только на подарки участникам и медали, ally.js)
+  P.sendGift = function sendGift(user, toId, giftId, text, ally = false) {
     const g = GIFTS[giftId]; if (!g) return { error: 'Нет такого подарка.' };
     const to = this.userById(Number(toId)); if (!to) return { error: 'Игрок не найден.' };
+    const al = ally ? this.allianceOf(user) : null;
+    if (ally) {
+      if (!al) return { error: 'Вы не в альянсе.' };
+      if (!this.allyCan(al, user.id, 'treasury')) return { error: 'Дарить из казны может только казначейство альянса.' };
+      if (!al.members.includes(to.id)) return { error: 'Из казны — только участникам своего альянса.' };
+      if (to.id === user.id) return { error: 'Себе из казны дарить нельзя.' };
+    }
     const deny = this.canReach && this.canReach(user, to, 'gift'); if (deny) return { error: deny };
     if (g.premium && !this.isPremium(user)) return { error: 'Это уникальный подарок — дарить его можно только с премиумом.' };
     const now = Date.now();
     user.giftLog = (user.giftLog || []).filter((t) => t > now - 86400000);
     if (user.giftLog.length >= GIFTS_DAY) return { error: `Не больше ${GIFTS_DAY} подарков в сутки.` };
-    if ((user.gold || 0) < g.gold) return { error: `Нужно монет: ${g.gold} (у вас ${user.gold || 0}).` };
-    this.goldChange(user, -g.gold, `Подарок «${g.name}» игроку ${to.login}`); user.giftLog.push(now); this.addStat(to.id, 'giftGold', g.gold);
-    (to.gifts = to.gifts || []).push({ gift: giftId, from: user.id, at: now, text: String(text || '').trim().slice(0, 100) });
+    if (al) {
+      if ((al.treasury || 0) < g.gold) return { error: `В казне альянса не хватает монет: нужно ${g.gold}, в казне ${al.treasury || 0}.` };
+      al.treasury -= g.gold;
+      this.allyLog(al, `${user.login} подарил из казны ${to.login}: «${g.name}» (${W.coinsAcc(g.gold)})`, 'store', { op: '-', gold: g.gold, by: user.login, to: to.login, via: 'gift', what: g.name });
+    } else {
+      if ((user.gold || 0) < g.gold) return { error: `Нужно монет: ${g.gold} (у вас ${user.gold || 0}).` };
+      this.goldChange(user, -g.gold, `Подарок «${g.name}» игроку ${to.login}`);
+    }
+    user.giftLog.push(now); this.addStat(to.id, 'giftGold', g.gold);
+    (to.gifts = to.gifts || []).push({ gift: giftId, from: user.id, at: now, text: String(text || '').trim().slice(0, 100), ...(al ? { ally: al.tag } : {}) });
     if (to.gifts.length > 200) to.gifts = to.gifts.slice(-200);
     if (to.id !== user.id) {
-      this.event(to.id, `${user.login} подарил Вам: ${g.name}!`);
-      if (this.friendFeed) this.friendFeed(to.id, `${to.login} получил(а) подарок «${g.name}» от ${user.login}`, now);
+      this.event(to.id, al ? `Альянс [${al.tag}] подарил Вам: ${g.name}!` : `${user.login} подарил Вам: ${g.name}!`);
+      if (this.friendFeed) this.friendFeed(to.id, `${to.login} получил(а) подарок «${g.name}» от ${al ? `альянса [${al.tag}]` : user.login}`, now);
       // сообщение в «Сообщения» от дарителя: какой подарок и подпись — подарок виден в профиле
       const note = String(text || '').trim().slice(0, 100);
-      this.sendMail(user, to.login, 'Подарок', `🎁 Дарю тебе подарок «${g.name}»!${note ? `\n«${note}»` : ''}\nОн теперь в твоём профиле, раздел «Подарки».`);
+      this.sendMail(user, to.login, 'Подарок', `🎁 ${al ? `Подарок от альянса [${al.tag}] из казны: «${g.name}»!` : `Дарю тебе подарок «${g.name}»!`}${note ? `\n«${note}»` : ''}\nОн теперь в твоём профиле, раздел «Подарки».`);
     }
     this.store.save();
-    return { ok: true, msg: `Подарок «${g.name}» отправлен игроку ${to.login}.` };
+    return { ok: true, msg: al ? `Подарок «${g.name}» из казны альянса отправлен игроку ${to.login}.` : `Подарок «${g.name}» отправлен игроку ${to.login}.` };
   };
   P.profileOf = function profileOf(u, viewer) {
     const al = this.allianceOf(u);
@@ -236,7 +253,7 @@ function install(Game) {
       deny: this.canReach ? ((dm, dg) => ({ msg: dm, gift: dg, note: u.admin && dm && dg ? 'Писать в личку и дарить подарки администратору могут только его друзья.' : [...new Set([dm, dg].filter(Boolean))].join(' ') }))(this.canReach(viewer, u, 'msg') || '', this.canReach(viewer, u, 'gift') || '') : {}, bday: u.bday ? this.bdayText(u.bday) : '', bdayRaw: u.id === viewer.id ? u.bday || '' : undefined,
       repToday: ((viewer.repGiven || {})[u.id] || 0) > Date.now() - 86400000,
       about: u.about || '', avatar: u.avatar || 0, frame: u.frame || '', gold: u.id === viewer.id ? u.gold || 0 : undefined,
-      gifts: (u.gifts || []).slice(-50).reverse().map((g) => ({ gift: g.gift, from: (this.userById(g.from) || { login: '—' }).login, fromId: g.from, at: g.at, text: g.text || '' })),
+      gifts: (u.gifts || []).slice(-50).reverse().map((g) => ({ gift: g.gift, from: (this.userById(g.from) || { login: '—' }).login, fromId: g.from, at: g.at, text: g.text || '', ally: g.ally || '' })),
       online: u.id === viewer.id || viewer.admin ? !!u.online : false,
     };
   };

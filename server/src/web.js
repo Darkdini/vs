@@ -79,6 +79,7 @@ function catalogJson() {
     speed: G.SPEED,
     shopOpen: process.env.SHOP_OPEN === '1', // «Лавка Короля» для всех (иначе — только администратор)
     pay: require('./tgpay').payInfo(), // покупка монет за звёзды Telegram: курс и пакеты
+    allyMedalCost: require('./ally').MEDAL_COST, // медаль альянса — за монеты казны альянса
     gameRules: { intro: require('./rules').RULES_INTRO, list: require('./rules').RULES }, // «Правила игры» (rules.js): Справка, форум, модераторам
     campFast: require('./army').CAMP_FAST,
     march: require('./army').MARCH, // армии ходят быстрее во столько раз
@@ -333,7 +334,7 @@ const API = {
   tg(m) {
     const g = this.game, op = String(m.op || '');
     if (op === 'link') { const r = g.tgLinkStart(this.user); if (r.error) return this.error(r.error); return this.send({ t: 'tg', url: r.url, info: g.tgAuthInfo(this.user) }); }
-    if (op === 'buy') return g.payStart(this.user, m.pack).then((r) => this.send(r.error ? { t: 'tg', buyErr: r.error } : { t: 'tg', url: r.url, buy: 1 })); // Казна: счёт в звёздах (tgpay.js)
+    if (op === 'buy') return g.payStart(this.user, m.pack, Date.now(), !!m.ally).then((r) => this.send(r.error ? { t: 'tg', buyErr: r.error } : { t: 'tg', url: r.url, buy: 1 })); // Казна (ally — казна альянса): счёт в звёздах (tgpay.js)
     if (op === 'notify') { const r = g.tgNotifySet(this.user, String(m.kind || ''), !!m.on); if (r.error) return this.error(r.error); return this.send({ t: 'tg', info: g.tgAuthInfo(this.user) }); }
     if (op === 'unlink' || op === 'unlinkok') { // отвязка: unlink — код в Telegram, unlinkok — ввод кода
       const r = op === 'unlink' ? g.tgUnlinkStart(this.user) : g.tgUnlink(this.user, m.code);
@@ -415,7 +416,7 @@ const API = {
     this.send({ t: 'world', cx, cy, radius: R, objects, home: { x: c.x, y: c.y } });
   },
   gift(m) {
-    const r = this.game.sendGift(this.user, m.to, m.gift, m.text);
+    const r = this.game.sendGift(this.user, m.to, m.gift, m.text, !!m.ally); // ally — из казны альянса
     if (r.error) return this.error(r.error);
     this.toast(r.msg);
     const to = this.game.userById(Number(m.to));

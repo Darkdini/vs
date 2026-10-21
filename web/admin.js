@@ -47,6 +47,9 @@ const HONOR_SEC = () => {
     ${h.who.map((w) => `<div class="arow"><span><b>${esc(w.login)}</b>${w.tester ? ' · тестер' : ''} · ${fmtDate(w.at)}</span><button class="btn small" data-ahontake="${h.id}" data-login="${esc(w.login)}">Забрать</button></div>`).join('')}`).join('<hr>')}`);
 };
 const GOLD_ALL = () => aSec('🎁 Золото всем игрокам', `<p class="small">Каждому живому игроку (в игре от 3 дней, заходил за последние 30 дней, не заблокирован) — золото в Казну и сообщение в игре.</p><form class="stack" data-aform="goldall"><input class="anum" name="n" type="number" inputmode="numeric" min="1" max="1000" value="5" placeholder="Сколько каждому"><input name="why" maxlength="100" value="Подарок от администрации" placeholder="За что (видно игрокам)"><button class="btn primary">Выдать всем</button></form>${goldAllLog()}`);
+// «🏦 Казна альянса» (server/src/admin.js allygold): казна пополняется только отдельно — покупкой за звёзды Telegram или здесь;
+// свои монеты игроки туда не переводят
+const ALLY_GOLD = () => aSec('🏦 Казна альянса', `<p class="small">Казна альянса пополняется только отдельно: покупкой за звёзды Telegram (кнопки в окне «Казна Альянса») или здесь. Свои монеты игроки туда не переводят, игрокам казна не выдаётся — тратится только на медали и подарки участникам. С минусом — списать.</p><form class="stack" data-aform="allygold"><input name="tag" maxlength="5" placeholder="Тег альянса" autocapitalize="characters" autocomplete="off" required><input class="anum" name="n" type="number" inputmode="numeric" placeholder="Сколько монет" required><button class="btn primary">Пополнить казну</button></form>`);
 const aSec = (title, body) => `<div class="acard"><div class="cwname">${title}</div>${body}</div>`;
 function adminHtml() {
   const a = S.adm, tab = ADM_TABS.some(([k]) => k === a.tab) ? a.tab : 'player';
@@ -61,7 +64,7 @@ function adminHtml() {
       ${a.players ? `<div class="rlist">${a.players.map((p) => `<button class="rrow" data-apick="${esc(p.login)}"><span class="rn"><b>${esc(p.login)}${p.admin ? ` <img class="admbadge s" src="${GFX}admin_badge_s.png" alt="">` : p.mod ? ` <img class="admbadge s" src="${GFX}chat/moder.png" alt="">` : ''}${p.banned ? ' <span class="bad">[бан]</span>' : ''}</b>
         <small>${esc(p.race)} · замков ${p.castles} · монет ${fmtFull(p.gold)} · ${p.online ? 'в игре' : `был ${fmtDate(p.lastSeen)}`}</small></span><span class="rv">${fmtFull(p.rating)}</span></button>`).join('')}</div>` : ''}`)}
       ${a.player ? playerCard(a.player) : a.login ? '<p class="parch-note">Загрузка карточки…</p>' : ''}`,
-    give: () => `${GOLD_ALL()}${PREM_ALL()}${HONOR_SEC()}${target}
+    give: () => `${GOLD_ALL()}${PREM_ALL()}${ALLY_GOLD()}${HONOR_SEC()}${target}
       ${aSec('💰 Казна и ресурсы', `
         ${aAct('Монеты', 'Добавить золото на счёт. Минус — забрать. Игроку придёт письмо.', `${aNum('gold', 100, 'монет')}${aBtn2('gold', 'Выдать', 'data-arg="gold:n"')}`)}
         ${aAct('Ресурсы', 'Дерево, камень, железо и еду — поровну, в пределах складов.', `${aNum('res', 100000, 'каждого')}${aBtn2('res', 'Выдать', 'data-arg="res:n"')}`)}
@@ -93,6 +96,7 @@ function adminHtml() {
     world: () => `${aSec('📰 Новость', `<p class="small">Всем придёт фиолетовый конверт в верхней панели; новость останется в «Инфо → Новости».</p>${newsPubForm()}`)}
       ${GOLD_ALL()}
       ${PREM_ALL()}
+      ${ALLY_GOLD()}
       ${NOBODY_SEC()}
       ${aSec('✉ Письмо всем', `<p class="small">Личное письмо каждому игроку (в «Сообщения»).</p><form class="stack" data-aform="mailall"><input name="subject" placeholder="Тема письма" value="Сообщение администрации"><textarea name="text" rows="3" placeholder="Текст письма" required></textarea><button class="btn primary">Разослать всем</button></form>`)}
       ${aSec('💬 Объявление в чат', `<p class="small">Сообщение в общий чат с пометкой [Администрация].</p><form class="chatform" data-aform="chat"><input name="text" placeholder="Текст объявления" required><button class="btn primary small">В чат</button></form>`)}
@@ -347,6 +351,7 @@ $('#sheetBody').addEventListener('submit', (e) => {
   if (k === 'mailtest') { S.adm.mailTest = { ok: true, msg: 'Отправляю…' }; refreshSheet(); return send({ t: 'admin', op: 'mailtest', addr: f.addr.value.trim() }); }
   if (k === 'goldall') { const n = Math.floor(Number(f.n.value)); if (!(n >= 1 && n <= 1000)) return toast('От 1 до 1000 золота.', 'err'); if (!confirm(`Выдать КАЖДОМУ игроку по ${n} золота?`)) return; S.adm.goldAll = { msg: 'Выдаю…', last: (S.adm.goldAll || { last: [] }).last }; refreshSheet(); return send({ t: 'admin', op: 'goldall', n, why: f.why.value }); }
   if (k === 'premall') { const n = Math.floor(Number(f.days.value)); if (!(n >= 1 && n <= 30)) return toast('Срок — от 1 до 30 дней.', 'err'); if (!confirm(`Выдать КАЖДОМУ игроку Премиум на ${n} ${plural(n, 'день', 'дня', 'дней')}?`)) return; S.adm.premAll = { msg: 'Выдаю…', last: (S.adm.premAll || { last: [] }).last }; refreshSheet(); return send({ t: 'admin', op: 'premall', days: n, why: f.why.value }); }
+  if (k === 'allygold') { const n = Math.trunc(Number(f.n.value)), tag = f.tag.value.trim().toUpperCase(); if (!n || !tag) return toast('Укажите тег альянса и сумму.', 'err'); const amt = `${Math.abs(n)} ${plural(Math.abs(n), 'монету', 'монеты', 'монет')}`; if (!confirm(n > 0 ? `Пополнить казну альянса [${tag}] на ${amt}?` : `Списать из казны альянса [${tag}] ${amt}?`)) return; f.n.value = ''; return send({ t: 'admin', op: 'allygold', tag, n }); }
   if (k === 'mailall') send({ t: 'admin', op: 'mailall', subject: f.subject.value, text: f.text.value });
   if (k === 'chat') { send({ t: 'admin', op: 'chat', text: f.text.value }); f.text.value = ''; }
   if (k === 'pass') { if (!confirm(`Сменить пароль игроку ${S.adm.login}? Все его входы завершатся.`)) return; admSend('pass', { password: f.password.value }); f.password.value = ''; }
