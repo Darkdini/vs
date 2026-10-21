@@ -602,6 +602,7 @@ const ACTS = {
   mail: () => openDialogs(), // «Сообщения»: список переписок (dialogs.js)
   book: () => openSub('book'),
   army: () => openSub('army'),
+  elite: () => openSheet(eliteHelpWin), // «Справка → Элита и мясо» (mil.js)
   hq: () => { const i = hqCell(); if (i < 0) return toast('Сначала постройте Военный штаб (нужна Ратуша 3 ур.).', 'err'); openCell(VIEW.CASTLE, i); },
   reports: () => openReports(),
   adminp: () => openSheet(adminHtml),

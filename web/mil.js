@@ -479,8 +479,30 @@ function armyBookHtml() {
   return `<div class="vhead"><button class="iconbtn" data-back>‹</button><h2>Войска</h2></div>
     <div class="pad" style="padding-top:8px"><div class="pills">${races.map((r) => `<button data-brace="${r}" class="${r === S.bookRace ? 'on' : ''}">${r === 'all' ? 'Общие' : esc(S.cat.races[r])}</button>`).join('')}</div>
     <div class="list" style="margin-top:8px">${list.map((u0) => raceUnit(u0, S.bookRace === 'all' ? S.st.user.race : S.bookRace)).map((u) => `<div class="card unit"><div class="top">${`<img class="ui" src="${unitSrc(u, S.bookRace === 'all' ? S.st.user.race : S.bookRace)}" alt="">`}<div class="grow"><b>${esc(u.name)}</b>
-      <span class="muted small">${TYPE_NAME[u.type] || ''} · ${esc(S.by[u.building].name)} ${u.level} ур.${Object.entries(u.req).map(([id, l]) => `, ${esc(S.by[id].name)} ${l} ур.`).join('')}</span></div></div>${unitStatsHtml(u)}</div>`).join('')}</div></div>`;
+      <span class="muted small">${TYPE_NAME[u.type] || ''} · ${u.retired ? 'больше не тренируется' : `${esc(S.by[u.building].name)} ${u.level} ур.${Object.entries(u.req).map(([id, l]) => `, ${esc(S.by[id].name)} ${l} ур.`).join('')}`}</span></div></div>${unitStatsHtml(u)}</div>`).join('')}</div></div>`;
 }
+// «Справка → Элита и мясо»: как отличить (по людям на воина), что выгоднее, как делятся потери в бою; воины по расам.
+// Цены в примере и списки — из каталога, поэтому совпадают с текущим балансом
+const ELITE_SKIP = ['scout', 'merchant', 'settler', 'sage', 'archaeologist', 'rebel', 'general', 'ram', 'catapult'];
+const unitTier = (u) => (u.role === 'legendary' ? 'leg' : u.pop <= 15 ? 'meat' : 'elite');
+function eliteHelpWin() {
+  const races = ['humans', 'elves', 'dwarves', 'orcs'];
+  if (!races.includes(S.eliteRace)) S.eliteRace = races.includes(S.st.user.race) ? S.st.user.race : 'humans';
+  const units = M().units.filter((u) => u.race === S.eliteRace && !u.notrain && !ELITE_SKIP.includes(u.role)).sort((a, b) => a.pop - b.pop);
+  const tier = (k) => units.filter((u) => unitTier(u) === k).map((u) => `${esc(u.name)} (${u.pop})`).join(', ') || '—';
+  const ex = (id, atk) => { const u = unitById(id), n = Math.ceil(atk / u.attack), res = n * RES4.reduce((q, r) => q + (u.cost[r] || 0), 0), ppl = n * u.pop;
+    return `<b>${esc(u.name)} × ${n}</b>: ${fmtFull(res)} ${plural(res, 'ресурс', 'ресурса', 'ресурсов')} и ${fmtFull(ppl)} ${plural(ppl, 'человек', 'человека', 'человек')}`; };
+  const day = (MY().trainDay && MY().trainDay.max) || 400;
+  return `${ribbon('Элита и мясо')}<div class="pstats">
+    <p><b>Как отличить.</b> По людям — это число у значка человечка в «Стоимости тренировки»:<br>• <b>мясо</b> — до 15 человек на воина;<br>• <b>элита</b> — от 20 до 60;<br>• <b>легендарные</b> — около 80–90: самые дорогие воины расы, в нападении разрушают здания.</p>
+    <p><b>В чём разница.</b> По ресурсам элита ненамного дороже мяса, а сильнее в разы. Зато людей на неё уходит гораздо больше — люди и есть главная цена элиты (они прибывают с Хибарами). Например, 100 атаки — это:<br>• ${ex(200, 100)};<br>• или ${ex(205, 100)}.</p>
+    <p><b>Что выбрать.</b><br>• Мало людей — выгоднее мясо: та же сила за меньшее число людей.<br>• Мало ресурсов или упираетесь в лимит тренировки (${day} воинов в сутки на замок) — выгоднее элита: за те же ресурсы и места в лимите она даёт в разы больше силы.</p>
+    <p><b>В бою.</b> У нападающих работает атака, у защитников — защита; здоровье в обычном бою не считается. Потери все виды воинов несут одинаковой долей — мясо элиту не прикрывает: из 100 Мечников и 10 Паладинов при потерях 30% погибнут 30 Мечников и 3 Паладина.<br>
+    В бою с мировым боссом иначе: пехота стоит в первом ряду и принимает больше всех ударов, кавалерия — во втором, маги и осадные — позади; там важно и здоровье.</p></div>
+    <div class="pills">${races.map((r) => `<button data-erace="${r}" class="${r === S.eliteRace ? 'on' : ''}">${esc(S.cat.races[r])}</button>`).join('')}</div>
+    <div class="pstats"><p><b>Мясо:</b> ${tier('meat')}</p><p><b>Элита:</b> ${tier('elite')}</p><p><b>Легендарные:</b> ${tier('leg')}</p><p class="small">В скобках — сколько людей нужно на одного воина.</p></div>`;
+}
+$('#sheetBody').addEventListener('click', (e) => { const b = e.target.closest('[data-erace]'); if (b) { S.eliteRace = b.dataset.erace; refreshSheet(); } });
 
 // ---------- события ----------
 function milMsg(m) {
