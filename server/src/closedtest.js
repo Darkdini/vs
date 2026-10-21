@@ -5,12 +5,20 @@
 // Обычный игрок, у которого уже есть аккаунт, при включённом режиме не войдёт, а открытые сессии закрываются (web.js).
 const crypto = require('crypto');
 const C = require('./catalog');
+// «Технические работы» (Админка → «Мир»): игрокам — заглушка «сервер временно не работает», входит только администратор.
+// Регистрация закрыта, открытые сессии игроков закрываются, экран входа у всех сразу меняется на заглушку (web.js).
+// Мир при этом идёт как обычно: армии в пути дойдут, ресурсы растут. Для долгой остановки — выключить сервер (systemctl stop war)
+const MAINT_TEXT = 'Сервер временно не работает. Идут технические работы — зайдите немного позже.';
 const ABC = 'abcdefghjkmnpqrstuvwxyz23456789'; // без похожих символов (l/1, o/0): пароль удобно продиктовать
 const gen = (n) => Array.from(crypto.randomBytes(n), (b) => ABC[b % ABC.length]).join('');
 
 function install(Game) {
   const P = Game.prototype;
   P.closedOn = function closedOn() { return !!this.db.closedTest; };
+  P.maintOn = function maintOn() { return !!(this.db.maint && this.db.maint.on); };
+  // текст заглушки: свой от администратора (например, «Вернёмся к 18:00») — после основного
+  P.maintMsg = function maintMsg() { const t = (this.db.maint && this.db.maint.text) || ''; return t ? `${MAINT_TEXT} ${t}` : MAINT_TEXT; };
+  P.maintView = function maintView() { const m = this.db.maint || {}; return { on: !!m.on, at: m.at || 0, text: m.text || '', msg: this.maintMsg() }; };
   // можно ли войти: режим выключен, или админ, или действующий тестер
   P.closedAllows = function closedAllows(u) { return !this.closedOn() || !!(u && (u.admin || (u.tester && !u.testerOff))); };
   P.closedView = function closedView() {
@@ -33,6 +41,14 @@ function install(Game) {
   // команды админ-панели: test… (остальное — admin.js)
   const prev = P.adminOp;
   P.adminOp = function adminOp(user, op, arg = {}) {
+    if (op === 'maint') { // технические работы: on — включить / выключить, text — своя строка для игроков; без on — только показать
+      if (!user || !user.admin) return { error: 'Нет прав.' };
+      if (arg.on !== undefined) {
+        const text = String(arg.text || '').replace(/[<>]/g, '').trim().slice(0, 150);
+        this.db.maint = { on: !!Number(arg.on), at: Date.now(), by: user.login, text }; this.store.save();
+      }
+      return { data: this.maintView() };
+    }
     if (!String(op || '').startsWith('test')) return prev.call(this, user, op, arg);
     if (!user || !user.admin) return { error: 'Нет прав.' };
     const db = this.db;

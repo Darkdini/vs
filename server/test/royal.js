@@ -1779,6 +1779,16 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.strictEqual(sv, 0.3, `шанс уцелеть — не больше 30% (${sv})`);
   console.log('✓ Генерал: гибнет, когда нападение или оборона проиграны (лекарь и выздоровевшие не спасают), в набеге — нет; уцелеть — до 30%');
 }
+{ // технические работы (closedtest.js): по умолчанию выключены; включает и выключает только администратор; своя строка — после основной
+  const adm = g.adminUser(), pl = g.register({ login: 'maintPl1', password: '12345', race: 0 }).user;
+  assert.ok(!g.maintOn() && /технические работы/.test(g.maintMsg()), 'по умолчанию игра открыта');
+  assert.ok(g.adminOp(pl, 'maint', { on: 1 }).error && !g.maintOn(), 'игрок включить не может');
+  const r = g.adminOp(adm, 'maint', { on: 1, text: 'Вернёмся к 18:00 <b>' });
+  assert.ok(g.maintOn() && r.data.on && /Вернёмся к 18:00 b?$/.test(r.data.msg) && !/</.test(r.data.msg), r.data.msg);
+  assert.ok(g.adminOp(adm, 'maint', {}).data.on, 'без on — только показать');
+  assert.ok(!g.adminOp(adm, 'maint', { on: 0 }).data.on && !g.maintOn(), 'выключено');
+  console.log('✓ Технические работы: включает и выключает только администратор, своя строка для игроков');
+}
 { // новые правила боя — проба (админка): по умолчанию выключены; Кузница — до половины базы, тараны — только при победе,
   // подкрепления — со своими бонусами, магия ¾; «Сравнить бой» — по прежним и новым правилам, в игре ничего не меняется
   const adm = g.adminUser(), mk = (login) => g.register({ login, password: '12345', race: 0 }).user;

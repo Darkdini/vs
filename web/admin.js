@@ -76,6 +76,16 @@ const BATTLE_SEC = () => {
       <label class="check"><input type="checkbox" name="general" ${b.noGen ? '' : 'checked'}> с генералом</label><button class="btn primary">Сравнить</button></form>
     ${b.cmp ? battleCmpHtml(b.cmp) : ''}`);
 };
+// «🛠 Технические работы» (server/src/closedtest.js): игрокам — заглушка «сервер временно не работает», входит только администратор
+const MAINT_SEC = () => {
+  const m = S.adm.maint;
+  if (!m) { if (!S.adm.maintAsked) { S.adm.maintAsked = true; send({ t: 'admin', op: 'maint' }); } return aSec('🛠 Технические работы', '<p class="small">Загрузка…</p>'); }
+  return aSec('🛠 Технические работы', `<p class="small">Игроки видят «${esc(m.msg)}» вместо входа, тех, кто в игре, выбрасывает. Входите только Вы. Мир при этом идёт: армии в пути дойдут, ресурсы растут.</p>
+    <div class="smnote ${m.on ? 'ok' : ''}">Сейчас: <b>${m.on ? 'идут технические работы — игроки не входят' : 'игра открыта'}</b>${m.at ? ` · с ${fmtDate(m.at)}` : ''}</div>
+    ${m.on ? '<button class="pbar" data-amaint="0">Открыть игру для всех</button>'
+    : `<form class="stack" data-aform="maint"><input name="text" maxlength="150" placeholder="Добавить для игроков (необязательно), например: Вернёмся к 18:00" value="${esc(m.text || '')}"><button class="btn primary">Включить технические работы</button></form>`}
+    <p class="small">Если Вы выйдете из игры: форма входа открывается адресом игры с <b>#admin</b> в конце или пятью нажатиями на логотип на экране входа.</p>`);
+};
 const aSec = (title, body) => `<div class="acard"><div class="cwname">${title}</div>${body}</div>`;
 function adminHtml() {
   const a = S.adm, tab = ADM_TABS.some(([k]) => k === a.tab) ? a.tab : 'player';
@@ -120,6 +130,7 @@ function adminHtml() {
       ${aSec('📮 Жалобы и сообщения об ошибках', `<p class="small">Жалобы из чата и сообщения «Сообщить об ошибке» от игроков.</p><button class="pbar" data-adm="bugs">Показать</button>
         ${a.bugs ? `<div class="pstats">${a.bugs.length ? a.bugs.map((b) => `<b>${esc(b.from)}</b> · ${fmtDate(b.at)}<br>${esc(b.text)}`).join('<hr>') : 'Сообщений нет.'}</div>${a.bugs.length ? '<button class="pbar" data-adm="bugsclear">Очистить список</button>' : ''}` : ''}`)}`,
     world: () => `${aSec('📰 Новость', `<p class="small">Всем придёт фиолетовый конверт в верхней панели; новость останется в «Инфо → Новости».</p>${newsPubForm()}`)}
+      ${MAINT_SEC()}
       ${BATTLE_SEC()}
       ${GOLD_ALL()}
       ${PREM_ALL()}
@@ -378,6 +389,7 @@ $('#sheetBody').addEventListener('submit', (e) => {
   if (k === 'mailtest') { S.adm.mailTest = { ok: true, msg: 'Отправляю…' }; refreshSheet(); return send({ t: 'admin', op: 'mailtest', addr: f.addr.value.trim() }); }
   if (k === 'goldall') { const n = Math.floor(Number(f.n.value)); if (!(n >= 1 && n <= 1000)) return toast('От 1 до 1000 золота.', 'err'); if (!confirm(`Выдать КАЖДОМУ игроку по ${n} золота?`)) return; S.adm.goldAll = { msg: 'Выдаю…', last: (S.adm.goldAll || { last: [] }).last }; refreshSheet(); return send({ t: 'admin', op: 'goldall', n, why: f.why.value }); }
   if (k === 'premall') { const n = Math.floor(Number(f.days.value)); if (!(n >= 1 && n <= 30)) return toast('Срок — от 1 до 30 дней.', 'err'); if (!confirm(`Выдать КАЖДОМУ игроку Премиум на ${n} ${plural(n, 'день', 'дня', 'дней')}?`)) return; S.adm.premAll = { msg: 'Выдаю…', last: (S.adm.premAll || { last: [] }).last }; refreshSheet(); return send({ t: 'admin', op: 'premall', days: n, why: f.why.value }); }
+  if (k === 'maint') { if (!confirm('Включить технические работы? Игроков выбросит из игры, войти сможете только Вы.')) return; return send({ t: 'admin', op: 'maint', on: 1, text: f.text.value.trim() }); }
   if (k === 'battlecmp') { S.adm.battle = { ...(S.adm.battle || {}), attNick: f.att.value.trim(), defNick: f.def.value.trim(), mission: f.mission.value, noGen: !f.general.checked }; return send({ t: 'admin', op: 'battlecmp', att: f.att.value.trim(), def: f.def.value.trim(), mission: f.mission.value, general: f.general.checked ? 1 : 0 }); }
   if (k === 'allygold') { const n = Math.trunc(Number(f.n.value)), tag = f.tag.value.trim().toUpperCase(); if (!n || !tag) return toast('Укажите тег альянса и сумму.', 'err'); const amt = `${Math.abs(n)} ${plural(Math.abs(n), 'монету', 'монеты', 'монет')}`; if (!confirm(n > 0 ? `Пополнить казну альянса [${tag}] на ${amt}?` : `Списать из казны альянса [${tag}] ${amt}?`)) return; f.n.value = ''; return send({ t: 'admin', op: 'allygold', tag, n }); }
   if (k === 'mailall') send({ t: 'admin', op: 'mailall', subject: f.subject.value, text: f.text.value });
@@ -412,6 +424,7 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
     if (m.op === 'goldall' || m.op === 'goldallget') S.adm.goldAll = { ...m.data, at: Date.now() };
     if (m.op === 'premall' || m.op === 'premallget') S.adm.premAll = { ...m.data, at: Date.now() };
     if (m.op === 'battlerules') S.adm.battle = { ...(S.adm.battle || {}), ...m.data };
+    if (m.op === 'maint') S.adm.maint = m.data;
     if (m.op === 'battlecmp') S.adm.battle = { ...(S.adm.battle || {}), cmp: m.data.cmp };
     if (m.op === 'nobodyview') S.adm.nobody = m.data;
     return refreshSheet();
@@ -455,6 +468,10 @@ function admStatsHtml(st) {
 }
 // ---------- ⭐ Платежи (server/src/tgpay.js): покупки монет за звёзды Telegram, итоги, возвраты ----------
 $('#sheetBody').addEventListener('click', (e) => { if (e.target.closest('[data-apayref]')) send({ t: 'admin', op: 'payments' }); });
+$('#sheetBody').addEventListener('click', (e) => { // технические работы — открыть игру
+  const t = e.target.closest('[data-amaint]'); if (!t) return;
+  if (confirm('Открыть игру для всех игроков?')) send({ t: 'admin', op: 'maint', on: 0 });
+});
 $('#sheetBody').addEventListener('click', (e) => { // правила боя: включить новые / вернуть прежние
   const t = e.target.closest('[data-abattle]'); if (!t) return;
   const on = t.dataset.abattle === '1'; if (!confirm(on ? 'Включить новые правила боя для всех боёв?' : 'Вернуть прежние правила боя?')) return;

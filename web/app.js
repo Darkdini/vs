@@ -222,6 +222,7 @@ function onMsg(m) {
         S.ver = m.v;
       }
       closedAuth(!!m.closed); // закрытый тест (server/src/closedtest.js): без регистрации
+      maintAuth(m.maint || ''); // технические работы: у игроков заглушка вместо входа
       // фон замка (самый большой файл, ~650 КБ) — качается, пока игрок вводит логин и пароль: после «Войти» замок открывается сразу
       if (!S.bgEarly) { S.bgEarly = true; setTimeout(() => pic(CASTLE_BG.src), 1500); }
       if (m.catalog) { setCatalog(m.catalog); break; }
@@ -308,6 +309,9 @@ function onMsg(m) {
       if (/Торговцы \(\d+\) отправились/.test(m.msg) && S.mkt) { S.mkt = null; closeSheet(); }
       break;
     case 'loginlock': showLock(Date.now() + m.sec * 1000); break;
+    case 'maint': // технические работы: из игры — на экран заглушки (сохранённый вход остаётся — после работ войдёт как обычно)
+      if (m.msg) { S.auto = false; S.entered = false; $('#auth').classList.remove('hidden'); $('#game').classList.add('hidden'); }
+      maintAuth(m.msg || ''); break;
     case 'error':
       if (S.picQ || (S.dlg && S.dlg.picBusy)) { S.picQ = null; S.dlg.picBusy = null; } // отправка фото сорвалась — снять «Отправка…»
       if (S.auto || !S.st) { // ошибка входа — показать форму
@@ -363,6 +367,19 @@ function closedAuth(on) {
   S.closed = on; $('#authTabs').classList.toggle('hidden', on); $('#closedNote').classList.toggle('hidden', !on);
   if (on && S.mode === 'reg') setMode('login');
 }
+// технические работы (server/src/closedtest.js): вместо входа — только заглушка «сервер временно не работает».
+// Администратор открывает форму входа адресом с #admin или пятью нажатиями на логотип (в приложении адрес не поменять)
+S.maintTaps = [];
+function maintAuth(msg) {
+  S.maint = msg; const open = !!msg && !S.maintAdmin, note = $('#maintNote');
+  note.innerHTML = msg ? `<b>🛠 ${esc(msg)}</b>${S.maintAdmin ? '<small>Вход — только для администрации.</small>' : ''}` : '';
+  note.classList.toggle('hidden', !msg); $('#auth').classList.toggle('maint', open);
+}
+S.maintAdmin = /admin/i.test(location.hash);
+$('#auth .logo').addEventListener('click', () => {
+  const now = Date.now(); S.maintTaps = [...S.maintTaps.filter((t) => t > now - 3000), now];
+  if (S.maintTaps.length >= 5 && S.maint && !S.maintAdmin) { S.maintAdmin = true; maintAuth(S.maint); }
+});
 function setMode(mode) {
   S.mode = mode;
   $$('#authTabs button').forEach((b) => b.classList.toggle('on', b.dataset.mode === mode));

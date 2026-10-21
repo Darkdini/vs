@@ -666,6 +666,24 @@ function client() {
       [cl, tt, t2, op2].forEach((x) => x.close());
       console.log('✓ закрытый тест: только тестеры и админ, регистрация закрыта, игроков выбрасывает; тестер — пароль один раз, отключение, новый пароль');
     }
+    // ---- технические работы: игроков выбрасывает, на экране входа — заглушка, регистрация закрыта, входит только администратор ----
+    {
+      const pw = client(); await pw.open(); pw.send({ t: 'login', login: 'Webby', password: 'pass1' }); await pw.expect('auth');
+      const lw = client(); await lw.open(); lw.send({ t: 'hello' }); assert.strictEqual((await lw.expect('catalog')).maint, '', 'обычно заглушки нет');
+      adm.send({ t: 'admin', op: 'maint', on: 1, text: 'Вернёмся к 18:00' });
+      const mi = (await adm.expect('admininfo', (m) => m.op === 'maint' && m.data.on)).data; assert.ok(/технические работы/.test(mi.msg) && /Вернёмся к 18:00/.test(mi.msg), mi.msg);
+      await pw.expect('maint', (m) => /Вернёмся к 18:00/.test(m.msg)); // игрок в игре — заглушка, соединение закрыто
+      await lw.expect('maint', (m) => /технические работы/.test(m.msg)); // открытый экран входа — заглушка сразу
+      lw.send({ t: 'login', login: 'Webby', password: 'pass1' }); await lw.expect('maint', (m) => !!m.msg); // игрок не входит
+      lw.send({ t: 'register', login: 'Mnew1', password: 'pass1', race: '0' }); await lw.expect('maint', (m) => !!m.msg); // регистрация закрыта
+      const nw = client(); await nw.open(); nw.send({ t: 'hello' }); assert.ok(/Вернёмся к 18:00/.test((await nw.expect('catalog')).maint), 'новый экран входа — сразу заглушка');
+      nw.send({ t: 'login', login: 'admin', password: 'admin' }); await nw.expect('auth'); // администратор входит
+      adm.send({ t: 'admin', op: 'maint', on: 0 }); await adm.expect('admininfo', (m) => m.op === 'maint' && !m.data.on);
+      await lw.expect('maint', (m) => m.msg === ''); // заглушка снята
+      lw.send({ t: 'login', login: 'Webby', password: 'pass1' }); await lw.expect('auth');
+      [pw, lw, nw].forEach((x) => x.close());
+      console.log('✓ Технические работы: игроков выбрасывает, заглушка на экране входа, регистрация закрыта, входит только администратор');
+    }
     adm.close();
     // 3 неверных входа → табличка «попробуйте через 3 минуты», даже правильный пароль не пускает
     const bf = client(); await bf.open();

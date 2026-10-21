@@ -242,10 +242,11 @@ const ROYAL_ACTIONS = new Set(['forge', 'ritual', 'calm', 'build', 'wall', 'trai
 const API = {
   // справочник игры (~120 КБ) не шлём по сокету каждый раз: только отпечаток, а сам файл браузер берёт по HTTP
   // (/catalog.json?h=… — сжатый и с вечным кэшем: при повторном входе он уже в памяти телефона)
-  hello() { this.send({ t: 'catalog', h: catalogFile().hash, v: VERSION, closed: this.game.closedOn() }); }, // closed — закрытый тест (closedtest.js): экран входа без регистрации // v — версия игры: у открытой старой страницы клиент сам перезагрузится
+  hello() { this.send({ t: 'catalog', h: catalogFile().hash, v: VERSION, closed: this.game.closedOn(), maint: this.game.maintOn() ? this.game.maintMsg() : '' }); }, // maint — технические работы (closedtest.js): у игроков заглушка вместо входа // closed — закрытый тест (closedtest.js): экран входа без регистрации // v — версия игры: у открытой старой страницы клиент сам перезагрузится
   // капча для регистрации: новая при каждом запросе и после каждой попытки
   captcha() { const c = SEC.captcha(); this.captchaAns = { a: c.answer, exp: Date.now() + 300000 }; this.send({ t: 'captcha', img: c.img }); },
   register(m) {
+    if (this.game.maintOn()) return this.send({ t: 'maint', msg: this.game.maintMsg() }); // технические работы
     if (this.game.closedOn()) return this.error('Идёт закрытое тестирование — регистрация временно закрыта.');
     const test = process.env.NO_CAPTCHA === '1'; // только для автотестов
     if (this.game.devBanned(m.dev)) return this.error('Регистрация с этого устройства запрещена администрацией.');
@@ -277,6 +278,7 @@ const API = {
       return this.error(`Неверный логин или пароль . Осталось попыток: ${left}.`);
     }
     if (!m.token) this.game.loginOk(this.ip);
+    if (this.game.maintOn() && !u.admin) { this.log(`вход ${u.login}: технические работы`); return this.send({ t: 'maint', msg: this.game.maintMsg() }); } // входит только администратор
     this.game.trackLogin(u, this.ip, m.dev); this.dev = m.dev;
     if (!u.admin && this.game.devBanned(m.dev)) return this.error('Это устройство заблокировано администрацией.');
     if (!this.game.closedAllows(u)) { this.log(`вход ${u.login}: закрытый тест, не тестер`); return this.error('Идёт закрытое тестирование — вход только для тестеров.'); }
@@ -841,6 +843,11 @@ const API = {
     if (m.op === 'chat' && r.data) for (const s of WebSession.all || []) if (s.user && s.sendChat) s.sendChat(r.data);
     if (m.op === 'banmany' || m.op === 'devban') for (const s of WebSession.all || []) if (s.user && !s.user.admin && (s.user.banned || this.game.devBanned(s.dev))) s.socket.destroy();
     if (String(m.op || '').startsWith('test')) for (const s of WebSession.all || []) if (s.user && (!this.game.closedAllows(s.user) || s.user.id === r.kick)) { s.error('Идёт закрытое тестирование — вход только для тестеров.'); s.socket.destroy(); }
+    // технические работы: игроков — из игры (у них заглушка), у открытых экранов входа заглушка появляется или исчезает сразу
+    if (m.op === 'maint' && m.on !== undefined) {
+      const on = this.game.maintOn(), msg = on ? this.game.maintMsg() : '';
+      for (const s of WebSession.all || []) { if (s === this || (s.user && s.user.admin)) continue; if (s.user && on) { s.send({ t: 'maint', msg }); s.socket.destroy(); } else if (!s.user) s.send({ t: 'maint', msg }); }
+    }
     if (m.login && !String(m.op || '').startsWith('test')) for (const s of WebSession.all || []) if (s.user && s.user.login === String(m.login).trim() && s !== this) { if (m.op === 'ban' || m.op === 'delete' || m.op === 'abandon') s.socket.destroy(); else s.pushState(); }
     this.pushState();
   },

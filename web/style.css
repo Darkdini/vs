@@ -2601,3 +2601,8 @@ p.ghint.center { margin: 2px 8px 6px; text-align: center; font: 14px var(--serif
 .bcmp tr:first-child th{font-weight:700;color:#3d2610}
 .bcmp small{color:#6b5236}
 .bcmp .bgood{color:#2e7d32}.bcmp .bbad{color:#b23b2b}
+
+/* технические работы: на экране входа — только логотип, название и заглушка (форма — у администратора: #admin или 5 нажатий на логотип) */
+.maintnote { margin: 10px 0 14px; padding: 14px 14px; border-radius: 10px; background: rgba(60, 30, 5, 0.8); border: 1px solid #c9a24a; color: #ffe6a8; text-align: center; font-size: 15px; line-height: 1.45; }
+.maintnote small { display: block; margin-top: 6px; font-size: 12px; opacity: 0.85; }
+#auth.maint .auth-box > :not(.logo):not(h1):not(#maintNote) { display: none !important; }
