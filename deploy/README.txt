@@ -15,6 +15,12 @@
   Репозиторий закрытый: скачивание идёт с токеном GitHub (сохранить: war-token; токен fine-grained, только Darkdini/vs,
   Contents: Read-only) или пока репозиторий открыт (Public).
 
+=== Технические работы (заглушка «сервер временно не работает», входит только админ) ===
+  Включить и выключить — в игре: Админка → «Мир» → «Технические работы».
+  Запустить сервер сразу с заглушкой (после остановки или вместе с обновлением), чтобы игроки не успели войти:
+    touch /opt/war/game-data/maint.on && war-update <ссылка на game.zip>
+  Сервер включит заглушку и сам удалит файл; игру для всех открывает админ кнопкой «Открыть игру для всех».
+
 === Установка на новый сервер ===
   curl -fsSL -H "Authorization: Bearer ТОКЕН" https://raw.githubusercontent.com/Darkdini/vs/claude/third-world-kings-war-analysis-lodxja/deploy/install-vps.sh -o install.sh
   sh install.sh middle-ages.ru www.middle-ages.ru

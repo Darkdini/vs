@@ -14,6 +14,8 @@ const DB = process.env.DB || path.join(__dirname, '..', 'data', 'db.json');
 
 const store = new Store(DB);
 const game = new Game(store);
+// файл maint.on рядом с базой — сервер запускается сразу с заглушкой «технические работы» (closedtest.js)
+if (game.maintBoot(path.join(path.dirname(path.resolve(DB)), 'maint.on'))) console.log('Технические работы включены при запуске (файл maint.on): игроки видят заглушку. Открыть игру — Админка → «Мир».');
 const sessions = new Set();
 WebSession.all = sessions;
 

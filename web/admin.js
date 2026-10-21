@@ -83,8 +83,9 @@ const MAINT_SEC = () => {
   return aSec('🛠 Технические работы', `<p class="small">Игроки видят «${esc(m.msg)}» вместо входа, тех, кто в игре, выбрасывает. Входите только Вы. Мир при этом идёт: армии в пути дойдут, ресурсы растут.</p>
     <div class="smnote ${m.on ? 'ok' : ''}">Сейчас: <b>${m.on ? 'идут технические работы — игроки не входят' : 'игра открыта'}</b>${m.at ? ` · с ${fmtDate(m.at)}` : ''}</div>
     ${m.on ? '<button class="pbar" data-amaint="0">Открыть игру для всех</button>'
-    : `<form class="stack" data-aform="maint"><input name="text" maxlength="150" placeholder="Добавить для игроков (необязательно), например: Вернёмся к 18:00" value="${esc(m.text || '')}"><button class="btn primary">Включить технические работы</button></form>`}
-    <p class="small">Если Вы выйдете из игры: форма входа открывается адресом игры с <b>#admin</b> в конце или пятью нажатиями на логотип на экране входа.</p>`);
+    : '<form class="stack" data-aform="maint"><button class="btn primary">Включить технические работы</button></form>'}
+    <p class="small">Если Вы выйдете из игры: форма входа открывается адресом игры с <b>#admin</b> в конце или пятью нажатиями на логотип на экране входа.</p>
+    <p class="small">Чтобы сервер после остановки или обновления запустился сразу с заглушкой, перед запуском выполните на сервере: <b>touch /opt/war/game-data/maint.on</b></p>`);
 };
 const aSec = (title, body) => `<div class="acard"><div class="cwname">${title}</div>${body}</div>`;
 function adminHtml() {
@@ -389,7 +390,7 @@ $('#sheetBody').addEventListener('submit', (e) => {
   if (k === 'mailtest') { S.adm.mailTest = { ok: true, msg: 'Отправляю…' }; refreshSheet(); return send({ t: 'admin', op: 'mailtest', addr: f.addr.value.trim() }); }
   if (k === 'goldall') { const n = Math.floor(Number(f.n.value)); if (!(n >= 1 && n <= 1000)) return toast('От 1 до 1000 золота.', 'err'); if (!confirm(`Выдать КАЖДОМУ игроку по ${n} золота?`)) return; S.adm.goldAll = { msg: 'Выдаю…', last: (S.adm.goldAll || { last: [] }).last }; refreshSheet(); return send({ t: 'admin', op: 'goldall', n, why: f.why.value }); }
   if (k === 'premall') { const n = Math.floor(Number(f.days.value)); if (!(n >= 1 && n <= 30)) return toast('Срок — от 1 до 30 дней.', 'err'); if (!confirm(`Выдать КАЖДОМУ игроку Премиум на ${n} ${plural(n, 'день', 'дня', 'дней')}?`)) return; S.adm.premAll = { msg: 'Выдаю…', last: (S.adm.premAll || { last: [] }).last }; refreshSheet(); return send({ t: 'admin', op: 'premall', days: n, why: f.why.value }); }
-  if (k === 'maint') { if (!confirm('Включить технические работы? Игроков выбросит из игры, войти сможете только Вы.')) return; return send({ t: 'admin', op: 'maint', on: 1, text: f.text.value.trim() }); }
+  if (k === 'maint') { if (!confirm('Включить технические работы? Игроков выбросит из игры, войти сможете только Вы.')) return; return send({ t: 'admin', op: 'maint', on: 1 }); }
   if (k === 'battlecmp') { S.adm.battle = { ...(S.adm.battle || {}), attNick: f.att.value.trim(), defNick: f.def.value.trim(), mission: f.mission.value, noGen: !f.general.checked }; return send({ t: 'admin', op: 'battlecmp', att: f.att.value.trim(), def: f.def.value.trim(), mission: f.mission.value, general: f.general.checked ? 1 : 0 }); }
   if (k === 'allygold') { const n = Math.trunc(Number(f.n.value)), tag = f.tag.value.trim().toUpperCase(); if (!n || !tag) return toast('Укажите тег альянса и сумму.', 'err'); const amt = `${Math.abs(n)} ${plural(Math.abs(n), 'монету', 'монеты', 'монет')}`; if (!confirm(n > 0 ? `Пополнить казну альянса [${tag}] на ${amt}?` : `Списать из казны альянса [${tag}] ${amt}?`)) return; f.n.value = ''; return send({ t: 'admin', op: 'allygold', tag, n }); }
   if (k === 'mailall') send({ t: 'admin', op: 'mailall', subject: f.subject.value, text: f.text.value });

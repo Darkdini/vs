@@ -4,10 +4,12 @@
 // в базе — только хэш пароля (как у всех). Тестера можно отключить, сбросить ему пароль или снять отметку.
 // Обычный игрок, у которого уже есть аккаунт, при включённом режиме не войдёт, а открытые сессии закрываются (web.js).
 const crypto = require('crypto');
+const fs = require('fs');
 const C = require('./catalog');
 // «Технические работы» (Админка → «Мир»): игрокам — заглушка «сервер временно не работает», входит только администратор.
 // Регистрация закрыта, открытые сессии игроков закрываются, экран входа у всех сразу меняется на заглушку (web.js).
 // Мир при этом идёт как обычно: армии в пути дойдут, ресурсы растут. Для долгой остановки — выключить сервер (systemctl stop war)
+// Время возвращения не пишется. Запуск сразу с заглушкой — файл maint.on рядом с базой (index.js → maintBoot)
 const MAINT_TEXT = 'Сервер временно не работает. Идут технические работы — зайдите немного позже.';
 const ABC = 'abcdefghjkmnpqrstuvwxyz23456789'; // без похожих символов (l/1, o/0): пароль удобно продиктовать
 const gen = (n) => Array.from(crypto.randomBytes(n), (b) => ABC[b % ABC.length]).join('');
@@ -16,9 +18,16 @@ function install(Game) {
   const P = Game.prototype;
   P.closedOn = function closedOn() { return !!this.db.closedTest; };
   P.maintOn = function maintOn() { return !!(this.db.maint && this.db.maint.on); };
-  // текст заглушки: свой от администратора (например, «Вернёмся к 18:00») — после основного
-  P.maintMsg = function maintMsg() { const t = (this.db.maint && this.db.maint.text) || ''; return t ? `${MAINT_TEXT} ${t}` : MAINT_TEXT; };
-  P.maintView = function maintView() { const m = this.db.maint || {}; return { on: !!m.on, at: m.at || 0, text: m.text || '', msg: this.maintMsg() }; };
+  P.maintMsg = function maintMsg() { return MAINT_TEXT; };
+  P.maintView = function maintView() { const m = this.db.maint || {}; return { on: !!m.on, at: m.at || 0, msg: this.maintMsg() }; };
+  // при запуске сервера: есть файл maint.on (touch /opt/war/game-data/maint.on) — заглушка с первой секунды, игроки не успеют войти;
+  // файл удаляется, дальше режим держится в базе, пока администратор не откроет игру
+  P.maintBoot = function maintBoot(file) {
+    if (!fs.existsSync(file)) return false;
+    this.db.maint = { on: true, at: Date.now(), by: 'maint.on' }; this.store.flush();
+    try { fs.unlinkSync(file); } catch (e) { console.error(`Не удалось удалить ${file} (${e.message}) — удалите вручную, иначе заглушка включится при каждом запуске`); }
+    return true;
+  };
   // можно ли войти: режим выключен, или админ, или действующий тестер
   P.closedAllows = function closedAllows(u) { return !this.closedOn() || !!(u && (u.admin || (u.tester && !u.testerOff))); };
   P.closedView = function closedView() {
@@ -41,12 +50,9 @@ function install(Game) {
   // команды админ-панели: test… (остальное — admin.js)
   const prev = P.adminOp;
   P.adminOp = function adminOp(user, op, arg = {}) {
-    if (op === 'maint') { // технические работы: on — включить / выключить, text — своя строка для игроков; без on — только показать
+    if (op === 'maint') { // технические работы: on — включить / выключить; без on — только показать
       if (!user || !user.admin) return { error: 'Нет прав.' };
-      if (arg.on !== undefined) {
-        const text = String(arg.text || '').replace(/[<>]/g, '').trim().slice(0, 150);
-        this.db.maint = { on: !!Number(arg.on), at: Date.now(), by: user.login, text }; this.store.save();
-      }
+      if (arg.on !== undefined) { this.db.maint = { on: !!Number(arg.on), at: Date.now(), by: user.login }; this.store.save(); }
       return { data: this.maintView() };
     }
     if (!String(op || '').startsWith('test')) return prev.call(this, user, op, arg);

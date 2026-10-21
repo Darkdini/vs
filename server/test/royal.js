@@ -1779,15 +1779,21 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.strictEqual(sv, 0.3, `шанс уцелеть — не больше 30% (${sv})`);
   console.log('✓ Генерал: гибнет, когда нападение или оборона проиграны (лекарь и выздоровевшие не спасают), в набеге — нет; уцелеть — до 30%');
 }
-{ // технические работы (closedtest.js): по умолчанию выключены; включает и выключает только администратор; своя строка — после основной
+{ // технические работы (closedtest.js): по умолчанию выключены; включает и выключает только администратор; без времени возвращения;
+  // файл maint.on рядом с базой — сервер запускается сразу с заглушкой, файл удаляется
   const adm = g.adminUser(), pl = g.register({ login: 'maintPl1', password: '12345', race: 0 }).user;
   assert.ok(!g.maintOn() && /технические работы/.test(g.maintMsg()), 'по умолчанию игра открыта');
   assert.ok(g.adminOp(pl, 'maint', { on: 1 }).error && !g.maintOn(), 'игрок включить не может');
-  const r = g.adminOp(adm, 'maint', { on: 1, text: 'Вернёмся к 18:00 <b>' });
-  assert.ok(g.maintOn() && r.data.on && /Вернёмся к 18:00 b?$/.test(r.data.msg) && !/</.test(r.data.msg), r.data.msg);
+  const r = g.adminOp(adm, 'maint', { on: 1, text: 'Вернёмся к 18:00' });
+  assert.ok(g.maintOn() && r.data.on && r.data.msg === g.maintMsg() && !/18:00/.test(r.data.msg), `без времени возвращения: ${r.data.msg}`);
   assert.ok(g.adminOp(adm, 'maint', {}).data.on, 'без on — только показать');
   assert.ok(!g.adminOp(adm, 'maint', { on: 0 }).data.on && !g.maintOn(), 'выключено');
-  console.log('✓ Технические работы: включает и выключает только администратор, своя строка для игроков');
+  const flag = path.join(path.dirname(DB), `royal-${process.pid}-maint.on`);
+  assert.ok(!g.maintBoot(flag) && !g.maintOn(), 'без файла maint.on — запуск как обычно');
+  fs.writeFileSync(flag, '');
+  assert.ok(g.maintBoot(flag) && g.maintOn() && !fs.existsSync(flag), 'файл maint.on — сразу технические работы, файл удалён');
+  assert.ok(!g.adminOp(adm, 'maint', { on: 0 }).data.on && !g.maintBoot(flag) && !g.maintOn(), 'администратор открыл игру — следующий запуск обычный');
+  console.log('✓ Технические работы: включает и выключает только администратор, без времени возвращения; файл maint.on — запуск сразу с заглушкой');
 }
 { // новые правила боя — проба (админка): по умолчанию выключены; Кузница — до половины базы, тараны — только при победе,
   // подкрепления — со своими бонусами, магия ¾; «Сравнить бой» — по прежним и новым правилам, в игре ничего не меняется
