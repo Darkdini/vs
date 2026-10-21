@@ -1073,6 +1073,9 @@ function install(Game, helpers) {
     }
     due.sort((p, q) => (p[1].state === 'go' ? p[1].arrive : p[1].back) - (q[1].state === 'go' ? q[1].arrive : q[1].back));
     for (const [c, a] of due) {
+      // пока разбирали список, армии уже нет у её замка (замок захватили, удалили, армию отозвали) — её не обрабатываем:
+      // иначе возвращающаяся армия прежнего хозяина доставалась захватчику (после перезапуска сервера все события идут пачкой)
+      if (this.db.castles[c.id] !== c || !(c.armies || []).includes(a)) continue;
       if (a.state === 'go') this.arrive(c, a, a.arrive);
       else this.returnHome(c, a);
     }

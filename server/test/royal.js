@@ -2217,6 +2217,22 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
     console.log('✓ «Забросить замки»: замки — ничьи, столицы нет, армия осталась (генерал пропал), постройки и ресурсы (растут) остались, игрок удалён; бывшую столицу берут за 7 побед с Бунтарями');
   }
+  { // захват и армия в пути: замок взяли раньше, чем к нему вернулась армия прежнего хозяина, — армия захватчику не достаётся
+    // (раньше всё, что «пора», разбиралось одной пачкой: возвращающаяся армия попадала в уже чужой замок)
+    const luck0 = process.env.LUCK; process.env.LUCK = '0';
+    const mk = (login) => { const u = g.register({ login, password: '12345', race: 0 }).user; u.created = Date.now() - 60 * DAY; u.royal = 1e6; u.royalAt = Date.now(); u.lastSeen = Date.now(); return u; };
+    const A = mk('raceAtt1'), V = mk('raceVic1'); g.adminAddCastles(V, 1);
+    const ca = g.castleOf(A), tgt = g.castlesOf(V)[1]; g.mil(ca); g.mil(tgt); g.maxOut(ca);
+    tgt.units = {}; tgt.squads = []; tgt.loyalty = 10; // бунт 90%: одна победа с Бунтарём — замок взят
+    ca.units = { 200: 3000, 233: 1 }; ca.squads = []; ca.armies = [];
+    const s = g.sendArmy(ca, { from: 'castle', mission: 'attack', x: tgt.x, y: tgt.y }); assert.ok(!s.error, s.error);
+    const T = s.army.arrive;
+    tgt.armies = [{ id: g.db.nextId++, units: { 200: 500 }, general: false, mission: 'raid', x: 1, y: 1, depart: T - 20000, arrive: T - 10000, sec: 10, state: 'back', back: T + 1000, loot: null }];
+    g.tickWorld(T + 5000);
+    assert.ok(tgt.owner === A.id && !tgt.units[200] && !tgt.armies.length, `замок взят, армия прежнего хозяина захватчику не досталась (${JSON.stringify(tgt.units)})`);
+    if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
+    console.log('✓ Захват и армия в пути: возвращающаяся армия прежнего хозяина захватчику не достаётся');
+  }
   { // цены, которые раньше не влезали в Склад (75 200): науки 15–20, улучшения Кузницы/Школы магии; воскрешение генерала — до 100 ур. не дороже Склада, выше — за монеты
     const cat = require('../src/army').catalogJson();
     const sci = (cat.scienceCost || []).filter(Boolean); assert.ok(sci.length === 20 && sci.every((c, i) => c.wood <= 75200 && (i === 0 || c.wood > sci[i - 1].wood)), 'науки 1–20 дорожают и влезают в Склад');
