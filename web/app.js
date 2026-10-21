@@ -223,6 +223,7 @@ function onMsg(m) {
       }
       closedAuth(!!m.closed); // закрытый тест (server/src/closedtest.js): без регистрации
       maintAuth(m.maint || ''); // технические работы: у игроков заглушка вместо входа
+      if (S.adm) S.adm.maint = S.adm.maintAsked = null; // админка: «Закрыть игру» — состояние заново после переподключения (сервер мог перезапуститься)
       // фон замка (самый большой файл, ~650 КБ) — качается, пока игрок вводит логин и пароль: после «Войти» замок открывается сразу
       if (!S.bgEarly) { S.bgEarly = true; setTimeout(() => pic(CASTLE_BG.src), 1500); }
       if (m.catalog) { setCatalog(m.catalog); break; }

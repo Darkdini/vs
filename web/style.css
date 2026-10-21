@@ -2264,6 +2264,8 @@ form[data-smfind] { align-items: stretch; } /* «Найти» — одной в�
 .smred { color: #a01a10; } .smon { color: #2a7a10; font-style: normal; }
 .smnote { margin: 0 0 8px; padding: 8px 10px; border: 1px solid #a01a10; border-radius: 6px; background: #ffe2d8; color: #8a1008; font: 16px var(--serif); }
 .smnote.ok { border-color: #3a8a1a; background: #e6f6d8; color: #1f5a0a; }
+.maintbar { margin: 4px 0 10px; } /* «Закрыть игру» — вверху Админ-панели */
+.maintbar .small { margin: -2px 0 0; }
 /* сообщение старшего модератора в чате — светится рамка таблички (фиолетовая с золотом, как его герб), фон обычный */
 #sheetBody .cm.smodmsg, .cm.smodmsg { position: relative; border: 2px solid #e8b84a; outline: 2px solid #9a3ae8; outline-offset: -5px; box-shadow: inset 0 0 8px 2px #b06aff55; }
 #sheetBody .cm.smodmsg b, .cm.smodmsg b { color: #6a1aa8; }
