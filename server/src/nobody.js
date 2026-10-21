@@ -111,6 +111,10 @@ function install(Game) {
   P.canReach = function canReach(from, to, ...rest) { if (to && to.nobody) return NO_OWNER; return reach.call(this, from, to, ...rest); };
   const rep = P.giveReputation;
   P.giveReputation = function giveReputation(from, toId, ...rest) { if (this.isNobody(toId)) return { error: NO_OWNER }; return rep.call(this, from, toId, ...rest); };
+  // очки боевого ранга за гарнизон ничейного замка — как за лагерь (battlerank.js NPC_K, без поправки на ранг соперника):
+  // иначе новичок низкого ранга, разбив большой гарнизон, сразу получал десятки тысяч очков
+  const baseBr = P.brAdd;
+  P.brAdd = function brAdd(whoId, pts, vsId) { return baseBr.call(this, whoId, pts, vsId && this.isNobody(vsId) ? null : vsId); };
   // рейтинг игроков — без ничейного владельца
   const board = P.leaderboard;
   P.leaderboard = function leaderboard() { return board.call(this).filter((x) => !x.u.nobody); };

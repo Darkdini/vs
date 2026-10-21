@@ -1683,16 +1683,17 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   g.brAdd(A.id, 400, null); assert.strictEqual(A.br.pts, 120, 'лагерь — ещё вдвое меньше');
   const r = BR.rankIdx(120), units = () => Object.values(g.stashOf(A).units || {}).reduce((a, n) => a + n, 0), u0 = units(), e0 = g.stashOf(A).exp || 0;
   assert.ok(g.brRank(A) === r && g.brChests(A) === r + 1 && g.profileOf(A, A).brank.idx === r, `ранг ${r + 1} сразу, в профиле — новое звание, сундуков — ${r + 1}`);
-  assert.ok(g.brClaim(A, 0).ok && g.brChests(A) === r && units() === u0 + 150, 'сундук 1-го ранга: 150 воинов — в Кладовую (вдвое меньше прежнего)');
+  assert.ok(g.brClaim(A, 0).ok && g.brChests(A) === r && units() === u0 + 15, 'сундук 1-го ранга: 15 воинов — в Кладовую (в 10 раз меньше прежнего)');
   const cl = g.brClaim(A); assert.ok(cl.ok && g.brChests(A) === 0, cl.error);
-  const want = Array.from({ length: r + 1 }, (_, k) => 150 * (k + 1)).reduce((a, n) => a + n, 0); assert.strictEqual(units() - u0, want, 'армия за все открытые ранги — в Кладовую');
-  assert.strictEqual((g.stashOf(A).exp || 0) - e0, want / 3, 'опыт генерала за все открытые ранги — в Кладовую: 50 × номер ранга');
+  const want = Array.from({ length: r + 1 }, (_, k) => 15 * (k + 1)).reduce((a, n) => a + n, 0); assert.strictEqual(units() - u0, want, 'армия за все открытые ранги — в Кладовую');
+  assert.strictEqual((g.stashOf(A).exp || 0) - e0, want / 15 * 50, 'опыт генерала за все открытые ранги — в Кладовую: 50 × номер ранга');
   assert.ok(/Новых наград нет/.test(g.brClaim(A).error || ''), 'дважды не забрать');
   const b = g.brBonus(A); assert.ok(b.atk > 0 && b.prod > 0 && b.atk <= 0.2, 'бонус ранга — сразу');
   const v = g.brView(A, A); assert.ok(v.table.length === 78 && v.title && v.next && v.chests === 0 && v.claimed === r, 'окно ранга');
   assert.ok(g.brView(Bq, A).chests === 0, 'чужие сундуки не видны');
   assert.strictEqual(BR.rankInfo(77).title, 'Легенда'); assert.strictEqual(BR.bonusAt(77).atk, 0.2);
-  assert.deepStrictEqual(BR.prizeAt(6), { army: 1050, res: 1750, exp: 350 }, 'ранг 7 — армия 1 050, ресурсы по 1 750, опыт генерала 350');
+  assert.deepStrictEqual(BR.prizeAt(6), { army: 105, res: 1750, exp: 350 }, 'ранг 7 — армия 105, ресурсы по 1 750, опыт генерала 350');
+  assert.ok(Array.from({ length: 30 }, (_, i) => BR.prizeAt(i).army).reduce((a, n) => a + n, 0) === 6975, 'армия за ранги 1–30 — 6 975 (было 69 750)');
   assert.ok(BR.prizeAt(0).exp === 50 && BR.prizeAt(1).exp === 100 && BR.prizeAt(77).exp === 3900, 'опыт генерала — за каждый ранг: 50 × номер ранга');
   // пороги — прежние (таблица как в оригинале); очки недолгих порогов-сумм 20.10 (v4) — назад без потери ранга
   assert.ok(BR.rankIdx(BR.NEED[22]) === 22 && BR.rankIdx(BR.NEED[22] - 1) === 21 && BR.rankIdx(5000000) === 77, 'пороги рангов — прежние');
@@ -2204,7 +2205,8 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     // бывшая столица: берут, как обычный замок — 7 побед с Бунтарями
     const riot = (c) => Math.round(100 - c.loyalty), rep0 = g.db.reports.length;
     const hit = () => { ca.units = { 200: 3000, 233: 1 }; ca.squads = []; ca.armies = []; const s = g.sendArmy(ca, { from: 'castle', mission: 'attack', x: cap.x, y: cap.y }); assert.ok(!s.error, s.error); g.tickWorld(Date.now() + 1e10); g.tickWorld(Date.now() + 3e10); };
-    hit(); assert.ok(riot(cap) === 15 && cap.owner === nb.id, `первая победа — бунт 15% (${riot(cap)})`);
+    const bp0 = g.brOf(A).pts; hit(); assert.ok(riot(cap) === 15 && cap.owner === nb.id, `первая победа — бунт 15% (${riot(cap)})`);
+    assert.ok(g.brOf(A).pts - bp0 <= Math.round(60 * 6 * 0.2 * 0.5), `очки за гарнизон ничейного замка — как за лагерь (${g.brOf(A).pts - bp0})`);
     for (let k = 0; k < 5; k++) hit();
     assert.ok(riot(cap) === 90 && cap.owner === nb.id, `6 побед — бунт 90% (${riot(cap)})`);
     hit();

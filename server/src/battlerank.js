@@ -22,10 +22,11 @@ const fmtN = (n) => Number(n).toLocaleString('ru-RU'); // 8 400, 14 000
 const rankIdx = (pts) => { let i = -1; while (i + 1 < N && pts >= NEED[i + 1]) i++; return i; }; // -1 — ещё без ранга
 const rankInfo = (i) => (i < 0 ? { idx: -1, title: 'Без ранга', icon: 1, stars: 0 } : { idx: i, title: TITLES[Math.floor(i / 6)], icon: Math.floor(i / 6) + 1, stars: i % 6 });
 const bonusAt = (i) => { const f = i < 0 ? 0 : (i + 1) / N; return { atk: +(MAX_ATK * f).toFixed(3), prod: +(MAX_PROD * f).toFixed(3) }; };
-// награда за открытие ранга i: армия 150 × номер ранга (поровну пехота, конница, маги своей расы), ресурсы по 250 × номер ранга
+// награда за открытие ранга i: армия 15 × номер ранга (поровну пехота, конница, маги своей расы; до 21.10 — 150 × номер: армия
+// из сундуков росла в разы быстрее обучения — по решению владельца в 10 раз меньше), ресурсы по 250 × номер ранга
 // и опыт генерала 50 × номер ранга — за каждый ранг (было 100 × номер — вдвое меньше по решению владельца;
 // ещё раньше, до 20.10, опыт давали только на новом звании: 50 × номер звания)
-const prizeAt = (i) => { const n = i + 1; return { army: 150 * n, res: 250 * n, exp: 50 * n }; };
+const prizeAt = (i) => { const n = i + 1; return { army: 15 * n, res: 250 * n, exp: 50 * n }; };
 // воины награды: первая пехота с атакой, первая конница (не разведчик) и первый маг расы
 const prizeUnits = (race) => {
   const list = require('./army').unitsForRace(race).filter((x) => !x.quest);
