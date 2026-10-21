@@ -620,9 +620,14 @@ function client() {
         adm.send({ t: 'staff', op: 'newtopic', title: 'Ошибки карты', text: 'Пишите сюда' }); const tp = (await adm.expect('staff', (m) => m.view === 'topic')).data;
         assert.ok(tp.topic.title === 'Ошибки карты' && tp.msgs.length === 1);
         await t2.expect('staffnew', (m) => m.n === 1);
-        t2.send({ t: 'staff', op: 'view' }); const lv = (await t2.expect('staff', (m) => m.view === 'list')).data; assert.ok(lv.topics[0].unread === 1, 'тестер видит непрочитанное');
+        t2.send({ t: 'staff', op: 'view' }); const lv = (await t2.expect('staff', (m) => m.view === 'list')).data; assert.ok(lv.topics[0].unread === 1 && !lv.topics[0].canDel, 'тестер видит непрочитанное, чужую тему удалить не может');
         t2.send({ t: 'staff', op: 'open', topic: tp.topic.id }); await t2.expect('staff', (m) => m.view === 'topic');
-        t2.send({ t: 'staff', op: 'post', topic: tp.topic.id, text: 'Нашёл баг' }); await adm.expect('staff', (m) => m.view === 'topic' && m.live && m.data.msgs.some((x) => x.text === 'Нашёл баг'));
+        t2.send({ t: 'staff', op: 'post', topic: tp.topic.id, text: 'Нашёл баг' });
+        const bugMsg = (await adm.expect('staff', (m) => m.view === 'topic' && m.live && m.data.msgs.some((x) => x.text === 'Нашёл баг'))).data.msgs.find((x) => x.text === 'Нашёл баг');
+        adm.send({ t: 'staff', op: 'post', topic: tp.topic.id, text: 'Спасибо, починим', reply: bugMsg.id }); // ответ на сообщение: цитата и уведомление автору
+        const rv = (await t2.expect('staff', (m) => m.view === 'topic' && m.data.msgs.some((x) => x.reply))).data.msgs.find((x) => x.reply);
+        assert.ok(rv.reply.by === 'Tester1' && rv.reply.text === 'Нашёл баг' && rv.text === 'Спасибо, починим', 'ответ с цитатой');
+        await t2.expect('toast', (m) => /ответил\(а\) на ваше сообщение в теме «Ошибки карты»/.test(m.msg));
         adm.send({ t: 'staff', op: 'poll', topic: tp.topic.id, q: 'Чинить сегодня?', opts: ['Да', 'Нет'] });
         const pm = (await t2.expect('staff', (m) => m.view === 'topic' && m.data.msgs.some((x) => x.poll))).data.msgs.find((x) => x.poll);
         t2.send({ t: 'staff', op: 'vote', msg: pm.id, opt: 0 }); const vd = (await t2.expect('staff', (m) => m.view === 'topic' && m.data.msgs.some((x) => x.poll && x.poll.total === 1))).data.msgs.find((x) => x.poll);
@@ -639,7 +644,7 @@ function client() {
         const dl = await fetch(`http://127.0.0.1:${WEB_PORT}/staffpic/${withPic.pic}.png?k=${mk}&dl=1`); assert.ok(dl.status === 200 && /^attachment; filename="mastera-\d{12}-[0-9a-f]{6}\.png"$/.test(dl.headers.get('content-disposition') || ''), 'кнопка «Скачать» — файлом');
         op2.send({ t: 'staff', op: 'view' }); await op2.expect('error', (m) => /только для мастеров/.test(m.msg));
         adm.send({ t: 'staff', op: 'topicdel', topic: tp.topic.id }); await adm.expect('staff', (m) => m.view === 'list' && !m.data.topics.length);
-        console.log('✓ МАСТЕРА: темы, сообщения вживую, непрочитанное, опрос, фото на 24 часа только участникам; обычный игрок не видит');
+        console.log('✓ МАСТЕРА: темы, сообщения вживую, непрочитанное, ответ с цитатой и уведомлением, опрос, фото на 24 часа только участникам; обычный игрок не видит');
       }
       [cl, tt, t2, op2].forEach((x) => x.close());
       console.log('✓ закрытый тест: только тестеры и админ, регистрация закрыта, игроков выбрасывает; тестер — пароль один раз, отключение, новый пароль');

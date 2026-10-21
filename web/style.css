@@ -2475,6 +2475,8 @@ body.menuopen #advbar, body.menuopen #advhand { display: none; } /* открыт
 /* «МАСТЕРА» (staff.js): темы, переписка, фото на 24 часа, опросы */
 .sfwho { margin: 2px 0 8px; }
 .sftopics { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.sftrow { display: flex; gap: 6px; align-items: stretch; } .sftrow .sftopic { flex: 1; min-width: 0; } /* «МАСТЕРА»: тема и 🗑 рядом */
+.sftdel { flex: none; padding: 0 11px; border-radius: 10px; border: 1px solid rgba(120, 80, 30, 0.35); background: rgba(255, 248, 230, 0.75); font-size: 18px; }
 .sftopic { display: block; width: 100%; text-align: left; padding: 9px 11px; border-radius: 10px; border: 1px solid rgba(120, 80, 30, 0.35); background: rgba(255, 248, 230, 0.75); color: #3a2410; }
 .sftopic.new { border-color: #c27a14; background: #fff1cf; }
 .sftopic .sft1 { display: flex; justify-content: space-between; gap: 8px; }
@@ -2489,6 +2491,7 @@ body.menuopen #advbar, body.menuopen #advhand { display: none; } /* открыт
 .sfhead { display: flex; align-items: baseline; gap: 8px; font-size: 13px; }
 .sfhead small { color: #8a6a44; }
 .sfdel { margin-left: auto; border: 0; background: none; color: #a33; font-size: 14px; }
+.sfrep { margin-left: auto; border: 0; background: none; color: #6b4a24; font-size: 16px; padding: 0 4px; } .sfrep + .sfdel { margin-left: 0; } /* ↩ ответить */
 .sftext { white-space: pre-wrap; word-break: break-word; margin-top: 3px; }
 .sfpic { display: block; border: 0; padding: 0; margin-top: 5px; background: none; }
 .sfpic img { display: block; max-width: 100%; max-height: 260px; border-radius: 8px; }
