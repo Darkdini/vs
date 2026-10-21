@@ -6,7 +6,7 @@
 
 const path = require('path');
 const { Game, Store } = require('./game');
-const { startWeb, WebSession, wheelCast, chatClosedCast } = require('./web');
+const { startWeb, WebSession, wheelCast, chatClosedCast, maintCast } = require('./web');
 
 const HOST = process.env.HOST || '0.0.0.0';
 const WEB_PORT = Number(process.env.WEB_PORT || process.env.PORT || 8080); // PORT задают хостинги (Render, Railway и т.п.)
@@ -14,8 +14,9 @@ const DB = process.env.DB || path.join(__dirname, '..', 'data', 'db.json');
 
 const store = new Store(DB);
 const game = new Game(store);
-// файл maint.on рядом с базой — сервер запускается сразу с заглушкой «технические работы» (closedtest.js)
-if (game.maintBoot(path.join(path.dirname(path.resolve(DB)), 'maint.on'))) console.log('Технические работы включены при запуске (файл maint.on): игроки видят заглушку. Открыть игру — Админка → «Мир».');
+// файл maint.on рядом с базой — сервер запускается сразу с закрытой игрой на 8 или 24 часа (closedtest.js)
+const maintH = game.maintBoot(path.join(path.dirname(path.resolve(DB)), 'maint.on'));
+if (maintH) console.log(`Игра закрыта при запуске на ${maintH} ч (файл maint.on): игроки видят заглушку. Открыть раньше — Админка, кнопка вверху.`);
 const sessions = new Set();
 WebSession.all = sessions;
 
@@ -24,6 +25,7 @@ setInterval(() => {
   try { game.tickWorld(); game.seasonCheck(); game.bossCheck(); } catch (e) { console.error(e); }
   try { const wo = game.wheelCheck(); if (wo.length) wheelCast(game, wo); } catch (e) { console.error(e); } // Колесо Фортуны: розыгрыш, итог
   try { const cc = game.chatCloseCheck(); if (cc) chatClosedCast(game, cc); } catch (e) { console.error(e); } // закрытый чат открывается сам
+  try { if (game.maintCheck()) maintCast(game); } catch (e) { console.error(e); } // закрытая игра открывается сама (8 или 24 часа)
   for (const s of sessions) { try { s.onTick(); } catch (e) { console.error(e); } }
   for (const ev of game.drainEvents()) for (const s of sessions) if (s.user && s.user.id === ev.userId && s.notify) s.notify(ev.msg);
 }, 1000);

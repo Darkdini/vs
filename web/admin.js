@@ -77,13 +77,14 @@ const BATTLE_SEC = () => {
     ${b.cmp ? battleCmpHtml(b.cmp) : ''}`);
 };
 // «🛠 Закрыть игру» (технические работы, server/src/closedtest.js) — вверху Админ-панели, на любой вкладке:
-// игрокам — заглушка «сервер временно не работает», входит только администратор
+// игрокам — заглушка «сервер временно не работает», входит только администратор; на 8 или 24 часа — потом игра открывается сама
+const hoursTxt = (h) => `${h} ${plural(h, 'час', 'часа', 'часов')}`;
 const MAINT_BAR = () => {
   const m = S.adm.maint;
   if (!m) { if (!S.adm.maintAsked) { S.adm.maintAsked = true; send({ t: 'admin', op: 'maint' }); } return ''; }
-  if (!m.on) return '<div class="maintbar"><button class="pbar" data-amaint="1">🛠 Закрыть игру для игроков</button></div>';
-  return `<div class="maintbar"><div class="smnote">🛠 <b>Игра закрыта для игроков</b>${m.at ? ` · с ${fmtDate(m.at)}` : ''}<br>Они видят: «${esc(m.msg)}»<br>Мир при этом идёт: армии в пути дойдут.</div>
-    <button class="pbar" data-amaint="0">Открыть игру для всех</button>
+  if (!m.on) return `<div class="maintbar"><div class="mlabel">🛠 Закрыть игру для игроков:</div><div class="mbtns">${(m.hours || [8, 24]).map((h) => `<button class="pbar" data-amaint="${h}">на ${hoursTxt(h)}</button>`).join('')}</div></div>`;
+  return `<div class="maintbar"><div class="smnote">🛠 <b>Игра закрыта для игроков</b>${m.at ? ` · с ${fmtDate(m.at)}` : ''}${m.until ? `<br>Откроется сама: <b>${fmtDate(m.until)}</b>` : ''}<br>Они видят: «${esc(m.msg)}»<br>Мир при этом идёт: армии в пути дойдут.</div>
+    <button class="pbar" data-amaint="0">Открыть игру сейчас</button>
     <p class="small">Если Вы выйдете: войти можно адресом игры с <b>#admin</b> в конце или пятью нажатиями на логотип.</p></div>`;
 };
 const aSec = (title, body) => `<div class="acard"><div class="cwname">${title}</div>${body}</div>`;
@@ -466,11 +467,11 @@ function admStatsHtml(st) {
 }
 // ---------- ⭐ Платежи (server/src/tgpay.js): покупки монет за звёзды Telegram, итоги, возвраты ----------
 $('#sheetBody').addEventListener('click', (e) => { if (e.target.closest('[data-apayref]')) send({ t: 'admin', op: 'payments' }); });
-$('#sheetBody').addEventListener('click', (e) => { // «Закрыть игру для игроков» / «Открыть игру для всех»
+$('#sheetBody').addEventListener('click', (e) => { // «Закрыть игру для игроков» на 8 / 24 часа, «Открыть игру сейчас»
   const t = e.target.closest('[data-amaint]'); if (!t) return;
-  const on = t.dataset.amaint === '1';
-  if (!confirm(on ? 'Закрыть игру для игроков? Кто в игре — выбросит, все увидят «Сервер временно не работает». Войти сможете только Вы.' : 'Открыть игру для всех игроков?')) return;
-  send({ t: 'admin', op: 'maint', on: on ? 1 : 0 });
+  const h = Number(t.dataset.amaint);
+  if (!confirm(h ? `Закрыть игру для игроков на ${hoursTxt(h)}? Кто в игре — выбросит, все увидят «Сервер временно не работает». Войти сможете только Вы. Через ${hoursTxt(h)} игра откроется сама.` : 'Открыть игру для всех игроков сейчас?')) return;
+  send(h ? { t: 'admin', op: 'maint', on: 1, hours: h } : { t: 'admin', op: 'maint', on: 0 });
 });
 $('#sheetBody').addEventListener('click', (e) => { // правила боя: включить новые / вернуть прежние
   const t = e.target.closest('[data-abattle]'); if (!t) return;

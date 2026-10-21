@@ -670,8 +670,10 @@ function client() {
     {
       const pw = client(); await pw.open(); pw.send({ t: 'login', login: 'Webby', password: 'pass1' }); await pw.expect('auth');
       const lw = client(); await lw.open(); lw.send({ t: 'hello' }); assert.strictEqual((await lw.expect('catalog')).maint, '', 'обычно заглушки нет');
-      adm.send({ t: 'admin', op: 'maint', on: 1 });
+      adm.send({ t: 'admin', op: 'maint', on: 1 }); await adm.expect('error', (m) => /8 или на 24 часа/.test(m.msg)); // только на 8 или 24 часа
+      adm.send({ t: 'admin', op: 'maint', on: 1, hours: 8 });
       const mi = (await adm.expect('admininfo', (m) => m.op === 'maint' && m.data.on)).data; assert.ok(/технические работы/.test(mi.msg), mi.msg);
+      assert.ok(mi.until > Date.now() + 7.9 * 3600000, 'откроется сама через 8 часов');
       await pw.expect('maint', (m) => m.msg === mi.msg); // игрок в игре — заглушка, соединение закрыто
       await lw.expect('maint', (m) => m.msg === mi.msg); // открытый экран входа — заглушка сразу
       lw.send({ t: 'login', login: 'Webby', password: 'pass1' }); await lw.expect('maint', (m) => !!m.msg); // игрок не входит

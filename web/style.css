@@ -2266,6 +2266,9 @@ form[data-smfind] { align-items: stretch; } /* «Найти» — одной в�
 .smnote.ok { border-color: #3a8a1a; background: #e6f6d8; color: #1f5a0a; }
 .maintbar { margin: 4px 0 10px; } /* «Закрыть игру» — вверху Админ-панели */
 .maintbar .small { margin: -2px 0 0; }
+.maintbar .mlabel { margin: 0 2px 4px; font: bold 18px var(--serif); }
+.maintbar .mbtns { display: flex; gap: 8px; }
+.maintbar .mbtns .pbar { flex: 1; width: auto; margin: 0; }
 /* сообщение старшего модератора в чате — светится рамка таблички (фиолетовая с золотом, как его герб), фон обычный */
 #sheetBody .cm.smodmsg, .cm.smodmsg { position: relative; border: 2px solid #e8b84a; outline: 2px solid #9a3ae8; outline-offset: -5px; box-shadow: inset 0 0 8px 2px #b06aff55; }
 #sheetBody .cm.smodmsg b, .cm.smodmsg b { color: #6a1aa8; }

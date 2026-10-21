@@ -208,6 +208,11 @@ function wheelCast(g, out, from) {
 function chatClosedCast(g, r) {
   for (const s of WebSession.all || []) if (s.user) { s.send({ t: 'chatclosed', until: r.until || 0 }); if (r.chat) s.sendChat(r.chat); }
 }
+// закрытая игра открылась сама по сроку (closedtest.js maintCheck): у открытых экранов входа заглушка исчезает, у админа — новое состояние
+function maintCast(g) {
+  const data = g.maintView();
+  for (const s of WebSession.all || []) { if (!s.user) s.send({ t: 'maint', msg: '' }); else if (s.user.admin) s.send({ t: 'admininfo', op: 'maint', data }); }
+}
 // «МАСТЕРА»: тем, кто открыл эту тему, — свежие сообщения; в списке тем — свежий список; остальным мастерам — счётчик непрочитанного
 function staffNotify(g, topic) {
   for (const s of WebSession.all || []) {
@@ -1064,4 +1069,4 @@ function startWeb(game, sessions, { port, host, log }) {
   return server;
 }
 
-module.exports = { startWeb, WebSession, wheelCast, chatClosedCast };
+module.exports = { startWeb, WebSession, wheelCast, chatClosedCast, maintCast };
