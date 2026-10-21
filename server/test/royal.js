@@ -1779,6 +1779,47 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.strictEqual(sv, 0.3, `шанс уцелеть — не больше 30% (${sv})`);
   console.log('✓ Генерал: гибнет, когда нападение или оборона проиграны (лекарь и выздоровевшие не спасают), в набеге — нет; уцелеть — до 30%');
 }
+{ // новые правила боя — проба (админка): по умолчанию выключены; Кузница — до половины базы, тараны — только при победе,
+  // подкрепления — со своими бонусами, магия ¾; «Сравнить бой» — по прежним и новым правилам, в игре ничего не меняется
+  const adm = g.adminUser(), mk = (login) => g.register({ login, password: '12345', race: 0 }).user;
+  assert.ok(!g.newBattle(), 'по умолчанию — прежние правила');
+  const A = mk('brlAtt1'), D = mk('brlDef1'), H = mk('brlAlly1'), F = mk('brlFresh1');
+  const ca = g.castleOf(A), cd = g.castleOf(D), ch = g.castleOf(H), cf = g.castleOf(F); g.maxOut(ca); g.maxOut(cd); g.mil(ch); g.mil(cf);
+  for (const c of [ca, cd, ch, cf]) { c.general = null; c.squads = []; c.armies = []; }
+  const rules = (on) => g.adminOp(adm, 'battlerules', { on });
+  // 1. Кузница: мечник с +19 — в бою +5 (половина базы 10, минимум +5); выше предела не улучшить; в состоянии — предел для окна Кузницы
+  ca.forge = { 200: { a: 19, d: 19 } };
+  const atk = () => { cd.units = { 200: 1 }; return g.clash(ca, { units: { 200: 100 }, mission: 'attack', general: false }, cd, null, Date.now()).calc.att.total; };
+  const a0 = atk(); assert.ok(rules(1).data.on && g.newBattle(), 'новые правила включены'); const a1 = atk();
+  assert.ok(Math.abs(a1 / a0 - 15 / 29) < 0.01, `Кузница: мечник +19 → в бою +5 (атака ${a0} → ${a1})`);
+  ca.forge = { 200: { a: 5 } }; ca.upJobs = {}; Object.assign(ca.res, { wood: 1e6, stone: 1e6, iron: 1e6, food: 1e6, people: 1e5 });
+  assert.ok(/Предел для этого воина — \+5/.test(g.forgeOp(ca, { unit: 200, kind: 'a' }).error || ''), 'выше предела не улучшить');
+  assert.ok(g.milState(ca, A).forgeCap[200].a === 5 && g.milState(ca, A).forgeCap[204].a === 22, 'окну Кузницы — предел (мечник +5, рыцарь +22)');
+  // 2. тараны: проигранное нападение Забор не ломает (прежние правила — ломало)
+  const ram = (on) => { rules(on); g.setBuildingLevel(cd, 22, 20); cd.units = { 201: 1000 }; const R = g.clash(cf, { units: { 243: 180, 200: 1 }, mission: 'attack', general: false }, cd, null, Date.now()); return { win: R.win, wall: g.buildingLevel(cd, 22) }; };
+  const r0 = ram(0), r1 = ram(1);
+  assert.ok(!r0.win && r0.wall < 20 && !r1.win && r1.wall === 20, `тараны: прежние — Забор 20 → ${r0.wall}, новые — цел (${r1.wall})`);
+  // 3. подкрепления — со своими бонусами: у хозяина наука 20 и легендарный артефакт защиты, у союзника — ничего
+  D.sciences = { eco: 0, eng: 0, fhi: 0, war: 20 }; cd.artifacts = [{ id: 880001, type: 'def', rarity: 2, active: true, until: Date.now() + 1e9 }];
+  const dp = (on) => { rules(on); cd.units = {}; ch.armies = [{ id: 880002, units: { 201: 1000 }, mission: 'reinforce', state: 'stay', stayAt: cd.id, general: false, x: cd.x, y: cd.y }];
+    const v = g.clash(cf, { units: { 200: 10 }, mission: 'attack', general: false }, cd, null, Date.now()).calc.def.total; ch.armies = []; return v; };
+  const g0 = dp(0), g1 = dp(1); assert.ok(g1 < g0 * 0.65 && g1 > g0 * 0.5, `подкрепление со своими бонусами: защита ${g0} → ${g1}`);
+  // 4. магия: у кого нет защиты от магии — ¾ обычной (было ½)
+  const mg = (on) => { rules(on); const fc = g.castleOf(mk(`brlMag${on}`)); g.mil(fc); fc.general = null; fc.units = { 201: 1000 }; return g.clash(cf, { units: { 203: 100 }, mission: 'attack', general: false }, fc, null, Date.now()).calc.def.total; };
+  const m0 = mg(0), m1 = mg(1); assert.ok(Math.abs(m1 / m0 - 1.5) < 0.01, `магия: защита копейщиков от магов ×1,5 (${m0} → ${m1})`);
+  // 5. «Сравнить бой»: два итога, в игре ничего не меняется (армии, Забор, Лазарет, подкрепления, правила, удача)
+  rules(0); g.setBuildingLevel(cd, 22, 20); cd.units = { 201: 800 }; ca.units = { 200: 3000, 243: 60 }; ca.forge = { 200: { a: 19, d: 19 } }; delete ca.wounded; delete cd.wounded;
+  ch.armies = [{ id: 880003, units: { 201: 300 }, mission: 'reinforce', state: 'stay', stayAt: cd.id, general: false, x: cd.x, y: cd.y }];
+  const snap = () => JSON.stringify([ca.units, cd.units, g.buildingLevel(cd, 22), ch.armies[0].units, ca.wounded || null, cd.wounded || null, g.db.battleRules, process.env.LUCK]);
+  const s0 = snap(), cmp = g.adminOp(adm, 'battlecmp', { att: 'BRLATT1', def: 'brlDef1', mission: 'attack', general: 1 });
+  const c = cmp.data && cmp.data.cmp;
+  assert.ok(c && c.old && c.new && c.old.sent === 3060 && c.old.had === 1100 && c.old.guests === 300 && c.old.wall0 === 20, `сравнение: обе колонки, ник без учёта регистра (${cmp.error || ''})`);
+  assert.ok(c.new.ap < c.old.ap, `по новым правилам атака мечников с Кузницей слабее (${c.old.ap} → ${c.new.ap})`);
+  assert.strictEqual(snap(), s0, 'сравнение ничего не меняет в игре');
+  assert.ok(g.adminOp(adm, 'battlecmp', { att: 'brlAtt1', def: 'nobody_such' }).error && g.adminOp(adm, 'battlecmp', { att: 'brlAtt1', def: 'brlAtt1' }).error, 'неизвестный ник и бой с собой — ошибка');
+  ch.armies = []; rules(0); assert.ok(!g.newBattle(), 'прежние правила вернулись');
+  console.log(`✓ Новые правила боя (проба): Кузница до половины базы, тараны — при победе, подкрепления — свои бонусы, магия ¾; «Сравнить бой» без следа (атака ${c.old.ap} → ${c.new.ap})`);
+}
 { // подарок новичку: Премиум на 3 дня с регистрации — один раз, сам не продлевается; покупка — сверх подарка
   process.env.NEWBIE_PREMIUM_DAYS = '3';
   const N = g.register({ login: 'premNew1', password: '12345', race: 0 }).user;

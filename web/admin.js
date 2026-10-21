@@ -50,6 +50,32 @@ const GOLD_ALL = () => aSec('🎁 Золото всем игрокам', `<p cla
 // «🏦 Казна альянса» (server/src/admin.js allygold): казна пополняется только отдельно — покупкой за звёзды Telegram или здесь;
 // свои монеты игроки туда не переводят
 const ALLY_GOLD = () => aSec('🏦 Казна альянса', `<p class="small">Казна альянса пополняется только отдельно: покупкой за звёзды Telegram (кнопки в окне «Казна Альянса») или здесь. Свои монеты игроки туда не переводят, игрокам казна не выдаётся — тратится только на медали и подарки участникам. С минусом — списать.</p><form class="stack" data-aform="allygold"><input name="tag" maxlength="5" placeholder="Тег альянса" autocapitalize="characters" autocomplete="off" required><input class="anum" name="n" type="number" inputmode="numeric" placeholder="Сколько монет" required><button class="btn primary">Пополнить казну</button></form>`);
+// «⚔ Правила боя (проба)» (server/src/army.js newBattle, battleCompare): новые правила включаются и выключаются для всех боёв;
+// «Сравнить бой» — тот же бой по прежним и по новым правилам, в игре ничего не меняется
+const BATTLE_RULES = 'Кузница — не больше половины базового параметра воина (минимум +5); тараны ломают Забор, только если нападение победило; подкрепления — со своими бонусами (от чужого замка — Забор и защита замка); против магов, у кого нет защиты от магии, — ¾ обычной защиты (было ½); удача нападающего ±5% (было ±10%).';
+const battleCmpHtml = (c) => {
+  const n = (v) => fmtFull(Math.round(v || 0)), row = (t, f) => `<tr><th>${t}</th><td>${f(c.old)}</td><td>${f(c.new)}</td></tr>`;
+  return `<p class="small"><b>${esc(c.att)}</b> → <b>${esc(c.def)}</b>: ${c.mission === 'raid' ? 'набег' : 'нападение'}${c.general ? ' с генералом' : ''}</p>
+    <table class="bcmp"><tr><th></th><th>Прежние</th><th>Новые</th></tr>
+    ${row('Исход', (r) => (r.win ? '<b class="bgood">победа атаки</b>' : '<b class="bbad">атака отбита</b>'))}
+    ${row('Атака / защита', (r) => `${n(r.ap)} / ${n(r.dp)}`)}
+    ${row('Боевой дух', (r) => `${r.morale}%`)}
+    ${row('Нападающий потерял', (r) => `${n(r.aLost)} из ${n(r.sent)}${r.wounded ? `<br><small>в Лазарет ${n(r.wounded)}</small>` : ''}${r.saved ? `<br><small>лекарь спас ${n(r.saved)}</small>` : ''}`)}
+    ${row('Защитник потерял', (r) => `${n(r.dLost)} из ${n(r.had)}${r.guests ? `<br><small>подкреплений было ${n(r.guests)}</small>` : ''}${r.healed ? `<br><small>выздоровели дома ${n(r.healed)}</small>` : ''}${r.dWounded ? `<br><small>в Лазарет ${n(r.dWounded)}</small>` : ''}`)}
+    ${row('Забор', (r) => (r.wall0 === r.wall ? `${r.wall0}` : `${r.wall0} → ${r.wall}`))}</table>`;
+};
+const BATTLE_SEC = () => {
+  const b = S.adm.battle;
+  if (!b) { if (!S.adm.battleAsked) { S.adm.battleAsked = true; send({ t: 'admin', op: 'battlerules' }); } return aSec('⚔ Правила боя (проба)', '<p class="small">Загрузка…</p>'); }
+  return aSec('⚔ Правила боя (проба)', `<p class="small">Новые правила: ${BATTLE_RULES} Включаются сразу для всех боёв, вернуть прежние — одной кнопкой.</p>
+    <div class="smnote ${b.on ? 'ok' : ''}">Сейчас действуют: <b>${b.on ? 'новые правила' : 'прежние правила'}</b>${b.at ? ` · с ${fmtDate(b.at)}` : ''}</div>
+    <button class="pbar" data-abattle="${b.on ? 0 : 1}">${b.on ? 'Вернуть прежние правила' : 'Включить новые правила'}</button>
+    <p class="small"><b>Сравнить бой</b> — вся армия столицы первого игрока нападает на столицу второго (с его подкреплениями): итог по прежним и по новым правилам, без удачи. В игре ничего не меняется.</p>
+    <form class="stack" data-aform="battlecmp"><input name="att" placeholder="Нападающий (ник)" autocapitalize="none" autocomplete="off" value="${esc(b.attNick || '')}" required><input name="def" placeholder="Защитник (ник)" autocapitalize="none" autocomplete="off" value="${esc(b.defNick || '')}" required>
+      <div class="combo"><select name="mission"><option value="attack">Нападение</option><option value="raid" ${b.mission === 'raid' ? 'selected' : ''}>Набег</option></select></div>
+      <label class="check"><input type="checkbox" name="general" ${b.noGen ? '' : 'checked'}> с генералом</label><button class="btn primary">Сравнить</button></form>
+    ${b.cmp ? battleCmpHtml(b.cmp) : ''}`);
+};
 const aSec = (title, body) => `<div class="acard"><div class="cwname">${title}</div>${body}</div>`;
 function adminHtml() {
   const a = S.adm, tab = ADM_TABS.some(([k]) => k === a.tab) ? a.tab : 'player';
@@ -94,6 +120,7 @@ function adminHtml() {
       ${aSec('📮 Жалобы и сообщения об ошибках', `<p class="small">Жалобы из чата и сообщения «Сообщить об ошибке» от игроков.</p><button class="pbar" data-adm="bugs">Показать</button>
         ${a.bugs ? `<div class="pstats">${a.bugs.length ? a.bugs.map((b) => `<b>${esc(b.from)}</b> · ${fmtDate(b.at)}<br>${esc(b.text)}`).join('<hr>') : 'Сообщений нет.'}</div>${a.bugs.length ? '<button class="pbar" data-adm="bugsclear">Очистить список</button>' : ''}` : ''}`)}`,
     world: () => `${aSec('📰 Новость', `<p class="small">Всем придёт фиолетовый конверт в верхней панели; новость останется в «Инфо → Новости».</p>${newsPubForm()}`)}
+      ${BATTLE_SEC()}
       ${GOLD_ALL()}
       ${PREM_ALL()}
       ${ALLY_GOLD()}
@@ -351,6 +378,7 @@ $('#sheetBody').addEventListener('submit', (e) => {
   if (k === 'mailtest') { S.adm.mailTest = { ok: true, msg: 'Отправляю…' }; refreshSheet(); return send({ t: 'admin', op: 'mailtest', addr: f.addr.value.trim() }); }
   if (k === 'goldall') { const n = Math.floor(Number(f.n.value)); if (!(n >= 1 && n <= 1000)) return toast('От 1 до 1000 золота.', 'err'); if (!confirm(`Выдать КАЖДОМУ игроку по ${n} золота?`)) return; S.adm.goldAll = { msg: 'Выдаю…', last: (S.adm.goldAll || { last: [] }).last }; refreshSheet(); return send({ t: 'admin', op: 'goldall', n, why: f.why.value }); }
   if (k === 'premall') { const n = Math.floor(Number(f.days.value)); if (!(n >= 1 && n <= 30)) return toast('Срок — от 1 до 30 дней.', 'err'); if (!confirm(`Выдать КАЖДОМУ игроку Премиум на ${n} ${plural(n, 'день', 'дня', 'дней')}?`)) return; S.adm.premAll = { msg: 'Выдаю…', last: (S.adm.premAll || { last: [] }).last }; refreshSheet(); return send({ t: 'admin', op: 'premall', days: n, why: f.why.value }); }
+  if (k === 'battlecmp') { S.adm.battle = { ...(S.adm.battle || {}), attNick: f.att.value.trim(), defNick: f.def.value.trim(), mission: f.mission.value, noGen: !f.general.checked }; return send({ t: 'admin', op: 'battlecmp', att: f.att.value.trim(), def: f.def.value.trim(), mission: f.mission.value, general: f.general.checked ? 1 : 0 }); }
   if (k === 'allygold') { const n = Math.trunc(Number(f.n.value)), tag = f.tag.value.trim().toUpperCase(); if (!n || !tag) return toast('Укажите тег альянса и сумму.', 'err'); const amt = `${Math.abs(n)} ${plural(Math.abs(n), 'монету', 'монеты', 'монет')}`; if (!confirm(n > 0 ? `Пополнить казну альянса [${tag}] на ${amt}?` : `Списать из казны альянса [${tag}] ${amt}?`)) return; f.n.value = ''; return send({ t: 'admin', op: 'allygold', tag, n }); }
   if (k === 'mailall') send({ t: 'admin', op: 'mailall', subject: f.subject.value, text: f.text.value });
   if (k === 'chat') { send({ t: 'admin', op: 'chat', text: f.text.value }); f.text.value = ''; }
@@ -383,6 +411,8 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
     if (m.op === 'mailtest') S.adm.mailTest = { ok: !m.data.error, msg: m.data.error || m.data.msg };
     if (m.op === 'goldall' || m.op === 'goldallget') S.adm.goldAll = { ...m.data, at: Date.now() };
     if (m.op === 'premall' || m.op === 'premallget') S.adm.premAll = { ...m.data, at: Date.now() };
+    if (m.op === 'battlerules') S.adm.battle = { ...(S.adm.battle || {}), ...m.data };
+    if (m.op === 'battlecmp') S.adm.battle = { ...(S.adm.battle || {}), cmp: m.data.cmp };
     if (m.op === 'nobodyview') S.adm.nobody = m.data;
     return refreshSheet();
   }
@@ -425,6 +455,11 @@ function admStatsHtml(st) {
 }
 // ---------- ⭐ Платежи (server/src/tgpay.js): покупки монет за звёзды Telegram, итоги, возвраты ----------
 $('#sheetBody').addEventListener('click', (e) => { if (e.target.closest('[data-apayref]')) send({ t: 'admin', op: 'payments' }); });
+$('#sheetBody').addEventListener('click', (e) => { // правила боя: включить новые / вернуть прежние
+  const t = e.target.closest('[data-abattle]'); if (!t) return;
+  const on = t.dataset.abattle === '1'; if (!confirm(on ? 'Включить новые правила боя для всех боёв?' : 'Вернуть прежние правила боя?')) return;
+  send({ t: 'admin', op: 'battlerules', on: on ? 1 : 0 });
+});
 function admPayHtml(p) {
   if (!p) return aSec('⭐ Платежи', '<p class="small">Загрузка…</p>');
   const tile = (v, t) => `<div class="stile"><b>${fmtFull(v)}</b><span>${t}</span></div>`;

@@ -394,6 +394,19 @@ function install(Game) {
       }
       case 'goldallget': { data = { msg: '', last: (this.db.goldAll || []).slice(-5).reverse() }; break;
       }
+      // правила боя — проба (army.js newBattle): включить / выключить новые правила для всех боёв; без on — только показать
+      case 'battlerules': {
+        if (arg.on !== undefined) { this.db.battleRules = { on: !!Number(arg.on), at: now, by: user.login }; this.store.save(); }
+        const b = this.db.battleRules || {}; data = { on: !!b.on, at: b.at || 0 }; msg = b.on ? 'Новые правила боя включены.' : 'Действуют прежние правила боя.'; break;
+      }
+      // «Сравнить бой»: тот же бой по прежним и по новым правилам, в игре ничего не меняется (army.js battleCompare)
+      case 'battlecmp': {
+        const fu = (l) => findUser(this, l) || Object.values(this.db.users).find((x) => x.login && x.login.toLowerCase() === String(l || '').trim().toLowerCase()); // ник — без учёта регистра
+        const A = fu(arg.att), D = fu(arg.def);
+        if (!A || !D) return { error: `Игрок не найден: ${!A ? arg.att || '—' : arg.def || '—'}.` };
+        const r = this.battleCompare(A, D, { mission: arg.mission, general: arg.general !== false && arg.general !== 0 && arg.general !== '0' });
+        if (r.error) return r; data = { cmp: r }; break;
+      }
       // казна альянса пополняется только отдельно (свои монеты игроков туда не переводятся, ally.js): покупкой за звёзды Telegram
       // (tgpay.js) или здесь — администрацией; n < 0 — списать
       case 'allygold': {

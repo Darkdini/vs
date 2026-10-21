@@ -39,9 +39,14 @@ function unitMax(u) {
   else if (MY().trainDay) n = Math.min(n, MY().trainDay.max - MY().trainDay.used);
   return Math.max(0, n === Infinity ? 0 : n);
 }
+// улучшения Кузницы, которые действуют в бою: при новых правилах боя (проба, админка) — не больше предела (forgeCap с сервера)
+function forgeEff(id) {
+  const fg = (S.st && MY().forge && MY().forge[id]) || {}, cap = S.st && MY().forgeCap && MY().forgeCap[id];
+  return cap ? Object.fromEntries(['a', 'd', 'm', 'md'].map((k) => [k, Math.min(fg[k] || 0, cap[k])])) : fg;
+}
 function unitStatsHtml(u) {
   // улучшения Кузницы: +1 к базовой атаке/защите за уровень — показываем «база +N»
-  const fg = (S.st && MY().forge && MY().forge[u.id]) || {}, fa = u.attack ? fg.a || 0 : 0, fd = fg.d || 0, fm = u.magic ? fg.m || 0 : 0, fmd = fg.md || 0;
+  const fg = forgeEff(u.id), fa = u.attack ? fg.a || 0 : 0, fd = fg.d || 0, fm = u.magic ? fg.m || 0 : 0, fmd = fg.md || 0;
   const plus = (n) => (n ? ` <b class="fplus">+${n}</b>` : '');
   return `<div class="grid4 g5"><div><small>Здоровье</small>${u.hp || '—'}</div><div><small>Атака</small>${u.attack}${plus(fa)}${u.magic ? `<br>маг ${u.magic}${plus(fm)}` : ''}</div>
     <div><small>Защита п/к/м</small>${u.def.inf}${plus(fd)}/${u.def.cav}${plus(fd)}/${u.def.mag}${plus(fmd)}</div>
@@ -183,7 +188,7 @@ function trainHtml(def, units) {
 const STAT_IC = (f) => `<img src="${GFX}smallicon/${f}.png" alt="">`;
 function trainCard(u) {
   const lock = unitLock(u), max = unitMax(u), n = Math.min(S.cnt[u.id] ?? 0, max); // как в оригинале: по умолчанию 0
-  const fg = (MY().forge && MY().forge[u.id]) || {}, plus = (v, k) => v + (k || 0);
+  const fg = forgeEff(u.id), plus = (v, k) => v + (k || 0);
   return `<div class="tcard"><div class="tname">${esc(u.name)}</div>${uimg(u, 'timg')}
     <div class="tparams-h">Параметры юнита:</div>
     <div class="tparams"><div>${STAT_IC('health')}<b>${u.hp}</b></div><div>${STAT_IC('phiattack')}<b>${plus(u.attack, u.attack ? fg.a : 0)}</b></div><div>${STAT_IC('magattack')}<b>${plus(u.magic, u.magic ? fg.m : 0)}</b></div>

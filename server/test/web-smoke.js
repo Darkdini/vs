@@ -484,6 +484,17 @@ function client() {
     await a.expect('state', (m) => m.user.premium >= pm0 + 2 * 86400000);
     console.log('✓ «Премиум всем»: админ дарит на выбранный срок, игрок в игре видит сразу');
 
+    // ---- «Правила боя (проба)»: по умолчанию — прежние; «Сравнить бой» — обе колонки; включить и вернуть ----
+    adm.send({ t: 'admin', op: 'battlerules' });
+    assert.strictEqual((await adm.expect('admininfo', (m) => m.op === 'battlerules')).data.on, false);
+    adm.send({ t: 'admin', op: 'battlecmp', att: 'second', def: 'Webby', mission: 'raid', general: 0 });
+    { const bc = (await adm.expect('admininfo', (m) => m.op === 'battlecmp')).data.cmp; assert.ok(bc.old && bc.new && bc.att === 'Second' && bc.def === 'Webby' && bc.mission === 'raid', JSON.stringify(bc)); }
+    adm.send({ t: 'admin', op: 'battlerules', on: 1 });
+    assert.strictEqual((await adm.expect('admininfo', (m) => m.op === 'battlerules' && m.data.on)).data.on, true);
+    adm.send({ t: 'admin', op: 'battlerules', on: 0 });
+    assert.strictEqual((await adm.expect('admininfo', (m) => m.op === 'battlerules' && !m.data.on)).data.on, false);
+    console.log('✓ Правила боя (проба): включить и вернуть, «Сравнить бой» — прежние и новые');
+
     // ---- «Забросить замки»: игрока, который в игре, выбрасывает; его замок на карте — ничей; профиль «Ничейных земель» не открыть ----
     {
       const z = client(); await z.open();

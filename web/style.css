@@ -2593,3 +2593,11 @@ p.ghint.center { margin: 2px 8px 6px; text-align: center; font: 14px var(--serif
 .pbar.rfgo:disabled { opacity: 0.5; }
 /* «👁 Осмотр» в админке (admin.js admInspectWin): блоки сведений о замке */
 .insb { line-height: 1.5; margin: 2px 0 8px; overflow-wrap: anywhere; } .insb hr { border: 0; border-top: 1px dashed #b08a5a88; margin: 4px 0; }
+
+/* админка: «Сравнить бой» — прежние и новые правила рядом */
+.bcmp{width:100%;border-collapse:collapse;font-size:13px;margin:6px 0 2px}
+.bcmp th,.bcmp td{border-bottom:1px solid rgba(90,60,30,.25);padding:5px 6px;text-align:left;vertical-align:top}
+.bcmp th{font-weight:600;color:#5a3b1c}
+.bcmp tr:first-child th{font-weight:700;color:#3d2610}
+.bcmp small{color:#6b5236}
+.bcmp .bgood{color:#2e7d32}.bcmp .bbad{color:#b23b2b}
