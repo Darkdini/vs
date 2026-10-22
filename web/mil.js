@@ -475,11 +475,13 @@ function worldActions(o, x, y) {
 function armyBookHtml() {
   const races = ['humans', 'elves', 'dwarves', 'orcs', 'all'];
   S.bookRace = S.bookRace || S.st.user.race;
-  const list = M().units.filter((u) => u.race === S.bookRace);
+  // по зданиям (Казарма, Конюшня, Академия магов, Центр разведки) и уровню; старые воины не показываются; награды заданий — в конце
+  const BORD = [3, 12, 20, 45], bo = (u) => (u.quest ? 99 : BORD.includes(u.building) ? BORD.indexOf(u.building) : 50);
+  const list = M().units.filter((u) => u.race === S.bookRace && !u.retired).sort((a, b) => bo(a) - bo(b) || a.level - b.level);
   return `<div class="vhead"><button class="iconbtn" data-back>‹</button><h2>Войска</h2></div>
     <div class="pad" style="padding-top:8px"><div class="pills">${races.map((r) => `<button data-brace="${r}" class="${r === S.bookRace ? 'on' : ''}">${r === 'all' ? 'Общие' : esc(S.cat.races[r])}</button>`).join('')}</div>
     <div class="list" style="margin-top:8px">${list.map((u0) => raceUnit(u0, S.bookRace === 'all' ? S.st.user.race : S.bookRace)).map((u) => `<div class="card unit"><div class="top">${`<img class="ui" src="${unitSrc(u, S.bookRace === 'all' ? S.st.user.race : S.bookRace)}" alt="">`}<div class="grow"><b>${esc(u.name)}</b>
-      <span class="muted small">${TYPE_NAME[u.type] || ''} · ${u.retired ? 'больше не тренируется' : `${esc(S.by[u.building].name)} ${u.level} ур.${Object.entries(u.req).map(([id, l]) => `, ${esc(S.by[id].name)} ${l} ур.`).join('')}`}</span></div></div>${unitStatsHtml(u)}</div>`).join('')}</div></div>`;
+      <span class="muted small">${TYPE_NAME[u.type] || ''} · ${u.quest ? 'только награда заданий и походов' : u.retired ? 'больше не тренируется' : `${esc(S.by[u.building].name)} ${u.level} ур.${Object.entries(u.req).map(([id, l]) => `, ${esc(S.by[id].name)} ${l} ур.`).join('')}`}</span></div></div>${unitStatsHtml(u)}</div>`).join('')}</div></div>`;
 }
 
 // ---------- события ----------
