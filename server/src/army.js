@@ -39,7 +39,7 @@ const UNIT_LIST = [
   [263, 'Варлок', 'humans', 'human/hd/mage', 'mage', B.MAGE_ACADEMY, 10, { [B.WORKSHOP]: 7, [B.SMITH]: 5 }], // картинка пока — Чародея
   [205, 'Паладин', 'humans', 'human/hd/paladin', 'heavy_cav', B.STABLE, 3, { [B.SMITH]: 1 }],
   [260, 'Колосс', 'humans', 'human/hd/colossus', 'elite_inf', B.MAGE_ACADEMY, 7, { [B.SMITH]: 3, [B.MAGIC_SCHOOL]: 7 }], // список на скрине может быть обрезан
-  [259, 'Нурух', 'humans', 'human/hd/nuruh', 'legendary', B.STABLE, 10, { [B.WORKSHOP]: 10 }],
+  [259, 'Нурух', 'humans', 'human/hd/nuruh', 'legendary', B.WORKSHOP, 10],
   [206, 'Джин', 'humans', 'human/hd/jin', 'legendary', B.PORTAL, 1], // на скринах оригинала нет — оставлен как был
   // эльфы — как в оригинале (скрины окна «Юнит»): имена, требования, характеристики — в ORIG ниже
   [207, 'Лучник', 'elves', 'elf/hd/archer', 'ranged', B.BARRACKS, 1],
@@ -54,7 +54,7 @@ const UNIT_LIST = [
   [258, 'Зверь', 'elves', 'elf/hd/beast', 'elite_inf', B.BARRACKS, 10, { [B.SMITH]: 5 }],
   [212, 'Единорог', 'elves', 'elf/hd/edinorog', 'heavy_cav', B.STABLE, 3, { [B.SMITH]: 1 }],
   [211, 'Кентавр', 'elves', 'elf/hd/kenaur', 'light_cav', B.STABLE, 7, { [B.WORKSHOP]: 7, [B.SMITH]: 5 }],
-  [213, 'Энт', 'elves', 'elf/hd/ent', 'legendary', B.MAGE_ACADEMY, 10, { [B.WORKSHOP]: 10 }], // список обрезан
+  [213, 'Энт', 'elves', 'elf/hd/ent', 'legendary', B.WORKSHOP, 10],
   // гномы — как в оригинале (скрины окна «Юнит»): имена, требования, характеристики — в ORIG ниже
   [214, 'Топорщик', 'dwarves', 'dwarv/hd/fighter', 'atk_inf', B.BARRACKS, 1],
   [215, 'Арбалетчик', 'dwarves', 'dwarv/hd/arbalet', 'ranged', B.BARRACKS, 3, { [B.SMITH]: 1 }],
@@ -67,7 +67,7 @@ const UNIT_LIST = [
   [271, 'Громовержец', 'dwarves', 'dwarv/hd/thunder', 'mage', B.MAGE_ACADEMY, 3, { [B.SMITH]: 1 }],
   [256, 'Механический центурион', 'dwarves', 'dwarv/hd/centurion', 'elite_inf', B.MAGE_ACADEMY, 10, { [B.WORKSHOP]: 7, [B.SMITH]: 5 }],
   [219, 'Револьверщик', 'dwarves', 'dwarv/hd/revolver', 'elite_inf', B.BARRACKS, 10, { [B.WORKSHOP]: 7, [B.SMITH]: 5 }],
-  [220, 'Йети', 'dwarves', 'dwarv/hd/yeti', 'legendary', B.BARRACKS, 10, { [B.WORKSHOP]: 10 }],
+  [220, 'Йети', 'dwarves', 'dwarv/hd/yeti', 'legendary', B.WORKSHOP, 10],
   // орки — как в оригинале (скрины окна «Юнит»): имена, требования, характеристики — в ORIG ниже
   [245, 'Мародёр', 'orcs', 'orc/hd/marauder', 'atk_inf', B.BARRACKS, 1],
   [247, 'Бугай', 'orcs', 'orc/hd/bugai', 'def_inf', B.BARRACKS, 3, { [B.SMITH]: 1 }],
@@ -81,7 +81,7 @@ const UNIT_LIST = [
   [254, 'Варлок', 'orcs', 'orc/hd/warlock', 'mage', B.STABLE, 5, { [B.BARRACKS]: 7, [B.WORKSHOP]: 3, [B.SMITH]: 7 }],
   [250, 'Тиран', 'orcs', 'orc/hd/tyrant', 'elite_inf', B.BARRACKS, 10, { [B.SMITH]: 10 }],
   [248, 'Шаман', 'orcs', 'orc/hd/shaman', 'mage', B.MAGE_ACADEMY, 10, { [B.WORKSHOP]: 7, [B.SMITH]: 5 }],
-  [249, 'Кулак Ярости', 'orcs', 'orc/hd/fist', 'legendary', B.BARRACKS, 10, { [B.SMITH]: 10 }],
+  [249, 'Кулак Ярости', 'orcs', 'orc/hd/fist', 'legendary', B.WORKSHOP, 10],
   [251, 'Изувер', 'orcs', 'orc/hd/butcher', 'legendary', B.PORTAL, 1], // на скринах оригинала нет — оставлен как был
   // специальные — у каждой расы своя картинка (units/<раса>/torg.png и т.д.)
   [221, 'Торговец', 'all', 'torg', 'merchant', B.MARKET, 1],
@@ -189,7 +189,7 @@ const UNIT = Object.fromEntries(UNITS.map((u) => [u.id, u]));
 // Торговцы — как в оригинале: не тренируются и не воюют, их всегда 20 при построенном Рынке; скорость 60 полей/час (втрое быстрее оригинала),
 // груз — 45 ед. за уровень Рынка (20 ур. — 900 ед.)
 const MERCHANT_ID = 221, MERCHANTS = 20;
-const TAVERN_CARRY = 0.1; // Таверна: +10% к грузу торговцев за уровень (10 ур. — вдвое больше)
+const TAVERN_CARRY = 4 / 90; // Таверна: +4,4% к грузу торговцев за уровень (Рынок 20 + Таверна 10 — 1300 вместо 900)
 Object.assign(UNIT[MERCHANT_ID], { speed: 60, notrain: true, carry: 45 }); // торговцы втрое быстрее оригинала (было 20 полей/час)
 // как в оригинале: в Центре разведки тренируется только разведчик своей расы, Портал воинов не тренирует — он ускоряет походы.
 // Око и Тень (были в Центре разведки), Джин и Изувер (были в Портале) больше не тренируются; у кого уже есть — остаются в армии
@@ -208,6 +208,7 @@ const RECALL_MS = 4 * 60 * 1000; // армию, отправленную по о
 // Бой у нас свой: атака (у магов — магия) = среднее трёх атак; защита — прежняя (у новых — как у похожих).
 // Цена и время тренировки — ×4 к «Справке» (tc/tt); Кузница, наём генерала и воскрешение считаются по прежней цене (refCost).
 const SPRAVKA_K = 4;
+const WRECK_K = 4; // разрушители зданий (Йети, Энт, Нурух, Кулак ярости — в Мастерской): ещё вчетверо дороже и дольше
 const SPRAVKA = {
   // id: [тип, жизнь, [пех, маг, кон], груз, скорость, [дерево, камень, железо, еда], время сек, доп.]
   200: ['infantry', 36, [4, 18, 0], 3, 17, [8, 3, 10, 5], 60], // Мечник
@@ -255,7 +256,7 @@ for (const [id, [type, hp, a3, carry, speed, cost, sec, x = {}]] of Object.entri
   const u = UNIT[id]; if (!u) continue;
   const avg = Math.round((a3[0] + a3[1] + a3[2]) / 3);
   Object.assign(u, { type, hp, carry, speed, attack: type === 'magic' ? 0 : avg, magic: type === 'magic' ? avg : 0,
-    tc: Object.fromEntries(RES4.map((r, i) => [r, cost[i] * SPRAVKA_K])), tt: sec * SPRAVKA_K });
+    tc: Object.fromEntries(RES4.map((r, i) => [r, cost[i] * SPRAVKA_K * (x.bldDmg ? WRECK_K : 1)])), tt: sec * SPRAVKA_K * (x.bldDmg ? WRECK_K : 1) });
   if (x.def !== undefined) u.def = { inf: x.def, cav: x.def, mag: x.mdef };
   if (x.pop) Object.assign(u, { pop: x.pop, upkeep: Math.max(1, Math.round(x.pop / 3)) });
   if (x.bldDmg) u.bldDmg = x.bldDmg;
