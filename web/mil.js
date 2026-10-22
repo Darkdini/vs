@@ -45,11 +45,9 @@ function forgeEff(id) {
   return cap ? Object.fromEntries(['a', 'd', 'm', 'md'].map((k) => [k, Math.min(fg[k] || 0, cap[k])])) : fg;
 }
 function unitStatsHtml(u) {
-  // улучшения Кузницы: +1 к базовой атаке/защите за уровень — показываем «база +N»
-  const fg = forgeEff(u.id), fa = u.attack ? fg.a || 0 : 0, fd = fg.d || 0, fm = u.magic ? fg.m || 0 : 0, fmd = fg.md || 0;
-  const plus = (n) => (n ? ` <b class="fplus">+${n}</b>` : '');
-  return `<div class="grid4 g5"><div><small>Здоровье</small>${u.hp || '—'}</div><div><small>Атака</small>${u.attack}${plus(fa)}${u.magic ? `<br>маг ${u.magic}${plus(fm)}` : ''}</div>
-    <div><small>Защита п/к/м</small>${u.def.inf}${plus(fd)}/${u.def.cav}${plus(fd)}/${u.def.mag}${plus(fmd)}</div>
+  // справка — только базовые цифры воина, без улучшений Кузницы
+  return `<div class="grid4 g5"><div><small>Здоровье</small>${u.hp || '—'}</div><div><small>Атака</small>${u.attack}${u.magic ? `<br>маг ${u.magic}` : ''}</div>
+    <div><small>Защита п/к/м</small>${u.def.inf}/${u.def.cav}/${u.def.mag}</div>
     <div><small>Скорость</small>${u.speed} кл/ч</div><div><small>Груз</small>${u.carry}</div></div>
     ${u.wallDmg ? `<div class="small">Ущерб стене: <b>${u.wallDmg} ед.</b>${u.oneUse ? ' · исчезает после боя' : ''}</div>` : ''}${u.bldDmg ? `<div class="small">Ущерб зданиям: <b>${u.bldDmg} ед.</b></div>` : ''}
     <div class="chips">${RES4.map((r) => `<span data-need="${r}:${u.cost[r]}">${RES_IC[r]} ${fmtFull(u.cost[r])}</span>`).join('')}
