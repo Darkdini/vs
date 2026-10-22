@@ -262,6 +262,14 @@ for (const [id, [type, hp, a3, carry, speed, cost, sec, x = {}]] of Object.entri
   if (x.bldDmg) u.bldDmg = x.bldDmg;
   if (x.oneUse) u.oneUse = true;
 }
+// разрушители зданий (Мастерская) у всех рас одинаковые по силе, цене и времени (20 мин); цена — в ресурсах своей расы
+const WRECK = { hp: 50, pow: 13, def: 22, mdef: 6, bldDmg: 45, speed: 10, pop: 85, total: 780, time: 1200 };
+for (const id of [259, 213, 220, 249]) {
+  const u = UNIT[id], sum = RES4.reduce((q, r) => q + u.tc[r], 0);
+  const cost = Object.fromEntries(RES4.map((r) => [r, Math.round(u.tc[r] * WRECK.total / sum)]));
+  Object.assign(u, { hp: WRECK.hp, attack: u.type === 'magic' ? 0 : WRECK.pow, magic: u.type === 'magic' ? WRECK.pow : 0, def: { inf: WRECK.def, cav: WRECK.def, mag: WRECK.mdef },
+    bldDmg: WRECK.bldDmg, speed: WRECK.speed, pop: WRECK.pop, upkeep: Math.round(WRECK.pop / 3), tc: cost, tt: WRECK.time });
+}
 // уникальные воины — только награда заданий и походов (в Кладовой), не тренируются. На 20% сильнее своего прообраза расы
 // (здоровье, атака, магия, защита), скорость, груз, население и содержание — как у прообраза. Картинка — gfx/units/uniq/<key>.png,
 // пока её нет — картинка прообраза. slot: inf / cav / mag — так задания выдают их любой расе.

@@ -1853,8 +1853,8 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   }
   for (const id of [250, 254, 260, 258, 257, 255, 239, 244]) assert.ok(UNIT[id].notrain && UNIT[id].retired, `${UNIT[id].name}: старый воин — больше не тренируется, в армии остаётся`);
   for (const r of ['humans', 'elves', 'dwarves', 'orcs']) assert.strictEqual(UNITS.filter((u) => u.race === r && !u.notrain && [B.BARRACKS, B.STABLE, B.MAGE_ACADEMY].includes(u.building)).length, 9, `${r}: в Казарме, Конюшне, Академии — по 3 воина (4-й — в Мастерской)`);
-  for (const id of [220, 213, 259, 249]) assert.ok(UNIT[id].building === B.WORKSHOP && UNIT[id].level === 10 && UNIT[id].cost.wood === SPR[id][5][0] * 16 && UNIT[id].time === SPR[id][6] * 16, `${UNIT[id].name}: в Мастерской, вчетверо дороже`);
-  assert.ok(UNIT[213].oneUse && UNIT[259].oneUse && UNIT[213].bldDmg === 63 && UNIT[259].bldDmg === 50, 'Энт и Нурух исчезают после боя, урон зданиям по «Справке»');
+  for (const id of [220, 213, 259, 249]) { const u = UNIT[id], sum = Object.values(u.cost).reduce((q, v) => q + v, 0); assert.ok(u.building === B.WORKSHOP && u.level === 10 && Math.abs(sum - 780) <= 2 && u.time === 1200 && u.hp === 50 && u.attack + u.magic === 13 && u.bldDmg === 45, `${u.name}: в Мастерской, у всех рас одинаково (20 мин)`); }
+  assert.ok(UNIT[213].oneUse && UNIT[259].oneUse && UNIT[220].oneUse && UNIT[249].oneUse, 'разрушители исчезают после боя');
   assert.ok(!UNIT[GENERAL_ID].refCost && g.genTrainCost(UNIT[200]).cost.wood === UNIT[200].refCost.wood * 20 && g.forgeCost(UNIT[200], 'a', 0).cost.wood > UNIT[200].cost.wood, 'наём генерала и Кузница — по прежней цене');
   const pl = g.register({ login: 'spyPl1', password: '12345', race: 0 }).user, c = g.castleOf(pl); g.maxOut(c); c.training = [];
   const w0 = c.res.wood; assert.ok(!g.train(c, 200, 10).error && w0 - c.res.wood === 10 * UNIT[200].cost.wood, `10 Мечников — за новую цену (${w0 - c.res.wood})`);
