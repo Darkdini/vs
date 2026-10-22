@@ -331,7 +331,7 @@ const artEffects = (arts) => { const eff = new Map(), by = {};
   return eff; };
 const GEN_STATS = ['atk', 'def', 'catk', 'cdef', 'heal', 'career'];
 // звание генерала в скобках — сильнейший боевой юнит расы (у орков «Бугай» и т. п.)
-const genKind = (race) => { const l = UNITS.filter((u) => u.race === race && !u.quest && ['infantry', 'cavalry'].includes(u.type)).sort((a, b) => b.attack - a.attack); return l[0] ? l[0].name : 'Генерал'; };
+const genKind = (race) => { const l = UNITS.filter((u) => u.race === race && !u.quest && !u.notrain && ['infantry', 'cavalry'].includes(u.type)).sort((a, b) => b.attack - a.attack); return l[0] ? l[0].name : 'Генерал'; };
 const unitImg = (u, race) => `units/${u.race === 'all' && !u.img.includes('/') ? `${RACE_DIR[race]}/${u.img}` : u.img}.png`;
 
 // ---------- науки (Университет; иконки smallicon/*science.png) ----------
@@ -744,7 +744,7 @@ function install(Game, helpers) {
   // ----- Кузница: улучшение атаки/защиты каждого юнита (+1 к базовому параметру за уровень, до уровня Кузнеца) -----
   P.forgeLvl = function forgeLvl(castle, id, kind) { const f = castle.forge && castle.forge[id]; return f ? f[kind] || 0 : 0; };
   P.forgeUnits = function forgeUnits(castle) {
-    return unitsForRace(this.raceOf(castle)).filter((u) => (u.race !== 'all' || ['catapult', 'ram'].includes(u.role)) && u.id !== GENERAL_ID && !u.quest);
+    return unitsForRace(this.raceOf(castle)).filter((u) => (u.race !== 'all' || ['catapult', 'ram'].includes(u.role)) && u.id !== GENERAL_ID && !u.quest && (!u.retired || (castle.units[u.id] || 0) > 0)); // старых — только если они есть в замке
   };
   // Кузница и Школа магии — как в оригинале. Уровень параметра показывается с 1 (без улучшений — 1), каждое улучшение +1 к базе.
   // Стоимость улучшения до уровня T (показываемого) = цена юнита × c·g^T, люди — население юнита × тот же множитель × 0,97,
@@ -753,7 +753,7 @@ function install(Game, helpers) {
     const f = UP[kind].c * UP[kind].g ** T;
     return { cost: Object.fromEntries(RES4.map((r) => [r, Math.min(UP_CAP, Math.round((u.refCost || u.cost)[r] * f))])), people: Math.round(u.pop * f * 0.97), sec: Math.max(5, Math.round((T + 2) * 1800 / SPEED)) };
   };
-  P.magicUnits = function magicUnits(castle) { return unitsForRace(this.raceOf(castle)).filter((u) => u.magic > 0 && u.id !== GENERAL_ID && !u.quest); };
+  P.magicUnits = function magicUnits(castle) { return unitsForRace(this.raceOf(castle)).filter((u) => u.magic > 0 && u.id !== GENERAL_ID && !u.quest && (!u.retired || (castle.units[u.id] || 0) > 0)); };
   P.upgradeOp = function upgradeOp(castle, { unit, kind }) {
     this.tick(castle); this.mil(castle);
     const up = UP[kind]; if (!up) return { error: 'Неверный параметр.' };
