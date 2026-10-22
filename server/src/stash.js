@@ -5,6 +5,7 @@
 
 const RES4 = ['wood', 'stone', 'iron', 'food'];
 const RES_NAME = { wood: 'Дерево', stone: 'Камень', iron: 'Железо', food: 'Еда' };
+const STASH_CUT = 400000; // разовый сброс излишков (stashCutOnce): каждого ресурса — не больше
 
 function install(Game) {
   const P = Game.prototype;
@@ -18,6 +19,24 @@ function install(Game) {
       u.stash.exp = (u.stash.exp || 0) + (c.stash.exp || 0); delete c.stash;
     }
     return u.stash;
+  };
+  // разовый сброс при обновлении 20.10: пока добыча с лагерей и руин сверх Складов шла в Кладовую (15–20.10), её набивали набегами —
+  // у всех дерева, камня, железа и еды в Кладовой остаётся не больше STASH_CUT каждого; дальше копить можно сколько угодно.
+  // Сделано — db.stashCut (второй раз не срабатывает); сколько списано у игрока — u.stashCut (видно в «Осмотре» админки)
+  P.stashCutOnce = function stashCutOnce() {
+    if (this.db.stashCut) return 0;
+    const at = Date.now(), all = {}; let n = 0;
+    for (const u of Object.values(this.db.users)) {
+      if (!u.stash && !this.castlesOf(u).some((c) => c.stash)) continue;
+      const s = this.stashOf(u), cut = {};
+      for (const r of RES4) if (s.res[r] > STASH_CUT) { cut[r] = Math.floor(s.res[r] - STASH_CUT); s.res[r] = STASH_CUT; all[r] = (all[r] || 0) + cut[r]; }
+      if (Object.keys(cut).length) { u.stashCut = { at, res: cut }; n++; }
+    }
+    this.db.stashCut = { at, cap: STASH_CUT, users: n, res: all };
+    this.store.save();
+    const fmt = (v) => v.toLocaleString('ru-RU');
+    if (n) console.log(`Кладовая: разовый сброс до ${fmt(STASH_CUT)} каждого ресурса — игроков: ${n}, списано: ${RES4.filter((r) => all[r]).map((r) => `${RES_NAME[r]} ${fmt(all[r])}`).join(', ')}`);
+    return n;
   };
   // награда в Кладовую: { wood, stone, iron, food, u: { inf, cav, mag } (уникальные воины расы), units: { id: n }, exp }
   // → список строк «что получено» для сообщения

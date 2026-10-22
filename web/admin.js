@@ -20,6 +20,22 @@ const aBtn2 = (op, text, extra = '', cls = '') => `<button class="btn small ${cl
 // «Золото всем игрокам» — на вкладках «Выдать» (сверху) и «Мир»
 const goldAllLog = () => { const g = S.adm.goldAll; if (!g) { if (!S.adm.goldAllAsked) { S.adm.goldAllAsked = true; send({ t: 'admin', op: 'goldallget' }); } return ''; }
   return `${g.msg ? `<div class="smnote ok">✔ ${esc(g.msg)}</div>` : ''}${g.last.length ? `<p class="small"><b>Последние раздачи:</b><br>${g.last.map((x) => `${fmtDate(x.at)} — по ${x.n} зол. «${esc(x.why)}», игроков: ${x.players}`).join('<br>')}</p>` : '<p class="small">Раздач ещё не было.</p>'}`; };
+// «Премиум всем игрокам» — рядом с «Золото всем»: срок на выбор (кнопки или число), у кого премиум есть — продлится
+const premAllLog = () => { const g = S.adm.premAll; if (!g) { if (!S.adm.premAllAsked) { S.adm.premAllAsked = true; send({ t: 'admin', op: 'premallget' }); } return ''; }
+  return `${g.msg ? `<div class="smnote ok">✔ ${esc(g.msg)}</div>` : ''}${g.last.length ? `<p class="small"><b>Последние раздачи:</b><br>${g.last.map((x) => `${fmtDate(x.at)} — на ${x.days} дн. «${esc(x.why)}», игроков: ${x.players}`).join('<br>')}</p>` : '<p class="small">Раздач ещё не было.</p>'}`; };
+const PREM_ALL = () => { const pd = S.adm.premDays || 3; // выбранный срок помнится, пока окно перерисовывается
+  return aSec('👑 Премиум всем игрокам', `<p class="small">Каждому живому игроку (в игре от 3 дней, заходил за последние 30 дней, не заблокирован) — Премиум Завоеватель на выбранный срок; у кого уже есть — продлится. Кто в игре — увидит сразу, остальным скажет советник при входе.</p><form class="stack" data-aform="premall">
+  <div class="apdays">${[1, 3, 7, 14, 30].map((d) => `<button type="button" class="btn small${d === pd ? ' on' : ''}" data-apdays="${d}">${d} ${plural(d, 'день', 'дня', 'дней')}</button>`).join('')}</div>
+  <input class="anum" name="days" type="number" inputmode="numeric" min="1" max="30" value="${pd}" placeholder="Сколько дней (1–30)"><input name="why" maxlength="100" value="Подарок от администрации" placeholder="За что (видно игрокам)"><button class="btn primary">Выдать всем</button></form>${premAllLog()}`); };
+// «🏚 Ничейные замки» (server/src/nobody.js): замки заброшенных игроков — где, бунт, чьи были; «Забросить» — в карточке игрока
+const NOBODY_SEC = () => {
+  const d = S.adm.nobody;
+  if (!d) { if (!S.adm.nobodyAsked) { S.adm.nobodyAsked = true; send({ t: 'admin', op: 'nobodyview' }); } return aSec('🏚 Ничейные замки', '<p class="small">Загрузка…</p>'); }
+  return aSec(`🏚 Ничейные замки${d.castles.length ? ` (${d.castles.length})` : ''}`, `<p class="small">Замки игроков, которых Вы забросили (Игрок → «Забросить замки»). Их может захватить любой: победы с Бунтарями, бунт +15% за каждую.</p>
+    ${d.castles.length ? `<div class="rlist">${d.castles.map((c) => `<div class="rrow"><span class="rn"><b>X:${c.x} Y:${c.y}</b><small>был у ${esc(c.was || '?')}${c.at ? ` · ${fmtDate(c.at)}` : ''} · бунт ${c.riot}%</small></span><span class="rv">${fmtFull(c.rating)}</span>
+      <button class="btn small" data-goworld="${c.x},${c.y}">карта</button></div>`).join('')}</div>` : '<p class="small">Ничейных замков на карте нет.</p>'}
+    ${d.log.length ? `<p class="small"><b>Заброшены:</b><br>${d.log.map((x) => `${fmtDate(x.at)} — ${esc(x.login)}, замков: ${x.castles.length}`).join('<br>')}</p>` : ''}`);
+};
 // «🏅 Медали» — медали для красоты (server/src/honors.js): вручить по никам или всем тестерам, список награждённых — забрать
 const HONOR_SEC = () => {
   const d = S.adm.honor;
@@ -30,12 +46,52 @@ const HONOR_SEC = () => {
     <p class="small"><b>Награждены: ${h.who.length}</b></p>
     ${h.who.map((w) => `<div class="arow"><span><b>${esc(w.login)}</b>${w.tester ? ' · тестер' : ''} · ${fmtDate(w.at)}</span><button class="btn small" data-ahontake="${h.id}" data-login="${esc(w.login)}">Забрать</button></div>`).join('')}`).join('<hr>')}`);
 };
-const GOLD_ALL = () => aSec('🎁 Золото всем игрокам', `<p class="small">Каждому игроку на сервере (кроме ботов и Вас) — золото в Казну и сообщение в игре.</p><form class="stack" data-aform="goldall"><input class="anum" name="n" type="number" inputmode="numeric" min="1" max="1000" value="5" placeholder="Сколько каждому"><input name="why" maxlength="100" value="Подарок от администрации" placeholder="За что (видно игрокам)"><button class="btn primary">Выдать всем</button></form>${goldAllLog()}`);
+const GOLD_ALL = () => aSec('🎁 Золото всем игрокам', `<p class="small">Каждому живому игроку (в игре от 3 дней, заходил за последние 30 дней, не заблокирован) — золото в Казну и сообщение в игре.</p><form class="stack" data-aform="goldall"><input class="anum" name="n" type="number" inputmode="numeric" min="1" max="1000" value="5" placeholder="Сколько каждому"><input name="why" maxlength="100" value="Подарок от администрации" placeholder="За что (видно игрокам)"><button class="btn primary">Выдать всем</button></form>${goldAllLog()}`);
+// «🏦 Казна альянса» (server/src/admin.js allygold): казна пополняется только отдельно — покупкой за звёзды Telegram или здесь;
+// свои монеты игроки туда не переводят
+const ALLY_GOLD = () => aSec('🏦 Казна альянса', `<p class="small">Казна альянса пополняется только отдельно: покупкой за звёзды Telegram (кнопки в окне «Казна Альянса») или здесь. Свои монеты игроки туда не переводят, игрокам казна не выдаётся — тратится только на медали и подарки участникам. С минусом — списать.</p><form class="stack" data-aform="allygold"><input name="tag" maxlength="5" placeholder="Тег альянса" autocapitalize="characters" autocomplete="off" required><input class="anum" name="n" type="number" inputmode="numeric" placeholder="Сколько монет" required><button class="btn primary">Пополнить казну</button></form>`);
+// «⚔ Правила боя (проба)» (server/src/army.js newBattle, battleCompare): новые правила включаются и выключаются для всех боёв;
+// «Сравнить бой» — тот же бой по прежним и по новым правилам, в игре ничего не меняется
+const BATTLE_RULES = 'Кузница — не больше половины базового параметра воина (минимум +5); тараны ломают Забор, только если нападение победило; подкрепления — со своими бонусами (от чужого замка — Забор и защита замка); против магов, у кого нет защиты от магии, — ¾ обычной защиты (было ½); удача нападающего ±5% (было ±10%).';
+const battleCmpHtml = (c) => {
+  const n = (v) => fmtFull(Math.round(v || 0)), row = (t, f) => `<tr><th>${t}</th><td>${f(c.old)}</td><td>${f(c.new)}</td></tr>`;
+  return `<p class="small"><b>${esc(c.att)}</b> → <b>${esc(c.def)}</b>: ${c.mission === 'raid' ? 'набег' : 'нападение'}${c.general ? ' с генералом' : ''}</p>
+    <table class="bcmp"><tr><th></th><th>Прежние</th><th>Новые</th></tr>
+    ${row('Исход', (r) => (r.win ? '<b class="bgood">победа атаки</b>' : '<b class="bbad">атака отбита</b>'))}
+    ${row('Атака / защита', (r) => `${n(r.ap)} / ${n(r.dp)}`)}
+    ${row('Боевой дух', (r) => `${r.morale}%`)}
+    ${row('Нападающий потерял', (r) => `${n(r.aLost)} из ${n(r.sent)}${r.wounded ? `<br><small>в Лазарет ${n(r.wounded)}</small>` : ''}${r.saved ? `<br><small>лекарь спас ${n(r.saved)}</small>` : ''}`)}
+    ${row('Защитник потерял', (r) => `${n(r.dLost)} из ${n(r.had)}${r.guests ? `<br><small>подкреплений было ${n(r.guests)}</small>` : ''}${r.healed ? `<br><small>выздоровели дома ${n(r.healed)}</small>` : ''}${r.dWounded ? `<br><small>в Лазарет ${n(r.dWounded)}</small>` : ''}`)}
+    ${row('Забор', (r) => (r.wall0 === r.wall ? `${r.wall0}` : `${r.wall0} → ${r.wall}`))}</table>`;
+};
+const BATTLE_SEC = () => {
+  const b = S.adm.battle;
+  if (!b) { if (!S.adm.battleAsked) { S.adm.battleAsked = true; send({ t: 'admin', op: 'battlerules' }); } return aSec('⚔ Правила боя (проба)', '<p class="small">Загрузка…</p>'); }
+  return aSec('⚔ Правила боя (проба)', `<p class="small">Новые правила: ${BATTLE_RULES} Включаются сразу для всех боёв, вернуть прежние — одной кнопкой.</p>
+    <div class="smnote ${b.on ? 'ok' : ''}">Сейчас действуют: <b>${b.on ? 'новые правила' : 'прежние правила'}</b>${b.at ? ` · с ${fmtDate(b.at)}` : ''}</div>
+    <button class="pbar" data-abattle="${b.on ? 0 : 1}">${b.on ? 'Вернуть прежние правила' : 'Включить новые правила'}</button>
+    <p class="small"><b>Сравнить бой</b> — вся армия столицы первого игрока нападает на столицу второго (с его подкреплениями): итог по прежним и по новым правилам, без удачи. В игре ничего не меняется.</p>
+    <form class="stack" data-aform="battlecmp"><input name="att" placeholder="Нападающий (ник)" autocapitalize="none" autocomplete="off" value="${esc(b.attNick || '')}" required><input name="def" placeholder="Защитник (ник)" autocapitalize="none" autocomplete="off" value="${esc(b.defNick || '')}" required>
+      <div class="combo"><select name="mission"><option value="attack">Нападение</option><option value="raid" ${b.mission === 'raid' ? 'selected' : ''}>Набег</option></select></div>
+      <label class="check"><input type="checkbox" name="general" ${b.noGen ? '' : 'checked'}> с генералом</label><button class="btn primary">Сравнить</button></form>
+    ${b.cmp ? battleCmpHtml(b.cmp) : ''}`);
+};
+// «🛠 Закрыть игру» (технические работы, server/src/closedtest.js) — вверху Админ-панели, на любой вкладке:
+// игрокам — заглушка «сервер временно не работает», входит только администратор; на 8 или 24 часа — потом игра открывается сама
+const hoursTxt = (h) => `${h} ${plural(h, 'час', 'часа', 'часов')}`;
+const MAINT_BAR = () => {
+  const m = S.adm.maint;
+  if (!m) { if (!S.adm.maintAsked) { S.adm.maintAsked = true; send({ t: 'admin', op: 'maint' }); } return ''; }
+  if (!m.on) return `<div class="maintbar"><div class="mlabel">🛠 Закрыть игру для игроков:</div><div class="mbtns">${(m.hours || [8, 24]).map((h) => `<button class="pbar" data-amaint="${h}">на ${hoursTxt(h)}</button>`).join('')}</div></div>`;
+  return `<div class="maintbar"><div class="smnote">🛠 <b>Игра закрыта для игроков</b>${m.at ? ` · с ${fmtDate(m.at)}` : ''}${m.until ? `<br>Откроется сама: <b>${fmtDate(m.until)}</b>` : ''}<br>Они видят: «${esc(m.msg)}»<br>Мир при этом идёт: армии в пути дойдут.</div>
+    <button class="pbar" data-amaint="0">Открыть игру сейчас</button>
+    <p class="small">Если Вы выйдете: войти можно адресом игры с <b>#admin</b> в конце или пятью нажатиями на логотип.</p></div>`;
+};
 const aSec = (title, body) => `<div class="acard"><div class="cwname">${title}</div>${body}</div>`;
 function adminHtml() {
   const a = S.adm, tab = ADM_TABS.some(([k]) => k === a.tab) ? a.tab : 'player';
   const who = a.login ? `игрок <b>${esc(a.login)}</b> <button class="btn small" data-adm-self>× сбросить</button>` : '<b>вы (Советник)</b>';
-  const head = `${ribbon('Админ-панель')}
+  const head = `${ribbon('Админ-панель')}${MAINT_BAR()}
     <div class="atabs">${ADM_TABS.map(([k, t]) => `<button class="${k === tab ? 'on' : ''}" data-atab="${k}">${t}${k === 'mod' && (S.st.user.multiNew || S.st.user.modReqNew) ? ` <b class="abadge">${(S.st.user.multiNew || 0) + (S.st.user.modReqNew || 0)}</b>` : ''}${k === 'alerts' && S.st.user.alertsNew ? ` <b class="abadge">${S.st.user.alertsNew}</b>` : ''}${k === 'pay' && S.st.user.payNew ? ` <b class="abadge">${S.st.user.payNew}</b>` : ''}${k === 'sec' && S.st.user.secNew ? ` <b class="abadge">${S.st.user.secNew}</b>` : ''}</button>`).join('')}</div>`;
   const target = `<div class="atarget">Кому: ${who}<label class="check"><input type="checkbox" data-an="all" ${a.all ? 'checked' : ''}> во все замки игрока</label></div>`;
   const T = {
@@ -45,7 +101,7 @@ function adminHtml() {
       ${a.players ? `<div class="rlist">${a.players.map((p) => `<button class="rrow" data-apick="${esc(p.login)}"><span class="rn"><b>${esc(p.login)}${p.admin ? ` <img class="admbadge s" src="${GFX}admin_badge_s.png" alt="">` : p.mod ? ` <img class="admbadge s" src="${GFX}chat/moder.png" alt="">` : ''}${p.banned ? ' <span class="bad">[бан]</span>' : ''}</b>
         <small>${esc(p.race)} · замков ${p.castles} · монет ${fmtFull(p.gold)} · ${p.online ? 'в игре' : `был ${fmtDate(p.lastSeen)}`}</small></span><span class="rv">${fmtFull(p.rating)}</span></button>`).join('')}</div>` : ''}`)}
       ${a.player ? playerCard(a.player) : a.login ? '<p class="parch-note">Загрузка карточки…</p>' : ''}`,
-    give: () => `${GOLD_ALL()}${HONOR_SEC()}${target}
+    give: () => `${GOLD_ALL()}${PREM_ALL()}${ALLY_GOLD()}${HONOR_SEC()}${target}
       ${aSec('💰 Казна и ресурсы', `
         ${aAct('Монеты', 'Добавить золото на счёт. Минус — забрать. Игроку придёт письмо.', `${aNum('gold', 100, 'монет')}${aBtn2('gold', 'Выдать', 'data-arg="gold:n"')}`)}
         ${aAct('Ресурсы', 'Дерево, камень, железо и еду — поровну, в пределах складов.', `${aNum('res', 100000, 'каждого')}${aBtn2('res', 'Выдать', 'data-arg="res:n"')}`)}
@@ -75,7 +131,11 @@ function adminHtml() {
       ${aSec('📮 Жалобы и сообщения об ошибках', `<p class="small">Жалобы из чата и сообщения «Сообщить об ошибке» от игроков.</p><button class="pbar" data-adm="bugs">Показать</button>
         ${a.bugs ? `<div class="pstats">${a.bugs.length ? a.bugs.map((b) => `<b>${esc(b.from)}</b> · ${fmtDate(b.at)}<br>${esc(b.text)}`).join('<hr>') : 'Сообщений нет.'}</div>${a.bugs.length ? '<button class="pbar" data-adm="bugsclear">Очистить список</button>' : ''}` : ''}`)}`,
     world: () => `${aSec('📰 Новость', `<p class="small">Всем придёт фиолетовый конверт в верхней панели; новость останется в «Инфо → Новости».</p>${newsPubForm()}`)}
+      ${BATTLE_SEC()}
       ${GOLD_ALL()}
+      ${PREM_ALL()}
+      ${ALLY_GOLD()}
+      ${NOBODY_SEC()}
       ${aSec('✉ Письмо всем', `<p class="small">Личное письмо каждому игроку (в «Сообщения»).</p><form class="stack" data-aform="mailall"><input name="subject" placeholder="Тема письма" value="Сообщение администрации"><textarea name="text" rows="3" placeholder="Текст письма" required></textarea><button class="btn primary">Разослать всем</button></form>`)}
       ${aSec('💬 Объявление в чат', `<p class="small">Сообщение в общий чат с пометкой [Администрация].</p><form class="chatform" data-aform="chat"><input name="text" placeholder="Текст объявления" required><button class="btn primary small">В чат</button></form>`)}
       ${aSec('🐉 События', `
@@ -179,6 +239,8 @@ function playerCard(p) {
     ${aAct('Перенести', 'Переставить активный замок на свободную клетку карты.', '<form class="chatform" data-aform="move"><input name="x" type="number" placeholder="X" required><input name="y" type="number" placeholder="Y" required><button class="btn small primary">Перенести</button></form>', true)}
     ${aAct('Сменить расу', 'Юниты прежней расы пропадут.', `<select data-an="race">${S.cat.raceOrder.map((r) => `<option value="${r}">${esc(S.cat.races[r])}</option>`).join('')}</select>${aBtn2('race', 'Сменить', 'data-arg="race:race" data-confirm="Сменить расу? Юниты прежней расы пропадут."')}`)}
     ${aAct('Сброс на старт', 'Все замки, войска и постройки пропадут — один новый замок, как после регистрации.', aBtn2('reset', 'Сбросить', `data-confirm="Сбросить игрока ${esc(p.login)} к началу игры?"`, 'danger'))}
+    ${p.admin ? '' : aAct('Забросить замки', 'Для давно не играющих — вместо бана. Все замки станут ничьими («Ничейный замок»): армия останется их защищать (походы вернутся домой), генерал пропадёт, постройки и ресурсы останутся. Захватить можно любой (столицы нет) — победами с Бунтарями, бунт +15% за каждую. Сам игрок исчезнет отовсюду, как при удалении.',
+      aBtn2('abandon', 'Забросить', `data-confirm="Забросить замки игрока ${esc(p.login)}${p.online ? ' (сейчас в игре!)' : ` (не заходил ${Math.max(0, Math.floor((Date.now() - p.lastSeen) / 86400000))} дн.)`}? Замки (${p.castlesList.length}) станут ничьими, игрок удалится навсегда."`, 'danger'))}
     ${p.admin ? '' : aAct('Удалить игрока', 'Аккаунт и все замки — навсегда. Игрок пропадёт у всех: из друзей, альянса, брака; переписка с ним удалится, чужие подкрепления из его замков вернутся домой.', aBtn2('delete', 'Удалить', 'data-confirm="Удалить игрока и все его замки навсегда?"', 'danger'))}</div>
   <div class="acard">${devCard(p)}</div>`;
 }
@@ -202,7 +264,7 @@ function admInspectWin() {
     <div class="akv">${kv('Монеты', fmtFull(d.gold))}${kv('Премиум', till(d.premium))}${kv('Лояльность населения', fmtFull(d.royal))}${kv('Репутация', fmtFull(d.rep))}
       ${kv('Боевой ранг', `${d.brank.rank} · очков ${fmtFull(d.brank.pts)} · наград забрано ${d.brank.claimed}`)}${kv('Захватов замков', d.captures)}
       ${kv('Руны', `Силы ${gp(d.runes, 'str')} · Стойкости ${gp(d.runes, 'def')} · Пути ${gp(d.runes, 'path')}`)}${kv('Купол королевства', till(d.shieldKingdom))}${kv('Контрразведка', till(d.shieldSpy))}${kv('Регистрация', fmtDate(d.created))}</div>
-    ${sec('📦 Кладовая', `${['wood', 'stone', 'iron', 'food'].map((r) => `${RES_IC[r]} ${fmtFull(st.res[r])}`).join(' ')}<br>Воины: ${ul(st.units)}<br>Опыт генерала: <b>${fmtFull(st.exp)}</b> · лояльность: <b>${fmtFull(st.royal)}</b>`)}
+    ${sec('📦 Кладовая', `${['wood', 'stone', 'iron', 'food'].map((r) => `${RES_IC[r]} ${fmtFull(st.res[r])}`).join(' ')}<br>Воины: ${ul(st.units)}<br>Опыт генерала: <b>${fmtFull(st.exp)}</b> · лояльность: <b>${fmtFull(st.royal)}</b>${st.cut ? `<br>Сброс излишков ${fmtDate(st.cut.at)} — списано: ${['wood', 'stone', 'iron', 'food'].filter((r) => st.cut.res[r]).map((r) => `${RES_IC[r]} ${fmtFull(st.cut.res[r])}`).join(' ')}` : ''}`)}
     ${sec('📈 Счётчики', Object.entries(d.stats).filter(([, v]) => typeof v === 'number').map(([k, v]) => `${INSP_STAT[k] || esc(k)}: <b>${fmtFull(v)}</b>`).join(' · ') || 'нет')}
     <button class="pbar" data-ainsprefresh>🔄 Обновить</button></div>`;
   const castle = (c) => { const g = c.general, p = (g && g.pts) || {};
@@ -250,6 +312,7 @@ $('#sheetBody').addEventListener('change', (e) => {
 });
 $('#sheetBody').addEventListener('click', (e) => {
   const gf = e.target.closest('[data-gafill]'); if (gf) { $$('.gaunit input').forEach((i) => { i.value = gf.dataset.gafill; }); return; }
+  const pd = e.target.closest('[data-apdays]'); if (pd) { S.adm.premDays = Number(pd.dataset.apdays); const f = pd.closest('form'); f.days.value = S.adm.premDays; f.querySelectorAll('[data-apdays]').forEach((x) => x.classList.toggle('on', x === pd)); return; } // «Премиум всем»: срок кнопкой
   const sm = e.target.closest('[data-asmod]'); if (sm) { if (!confirm(`Снять ${sm.dataset.asmod} со старших модераторов? Обычным модератором он останется.`)) return; send({ t: 'admin', op: 'smod', login: sm.dataset.asmod, on: 0 }); return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
   const mq = e.target.closest('[data-amodreq]'); if (mq) { const ok = mq.dataset.ok === '1'; if (!confirm(ok ? 'Принять заявку — назначить игрока модератором?' : 'Отклонить заявку?')) return; send({ t: 'admin', op: 'modreq', id: Number(mq.dataset.amodreq), ok: ok ? 1 : 0 }); return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
   const md = e.target.closest('[data-amod]'); if (md) { if (!confirm(`Снять ${md.dataset.amod} с модераторов?`)) return; send({ t: 'admin', op: 'mod', login: md.dataset.amod, on: 0 }); return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
@@ -296,9 +359,13 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (op === 'secclear') { send({ t: 'admin', op }); return setTimeout(() => send({ t: 'admin', op: 'sec' }), 200); }
   if (op === 'tgbackup') { send({ t: 'admin', op }); return setTimeout(() => send({ t: 'admin', op: 'sec' }), 4000); }
   if (op === 'bugsclear') { S.adm.bugs = null; return send({ t: 'admin', op }); }
-  if (op === 'delete') { admSend(op); S.adm.login = ''; S.adm.player = null; S.adm.players = null; return; }
+  if (op === 'delete' || op === 'abandon') { admSend(op); S.adm.login = ''; S.adm.player = null; S.adm.players = null; if (op === 'abandon') { S.adm.nobody = null; S.adm.nobodyAsked = false; } return; }
   admSend(op, extra);
   if (S.adm.login) setTimeout(() => send({ t: 'admin', op: 'player', login: S.adm.login }), 150);
+});
+$('#sheetBody').addEventListener('input', (e) => { // «Премиум всем»: срок числом — запомнить и подсветить такую же кнопку
+  const i = e.target.closest('[data-aform="premall"] [name="days"]'); if (!i) return; const n = Math.floor(Number(i.value));
+  if (n >= 1 && n <= 30) S.adm.premDays = n; i.form.querySelectorAll('[data-apdays]').forEach((x) => x.classList.toggle('on', Number(x.dataset.apdays) === n));
 });
 $('#sheetBody').addEventListener('submit', (e) => {
   const f = e.target, k = f.dataset.aform; if (!k) return;
@@ -321,6 +388,9 @@ $('#sheetBody').addEventListener('submit', (e) => {
   if (k === 'passcheck') { admSend('passcheck', { password: f.password.value }); f.password.value = ''; return; }
   if (k === 'mailtest') { S.adm.mailTest = { ok: true, msg: 'Отправляю…' }; refreshSheet(); return send({ t: 'admin', op: 'mailtest', addr: f.addr.value.trim() }); }
   if (k === 'goldall') { const n = Math.floor(Number(f.n.value)); if (!(n >= 1 && n <= 1000)) return toast('От 1 до 1000 золота.', 'err'); if (!confirm(`Выдать КАЖДОМУ игроку по ${n} золота?`)) return; S.adm.goldAll = { msg: 'Выдаю…', last: (S.adm.goldAll || { last: [] }).last }; refreshSheet(); return send({ t: 'admin', op: 'goldall', n, why: f.why.value }); }
+  if (k === 'premall') { const n = Math.floor(Number(f.days.value)); if (!(n >= 1 && n <= 30)) return toast('Срок — от 1 до 30 дней.', 'err'); if (!confirm(`Выдать КАЖДОМУ игроку Премиум на ${n} ${plural(n, 'день', 'дня', 'дней')}?`)) return; S.adm.premAll = { msg: 'Выдаю…', last: (S.adm.premAll || { last: [] }).last }; refreshSheet(); return send({ t: 'admin', op: 'premall', days: n, why: f.why.value }); }
+  if (k === 'battlecmp') { S.adm.battle = { ...(S.adm.battle || {}), attNick: f.att.value.trim(), defNick: f.def.value.trim(), mission: f.mission.value, noGen: !f.general.checked }; return send({ t: 'admin', op: 'battlecmp', att: f.att.value.trim(), def: f.def.value.trim(), mission: f.mission.value, general: f.general.checked ? 1 : 0 }); }
+  if (k === 'allygold') { const n = Math.trunc(Number(f.n.value)), tag = f.tag.value.trim().toUpperCase(); if (!n || !tag) return toast('Укажите тег альянса и сумму.', 'err'); const amt = `${Math.abs(n)} ${plural(Math.abs(n), 'монету', 'монеты', 'монет')}`; if (!confirm(n > 0 ? `Пополнить казну альянса [${tag}] на ${amt}?` : `Списать из казны альянса [${tag}] ${amt}?`)) return; f.n.value = ''; return send({ t: 'admin', op: 'allygold', tag, n }); }
   if (k === 'mailall') send({ t: 'admin', op: 'mailall', subject: f.subject.value, text: f.text.value });
   if (k === 'chat') { send({ t: 'admin', op: 'chat', text: f.text.value }); f.text.value = ''; }
   if (k === 'pass') { if (!confirm(`Сменить пароль игроку ${S.adm.login}? Все его входы завершатся.`)) return; admSend('pass', { password: f.password.value }); f.password.value = ''; }
@@ -351,6 +421,11 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
     if (m.op === 'passcheck') S.adm.passcheck = m.data;
     if (m.op === 'mailtest') S.adm.mailTest = { ok: !m.data.error, msg: m.data.error || m.data.msg };
     if (m.op === 'goldall' || m.op === 'goldallget') S.adm.goldAll = { ...m.data, at: Date.now() };
+    if (m.op === 'premall' || m.op === 'premallget') S.adm.premAll = { ...m.data, at: Date.now() };
+    if (m.op === 'battlerules') S.adm.battle = { ...(S.adm.battle || {}), ...m.data };
+    if (m.op === 'maint') S.adm.maint = m.data;
+    if (m.op === 'battlecmp') S.adm.battle = { ...(S.adm.battle || {}), cmp: m.data.cmp };
+    if (m.op === 'nobodyview') S.adm.nobody = m.data;
     return refreshSheet();
   }
   prevMil2(m);
@@ -392,6 +467,17 @@ function admStatsHtml(st) {
 }
 // ---------- ⭐ Платежи (server/src/tgpay.js): покупки монет за звёзды Telegram, итоги, возвраты ----------
 $('#sheetBody').addEventListener('click', (e) => { if (e.target.closest('[data-apayref]')) send({ t: 'admin', op: 'payments' }); });
+$('#sheetBody').addEventListener('click', (e) => { // «Закрыть игру для игроков» на 8 / 24 часа, «Открыть игру сейчас»
+  const t = e.target.closest('[data-amaint]'); if (!t) return;
+  const h = Number(t.dataset.amaint);
+  if (!confirm(h ? `Закрыть игру для игроков на ${hoursTxt(h)}? Кто в игре — выбросит, все увидят «Сервер временно не работает». Войти сможете только Вы. Через ${hoursTxt(h)} игра откроется сама.` : 'Открыть игру для всех игроков сейчас?')) return;
+  send(h ? { t: 'admin', op: 'maint', on: 1, hours: h } : { t: 'admin', op: 'maint', on: 0 });
+});
+$('#sheetBody').addEventListener('click', (e) => { // правила боя: включить новые / вернуть прежние
+  const t = e.target.closest('[data-abattle]'); if (!t) return;
+  const on = t.dataset.abattle === '1'; if (!confirm(on ? 'Включить новые правила боя для всех боёв?' : 'Вернуть прежние правила боя?')) return;
+  send({ t: 'admin', op: 'battlerules', on: on ? 1 : 0 });
+});
 function admPayHtml(p) {
   if (!p) return aSec('⭐ Платежи', '<p class="small">Загрузка…</p>');
   const tile = (v, t) => `<div class="stile"><b>${fmtFull(v)}</b><span>${t}</span></div>`;

@@ -278,6 +278,7 @@ class Game {
     this.npcCleanup();
     if (this.allyCleanup) this.allyCleanup(); // пустые альянсы (участники удалены) — убрать отовсюду
     if (this.multiCleanup) this.multiCleanup(); // баны «железа» больше не действуют (security.js)
+    if (this.stashCutOnce) this.stashCutOnce(); // разовый сброс излишков Кладовой (stash.js)
   }
   castleAt(x, y) { return this.byXY.get(x * WORLD + y); }
   // ----- руины и лагеря провинций -----
@@ -413,9 +414,21 @@ class Game {
     this.db.accts[acct] = login;
     this.db.users[login] = { id, login: nick, acct, pass: hashPassword(password), email: String(email || '').slice(0, 60), race: raceId, created: Date.now(), castleId: null, reputation: 10, gold: 0 }; // стартовая репутация 10; золото — только донат
     this.byId.set(id, this.db.users[login]);
+    // подарок новичку: Премиум на NEWBIE_PREMIUM_DAYS дней с регистрации (по умолчанию 3) — один раз, сам не продлевается;
+    // premiumGift — до какого времени подарок (советник напоминает при входе). Советнику (админ) и ботам — нет
+    const gift = system ? 0 : Number(process.env.NEWBIE_PREMIUM_DAYS ?? 3);
+    if (gift > 0) { const nu = this.db.users[login]; nu.premium = nu.premiumGift = nu.created + gift * 86400000; }
     const castle = this.createCastle(this.db.users[login]);
     this.db.users[login].castleId = castle.id;
     this.db.users[login].castleIds = [castle.id]; // первый — столица
+    const adm = gift > 0 && this.adminUser ? this.adminUser() : null; // приветственное письмо о подарке — от Советника, в «Сообщения»
+    if (adm) {
+      const days = `${gift} ${require('./words').plural(gift, 'день', 'дня', 'дней')}`;
+      const until = new Date(this.db.users[login].premium).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      this.sendMail(adm, login, `Подарок новичку: Премиум на ${days}`, `Приветствую, правитель! Добро пожаловать в Средневековье!\n🎁 В подарок новичку — Премиум Завоеватель на ${days}, до ${until} (МСК).\n`
+        + 'С ним: 5 построек одновременно, опыт генерала ×2, прирост населения +50%, отправка армий по расписанию, ритуалы и тренировка во всех замках из одного окна, цвет сообщений и звание Премиум в профиле.\n'
+        + 'Стройте, собирайте армию и ищите союзников — удачи в битвах!');
+    }
     this.store.save();
     return { user: this.db.users[login] };
   }
@@ -527,10 +540,11 @@ class Game {
 
   // активный замок игрока (все старые места работают через него); у игрока может быть несколько замков
   // золото (монеты) игрока: все изменения — через goldChange, с историей для окна «Казна»
-  goldChange(user, delta, reason) {
+  // noHall — перевод внутри альянса (казна): в Зал Славы не идёт, иначе «взнос — выдача» по кругу накручивал Богатство и Расточительство
+  goldChange(user, delta, reason, noHall = false) {
     delta = Math.round(delta); if (!delta) return;
     const before = user.gold || 0; user.gold = before < 0 ? before + delta : Math.max(0, before + delta); // минус (возврат звёзд, tgpay.js) закрывается новыми монетами
-    if (this.addStat) this.addStat(user.id, delta > 0 ? 'goldIn' : 'goldOut', Math.abs(delta)); // Зал Славы: Богатство / Расточительство
+    if (this.addStat && !noHall) this.addStat(user.id, delta > 0 ? 'goldIn' : 'goldOut', Math.abs(delta)); // Зал Славы: Богатство / Расточительство
     (user.goldLog = user.goldLog || []).push({ at: Date.now(), delta, reason, left: user.gold });
     if (user.goldLog.length > 200) user.goldLog.splice(0, user.goldLog.length - 200);
   }
@@ -748,7 +762,7 @@ class Game {
     for (const c of castles) {
       const owner = this.userById(c.owner);
       const al = this.allianceOf(owner);
-      out.push({ kind: 'castle', x: c.x, y: c.y, img: 10, prem: this.isPremium(owner) || undefined, castleId: c.id, name: c.name, ownerId: owner.id, owner: owner.login, race: owner.race, rating: this.rating(c), alliance: al ? al.tag : null, allyId: al ? al.id : null, newbie: this.isNewbie(owner) || undefined, shield: this.castleShield(c) ? 1 : undefined, site: c.site ? { start: c.site.start, end: c.site.end } : undefined }); // site — недострой (Освоение, army.js)
+      out.push({ kind: 'castle', x: c.x, y: c.y, img: 10, prem: this.isPremium(owner) || undefined, castleId: c.id, name: c.name, ownerId: owner.id, owner: owner.login, race: owner.nobody ? this.raceOf(c) : owner.race, nobody: owner.nobody ? 1 : undefined, rating: this.rating(c), alliance: al ? al.tag : null, allyId: al ? al.id : null, newbie: this.isNewbie(owner) || undefined, shield: this.castleShield(c) ? 1 : undefined, site: c.site ? { start: c.site.start, end: c.site.end } : undefined }); // site — недострой (Освоение, army.js)
     }
     for (const d of this.npcIn(x0, y0, w, h)) {
       const o = { kind: 'object', x: d.x, y: d.y, img: d.img, name: d.name };
@@ -791,6 +805,15 @@ class Game {
     }
     if (n) { this.db.messages = this.db.messages.filter((m) => !(m.delFrom && m.delTo)); this.store.save(); }
     return { ok: true, n };
+  }
+  // конверт в списке «Сообщения»: удалить все переписки ('all'), прочитанные ('read') или с новыми сообщениями ('new') —
+  // только у себя, как «Удалить разговор»; 'readall' — отметить все сообщения прочитанными. dialogs — сколько переписок затронуто
+  msgBulk(user, op) {
+    const me = user.id, mine = (this.db.messages || []).filter((m) => this.msgSees(m, me)), who = (m) => (m.from === me ? m.to : m.from);
+    if (op === 'readall') { let n = 0; for (const m of mine) if (m.to === me && !m.read) { m.read = true; n++; } if (n) this.store.save(); return { n }; }
+    const fresh = new Set(mine.filter((m) => m.to === me && !m.read).map(who));
+    const pick = mine.filter((m) => op === 'all' || (op === 'new' ? fresh.has(who(m)) : !fresh.has(who(m))));
+    return { ...this.msgDelete(user, pick.map((m) => m.id)), dialogs: new Set(pick.map(who)).size };
   }
   // «Переслать» сообщение другому игроку — с пометкой, от кого оно; фото — той же картинкой (пока не истекла), отчёт — снова отчётом
   msgForward(user, id, toLogin) {
@@ -864,5 +887,6 @@ require('./boss').install(Game);
 require('./closedtest').install(Game);
 require('./staff').install(Game); // «МАСТЕРА»: общение админа и тестеров // после admin.js: дополняет adminOp командами test…
 require('./honors').install(Game); // медали в профиле («Первопроходец»): дополняет adminOp командами honor…
+require('./nobody').install(Game); // «Забросить замки» (админ): замки — ничьи, захват без столицы; обёртки над army.js, royal.js, friends.js — последним
 
 module.exports = { PROV, PROV_CAP, PROV_N, PROV_EDGE, PROV_NPC, CAMP_IMGS, NPC_BACK_SEC, provinceOf, provNo, onProvEdge, passLogPush, checkPassword, meadowAt, fixPlaza, migrateLands, LANDS_N, WORLD, Game, Store, STORE, BASE_RATE, PEOPLE_FACTOR, storeBonus, RES_SPEED, buildTime, VIEW, GRID, landOptions, SPEED, MAX_QUEUE, LANDS_BASE, LANDS_DECOR, LANDS_EDGE };

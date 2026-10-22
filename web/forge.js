@@ -9,6 +9,8 @@ const UPK = {
   magic: { title: 'Магическая школа', kinds: ['m', 'md'], bld: 39, list: 'magicUnits', op: 'magic', names: { m: 'магической атаки', md: 'магической защиты' } },
 };
 const fLvl = (id, k) => ((MY().forge || {})[id] || {})[k] || 0; // число улучшений (бонус к параметру)
+// новые правила боя (проба, админка): улучшение не больше половины базы — предел с сервера (army.js forgeCaps), иначе null
+const fCap = (id, k) => { const c = MY().forgeCap; return c && c[id] ? c[id][k] : null; };
 const shownLvl = (id, k) => fLvl(id, k) + 1; // как в оригинале: без улучшений — 1
 S.upw = 'forge'; S.upUnit = null;
 function upListWin() {
@@ -22,6 +24,8 @@ function upUnitWin() {
     const cur = shownLvl(u.id, k), T = cur + 1, n = next[k], job = jobs[k];
     const head = `<div class="uphead">Текущий уровень ${w.names[k]} <img class="fi" src="${FI[k]}" alt=""> ${cur}</div>`;
     if (job) return `${head}<div class="upbody">${job.unit === u.id ? `Идёт улучшение на ${job.level + 1} уровень. Осталось: <span class="cd" data-e="${job.end}"></span>` : 'Уже проводится улучшение данного параметра для другого юнита!'}</div>`;
+    const cap = fCap(u.id, k), lv = fLvl(u.id, k);
+    if (cap !== null && lv >= cap) return `${head}<div class="upbody">Предел для этого воина — +${cap}: по новым правилам боя улучшение не больше половины базового параметра.${lv > cap ? ` В бою действует +${cap} из +${lv}.` : ''}</div>`;
     if (T > 20) return `${head}<div class="upbody">Достигнут максимальный уровень.</div>`;
     if (T > L) return `${head}<div class="upbody">Для улучшения на ${T} уровень нужен ${esc(S.by[w.bld].name)} ${T} ур.</div>`;
     return `${head}<div class="upbody">Стоимость улучшения на ${T} уровень:</div>

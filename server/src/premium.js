@@ -32,6 +32,7 @@ function install(Game) {
     days = Number(days); const cost = PLANS[days]; if (!cost) return { error: 'Нет такого срока.' };
     const to = toLogin ? this.db.users[String(toLogin).trim()] : user;
     if (!to) return { error: 'Игрок не найден.' };
+    const deny = to !== user && this.canReach ? this.canReach(user, to, 'gift') : null; if (deny) return { error: deny }; // премиум в подарок — как подарок (privacy.js)
     if ((user.gold || 0) < cost) return { error: `Не хватает монет: нужно ${cost}, у вас ${user.gold || 0}. Пополните казну.` };
     this.goldChange(user, -cost, to === user ? `Премиум Завоеватель на ${days} дн.` : `Премиум Завоеватель на ${days} дн. в подарок игроку ${to.login}`);
     to.premium = Math.max(to.premium || 0, Date.now()) + days * DAY;

@@ -2,7 +2,7 @@
 // node test/sim.js — живая симуляция: боты играют через WebSession.handle (как настоящие игроки) много игровых дней,
 // после шагов проверяются инварианты: ресурсы 0…склад, нет NaN, войска целые и не отрицательные, один генерал на королевство,
 // вещи и руны, карта (замок на своей клетке), владельцы, база сериализуется. Время — подменённые часы.
-process.env.NO_BACKUP = '1'; process.env.RATE_OFF = '1'; process.env.NO_CAPTCHA = '1'; process.env.NEWBIE_DAYS = process.env.NEWBIE_DAYS || '0';
+process.env.NO_BACKUP = '1'; process.env.RATE_OFF = '1'; process.env.NO_CAPTCHA = '1'; process.env.NEWBIE_DAYS = process.env.NEWBIE_DAYS || '0'; process.env.NEWBIE_PREMIUM_DAYS = process.env.NEWBIE_PREMIUM_DAYS || '0';
 process.env.SAVE_MS = '600000000';
 const os = require('os'), path = require('path'), fs = require('fs');
 const ROOT = path.join(__dirname, '..', 'src') + path.sep;

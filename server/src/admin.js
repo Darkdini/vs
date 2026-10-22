@@ -10,6 +10,11 @@ const ADMIN_NICK = 'Советник';
 const ADMIN_CASTLES = Number(process.env.ADMIN_CASTLES || 20);
 const START_REP = 10; // стартовая репутация (как в social.js)
 const RES4 = ['wood', 'stone', 'iron', 'food'];
+// раздачи «всем» (золото, премиум) — только живым игрокам: в игре от 3 дней, заходили за 30 дней, не заблокированы
+// (иначе свежие запасные аккаунты собирали подарки и переводили их основному через казну альянса)
+// GRANT_MIN_DAYS — сколько дней в игре нужно (3; в тестах — 0)
+const GRANT_IDLE = 30 * 86400000;
+const grantable = (u, now) => !u.bot && !u.admin && !u.banned && now - (u.created || 0) >= Number(process.env.GRANT_MIN_DAYS ?? 3) * 86400000 && now - (u.lastSeen || u.created || 0) <= GRANT_IDLE;
 
 function install(Game) {
   const P = Game.prototype;
@@ -179,7 +184,7 @@ function install(Game) {
     return { id: u.id, login: u.login, race: C.RACE_NAMES[u.race], online: !!u.online, lastSeen: u.lastSeen || u.created, created: u.created, focus: Number(focus) || 0,
       gold: u.gold || 0, premium: this.isPremium(u) ? u.premium : 0, royal: Math.floor(this.royalTick(u)), rep: u.reputation ?? START_REP, captures: u.captures || 0,
       brank: { pts: br.pts, rank: this.brRank(u) + 1, claimed: br.claimed + 1 }, runes: { ...this.runesOf(u) },
-      stash: { res: Object.fromEntries(RES4.map((r) => [r, Math.floor(s.res[r] || 0)])), units: units(s.units), exp: s.exp || 0, royal: s.royal || 0 },
+      stash: { res: Object.fromEntries(RES4.map((r) => [r, Math.floor(s.res[r] || 0)])), units: units(s.units), exp: s.exp || 0, royal: s.royal || 0, cut: u.stashCut || null },
       stats: { ...this.stats(u) }, shieldKingdom: (u.shieldKingdom || 0) > now ? u.shieldKingdom : 0, shieldSpy: (u.shieldSpy || 0) > now ? u.shieldSpy : 0, castles };
   };
 
@@ -383,15 +388,56 @@ function install(Game) {
       case 'goldall': { // подарок от администрации: всем игрокам (кроме ботов и админа) по n золота, в Казну, с письмом
         const n = Math.floor(Number(arg.n)); if (!(n >= 1 && n <= 1000)) return { error: 'Сумма — от 1 до 1000 золота каждому.' };
         const why = String(arg.why || '').replace(/[<>]/g, '').trim().slice(0, 100) || 'Подарок от администрации';
-        let k = 0; for (const u of Object.values(this.db.users)) { if (u.bot || u.admin) continue; this.goldChange(u, n, `${why} (+${n})`); this.event(u.id, `🎁 ${why}: +${n} золота в Казну!`); k++; }
+        let k = 0; for (const u of Object.values(this.db.users)) { if (!grantable(u, now)) continue; this.goldChange(u, n, `${why} (+${n})`); this.event(u.id, `🎁 ${why}: +${n} золота в Казну!`); k++; }
         (this.db.goldAll = this.db.goldAll || []).push({ at: Date.now(), n, why, players: k }); msg = `Выдано по ${n} золота: ${k} игрокам (всего ${n * k}).`;
         data = { msg, last: this.db.goldAll.slice(-5).reverse() }; break; // итог — прямо в админке (строку над картой закрывает окно)
       }
       case 'goldallget': { data = { msg: '', last: (this.db.goldAll || []).slice(-5).reverse() }; break;
       }
+      // правила боя — проба (army.js newBattle): включить / выключить новые правила для всех боёв; без on — только показать
+      case 'battlerules': {
+        if (arg.on !== undefined) { this.db.battleRules = { on: !!Number(arg.on), at: now, by: user.login }; this.store.save(); }
+        const b = this.db.battleRules || {}; data = { on: !!b.on, at: b.at || 0 }; msg = b.on ? 'Новые правила боя включены.' : 'Действуют прежние правила боя.'; break;
+      }
+      // «Сравнить бой»: тот же бой по прежним и по новым правилам, в игре ничего не меняется (army.js battleCompare)
+      case 'battlecmp': {
+        const fu = (l) => findUser(this, l) || Object.values(this.db.users).find((x) => x.login && x.login.toLowerCase() === String(l || '').trim().toLowerCase()); // ник — без учёта регистра
+        const A = fu(arg.att), D = fu(arg.def);
+        if (!A || !D) return { error: `Игрок не найден: ${!A ? arg.att || '—' : arg.def || '—'}.` };
+        const r = this.battleCompare(A, D, { mission: arg.mission, general: arg.general !== false && arg.general !== 0 && arg.general !== '0' });
+        if (r.error) return r; data = { cmp: r }; break;
+      }
+      // казна альянса пополняется только отдельно (свои монеты игроков туда не переводятся, ally.js): покупкой за звёзды Telegram
+      // (tgpay.js) или здесь — администрацией; n < 0 — списать
+      case 'allygold': {
+        const tag = String(arg.tag || '').trim().toUpperCase(), al = Object.values(this.db.alliances || {}).find((x) => x.tag === tag);
+        if (!al) return { error: 'Альянс не найден.' };
+        const n = Math.trunc(Number(arg.n)); if (!n || Math.abs(n) > 100000) return { error: 'Сумма — от 1 до 100 000 монет (с минусом — списать).' };
+        if ((al.treasury || 0) + n < 0) return { error: `В казне [${al.tag}] только ${W.coins(al.treasury || 0)}.` };
+        al.treasury = (al.treasury || 0) + n;
+        this.allyLog(al, n > 0 ? `Администрация пополнила казну: ${W.coinsAcc(n)}` : `Администрация списала из казны: ${W.coinsAcc(-n)}`, 'store', { op: n > 0 ? '+' : '-', gold: Math.abs(n), by: 'Администрация', via: 'admin' });
+        this.event(al.leader, n > 0 ? `Казна альянса [${al.tag}] пополнена администрацией: +${W.coinsAcc(n)}.` : `Из казны альянса [${al.tag}] администрация списала ${W.coinsAcc(-n)}.`);
+        msg = `Казна [${al.tag}]: ${n > 0 ? '+' : '−'}${W.coinsAcc(Math.abs(n))}, теперь ${W.coins(al.treasury)}.`; break;
+      }
+      // подарок от администрации: всем игрокам (кроме ботов и админа) Премиум на n дней; у кого есть — продлится (как покупка, premium.js).
+      // Кто в игре — увидит сразу, остальным скажет советник при входе (premAllGot → news.js welcomeInfo)
+      case 'premall': {
+        const n = Math.floor(Number(arg.days)); if (!(n >= 1 && n <= 30)) return { error: 'Срок — от 1 до 30 дней.' };
+        const why = String(arg.why || '').replace(/[<>]/g, '').trim().slice(0, 100) || 'Подарок от администрации', days = `${n} ${W.plural(n, 'день', 'дня', 'дней')}`;
+        let k = 0;
+        for (const u of Object.values(this.db.users)) {
+          if (!grantable(u, now)) continue;
+          u.premium = Math.max(u.premium || 0, now) + n * 86400000; u.premAllGot = { at: now, days: n, why };
+          this.event(u.id, `👑 ${why}: Премиум Завоеватель на ${days}!`); k++;
+        }
+        (this.db.premAll = this.db.premAll || []).push({ at: now, days: n, why, players: k }); msg = `Премиум на ${days} выдан ${k} ${W.plural(k, 'игроку', 'игрокам', 'игрокам')}.`;
+        data = { msg, last: this.db.premAll.slice(-5).reverse() }; break;
+      }
+      case 'premallget': { data = { msg: '', last: (this.db.premAll || []).slice(-5).reverse() }; break;
+      }
       case 'mailall': {
         const text = String(arg.text || '').trim(); if (!text) return { error: 'Введите текст.' };
-        for (const u of Object.values(this.db.users)) if (u.id !== user.id) { this.sendMail(user, u.login, String(arg.subject || 'Сообщение администрации'), text); this.event(u.id, 'Новое письмо от администрации.'); }
+        for (const u of Object.values(this.db.users)) if (u.id !== user.id && !u.nobody) { this.sendMail(user, u.login, String(arg.subject || 'Сообщение администрации'), text); this.event(u.id, 'Новое письмо от администрации.'); }
         msg = 'Письмо разослано всем.'; break;
       }
       case 'chat': { const r = this.chatPost(user, `[Администрация] ${String(arg.text || '')}`); if (r.error) return r; data = r.msg; msg = 'Отправлено в чат.'; break; }

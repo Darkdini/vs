@@ -34,7 +34,7 @@ const EVIL = [-1, -1e9, 1e300, 0.5, '-5', '1e400', 'Infinity', 'NaN', null, true
     sendmail: { to: 'victim', subject: 's', text: 't' }, train: { unit: 200, count: 1 }, send: { units: { 200: 1 }, x: 510, y: 510, mission: 'attack', res: { wood: 1 }, from: '', at: 0 },
     squad: { op: 'create', from: 'castle', to: 1, units: { 200: 1 }, id: 1, name: 'q' }, general: { op: 'dist', name: 'g', pts: { atk: 1 } }, exchange: { from: 'wood', to: 'stone', amount: 100 },
     research: { sci: 'eco' }, religion: { id: 'war' }, artifact: { id: 1, on: true }, artbreak: { id: 1 }, alliance: { op: 'request', id: 1, login: 'victim' }, report: { id: 1 }, admin: { op: 'gold', login: 'hacker', n: 1000 },
-    ally: { op: 'gold', n: 5, to: 'victim', res: { wood: 1 }, login: 'victim', rights: {}, text: 't', title: 't', topic: 1, idx: 0, act: 'delete', name: 'n', tag: 't', status: 'war', desc: 'd' },
+    ally: { op: 'gold', n: 5, to: 'victim', res: { wood: 1 }, login: 'victim', rights: {}, text: 't', title: 't', topic: 1, idx: 0, act: 'delete', name: 'n', tag: 't', status: 'war', desc: 'd', reply: 1 },
     avatar: { op: 'set', px: 'x' }, bug: { text: 'b' },
     // новые разделы: Защита, Лавка, Биржа замков, Орёл-решка, сундуки, ЗАГС, Кладовая, задания, бунт, генерал за золото, походы
     shield: { op: 'buy', kind: 'castle', days: 1 }, shop: { op: 'treasure', id: 't1', key: 'x', mode: 'hour', x: 500, y: 500, res: 'wood', size: 0, prov: 2, coins: 1 },
@@ -43,7 +43,7 @@ const EVIL = [-1, -1e9, 1e300, 0.5, '-5', '1e400', 'Infinity', 'NaN', null, true
     chestopen: { pick: 0, golden: false }, stash: { op: 'take', kind: 'res', key: 'wood', n: 1 }, qclaim: { kind: 'daily', id: 'd_train' },
     zpropose: { to: 'victim', text: 't', role: 'king' }, zanswer: { id: 1, op: 'yes' }, zvote: { id: 1, coins: 1 }, zgift: { id: 1, gift: 'rose' },
     calm: { pct: 1, cid: 0 }, festival: { id: 1 }, magic: { unit: 200, kind: 'm' }, exped: { kind: 'near', n: 1 }, hero: { op: 'equip', id: 1, item: 1, slot: 'weapon' },
-    chatvote: { id: 1, v: 1 }, avalike: { id: 2 }, repfwd: { id: 1, to: 'victim' }, repdel: { ids: [1] }, privacy: { op: 'add', who: 'victim', id: 1 }, bday: { day: 1, month: 1 },
+    chatvote: { id: 1, v: 1 }, avalike: { id: 2 }, repfwd: { id: 1, to: 'victim' }, repdel: { ids: [1], page: 0 }, reports: { page: 1 }, repread: { page: 0 }, msgbulk: { op: 'read', page: 0, filter: 'all' }, brank: { op: 'top', page: 1, id: 2 }, privacy: { op: 'add', who: 'victim', id: 1 }, bday: { day: 1, month: 1 },
     pic: { op: 'begin', to: 'victim', w: 100, h: 100, n: 1, i: 0, data: 'eJw=' }, kingdom: {}, moves: {}, boss: {}, rally: {}, chests: {}, coin: {}, market: {},
     dialoghist: { id: 2, page: 1 }, msgdel: { ids: [1], with: 2 }, msgfwd: { id: 1, to: 'victim' }, forum: { op: 'post', topic: 1, text: 't', reply: 1, section: 1, page: 0 },
     tg: { op: 'buy', pack: 1 }, wheel: { op: 'create', id: 1, gold: 1, exp: 5000, unit: 'rand', res: 10000, cells: 12, mins: 1 }, eta: { units: { 200: 5 }, general: true, mission: 'attack', x: 500, y: 500, portal: true, key: 'k' },

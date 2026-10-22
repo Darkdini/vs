@@ -385,10 +385,10 @@ input.num { width: 76px; padding: 7px; text-align: center; }
   background: url(gfx/ui/parchment.jpg) 0 0 / 100% 100%; color: var(--ink); font-family: var(--serif); }
 #sheet.show { transform: none; }
 #sheetBody { position: absolute; inset: 0 0 0 0; padding: env(safe-area-inset-top, 0px) 10px calc(80px + var(--safe-b)); }
-#sheetBack, #sheetClose { position: absolute; bottom: calc(8px + var(--safe-b)); width: 64px; height: 60px; border: 0; z-index: 3; }
-#sheetBack { left: 8px; background: url(gfx3d/buildings/red_active.png) 0 0 / 100% 100%; }
-#sheetBack::after { content: ""; position: absolute; left: 20px; top: 16px; border: 14px solid transparent; border-right: 20px solid #f0b441; border-left: 0; filter: drop-shadow(1px 1px 0 #6a3500); }
-#sheetClose { right: 8px; top: auto; background: url(gfx3d/chat/close_button.png) 0 0 / 100% 100%; }
+/* ◀ и ✕ внизу окна, конверт списков, листалка и полосы меню — один набор кнопок gfx3d/btn (красные в золотой рамке, деревянные стрелки) */
+#sheetBack, #sheetClose { position: absolute; bottom: calc(8px + var(--safe-b)); width: 64px; height: 64px; border: 0; z-index: 3; background: center / contain no-repeat; }
+#sheetBack { left: 8px; background-image: url(gfx3d/btn/back.png); }
+#sheetClose { right: 8px; top: auto; background-image: url(gfx3d/btn/close.png); }
 #sheet { --text: var(--ink); --muted: var(--ink2); }
 #sheetBody .muted, #sheetBody .small.muted { color: var(--ink2); }
 #sheetBody .card, #sheetBody .row, #sheetBody .stat { background: #7a4a2214; border: 1px solid #b08a5a; color: var(--ink); }
@@ -429,6 +429,8 @@ input.num { width: 76px; padding: 7px; text-align: center; }
 .rico { height: 1.1em; width: auto; vertical-align: -0.2em; image-rendering: pixelated; }
 .online { color: #2f7a10; font-size: 14px; }
 .pline { font: 20px/1.5 var(--serif); padding: 3px 0; border-bottom: 1px solid #b08a5a44; }
+/* нельзя написать в личку / подарить (privacy.js) — под кнопками профиля и вместо поля ввода в диалоге */
+.pdeny, .dlock { margin: 6px 0; text-align: center; font: min(18px, 4.4vw)/1.35 var(--serif); color: #6a2a10; }
 .pline .ri { height: 22px; }
 .medal { height: 30px; width: auto; vertical-align: middle; margin-right: 4px; image-rendering: pixelated; }
 .ptitle { margin: 6px -4px; padding: 8px 12px; border: 2px solid #c8963e; border-radius: 6px; background: linear-gradient(#e9b24a, #b07a20); font: 22px var(--serif); color: var(--ink); }
@@ -665,7 +667,9 @@ input.num { width: 76px; padding: 7px; text-align: center; }
 .giftrow > img { width: 64%; max-width: 280px; border-radius: 12px; }
 .gprem { color: #d01818; font: min(26px, 6vw) var(--serif); }
 .pgifts { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 6px 0; }
-.pgifts .pgift { width: calc(33.3% - 6px); }
+.pgifts .pgiftw { width: calc(33.3% - 6px); display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.pgifts .pgift { width: 100%; }
+.pgdel { padding: 2px 6px; font-size: 13px; white-space: nowrap; } /* «Удалить · N монет» под своим подарком */
 .pgift { border: 0; background: none; padding: 0; display: flex; flex-direction: column; align-items: center; color: inherit; font: 13px var(--serif); min-width: 0; }
 .pgift img { width: 100%; aspect-ratio: 1; object-fit: contain; border-radius: 8px; }
 .pgift i { font-size: 12px; opacity: .8; overflow-wrap: anywhere; }
@@ -690,14 +694,14 @@ input.num { width: 76px; padding: 7px; text-align: center; }
 .atr { grid-template-columns: 1fr 1fr; } .atr.head { display: flex; gap: 8px; } .atr.head img { width: 22px; }
 .atr3 { grid-template-columns: 1.2fr 1fr .8fr; text-align: center; }
 .atr4 { grid-template-columns: .4fr 1.6fr .6fr 1fr; text-align: center; }
-/* состав альянса: камень «в игре» — своей колонкой слева, ровно в линию; сверху три одинаковые плашки с числом (alliance.js) */
-.atr4.ast { grid-template-columns: 30px .35fr 1.6fr .6fr 1fr; }
-.ast .ostc img { display: block; width: 28px; height: auto; margin: auto; }
-.aleg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 2px -4px 8px; }
-.aleg span { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 2px; border-radius: 8px; background: #f0c89a; color: #3a1a08; font: min(17px, 4.1vw)/1.15 var(--serif); }
-.aleg img { flex: none; width: 26px; height: auto; }
 .atable a { color: #7a1a0a; text-decoration: underline; text-decoration-color: #7a1a0a55; }
 .atable small { font-size: 13px; opacity: .8; }
+/* статус в составе (alliance.js allyDot): зелёная точка — в игре, серая — нет */
+.aon { display: inline-block; width: 10px; height: 10px; margin: 0 6px 0 0; border-radius: 50%; vertical-align: middle; position: relative; top: -1px;
+  background: radial-gradient(circle at 35% 35%, #e2dad2, #988e84 55%, #6a6158); box-shadow: 0 0 0 1px #0002; }
+.aon.on { background: radial-gradient(circle at 35% 35%, #c4ffbc, #2fb52f 55%, #147414); box-shadow: 0 0 0 1px #0a4a0a66, 0 0 6px #3cdc3c; }
+.atr4 .aon { margin-left: -16px; } /* имя по-прежнему по центру, точка — слева от него */
+.aonline { text-align: center; margin: 4px 0 6px; font: min(20px, 4.6vw) var(--serif); color: #2a1408; }
 .epaul { width: 30px; height: 30px; object-fit: contain; }
 .crown2 { height: 22px; vertical-align: middle; }
 .ainput { width: 100%; box-sizing: border-box; margin: 4px 0 8px; padding: 10px 12px; border: 3px solid #d8a850; border-radius: 6px; background: #6e7e5a; color: #f0e0a0; font: min(22px, 5vw) var(--serif); box-shadow: inset 0 2px 4px #0006; }
@@ -714,6 +718,9 @@ textarea.ainput { resize: vertical; }
 .fops img { width: 28px; }
 .fpost { border: 2px solid #c8a070; border-radius: 8px; background: #ecd4b0; padding: 6px 10px; margin: 6px 0; font: min(20px, 4.6vw) var(--serif); }
 .fauthor { font-size: 1.1em; } .ftext { white-space: pre-wrap; margin: 4px 0; } .fpost small { opacity: .7; }
+/* форум альянса: под сообщением — время и «Ответить», как в общем форуме */
+.afoot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px; }
+.areply { border: 1px solid #5a8a3a; border-radius: 4px; background: #e6f2d8; color: #1f4a0a; font: 14px var(--serif); padding: 3px 10px; }
 .logrow { border-bottom: 1px solid #0002; padding: 6px 0; font: min(20px, 4.6vw) var(--serif); } .logrow .lt { color: #7a1a0a; text-decoration: underline; }
 .dst.war { color: #b01010; } .dst.ally { color: #1a7a1a; } .dst.nap { color: #1050a0; }
 .resins { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; } .resin { display: flex; align-items: center; gap: 4px; } .resin input { width: 100%; min-width: 0; padding: 6px; border: 2px solid #d8a850; border-radius: 6px; background: #6e7e5a; color: #f0e0a0; font-size: 16px; }
@@ -977,6 +984,24 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 #authBtn:disabled { filter: grayscale(1) brightness(.6); }
 .ver { margin-top: 14px; font-size: 12px; opacity: .55; }
 /* военные логи альянса */
+/* журнал альянса по отделам (alliance.js allyLogsWin): плитки-вкладки с числом записей */
+.jtabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 6px 0 8px; }
+.jtabs button { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 7px 2px 6px; border: 2px solid #c8a070; border-radius: 8px;
+  background: #ecd4b0; color: #2a1408; font: min(16px, 3.9vw)/1.15 var(--serif); box-shadow: 0 2px 2px #0003; }
+.jtabs button.on { background: linear-gradient(#b8332a, #6e1510); border-color: #c8963e; color: #fff; }
+.jtabs img { width: 34px; height: 34px; object-fit: contain; }
+.jtabs b { position: absolute; top: 3px; right: 3px; min-width: 18px; padding: 0 5px; border-radius: 9px; background: #7a1a0a; color: #fff; font: 700 11px/18px sans-serif; }
+.jtabs button.on b { background: #fff; color: #7a1a0a; }
+/* кладовая альянса: сколько ресурсов — крупно, четыре в ряд */
+.astock { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 6px 0 8px; font: min(19px, 4.6vw) var(--serif); color: #2a1408; }
+.astock span { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 5px 0 4px; border: 2px solid #c8a070; border-radius: 8px; background: #ecd4b0; font-variant-numeric: tabular-nums; }
+.astock .ri { width: 30px; height: 30px; object-fit: contain; vertical-align: 0; }
+/* история кладовой и казны: «+» внёс, «−» выдал */
+.amove { display: grid; grid-template-columns: 26px 1fr auto; gap: 8px; align-items: center; padding: 6px 2px; border-bottom: 1px solid #0002; font: min(18px, 4.3vw)/1.35 var(--serif); color: #2a1408; }
+.amove > i { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; color: #fff; font: 700 17px/1 sans-serif; font-style: normal; }
+.amove.in > i { background: #2f8a2f; } .amove.out > i { background: #a8281e; }
+.amove .ri { height: 1.05em; width: auto; vertical-align: -0.18em; }
+.amove small { color: #7a5a3a; font-size: 13px; text-align: right; }
 .warchips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
 .warchips button { border: 2px solid #8a5a30; border-radius: 16px; padding: 4px 10px; background: #f3e2c0; font: 15px var(--serif); color: #4a2a10; }
 .warchips button.on { background: linear-gradient(#b8332a, #6e1510); color: #fff; border-color: #c8963e; }
@@ -1062,8 +1087,22 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .repcard.info { background: linear-gradient(#c47c4c, #6e3218); }
 .repcard:active { filter: brightness(.85); transform: translateY(1px); }
 .renv { width: 26px; height: 20px; vertical-align: -2px; }
-.repclean { position: fixed; left: 6px; bottom: 8px; width: 70px; height: 70px; border: 0; background: none; padding: 0; z-index: 5; }
-.repclean img { width: 100%; height: 100%; object-fit: contain; }
+/* конверт в списках «Отчёты» и «Сообщения» (dialogs.js mailMenuHtml), как в оригинале: внизу слева вместо ◀ (◀ — только
+   в открытом отчёте и диалоге); нажали — меню действий со списком над полосой «Закрыть», ◀ и ✕ под ней не видны */
+.mailset { position: fixed; left: 8px; bottom: calc(8px + var(--safe-b)); width: 64px; height: 64px; border: 0; background: none; padding: 0; z-index: 5; }
+.mailset img { width: 100%; height: 100%; object-fit: contain; }
+#sheet:has(.mailset) #sheetBack, #sheet:has(.mailbar) #sheetBack, #sheet:has(.mailbar) #sheetClose { display: none; }
+.mailshade { position: fixed; inset: 0; z-index: 5; background: #0006; }
+/* пункты меню и «Закрыть» — деревянные полосы в золотой рамке (border-image: углы рамки не растягиваются) на тёмной панели */
+.mailmenu { position: fixed; left: 0; bottom: calc(68px + var(--safe-b)); z-index: 6; width: min(68%, 350px); display: grid; gap: 4px; padding: 6px 6px 6px 4px;
+  background: linear-gradient(#4a1c08, #2e1004); border: 2px solid #c8963e; border-left: 0; border-bottom: 0; border-radius: 0 8px 0 0; box-shadow: 0 -2px 10px #0008; }
+.mailmenu button, .mailbar button { border: 17px solid transparent; border-image: url(gfx3d/btn/bar.png) 42 fill / 17px stretch; background: none; color: var(--cream);
+  font: min(21px, 5.2vw)/1.15 var(--serif); text-shadow: 0 1px 2px #000; }
+.mailmenu button { min-height: 58px; padding: 0 6px; text-align: left; }
+.mailmenu button:active, .mailbar button:active { filter: brightness(1.25); }
+.mailbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; display: flex; align-items: center; padding: 6px 6px calc(6px + var(--safe-b));
+  background: linear-gradient(#5a2410, #3a1406); border-top: 2px solid #c8963e; }
+.mailbar button { height: 54px; padding: 0 12px; }
 .rp { font: min(22px, 5.2vw)/1.45 var(--serif); color: #2a1408; padding: 4px 2px; }
 .rp b { font-weight: 700; }
 .rhr { border: 0; border-top: 1px solid #b08a5a88; margin: 8px 0; }
@@ -1094,16 +1133,26 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .hinfo { font: min(23px, 5.4vw)/1.35 var(--serif); color: #2a1408; }
 .hdark { display: block; width: 100%; margin-top: 6px; border: 0; border-radius: 3px; background: #2e140a; color: #fff; font: min(23px, 5.4vw) var(--serif); padding: 4px; }
 .hdark:active { filter: brightness(1.4); }
-.hnav { display: grid; grid-template-columns: 1fr 1fr 1.6fr 1fr 1fr; gap: 8px; margin: 6px 0; }
-.hnav button, .hnav span { height: 44px; border: 0; border-radius: 6px; background: linear-gradient(#8a4424, #5a2410); color: #f0c060; font: 20px var(--serif); box-shadow: 0 2px 2px #0005; }
-.hnav button:disabled { opacity: .55; }
-.hnav span { display: grid; place-items: center; background: #6e7a58; color: #fff2c0; border: 3px solid #d8a850; font-size: 22px; }
-.htable { margin: 0 -4px; }
-.htable div { display: grid; grid-template-columns: 12% 1fr 26%; align-items: center; min-height: 42px; padding: 0 6px; font: min(23px, 5.4vw) var(--serif); color: #2a1408; background: #f0c898; }
+/* листалка (сообщения, история переписки, отчёты, новости, Зал славы, рейтинг, ЗАГС): стрелки — картинки gfx3d/btn, номер — на зелёной табличке */
+.hnav { display: grid; grid-template-columns: 52px 52px 1fr 52px 52px; gap: 8px; align-items: center; margin: 6px 0; }
+.hnav button { height: 52px; border: 0; padding: 0; background: center / contain no-repeat; font-size: 0; color: transparent; }
+.hnav button:nth-of-type(1) { background-image: url(gfx3d/btn/first.png); }
+.hnav button:nth-of-type(2) { background-image: url(gfx3d/btn/prev.png); }
+.hnav button:nth-of-type(3) { background-image: url(gfx3d/btn/next.png); }
+.hnav button:nth-of-type(4) { background-image: url(gfx3d/btn/last.png); }
+.hnav button:disabled { opacity: .45; filter: grayscale(.5); }
+.hnav span { height: 52px; display: grid; place-items: center; border: 15px solid transparent; border-image: url(gfx3d/btn/page.png) 40 fill / 15px stretch;
+  color: #fff2c0; font: 22px/1 var(--serif); text-shadow: 0 1px 2px #000a; white-space: nowrap; }
+/* столбцы общие для всех строк (subgrid): число любой длины видно целиком и стоит ровно под остальными, длинное имя — с «…»;
+   где subgrid нет (старый WebView), строка подгоняет столбцы под себя — число тоже не вылезает за край */
+.htable { margin: 0 -4px; display: grid; grid-template-columns: minmax(12%, max-content) minmax(0, 1fr) minmax(26%, max-content); column-gap: 6px; }
+.htable > p { grid-column: 1 / -1; }
+.htable div { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(12%, max-content) minmax(0, 1fr) minmax(26%, max-content); grid-template-columns: subgrid; column-gap: 6px;
+  align-items: center; min-height: 42px; padding: 0 8px; font: min(23px, 5.4vw) var(--serif); color: #2a1408; background: #f0c898; }
 .htable div:nth-child(odd) { background: #e8b07a; }
 .htable div.me { outline: 2px solid #8a1010; outline-offset: -2px; }
 .htable a { justify-self: center; color: #8a1010; border-bottom: 1px solid #8a101088; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
-.htable div span:last-child { text-align: center; }
+.htable div span:last-child { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .hrow.harow { font-size: min(23px, 5.4vw); margin: 8px 0; } .hrow.harow img { height: 52px; image-rendering: auto; }
 /* рейтинги: полоса категории с меню */
 .rkbar { position: relative; display: flex; align-items: center; justify-content: center; min-height: 58px; margin: 0 -4px 6px; border: 2px solid #a86a3a; border-radius: 4px;
@@ -1260,8 +1309,6 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .dtx small { opacity: .75; }
 .denv { width: 26px; height: 20px; vertical-align: -3px; }
 .dcnt { position: absolute; right: 8px; top: 8px; min-width: 24px; height: 24px; padding: 0 6px; border-radius: 12px; background: #e01010; color: #fff; font: 700 14px/24px sans-serif; font-style: normal; text-align: center; }
-.dnew { position: fixed; left: 6px; bottom: 8px; width: 74px; height: 74px; border: 0; background: none; padding: 0; z-index: 5; }
-.dnew img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 3px 3px #0008); }
 .ddate { margin: 6px -10px 4px; }
 .dmsg { padding: 4px 0 6px; border-bottom: 1px solid #b08a5a66; }
 .dwho { display: flex; align-items: center; gap: 8px; font: 700 min(22px, 5.2vw) var(--serif); color: #2a1408; }
@@ -1329,6 +1376,9 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .ndate { color: #6a5a48; font: min(24px, 5.6vw) var(--serif); border-bottom: 1px solid #b08a5a88; padding-bottom: 2px; }
 .ntext { margin: 6px 0 10px; font: min(25px, 5.8vw)/1.35 var(--serif); color: #2a1408; white-space: pre-wrap; overflow-wrap: anywhere; }
 .ncmts { padding-bottom: 80px; }
+/* публикация новости: «Игроки могут комментировать» (снята — комментарии закрыты, news.js) */
+#sheetBody label.npcmt { display: flex; align-items: center; gap: 10px; font: min(20px, 5vw) var(--serif); color: #2a1408; }
+#sheetBody label.npcmt input { flex: none; width: 26px; height: 26px; margin: 0; padding: 0; accent-color: #8a4424; }
 .ncmt { position: relative; margin-bottom: 4px; padding: 6px 34px 6px 10px; border-radius: 6px; background: #e8a870; font: min(22px, 5.2vw)/1.3 var(--serif); color: #2a1408; }
 .ncmt .fnick { display: block; color: #7a1a0a; }
 .ncmt small { display: block; color: #6a4a2a; font-size: .8em; }
@@ -1724,10 +1774,9 @@ img.artr2 { filter: drop-shadow(0 0 3px #ffd34a) drop-shadow(0 0 7px #ff8a1a); }
   #game { max-width: 560px !important; border-left: 2px solid #c9a15a !important; border-right: 2px solid #c9a15a !important; box-shadow: 0 0 0 1px #5a3a14, 0 0 40px #000; }
   #sheet { max-width: 556px !important; }
   /* всё, что «приклеено» к краям экрана, — к краям колонки игры (556 точек внутри рамки), а не монитора:
-     меню с нижней панелью, кнопки «Очистить отчёты» и «Новое письмо», сообщения, полоса «Нет связи» */
+     меню с нижней панелью, сообщения, полоса «Нет связи» (кнопка «Удалить прочитанные» — по центру, ей не нужно) */
   #menu, #offline { left: calc(50% - 278px); right: calc(50% - 278px); }
   #toast { left: calc(50% - 266px); right: calc(50% - 266px); }
-  .repclean, .dnew { left: calc(50% - 272px); }
   #auth { background-attachment: scroll; }
   #auth .auth-box { max-width: 440px; }
 }
@@ -1972,7 +2021,8 @@ img.artr2 { filter: drop-shadow(0 0 3px #ffd34a) drop-shadow(0 0 7px #ff8a1a); }
 .zgifts { justify-content: center; }
 .zcom { position: relative; margin: 6px -4px; padding: 6px 30px 6px 8px; background: #e8a868; font: 20px/1.35 var(--serif); overflow-wrap: anywhere; }
 .zdel { position: absolute; top: 4px; right: 4px; border: 0; background: none; color: #8a1010; font-size: 18px; }
-.ztab div { grid-template-columns: 20% 1fr 24%; }
+.ztab { grid-template-columns: minmax(20%, max-content) minmax(0, 1fr) minmax(24%, max-content); }
+.ztab div { grid-template-columns: minmax(20%, max-content) minmax(0, 1fr) minmax(24%, max-content); grid-template-columns: subgrid; }
 .ztab a { white-space: normal; text-align: center; }
 .zhelp { font: 19px/1.45 var(--serif); }
 .zi { height: 1.25em; width: auto; vertical-align: -0.28em; }
@@ -2107,6 +2157,8 @@ img.artr2 { filter: drop-shadow(0 0 3px #ffd34a) drop-shadow(0 0 7px #ff8a1a); }
 .pvrow .avasm { width: 44px; height: 44px; flex: none; display: grid; place-items: center; overflow: hidden; }
 .pvrow .avasm img { width: 44px; height: 44px; object-fit: cover; }
 .acrow { display: flex; gap: 6px; margin: 2px 0 10px; justify-content: flex-end; }
+.apdays { display: flex; flex-wrap: wrap; gap: 6px; } .apdays .btn { flex: 1 1 0; min-width: 64px; padding-left: 4px; padding-right: 4px; } /* «Премиум всем»: срок кнопкой */
+.apdays .btn.on { background: linear-gradient(#6a2c12, #4a1c0c); color: #fff8e8; box-shadow: inset 0 0 0 2px #f0c040; } /* выбранный срок — как выбранная вкладка */
 /* админка: вкладки не вылезают за экран на узких телефонах — 4 в ряд, подпись переносится */
 .atabs { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
 .atabs button { min-width: 0; white-space: normal !important; overflow-wrap: normal; line-height: 1.15; font-size: min(13px, 3.3vw) !important; padding: 6px 1px !important; }
@@ -2160,6 +2212,20 @@ img.artr2 { filter: drop-shadow(0 0 3px #ffd34a) drop-shadow(0 0 7px #ff8a1a); }
 .brp-head > img { width: 64px; }
 .brp-head b { display: block; font: 700 22px var(--serif); }
 .brp-head .brstars img { width: 22px; height: 22px; }
+/* вкладка «Топ» (brank.js brTopHtml): четыре вкладки в ряд; строка — место (1–3 — медали), щит звания, ник и звание со звёздами, очки */
+.coin-tabs.br4 { grid-template-columns: repeat(4, 1fr); }
+.coin-tabs.br4 button { font-size: min(17px, 4.1vw); }
+.brme { margin: 2px 0 4px; text-align: center; font: min(20px, 5vw) var(--serif); color: #3a1c08; }
+.brtop { display: grid; gap: 6px; }
+.brtrow { display: grid; grid-template-columns: 34px 46px minmax(0, 1fr) auto; align-items: center; gap: 8px; width: 100%; padding: 4px 10px 4px 6px; border: 1px solid #b07a3a;
+  border-radius: 8px; background: linear-gradient(#f6e6c0, #e8cf98); color: #2a1408; text-align: left; font: min(19px, 4.8vw) var(--serif); }
+.brtrow.me { background: linear-gradient(#fff0c8, #f2d48c); box-shadow: inset 0 0 0 2px #b8862a; }
+.brtrow .brpl { text-align: center; font: 700 min(22px, 5.4vw) var(--serif); }
+.brtrow > img { width: 46px; height: 46px; object-fit: contain; }
+.brtrow .brtn { display: grid; min-width: 0; }
+.brtrow .brtn b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brtrow .brtn small { display: flex; align-items: center; gap: 4px; overflow: hidden; color: #5a3410; font-size: min(15px, 3.8vw); white-space: nowrap; }
+.brtrow .brtp { color: #6a2c08; font-weight: 700; white-space: nowrap; }
 .brp-sec { margin: 10px 0 6px; padding: 4px; text-align: center; font: 700 17px var(--serif); color: #fff8e8; background: linear-gradient(#a8603a, #7a3a1a); border-radius: 4px; display: flex; align-items: center; justify-content: center; gap: 6px; }
 .brp-chest { height: 26px; }
 .brp-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
@@ -2200,6 +2266,11 @@ form[data-smfind] { align-items: stretch; } /* «Найти» — одной в�
 .smred { color: #a01a10; } .smon { color: #2a7a10; font-style: normal; }
 .smnote { margin: 0 0 8px; padding: 8px 10px; border: 1px solid #a01a10; border-radius: 6px; background: #ffe2d8; color: #8a1008; font: 16px var(--serif); }
 .smnote.ok { border-color: #3a8a1a; background: #e6f6d8; color: #1f5a0a; }
+.maintbar { margin: 4px 0 10px; } /* «Закрыть игру» — вверху Админ-панели */
+.maintbar .small { margin: -2px 0 0; }
+.maintbar .mlabel { margin: 0 2px 4px; font: bold 18px var(--serif); }
+.maintbar .mbtns { display: flex; gap: 8px; }
+.maintbar .mbtns .pbar { flex: 1; width: auto; margin: 0; }
 /* сообщение старшего модератора в чате — светится рамка таблички (фиолетовая с золотом, как его герб), фон обычный */
 #sheetBody .cm.smodmsg, .cm.smodmsg { position: relative; border: 2px solid #e8b84a; outline: 2px solid #9a3ae8; outline-offset: -5px; box-shadow: inset 0 0 8px 2px #b06aff55; }
 #sheetBody .cm.smodmsg b, .cm.smodmsg b { color: #6a1aa8; }
@@ -2411,6 +2482,8 @@ body.menuopen #advbar, body.menuopen #advhand { display: none; } /* открыт
 /* «МАСТЕРА» (staff.js): темы, переписка, фото на 24 часа, опросы */
 .sfwho { margin: 2px 0 8px; }
 .sftopics { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.sftrow { display: flex; gap: 6px; align-items: stretch; } .sftrow .sftopic { flex: 1; min-width: 0; } /* «МАСТЕРА»: тема и 🗑 рядом */
+.sftdel { flex: none; padding: 0 11px; border-radius: 10px; border: 1px solid rgba(120, 80, 30, 0.35); background: rgba(255, 248, 230, 0.75); font-size: 18px; }
 .sftopic { display: block; width: 100%; text-align: left; padding: 9px 11px; border-radius: 10px; border: 1px solid rgba(120, 80, 30, 0.35); background: rgba(255, 248, 230, 0.75); color: #3a2410; }
 .sftopic.new { border-color: #c27a14; background: #fff1cf; }
 .sftopic .sft1 { display: flex; justify-content: space-between; gap: 8px; }
@@ -2425,6 +2498,7 @@ body.menuopen #advbar, body.menuopen #advhand { display: none; } /* открыт
 .sfhead { display: flex; align-items: baseline; gap: 8px; font-size: 13px; }
 .sfhead small { color: #8a6a44; }
 .sfdel { margin-left: auto; border: 0; background: none; color: #a33; font-size: 14px; }
+.sfrep { margin-left: auto; border: 0; background: none; color: #6b4a24; font-size: 16px; padding: 0 4px; } .sfrep + .sfdel { margin-left: 0; } /* ↩ ответить */
 .sftext { white-space: pre-wrap; word-break: break-word; margin-top: 3px; }
 .sfpic { display: block; border: 0; padding: 0; margin-top: 5px; background: none; }
 .sfpic img { display: block; max-width: 100%; max-height: 260px; border-radius: 8px; }
@@ -2526,3 +2600,16 @@ p.ghint.center { margin: 2px 8px 6px; text-align: center; font: 14px var(--serif
 .pbar.rfgo:disabled { opacity: 0.5; }
 /* «👁 Осмотр» в админке (admin.js admInspectWin): блоки сведений о замке */
 .insb { line-height: 1.5; margin: 2px 0 8px; overflow-wrap: anywhere; } .insb hr { border: 0; border-top: 1px dashed #b08a5a88; margin: 4px 0; }
+
+/* админка: «Сравнить бой» — прежние и новые правила рядом */
+.bcmp{width:100%;border-collapse:collapse;font-size:13px;margin:6px 0 2px}
+.bcmp th,.bcmp td{border-bottom:1px solid rgba(90,60,30,.25);padding:5px 6px;text-align:left;vertical-align:top}
+.bcmp th{font-weight:600;color:#5a3b1c}
+.bcmp tr:first-child th{font-weight:700;color:#3d2610}
+.bcmp small{color:#6b5236}
+.bcmp .bgood{color:#2e7d32}.bcmp .bbad{color:#b23b2b}
+
+/* технические работы: на экране входа — только логотип, название и заглушка (форма — у администратора: #admin или 5 нажатий на логотип) */
+.maintnote { margin: 10px 0 14px; padding: 14px 14px; border-radius: 10px; background: rgba(60, 30, 5, 0.8); border: 1px solid #c9a24a; color: #ffe6a8; text-align: center; font-size: 15px; line-height: 1.45; }
+.maintnote small { display: block; margin-top: 6px; font-size: 12px; opacity: 0.85; }
+#auth.maint .auth-box > :not(.logo):not(h1):not(#maintNote) { display: none !important; }

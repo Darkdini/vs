@@ -79,6 +79,7 @@ function catalogJson() {
     speed: G.SPEED,
     shopOpen: process.env.SHOP_OPEN === '1', // «Лавка Короля» для всех (иначе — только администратор)
     pay: require('./tgpay').payInfo(), // покупка монет за звёзды Telegram: курс и пакеты
+    allyMedalCost: require('./ally').MEDAL_COST, // медаль альянса — за монеты казны альянса
     gameRules: { intro: require('./rules').RULES_INTRO, list: require('./rules').RULES }, // «Правила игры» (rules.js): Справка, форум, модераторам
     campFast: require('./army').CAMP_FAST,
     march: require('./army').MARCH, // армии ходят быстрее во столько раз
@@ -111,11 +112,13 @@ function onlineUsers() {
   return seen;
 }
 const onlineCount = () => onlineUsers().size;
-// состав альянса (alliance.js): игрок вошёл или вышел — его камень сразу меняется у своих по альянсу; админ невидим — о нём молчим
-function allyStCast(game, u) {
-  if (!u || !u.alliance || u.admin || u.bot) return;
-  const st = game.allySt(u, game.onlineIds ? game.onlineIds() : null);
-  for (const s of WebSession.all || []) if (s.user && s.user !== u && s.user.alliance === u.alliance) s.send({ t: 'allyst', id: u.id, st });
+// u.online — у игрока есть открытое соединение со входом (с любого устройства).
+// Игрок вошёл или вышел совсем — соальянсникам в игре сразу: точка в составе альянса (ally.js allyOnline, alliance.js).
+// Админ и боты для игроков всегда «не в игре» — о них не рассылается
+const liveSession = (u, except) => [...(WebSession.all || [])].some((s) => s !== except && s.user && s.user.id === u.id);
+function allyPresenceCast(u, on) {
+  if (!u || u.admin || u.bot || !u.alliance) return;
+  for (const s of WebSession.all || []) if (s.user && s.user.id !== u.id && s.user.alliance === u.alliance) s.send({ t: 'allyon', id: u.id, on });
 }
 
 // ---------- сессия браузера ----------
@@ -205,6 +208,11 @@ function wheelCast(g, out, from) {
 function chatClosedCast(g, r) {
   for (const s of WebSession.all || []) if (s.user) { s.send({ t: 'chatclosed', until: r.until || 0 }); if (r.chat) s.sendChat(r.chat); }
 }
+// закрытая игра открылась сама по сроку (closedtest.js maintCheck): у открытых экранов входа заглушка исчезает, у админа — новое состояние
+function maintCast(g) {
+  const data = g.maintView();
+  for (const s of WebSession.all || []) { if (!s.user) s.send({ t: 'maint', msg: '' }); else if (s.user.admin) s.send({ t: 'admininfo', op: 'maint', data }); }
+}
 // «МАСТЕРА»: тем, кто открыл эту тему, — свежие сообщения; в списке тем — свежий список; остальным мастерам — счётчик непрочитанного
 function staffNotify(g, topic) {
   for (const s of WebSession.all || []) {
@@ -239,10 +247,11 @@ const ROYAL_ACTIONS = new Set(['forge', 'ritual', 'calm', 'build', 'wall', 'trai
 const API = {
   // справочник игры (~120 КБ) не шлём по сокету каждый раз: только отпечаток, а сам файл браузер берёт по HTTP
   // (/catalog.json?h=… — сжатый и с вечным кэшем: при повторном входе он уже в памяти телефона)
-  hello() { this.send({ t: 'catalog', h: catalogFile().hash, v: VERSION, closed: this.game.closedOn() }); }, // closed — закрытый тест (closedtest.js): экран входа без регистрации // v — версия игры: у открытой старой страницы клиент сам перезагрузится
+  hello() { this.send({ t: 'catalog', h: catalogFile().hash, v: VERSION, closed: this.game.closedOn(), maint: this.game.maintOn() ? this.game.maintMsg() : '' }); }, // maint — технические работы (closedtest.js): у игроков заглушка вместо входа // closed — закрытый тест (closedtest.js): экран входа без регистрации // v — версия игры: у открытой старой страницы клиент сам перезагрузится
   // капча для регистрации: новая при каждом запросе и после каждой попытки
   captcha() { const c = SEC.captcha(); this.captchaAns = { a: c.answer, exp: Date.now() + 300000 }; this.send({ t: 'captcha', img: c.img }); },
   register(m) {
+    if (this.game.maintOn()) return this.send({ t: 'maint', msg: this.game.maintMsg() }); // технические работы
     if (this.game.closedOn()) return this.error('Идёт закрытое тестирование — регистрация временно закрыта.');
     const test = process.env.NO_CAPTCHA === '1'; // только для автотестов
     if (this.game.devBanned(m.dev)) return this.error('Регистрация с этого устройства запрещена администрацией.');
@@ -274,12 +283,15 @@ const API = {
       return this.error(`Неверный логин или пароль . Осталось попыток: ${left}.`);
     }
     if (!m.token) this.game.loginOk(this.ip);
+    if (this.game.maintOn() && !u.admin) { this.log(`вход ${u.login}: технические работы`); return this.send({ t: 'maint', msg: this.game.maintMsg() }); } // входит только администратор
     this.game.trackLogin(u, this.ip, m.dev); this.dev = m.dev;
     if (!u.admin && this.game.devBanned(m.dev)) return this.error('Это устройство заблокировано администрацией.');
     if (!this.game.closedAllows(u)) { this.log(`вход ${u.login}: закрытый тест, не тестер`); return this.error('Идёт закрытое тестирование — вход только для тестеров.'); }
     if (!this.game.banExpired(u)) return this.error(u.banUntil ? `Аккаунт заблокирован модерацией до ${new Date(u.banUntil + 3 * 3600000).toISOString().slice(0, 16).replace('T', ' ')} (МСК). Причина: ${u.banWhy || '—'}` : 'Аккаунт заблокирован администрацией.');
-    const prevSeen = u.lastSeen || 0;
+    const prevSeen = u.lastSeen || 0, was = liveSession(u, this), prev = this.user !== u ? this.user : null; // was — уже в игре с другого устройства
     this.user = u; u.online = true; u.lastSeen = Date.now(); this.game.markActive(u);
+    if (!was) allyPresenceCast(u, true);
+    if (prev && !liveSession(prev)) { prev.online = false; prev.lastSeen = Date.now(); allyPresenceCast(prev, false); } // вход под другим игроком без выхода
     this.log(`web login ${u.login}`);
     this.token = m.token ? String(m.token) : this.game.issueToken(u);
     if (this.mkey) MEDIA.delete(this.mkey);
@@ -287,12 +299,15 @@ const API = {
     this.send({ t: 'auth', login: u.login, token: this.token, mkey: this.mkey });
     if (u.admin && !m.token && String(m.password || '').toLowerCase() === 'admin') this.toast('⚠ У админа стандартный пароль «admin» — смените его: Админ-панель → Цель → Сменить пароль.');
     this.pushState();
-    allyStCast(this.game, u);
     // советник встречает при входе: сколько игроков, что случилось за время отсутствия.
     // Сервер шлёт доклад при каждом входе; клиент показывает его один раз за открытие игры (после обрыва связи — не повторяет)
     this.send({ t: 'welcome', ...this.game.welcomeInfo(u, prevSeen), players: onlineCount() }); // сколько сейчас в игре — как «Игроки (N)» в чате
   },
-  logout() { const u = this.user; this.game.dropToken(u, this.token); MEDIA.delete(this.mkey); this.mkey = null; u.online = false; this.user = null; this.send({ t: 'loggedout' }); allyStCast(this.game, u); },
+  logout() {
+    const u = this.user; this.game.dropToken(u, this.token); MEDIA.delete(this.mkey); this.mkey = null; this.user = null;
+    if (!liveSession(u)) { u.online = false; u.lastSeen = Date.now(); allyPresenceCast(u, false); } // с другого устройства ещё в игре — остаётся «в игре»
+    this.send({ t: 'loggedout' });
+  },
   sync() { this.pushState(); },
   ping() { this.send({ t: 'pong' }); }, // проверка живости соединения (клиент после сворачивания приложения)
   switch(m) { const r = this.game.switchCastle(this.user, m.id); if (r.error) return this.error(r.error); if (!m.quiet) this.toast(`Замок: ${this.castle.name}`); this.pushState(); }, // quiet — возврат в последний замок при входе
@@ -326,7 +341,7 @@ const API = {
   tg(m) {
     const g = this.game, op = String(m.op || '');
     if (op === 'link') { const r = g.tgLinkStart(this.user); if (r.error) return this.error(r.error); return this.send({ t: 'tg', url: r.url, info: g.tgAuthInfo(this.user) }); }
-    if (op === 'buy') return g.payStart(this.user, m.pack).then((r) => this.send(r.error ? { t: 'tg', buyErr: r.error } : { t: 'tg', url: r.url, buy: 1 })); // Казна: счёт в звёздах (tgpay.js)
+    if (op === 'buy') return g.payStart(this.user, m.pack, Date.now(), !!m.ally).then((r) => this.send(r.error ? { t: 'tg', buyErr: r.error } : { t: 'tg', url: r.url, buy: 1 })); // Казна (ally — казна альянса): счёт в звёздах (tgpay.js)
     if (op === 'notify') { const r = g.tgNotifySet(this.user, String(m.kind || ''), !!m.on); if (r.error) return this.error(r.error); return this.send({ t: 'tg', info: g.tgAuthInfo(this.user) }); }
     if (op === 'unlink' || op === 'unlinkok') { // отвязка: unlink — код в Telegram, unlinkok — ввод кода
       const r = op === 'unlink' ? g.tgUnlinkStart(this.user) : g.tgUnlink(this.user, m.code);
@@ -408,12 +423,19 @@ const API = {
     this.send({ t: 'world', cx, cy, radius: R, objects, home: { x: c.x, y: c.y } });
   },
   gift(m) {
-    const r = this.game.sendGift(this.user, m.to, m.gift, m.text);
+    const r = this.game.sendGift(this.user, m.to, m.gift, m.text, !!m.ally); // ally — из казны альянса
     if (r.error) return this.error(r.error);
     this.toast(r.msg);
     const to = this.game.userById(Number(m.to));
     for (const s of WebSession.all || []) if (s.user && to && s.user.id === to.id) { s.pushState(); if (s.dialogWith === this.user.id) API.dialog.call(s, { id: this.user.id, keep: 1 }); } // получателю — оповещение и сообщение сразу
     this.send({ t: 'profile', refresh: true, profile: this.game.profileOf(to, this.user) });
+  },
+  // даритель удаляет свой подарок у получателя за монеты (social.js deleteGift); клиент убирает его из открытого профиля
+  giftdel(m) {
+    const r = this.game.deleteGift(this.user, m.to, m.at, m.gift);
+    if (r.error) return this.error(r.error);
+    this.toast(r.msg); this.pushState();
+    this.send({ t: 'giftdel', to: Number(m.to), at: Number(m.at), gift: String(m.gift) });
   },
   avalike(m) { const r = this.game.avaLike(this.user, m.id); if (r.error) return this.error(r.error); this.send({ t: 'avalikes', done: r.msg, ...this.game.avaLikes(this.user, m.id) }); },
   avalikes(m) { const r = this.game.avaLikes(this.user, m.id); if (r.error) return this.error(r.error); this.send({ t: 'avalikes', ...r }); },
@@ -422,6 +444,7 @@ const API = {
     const u = k !== null ? (Object.prototype.hasOwnProperty.call(U, k) ? U[k] : Object.values(U).find((x) => x.login.toLowerCase() === k.toLowerCase()))
       : this.game.userById(Number(m.id) || this.user.id);
     if (!u) return this.error('Игрок не найден.');
+    if (u.nobody) return this.error('Ничейные земли — у них нет хозяина.'); // служебный владелец ничейных замков (nobody.js)
     const profile = this.game.profileOf(u, this.user);
     if (m.acct && u.id === this.user.id) { // «Кабинет → Профиль»: настройки своего аккаунта
       const c = this.castle, v = this.user.violations || 0;
@@ -456,6 +479,7 @@ const API = {
       const r = this.game.brClaim(this.user, Number.isInteger(m.upto) ? m.upto : undefined); if (r.error) return this.error(r.error);
       this.toast(r.msg); this.send({ t: 'brank', data: this.game.brView(this.user, this.user) }); return this.pushState();
     }
+    if (m.op === 'top') return this.send({ t: 'brtop', data: this.game.brTop(this.user, m.page) }); // вкладка «Топ»: рейтинг по боевому рангу
     const u = this.game.userById(Number(m.id) || this.user.id); if (!u) return this.error('Игрок не найден.'); this.send({ t: 'brank', data: this.game.brView(this.user, u) });
   },
   // ---- «Приватность» (server/src/privacy.js) ----
@@ -646,7 +670,7 @@ const API = {
     if (op === 'list') return this.send({ t: 'news', view: 'list', data: g.newsList(u, m.page) });
     if (op === 'get') { if (m.all) g.newsReadAll(u); const r = g.newsGet(u, m.id); if (r.error) return this.error(r.error); this.send({ t: 'news', view: 'item', data: r }); return this.pushState(); }
     const r = g.newsOp(u, m); if (r.error) return this.error(r.error); this.toast(r.msg);
-    if (op === 'comment' || op === 'cmtdel') { const it = g.newsGet(u, r.id); if (!it.error) this.send({ t: 'news', view: 'item', data: it, scroll: op === 'comment' ? 1 : 0 }); }
+    if (op === 'comment' || op === 'cmtdel' || op === 'cmtlock') { const it = g.newsGet(u, r.id); if (!it.error) this.send({ t: 'news', view: 'item', data: it, scroll: op === 'comment' ? 1 : 0 }); }
     if (op === 'publish' || op === 'delete') { for (const s of WebSession.all || []) if (s.user) s.pushState(); }
     if (op !== 'publish') this.send({ t: 'news', view: 'list', data: g.newsList(u, 0), quiet: 1 });
   },
@@ -674,7 +698,8 @@ const API = {
     let changed = false; for (const x of all) if (x.to === me && !x.read) { x.read = true; changed = true; }
     if (changed) { this.game.store.save(); this.pushState(); }
     const lim = Math.min(all.length, Math.max(30, Math.floor(Number(m.more)) || 30));
-    this.send({ t: 'dialog', with: { id: o.id, login: o.login, race: o.race, avatar: o.avatar || 0, frame: o.frame || '', friend: this.game.friendState ? this.game.friendState(this.user, o) : null }, more: all.length > lim,
+    this.send({ t: 'dialog', with: { id: o.id, login: o.login, race: o.race, avatar: o.avatar || 0, frame: o.frame || '', friend: this.game.friendState ? this.game.friendState(this.user, o) : null,
+      deny: this.game.canReach(this.user, o, 'msg') || '' }, more: all.length > lim, // писать нельзя — вместо поля ввода причина (dialogs.js)
       list: all.slice(-lim).map((x) => msgOut(this.game, x, me)), keep: !!m.keep });
   },
   // «История» переписки: страницы по 20 сообщений, под каждым — «Переслать»
@@ -685,6 +710,13 @@ const API = {
     const r = this.game.msgDelete(this.user, w !== null ? [] : [].concat(m.ids || []).slice(0, 200), w);
     this.toast(r.n ? `Удалено сообщений: ${r.n}.` : 'Нечего удалять.'); this.pushState();
     if (w !== null || m.dlg) API.dialog.call(this, { id: w !== null ? w : Number(m.dlg), keep: 1 });
+  },
+  // конверт в списке «Сообщения»: удалить все / прочитанные / с новыми переписки или отметить всё прочитанным; в ответ — та же страница
+  msgbulk(m) {
+    const op = ['all', 'read', 'new', 'readall'].includes(m.op) ? m.op : null; if (!op) return this.error('Неизвестное действие.');
+    const r = this.game.msgBulk(this.user, op);
+    this.toast(op === 'readall' ? (r.n ? `Прочитано сообщений: ${r.n}.` : 'Новых сообщений нет.') : r.dialogs ? `Удалено переписок: ${r.dialogs}.` : 'Нечего удалять.');
+    this.pushState(); API.dialogs.call(this, { page: m.page, filter: m.filter });
   },
   msgfwd(m) { // «Переслать» сообщение: получателю — как новое письмо (открыта переписка — обновится сразу)
     const r = this.game.msgForward(this.user, m.id, m.to); if (r.error) return this.error(r.error); this.toast(r.msg);
@@ -748,7 +780,7 @@ const API = {
     for (const s of WebSession.all || []) if (s.user && s.user.id === res.to.id) { if (s.dialogWith === this.user.id) API.dialog.call(s, { id: this.user.id, keep: 1 }); else if (s.notifyMail) s.notifyMail(this.user.login); }
   },
   // ---- функции зданий и армия (server/src/army.js) ----
-  // Лазарет: вылечить раненых (units { id: n } или всех) — за полцены тренировки, сразу (army.js healWounded)
+  // Лазарет: вылечить раненых (units { id: n } или всех) — за четверть цены тренировки, сразу (army.js healWounded)
   heal(m) { const c = pickCastle(this, m); if (!c) return; const r = this.game.healWounded(c, m.units && typeof m.units === 'object' && !Array.isArray(m.units) ? m.units : null); if (r && r.ok) this.toast(r.msg); this.result(r); },
   train(m) { const c = pickCastle(this, m); if (!c) return; const r = this.game.train(c, Number(m.unit), Number(m.count)); if (r && r.job) this.toast('Тренировка начата!'); this.result(r); if (c !== this.castle) API.kingdom.call(this); },
   kingdom() { if (!this.game.isPremium(this.user)) return this.error('Сводка королевства — с премиумом.'); this.send({ t: 'kingdom', list: this.game.kingdom(this.user) }); },
@@ -795,8 +827,14 @@ const API = {
       leader: (this.game.userById(a.leader) || {}).login, ad: a.ad || '', requested: (a.requests || []).includes(this.user.id) })).sort((x, y) => y.members - x.members);
     this.send({ t: 'alliances', list });
   },
-  reports() { this.send({ t: 'reports', list: this.game.reportsOf(this.user.id).map((x) => ({ id: x.id, at: x.at, kind: x.kind, title: x.title, read: x.read, tone: this.game.reportTone(x), from: x.from })) }); },
-  repdel(m) { const r = this.game.reportDelete(this.user, m.ids === 'read' ? 'read' : [].concat(m.ids || [])); this.toast(r.n ? `Удалено отчётов: ${r.n}` : 'Нечего удалять.'); API.reports.call(this); this.pushState(); },
+  // «Отчёты» — по 10 на страницу (page), новые сверху
+  reports(m) {
+    const r = this.game.reportsPage(this.user.id, m && m.page);
+    this.send({ t: 'reports', page: r.page, pages: r.pages, total: r.total, list: r.list.map((x) => ({ id: x.id, at: x.at, kind: x.kind, title: x.title, read: x.read, tone: this.game.reportTone(x), from: x.from })) });
+  },
+  // удалить: номера или из конверта 'all' / 'read' / 'new'; в ответ — та же страница списка
+  repdel(m) { const r = this.game.reportDelete(this.user, ['all', 'read', 'new'].includes(m.ids) ? m.ids : [].concat(m.ids || [])); this.toast(r.n ? `Удалено отчётов: ${r.n}` : 'Нечего удалять.'); API.reports.call(this, { page: m.page }); this.pushState(); },
+  repread(m) { const r = this.game.reportReadAll(this.user); this.toast(r.n ? `Прочитано отчётов: ${r.n}` : 'Новых отчётов нет.'); API.reports.call(this, { page: m.page }); this.pushState(); },
   repfwd(m) { // пересланный отчёт приходит письмом: получателю — как новое письмо (открыта переписка — обновится сразу)
     const r = this.game.reportForward(this.user, m.id, m.to); if (r.error) return this.error(r.error); this.toast(r.msg);
     for (const s of WebSession.all || []) if (s.user && s.user.id === r.to.id) { if (s.dialogWith === this.user.id) API.dialog.call(s, { id: this.user.id, keep: 1 }); else { s.toast(`${this.user.login} переслал(а) вам отчёт — он в личных сообщениях.`); s.pushState(); } }
@@ -817,7 +855,12 @@ const API = {
     if (m.op === 'chat' && r.data) for (const s of WebSession.all || []) if (s.user && s.sendChat) s.sendChat(r.data);
     if (m.op === 'banmany' || m.op === 'devban') for (const s of WebSession.all || []) if (s.user && !s.user.admin && (s.user.banned || this.game.devBanned(s.dev))) s.socket.destroy();
     if (String(m.op || '').startsWith('test')) for (const s of WebSession.all || []) if (s.user && (!this.game.closedAllows(s.user) || s.user.id === r.kick)) { s.error('Идёт закрытое тестирование — вход только для тестеров.'); s.socket.destroy(); }
-    if (m.login && !String(m.op || '').startsWith('test')) for (const s of WebSession.all || []) if (s.user && s.user.login === String(m.login).trim() && s !== this) { if (m.op === 'ban' || m.op === 'delete') s.socket.destroy(); else s.pushState(); }
+    // технические работы: игроков — из игры (у них заглушка), у открытых экранов входа заглушка появляется или исчезает сразу
+    if (m.op === 'maint' && m.on !== undefined) {
+      const on = this.game.maintOn(), msg = on ? this.game.maintMsg() : '';
+      for (const s of WebSession.all || []) { if (s === this || (s.user && s.user.admin)) continue; if (s.user && on) { s.send({ t: 'maint', msg }); s.socket.destroy(); } else if (!s.user) s.send({ t: 'maint', msg }); }
+    }
+    if (m.login && !String(m.op || '').startsWith('test')) for (const s of WebSession.all || []) if (s.user && s.user.login === String(m.login).trim() && s !== this) { if (m.op === 'ban' || m.op === 'delete' || m.op === 'abandon') s.socket.destroy(); else s.pushState(); }
     this.pushState();
   },
   bug(m) {
@@ -912,7 +955,9 @@ function assetManifest() {
 }
 
 function startWeb(game, sessions, { port, host, log }) {
-  game.onlineIds = () => { const on = new Set(); for (const s of sessions) if (s.user) on.add(s.user.id); return on; }; // кто сейчас в игре (ally.js: состав альянса)
+  // соединений ещё нет: отметки «в игре» с прошлого запуска (сервер остановили, когда игроки были в сети) снимаются —
+  // иначе игрок числился в игре до следующего входа (состав альянса, друзья, уведомления в Telegram)
+  for (const u of Object.values(game.db.users)) if (u.online) u.online = false;
   const server = http.createServer((req, res) => {
     const ip = clientIp(req, req.socket);
     if (game.ipBanned(ip)) { res.writeHead(403, { 'Content-Type': 'text/plain' }); return res.end('forbidden'); }
@@ -1014,7 +1059,12 @@ function startWeb(game, sessions, { port, host, log }) {
       }
     });
     socket.on('error', () => {});
-    socket.on('close', () => { sessions.delete(session); if (session.mkey) MEDIA.delete(session.mkey); if (session.user) { session.user.online = [...sessions].some((s) => s.user === session.user); session.user.lastSeen = Date.now(); if (!session.user.online) allyStCast(game, session.user); } });
+    socket.on('close', () => {
+      sessions.delete(session); if (session.mkey) MEDIA.delete(session.mkey);
+      const u = session.user; if (!u) return;
+      u.online = liveSession(u); u.lastSeen = Date.now();
+      if (!u.online) allyPresenceCast(u, false);
+    });
   });
 
   server.on('error', (e) => {
@@ -1026,4 +1076,4 @@ function startWeb(game, sessions, { port, host, log }) {
   return server;
 }
 
-module.exports = { startWeb, WebSession, wheelCast, chatClosedCast };
+module.exports = { startWeb, WebSession, wheelCast, chatClosedCast, maintCast };

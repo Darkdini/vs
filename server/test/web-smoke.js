@@ -17,7 +17,7 @@ fs.rmSync(DB, { force: true });
 
 function startServer() {
   const child = spawn(process.execPath, [path.join(__dirname, '..', 'src', 'index.js')], {
-    env: { ...process.env, WEB_PORT: String(WEB_PORT), HOST: '127.0.0.1', DB, SPEED: '2000', SAVE_MS: '500', NO_CAPTCHA: '1', ADMIN_PASS: 'admin', RATE_OFF: '1', NEWBIE_DAYS: '0', NO_BACKUP: '1', LUCK: '0', ADMIN_FULL: '1' },
+    env: { ...process.env, WEB_PORT: String(WEB_PORT), HOST: '127.0.0.1', DB, SPEED: '2000', SAVE_MS: '500', NO_CAPTCHA: '1', ADMIN_PASS: 'admin', RATE_OFF: '1', GRANT_MIN_DAYS: '0', NEWBIE_DAYS: '0', NEWBIE_PREMIUM_DAYS: '0', NO_BACKUP: '1', LUCK: '0', ADMIN_FULL: '1' },
     stdio: ['ignore', 'pipe', 'inherit'],
   });
   return new Promise((resolve) => child.stdout.on('data', (d) => { if (String(d).includes('Откройте в Chrome')) resolve(child); }));
@@ -110,6 +110,13 @@ function client() {
     a.send({ t: 'read', id: mail.list[0].id });
     assert.equal((await a.expect('letter')).letter.text, 'Из браузера');
     console.log('✓ почта между игроками');
+    { // конверт в списке «Сообщения»: отметить всё прочитанным, удалить прочитанные переписки — в ответ список той же страницы
+      a.send({ t: 'msgbulk', op: 'readall', page: 0, filter: 'all' }); await a.expect('toast', (m) => /Новых сообщений нет|Прочитано сообщений/.test(m.msg));
+      const d0 = await a.expect('dialogs'); assert.ok(d0.total >= 1 && d0.list.every((x) => !x.unread), 'всё прочитано, переписки на месте');
+      a.send({ t: 'msgbulk', op: 'read', page: 3, filter: 'all' }); await a.expect('toast', (m) => /Удалено переписок: \d/.test(m.msg));
+      const dl = await a.expect('dialogs'); assert.ok(dl.total === 0 && dl.page === 0, 'удалена, страница — не дальше последней');
+      console.log('✓ «Сообщения», конверт: отметить прочитанными, удалить прочитанные переписки');
+    }
 
     a.send({ t: 'rating' });
     const rows = (await a.expect('rating')).rows;
@@ -199,29 +206,12 @@ function client() {
     { const rl = (await adm.expect('ratings', (m) => m.kind === 'alliances')).list.find((x) => x.tag === 'KRL');
       adm.send({ t: 'sync' }); const st = (await adm.expect('state', (m) => m.castle.mil.alliance && m.castle.mil.alliance.info.length === 2)).castle.mil.alliance;
       assert.equal(rl.rating, st.info.reduce((q, u) => q + u.rating + u.rep, 0)); }
-    adm.send({ t: 'alliance', op: 'award', login: 'Webby', kind: 'gold', text: 'За оборону' });
+    adm.send({ t: 'admin', op: 'allygold', tag: 'KRL', n: 100 }); // казна альянса пополняется только отдельно — звёздами Telegram или администрацией
+    await adm.expect('toast', (m) => /Казна \[KRL\]: \+100 монет/.test(m.msg));
+    adm.send({ t: 'alliance', op: 'award', login: 'Webby', kind: 'gold', text: 'За оборону' }); // медаль — 20 монет из казны
     await adm.expect('toast', (m) => /Медаль вручена: webby/i.test(m.msg));
     adm.send({ t: 'profile', id: s3.user.id });
     { const pr = (await adm.expect('profile', (m) => (m.profile.awards || []).length > 0)).profile; assert.equal(pr.awards[0].tag, 'KRL'); }
-    // состав альянса: кто в игре — видят только свои; вошёл и вышел — у своих сразу (allyst); админ невидим
-    a.send({ t: 'ally', op: 'get' });
-    { const v = (await a.expect('ally')).data, me = v.members.find((x) => x.login === 'Webby'), lead = v.members.find((x) => x.id === v.leader);
-      assert.ok(me.st === 'on' && lead.st === 'off', JSON.stringify(v.members.map((x) => [x.login, x.st]))); }
-    const c = client(); await c.open(); c.send({ t: 'hello' }); await c.expect('catalog');
-    c.send({ t: 'register', login: 'Sobrat', password: 'pass1', race: '0' }); await c.expect('registered');
-    c.send({ t: 'login', login: 'Sobrat', password: 'pass1' }); await c.expect('auth');
-    adm.send({ t: 'alliance', op: 'invite', login: 'Sobrat' }); await adm.expect('toast', (m) => /Приглашение отправлено: sobrat/i.test(m.msg));
-    const inv2 = (await c.expect('state', (m) => (m.castle.mil.invites || []).length === 1)).castle.mil.invites[0];
-    c.send({ t: 'alliance', op: 'accept', id: inv2.id }); await c.expect('state', (m) => m.castle.mil.alliance && m.castle.mil.alliance.tag === 'KRL');
-    c.close();
-    const gone = await a.expect('allyst', (m) => m.st === 'off');
-    const c2 = client(); await c2.open(); c2.send({ t: 'hello' }); await c2.expect('catalog');
-    c2.send({ t: 'login', login: 'Sobrat', password: 'pass1' }); await c2.expect('auth');
-    await a.expect('allyst', (m) => m.id === gone.id && m.st === 'on');
-    b.send({ t: 'allyinfo', id: inv2.id });
-    assert.ok((await b.expect('allyinfo')).ally.members.every((x) => x.st === undefined), 'чужим — без статусов');
-    c2.close();
-    console.log('✓ состав альянса: кто в игре — видят только свои, вход и выход — сразу');
     // окно «Альянс»: права, описание, форум, новости, казна, логи
     adm.send({ t: 'ally', op: 'rank', login: 'Webby', title: 'Казначей', ep: 2, rights: ['treasury', 'logs'] });
     await adm.expect('toast', (m) => /Права назначены: webby/i.test(m.msg));
@@ -231,15 +221,52 @@ function client() {
     const tp = (await a.expect('allytopic')).data; assert.equal(tp.posts[0].text, 'Все на штурм');
     adm.send({ t: 'ally', op: 'post', topic: tp.id, text: 'Иду' });
     await adm.expect('toast', (m) => /Сообщение добавлено/.test(m.msg));
-    adm.send({ t: 'ally', op: 'gold', n: 100 });
-    await adm.expect('toast', (m) => /Внесено в казну: 100/.test(m.msg));
-    a.send({ t: 'ally', op: 'gold', n: 40, to: 'Webby' });
-    await a.expect('toast', (m) => /Игроку webby выдано из казны: 40 монет/i.test(m.msg));
+    // «Ответить»: ответ с цитатой (ник и начало сообщения), автору — уведомление сразу
+    adm.send({ t: 'ally', op: 'post', topic: tp.id, text: 'Webby, иду с вами', reply: tp.posts[0].at });
+    { const rp = (await adm.expect('allytopic', (m) => m.data && m.data.posts.some((p) => p.reply))).data.posts.find((p) => p.reply);
+      assert.ok(rp.reply.by === 'Webby' && rp.reply.text === 'Все на штурм' && rp.text === 'Webby, иду с вами', 'ответ с цитатой'); }
+    await a.expect('toast', (m) => /ответил\(а\) вам на форуме альянса в теме «Сбор»/.test(m.msg));
+    adm.send({ t: 'ally', op: 'gold', n: 100 }); // свои монеты в казну альянса не переводятся
+    await adm.expect('error', (m) => /не переводятся/.test(m.msg));
+    a.send({ t: 'ally', op: 'gold', n: 40, to: 'Webby' }); // и игрокам казна не выдаётся
+    await a.expect('error', (m) => /нельзя выдать/.test(m.msg));
+    adm.send({ t: 'gift', to: s3.user.id, gift: 'gift_box', text: 'Спасибо', ally: 1 }); // подарок участнику — из казны (1 монета)
+    await adm.expect('toast', (m) => /из казны альянса отправлен игроку webby/i.test(m.msg));
+    { const gp = (await adm.expect('profile', (m) => m.refresh && m.profile.id === s3.user.id)).profile; // профиль получателя — с подарком «от альянса»
+      assert.ok(gp.gifts[0].gift === 'gift_box' && gp.gifts[0].ally === 'KRL', 'подарок из казны — «от альянса [KRL]»'); }
     adm.send({ t: 'ally', op: 'get' });
-    const av = (await adm.expect('ally', (m) => m.data.treasury === 60)).data;
-    assert.ok(av.name === 'Короли Мира' && av.members.find((x) => x.login === 'Webby').title === 'Казначей' && av.forum[0].replies === 2 && av.log.length > 0);
+    const av = (await adm.expect('ally', (m) => m.data.treasury === 79)).data; // 100 − 20 (медаль) − 1 (подарок)
+    assert.ok(av.name === 'Короли Мира' && av.members.find((x) => x.login === 'Webby').title === 'Казначей' && av.forum[0].replies === 3 && av.log.length > 0);
     console.log('✓ окно альянса: права, описание, форум, казна, логи');
     console.log('✓ Дипломатический центр: приглашения, исключение, заявка и одобрение');
+    // статус в составе: вошедшие — «в игре», админ для игроков всегда «не в игре»; соальянсник вошёл или вышел — allyon сразу
+    {
+      const p1 = client(); await p1.open(); p1.send({ t: 'register', login: 'Pres1', password: 'pass1', race: '0' }); await p1.expect('registered');
+      p1.send({ t: 'login', login: 'Pres1', password: 'pass1' }); await p1.expect('state');
+      adm.send({ t: 'alliance', op: 'invite', login: 'Pres1' });
+      const pinv = (await p1.expect('state', (m) => (m.castle.mil.invites || []).length === 1)).castle.mil.invites[0];
+      p1.send({ t: 'alliance', op: 'accept', id: pinv.id }); await p1.expect('state', (m) => m.castle.mil.alliance && m.castle.mil.alliance.tag === 'KRL');
+      a.send({ t: 'ally', op: 'get' });
+      const v = (await a.expect('ally', (m) => m.data.members.some((x) => x.login === 'Pres1'))).data, M = (l) => v.members.find((x) => x.login === l);
+      const pid = M('Pres1').id, lead = v.members.find((x) => x.id === v.leader);
+      assert.ok(M('Pres1').on === true && M('Webby').on === true, 'вошедшие в игру — в игре');
+      assert.ok(lead.on === false, 'админ в составе — «не в игре»');
+      assert.ok(v.members.every((x) => !('lastSeen' in x) && !('online' in x) && !('away' in x)), 'время входа не раскрывается');
+      p1.close();
+      assert.strictEqual((await a.expect('allyon', (m) => m.id === pid)).on, false, 'вышел — соальянсникам сразу');
+      const p2 = client(); await p2.open(); p2.send({ t: 'login', login: 'Pres1', password: 'pass1' });
+      assert.strictEqual((await a.expect('allyon', (m) => m.id === pid)).on, true, 'вошёл — соальянсникам сразу');
+      // с двух устройств: выход с одного — всё ещё в игре
+      const p3 = client(); await p3.open(); p3.send({ t: 'login', login: 'Pres1', password: 'pass1' }); await p3.expect('state');
+      p3.send({ t: 'logout' }); await p3.expect('loggedout');
+      a.send({ t: 'ally', op: 'get' });
+      assert.strictEqual((await a.expect('ally', (m) => m.data.members.some((x) => x.id === pid))).data.members.find((x) => x.id === pid).on, true, 'вышел с одного устройства из двух — в игре');
+      p2.close();
+      assert.strictEqual((await a.expect('allyon', (m) => m.id === pid)).on, false, 'закрыл последнее — не в игре');
+      p3.close();
+      adm.send({ t: 'alliance', op: 'kick', login: 'Pres1' });
+      console.log('✓ состав альянса: кто в игре, смена статуса сразу, вход с двух устройств');
+    }
     // союзники не нападают и не разведывают друг друга — дальше Webby вне альянса (разведка и набег на него)
     adm.send({ t: 'send', units: { 202: 5 }, x: target.x, y: target.y, mission: 'scout' });
     await adm.expect('error', (m) => /альянса/.test(m.msg || m.error || ''));
@@ -261,6 +288,15 @@ function client() {
     const sl = (await adm.expect('report')).report.lines;
     assert.ok(sl.some((l) => /Выжило разведчиков: 100%/.test(l)) && sl.some((l) => /^Подкрепления/.test(l)) && sl.some((l) => /^Здания/.test(l)), sl.join('\n'));
     console.log('✓ Центр разведки:', sl[1]);
+    { // «Отчёты» по 10 на страницу; конверт: «Отметить как прочитанные», «Удалить прочитанные» — в ответ та же страница
+      adm.send({ t: 'reports', page: 5 }); const pg = await adm.expect('reports');
+      assert.ok(pg.page === pg.pages - 1 && pg.list.length <= 10 && pg.total >= 2, `страница — не дальше последней (${pg.page}/${pg.pages})`);
+      adm.send({ t: 'repread', page: 0 }); await adm.expect('toast', (m) => /Прочитано отчётов|Новых отчётов нет/.test(m.msg));
+      assert.ok((await adm.expect('reports')).list.every((x) => x.read), 'все прочитаны');
+      adm.send({ t: 'repdel', ids: 'read', page: 0 }); await adm.expect('toast', (m) => /Удалено отчётов/.test(m.msg));
+      assert.strictEqual((await adm.expect('reports')).total, 0, '«Удалить прочитанные» — список пуст');
+      console.log('✓ «Отчёты»: страницы по 10, конверт — отметить прочитанными, удалить прочитанные');
+    }
 
     // ---- Караульная башня: оповещение о набеге (не о разведке), «Передвижения армий» ----
     adm.send({ t: 'send', units: { 200: 10 }, x: target.x, y: target.y, mission: 'raid' });
@@ -338,6 +374,13 @@ function client() {
     assert.ok(gp.gifts[0].gift === 'diamond' && gp.gifts[0].from === 'Советник' && gp.gifts[0].text === 'Удачи!');
     adm.send({ t: 'gift', to: as.user.id, gift: 'diamond' }); // себе — тоже можно
     await adm.expect('toast', (m) => /отправлен игроку Советник/.test(m.msg));
+    // даритель удаляет свой подарок у получателя — за ту же цену (3 монеты); второй раз — уже нет
+    adm.send({ t: 'giftdel', to: s3.user.id, at: gp.gifts[0].at, gift: 'diamond' });
+    await adm.expect('toast', (m) => /Подарок «Большой диамант» удалён у игрока webby/i.test(m.msg));
+    await adm.expect('giftdel', (m) => m.to === s3.user.id && m.gift === 'diamond' && m.at === gp.gifts[0].at);
+    adm.send({ t: 'giftdel', to: s3.user.id, at: gp.gifts[0].at, gift: 'diamond' });
+    await adm.expect('error', (m) => /только свой подарок/.test(m.msg));
+    console.log('✓ подарки: даритель удаляет свой подарок за его цену');
     adm.send({ t: 'rep', id: s3.user.id, coins: 50 });
     await adm.expect('toast', (m) => /Репутация \+100/.test(m.msg));
     console.log('✓ репутация за золото: 50 монет = +100');
@@ -433,11 +476,47 @@ function client() {
     adm.send({ t: 'admin', op: 'gold', login: 'Webby', n: 50 });
     await a.expect('toast', (m) => /Ваша казна пополнена на 50 монет/.test(m.msg));
     const gl = (await a.expect('state', (m) => (m.user.goldLog || []).some((x) => x.delta === 50))).user.goldLog;
-    assert.ok(gl[0].reason === 'Пополнение казны администрацией' && gl.some((x) => /казны альянса/.test(x.reason)), JSON.stringify(gl));
+    assert.ok(gl[0].reason === 'Пополнение казны администрацией' && !gl.some((x) => /казны альянса/.test(x.reason)), JSON.stringify(gl)); // из казны альянса монеты игрокам не выдаются
     a.send({ t: 'mail', folder: 'in' });
     const mb = await a.expect('mail');
     assert.ok(mb.list.some((x) => x.subject === 'Казна пополнена' && x.other === 'Советник'));
     console.log('✓ казна: пополнение админом, письмо игроку, история трат');
+
+    // ---- «Премиум всем»: админ дарит Премиум всем игрокам — кто в игре, видит сразу (уведомление и премиум в состоянии) ----
+    const pm0 = Date.now();
+    adm.send({ t: 'admin', op: 'premall', days: 2, why: 'Проверка' });
+    const pa = (await adm.expect('admininfo', (m) => m.op === 'premall')).data;
+    assert.ok(/^Премиум на 2 дня выдан \d+ игрок/.test(pa.msg) && pa.last[0].days === 2 && pa.last[0].why === 'Проверка', JSON.stringify(pa));
+    await a.expect('toast', (m) => m.msg === '👑 Проверка: Премиум Завоеватель на 2 дня!');
+    await a.expect('state', (m) => m.user.premium >= pm0 + 2 * 86400000);
+    console.log('✓ «Премиум всем»: админ дарит на выбранный срок, игрок в игре видит сразу');
+
+    // ---- «Правила боя (проба)»: по умолчанию — прежние; «Сравнить бой» — обе колонки; включить и вернуть ----
+    adm.send({ t: 'admin', op: 'battlerules' });
+    assert.strictEqual((await adm.expect('admininfo', (m) => m.op === 'battlerules')).data.on, false);
+    adm.send({ t: 'admin', op: 'battlecmp', att: 'second', def: 'Webby', mission: 'raid', general: 0 });
+    { const bc = (await adm.expect('admininfo', (m) => m.op === 'battlecmp')).data.cmp; assert.ok(bc.old && bc.new && bc.att === 'Second' && bc.def === 'Webby' && bc.mission === 'raid', JSON.stringify(bc)); }
+    adm.send({ t: 'admin', op: 'battlerules', on: 1 });
+    assert.strictEqual((await adm.expect('admininfo', (m) => m.op === 'battlerules' && m.data.on)).data.on, true);
+    adm.send({ t: 'admin', op: 'battlerules', on: 0 });
+    assert.strictEqual((await adm.expect('admininfo', (m) => m.op === 'battlerules' && !m.data.on)).data.on, false);
+    console.log('✓ Правила боя (проба): включить и вернуть, «Сравнить бой» — прежние и новые');
+
+    // ---- «Забросить замки»: игрока, который в игре, выбрасывает; его замок на карте — ничей; профиль «Ничейных земель» не открыть ----
+    {
+      const z = client(); await z.open();
+      z.send({ t: 'register', login: 'zabros1', password: '12345', race: 0 }); await z.expect('registered');
+      z.send({ t: 'login', login: 'zabros1', password: '12345' }); const zc = (await z.expect('state')).castle;
+      adm.send({ t: 'admin', op: 'abandon', login: 'zabros1' });
+      await adm.expect('toast', (m) => /Замки игрока zabros1 заброшены \(1\)/.test(m.msg));
+      for (let w = 0; w < 30 && !z.closed(); w++) await new Promise((ok) => setTimeout(ok, 100));
+      assert.ok(z.closed(), 'заброшенного игрока выбросило из игры');
+      a.send({ t: 'world', cx: zc.x, cy: zc.y, r: 13 });
+      const zo = (await a.expect('world', (m) => m.objects.some((o) => o.x === zc.x && o.y === zc.y))).objects.find((o) => o.x === zc.x && o.y === zc.y);
+      assert.ok(zo.nobody === 1 && zo.name === 'Ничейный замок' && zo.owner === 'Ничейные земли', JSON.stringify(zo));
+      a.send({ t: 'profile', id: zo.ownerId }); await a.expect('error', (m) => /нет хозяина/.test(m.msg));
+      console.log('✓ «Забросить замки»: игрока выбросило, замок на карте — ничей, профиль «Ничейных земель» не открыть');
+    }
 
     // ---- мульты: два аккаунта с одного устройства попадают в одну группу ----
     for (const lg of ['multa', 'multb']) {
@@ -507,7 +586,7 @@ function client() {
     assert.equal(gs.free, 98); assert.ok(gs.stats && gs.where.includes('Замковая армия'));
     adm.send({ t: 'general', op: 'dist', pts: { catk: 60, def: 10 } });
     gs = (await adm.expect('state', (m) => m.castle.mil.general.free === 28)).castle.mil.general;
-    assert.ok(Math.abs(gs.stats.catk - 60 / 360) < 1e-9 && gs.pts.def === 10);
+    assert.ok(Math.abs(gs.stats.catk - 0.5 * 60 / 360) < 1e-9 && gs.pts.def === 10); // командование — до +50% (с 21.10; было до +100%)
     adm.send({ t: 'general', op: 'dist', pts: { atk: 999 } });
     await adm.expect('error', (m) => /Свободных очков только 28/.test(m.msg));
     adm.send({ t: 'general', op: 'reset' });
@@ -565,9 +644,14 @@ function client() {
         adm.send({ t: 'staff', op: 'newtopic', title: 'Ошибки карты', text: 'Пишите сюда' }); const tp = (await adm.expect('staff', (m) => m.view === 'topic')).data;
         assert.ok(tp.topic.title === 'Ошибки карты' && tp.msgs.length === 1);
         await t2.expect('staffnew', (m) => m.n === 1);
-        t2.send({ t: 'staff', op: 'view' }); const lv = (await t2.expect('staff', (m) => m.view === 'list')).data; assert.ok(lv.topics[0].unread === 1, 'тестер видит непрочитанное');
+        t2.send({ t: 'staff', op: 'view' }); const lv = (await t2.expect('staff', (m) => m.view === 'list')).data; assert.ok(lv.topics[0].unread === 1 && !lv.topics[0].canDel, 'тестер видит непрочитанное, чужую тему удалить не может');
         t2.send({ t: 'staff', op: 'open', topic: tp.topic.id }); await t2.expect('staff', (m) => m.view === 'topic');
-        t2.send({ t: 'staff', op: 'post', topic: tp.topic.id, text: 'Нашёл баг' }); await adm.expect('staff', (m) => m.view === 'topic' && m.live && m.data.msgs.some((x) => x.text === 'Нашёл баг'));
+        t2.send({ t: 'staff', op: 'post', topic: tp.topic.id, text: 'Нашёл баг' });
+        const bugMsg = (await adm.expect('staff', (m) => m.view === 'topic' && m.live && m.data.msgs.some((x) => x.text === 'Нашёл баг'))).data.msgs.find((x) => x.text === 'Нашёл баг');
+        adm.send({ t: 'staff', op: 'post', topic: tp.topic.id, text: 'Спасибо, починим', reply: bugMsg.id }); // ответ на сообщение: цитата и уведомление автору
+        const rv = (await t2.expect('staff', (m) => m.view === 'topic' && m.data.msgs.some((x) => x.reply))).data.msgs.find((x) => x.reply);
+        assert.ok(rv.reply.by === 'Tester1' && rv.reply.text === 'Нашёл баг' && rv.text === 'Спасибо, починим', 'ответ с цитатой');
+        await t2.expect('toast', (m) => /ответил\(а\) на ваше сообщение в теме «Ошибки карты»/.test(m.msg));
         adm.send({ t: 'staff', op: 'poll', topic: tp.topic.id, q: 'Чинить сегодня?', opts: ['Да', 'Нет'] });
         const pm = (await t2.expect('staff', (m) => m.view === 'topic' && m.data.msgs.some((x) => x.poll))).data.msgs.find((x) => x.poll);
         t2.send({ t: 'staff', op: 'vote', msg: pm.id, opt: 0 }); const vd = (await t2.expect('staff', (m) => m.view === 'topic' && m.data.msgs.some((x) => x.poll && x.poll.total === 1))).data.msgs.find((x) => x.poll);
@@ -584,10 +668,30 @@ function client() {
         const dl = await fetch(`http://127.0.0.1:${WEB_PORT}/staffpic/${withPic.pic}.png?k=${mk}&dl=1`); assert.ok(dl.status === 200 && /^attachment; filename="mastera-\d{12}-[0-9a-f]{6}\.png"$/.test(dl.headers.get('content-disposition') || ''), 'кнопка «Скачать» — файлом');
         op2.send({ t: 'staff', op: 'view' }); await op2.expect('error', (m) => /только для мастеров/.test(m.msg));
         adm.send({ t: 'staff', op: 'topicdel', topic: tp.topic.id }); await adm.expect('staff', (m) => m.view === 'list' && !m.data.topics.length);
-        console.log('✓ МАСТЕРА: темы, сообщения вживую, непрочитанное, опрос, фото на 24 часа только участникам; обычный игрок не видит');
+        console.log('✓ МАСТЕРА: темы, сообщения вживую, непрочитанное, ответ с цитатой и уведомлением, опрос, фото на 24 часа только участникам; обычный игрок не видит');
       }
       [cl, tt, t2, op2].forEach((x) => x.close());
       console.log('✓ закрытый тест: только тестеры и админ, регистрация закрыта, игроков выбрасывает; тестер — пароль один раз, отключение, новый пароль');
+    }
+    // ---- технические работы: игроков выбрасывает, на экране входа — заглушка, регистрация закрыта, входит только администратор ----
+    {
+      const pw = client(); await pw.open(); pw.send({ t: 'login', login: 'Webby', password: 'pass1' }); await pw.expect('auth');
+      const lw = client(); await lw.open(); lw.send({ t: 'hello' }); assert.strictEqual((await lw.expect('catalog')).maint, '', 'обычно заглушки нет');
+      adm.send({ t: 'admin', op: 'maint', on: 1 }); await adm.expect('error', (m) => /8 или на 24 часа/.test(m.msg)); // только на 8 или 24 часа
+      adm.send({ t: 'admin', op: 'maint', on: 1, hours: 8 });
+      const mi = (await adm.expect('admininfo', (m) => m.op === 'maint' && m.data.on)).data; assert.ok(/технические работы/.test(mi.msg), mi.msg);
+      assert.ok(mi.until > Date.now() + 7.9 * 3600000, 'откроется сама через 8 часов');
+      await pw.expect('maint', (m) => m.msg === mi.msg); // игрок в игре — заглушка, соединение закрыто
+      await lw.expect('maint', (m) => m.msg === mi.msg); // открытый экран входа — заглушка сразу
+      lw.send({ t: 'login', login: 'Webby', password: 'pass1' }); await lw.expect('maint', (m) => !!m.msg); // игрок не входит
+      lw.send({ t: 'register', login: 'Mnew1', password: 'pass1', race: '0' }); await lw.expect('maint', (m) => !!m.msg); // регистрация закрыта
+      const nw = client(); await nw.open(); nw.send({ t: 'hello' }); assert.strictEqual((await nw.expect('catalog')).maint, mi.msg, 'новый экран входа — сразу заглушка');
+      nw.send({ t: 'login', login: 'admin', password: 'admin' }); await nw.expect('auth'); // администратор входит
+      adm.send({ t: 'admin', op: 'maint', on: 0 }); await adm.expect('admininfo', (m) => m.op === 'maint' && !m.data.on);
+      await lw.expect('maint', (m) => m.msg === ''); // заглушка снята
+      lw.send({ t: 'login', login: 'Webby', password: 'pass1' }); await lw.expect('auth');
+      [pw, lw, nw].forEach((x) => x.close());
+      console.log('✓ Технические работы: игроков выбрасывает, заглушка на экране входа, регистрация закрыта, входит только администратор');
     }
     adm.close();
     // 3 неверных входа → табличка «попробуйте через 3 минуты», даже правильный пароль не пускает

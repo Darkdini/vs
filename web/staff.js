@@ -1,9 +1,10 @@
 'use strict';
 // «МАСТЕРА» — закрытый раздел админа и тестеров (Меню → «МАСТЕРА»; сервер: server/src/staff.js, t:'staff').
 // Как группа в Telegram с темами: список тем (закреплённые сверху, непрочитанное), переписка в теме,
-// фото к сообщению (живёт 24 часа), опросы с голосованием. Новые сообщения приходят сразу, пока раздел открыт.
-S.sf = { list: null, topic: null, compose: null, poll: null, picBusy: null };
-function openStaff() { S.sf = { list: null, topic: null, compose: null, poll: null, picBusy: null }; send({ t: 'staff', op: 'view' }); openSheet(staffWin); }
+// фото к сообщению (живёт 24 часа), опросы с голосованием, «↩» — ответ на сообщение с цитатой; темы удаляются и из списка (🗑).
+// Новые сообщения приходят сразу, пока раздел открыт.
+S.sf = { list: null, topic: null, compose: null, poll: null, picBusy: null, reply: null };
+function openStaff() { S.sf = { list: null, topic: null, compose: null, poll: null, picBusy: null, reply: null }; send({ t: 'staff', op: 'view' }); openSheet(staffWin); }
 const sfOpen = () => S.sheets.length && S.sheets[S.sheets.length - 1] === staffWin;
 const sfTime = (t) => { const d = new Date(t), n = new Date(); return d.toDateString() === n.toDateString() ? d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : fmtDate(t); };
 const sfPicUrl = (id) => `staffpic/${id}.png?k=${S.mkey || ''}`; // ключ соединения, не токен входа (server/src/web.js, MEDIA)
@@ -21,9 +22,10 @@ function staffWin() {
     : '<button class="pbar" data-sfnewtopic>➕ Новая тема</button>';
   const who = d.members.map((m) => `${m.admin ? '👑 ' : ''}${esc(m.login)}${m.online ? ' 🟢' : ''}`).join(', ');
   return `${ribbon('МАСТЕРА')}<p class="small sfwho">Участники: ${who}</p>${nt}
-    <div class="sftopics">${d.topics.map((t) => `<button class="sftopic ${t.unread ? 'new' : ''}" data-sftopic="${t.id}">
+    <div class="sftopics">${d.topics.map((t) => `<div class="sftrow"><button class="sftopic ${t.unread ? 'new' : ''}" data-sftopic="${t.id}">
       <span class="sft1"><b>${t.pin ? '📌 ' : ''}${t.closed ? '🔒 ' : ''}${esc(t.title)}</b><small>${sfTime(t.lastAt)}</small></span>
-      <span class="sft2"><span class="sfprev">${t.last ? `<i>${esc(t.last.by)}:</i> ${esc(t.last.text).slice(0, 90)}` : '<i>Пока пусто</i>'}</span>${t.unread ? `<b class="sfbadge">${t.unread}</b>` : ''}</span></button>`).join('')
+      <span class="sft2"><span class="sfprev">${t.last ? `<i>${esc(t.last.by)}:</i> ${esc(t.last.text).slice(0, 90)}` : '<i>Пока пусто</i>'}</span>${t.unread ? `<b class="sfbadge">${t.unread}</b>` : ''}</span></button>
+      ${t.canDel ? `<button class="sftdel" data-sftdel="${t.id}" data-title="${esc(t.title)}" aria-label="Удалить тему">🗑</button>` : ''}</div>`).join('')
       || '<p class="parch-note">Тем пока нет. Создайте первую — например, «Ошибки на карте мира».</p>'}</div>`;
 }
 function sfMsgHtml(m) {
@@ -38,8 +40,9 @@ function sfMsgHtml(m) {
         ${o.who.length ? `<small class="sfwho2">${o.who.map(esc).join(', ')}</small>` : ''}`).join('')}
       <small>Проголосовало: ${p.total}</small>${p.canClose && !p.closed ? `<button class="btn small" data-sfpollclose="${m.id}">Завершить голосование</button>` : ''}</div>`;
   }
-  return `<div class="sfmsg ${m.mine ? 'mine' : ''}"><div class="sfhead"><b>${m.admin ? '👑 ' : ''}${esc(m.by)}</b><small>${sfTime(m.at)}</small>${m.canDel ? `<button class="sfdel" data-sfdel="${m.id}" aria-label="Удалить">✕</button>` : ''}</div>
-    ${m.text ? `<div class="sftext">${smiles(esc(m.text))}</div>` : ''}${pic}${poll}</div>`;
+  return `<div class="sfmsg ${m.mine ? 'mine' : ''}"><div class="sfhead"><b>${m.admin ? '👑 ' : ''}${esc(m.by)}</b><small>${sfTime(m.at)}</small>
+    <button class="sfrep" data-sfreply="${m.id}" aria-label="Ответить">↩</button>${m.canDel ? `<button class="sfdel" data-sfdel="${m.id}" aria-label="Удалить">✕</button>` : ''}</div>
+    ${m.reply ? `<div class="fquote"><b>${esc(m.reply.by)}:</b> ${esc(m.reply.text)}</div>` : ''}${m.text ? `<div class="sftext">${smiles(esc(m.text))}</div>` : ''}${pic}${poll}</div>`;
 }
 function sfTopicHtml(d) {
   const t = d.topic, f = S.sf;
@@ -51,7 +54,8 @@ function sfTopicHtml(d) {
       <label class="check"><input type="checkbox" name="multi" ${f.poll.multi ? 'checked' : ''}> можно выбрать несколько</label>
       <div class="sfbtns"><button class="btn primary">Создать опрос</button><button type="button" class="btn" data-sfcancel>Отмена</button></div></form>` : '';
   const box = t.closed && !t.admin ? '<p class="parch-note">🔒 Тема закрыта — писать в неё нельзя.</p>'
-    : `${pollForm}<form class="sfsend" data-sfform="post"><textarea name="text" rows="2" maxlength="2000" placeholder="Сообщение…"></textarea>
+    : `${pollForm}<form class="sfsend" data-sfform="post">${f.reply ? `<div class="fquote fto"><span>↩ Ответ <b>${esc(f.reply.by)}</b>: ${esc(f.reply.text).slice(0, 90)}</span><button type="button" class="fxto" data-sfreplyx aria-label="Не отвечать">✕</button></div>` : ''}
+      <textarea name="text" rows="2" maxlength="2000" placeholder="${f.reply ? 'Ваш ответ…' : 'Сообщение…'}"></textarea>
       <div class="sfbtns"><button type="button" class="btn small" data-sfphoto ${f.picBusy ? 'disabled' : ''}>${f.picBusy ? esc(f.picBusy) : '📷 Фото'}</button>
       <button type="button" class="btn small" data-sfpollnew>📊 Опрос</button><button class="btn primary small">Отправить</button></div></form>`;
   return `${ribbon(t.title)}${tools}${d.more ? `<p class="small center">Показаны последние ${d.msgs.length} сообщений</p>` : ''}
@@ -90,13 +94,20 @@ function sfPicMsg(m) {
 }
 let sfInput = null;
 $('#sheetBody').addEventListener('click', (e) => {
-  const t = e.target.closest('[data-sftopic],[data-sfnewtopic],[data-sfcancel],[data-sfback],[data-sfop],[data-sfvote],[data-sfpollclose],[data-sfdel],[data-sfphoto],[data-sfpollnew],[data-sfaddopt],[data-sfpic]');
+  const t = e.target.closest('[data-sftopic],[data-sfnewtopic],[data-sfcancel],[data-sfback],[data-sfop],[data-sfvote],[data-sfpollclose],[data-sfdel],[data-sfphoto],[data-sfpollnew],[data-sfaddopt],[data-sfpic],[data-sfreply],[data-sfreplyx],[data-sftdel]');
   if (!t || !sfOpen()) return;
   const d = t.dataset, f = S.sf, tid = f.topic && f.topic.topic.id;
-  if (d.sftopic) return send({ t: 'staff', op: 'open', topic: Number(d.sftopic) });
+  if (d.sftopic) { f.reply = null; return send({ t: 'staff', op: 'open', topic: Number(d.sftopic) }); }
+  if (d.sftdel) { if (confirm(`Удалить тему «${d.title}» со всеми сообщениями?`)) send({ t: 'staff', op: 'topicdel', topic: Number(d.sftdel) }); return; }
+  if (d.sfreply) { // ответ на сообщение: цитата над полем ввода
+    const m = (f.topic && f.topic.msgs || []).find((x) => x.id === Number(d.sfreply)); if (!m) return;
+    f.reply = { id: m.id, by: m.by, text: m.poll ? `📊 ${m.poll.q}` : m.text || '📷 Фото' }; refreshSheet();
+    return setTimeout(() => { const ta = $('[data-sfform=post] textarea'); if (ta) ta.focus(); }, 30);
+  }
+  if (d.sfreplyx !== undefined) { f.reply = null; return refreshSheet(); }
   if (d.sfnewtopic !== undefined) { f.compose = 'topic'; return refreshSheet(); }
   if (d.sfcancel !== undefined) { f.compose = null; f.poll = null; return refreshSheet(); }
-  if (d.sfback !== undefined) { f.topic = null; f.poll = null; return send({ t: 'staff', op: 'view' }); }
+  if (d.sfback !== undefined) { f.topic = null; f.poll = null; f.reply = null; return send({ t: 'staff', op: 'view' }); }
   if (d.sfop) { const ask = { topicdel: 'Удалить тему со всеми сообщениями?', close: f.topic.topic.closed ? '' : 'Закрыть тему? Писать в неё сможет только админ.' }[d.sfop]; if (ask && !confirm(ask)) return; return send({ t: 'staff', op: d.sfop, topic: tid }); }
   if (d.sfvote) return send({ t: 'staff', op: 'vote', msg: Number(d.sfvote), opt: Number(d.opt) });
   if (d.sfpollclose) { if (confirm('Завершить голосование? Голосовать больше будет нельзя.')) send({ t: 'staff', op: 'pollclose', msg: Number(d.sfpollclose) }); return; }
@@ -115,6 +126,6 @@ $('#sheetBody').addEventListener('submit', (e) => {
   const fm = e.target, k = fm.dataset.sfform; if (!k) return; e.preventDefault();
   const f = S.sf, tid = f.topic && f.topic.topic.id;
   if (k === 'topic') { f.compose = null; return send({ t: 'staff', op: 'newtopic', title: fm.title.value, text: fm.text.value }); }
-  if (k === 'post') { const text = fm.text.value.trim(); if (!text) return; fm.text.value = ''; fm.text.blur(); return send({ t: 'staff', op: 'post', topic: tid, text }); }
+  if (k === 'post') { const text = fm.text.value.trim(); if (!text) return; fm.text.value = ''; fm.text.blur(); const reply = f.reply ? f.reply.id : undefined; f.reply = null; return send({ t: 'staff', op: 'post', topic: tid, text, reply }); }
   if (k === 'poll') { sfPollKeep(fm); const p = f.poll; f.poll = null; return send({ t: 'staff', op: 'poll', topic: tid, q: p.q, opts: p.opts, multi: p.multi }); }
 });

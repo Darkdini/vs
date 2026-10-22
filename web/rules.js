@@ -21,17 +21,20 @@ const ruleLabelC = (n) => { const r = gameRules().list[n - 1]; return r ? `п. $
 // ---- закрытый чат: плашка с отсчётом, поле ввода у игроков выключено ----
 const chatIsMod = () => !!(S.st && S.st.user && (S.st.user.admin || S.st.user.mod));
 const chatClosedNow = () => S.chatClosed > now();
-const clLeft = (until) => { const s = Math.max(0, Math.ceil((until - now()) / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+const clLeft = (until) => { // мм:сс, дольше часа — ч:мм:сс (закрыт на 8 или 24 часа)
+  const s = Math.max(0, Math.ceil((until - now()) / 1000)), h = Math.floor(s / 3600), p2 = (v) => String(v).padStart(2, '0');
+  return h ? `${h}:${p2(Math.floor(s / 60) % 60)}:${p2(s % 60)}` : `${Math.floor(s / 60)}:${p2(s % 60)}`;
+};
 function chatClosedHtml() {
   if (!chatClosedNow()) return '';
   return `<div class="cclosed"><img src="${GFX}menu/privacy.png" alt=""><span>Чат закрыт модератором — отдохните немного и успокойтесь. Откроется через <b data-ct="${S.chatClosed}">${clLeft(S.chatClosed)}</b>${chatIsMod() ? '<br><small>Вы модератор — вам писать можно.</small>' : ''}</span></div>`;
 }
-// окно «Закрыть чат» (модератор): на сколько минут или «Открыть сейчас»
+// окно «Закрыть чат» (модератор): на 5–30 минут, 8 или 24 часа, или «Открыть сейчас»
 function chatLockHtml() {
   if (!S.chatLock) return '';
   return `<div class="cpop-bg" data-clx><div class="cpop"><button class="cpop-x" data-clx aria-label="Закрыть">✕</button><div class="cpop-nick">${chatClosedNow() ? 'Чат закрыт' : 'Закрыть чат'}</div>
     <p class="clnote">${chatClosedNow() ? `Откроется сам через <b data-ct="${S.chatClosed}">${clLeft(S.chatClosed)}</b>. Можно открыть раньше или закрыть заново на другое время.` : 'Игроки не смогут писать, пока чат закрыт. Модераторы и администратор — могут. Чат откроется сам.'}</p>
-    <div class="cpop-ban">${[5, 10, 15, 30].map((n) => `<button class="pbtn" data-clmin="${n}">${n} мин</button>`).join('')}${chatClosedNow() ? '<button class="pbtn cl-open" data-clmin="0">Открыть сейчас</button>' : ''}</div></div></div>`;
+    <div class="cpop-ban">${[5, 10, 15, 30, 480, 1440].map((n) => `<button class="pbtn" data-clmin="${n}">${n >= 60 ? `${n / 60} ${plural(n / 60, 'час', 'часа', 'часов')}` : `${n} мин`}</button>`).join('')}${chatClosedNow() ? '<button class="pbtn cl-open" data-clmin="0">Открыть сейчас</button>' : ''}</div></div></div>`;
 }
 // обновить плашку и поле ввода в открытом чате, не перерисовывая окно (у игрока может быть набран текст)
 function chatClosedUpdate() {
@@ -78,7 +81,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.clx !== undefined) { if (e.target === t || t.classList.contains('cpop-x')) { S.chatLock = false; refreshSheet(); } return; }
   if (d.clmin !== undefined) {
     const n = Number(d.clmin);
-    if (n && !confirm(`Закрыть чат на ${n} мин? Игроки не смогут писать.`)) return;
+    if (n && !confirm(`Закрыть чат на ${n >= 60 ? `${n / 60} ${plural(n / 60, 'час', 'часа', 'часов')}` : `${n} мин`}? Игроки не смогут писать.`)) return;
     S.chatLock = false; refreshSheet(); return send({ t: 'chatmod', op: 'close', minutes: n });
   }
   if (d.cwarn !== undefined) {

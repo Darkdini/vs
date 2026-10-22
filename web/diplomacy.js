@@ -52,7 +52,7 @@ function myAllianceWin() {
     <div class="bwline center">Участников: ${al.members.length} из ${al.slots}</div>
     <div class="bwline center">Очки альянса (рейтинг + репутация): <b>${fmtFull(al.score)}</b></div>
     ${(al.info || []).map((u) => `<div class="mrow"><span><b data-cprof="${u.id}">${esc(u.login)}</b>${u.login === (al.leaderLogin || '') ? ' ★' : ''} ${repIcons(u.rep)}<br><small>рейтинг ${fmtFull(u.rating)} + репутация ${fmtFull(u.rep)} = ${fmtFull(u.rating + u.rep)}</small></span>
-      ${al.lead ? `<span>${u.login !== me ? `<button class="pbtn small" data-al="kick" data-login="${esc(u.login)}">Исключить</button> ` : ''}<button class="pbtn small" data-alaward="${esc(u.login)}">Наградить</button></span>` : ''}</div>`).join('')}
+      ${al.lead && u.login !== me ? `<span><button class="pbtn small" data-al="kick" data-login="${esc(u.login)}">Исключить</button> <button class="pbtn small" data-alaward="${esc(u.login)}">Наградить</button></span>` : ''}</div>`).join('')}
     ${al.lead ? `${ribbon('Заявки')}${al.requests.length ? al.requests.map((r) => `<div class="mrow"><span>${esc(r.login)} <small>★ ${fmtFull(r.rating)}</small></span>
         <span><button class="pbtn small" data-al="approve" data-id="${r.id}">Принять</button> <button class="pbtn small" data-al="reject" data-id="${r.id}">Отклонить</button></span></div>`).join('') : '<p class="parch-note">Заявок нет.</p>'}
       ${ribbon('Пригласить игрока')}<form class="chatform" data-alform="invite"><input name="login" placeholder="Ник игрока" autocapitalize="none" required><button class="pbtn small">Пригласить</button></form>` : ''}
@@ -65,7 +65,8 @@ $('#sheetBody').addEventListener('click', (e) => {
   const d = t.dataset;
   if (d.amodforum) return openAllyForum(Number(d.amodforum));
   if (d.alaward) {
-    const k = prompt(`Медаль за заслуги для ${d.alaward}: 1 — золотая, 2 — серебряная, 3 — бронзовая`, '1'); if (!k) return;
+    const mc = S.cat.allyMedalCost || {}, c = (x) => (mc[x] ? ` (${mc[x]} ${plural(mc[x], 'монета', 'монеты', 'монет')})` : ''); // медаль — за монеты казны альянса
+    const k = prompt(`Медаль за заслуги для ${d.alaward} — из казны альянса: 1 — золотая${c('gold')}, 2 — серебряная${c('silver')}, 3 — бронзовая${c('bronze')}`, '1'); if (!k) return;
     const kind = { 1: 'gold', 2: 'silver', 3: 'bronze' }[k.trim()] || 'bronze';
     const text = prompt('За что (необязательно):', '') || '';
     return send({ t: 'alliance', op: 'award', login: d.alaward, kind, text });

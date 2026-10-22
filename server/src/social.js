@@ -3,6 +3,7 @@
 // общий чат, Зал Славы (текущие топ-3 по категориям) и статистика боёв. Подключается к Game — см. install().
 
 const C = require('./catalog');
+const W = require('./words'); // слова после чисел: 1 монета, 5 монет
 const START_REP = 10; // стартовая репутация у всех игроков
 
 // Залы Славы — 20 категорий, как в оригинале (4 страницы по 5). stat — счётчик за месяц (mstats), bonus — репутация за 1/2/3 место.
@@ -187,27 +188,56 @@ function install(Game) {
   };
 
   // полный профиль для окна «Профиль»
-  P.sendGift = function sendGift(user, toId, giftId, text) {
+  // ally — подарок из казны альянса (право «Казначейство»): только участнику своего альянса, не себе; монеты — из казны
+  // (казна альянса тратится только на подарки участникам и медали, ally.js)
+  P.sendGift = function sendGift(user, toId, giftId, text, ally = false) {
     const g = GIFTS[giftId]; if (!g) return { error: 'Нет такого подарка.' };
     const to = this.userById(Number(toId)); if (!to) return { error: 'Игрок не найден.' };
+    const al = ally ? this.allianceOf(user) : null;
+    if (ally) {
+      if (!al) return { error: 'Вы не в альянсе.' };
+      if (!this.allyCan(al, user.id, 'treasury')) return { error: 'Дарить из казны может только казначейство альянса.' };
+      if (!al.members.includes(to.id)) return { error: 'Из казны — только участникам своего альянса.' };
+      if (to.id === user.id) return { error: 'Себе из казны дарить нельзя.' };
+    }
     const deny = this.canReach && this.canReach(user, to, 'gift'); if (deny) return { error: deny };
     if (g.premium && !this.isPremium(user)) return { error: 'Это уникальный подарок — дарить его можно только с премиумом.' };
     const now = Date.now();
     user.giftLog = (user.giftLog || []).filter((t) => t > now - 86400000);
     if (user.giftLog.length >= GIFTS_DAY) return { error: `Не больше ${GIFTS_DAY} подарков в сутки.` };
-    if ((user.gold || 0) < g.gold) return { error: `Нужно монет: ${g.gold} (у вас ${user.gold || 0}).` };
-    this.goldChange(user, -g.gold, `Подарок «${g.name}» игроку ${to.login}`); user.giftLog.push(now); this.addStat(to.id, 'giftGold', g.gold);
-    (to.gifts = to.gifts || []).push({ gift: giftId, from: user.id, at: now, text: String(text || '').trim().slice(0, 100) });
+    if (al) {
+      if ((al.treasury || 0) < g.gold) return { error: `В казне альянса не хватает монет: нужно ${g.gold}, в казне ${al.treasury || 0}.` };
+      al.treasury -= g.gold;
+      this.allyLog(al, `${user.login} подарил из казны ${to.login}: «${g.name}» (${W.coinsAcc(g.gold)})`, 'store', { op: '-', gold: g.gold, by: user.login, to: to.login, via: 'gift', what: g.name });
+    } else {
+      if ((user.gold || 0) < g.gold) return { error: `Нужно монет: ${g.gold} (у вас ${user.gold || 0}).` };
+      this.goldChange(user, -g.gold, `Подарок «${g.name}» игроку ${to.login}`);
+    }
+    user.giftLog.push(now); this.addStat(to.id, 'giftGold', g.gold);
+    (to.gifts = to.gifts || []).push({ gift: giftId, from: user.id, at: now, text: String(text || '').trim().slice(0, 100), ...(al ? { ally: al.tag } : {}) });
     if (to.gifts.length > 200) to.gifts = to.gifts.slice(-200);
     if (to.id !== user.id) {
-      this.event(to.id, `${user.login} подарил Вам: ${g.name}!`);
-      if (this.friendFeed) this.friendFeed(to.id, `${to.login} получил(а) подарок «${g.name}» от ${user.login}`, now);
+      this.event(to.id, al ? `Альянс [${al.tag}] подарил Вам: ${g.name}!` : `${user.login} подарил Вам: ${g.name}!`);
+      if (this.friendFeed) this.friendFeed(to.id, `${to.login} получил(а) подарок «${g.name}» от ${al ? `альянса [${al.tag}]` : user.login}`, now);
       // сообщение в «Сообщения» от дарителя: какой подарок и подпись — подарок виден в профиле
       const note = String(text || '').trim().slice(0, 100);
-      this.sendMail(user, to.login, 'Подарок', `🎁 Дарю тебе подарок «${g.name}»!${note ? `\n«${note}»` : ''}\nОн теперь в твоём профиле, раздел «Подарки».`);
+      this.sendMail(user, to.login, 'Подарок', `🎁 ${al ? `Подарок от альянса [${al.tag}] из казны: «${g.name}»!` : `Дарю тебе подарок «${g.name}»!`}${note ? `\n«${note}»` : ''}\nОн теперь в твоём профиле, раздел «Подарки».`);
     }
     this.store.save();
-    return { ok: true, msg: `Подарок «${g.name}» отправлен игроку ${to.login}.` };
+    return { ok: true, msg: al ? `Подарок «${g.name}» из казны альянса отправлен игроку ${to.login}.` : `Подарок «${g.name}» отправлен игроку ${to.login}.` };
+  };
+  // даритель удаляет свой подарок из профиля получателя — за столько же монет, сколько подарок стоил.
+  // Подарки из казны альянса так не удаляются; очки «Благодарности» у получателя остаются (иначе — способ ронять соперника в рейтинге)
+  P.deleteGift = function deleteGift(user, toId, at, giftId) {
+    const to = this.userById(Number(toId)); if (!to) return { error: 'Игрок не найден.' };
+    const i = (to.gifts || []).findIndex((x) => x.from === user.id && !x.ally && x.at === Number(at) && x.gift === String(giftId));
+    if (i < 0) return { error: 'Подарок не найден — удалить можно только свой подарок.' };
+    const g = GIFTS[giftId] || { name: 'Подарок', gold: 1 };
+    if ((user.gold || 0) < g.gold) return { error: `Нужно монет: ${g.gold} (у вас ${user.gold || 0}).` };
+    this.goldChange(user, -g.gold, `Удаление подарка «${g.name}» у игрока ${to.login}`);
+    to.gifts.splice(i, 1);
+    this.store.save();
+    return { ok: true, msg: `Подарок «${g.name}» удалён у игрока ${to.login} (−${W.coinsAcc(g.gold)}).` };
   };
   P.profileOf = function profileOf(u, viewer) {
     const al = this.allianceOf(u);
@@ -230,10 +260,13 @@ function install(Game) {
       // история ников: прежние ники с датой смены; неприличный ник, сброшенный модерацией, видят только админ и модераторы
       nicks: (u.nickLog || []).filter((n) => !n.by || viewer.admin || viewer.mod || viewer.smod).map((n) => ({ from: n.from, to: n.to, at: n.at, mod: n.by ? 1 : undefined })).reverse(),
       self: u.id === viewer.id,
-      friend: this.isFriend ? this.isFriend(viewer, u) : false, friendState: this.friendState ? this.friendState(viewer, u) : null, bday: u.bday ? this.bdayText(u.bday) : '', bdayRaw: u.id === viewer.id ? u.bday || '' : undefined,
+      friend: this.isFriend ? this.isFriend(viewer, u) : false, friendState: this.friendState ? this.friendState(viewer, u) : null,
+      // нельзя написать в личку / подарить подарок (privacy.js: администратору — только друзья, «кто пишет», чёрный список) — причина,
+      // кнопка в профиле серая, под кнопками — note
+      deny: this.canReach ? ((dm, dg) => ({ msg: dm, gift: dg, note: u.admin && dm && dg ? 'Писать в личку и дарить подарки администратору могут только его друзья.' : [...new Set([dm, dg].filter(Boolean))].join(' ') }))(this.canReach(viewer, u, 'msg') || '', this.canReach(viewer, u, 'gift') || '') : {}, bday: u.bday ? this.bdayText(u.bday) : '', bdayRaw: u.id === viewer.id ? u.bday || '' : undefined,
       repToday: ((viewer.repGiven || {})[u.id] || 0) > Date.now() - 86400000,
       about: u.about || '', avatar: u.avatar || 0, frame: u.frame || '', gold: u.id === viewer.id ? u.gold || 0 : undefined,
-      gifts: (u.gifts || []).slice(-50).reverse().map((g) => ({ gift: g.gift, from: (this.userById(g.from) || { login: '—' }).login, fromId: g.from, at: g.at, text: g.text || '' })),
+      gifts: (u.gifts || []).slice(-50).reverse().map((g) => ({ gift: g.gift, from: (this.userById(g.from) || { login: '—' }).login, fromId: g.from, at: g.at, text: g.text || '', ally: g.ally || '' })),
       online: u.id === viewer.id || viewer.admin ? !!u.online : false,
     };
   };
@@ -262,7 +295,7 @@ function install(Game) {
   };
   P.searchPlayers = function searchPlayers(q) {
     q = String(q || '').trim().toLowerCase();
-    const list = q ? Object.values(this.db.users).filter((u) => u.login.toLowerCase().includes(q) || (u.nickLog || []).some((n) => !n.by && n.from.toLowerCase() === q)) : this.leaderboard().slice(0, 30).map((x) => x.u);
+    const list = q ? Object.values(this.db.users).filter((u) => !u.nobody && (u.login.toLowerCase().includes(q) || (u.nickLog || []).some((n) => !n.by && n.from.toLowerCase() === q))) : this.leaderboard().slice(0, 30).map((x) => x.u); // ничейные земли (nobody.js) — не игрок
     return list.slice(0, 30).map((u) => this.playerRow(u));
   };
   // земляки — игроки в радиусе от замка
@@ -270,7 +303,7 @@ function install(Game) {
     const c = this.castleOf(user), seen = new Set([user.id]), out = [];
     for (let y = c.y - radius; y <= c.y + radius; y++) for (let x = c.x - radius; x <= c.x + radius; x++) {
       const k = this.castleAt(x, y); if (!k || seen.has(k.owner)) continue; seen.add(k.owner);
-      const u = this.userById(k.owner); if (u) out.push(this.playerRow(u, c));
+      const u = this.userById(k.owner); if (u && !u.nobody) out.push(this.playerRow(u, c));
     }
     return out.filter((r) => r.dist <= radius).sort((a, b) => a.dist - b.dist).slice(0, 30);
   };
@@ -305,6 +338,7 @@ function install(Game) {
     if (!opt.sys && user.chatBan > Date.now()) return { error: `Вам запрещено писать в чат ещё ${Math.ceil((user.chatBan - Date.now()) / 60000)} мин.` };
     text = String(text || '').trim().slice(0, 300);
     if (!text) return { error: 'Пустое сообщение.' };
+    if (!opt.sys) text = require('./matfilter').censorMat(text); // мат — звёздочками «***», у всех (matfilter.js)
     // модератор закрыл чат на время (chatmod.js): пишут только модераторы и админ
     const closed = !opt.sys && this.chatClosedUntil ? this.chatClosedUntil() : 0;
     if (closed && !this.canModerate(user)) return { error: `Чат закрыт модератором — ещё ${Math.max(1, Math.ceil((closed - Date.now()) / 60000))} мин. Отдохните немного 🙂` };
@@ -336,7 +370,7 @@ function install(Game) {
   // рейтинги по разделам «Рейтинг»
   P.ratingCastles = function ratingCastles() { return this.cached('rc', 15000, () => this.ratingCastlesCalc()); };
   P.ratingCastlesCalc = function ratingCastlesCalc() { // недострои (Освоение) — не замки рейтинга
-    return Object.values(this.db.castles).filter((c) => !c.site).map((c) => { const u = this.userById(c.owner); return { id: u.id, login: u.login, name: c.name, x: c.x, y: c.y, rating: this.rating(c) }; })
+    return Object.values(this.db.castles).filter((c) => !c.site && !(this.userById(c.owner) || {}).nobody).map((c) => { const u = this.userById(c.owner); return { id: u.id, login: u.login, name: c.name, x: c.x, y: c.y, rating: this.rating(c) }; }) // и не ничейные (nobody.js)
       .sort((a, b) => b.rating - a.rating).slice(0, 500);
   };
   // очки альянса = сумма (рейтинг + репутация) всех участников
@@ -347,7 +381,7 @@ function install(Game) {
       .sort((a, b) => b.rating - a.rating);
   };
   P.ratingReputation = function ratingReputation() {
-    return Object.values(this.db.users).map((u) => ({ id: u.id, login: u.login, raceName: C.RACE_NAMES[u.race], rating: u.reputation ?? START_REP }))
+    return Object.values(this.db.users).filter((u) => !u.nobody).map((u) => ({ id: u.id, login: u.login, raceName: C.RACE_NAMES[u.race], rating: u.reputation ?? START_REP }))
       .sort((a, b) => b.rating - a.rating).slice(0, 500);
   };
 }

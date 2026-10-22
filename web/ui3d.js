@@ -392,7 +392,8 @@ const AVA_FRAMES = ['silver', 'gold', 'fire'];
 const avaFramed = (p, inner) => (p.frame && AVA_FRAMES.includes(p.frame) ? `<span class="afr afr-${p.frame}"><span class="afr-in">${inner}</span><img class="afr-f" src="${GFX}shop/frame_${p.frame}.png" alt=""></span>` : inner);
 const avatarImg = (p, cls = '') => (cls === 'avabig' ? avatarImg0(p, cls) : avaFramed(p, avatarImg0(p, cls)));
 function profileWin(p) {
-  const tile = (key, icon, text, off) => `<button class="ptile ${off ? 'off' : ''}" data-ptile="${key}" data-pid="${p.id}"><img src="${icon.startsWith('gfx') ? icon : GFX + icon}" alt=""><span>${text}</span></button>`;
+  // off — кнопка серая; строка в off — причина (нельзя писать / дарить), показывается при нажатии
+  const tile = (key, icon, text, off) => `<button class="ptile ${off ? 'off' : ''}" data-ptile="${key}" data-pid="${p.id}"${typeof off === 'string' ? ` data-deny="${esc(off)}"` : ''}><img src="${icon.startsWith('gfx') ? icon : GFX + icon}" alt=""><span>${text}</span></button>`;
   // Зал Славы как в оригинале: в «Информации» — ряд значков (по лучшему месту в каждой категории),
   // в разделе ниже — последние 5 медалей крупно и «Посмотреть» (все медали с датами)
   const best = []; const seen = {};
@@ -432,14 +433,15 @@ function profileWin(p) {
     <div class="ptiles pbig">
       ${tile('treasury', 'gfx3d/prof/treasury.png', 'Пополнить Казну', !p.self)}
       ${tile('rep', 'gfx3d/prof/rep.png', 'Поднять Репутацию')}
-      ${tile('gift', 'gfx3d/prof/gift.png', 'Отправить Подарок')}
+      ${tile('gift', 'gfx3d/prof/gift.png', 'Отправить Подарок', (p.deny || {}).gift)}
       ${tile('friend', 'gfx3d/prof/friend.png', { friend: 'Убрать из друзей', sent: 'Заявка отправлена', in: 'Принять дружбу' }[p.friendState] || 'Добавить в друзья', p.self)}
-      ${tile('msg', M3('contacts'), 'Сообщение')}
+      ${tile('msg', M3('contacts'), 'Сообщение', (p.deny || {}).msg)}
       ${tile('hof', M3('hof'), 'Зал Славы')}
-      ${tile('premium', 'gfx3d/prof/premium.png', p.self ? 'Премиум' : 'Подарить Премиум')}
+      ${tile('premium', 'gfx3d/prof/premium.png', p.self ? 'Премиум' : 'Подарить Премиум', p.self ? '' : (p.deny || {}).gift)}
       ${tile('info', 'gfx3d/prof/info.png', 'Личная информация')}
       ${tile('more', 'gfx3d/prof/more.png', '')}
     </div>
+    ${p.deny && p.deny.note ? `<p class="pdeny">🔒 ${esc(p.deny.note)}</p>` : ''}
     ${giftsRow}${hof}${awards}${slayer}
     ${ribbon(`Замки - ${p.castles.length}`)}
     ${p.castles.map((c) => `<button class="pcastle" data-goworld="${c.x},${c.y}"><img src="${GFX}ground/castle_small.png" alt=""> ${esc(c.name)}<br>X: ${c.x}, Y: ${c.y}${c.capital ? ' (Столица)' : ''}</button>`).join('')}`;
@@ -592,13 +594,14 @@ function castleWin(o, x, y) {
   return `${ribbon('Замок')}
     <div class="cwin"><img class="cwimg" src="${GFX}${WORLD_NAME_IMG(o)}" alt=""><div>
       <div class="cwname">${esc(o.name)}</div><div>X: ${x} Y: ${y}</div><div>Рейтинг: ${gimg('ground/castle_small.png', 'rico')} ${fmtFull(o.rating)}</div></div></div>
-    <div class="cwrow"><span>Игрок:</span><button class="pbar cwplayer" data-cprof="${o.ownerId}">${esc(o.owner)}</button></div>
+    <div class="cwrow"><span>Игрок:</span>${o.nobody ? '<span>— ничей —</span>' : `<button class="pbar cwplayer" data-cprof="${o.ownerId}">${esc(o.owner)}</button>`}</div>
     <div class="cwrow"><span>Раса:</span><span>${raceIcon(o.race)} ${esc(S.cat.races[o.race] || '')}</span></div>
     ${o.alliance ? `<div class="cwrow"><span>Альянс:</span><span>[${esc(o.alliance)}]</span></div>` : ''}
+    ${o.nobody ? '<p class="parch-note">Хозяин забросил замок — теперь он ничей. Захватить его может любой: победные нападения с Бунтарями, бунт +15% за каждое. Столицы у ничейных замков нет.</p>' : ''}
     <hr class="cwhr">
     <div class="ptiles">
-      ${mine ? tile(`data-switchxy="${x},${y}"`, 'build/hd3/castle.png', 'Войти в замок') : tile(`data-write="${esc(o.owner)}"`, 'smallicon/unmes.png', 'Сообщение')}
-      ${tile(`data-armyopen="trade" data-ax="${x}" data-ay="${y}"`, 'build/hd3/storage.png', 'Торговля')}
+      ${mine ? tile(`data-switchxy="${x},${y}"`, 'build/hd3/castle.png', 'Войти в замок') : o.nobody ? '' : tile(`data-write="${esc(o.owner)}"`, 'smallicon/unmes.png', 'Сообщение')}
+      ${o.nobody ? '' : tile(`data-armyopen="trade" data-ax="${x}" data-ay="${y}"`, 'build/hd3/storage.png', 'Торговля')}
       ${!mine ? tile(`data-warpick data-ax="${x}" data-ay="${y}"`, 'smallicon/swordred.png', 'Война')
     : S.st.castle.x === x && S.st.castle.y === y ? '' : `<button class="ptile" data-armyopen="reinforce" data-ax="${x}" data-ay="${y}"><img src="${G3}top/reinf.png" alt=""><span>Подкрепление</span></button>`}
     </div>
@@ -630,7 +633,7 @@ const treasuryWin = () => {
   const pay = S.cat.pay && S.cat.pay.on ? S.cat.pay : null, gold = S.st.user.gold || 0;
   return `${ribbon('Казна')}<div class="cwin"><img class="cwimg" src="${GFX}coins.png" alt=""><div><div class="cwname">Монеты</div><b>${fmtFull(gold)}</b></div></div>
   ${pay ? '<button class="pbar big paytop" data-payopen>💰 Пополнить</button>' : ''}
-  <p class="parch-note">${pay ? 'Монеты можно купить за звёзды Telegram или получить от администрации.' : 'Монеты выдаёт администрация.'} Тратятся${shopVisible() ? ' в «Лавке Короля» (ресурсы, сокровища, телепорт, ускорения, рамки),' : ''} на премиум, подарки, репутацию, праздники, ритуалы и казну альянса.</p>${shopVisible() ? '<button class="pbar" data-shopopen>🏪 Лавка Короля</button>' : ''}
+  <p class="parch-note">${pay ? 'Монеты можно купить за звёзды Telegram или получить от администрации.' : 'Монеты выдаёт администрация.'} Тратятся${shopVisible() ? ' в «Лавке Короля» (ресурсы, сокровища, телепорт, ускорения, рамки),' : ''} на премиум, подарки, репутацию, праздники и ритуалы.</p>${shopVisible() ? '<button class="pbar" data-shopopen>🏪 Лавка Короля</button>' : ''}
   ${ribbon('История')}${log.map((x) => `<div class="glog"><span class="${x.delta > 0 ? 'plus' : 'minus'}">${x.delta > 0 ? '+' : ''}${fmtFull(x.delta)}</span><span>${esc(x.reason)}<br><small>${new Date(x.at).toLocaleString('ru-RU')} · осталось ${fmtFull(x.left)}</small></span></div>`).join('') || '<p class="parch-note">Операций пока не было.</p>'}`;
 };
 
@@ -703,15 +706,27 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
   if (m.t === 'ratings') { S.rlist = m.list; return refreshSheet(); }
   if (m.t === 'players') { S.plist = m.list; return refreshSheet(); }
   if (m.t === 'notes') { S.notes = m.text; return refreshSheet(); }
+  if (m.t === 'giftdel') { // свой подарок удалён: убрать из открытого профиля (то же окно профиля под списком)
+    const p = S.lastProfile; if (p && p.id === m.to) p.gifts = (p.gifts || []).filter((g) => !(g.at === m.at && g.gift === m.gift && g.fromId === S.st.user.id && !g.ally));
+    return refreshSheet();
+  }
   prevMilMsg(m);
 };
 // полные списки разделов профиля (нажатие на ряд значков)
 function profileListWin(kind) {
   const p = S.lastProfile; if (!p) return '';
-  if (kind === 'gifts') return `${ribbon(`Подарки - ${(p.gifts || []).length}`)}<p class="center"><b>${esc(p.login)}</b></p><div class="pgifts">${(p.gifts || []).map((g) => { const G = S.cat.gifts[g.gift] || {}; return `<button class="pgift" data-cprof="${g.fromId}" title="${esc(G.name || '')}"><img src="${GFX}${G.img}" alt=""><small>от ${esc(g.from)}</small>${g.text ? `<i>«${esc(g.text)}»</i>` : ''}</button>`; }).join('')}</div>`;
+  // свой подарок (не из казны альянса) даритель может удалить — за столько же монет, сколько он стоил (social.js deleteGift)
+  if (kind === 'gifts') return `${ribbon(`Подарки - ${(p.gifts || []).length}`)}<p class="center"><b>${esc(p.login)}</b></p><div class="pgifts">${(p.gifts || []).map((g) => { const G = S.cat.gifts[g.gift] || {}, mine = g.fromId === S.st.user.id && !g.ally;
+    return `<div class="pgiftw"><button class="pgift" data-cprof="${g.fromId}" title="${esc(G.name || '')}"><img src="${GFX}${G.img}" alt=""><small>от ${g.ally ? `альянса [${esc(g.ally)}]` : esc(g.from)}</small>${g.text ? `<i>«${esc(g.text)}»</i>` : ''}</button>${mine ? `<button class="btn small pgdel" data-gdel="${g.at}" data-gid="${esc(g.gift)}">Удалить · ${G.gold || 1} ${gimg('coins_s.png', 'ri')}</button>` : ''}</div>`; }).join('')}</div>`;
   return `${ribbon('Награждения')}<p class="center"><b>${esc(p.login)}</b></p>${(p.awards || []).map((m) => `<div class="award"><img src="${GFX}smallicon/status/${m.kind}.png" alt=""><div><b>${esc(ALLY_MEDAL[m.kind] || 'Медаль')} от альянса [${esc(m.tag)}]</b><small>${m.text ? `«${esc(m.text)}» · ` : ''}вручил ${esc(m.by)} · получено ${fmtDay(m.at)}</small></div></div>`).join('')}`;
 }
 $('#sheetBody').addEventListener('click', (e) => { const t = e.target.closest('[data-plist]'); if (t) openSheet(() => profileListWin(t.dataset.plist)); });
+$('#sheetBody').addEventListener('click', (e) => { // «Удалить» под своим подарком в чужом профиле
+  const t = e.target.closest('[data-gdel]'); if (!t) return;
+  const p = S.lastProfile, G = S.cat.gifts[t.dataset.gid] || {}, n = G.gold || 1;
+  if (!p || !confirm(`Удалить подарок «${G.name || 'Подарок'}» у ${p.login}? Это стоит ${n} ${plural(n, 'монету', 'монеты', 'монет')}.`)) return;
+  send({ t: 'giftdel', to: p.id, at: Number(t.dataset.gdel), gift: t.dataset.gid });
+});
 // профиль — новый вид
 profileSheet = function (p) { S.lastProfile = p; return profileWin(p); }; // eslint-disable-line no-global-assign
 
@@ -734,12 +749,12 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.hof !== undefined) return openHalls(d.hof ? Number(d.hof) : undefined);
   if (d.soon) return openSoon(d.soon);
   if (d.ptile) {
-    if (t.classList.contains('off')) return;
+    if (t.classList.contains('off')) { if (d.deny) toast(d.deny, 'err'); return; }
     const p = S.lastProfile, id = Number(d.pid);
     if (d.ptile === 'treasury') return openSheet(S.cat.pay && S.cat.pay.on ? payWin : treasuryWin);
     if (d.ptile === 'premium') return openPremium(p.self ? null : p.login);
     if (d.ptile === 'rep') { S.repTo = p; S.repCoins = 1; return openSheet(repWin); }
-    if (d.ptile === 'gift') { S.giftTo = p; S.giftCat = 'all'; S.giftNew = false; S.giftPage = 0; return openSheet(giftsWin); }
+    if (d.ptile === 'gift') { S.giftTo = p; S.giftAlly = false; S.giftCat = 'all'; S.giftNew = false; S.giftPage = 0; return openSheet(giftsWin); }
     if (d.ptile === 'friend') {
       const st = p.friendState, op = st === 'friend' ? 'del' : st === 'sent' ? 'cancel' : st === 'in' ? 'accept' : 'add';
       if (op === 'del' && !confirm(`Убрать ${p.login} из друзей?`)) return;
@@ -829,7 +844,7 @@ function giftsWin() {
     <div class="combo"><select data-giftcat>${cats.map(([k, t]) => `<option value="${k}" ${k === S.giftCat ? 'selected' : ''}>${k === 'premium' ? '👑 ' : ''}${t}</option>`).join('')}</select></div>
     <div class="center bwline gnew"><a class="${S.giftNew ? 'plink' : 'gsel'}" data-gnew="0">Все</a> <a class="${S.giftNew ? 'gsel' : 'plink'}" data-gnew="1">Новые</a></div>
     <div class="pager"><button data-gpg="0" ${pg ? '' : 'disabled'}>◀◀</button><button data-gpg="${pg - 1}" ${pg ? '' : 'disabled'}>◀</button><span>${pg + 1} / ${pages}</span><button data-gpg="${pg + 1}" ${pg < pages - 1 ? '' : 'disabled'}>▶</button><button data-gpg="${pages - 1}" ${pg < pages - 1 ? '' : 'disabled'}>▶▶</button></div>
-    <div class="bwline center">Кому: <b>${esc(p.login)}</b> · у вас ${gimg('coins_s.png', 'ri')} ${fmtFull(S.st.user.gold || 0)}</div>
+    <div class="bwline center">Кому: <b>${esc(p.login)}</b> · ${S.giftAlly ? `из казны альянса ${gimg('coins_s.png', 'ri')} ${fmtFull((S.ally || {}).treasury || 0)}` : `у вас ${gimg('coins_s.png', 'ri')} ${fmtFull(S.st.user.gold || 0)}`}</div>
     ${show.length ? show.map(([id, g]) => `<div class="giftrow"><img src="${GFX}${g.img}" alt="">
       ${g.premium ? '<div class="gprem">Премиум подарок</div>' : ''}
       <div class="bwline center">${esc(g.name)} ( ${gimg('coins_s.png', 'ri')} ${g.gold})</div>
@@ -843,9 +858,9 @@ $('#sheetBody').addEventListener('click', (e) => {
 $('#sheetBody').addEventListener('click', (e) => {
   const t = e.target.closest('[data-giftsend]'); if (!t) return;
   const p = S.giftTo, g = S.cat.gifts[t.dataset.giftsend];
-  const text = prompt(`Подарок «${g.name}» игроку ${p.login} за ${g.gold} ${plural(g.gold, 'монету', 'монеты', 'монет')}. Подпись (необязательно):`, '');
+  const text = prompt(`Подарок «${g.name}» игроку ${p.login} за ${g.gold} ${plural(g.gold, 'монету', 'монеты', 'монет')}${S.giftAlly ? ' из казны альянса' : ''}. Подпись (необязательно):`, '');
   if (text === null) return;
-  send({ t: 'gift', to: p.id, gift: t.dataset.giftsend, text });
+  send({ t: 'gift', to: p.id, gift: t.dataset.giftsend, text, ally: S.giftAlly ? 1 : undefined }); // ally — из казны альянса (alliance.js)
   closeSheet();
 });
 

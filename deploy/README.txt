@@ -15,6 +15,13 @@
   Репозиторий закрытый: скачивание идёт с токеном GitHub (сохранить: war-token; токен fine-grained, только Darkdini/vs,
   Contents: Read-only) или пока репозиторий открыт (Public).
 
+=== Закрыть игру (заглушка «сервер временно не работает», входит только админ) ===
+  В игре: Админка → вверху «Закрыть игру для игроков: на 8 часов / на 24 часа». Через этот срок игра откроется сама,
+  раньше — кнопкой «Открыть игру сейчас».
+  Запустить сервер сразу с закрытой игрой (после остановки или вместе с обновлением), чтобы игроки не успели войти:
+    echo 8 > /opt/war/game-data/maint.on && war-update <ссылка на game.zip>      — на 8 часов (echo 24 — на 24 часа)
+  Сервер закроет игру и сам удалит файл.
+
 === Установка на новый сервер ===
   curl -fsSL -H "Authorization: Bearer ТОКЕН" https://raw.githubusercontent.com/Darkdini/vs/claude/third-world-kings-war-analysis-lodxja/deploy/install-vps.sh -o install.sh
   sh install.sh middle-ages.ru www.middle-ages.ru
@@ -111,7 +118,8 @@ tgapi.sh проверит связь и перезапустит игру. Да�
 
 === Свои настройки сервера ===
   Строки ИМЯ=значение в /opt/war/game-data/game.env, потом systemctl restart war. Список настроек — в README.md проекта.
-  Например SHOP_OPEN=1 — «Лавка Короля» для всех игроков, NEWBIE_DAYS=3 — дней защиты новичка.
+  Например SHOP_OPEN=1 — «Лавка Короля» для всех игроков, NEWBIE_DAYS=3 — дней защиты новичка,
+  NEWBIE_PREMIUM_DAYS=3 — дней Премиума в подарок новичку (0 — без подарка).
 
 === Чистый старт для закрытого теста ===
   sh /opt/war/game/fresh-test.sh 5   удаляет ВСЕХ игроков (старое — в архив /root/war-old), создаёт 5 тестеров;

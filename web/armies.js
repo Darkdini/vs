@@ -118,10 +118,12 @@ function warWin(x, y) {
   const scout = M().units.find((u) => u.role === 'scout'), site = S.world && (S.world.objects || []).find((o) => o.x === Number(x) && o.y === Number(y) && o.site);
   const ic = { attack: `${GFX}watch/ic_attack.png`, raid: `${GFX}watch/ic_raid.png`, scout: scout ? unitSrc(scout) : `${GFX}watch/ic_watch.png`, reinforce: `${G3}top/reinf.png` };
   const ally = allyCastleAt(x, y); // союзник по альянсу — только подкрепление
+  const nobody = S.world && (S.world.objects || []).some((o) => o.x === Number(x) && o.y === Number(y) && o.nobody); // ничейный замок — без подкрепления
   return `${ribbon('Война')}<div class="clabel">Цель: X ${esc(x)} · Y ${esc(y)}. Что делаем?</div>
     ${ally ? '<div class="cinfo small">Это замок вашего альянса — ему можно только помочь подкреплением.</div>' : ''}
     ${site ? '<div class="cinfo small">Это недострой: набег ничего не даст. Победное нападение, в котором выживут 3 путешественника, заберёт стройку вам.</div>' : ''}
-    ${WAR_KINDS.filter(([k]) => (!ally || k === 'reinforce') && !(site && k === 'raid')).map(([k, t, d]) => `<button class="wpick" data-warkind="${k}" data-ax="${esc(x)}" data-ay="${esc(y)}"><img src="${ic[k]}" alt=""><span><b>${t}</b><small>${d}</small></span><i>›</i></button>`).join('')}`;
+    ${nobody ? '<div class="cinfo small">Это ничейный замок: хозяин его забросил. Захватить его можно победными нападениями с Бунтарями — бунт +15% за каждое.</div>' : ''}
+    ${WAR_KINDS.filter(([k]) => (!ally || k === 'reinforce') && !(site && k === 'raid') && !(nobody && k === 'reinforce')).map(([k, t, d]) => `<button class="wpick" data-warkind="${k}" data-ax="${esc(x)}" data-ay="${esc(y)}"><img src="${ic[k]}" alt=""><span><b>${t}</b><small>${d}</small></span><i>›</i></button>`).join('')}`;
 }
 // пустая клетка на карте мира: «Освоение» — основать замок путешественниками
 function emptyWin(x, y) {

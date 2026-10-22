@@ -12,6 +12,11 @@ function install(Game) {
   // можно ли from обратиться к to: kind 'msg' — личка и фото (настройка «кто пишет» + чёрный список), иначе — только чёрный список
   P.canReach = function canReach(from, to, kind = 'msg') {
     if (!from || !to || from.id === to.id || from.admin || from.mod) return null;
+    // администратору (Советник) пишут в личку, дарят подарки, зовут в ЗАГС и в «Орёл-решку» только его друзья;
+    // заявку в друзья отправить можно. Модераторы пишут всегда (выше)
+    if (to.admin && kind !== 'friend' && !(to.friends || []).includes(from.id)) {
+      return kind === 'msg' ? 'Писать администратору в личку могут только его друзья.' : kind === 'gift' ? 'Дарить подарки администратору могут только его друзья.' : 'Администратор принимает это только от друзей.';
+    }
     const p = this.privacyOf(to);
     if (p.black.includes(from.id)) return `${to.login} ограничил(а) общение с Вами.`;
     if (kind !== 'msg' || p.who === 'all') return null;

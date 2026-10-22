@@ -1,6 +1,7 @@
 'use strict';
 // «МАСТЕРА» — закрытый раздел общения админа и тестеров (Меню → «МАСТЕРА»), как группа в Telegram с темами:
-// темы по конкретным проблемам, сообщения, фото на 24 часа (потом удаляются с сервера), опросы с голосованием.
+// темы по конкретным проблемам, сообщения, фото на 24 часа (потом удаляются с сервера), опросы с голосованием,
+// ответ на сообщение (цитата и уведомление автору, как в Telegram).
 // Видят и пишут только админ и действующие тестеры (closedtest.js). Фото — как в личных сообщениях (pics.js):
 // браузер присылает сжатые цвета точек, сервер сам собирает PNG; отдаётся только по сессии участника.
 const zlib = require('zlib');
@@ -41,12 +42,13 @@ function install(Game) {
     const d = this.staffDb();
     const topics = d.topics.map((t) => {
       const ms = d.msgs.filter((m) => m.t === t.id), last = ms[ms.length - 1];
-      return { id: t.id, title: t.title, by: login(this, t.by), at: t.at, pin: !!t.pin, closed: !!t.closed, count: ms.length, unread: this.staffUnread(u, t.id),
+      return { id: t.id, title: t.title, by: login(this, t.by), at: t.at, pin: !!t.pin, closed: !!t.closed, count: ms.length, unread: this.staffUnread(u, t.id), canDel: canMod(u, t.by),
         last: last ? { at: last.at, by: login(this, last.by), text: last.poll ? `📊 ${last.poll.q}` : last.pic || last.picGone ? `📷 ${last.text || 'Фото'}` : last.text } : null, lastAt: last ? last.at : t.at };
     }).sort((a, b) => (b.pin - a.pin) || b.lastAt - a.lastAt);
     return { topics, admin: !!u.admin, members: Object.values(this.db.users).filter((x) => this.staffOk(x)).map((x) => ({ login: x.login, admin: !!x.admin, online: !!x.online && !x.admin })) };
   };
   const fmt = (g, u, m) => ({ id: m.id, by: login(g, m.by), byId: m.by, mine: m.by === u.id, admin: !!(g.userById(m.by) || {}).admin, at: m.at, text: m.text || '',
+    reply: m.reply ? { id: m.reply.id, by: login(g, m.reply.by), text: m.reply.text } : null,
     pic: m.pic && m.picExp > Date.now() ? m.pic : null, picExp: m.pic ? m.picExp : 0, picGone: !!m.picGone, canDel: canMod(u, m.by),
     poll: m.poll ? { q: m.poll.q, multi: !!m.poll.multi, closed: !!m.poll.closed, canClose: canMod(u, m.by),
       total: Object.keys(m.poll.votes).length,
@@ -81,7 +83,12 @@ function install(Game) {
         const t = topic(); if (!t) return { error: 'Тема не найдена.' }; if (t.closed && !u.admin) return { error: 'Тема закрыта.' };
         const text = clean(m.text, TEXT_MAX); if (!text) return { error: 'Пустое сообщение.' };
         const f = flood(); if (f) return { error: f };
-        pushMsg(this, t, { id: d.next++, t: t.id, by: u.id, at: now, text }); this.store.save(); return { ok: true, topic: t.id };
+        // ответ на сообщение этой темы: цитата (автор и начало текста), автору — уведомление
+        const to = m.reply ? d.msgs.find((x) => x.id === Number(m.reply) && x.t === t.id) : null;
+        const reply = to ? { id: to.id, by: to.by, text: (to.poll ? `📊 ${to.poll.q}` : to.text || '📷 Фото').slice(0, 120) } : null;
+        pushMsg(this, t, { id: d.next++, t: t.id, by: u.id, at: now, text, ...(reply ? { reply } : {}) });
+        if (to && to.by !== u.id) this.event(to.by, `МАСТЕРА: ${u.login} ответил(а) на ваше сообщение в теме «${t.title}».`);
+        this.store.save(); return { ok: true, topic: t.id };
       }
       case 'poll': {
         const t = topic(); if (!t) return { error: 'Тема не найдена.' }; if (t.closed && !u.admin) return { error: 'Тема закрыта.' };

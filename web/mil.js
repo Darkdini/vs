@@ -39,9 +39,14 @@ function unitMax(u) {
   else if (MY().trainDay) n = Math.min(n, MY().trainDay.max - MY().trainDay.used);
   return Math.max(0, n === Infinity ? 0 : n);
 }
+// улучшения Кузницы, которые действуют в бою: при новых правилах боя (проба, админка) — не больше предела (forgeCap с сервера)
+function forgeEff(id) {
+  const fg = (S.st && MY().forge && MY().forge[id]) || {}, cap = S.st && MY().forgeCap && MY().forgeCap[id];
+  return cap ? Object.fromEntries(['a', 'd', 'm', 'md'].map((k) => [k, Math.min(fg[k] || 0, cap[k])])) : fg;
+}
 function unitStatsHtml(u) {
   // улучшения Кузницы: +1 к базовой атаке/защите за уровень — показываем «база +N»
-  const fg = (S.st && MY().forge && MY().forge[u.id]) || {}, fa = u.attack ? fg.a || 0 : 0, fd = fg.d || 0, fm = u.magic ? fg.m || 0 : 0, fmd = fg.md || 0;
+  const fg = forgeEff(u.id), fa = u.attack ? fg.a || 0 : 0, fd = fg.d || 0, fm = u.magic ? fg.m || 0 : 0, fmd = fg.md || 0;
   const plus = (n) => (n ? ` <b class="fplus">+${n}</b>` : '');
   return `<div class="grid4 g5"><div><small>Здоровье</small>${u.hp || '—'}</div><div><small>Атака</small>${u.attack}${plus(fa)}${u.magic ? `<br>маг ${u.magic}${plus(fm)}` : ''}</div>
     <div><small>Защита п/к/м</small>${u.def.inf}${plus(fd)}/${u.def.cav}${plus(fd)}/${u.def.mag}${plus(fmd)}</div>
@@ -73,19 +78,19 @@ function milEffect(def, L) {
     24: () => ({ text: 'путешественники (освоение новых замков) и бунтари (захват)', short: '' }),
     25: () => ({ text: `религия: +${L}% к её бонусу`, short: `+${L}%` }),
     26: () => { const h = Math.round(200 * 1.3 ** (L - 1) * (S.st.user.race === 'dwarves' ? 2 : 1) * ((MY().sciences || {}).eco >= 10 ? 1.25 : 1)); return { text: `прячет ${fmtFull(h)} каждого ресурса от грабежа`, short: fmtN(h) }; }, // как на сервере: гномы ×2, Экономика 10 — ещё +25%
-    38: () => ({ text: 'призыв легендарных юнитов', short: '' }),
+    38: () => ({ text: 'походы через Портал — вчетверо быстрее', short: '' }),
     39: () => ({ text: `+${2 * L}% магической атаки и защиты`, short: `+${2 * L}%` }),
     40: () => { const p = Math.round((1 - 1 / (1 + 0.05 * L)) * 100); return { text: `здания получают на ${p}% меньше урона (катапульты и осадные воины)`, short: `−${p}%` }; }, // урон ÷ (1 + 5% × ур.)
-    41: () => ({ text: `мест для раненых: ${fmtFull(1000 * L)}; лечение — за полцены тренировки, сразу`, short: `${fmtFull(1000 * L)} мест` }), // Лазарет (army.js INFIRM_CAP)
+    41: () => ({ text: `мест для раненых: ${fmtFull(1000 * L)}; ранеными становится половина павших; лечение — за четверть цены тренировки, сразу`, short: `${fmtFull(1000 * L)} мест` }), // Лазарет (army.js INFIRM_CAP)
     42: () => ({ text: 'найм наёмников: Великан, Валькирия', short: '' }),
     43: () => ({ text: `тренировка быстрее на ${2 * L}%`, short: `−${2 * L}%` }),
     44: () => ({ text: `хранит ${3 + L} ${plural(3 + L, 'артефакт', 'артефакта', 'артефактов')}`, short: `${3 + L}` }),
-    45: () => ({ text: `+${5 * L}% к контрразведке; Око и Тень; с Караульной башней — сведения о вражеских армиях`, short: `+${5 * L}%` }),
+    45: () => ({ text: `+${5 * L}% к контрразведке; тренирует разведчиков; с Караульной башней — сведения о вражеских армиях`, short: `+${5 * L}%` }),
   }[def.id];
   return fx ? fx() : null;
 }
 
-// ---------- Лазарет (здание 41): раненые воины и лечение — за полцены тренировки, сразу (server: army.js healWounded) ----------
+// ---------- Лазарет (здание 41): раненые воины и лечение — за четверть цены тренировки, сразу (server: army.js healWounded) ----------
 // Лазарет: цена лечения n раненых — как на сервере (healCostOf): цена одного без округления × n, округлить
 S.healN = {}; // сколько выбрано по видам (окно перерисовывается — число не теряется)
 const healCost = (w, n) => Object.fromEntries(RES4.map((r) => [r, Math.round(((w.one || {})[r] || 0) * n)]));
@@ -111,7 +116,7 @@ function infirmaryHtml() {
     <div class="hbtns"><button class="pbar" data-hmax="${w.id}" ${max ? '' : 'disabled'}>Сколько хватит</button><button class="pbar tbtn" data-heal="${w.id}" ${max ? '' : 'disabled'}>Вылечить</button></div>
     ${max < w.n ? `<p class="hnote">${max ? `Ресурсов хватит на ${fmtFull(max)} из ${fmtFull(w.n)}.` : 'Ресурсов не хватает даже на одного.'}</p>` : ''}</div>`; }).join('');
   return `${ribbon('Раненые')}<p class="coinhint">Мест: <b>${fmtFull(I.used)} из ${fmtFull(I.cap)}</b>. Сюда попадают Ваши воины, павшие в нападениях и набегах из этого замка и при его обороне.
-      Лечение — за полцены тренировки и сразу: ждать не нужно, вылеченные тут же возвращаются в Замковую армию.</p>
+      Лечение — за четверть цены тренировки и сразу: ждать не нужно, вылеченные тут же возвращаются в Замковую армию.</p>
     ${all ? `${rows}${I.wounded.length > 1 ? `<div class="tcost"><div class="tcost-h">Вылечить всех раненых (${fmtFull(all)}):</div><div class="tcost-r">${cost(allCost)}</div></div>
       <button class="pbar" data-heal="all">Вылечить всех</button>` : ''}` : '<p class="parch-note">Раненых нет.</p>'}`;
 }
@@ -183,7 +188,7 @@ function trainHtml(def, units) {
 const STAT_IC = (f) => `<img src="${GFX}smallicon/${f}.png" alt="">`;
 function trainCard(u) {
   const lock = unitLock(u), max = unitMax(u), n = Math.min(S.cnt[u.id] ?? 0, max); // как в оригинале: по умолчанию 0
-  const fg = (MY().forge && MY().forge[u.id]) || {}, plus = (v, k) => v + (k || 0);
+  const fg = forgeEff(u.id), plus = (v, k) => v + (k || 0);
   return `<div class="tcard"><div class="tname">${esc(u.name)}</div>${uimg(u, 'timg')}
     <div class="tparams-h">Параметры юнита:</div>
     <div class="tparams"><div>${STAT_IC('health')}<b>${u.hp}</b></div><div>${STAT_IC('phiattack')}<b>${plus(u.attack, u.attack ? fg.a : 0)}</b></div><div>${STAT_IC('magattack')}<b>${plus(u.magic, u.magic ? fg.m : 0)}</b></div>
@@ -320,9 +325,9 @@ function expedHtml() {
 const ART_HOURS = [12, 24, 48];
 function artifactsHtml() {
   const my = MY(), active = my.artifacts.filter((a) => a.active).length;
-  return `<div class="section">Артефакты</div><p class="small muted">Пробуждено ${active} из ${my.bonus.artSlots} (Башня артефактов), хранится ${my.artifacts.length} из ${my.bonus.artStore} (Сокровищница). Одинаковые артефакты складываются с убыванием: второй даёт половину, третий — четверть. Ненужный спящий артефакт можно разбить на осколки — освободится место, а взамен немного ресурсов.</p>
+  return `<div class="section">Артефакты</div><p class="small muted">Пробуждено ${active} из ${my.bonus.artSlots} (Башня артефактов), хранится ${my.artifacts.length} из ${my.bonus.artStore} (Сокровищница). Одновременно действует только один артефакт каждого вида — самый сильный. Ненужный спящий артефакт можно разбить на осколки — освободится место, а взамен немного ресурсов.</p>
     ${my.artifacts.map((a) => { const t = M().artifacts[a.type], r = M().rarity[a.rarity]; return `<div class="card unit"><div class="top">${gimg(ART_ICON[a.type] || ART_ICON.atk, `artico artr${a.rarity}`)}
-      <div class="grow"><b>${esc(t.name)}</b><span class="muted small">${r.name}: +${Math.round(r.bonus * 100)}% — ${esc(t.desc)}${a.active ? ` · <b class="good">пробуждён${a.eff !== undefined && a.eff < r.bonus - 1e-9 ? `, действует +${Math.round(a.eff * 100)}%` : ''}</b>` : ''}</span></div>
+      <div class="grow"><b>${esc(t.name)}</b><span class="muted small">${r.name}: +${Math.round(r.bonus * 100)}% — ${esc(t.desc)}${a.active ? ` · <b class="good">пробуждён${a.eff !== undefined && a.eff < r.bonus - 1e-9 ? (a.eff > 0 ? `, действует +${Math.round(a.eff * 100)}%` : ', не действует — пробуждён более сильный этого вида') : ''}</b>` : ''}</span></div>
       ${a.active ? '' : `<div class="artbtns"><button class="btn small primary" data-art="${a.id}" data-on="1" data-hours="${ART_HOURS[a.rarity]}">Пробудить</button><button class="btn small danger" data-artbreak="${a.id}">Разбить</button></div>`}</div>
       ${a.active && a.until ? `<div class="artlife"><div class="bar"><i data-s="${a.until - ART_HOURS[a.rarity] * 3600000 / S.cat.speed}" data-e="${a.until}"></i></div><span>иссякнет через <span class="cd" data-e="${a.until}"></span></span></div>` : `<p class="small muted">Пробуждённый действует ${ART_HOURS[a.rarity]} ч, затем рассыпается. Разбить — +${fmtFull(M().artBreak[a.rarity])} каждого ресурса.</p>`}</div>`; }).join('') || '<p class="muted small">Артефактов нет — их приносят экспедиции археологов (здание «Экспедиция»).</p>'}`;
 }
@@ -330,7 +335,7 @@ function artifactsHtml() {
 // ---------- отправка войск — окно «Военный поход» в armies.js ----------
 
 // ---------- отчёты ----------
-function openReports() { S.reports = null; send({ t: 'reports' }); openSheet(reportsHtml); }
+function openReports() { S.reports = null; S.repPage = 0; S.mailMenu = null; send({ t: 'reports', page: 0 }); openSheet(reportsHtml); }
 // дата как в оригинале: «Сегодня, 14:03», «Вчера, 14:03», иначе «27.09.2026 13:07»
 function repDate(t) {
   const d = new Date(t), hm = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
@@ -340,12 +345,13 @@ function repDate(t) {
   return `${d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${hm}`;
 }
 const REPG = 'gfx3d/rep/';
+// список — по 10 на страницу (сервер: reports { page }), внизу слева конверт с меню (mailMenuHtml в dialogs.js)
 function reportsHtml() {
-  const list = S.reports || [];
-  return `<div class="ribbon"><span><img class="renv" src="${REPG}envnew.svg" alt=""> Отчеты ${S.reports ? list.length : ''}</span></div>
-    <div class="replist">${!S.reports ? '<p class="parch-note">Загрузка…</p>' : list.map((r) => `<button class="repcard ${r.tone || 'info'} ${r.read ? '' : 'new'}" data-report="${r.id}">
+  const R = S.reports;
+  return `<div class="ribbon"><span><img class="renv" src="${REPG}envnew.svg" alt=""> Отчеты ${R ? R.total : ''}</span></div>${R ? mailPager('reppg', R.page, R.pages) : ''}
+    <div class="replist">${!R ? '<p class="parch-note">Загрузка…</p>' : R.list.map((r) => `<button class="repcard ${r.tone || 'info'} ${r.read ? '' : 'new'}" data-report="${r.id}">
       <b><img class="renv" src="${REPG}${r.read ? 'env' : 'envnew'}.svg" alt=""> ${esc(r.title)}</b><span>От: ${esc(r.from || 'Советник')}</span><span>${repDate(r.at)}</span></button>`).join('') || '<p class="parch-note">Отчётов пока нет.</p>'}</div>
-    ${list.some((r) => r.read) ? `<button class="repclean" data-repclean title="Удалить прочитанные"><img src="${REPG}mailset.png" alt=""></button>` : ''}`;
+    ${mailMenuHtml('rep')}`;
 }
 // окно отчёта как в оригинале: шапка «От/Тема/дата», итог похода, стороны, армии с потерями по юнитам
 function reportHtml(r) {
@@ -423,8 +429,8 @@ function reportHtml(r) {
   // павшие: «Полевой лекарь» спас сразу (нападавшему); раненые — в Лазарет замка (нападавшему и защитнику)
   const ofW = (n) => `${fmtFull(n)} ${plural(n, 'воина', 'воинов', 'воинов')}`, cl = d.calc || {};
   const healWhy = (attV && cl.saved ? why(`Полевой лекарь спас ${ofW(cl.saved)} — они вернутся домой.`) : '')
-    + (attV && cl.wounded ? why(`В Лазарет отправлено раненых: ${fmtFull(cl.wounded)} — вылечите их там за полцены.`) : '');
-  const dHealWhy = !attV && cl.dWounded && !d.captured ? why(`В Лазарет отправлено раненых: ${fmtFull(cl.dWounded)} — вылечите их там за полцены.`) : '';
+    + (attV && cl.wounded ? why(`В Лазарет отправлено раненых: ${fmtFull(cl.wounded)} (ранеными становится половина павших) — вылечите их там за четверть цены.`) : '');
+  const dHealWhy = !attV && cl.dWounded && !d.captured ? why(`В Лазарет отправлено раненых: ${fmtFull(cl.dWounded)} (ранеными становится половина павших) — вылечите их там за четверть цены.`) : '';
   const dWhy = dL || !dW || d.win || kD < 2 ? '' : why(`Защита была в ${kD} ${plural(kD, 'раз', 'раза', 'раз')} сильнее атаки — при таком перевесе защитники почти не теряют войск.`);
   // «Армия атаки» / «Армия защиты» — раскрываются нажатием: потери, потери в ресурсах, по юнитам «погибло из было», генерал
   const unitRows = (units, race) => Object.entries(units || {}).map(([id, v]) => { const u = unitById(id); return u ? `<div class="rul"><img class="ric" src="${unitSrc(u, race)}" alt=""> ${esc(u.name)}: ${fmtFull(v.lost)} из ${fmtFull(v.was)}</div>` : ''; }).join('');
@@ -473,14 +479,14 @@ function armyBookHtml() {
   return `<div class="vhead"><button class="iconbtn" data-back>‹</button><h2>Войска</h2></div>
     <div class="pad" style="padding-top:8px"><div class="pills">${races.map((r) => `<button data-brace="${r}" class="${r === S.bookRace ? 'on' : ''}">${r === 'all' ? 'Общие' : esc(S.cat.races[r])}</button>`).join('')}</div>
     <div class="list" style="margin-top:8px">${list.map((u0) => raceUnit(u0, S.bookRace === 'all' ? S.st.user.race : S.bookRace)).map((u) => `<div class="card unit"><div class="top">${`<img class="ui" src="${unitSrc(u, S.bookRace === 'all' ? S.st.user.race : S.bookRace)}" alt="">`}<div class="grow"><b>${esc(u.name)}</b>
-      <span class="muted small">${TYPE_NAME[u.type] || ''} · ${esc(S.by[u.building].name)} ${u.level} ур.${Object.entries(u.req).map(([id, l]) => `, ${esc(S.by[id].name)} ${l} ур.`).join('')}</span></div></div>${unitStatsHtml(u)}</div>`).join('')}</div></div>`;
+      <span class="muted small">${TYPE_NAME[u.type] || ''} · ${u.retired ? 'больше не тренируется' : `${esc(S.by[u.building].name)} ${u.level} ур.${Object.entries(u.req).map(([id, l]) => `, ${esc(S.by[id].name)} ${l} ур.`).join('')}`}</span></div></div>${unitStatsHtml(u)}</div>`).join('')}</div></div>`;
 }
 
 // ---------- события ----------
 function milMsg(m) {
   if (m.t === 'alliances') { S.alliances = m.list; S.alFound = m.list; refreshSheet(); }
-  if (m.t === 'reports') { S.reports = m.list; refreshSheet(); }
-  if (m.t === 'report') openSheet(() => reportHtml(m.report));
+  if (m.t === 'reports') { S.reports = m; S.repPage = m.page; refreshSheet(); }
+  if (m.t === 'report') { const it = S.reports && S.reports.list.find((x) => x.id === m.report.id); if (it) it.read = true; S.mailMenu = null; openSheet(() => reportHtml(m.report)); } // ◀ — к списку: отчёт уже прочитан
 }
 function hqCell() { const i = S.st.castle.grid[0].indexOf(HQ); return i; }
 
@@ -496,8 +502,8 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.armyopen !== undefined) return openArmySheet({ mission: d.armyopen || 'raid', x: d.ax !== undefined ? Number(d.ax) : '', y: d.ay !== undefined ? Number(d.ay) : '' });
   if (d.reports !== undefined) return openReports();
   if (d.report) return send({ t: 'report', id: Number(d.report) });
-  if (d.repdel) { send({ t: 'repdel', ids: [Number(d.repdel)] }); return closeSheet(); }
-  if (d.repclean !== undefined) { if (confirm('Удалить все прочитанные отчёты?')) send({ t: 'repdel', ids: 'read' }); return; }
+  if (d.reppg !== undefined) { S.repPage = Math.max(0, Number(d.reppg)); return send({ t: 'reports', page: S.repPage }); }
+  if (d.repdel) { send({ t: 'repdel', ids: [Number(d.repdel)], page: S.repPage }); return closeSheet(); }
   if (d.repfwd) { const to = prompt('Кому переслать отчёт? Ник игрока:'); if (to) send({ t: 'repfwd', id: Number(d.repfwd), to }); return; }
   if (d.sci) return send({ t: 'research', sci: d.sci });
   if (d.religion) return send({ t: 'religion', id: d.religion });

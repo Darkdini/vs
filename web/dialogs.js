@@ -3,7 +3,32 @@
 // и «Диалог» — переписка с одним игроком по дням, поле ввода со смайлами, «Отправить», «Профиль», «История».
 // Сервер: dialogs / dialog / sendmail(dialog) / dialogclose в server/src/web.js.
 S.dlg = { list: null, page: 0, filter: 'all', with: null, msgs: null };
-function openDialogs() { S.dlg.list = null; S.dlg.menu = false; send({ t: 'dialogs', page: S.dlg.page, filter: S.dlg.filter }); openSheet(dialogsWin); }
+function openDialogs() { S.dlg.list = null; S.dlg.menu = false; S.dlg.page = 0; S.dlg.stale = false; S.mailMenu = null; send({ t: 'dialogs', page: 0, filter: S.dlg.filter }); openSheet(dialogsWin); }
+
+// Списки «Сообщения» и «Отчёты» (mil.js), как в оригинале: по 10 на страницу, стрелки листают; внизу слева — конверт,
+// нажали — меню действий со всем списком и «Закрыть» (тогда ◀ в списке нет — style.css). В отчёте и в диалоге — только ◀ и ✕
+function mailPager(key, page, pages) {
+  const b = (to, t, on) => `<button data-${key}="${to}" ${on ? '' : 'disabled'}>${t}</button>`;
+  return `<div class="hnav">${b(0, '◀◀', page > 0)}${b(page - 1, '◀', page > 0)}<span>${page + 1}</span>${b(page + 1, '▶', page < pages - 1)}${b(pages - 1, '▶▶', page < pages - 1)}</div>`;
+}
+const MAIL_OPS = [['all', 'Удалить всё'], ['read', 'Удалить прочитанные'], ['new', 'Удалить новые'], ['readall', 'Отметить как прочитанные']];
+function mailMenuHtml(kind) { // kind: 'rep' — отчёты, 'dlg' — переписки
+  if (S.mailMenu !== kind) return `<button class="mailset" data-mailmenu="${kind}" aria-label="Действия со списком"><img src="gfx3d/btn/mail.png" alt=""></button>`;
+  return `<div class="mailshade" data-mailmenu="close"></div><div class="mailmenu">${MAIL_OPS.map(([op, t]) => `<button data-mailop="${op}">${t}</button>`).join('')}</div>
+    <div class="mailbar"><button data-mailmenu="close">Закрыть</button></div>`;
+}
+const MAIL_ASK = { rep: { all: 'Удалить все отчёты?', read: 'Удалить все прочитанные отчёты?', new: 'Удалить все новые (непрочитанные) отчёты?' },
+  dlg: { all: 'Удалить все переписки?', read: 'Удалить переписки, где всё прочитано?', new: 'Удалить переписки с новыми сообщениями?' } };
+$('#sheetBody').addEventListener('click', (e) => {
+  const t = e.target.closest('[data-mailmenu],[data-mailop]'); if (!t) return;
+  const d = t.dataset;
+  if (d.mailmenu !== undefined) { S.mailMenu = d.mailmenu === 'close' ? null : d.mailmenu; return refreshSheet(); }
+  const kind = S.mailMenu, op = d.mailop; if (!kind) return;
+  S.mailMenu = null; refreshSheet();
+  if (op !== 'readall' && !confirm(`${MAIL_ASK[kind][op]}${kind === 'dlg' ? ' У собеседников сообщения останутся.' : ''}`)) return;
+  if (kind === 'rep') return send(op === 'readall' ? { t: 'repread', page: S.repPage } : { t: 'repdel', ids: op, page: S.repPage });
+  return send({ t: 'msgbulk', op, page: S.dlg.page, filter: S.dlg.filter });
+});
 function openDialog(who) { S.dlg.msgs = null; S.dlg.with = null; S.dlg.more = 30; S.dlg.edit = false; S.dlg.sel = {}; send({ t: 'dialog', ...(typeof who === 'number' ? { id: who } : { with: who }) }); openSheet(dialogWin); }
 const dlgAva = (u) => `<span class="dava">${avaFramed(u, u.avatar ? `<img src="avatar/${u.id}.png?v=${u.avatar}" alt="">` : raceAva(u.race))}</span>`; // нет своей — портрет расы (ui3d.js)
 const dlgCut = (t, n = 22) => { const s = String(t || '').replace(/\s+/g, ' ').trim(); if (s.length <= n) return s; let c = s.slice(0, n); const m = /:([A-Za-z]*)$/.exec(c); if (m && !(SMILE_SET.has(m[1]) && s[n] === ':')) c = c.slice(0, m.index); return `${c.trimEnd()}…`; };
@@ -12,14 +37,13 @@ function dialogsWin() {
   const d = S.dlg, L = d.list;
   const head = `${ribbon('Сообщения')}<div class="rkbar"><span><img src="${M3('msgs')}" alt=""> ${d.filter === 'unread' ? 'Непрочитанные' : 'Все'}</span><button data-dlgmenu>≡</button></div>
     ${d.menu ? `<div class="rkmenu"><button data-dlgf="all" class="${d.filter === 'all' ? 'on' : ''}"><img src="${M3('msgs')}" alt=""> Все</button><button data-dlgf="unread" class="${d.filter === 'unread' ? 'on' : ''}"><img src="${M3('new')}" alt=""> Непрочитанные</button></div>` : ''}`;
-  if (!L) return `${head}<p class="parch-note">Загрузка…</p>`;
-  const nav = `<div class="hnav"><button data-dlgpg="0" ${L.page ? '' : 'disabled'}>◀◀</button><button data-dlgpg="${L.page - 1}" ${L.page ? '' : 'disabled'}>◀</button>
-    <span>${L.page + 1}</span><button data-dlgpg="${L.page + 1}" ${L.page < L.pages - 1 ? '' : 'disabled'}>▶</button><button data-dlgpg="${L.pages - 1}" ${L.page < L.pages - 1 ? '' : 'disabled'}>▶▶</button></div>`;
-  return `${head}${nav}
+  if (!L) return `${head}<p class="parch-note">Загрузка…</p>${mailMenuHtml('dlg')}`;
+  if (d.stale) { d.stale = false; send({ t: 'dialogs', page: d.page, filter: d.filter }); } // вернулись из диалога — превью и счётчики свежие
+  return `${head}${mailPager('dlgpg', L.page, L.pages)}
     <div class="dlist">${L.list.map((x) => `<button class="dcard ${x.unread ? 'new' : ''}" data-dlgopen="${x.id}">${dlgAva(x)}
       <span class="dtx"><b>${esc(x.login)}</b><span>${x.unread ? '<img class="denv" src="gfx3d/rep/envnew.svg" alt=""> ' : x.mine ? '<small>Вы:</small> ' : ''}${smiles(esc(dlgCut(x.text)))}</span></span>
-      ${x.unread ? `<i class="dcnt">${x.unread}</i>` : ''}</button>`).join('') || `<p class="parch-note">${d.filter === 'unread' ? 'Непрочитанных нет.' : 'Переписок пока нет — напишите кому-нибудь!'}</p>`}</div>
-    <button class="dnew" data-dlgnew title="Новое сообщение"><img src="gfx3d/rep/mailset.png" alt="Новое сообщение"></button>`;
+      ${x.unread ? `<i class="dcnt">${x.unread}</i>` : ''}</button>`).join('') || `<p class="parch-note">${d.filter === 'unread' ? 'Непрочитанных нет.' : 'Переписок пока нет — написать игроку можно из его профиля.'}</p>`}</div>
+    ${mailMenuHtml('dlg')}`;
 }
 
 // значок у сообщения — аватар игрока: своя картинка или портрет расы (как в списке переписок)
@@ -57,15 +81,18 @@ function dialogWin() {
       <button class="pbar" data-dlgedit>Готово</button></div>`;
   }
   const fr = !w.friend || w.friend === 'in' ? `<button type="button" class="dsm dfr" data-dlgfriend title="${w.friend === 'in' ? 'Принять дружбу' : 'Добавить в друзья'}"><img src="gfx3d/prof/friend.png" alt="В друзья"></button>` : '';
-  return `${ribbon('Диалог')}
-    <div class="dbody">${dlgMsgsHtml(d.msgs, w) || '<p class="parch-note">Сообщений ещё нет — напишите первым.</p>'}</div>
-    <div class="dctl"><form class="dform" data-form="dlgsend"><input name="text" maxlength="4000" autocomplete="off" placeholder="Сообщение для ${esc(w.login)}" value="${esc(d.draft || '')}">
+  // писать нельзя (администратору — только друзья, «кто пишет», чёрный список — privacy.js): вместо поля ввода — причина
+  const write = w.deny ? `<p class="parch-note dlock">🔒 ${esc(w.deny)}</p>`
+    : `<form class="dform" data-form="dlgsend"><input name="text" maxlength="4000" autocomplete="off" placeholder="Сообщение для ${esc(w.login)}" value="${esc(d.draft || '')}">
       <button type="button" class="dsm" data-dlgsmile><img src="gfx3d/smiles2/smile.png" alt="Смайлы"></button>${fr}</form>
     ${S.dlg.picBusy ? `<div class="dpicst">📷 ${esc(S.dlg.picBusy)}</div>` : ''}
     ${d.smile ? `<div class="smilebox">${SMILES.map((k) => `<button data-dlgsm="${k}"><img src="${smileSrc(k)}" alt=""></button>`).join('')}</div>` : ''}
-    <button class="pbar dsend" data-dlgsend><img src="${GFX}dlg/send.png" alt=""> Отправить</button>
+    <button class="pbar dsend" data-dlgsend><img src="${GFX}dlg/send.png" alt=""> Отправить</button>`;
+  return `${ribbon('Диалог')}
+    <div class="dbody">${dlgMsgsHtml(d.msgs, w) || '<p class="parch-note">Сообщений ещё нет — напишите первым.</p>'}</div>
+    <div class="dctl">${write}
     <div class="two2"><button class="pbar" data-cprof="${w.id}"><img src="${GFX}dlg/profile.png" alt=""> Профиль</button><button class="pbar" data-dlghist><img src="${GFX}dlg/history.png" alt=""> История</button></div>
-    <div class="two2"><button class="pbar" data-dlgedit><img src="${GFX}dlg/edit.png" alt=""> Изменить</button><button class="pbar" data-dlgpic><img src="${GFX}dlg/file.png" alt=""> Файл</button></div></div>`; // значки кнопок — web/gfx/dlg
+    <div class="two2"><button class="pbar" data-dlgedit><img src="${GFX}dlg/edit.png" alt=""> Изменить</button>${w.deny ? '' : `<button class="pbar" data-dlgpic><img src="${GFX}dlg/file.png" alt=""> Файл</button>`}</div></div>`; // значки кнопок — web/gfx/dlg
 }
 // «История» переписки, как в оригинале: листать страницы и пересылать сообщения
 function dialogHistWin() {
@@ -94,13 +121,12 @@ function dlgSend() {
   inp.value = ''; S.dlg.draft = ''; S.dlg.smile = false;
 }
 $('#sheetBody').addEventListener('click', (e) => {
-  const t = e.target.closest('[data-dlgmenu],[data-dlgf],[data-dlgpg],[data-dlgopen],[data-dlgnew],[data-dlgsmile],[data-dlgsm],[data-dlgsend],[data-dlglist],[data-dlgmore]'); if (!t) return;
+  const t = e.target.closest('[data-dlgmenu],[data-dlgf],[data-dlgpg],[data-dlgopen],[data-dlgsmile],[data-dlgsm],[data-dlgsend],[data-dlglist],[data-dlgmore]'); if (!t) return;
   const d = t.dataset;
   if (d.dlgmenu !== undefined) { S.dlg.menu = !S.dlg.menu; return refreshSheet(); }
   if (d.dlgf) { S.dlg.filter = d.dlgf; S.dlg.page = 0; S.dlg.menu = false; S.dlg.list = null; refreshSheet(); return send({ t: 'dialogs', page: 0, filter: S.dlg.filter }); }
   if (d.dlgpg !== undefined) { S.dlg.page = Math.max(0, Number(d.dlgpg)); return send({ t: 'dialogs', page: S.dlg.page, filter: S.dlg.filter }); }
-  if (d.dlgopen) return openDialog(Number(d.dlgopen));
-  if (d.dlgnew !== undefined) { const who = prompt('Кому написать? Ник игрока:'); if (who && who.trim()) openDialog(who.trim()); return; }
+  if (d.dlgopen) { S.dlg.stale = true; S.mailMenu = null; return openDialog(Number(d.dlgopen)); }
   if (d.dlgsmile !== undefined) { const i = $('#sheetBody .dform input'); if (i) S.dlg.draft = i.value; S.dlg.smile = !S.dlg.smile; return refreshSheet(); }
   if (d.dlgsm) { const i = $('#sheetBody .dform input'); S.dlg.draft = `${i ? i.value : S.dlg.draft || ''}:${d.dlgsm}:`; S.dlg.smile = false; showSheet(false); $('#sheetBody').scrollTop = 1e9; return; }
   if (d.dlgsend !== undefined) return dlgSend();

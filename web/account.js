@@ -94,6 +94,8 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (e.target.closest('[data-payopen]')) return openSheet(payWin); // Казна → «Пополнить»
   const bg = e.target.closest('[data-buygold]'); // пакет монет за звёзды: счёт открывается в Telegram
   if (bg) { S.tgWin = window.open('about:blank', '_blank'); return send({ t: 'tg', op: 'buy', pack: Number(bg.dataset.buygold) }); }
+  const ba = e.target.closest('[data-buyally]'); // пакет монет в казну альянса (Казна Альянса): монеты — в казну, не игроку
+  if (ba) { S.tgWin = window.open('about:blank', '_blank'); return send({ t: 'tg', op: 'buy', pack: Number(ba.dataset.buyally), ally: 1 }); }
   const b = e.target.closest('[data-tg]'); if (!b) return;
   if (b.dataset.tg === 'unlink') return send({ t: 'tg', op: 'unlink' }); // бот пришлёт код — отвязка только с ним
   S.tgWin = window.open('about:blank', '_blank'); send({ t: 'tg', op: 'link' }); // окно открывается сразу (иначе телефон заблокирует всплывающее)

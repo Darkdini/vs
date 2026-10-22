@@ -29,12 +29,14 @@ function welcomeShow(m) {
   d.innerHTML = `<div class="wlc-box" style="width:${W}px;padding:0 ${Math.round(W * 0.18)}px;border-width:${A.top * k}px 0 ${A.bot * k}px;border-image:url('${src}') ${A.top} 0 ${A.bot} fill / ${A.top * k}px 0 ${A.bot * k}px stretch;min-height:${A.h * k}px">
     <h3>Приветствую, мой правитель!</h3><div class="wlc-who">${A.name}</div>
     <p>Сейчас в игре (онлайн): ${fmtFull(m.players)} ${plural(m.players, 'игрок', 'игрока', 'игроков')}.</p>
+    ${m.premGift ? `<button type="button" class="wlc-row" data-wgo="premium"><i>👑</i><span>Подарок новичку — Премиум до ${new Date(m.premGift).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span><b>›</b></button>` : ''}
+    ${m.premAll ? `<button type="button" class="wlc-row" data-wgo="premium"><i>🎁</i><span>${esc(m.premAll.why)}: Премиум на ${m.premAll.days} ${plural(m.premAll.days, 'день', 'дня', 'дней')} — до ${new Date(m.premAll.until).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span><b>›</b></button>` : ''}
     ${items.length ? `<p>За Ваше отсутствие:</p>${items.map(([go, ic, t]) => `<button type="button" class="wlc-row" data-wgo="${go}"><i>${ic}</i><span>${t}</span><b>›</b></button>`).join('')}`
       : '<p>За Ваше отсутствие ничего не произошло.</p>'}${bossRow}
     <button type="button" class="wlc-close">Закрыть</button></div>`;
   d.addEventListener('click', (e) => {
     const r = e.target.closest('[data-wgo]');
-    if (r) { d.remove(); const go = r.dataset.wgo; if (go === 'boss') { S.world = null; setTab('world'); send({ t: 'world', r: worldR(), cx: m.boss.x, cy: m.boss.y }); return; } if (go === 'reports') openReports(); else if (go === 'mail') openDialogs(); else if (go === 'gifts') send({ t: 'profile', id: S.st.user.id }); else openNews(); return; }
+    if (r) { d.remove(); const go = r.dataset.wgo; if (go === 'boss') { S.world = null; setTab('world'); send({ t: 'world', r: worldR(), cx: m.boss.x, cy: m.boss.y }); return; } if (go === 'reports') openReports(); else if (go === 'premium') openPremium(); else if (go === 'mail') openDialogs(); else if (go === 'gifts') send({ t: 'profile', id: S.st.user.id }); else openNews(); return; }
     if (e.target.closest('.wlc-close') || e.target === d) { d.remove(); if (S.st && S.st.quests && S.st.quests.cal && !S.calShown) { S.calShown = true; openQuests('cal'); } } // награда за вход ждёт — сразу календарь
   });
   document.body.appendChild(d);

@@ -1,5 +1,4 @@
 'use strict';
-const W = require('./words');
 // Альянс как в оригинале: карточка (название, ранг, рейтинг, состав, верховенство), управление с правами,
 // звания и погоны, устав, описание, дипломатия, казна и кладовая, рассылки, реклама, форум, новости, логи.
 // Основные операции (создать, пригласить, заявки, исключить, покинуть) — P.alliance в army.js.
@@ -10,9 +9,12 @@ const RIGHTS = { mail: 'Рассылка уведомлений', invite: 'Пр�
   desc: 'Изменение описания', news: 'Новости и форум', diplo: 'Дипломатия', treasury: 'Казначейство', logs: 'Чтение логов', albums: 'Альбомы',
   rally: 'Созыв на мирового босса' };
 const DIPLO = { ally: 'Союз', nap: 'Пакт о ненападении', war: 'Война' };
+// Казна альянса (с 21.10, по решению владельца): пополняется только отдельно — покупкой за звёзды Telegram (tgpay.js) или
+// администрацией (admin.js allygold); игрокам не выдаётся и своими монетами не пополняется — тратится только на медали альянса
+// (army.js, op award) и подарки участникам (social.js sendGift с ally). Цена медали из казны:
+const MEDAL_COST = { gold: 20, silver: 10, bronze: 5 };
 const RES4 = ['wood', 'stone', 'iron', 'food'];
 const clean = (s, n) => String(s || '').trim().slice(0, n);
-const AWAY_DAYS = 5; // не заходил столько дней — в составе альянса серый камень
 
 function install(Game) {
   const P = Game.prototype;
@@ -70,10 +72,29 @@ function install(Game) {
     for (const m of u.awards || []) if (m.at > now - 35 * 86400000 && (!best[m.hall] || m.place < best[m.hall].place)) best[m.hall] = m;
     return Object.values(best).sort((a, b) => a.place - b.place).map((m) => ({ icon: m.icon, name: m.name, place: m.place, month: m.month }));
   };
-  P.allyLog = function allyLog(al, text, kind = 'log') {
+  // extra — для кладовой и казны: op '+' внёс / '-' выдал, by, to, gold или res; via — откуда или куда монеты казны: stars —
+  // покупка за звёзды Telegram, refund — возврат звёзд, admin — администрация, medal — медаль, gift — подарок (what — какой)
+  // (окна «Кладовая», «Казна», журнал)
+  P.allyLog = function allyLog(al, text, kind = 'log', extra = null) {
     const key = kind === 'store' ? 'slog' : 'log';
-    (al[key] = al[key] || []).push({ at: Date.now(), text });
+    (al[key] = al[key] || []).push({ at: Date.now(), text, ...extra });
     if (al[key].length > 300) al[key].splice(0, al[key].length - 300);
+  };
+  // история кладовой и казны (новые сверху): кто внёс (+) или кому выдали (−) ресурсы и монеты.
+  // Записи прежних версий — только текст: разбираются по тексту, который писал allyLog
+  const RES_WORD = { дерево: 'wood', камень: 'stone', железо: 'iron', еда: 'food' };
+  const resOf = (s) => Object.fromEntries([...String(s).matchAll(/(дерево|камень|железо|еда) (\d+)/g)].map(([, w, n]) => [RES_WORD[w], Number(n)]));
+  const coinsOf = (s) => Number(String(s).replace(/\D/g, '')) || 0;
+  P.allyMoves = function allyMoves(al) {
+    return (al.slog || []).map((e) => {
+      if (e.op) return { at: e.at, op: e.op, by: e.by, to: e.to || '', gold: e.gold || 0, res: e.res || null, via: e.via || '', what: e.what || '' };
+      let x;
+      if ((x = /^(\S+) внёс в казну (.+)$/.exec(e.text))) return { at: e.at, op: '+', by: x[1], to: '', gold: coinsOf(x[2]), res: null };
+      if ((x = /^(\S+) выдал из казны (\S+): (.+)$/.exec(e.text))) return { at: e.at, op: '-', by: x[1], to: x[2], gold: coinsOf(x[3]), res: null };
+      if ((x = /^(\S+) внёс в кладовую: (.+)$/.exec(e.text))) return { at: e.at, op: '+', by: x[1], to: '', gold: 0, res: resOf(x[2]) };
+      if ((x = /^(\S+) выдал из кладовой (\S+): (.+)$/.exec(e.text))) return { at: e.at, op: '-', by: x[1], to: x[2], gold: 0, res: resOf(x[3]) };
+      return { at: e.at, text: e.text };
+    }).reverse();
   };
   P.allyRank = function allyRank(al) {
     if (!al) return 0;
@@ -100,24 +121,18 @@ function install(Game) {
     const al = this.allianceOf(user);
     return !!(al && al.members.includes(r.owner) && ['battle', 'scout', 'reinforce'].includes(r.kind) && this.allyCan(al, user.id, 'logs'));
   };
-  // кто из альянса в игре — камень у ника в составе: 'on' в игре, 'off' не в игре, 'away' не заходил 5+ дней.
-  // Точное время не отдаём (как и в профиле — его видят только сам игрок и админ). Админ невидим — всегда «не в игре».
-  // on — id игроков в игре (web.js: game.onlineIds, по открытым соединениям); без сервера — флаг online
-  P.allySt = function allySt(m, on, now = Date.now()) {
-    if (m.admin) return 'off';
-    if (on ? on.has(m.id) : m.online) return 'on';
-    return now - (m.lastSeen || m.created || now) > AWAY_DAYS * 86400000 ? 'away' : 'off';
-  };
+  // в составе — в игре ли участник сейчас (u.online ведёт web.js); видят только участники альянса.
+  // Админ для игроков всегда «не в игре», как в друзьях и чате
+  P.allyOnline = (m, viewer) => m.id === viewer.id || (!!m.online && !m.admin);
   // полная карточка альянса для окна «Альянс»
   P.allyView = function allyView(user, al) {
-    const me = user.id, can = (r) => this.allyCan(al, me, r), now = Date.now();
-    const on = user.alliance === al.id ? (this.onlineIds ? this.onlineIds() : null) : false; // кто в игре — только своим (модератор в чужом не видит)
+    const me = user.id, can = (r) => this.allyCan(al, me, r), now = Date.now(), own = user.alliance === al.id;
     const members = al.members.map((id) => { const m = this.userById(id); if (!m) return null;
       const t = this.allyTitle(al, id); return { id, login: m.login, rating: this.userRating(m), rep: m.reputation ?? START_REP, score: this.userRating(m) + (m.reputation ?? START_REP), medals: this.allyMedals(m), ...t,
-        rights: id === al.leader ? Object.keys(RIGHTS) : ((al.ranks || {})[id] || {}).rights || [], ...(on === false ? {} : { st: this.allySt(m, on, now) }) }; }).filter(Boolean).sort((a, b) => b.score - a.score);
+        rights: id === al.leader ? Object.keys(RIGHTS) : ((al.ranks || {})[id] || {}).rights || [], ...(own ? { on: this.allyOnline(m, user) } : {}) }; }).filter(Boolean).sort((a, b) => b.score - a.score);
     const A = this.db.alliances || {};
     // военные логи: каждое военное действие участников — нападение, оборона, разведка (своя и вражеская), подкрепления
-    const reports = can('logs') ? (this.db.reports || []).filter((r) => !r.fwd && al.members.includes(r.owner) && ['battle', 'scout', 'reinforce'].includes(r.kind)).slice(-200).reverse()
+    const reports = can('logs') ? (this.db.reports || []).filter((r) => !r.fwd && al.members.includes(r.owner) && ['battle', 'scout', 'reinforce'].includes(r.kind)).slice(-200).sort((x, y) => y.at - x.at) // новые сверху
       .map((r) => ({ id: r.id, login: (this.userById(r.owner) || {}).login, title: r.title, at: r.at, cat: this.warCat(r), line: (r.lines || [])[0] || '' })) : [];
     return {
       id: al.id, tag: al.tag, name: al.name, desc: al.desc || '', charter: al.charter || '', ad: al.ad || '', created: al.created,
@@ -125,12 +140,12 @@ function install(Game) {
       members, my: { lead: al.leader === me, rights: Object.keys(RIGHTS).filter(can).concat(this.canModerate(user) && !can('news') ? ['modnews'] : []) },
       requests: can('invite') ? (al.requests || []).map((id) => { const m = this.userById(id); return m ? { id, login: m.login, rating: this.userRating(m) } : null; }).filter(Boolean) : [],
       invited: can('invite') ? Object.values(this.db.users).filter((u) => (u.invites || []).includes(al.id)).map((u) => u.login) : [],
-      treasury: al.treasury || 0, storage: al.storage || { wood: 0, stone: 0, iron: 0, food: 0 },
+      treasury: al.treasury || 0, medalCost: MEDAL_COST, storage: al.storage || { wood: 0, stone: 0, iron: 0, food: 0 },
       diplo: Object.entries(al.diplo || {}).map(([id, st]) => (A[id] ? { id: Number(id), tag: A[id].tag, name: A[id].name, status: st, statusName: DIPLO[st] } : null)).filter(Boolean),
       news: (al.news || []).slice().reverse(),
       forum: (al.forum || []).filter((t) => !t.deleted || can('news') || this.canModerate(user)).map((t) => ({ id: t.id, title: t.title, by: t.by, at: t.at, pinned: !!t.pinned, closed: !!t.closed, deleted: !!t.deleted,
         replies: t.posts.length, last: t.posts[t.posts.length - 1] })).sort((a, b) => (b.pinned - a.pinned) || ((b.last ? b.last.at : b.at) - (a.last ? a.last.at : a.at))),
-      log: can('logs') ? (al.log || []).slice(-100).reverse() : [], slog: can('logs') ? (al.slog || []).slice(-100).reverse() : [], reports,
+      log: can('logs') ? (al.log || []).slice(-100).reverse() : [], moves: own ? this.allyMoves(al).slice(0, 150) : [], reports, // moves — история кладовой и казны: видна всем участникам
       rightsList: RIGHTS, now, foreign: user.alliance !== al.id, modr: this.canModerate(user),
     };
   };
@@ -185,39 +200,34 @@ function install(Game) {
         for (const id of al.members) { const u = this.userById(id); if (u && u.id !== user.id) { this.sendMail(user, u.login, `Рассылка альянса [${al.tag}]`, text); this.event(u.id, `Рассылка альянса [${al.tag}] от ${user.login}.`); } }
         return done('Рассылка отправлена всем участникам.');
       }
-      case 'gold': { // казна: взнос (любой) или выдача (казначейство)
-        const n = Math.floor(Number(m.n)); if (!(n > 0)) return { error: 'Укажите количество.' };
-        if (m.to) {
-          const e = need('treasury'); if (e) return e;
-          const t = member(m.to); if (!t) return { error: 'Игрок не в альянсе.' };
-          if ((al.treasury || 0) < n) return { error: 'В казне столько нет.' };
-          al.treasury -= n; this.goldChange(t, n, `Выдано из казны альянса [${al.tag}]`);
-          this.allyLog(al, `${user.login} выдал из казны ${t.login}: ${W.coinsAcc(n)}`, 'store');
-          return done(`Игроку ${t.login} выдано из казны: ${W.coins(n)}.`);
-        }
-        if ((user.gold || 0) < n) return { error: 'Не хватает монет.' };
-        this.goldChange(user, -n, `Взнос в казну альянса [${al.tag}]`); al.treasury = (al.treasury || 0) + n;
-        this.allyLog(al, `${user.login} внёс в казну ${W.coinsAcc(n)}`, 'store');
-        return done(`Внесено в казну: ${W.coins(n)}.`);
-      }
+      // казна: до 21.10 — взнос своих монет любым участником и выдача монет участникам (запасные аккаунты перегоняли монеты
+      // основному). Теперь ни того ни другого (MEDAL_COST выше)
+      case 'gold': return { error: m.to ? 'Казну альянса нельзя выдать игрокам — она тратится только на медали и подарки участникам.'
+        : 'Свои монеты в казну альянса не переводятся — она пополняется отдельно: покупкой за звёзды Telegram или администрацией.' };
       case 'store': { // кладовая: взнос ресурсов из своего замка или выдача участнику
         al.storage = al.storage || { wood: 0, stone: 0, iron: 0, food: 0 };
         const res = Object.fromEntries(RES4.map((r) => [r, Math.max(0, Math.floor(Number((m.res || {})[r]) || 0))]));
         if (!RES4.some((r) => res[r])) return { error: 'Укажите ресурсы.' };
         const line = RES4.filter((r) => res[r]).map((r) => `${{ wood: 'дерево', stone: 'камень', iron: 'железо', food: 'еда' }[r]} ${res[r]}`).join(', ');
+        const moved = Object.fromEntries(RES4.filter((r) => res[r]).map((r) => [r, res[r]])); // для истории кладовой
         if (m.to) {
           const e = need('treasury'); if (e) return e;
           const t = member(m.to); if (!t) return { error: 'Игрок не в альянсе.' };
           for (const r of RES4) if (al.storage[r] < res[r]) return { error: 'В кладовой столько нет.' };
           const c = this.castleOf(t); this.tick(c); const cap = this.capacity(c);
-          for (const r of RES4) { al.storage[r] -= res[r]; c.res[r] = Math.max(c.res[r], Math.min(cap[r], c.res[r] + res[r])); }
-          this.allyLog(al, `${user.login} выдал из кладовой ${t.login}: ${line}`, 'store');
-          return done(`Выдано из кладовой: ${t.login}.`);
+          // выдаётся сколько влезает на Склад участника, остальное остаётся в кладовой (раньше лишнее сгорало)
+          for (const r of RES4) { const k = Math.max(0, Math.min(res[r], Math.floor(cap[r] - c.res[r]))); res[r] = k; al.storage[r] -= k; c.res[r] += k; }
+          if (!RES4.some((r) => res[r])) return { error: `У ${t.login} Склады полны — выдать некуда.` };
+          const asked = RES4.reduce((q, r) => q + (moved[r] || 0), 0), got = RES4.reduce((q, r) => q + res[r], 0);
+          for (const r of RES4) if (res[r]) moved[r] = res[r]; else delete moved[r];
+          const gotLine = RES4.filter((r) => res[r]).map((r) => `${{ wood: 'дерево', stone: 'камень', iron: 'железо', food: 'еда' }[r]} ${res[r]}`).join(', ');
+          this.allyLog(al, `${user.login} выдал из кладовой ${t.login}: ${gotLine}`, 'store', { op: '-', res: moved, by: user.login, to: t.login });
+          return done(got < asked ? `Выдано из кладовой: ${t.login} — сколько влезло на Склады (${gotLine}), остальное осталось в кладовой.` : `Выдано из кладовой: ${t.login}.`);
         }
         this.tick(castle);
         for (const r of RES4) if (castle.res[r] < res[r]) return { error: 'В замке столько нет.' };
         for (const r of RES4) { castle.res[r] -= res[r]; al.storage[r] += res[r]; }
-        this.allyLog(al, `${user.login} внёс в кладовую: ${line}`, 'store');
+        this.allyLog(al, `${user.login} внёс в кладовую: ${line}`, 'store', { op: '+', res: moved, by: user.login });
         return done('Ресурсы внесены в кладовую.');
       }
       case 'diplo': {
@@ -251,7 +261,12 @@ function install(Game) {
         if (t.closed && !can('news')) return { error: 'Тема закрыта.' };
         const text = clean(m.text, 2000); if (!text) return { error: 'Введите текст.' };
         const lim = this.tooOften(user, 'allypost'); if (lim) return { error: lim };
-        t.posts.push({ by: user.login, byId: user.id, at: now, text }); if (t.posts.length > 500) t.posts.shift();
+        // «Ответить» у сообщения, как в общем форуме: ответ помнит, кому (ник и начало его сообщения), автору — уведомление.
+        // Номеров у сообщений альянса нет — ищем по времени отправки (чаще раза в 5 с игрок не пишет)
+        const to = m.reply ? t.posts.find((p) => p.at === Number(m.reply) && !p.deleted) : null;
+        const reply = to ? { at: to.at, by: to.by, text: to.text.length > 90 ? `${to.text.slice(0, 90)}…` : to.text } : undefined;
+        t.posts.push({ by: user.login, byId: user.id, at: now, text, ...(reply ? { reply } : {}) }); if (t.posts.length > 500) t.posts.shift();
+        if (to && to.byId !== user.id && al.members.includes(to.byId)) this.event(to.byId, `💬 ${user.login} ответил(а) вам на форуме альянса в теме «${t.title}».`);
         return done('Сообщение добавлено.');
       }
       case 'postdel': { // удалить одно сообщение темы
@@ -285,4 +300,4 @@ function install(Game) {
   };
 }
 
-module.exports = { install, RIGHTS, DIPLO };
+module.exports = { install, RIGHTS, DIPLO, MEDAL_COST };

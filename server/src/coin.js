@@ -98,7 +98,7 @@ function install(Game) {
     const coin = flip < 0.5 ? 'eagle' : 'tails', win = coin === b.side ? f : u, lose = win === f ? u : f, pot = b.amount * 2;
     this.stashAdd(win, { [b.res]: pot });
     du.games++; df.games++; du.pairs[f.id] = (du.pairs[f.id] || 0) + 1; df.pairs[u.id] = (df.pairs[u.id] || 0) + 1;
-    this.addStat(win.id, 'jackpot', b.amount); this.addStat(u.id, 'gamble', 1); this.addStat(f.id, 'gamble', 1);
+    this.addStat(win.id, 'jackpot', b.amount); // «Большой куш»; «Азарт» — только бесплатные игры (Сундучки), как в его описании
     const log = (x, other, won) => { (x.coinLog = x.coinLog || []).push({ at: now, vs: other.login, vsId: other.id, res: b.res, amount: b.amount, coin, won }); if (x.coinLog.length > 30) x.coinLog.splice(0, x.coinLog.length - 30); };
     log(win, lose, true); log(lose, win, false);
     this.event(f.id, `🪙 ${u.login} принял(а) Ваш вызов: выпал ${SIDE[coin]} — ${win === f ? `Вы выиграли ${fmt(pot)} ${RES_NAME[b.res]} (в Кладовой)!` : `Вы проиграли ${fmt(b.amount)} ${RES_NAME[b.res]}.`}`);
