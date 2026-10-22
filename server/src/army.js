@@ -189,6 +189,7 @@ const UNIT = Object.fromEntries(UNITS.map((u) => [u.id, u]));
 // Торговцы — как в оригинале: не тренируются и не воюют, их всегда 20 при построенном Рынке; скорость 60 полей/час (втрое быстрее оригинала),
 // груз — 45 ед. за уровень Рынка (20 ур. — 900 ед.)
 const MERCHANT_ID = 221, MERCHANTS = 20;
+const TAVERN_CARRY = 0.1; // Таверна: +10% к грузу торговцев за уровень (10 ур. — вдвое больше)
 Object.assign(UNIT[MERCHANT_ID], { speed: 60, notrain: true, carry: 45 }); // торговцы втрое быстрее оригинала (было 20 полей/час)
 // как в оригинале: в Центре разведки тренируется только разведчик своей расы, Портал воинов не тренирует — он ускоряет походы.
 // Око и Тень (были в Центре разведки), Джин и Изувер (были в Портале) больше не тренируются; у кого уже есть — остаются в армии
@@ -524,7 +525,7 @@ function install(Game, helpers) {
     this.mil(castle);
     const lvl = this.buildingLevel(castle, B.MARKET), total = lvl ? MERCHANTS : 0;
     const away = (castle.armies || []).filter((a) => a.mission === 'trade').reduce((s, a) => s + (a.units[MERCHANT_ID] || 0), 0);
-    return { total, away, free: Math.max(0, total - away), reserved: 0, carry: UNIT[MERCHANT_ID].carry * lvl, speed: UNIT[MERCHANT_ID].speed, level: lvl }; // как в оригинале: 20 ур. — 900 ед.; скорость — 60 полей/час
+    return { total, away, free: Math.max(0, total - away), reserved: 0, carry: Math.round(UNIT[MERCHANT_ID].carry * lvl * (1 + TAVERN_CARRY * this.buildingLevel(castle, B.TAVERN))), speed: UNIT[MERCHANT_ID].speed, level: lvl }; // как в оригинале: 20 ур. — 900 ед.; скорость — 60 полей/час
   };
   // «Передать»: торговцы везут ресурсы в замок; сколько торговцев — по грузу
   P.sendTrade = function sendTrade(castle, { x, y, res }) {
