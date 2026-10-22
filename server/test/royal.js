@@ -1887,10 +1887,19 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(UNIT[200].time === 240 && UNIT[200].hp === 36 && UNIT[200].speed === 17 && UNIT[200].carry === 30, 'Мечник: время ×4, жизнь, скорость — по «Справке», груз ×10 (3 → 30)');
   for (const [id, n, b, l] of [[262, 'Ведьмак', B.MAGE_ACADEMY, 3], [263, 'Варлок', B.MAGE_ACADEMY, 10], [264, 'Рейтар', B.STABLE, 7], [265, 'Страж границ', B.BARRACKS, 10], [266, 'Эльфийский всадник', B.STABLE, 1], [267, 'Повелитель стихий', B.MAGE_ACADEMY, 3], [268, 'Дух леса', B.MAGE_ACADEMY, 10], [269, 'Грифоний наездник', B.STABLE, 3], [270, 'Топтун', B.STABLE, 7], [271, 'Громовержец', B.MAGE_ACADEMY, 3], [272, 'Варг', B.STABLE, 1], [273, 'Загонщик', B.STABLE, 3], [274, 'Потрошитель', B.STABLE, 7], [275, 'Заклинатель', B.MAGE_ACADEMY, 3]])
     assert.ok(UNIT[id].name === n && UNIT[id].building === b && UNIT[id].level === l && UNIT[id].def && UNIT[id].cost.wood === SPR[id][5][0] * 4, `новый юнит: ${n}`);
-  { // Таверна: +4,4% груза торговцев за уровень (Рынок 20 + Таверна 10 — 1300)
-    const tp = g.register({ login: 'tavernTst', password: '12345', race: 0 }).user, tc = g.castleOf(tp); g.mil(tc);
-    g.maxOut(tc); g.setBuildingLevel(tc, B.TAVERN, 0); const L = g.buildingLevel(tc, B.MARKET), c0 = g.merchants(tc).carry; g.maxOut(tc);
-    assert.ok(g.buildingLevel(tc, B.TAVERN) === 10 && c0 === 45 * L && g.merchants(tc).carry === Math.round(c0 * 13 / 9), `Таверна 10 ур. — торговцы везут вдвое больше (${c0} → ${g.merchants(tc).carry})`);
+  { // Торговая палата: груз торговцев +1/45 за уровень (Рынок 20 + Палата 20 — 1300 вместо 900) и скорость; Таверны больше нет (с 22.10)
+    const C = require('../src/catalog'), tp = g.register({ login: 'tavernTst', password: '12345', race: 0 }).user, tc = g.castleOf(tp); g.mil(tc);
+    g.maxOut(tc); assert.ok(!C.BY_ID[42] && !g.buildingLevel(tc, 42), 'Таверны нет: не строится и в полном замке её нет');
+    g.setBuildingLevel(tc, B.TRADE_HALL, 1); const L = g.buildingLevel(tc, B.MARKET), m1 = g.merchants(tc); g.setBuildingLevel(tc, B.TRADE_HALL, 20); const m20 = g.merchants(tc);
+    assert.ok(L === 20 && Math.abs(m20.carry - m1.carry - 380) <= 1 && m20.speed > m1.speed, `Торговая палата 1 → 20 ур.: +380 к грузу (${m1.carry} → ${m20.carry}), быстрее (${m1.speed} → ${m20.speed})`);
+    const sv = tp.sciences; tp.sciences = { eco: 0, eng: 0, fhi: 0, war: 0 }; assert.strictEqual(g.merchants(tc).carry, 1300, 'Рынок 20 + Палата 20 без наук — 1300'); tp.sciences = sv;
+    // Таверна в старом замке: клетка освобождается, уровни и стройка — ресурсами в Кладовую
+    let cell = tc.grid[0].indexOf(B.TEMPLE); tc.grid[0][cell] = 42; tc.levels[0][cell] = 3; // вместо Храма (свободных мест в полном замке нет)
+    const qc = { wood: 7, stone: 7, iron: 7, food: 7, people: 1 }; tc.queue.push({ view: 0, cell, building: 42, level: 4, start: Date.now(), end: Date.now() + 1e9, cost: qc });
+    const st = g.stashOf(tp).res, w0 = st.wood || 0, want = [1, 2, 3].reduce((q, lv) => q + C.levelCost(C.GONE[42], lv).wood, 0) + 7;
+    g.goneFix(tc); assert.ok(tc.grid[0][cell] === -1 && !tc.levels[0][cell] && !tc.queue.some((x) => x.building === 42), 'Таверна убрана, стройка отменена');
+    assert.strictEqual((g.stashOf(tp).res.wood || 0) - w0, want, 'потраченное на Таверну — в Кладовой'); g.goneFix(tc); assert.strictEqual((g.stashOf(tp).res.wood || 0) - w0, want, 'второй раз не возвращается');
+    cell = tc.grid[0].indexOf(-1); tc.grid[0][cell] = 42; tc.levels[0][cell] = 1; g.tick(tc); assert.ok(tc.grid[0][cell] === -1, 'и при обычном ходе времени');
   }
   for (const id of [250, 254, 260, 258, 257, 255, 239, 244]) assert.ok(UNIT[id].notrain && UNIT[id].retired, `${UNIT[id].name}: старый воин — больше не тренируется, в армии остаётся`);
   for (const r of ['humans', 'elves', 'dwarves', 'orcs']) assert.strictEqual(UNITS.filter((u) => u.race === r && !u.notrain && [B.BARRACKS, B.STABLE, B.MAGE_ACADEMY].includes(u.building)).length, 9, `${r}: в Казарме, Конюшне, Академии — по 3 воина (4-й — в Мастерской)`);
@@ -2317,23 +2326,23 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.strictEqual(g.rating(c), r0, 'рейтинг тот же');
     assert.ok(types.every((b) => c.grid[0].includes(b)) && c.grid[0][24] === 0, 'все здания на месте, Ратуша в центре');
     assert.ok([...c.grid[0]].every((b, i) => b < 0 || C.CASTLE_OK.includes(i)), 'только на площадках');
-    assert.ok(n0 > 33 && [...c.grid[0]].filter((b) => b >= 0).length === 33);
+    assert.ok(n0 > 33 && [...c.grid[0]].filter((b) => b >= 0).length === types.length + 6); // Ратуша, здания и 5 Складов — 32 (без Таверны, с 22.10, одно место свободно)
     c.res = { wood: 1e6, stone: 1e6, iron: 1e6, food: 1e6, people: 1e5 };
     const free = C.CASTLE_OK.find((i) => c.grid[0][i] < 0);
     assert.ok(free === undefined || /не больше 5/.test(g.startBuild(c, 0, free, 1).error || 'не больше 5'), 'шестой Склад нельзя');
     console.log('✓ Замок на новом фоне: 33 места, 5 Складов, вместимость и рейтинг сохранены');
   }
-  { // полный замок: рейтинг 2200 = постройки 971 + развитие Складов 229 + земли 1000; 5 Складов 20 ур. — 95 000
+  { // полный замок: рейтинг 2200 = постройки 953 + развитие Складов 247 + земли 1000 (до 22.10 с Таверной — 971 + 229); 5 Складов 20 ур. — 95 000
     const u = g.register({ login: 'full2200', password: '12345', race: 1 }).user, c = g.castleOf(u); g.mil(c);
     const p0 = g.ratingParts(c);
     g.maxOut(c);
     const p = g.ratingParts(c);
-    assert.deepStrictEqual([p.castle, p.store, p.lands, p.total, p.storeLv], [971, 229, 1000, 2200, 100], `полный замок: ${JSON.stringify(p)}`);
+    assert.deepStrictEqual([p.castle, p.store, p.lands, p.total, p.storeLv], [953, 247, 1000, 2200, 100], `полный замок: ${JSON.stringify(p)}`);
     assert.strictEqual(g.rating(c), 2200);
     assert.strictEqual(g.capacity(c).wood, 95000, 'вместимость 5 Складов 20 ур. — 95 000');
     c.levels[0][c.grid[0].indexOf(1)] = 10; // один Склад — 10 ур.
     const q = g.ratingParts(c);
-    assert.ok(q.storeLv === 90 && q.store === 206 && q.total === q.castle + q.store + q.lands && q.total < 2200, `Склад 10 ур.: ${JSON.stringify(q)}`);
+    assert.ok(q.storeLv === 90 && q.store === 222 && q.total === q.castle + q.store + q.lands && q.total < 2200, `Склад 10 ур.: ${JSON.stringify(q)}`);
     console.log(`✓ Рейтинг: новый замок ${p0.total}, полный — ${p.total} (постройки ${p.castle} + Склады ${p.store} + земли ${p.lands}); вместимость 5 Складов 20 ур. — 95 000`);
   }
   { // баланс боя: командование генерала с убывающей отдачей, одинаковые артефакты с убыванием, защита от кавалерии в бою
@@ -2580,13 +2589,13 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     const r = g.sendArmy(wc, { units: { 204: 3000 }, x: camp.x, y: camp.y, mission: 'attack' }); assert.ok(!r.error, r.error);
     const t1 = r.army.arrive + 1000; g.tickWorld(t1);
     const rep = g.reportsOf(W.id).find((x) => x.data && x.data.type === 'battle' && x.data.x === camp.x && x.data.y === camp.y);
-    assert.ok(rep && rep.data.win && rep.data.npcBack === Math.round(HOUR / 60000) && /новый появится/.test(rep.lines.join(' ')), 'победа: в отчёте — когда появится новый лагерь');
+    assert.ok(rep && rep.data.win && rep.data.npcBack === true && /появится новый/.test(rep.lines.join(' ')) && !/мин|час/.test(rep.lines.join(' ').split('появится новый')[1]), 'победа: в отчёте — новый лагерь появится, но когда — не сказано');
     assert.ok(!g.provNpc(pn, t1).some((o) => o.img === 30) && !g.worldObjects(camp.x, camp.y, 1, 1).length, 'побеждённый лагерь исчез с карты');
-    assert.ok(!g.provNpc(pn, t1 + HOUR - 60000).some((o) => o.img === 30), 'за минуту до срока его ещё нет');
-    const back = g.provNpc(pn, t1 + HOUR + 1000).find((o) => o.img === 30);
+    assert.ok(!g.provNpc(pn, t1 + 3 * HOUR - 60000).some((o) => o.img === 30), 'за минуту до срока (3 часа, с 22.10) его ещё нет');
+    const back = g.provNpc(pn, t1 + 3 * HOUR + 1000).find((o) => o.img === 30);
     assert.ok(back && (back.x !== camp.x || back.y !== camp.y) && provinceOf(back.x, back.y).n === pn && !onProvEdge(back.x, back.y) && !g.npcCrowded(back.x, back.y),
-      'через час — снова в своей провинции, на новом месте, не у границы и не вплотную к замкам');
-    assert.deepStrictEqual(g.provNpc(pn, t1 + HOUR + 2000).find((o) => o.img === 30), back, 'новое место запомнено');
+      'через 3 часа — снова в своей провинции, на новом месте, не у границы и не вплотную к замкам');
+    assert.deepStrictEqual(g.provNpc(pn, t1 + 3 * HOUR + 2000).find((o) => o.img === 30), back, 'новое место запомнено');
     // замок вплотную к руинам (поставлен до новых правил) — переезжают руины, замок остаётся
     const ruins = g.provNpc(pn).find((o) => o.img === 24), V = g.register({ login: 'campNear1', password: '12345', race: 0 }).user, vc = g.castleOf(V);
     let cell = null; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1]]) if (!cell && !g.castleAt(ruins.x + dx, ruins.y + dy) && !onProvEdge(ruins.x + dx, ruins.y + dy)) cell = { x: ruins.x + dx, y: ruins.y + dy };
@@ -2600,14 +2609,14 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     const rr = g.reportsOf(W.id).find((x) => x.data && x.data.type === 'battle' && x.data.x === moved.x && x.data.y === moved.y);
     assert.ok(rr && rr.data.win && rr.data.loot && rr.data.loot.wood > 0 && !rr.data.npcBack, 'руины разграблены и остались на карте');
     assert.ok(g.db.npc[where].loyalty === 70 && g.db.npc[where].until > Date.now(), 'запас руин восстанавливается, бунт в руинах сохранён');
-    // захваченные руины (на их месте — замок) появляются через час на новом месте
-    const tg = Date.now(); assert.strictEqual(g.npcGone(moved.x, moved.y, tg), Math.round(HOUR / 1000)); g.moveCastle(vc, moved.x, moved.y);
-    assert.ok(!g.provNpc(pn, tg + 1000).some((o) => o.img === 24), 'руин нет, пока не прошёл час');
-    const nr = g.provNpc(pn, tg + HOUR + 1000).find((o) => o.img === 24); assert.ok(nr && (nr.x !== moved.x || nr.y !== moved.y) && !g.npcCrowded(nr.x, nr.y), 'новые руины — на новом месте');
+    // захваченные руины (на их месте — замок) появляются через 3 часа (с 22.10; был час) на новом месте
+    const tg = Date.now(); assert.strictEqual(g.npcGone(moved.x, moved.y, tg), Math.round(3 * HOUR / 1000)); g.moveCastle(vc, moved.x, moved.y);
+    assert.ok(!g.provNpc(pn, tg + 1000).some((o) => o.img === 24), 'руин нет, пока не прошло 3 часа');
+    const nr = g.provNpc(pn, tg + 3 * HOUR + 1000).find((o) => o.img === 24); assert.ok(nr && (nr.x !== moved.x || nr.y !== moved.y) && !g.npcCrowded(nr.x, nr.y), 'новые руины — на новом месте');
     // замок на границе провинции (стоял до увеличения провинций) переезжает внутрь той же провинции
     const p0 = provinceOf(vc.x, vc.y); g.moveCastle(vc, p0.px * PROV, vc.y); assert.ok(onProvEdge(vc.x, vc.y));
     g.provEdgeFix(); assert.ok(!onProvEdge(vc.x, vc.y) && provinceOf(vc.x, vc.y).n === p0.n, 'замок с границы переехал внутрь своей провинции');
-    console.log(`✓ Провинции ${PROV}×${PROV}: руины и 3 лагеря (лёгкий, средний, тяжёлый); побеждённый лагерь исчезает и через ${Math.round(HOUR / 60000)} мин встаёт на новом месте; замки не двигаются — переезжают лагеря; бунт в руинах не сбрасывается`);
+    console.log(`✓ Провинции ${PROV}×${PROV}: руины и 3 лагеря (лёгкий, средний, тяжёлый); побеждённый лагерь исчезает и через ${Math.round(3 * HOUR / 60000)} мин встаёт на новом месте; замки не двигаются — переезжают лагеря; бунт в руинах не сбрасывается`);
   }
   { // руны: 3 камня в провинции; руну забирает отряд, пришедший первым; камень возвращается через 3 часа; ковка снаряжения за руны в Кузнице
     const { provinceOf } = require('../src/game'), { RUNE_BACK_SEC } = require('../src/runes'), { FORGE } = require('../src/hero'), SP = Number(process.env.SPEED) || 1;

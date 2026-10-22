@@ -105,10 +105,11 @@ function check(tag) {
     if (!own) add(`замок ${c.id}: нет хозяина ${c.owner}`);
     if (g.castleAt(c.x, c.y) !== c) add(`замок ${c.id} (${c.x}:${c.y}) не на своей клетке в индексе`);
     if (!c.site && c.res) { // сверх склада можно, только если склад уменьшился (разрушен), — тогда ресурсы «заморожены» и не растут
-      const cap = g.capacity(c), pv = (PREV.get(c.id) || {});
+      const cap = g.capacity(c), pv = (PREV.get(c.id) || {}), pc = pv.cap || {}; // pc — склад на прошлой проверке: если Склад разрушили в бою,
+      // ресурсы до боя законно росли до прежней вместимости
       for (const k of RES4) { const v = c.res[k]; if (!fin(v) || v < 0) add(`замок ${c.id}: ресурс ${k} = ${v}`);
-        else if (v > cap[k] * 1.001 + 1 && !(pv[k] !== undefined && v <= pv[k] + 1)) add(`замок ${c.id}: ${k} ${Math.round(v)} > склада ${cap[k]} и растёт (было ${Math.round(pv[k] ?? -1)})`); }
-      PREV.set(c.id, { ...c.res }); }
+        else if (v > Math.max(cap[k], pc[k] || 0) * 1.001 + 1 && !(pv[k] !== undefined && v <= pv[k] + 1)) add(`замок ${c.id}: ${k} ${Math.round(v)} > склада ${cap[k]} и растёт (было ${Math.round(pv[k] ?? -1)})`); }
+      PREV.set(c.id, { ...c.res, cap }); }
     const unitsOk = (u, w) => { for (const [id, n] of Object.entries(u || {})) if (!Number.isInteger(n) || n < 0) add(`замок ${c.id} ${w}: юнит ${id} = ${n}`); };
     unitsOk(c.units, 'замок');
     for (const q of c.squads || []) unitsOk(q.units, `армия ${q.id}`);

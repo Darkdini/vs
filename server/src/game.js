@@ -23,7 +23,7 @@ const onProvEdge = (x, y) => { const a = ((x % PROV) + PROV) % PROV, b = ((y % P
 // Побеждённый лагерь и захваченные руины исчезают и через NPC_BACK_SEC появляются на новом свободном месте той же провинции (Game.provNpc)
 const PROV_NPC = [[24, 'Заброшенный замок'], [30, 'Лагерь разбойников (лёгкий)'], [31, 'Лагерь разбойников (средний)'], [32, 'Лагерь разбойников (тяжёлый)'], ...Object.entries(require('./runes').RUNES).map(([img, r]) => [Number(img), r.name])];
 const CAMP_IMGS = [30, 31, 32];
-const NPC_BACK_SEC = 3600;
+const NPC_BACK_SEC = 3 * 3600; // с 22.10 — 3 часа (было час): лагеря и руины давали заметный доход сверх замка; игроку время не показывается
 // где объекты стоят сначала: по номеру провинции (всегда одинаково), внутри провинции (не у границы) и подальше друг от друга
 const PROV_LAY = new Map();
 const provLayout = (n) => {
@@ -271,7 +271,7 @@ class Game {
       this.db.accts[u.acct] = k;
     }
     this.cache = {};
-    for (const c of Object.values(this.db.castles)) this.castleLayoutFix(c);
+    for (const c of Object.values(this.db.castles)) { this.castleLayoutFix(c); this.goneFix(c); }
     if (this.heroGearMerge) this.heroGearMerge(); // Оружейная — одна на королевство (hero.js)
     if (this.generalOneFix) this.generalOneFix(); // генерал — один на королевство (army.js)
     this.provEdgeFix();
@@ -614,6 +614,19 @@ class Game {
     if (drop.length && this.event) this.event(castle.owner, `Замок «${castle.name}» перестроен: Складов теперь не больше ${C.STORE_MAX}, вместимость лишних Складов (${drop.length}) сохранена в оставшихся.`);
   }
 
+  // убранные здания (C.GONE, с 22.10 — Таверна): клетка освобождается, всё потраченное на уровни и стройку — в Кладовую
+  goneFix(castle) {
+    const g = castle.grid[0], l = castle.levels[0], refund = { wood: 0, stone: 0, iron: 0, food: 0 }, names = new Set();
+    const add = (c) => { for (const r of Object.keys(refund)) refund[r] += (c && c[r]) || 0; };
+    for (let i = 0; i < g.length; i++) if (C.GONE[g[i]]) { const def = C.GONE[g[i]]; names.add(def.name); for (let lv = 1; lv <= l[i]; lv++) add(C.levelCost(def, lv)); g[i] = -1; l[i] = 0; }
+    const q = (castle.queue || []).filter((x) => C.GONE[x.building]);
+    if (q.length) { for (const x of q) { add(x.cost); names.add(C.GONE[x.building].name); } castle.queue = castle.queue.filter((x) => !q.includes(x)); }
+    if (!names.size) return;
+    const u = this.userById(castle.owner);
+    if (u && this.stashAdd && Object.values(refund).some((v) => v > 0)) this.stashAdd(u, refund);
+    if (this.event) this.event(castle.owner, `${[...names].join(', ')} больше нет в игре — ресурсы, потраченные на ${names.size > 1 ? 'эти здания' : 'это здание'} в замке «${castle.name}», вернулись в Кладовую.`);
+  }
+
   capacity(castle) {
     let store = STORE.base + (castle.storeExtra || 0); // + вместимость Складов, объединённых при переходе на 5 Складов
     castle.grid[0].forEach((b, i) => { if (b === 1) store += storeBonus(castle.levels[0][i]); });
@@ -641,7 +654,7 @@ class Game {
   // довести ресурсы и очередь до момента now (ленивый расчёт)
   tick(castle, now = Date.now()) {
     if (castle.grid[1].length !== LANDS_N * LANDS_N) migrateLands(castle);
-    fixPlaza(castle); fixWall(castle); this.castleLayoutFix(castle);
+    fixPlaza(castle); fixWall(castle); this.castleLayoutFix(castle); this.goneFix(castle);
     const done = [];
     castle.queue.sort((a, b) => a.end - b.end);
     while (castle.queue.length && castle.queue[0].end <= now) {

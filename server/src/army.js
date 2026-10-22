@@ -189,12 +189,12 @@ const UNIT = Object.fromEntries(UNITS.map((u) => [u.id, u]));
 // Торговцы — как в оригинале: не тренируются и не воюют, их всегда 20 при построенном Рынке; скорость 60 полей/час (втрое быстрее оригинала),
 // груз — 45 ед. за уровень Рынка (20 ур. — 900 ед.)
 const MERCHANT_ID = 221, MERCHANTS = 20;
-const TAVERN_CARRY = 4 / 90; // Таверна: +4,4% к грузу торговцев за уровень (Рынок 20 + Таверна 10 — 1300 вместо 900)
+const TRADE_CARRY = 1 / 45; // Торговая палата: +2,2% к грузу торговцев за уровень (Рынок 20 + Палата 20 — 1300 вместо 900); до 22.10 груз давала Таверна
 Object.assign(UNIT[MERCHANT_ID], { speed: 60, notrain: true, carry: 45 }); // торговцы втрое быстрее оригинала (было 20 полей/час)
 // как в оригинале: в Центре разведки тренируется только разведчик своей расы, Портал воинов не тренирует — он ускоряет походы.
 // Око и Тень (были в Центре разведки), Джин и Изувер (были в Портале) больше не тренируются; у кого уже есть — остаются в армии
 // старые воины рас вне списка «Справки» (Тиран, Варлок орков, Колосс, Зверь, Химера, Горный великан) — тоже больше не тренируются
-// Великан и Валькирия (были в Таверне) — тоже: Таверна для торговцев, не для найма
+// Великан и Валькирия (были в Таверне, с 22.10 её нет) — тоже
 const RETIRED = [241, 242, 206, 251, 250, 254, 260, 258, 257, 255, 239, 244];
 for (const id of RETIRED) Object.assign(UNIT[id], { notrain: true, retired: true });
 const GENERAL_ID = 236;
@@ -429,7 +429,7 @@ const NPC = {
   // Были слишком слабые (тяжёлый — ~150 мечников): охрана ×3 / ×6 / ×10, руины — ×4.
   // В бою с лагерем и руинами потери победителя вдвое меньше (CAMP_LOSS), павшие уходят в Лазарет.
   // Добыча с 21.10 в 4 раза меньше (тяжёлый лагерь — 40 000 вместо 160 000, руины — 27 500 вместо 110 000): лагеря каждый час
-  // давали больше своей экономики — по решению владельца; лагеря и руины по-прежнему возвращаются через час
+  // давали больше своей экономики — по решению владельца; лагеря и руины возвращаются через 3 часа (с 22.10; был час)
   // 22.10 охрана подогнана под новых юнитов (Справка, перенос ×10): армия своего уровня грабит с прибылью около +20%;
   // шаманов (mag) больше — иначе маги грабили с +60%, а пехота в минус
   30: { name: 'Лагерь разбойников (лёгкий)', level: 'Лёгкий', def: { inf: 90, cav: 80, mag: 170 }, loot: { wood: 250, stone: 250, iron: 175, food: 325 } },
@@ -437,7 +437,7 @@ const NPC = {
   32: { name: 'Лагерь разбойников (тяжёлый)', level: 'Тяжёлый', def: { inf: 6200, cav: 5650, mag: 8600 }, loot: { wood: 10000, stone: 10000, iron: 8750, food: 11250 } },
   24: { name: 'Заброшенный замок', def: { inf: 4300, cav: 3900, mag: 5900 }, loot: { wood: 6875, stone: 6875, iron: 6875, food: 6875 }, ruins: true },
 };
-const NPC_REGEN_SEC = 3600;
+const NPC_REGEN_SEC = 3 * 3600; // запас руин восстанавливается за 3 часа (с 22.10; было час) — игроку время не показывается
 const CAMP_LOSS = 0.5; // в бою с лагерем разбойников и руинами победитель теряет вдвое меньше (поражение — по-прежнему вся армия)
 const CAMPS = [30, 31, 32]; // лагеря разбойников: лёгкий, средний, тяжёлый
 // бой (как в Travian): сила атаки против защиты, смешанной по составу нападающих; лечение раненых дома
@@ -544,7 +544,8 @@ function install(Game, helpers) {
     this.mil(castle);
     const lvl = this.buildingLevel(castle, B.MARKET), total = lvl ? MERCHANTS : 0;
     const away = (castle.armies || []).filter((a) => a.mission === 'trade').reduce((s, a) => s + (a.units[MERCHANT_ID] || 0), 0);
-    return { total, away, free: Math.max(0, total - away), reserved: 0, carry: Math.round(UNIT[MERCHANT_ID].carry * lvl * (1 + TAVERN_CARRY * this.buildingLevel(castle, B.TAVERN))), speed: UNIT[MERCHANT_ID].speed, level: lvl }; // как в оригинале: 20 ур. — 900 ед.; скорость — 60 полей/час
+    const b = this.bonus(castle); // Торговая палата и науки: груз и скорость
+    return { total, away, free: Math.max(0, total - away), reserved: 0, carry: Math.round(UNIT[MERCHANT_ID].carry * lvl * b.tradeCarry), speed: Math.round(UNIT[MERCHANT_ID].speed * b.tradeSpeed * 10) / 10, level: lvl }; // как в оригинале: 20 ур. — 900 ед.; скорость — 60 полей/час
   };
   // «Передать»: торговцы везут ресурсы в замок; сколько торговцев — по грузу
   P.sendTrade = function sendTrade(castle, { x, y, res }) {
@@ -595,7 +596,7 @@ function install(Game, helpers) {
       wall: L(B.FENCE), wallPer: wallPer * (1 + ms.wall),
       hidden: L(B.CACHE) ? Math.round(200 * 1.3 ** (L(B.CACHE) - 1) * (race === 'dwarves' ? 2 : 1) * (1 + ms.hidden)) : 0,
       watch: L(B.WATCHTOWER), spyCenter: L(B.SPY), mason: L(B.MASON),
-      tradeCarry: 1 + 0.1 * L(B.TRADE_HALL) + ms.tradeCarry, tradeSpeed: 1 + 0.1 * L(B.TRADE_HALL) + ms.tradeSpeed,
+      tradeCarry: 1 + TRADE_CARRY * L(B.TRADE_HALL) + ms.tradeCarry, tradeSpeed: 1 + 0.05 * L(B.TRADE_HALL) + ms.tradeSpeed, // Торговая палата: +5% скорости торговцев за уровень (20 ур. — вдвое быстрее)
       marketRate: L(B.MARKET) ? 0.5 : 0, // бартер: отдаёшь 2 — получаешь 1 (уровень Рынка не влияет)
       artSlots: L(B.ART_TOWER) ? 1 + Math.floor(L(B.ART_TOWER) / 3) : 0,
       artStore: L(B.TREASURY) ? 3 + L(B.TREASURY) : 3,
@@ -676,7 +677,7 @@ function install(Game, helpers) {
   P.unitLock = function unitLock(castle, unit) {
     const race = this.raceOf(castle);
     if (unit.race !== 'all' && unit.race !== race) return 'Юнит другой расы.';
-    if (this.buildingLevel(castle, unit.building) < unit.level) return `Нужно: ${C.BY_ID[unit.building].name} ${unit.level} ур.`;
+    if (this.buildingLevel(castle, unit.building) < unit.level) return `Нужно: ${(C.BY_ID[unit.building] || { name: 'здание' }).name} ${unit.level} ур.`;
     for (const [id, l] of Object.entries(unit.req)) if (this.buildingLevel(castle, Number(id)) < l) return `Нужно: ${C.BY_ID[id].name} ${l} ур.`;
     return null;
   };
@@ -1653,7 +1654,7 @@ function install(Game, helpers) {
         left = left.filter((r) => avail[r] > 0);
       }
       if (target) for (const r of RES4) target.res[r] -= loot[r];
-      else if (npc.ruins && RES4.some((r) => loot[r] > 0)) this.db.npc[where] = { ...this.db.npc[where], until: t + NPC_REGEN_SEC / SPEED * 1000 }; // запас руин восстанавливается за час; бунт в руинах при этом не сбрасывается (раньше сбрасывался)
+      else if (npc.ruins && RES4.some((r) => loot[r] > 0)) this.db.npc[where] = { ...this.db.npc[where], until: t + NPC_REGEN_SEC / SPEED * 1000 }; // запас руин восстанавливается за 3 часа; бунт в руинах при этом не сбрасывается (раньше сбрасывался)
     }
     // осада: стена и тараны — до боя (в clash), здания ломают после победы Йети, Энт, Нурух, Кулак Ярости (урон по зданиям) и катапульты
     const siege = [...R.siege]; let siegeN = R.siegeN;
@@ -1694,13 +1695,13 @@ function install(Game, helpers) {
         const from = Math.round(st.loyalty ?? 100); st.loyalty = Math.max(0, from - drop);
         loyalty = { from, to: st.loyalty };
         if (st.loyalty <= 0) {
-          if (this.royalCanCapture(att)) { this.royalSpend(att); this.npcGone(a.x, a.y, t); captured = this.foundCaptured(att, a.x, a.y); captured.rebel = 1; rebelStay = this.castleAt(a.x, a.y); } // новые руины появятся в провинции через час
+          if (this.royalCanCapture(att)) { this.royalSpend(att); this.npcGone(a.x, a.y, t); captured = this.foundCaptured(att, a.x, a.y); captured.rebel = 1; rebelStay = this.castleAt(a.x, a.y); } // новые руины появятся в провинции через 3 часа
           else { st.loyalty = 1; royalBlocked = { have: Math.floor(att.royal), need: this.royalNeed(att), wait: this.royalWaitDays(att) }; }
         }
       }
     }
     a.loot = loot;
-    // лагерь разбойников побеждён — исчезает с карты и через час появляется на новом месте той же провинции (game.js npcGone)
+    // лагерь разбойников побеждён — исчезает с карты и через 3 часа появляется на новом месте той же провинции (game.js npcGone)
     const npcBack = win && !target && !lair && obj && CAMPS.includes(obj.img) ? this.npcGone(a.x, a.y, t) : null;
     // статистика для Зала Славы (social.js)
     if (loot) this.addStat(c.owner, 'loot', RES4.reduce((q, k) => q + loot[k], 0));
@@ -1724,7 +1725,7 @@ function install(Game, helpers) {
         : { npc: npc.name, img: obj.img, lossPct: Math.round(dLoss * 100), garrison: R.garrison },
       site: target && target.site ? { end: target.site.end } : null, siteTaken: siteTaken ? (took ? { x: a.x, y: a.y } : { blocked: siteTaken.blocked }) : null,
       loot, siege, loyalty, capitalBlocked, royalBlocked, captured: captured ? { name: captured.name, x: a.x, y: a.y, rebel: captured.rebel || 0 } : null,
-      npcBack: npcBack ? Math.max(1, Math.round(npcBack / 60)) : null, // через сколько минут в провинции появится новый лагерь
+      npcBack: npcBack ? true : null, // лагерь разбит; когда появится новый — игроку не говорим
     };
     const lines = [
       `${MISSIONS[a.mission]} на ${tname}. ${win ? 'Победа!' : 'Поражение.'}`,
@@ -1734,7 +1735,7 @@ function install(Game, helpers) {
       ...siege,
     ];
     if (loyalty) lines.push(`Бунт в замке: ${100 - loyalty.from}% → ${100 - loyalty.to}%`);
-    if (npcBack) lines.push(`Лагерь разбит и исчез с карты — новый появится в этой провинции через ${data.npcBack} мин.`);
+    if (npcBack) lines.push('Лагерь разбит и исчез с карты — со временем в этой провинции появится новый.');
     if (took) lines.push(`Недострой захвачен! Ваши путешественники (${SETTLE_TAKE}) продолжают стройку — замок будет готов через ${Math.max(1, Math.round((target.site.end - t) / 3600000))} ч.`);
     else if (siteTaken && siteTaken.blocked) lines.push(`Недострой не захвачен: ${siteTaken.blocked}`);
     else if (target && target.site && a.mission === 'attack' && win) lines.push(`Охрана недостроя разбита, но стройка продолжается: чтобы забрать её, нужно, чтобы в победном нападении выжили ${SETTLE_TAKE} путешественника.`);
@@ -2308,7 +2309,7 @@ function install(Game, helpers) {
     let k = 0;
     for (const b of castleBuildings) { const i = cells[k++]; castle.grid[0][i] = b.id; castle.levels[0][i] = b.max; }
 
-    while (k < cells.length) { const i = cells[k++]; castle.grid[0][i] = 1; castle.levels[0][i] = C.BY_ID[1].max; } // оставшиеся площадки — Склады (их не больше 5)
+    for (let n = 0; n < C.STORE_MAX && k < cells.length; n++) { const i = cells[k++]; castle.grid[0][i] = 1; castle.levels[0][i] = C.BY_ID[1].max; } // 5 Складов; лишние площадки (с 22.10 Таверны нет) свободны
     const LN = C.LANDS_N; castle.grid[1] = new Int8Array(LN * LN).fill(-1); castle.levels[1] = new Int8Array(LN * LN);
     for (let i = 0; i < LN * LN; i++) {
       const opts = helpers.landOptions(i % LN, Math.floor(i / LN));

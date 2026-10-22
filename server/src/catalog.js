@@ -35,7 +35,7 @@ const BUILDINGS = [
   B(16, 'Лагерь археологов', 'Жилой дом археологов.', 'castle', { unique: true, max: 10, req: { 15: 5 } }),
   B(17, 'Экспедиция', 'Позволяет организовывать экспедиции для поиска артефактов.', 'castle', { max: 10, unique: true, req: { 16: 1 } }),
   B(18, 'Башня артефактов', 'Позволяет активировать найденные артефакты.', 'castle', { max: 10, unique: true, req: { 17: 1 } }),
-  B(19, 'Торговая палата', 'Увеличивает вместительность и скорость движения торговцев.', 'castle', { max: 20, unique: true, req: { 4: 5 } }),
+  B(19, 'Торговая палата', 'Увеличивает груз и скорость торговцев.', 'castle', { max: 20, unique: true, req: { 4: 5 } }),
   B(20, 'Академия магов', 'Служит для тренировки магических юнитов.', 'castle', { max: 20, unique: true, req: { 15: 3 } }),
   B(21, 'Караульная башня', 'Оповещает правителя о передвижениях армий королевства и о надвигающихся атаках.', 'castle', { max: 1, unique: true, req: { 0: 3, 3: 1 }, hp: 810,
     base: { wood: 80, stone: 90, iron: 110, food: 80, people: 3 }, time: 600,
@@ -64,7 +64,6 @@ const BUILDINGS = [
   B(39, 'Школа магии', 'Школа для повышения магической атаки и защиты воинов.', 'castle', { max: 20, unique: true, req: { 20: 3 } }),
   B(40, 'Каменотес', 'Увеличивает устойчивость зданий к разрушению.', 'castle', { max: 20, unique: true, req: { 0: 5 } }),
   B(41, 'Лазарет', 'Сюда попадает половина павших в боях воинов — ранеными (остальные гибнут). Лекари сразу ставят их на ноги за четверть цены тренировки.', 'castle', { max: 10, unique: true, req: { 0: 5 } }), // бывшая Пивоварня (уровни сохранились)
-  B(42, 'Таверна', 'Место, где отдыхают торговцы перед дальней дорогой. С каждым уровнем Таверны торговцы везут больше ресурсов: на 10 уровне — 1300 вместо 900 (при Рынке 20 уровня).', 'castle', { max: 10, unique: true, req: { 0: 5 } }),
   B(43, 'Лавка алхимиков', 'Место сбора алхимиков замка. Тайные рецепты, зелья, отвары готовят тут.', 'castle', { max: 10, unique: true, req: { 15: 5 } }),
   B(44, 'Сокровищница', 'Самые ценные реликвии, драгоценности заключены в Сокровищницу.', 'castle', { max: 20, unique: true, req: { 0: 10 } }),
   B(45, 'Центр разведки', 'Служит для управления разведывательными операциями замка.', 'castle', { max: 20, unique: true, req: { 0: 5, 11: 3, 12: 1 },
@@ -161,7 +160,10 @@ const CASTLE_OK = [...Array(49).keys()].filter((i) => { const x = i % 7, y = Mat
 const CASTLE_PATH = [...Array(49).keys()].filter((i) => !CASTLE_OK.includes(i)); // не застраиваются
 const STORE_MAX = 5;
 const CASTLE_CELLS = 43; // для рейтинга — прежняя застройка (рейтинг игроков не меняется)
-const CASTLE_FULL_LEVELS = CASTLE_TYPES.reduce((s, b) => s + (b.max || 20), 0) + (CASTLE_CELLS - CASTLE_TYPES.length) * BY_ID_MAX_STORE;
+// убранные здания замка (их уровни в замках при загрузке возвращаются ресурсами в Кладовую — game.js goneFix): Таверна — с 22.10
+// (груз торговцев теперь даёт Торговая палата). В счёт рейтинга входят, как раньше: рейтинг за прочие здания не меняется
+const GONE = { 42: { id: 42, name: 'Таверна', layer: 'castle', max: 10 } };
+const CASTLE_FULL_LEVELS = CASTLE_TYPES.reduce((s, b) => s + (b.max || 20), 0) + Object.values(GONE).reduce((s, b) => s + b.max, 0) + (CASTLE_CELLS - CASTLE_TYPES.length - Object.keys(GONE).length) * BY_ID_MAX_STORE;
 const LANDS_FULL_LEVELS = LANDS_N * LANDS_N * LAND_EFF_MAX; // все клетки земель застраиваемые (в прежних уровнях: рейтинг считает landEff)
 const RATING_FULL = 2200, RATING_LANDS = 1000, RATING_K = 1300 / CASTLE_FULL_LEVELS;
 const CASTLE_NOW_LEVELS = CASTLE_TYPES.reduce((s, b) => s + (b.max || 20), 0) + (STORE_MAX - 1) * BY_ID_MAX_STORE; // полный замок сейчас: 532 ур.
@@ -177,4 +179,4 @@ function displayId(b, level) {
   return e >= 10 ? b.tiers[2] : e >= 5 ? b.tiers[1] : b.tiers[0];
 }
 
-module.exports = { LAND_YIELD, LAND_TARGET, LAND_TIME, LAND_COST_K, LAND_EFF, LAND_EFF_MAX, landEff, landFromOld, LAND_MULT_BY_SIZE, LANDS_N, LANDS_MAX, LAND_MULT, HUT_CAP_MULT, LAND_CELLS, TIME, RATING, RES, RES_ICON, TIME_ICON, BUILDINGS, BY_ID, RACES, RACE_NAMES, PROD, PROD_K, CASTLE_PATH, CASTLE_OK, STORE_MAX, durability, levelCost, levelTimeSec, displayId };
+module.exports = { GONE, LAND_YIELD, LAND_TARGET, LAND_TIME, LAND_COST_K, LAND_EFF, LAND_EFF_MAX, landEff, landFromOld, LAND_MULT_BY_SIZE, LANDS_N, LANDS_MAX, LAND_MULT, HUT_CAP_MULT, LAND_CELLS, TIME, RATING, RES, RES_ICON, TIME_ICON, BUILDINGS, BY_ID, RACES, RACE_NAMES, PROD, PROD_K, CASTLE_PATH, CASTLE_OK, STORE_MAX, durability, levelCost, levelTimeSec, displayId };
