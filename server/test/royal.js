@@ -102,6 +102,19 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(g.canSeeReport(L, rep), 'глава видит отчёт участника');
   assert.ok(!g.canSeeReport(O, rep), 'посторонний не видит');
   console.log('✓ военные логи альянса: нападение, оборона, разведка, вражеская разведка; отчёты видны только своим');
+  // состав альянса: кто в игре — камень у ника: в игре / не в игре / не заходил 5+ дней; только своим, без точного времени
+  L.online = true; M.online = false; M.lastSeen = Date.now() - 2 * 86400000;
+  const st = () => Object.fromEntries(g.allyView(L, al).members.map((m) => [m.login, m.st]));
+  assert.deepStrictEqual(st(), { wlead: 'on', wmemb: 'off' }, JSON.stringify(st()));
+  M.lastSeen = Date.now() - 6 * 86400000; assert.strictEqual(st().wmemb, 'away', 'не заходил 5+ дней — серый');
+  M.online = true; assert.strictEqual(st().wmemb, 'on', 'вошёл — зелёный');
+  assert.ok(g.allyView(L, al).members.every((m) => m.lastSeen === undefined), 'точное время не отдаём');
+  const mod = g.register({ login: 'wmodr', password: '12345', race: 0 }).user; mod.mod = true;
+  assert.ok(g.allyView(mod, al).members.every((m) => m.st === undefined), 'модератор в чужом альянсе статусы не видит');
+  assert.ok(g.allyPublic(al).members.every((m) => m.st === undefined), 'карточка альянса для всех — без статусов');
+  assert.strictEqual(g.allySt({ id: -5, admin: true, online: true }, new Set([-5])), 'off', 'админ невидим — всегда «не в игре»');
+  L.online = M.online = false;
+  console.log('✓ состав альянса: в игре / не в игре / 5+ дней — только своим, админ невидим');
 }
 // альянс: 5 мест за уровень Дипломатического центра главы, не больше 50
 {
@@ -1267,7 +1280,9 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     su.gold = 2000; g.mil(sc); sc.artifacts = [];
     const rt = g.shopTreasure(su, 't7'); assert.ok(rt.msg && su.gold === 1, 'Сокровище Дракона за 1999');
     const it = Object.fromEntries(T.t7.items.map(([k, a, b]) => [k, [a, b]])), dRes = g.stashOf(su).res.wood - (kr.wood || 0), dRune = ['str', 'def', 'path'].reduce((q, k) => q + g.runesOf(su)[k] - ru0[k], 0);
-    assert.ok(dRes >= it.res[0] && dRes <= it.res[1] && dRune >= it.runes[0] && dRune <= it.runes[1], `ресурсы ${dRes} и руны ${dRune} (всего, вид случайный) — в пределах`);
+    // Сокровищница полна — лишний артефакт разбивается на осколки (ресурсы — тоже в Кладовую): к верхней границе
+    const broken = rt.lines.filter((l) => /осколки/.test(l)).length, shard = Math.max(...require('../src/army').ART_BREAK);
+    assert.ok(dRes >= it.res[0] && dRes <= it.res[1] + broken * shard && dRune >= it.runes[0] && dRune <= it.runes[1], `ресурсы ${dRes} (осколков ${broken}) и руны ${dRune} (всего, вид случайный) — в пределах`);
     assert.ok(sc.artifacts.length >= it.art1[0] + it.art2[0] && sc.artifacts.length <= it.art1[1] + it.art2[1] && sc.artifacts.every((a) => a.rarity >= 1 && !a.active), 'артефакты в Сокровищнице: ' + sc.artifacts.length);
     const dRep = su.reputation - rep0, dExp = (g.stashOf(su).exp || 0) - (k1.exp || 0), dRoyal = (g.stashOf(su).royal || 0) - (k1.royal || 0);
     assert.ok(dRep >= it.rep[0] && dRep <= it.rep[1] && dExp >= it.exp[0] && dExp <= it.exp[1] && dRoyal >= it.royal[0] && dRoyal <= it.royal[1], 'репутация, опыт, лояльность — в пределах');

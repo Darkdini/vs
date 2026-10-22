@@ -203,6 +203,25 @@ function client() {
     await adm.expect('toast', (m) => /Медаль вручена: webby/i.test(m.msg));
     adm.send({ t: 'profile', id: s3.user.id });
     { const pr = (await adm.expect('profile', (m) => (m.profile.awards || []).length > 0)).profile; assert.equal(pr.awards[0].tag, 'KRL'); }
+    // состав альянса: кто в игре — видят только свои; вошёл и вышел — у своих сразу (allyst); админ невидим
+    a.send({ t: 'ally', op: 'get' });
+    { const v = (await a.expect('ally')).data, me = v.members.find((x) => x.login === 'Webby'), lead = v.members.find((x) => x.id === v.leader);
+      assert.ok(me.st === 'on' && lead.st === 'off', JSON.stringify(v.members.map((x) => [x.login, x.st]))); }
+    const c = client(); await c.open(); c.send({ t: 'hello' }); await c.expect('catalog');
+    c.send({ t: 'register', login: 'Sobrat', password: 'pass1', race: '0' }); await c.expect('registered');
+    c.send({ t: 'login', login: 'Sobrat', password: 'pass1' }); await c.expect('auth');
+    adm.send({ t: 'alliance', op: 'invite', login: 'Sobrat' }); await adm.expect('toast', (m) => /Приглашение отправлено: sobrat/i.test(m.msg));
+    const inv2 = (await c.expect('state', (m) => (m.castle.mil.invites || []).length === 1)).castle.mil.invites[0];
+    c.send({ t: 'alliance', op: 'accept', id: inv2.id }); await c.expect('state', (m) => m.castle.mil.alliance && m.castle.mil.alliance.tag === 'KRL');
+    c.close();
+    const gone = await a.expect('allyst', (m) => m.st === 'off');
+    const c2 = client(); await c2.open(); c2.send({ t: 'hello' }); await c2.expect('catalog');
+    c2.send({ t: 'login', login: 'Sobrat', password: 'pass1' }); await c2.expect('auth');
+    await a.expect('allyst', (m) => m.id === gone.id && m.st === 'on');
+    b.send({ t: 'allyinfo', id: inv2.id });
+    assert.ok((await b.expect('allyinfo')).ally.members.every((x) => x.st === undefined), 'чужим — без статусов');
+    c2.close();
+    console.log('✓ состав альянса: кто в игре — видят только свои, вход и выход — сразу');
     // окно «Альянс»: права, описание, форум, новости, казна, логи
     adm.send({ t: 'ally', op: 'rank', login: 'Webby', title: 'Казначей', ep: 2, rights: ['treasury', 'logs'] });
     await adm.expect('toast', (m) => /Права назначены: webby/i.test(m.msg));

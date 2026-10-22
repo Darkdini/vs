@@ -111,6 +111,12 @@ function onlineUsers() {
   return seen;
 }
 const onlineCount = () => onlineUsers().size;
+// состав альянса (alliance.js): игрок вошёл или вышел — его камень сразу меняется у своих по альянсу; админ невидим — о нём молчим
+function allyStCast(game, u) {
+  if (!u || !u.alliance || u.admin || u.bot) return;
+  const st = game.allySt(u, game.onlineIds ? game.onlineIds() : null);
+  for (const s of WebSession.all || []) if (s.user && s.user !== u && s.user.alliance === u.alliance) s.send({ t: 'allyst', id: u.id, st });
+}
 
 // ---------- сессия браузера ----------
 class WebSession {
@@ -281,11 +287,12 @@ const API = {
     this.send({ t: 'auth', login: u.login, token: this.token, mkey: this.mkey });
     if (u.admin && !m.token && String(m.password || '').toLowerCase() === 'admin') this.toast('⚠ У админа стандартный пароль «admin» — смените его: Админ-панель → Цель → Сменить пароль.');
     this.pushState();
+    allyStCast(this.game, u);
     // советник встречает при входе: сколько игроков, что случилось за время отсутствия.
     // Сервер шлёт доклад при каждом входе; клиент показывает его один раз за открытие игры (после обрыва связи — не повторяет)
     this.send({ t: 'welcome', ...this.game.welcomeInfo(u, prevSeen), players: onlineCount() }); // сколько сейчас в игре — как «Игроки (N)» в чате
   },
-  logout() { this.game.dropToken(this.user, this.token); MEDIA.delete(this.mkey); this.mkey = null; this.user.online = false; this.user = null; this.send({ t: 'loggedout' }); },
+  logout() { const u = this.user; this.game.dropToken(u, this.token); MEDIA.delete(this.mkey); this.mkey = null; u.online = false; this.user = null; this.send({ t: 'loggedout' }); allyStCast(this.game, u); },
   sync() { this.pushState(); },
   ping() { this.send({ t: 'pong' }); }, // проверка живости соединения (клиент после сворачивания приложения)
   switch(m) { const r = this.game.switchCastle(this.user, m.id); if (r.error) return this.error(r.error); if (!m.quiet) this.toast(`Замок: ${this.castle.name}`); this.pushState(); }, // quiet — возврат в последний замок при входе
@@ -905,6 +912,7 @@ function assetManifest() {
 }
 
 function startWeb(game, sessions, { port, host, log }) {
+  game.onlineIds = () => { const on = new Set(); for (const s of sessions) if (s.user) on.add(s.user.id); return on; }; // кто сейчас в игре (ally.js: состав альянса)
   const server = http.createServer((req, res) => {
     const ip = clientIp(req, req.socket);
     if (game.ipBanned(ip)) { res.writeHead(403, { 'Content-Type': 'text/plain' }); return res.end('forbidden'); }
@@ -1006,7 +1014,7 @@ function startWeb(game, sessions, { port, host, log }) {
       }
     });
     socket.on('error', () => {});
-    socket.on('close', () => { sessions.delete(session); if (session.mkey) MEDIA.delete(session.mkey); if (session.user) { session.user.online = [...sessions].some((s) => s.user === session.user); session.user.lastSeen = Date.now(); } });
+    socket.on('close', () => { sessions.delete(session); if (session.mkey) MEDIA.delete(session.mkey); if (session.user) { session.user.online = [...sessions].some((s) => s.user === session.user); session.user.lastSeen = Date.now(); if (!session.user.online) allyStCast(game, session.user); } });
   });
 
   server.on('error', (e) => {

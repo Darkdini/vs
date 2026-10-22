@@ -10,6 +10,16 @@ const aTile = (attr, icon, text, off) => `<button class="ptile ${off ? 'off' : '
 // погоны по старшинству (gfx/ep/ep1…ep8): шевроны → звёзды → звезда в венке → корона (только создатель)
 const EP_NAMES = ['нет', '1 — один шеврон', '2 — два шеврона', '3 — три шеврона', '4 — одна звезда', '5 — две звезды', '6 — три звезды', '7 — звезда в лавровом венке'];
 const epImg = (ep) => (ep > 0 ? `<img class="epaul" src="${GFX}ep/ep${Math.min(8, ep)}.png" alt="">` : '—');
+// кто из своих в игре (сервер: ally.js allySt, только своему альянсу): камень у ника — зелёный в игре, красный не в игре,
+// серый не заходил 5+ дней. Вошёл или вышел — сервер сразу шлёт allyst, камень меняется без перезахода
+const ST_T = { on: 'в игре', off: 'не в игре', away: 'не заходил 5+ дней' };
+const stImg = (st) => `<img src="${AL}st_${st}.png" alt="${ST_T[st]}">`;
+const stCell = (m) => (m.st ? `<span class="ostc">${stImg(m.st)}</span>` : '');
+function allyStLegend(a) {
+  if (!a.members.some((m) => m.st)) return '';
+  const n = (k) => a.members.filter((m) => m.st === k).length;
+  return `<div class="aleg"><span>${stImg('on')}в игре: ${n('on')}</span><span>${stImg('off')}не в игре: ${n('off')}</span><span>${stImg('away')}5+ дней: ${n('away')}</span></div>`;
+}
 // корона по репутации (как на форуме оригинала): фиолетовая с 150, синяя 600, зелёная 1100, бирюзовая 2350, оранжевая 4350, красная 7350
 const CROWNS = [[7350, 'red'], [4350, 'orange'], [2350, 'teal'], [1100, 'green'], [600, 'blue'], [150, 'purple']];
 function repCrown(rep) { const c = CROWNS.find(([t]) => rep >= t); return c ? `<img class="crown2" src="${GFX}rep/crown_${c[1]}.png" alt="">` : ''; }
@@ -43,8 +53,8 @@ function allyMainWin() {
       ${aTile('data-aw="diplo"', `${AL}diplo.png`, 'Дипломатия')}
       ${aTile('data-aw="desc"', `${AL}desc.png`, 'Описание')}
     </div>
-    ${ribbon('Состав')}
-    <div class="atable">${a.members.slice(0, 5).map((m, i) => `<div class="atr4"><span>${i + 1}</span><span><a data-cprof="${m.id}" style="color:${nameColor(m.rep)}">${esc(m.login)}</a><br>${repIcons(m.rep)}${allyMedalsRow(m)}</span><span>${epImg(m.ep)}</span><span>${fmtFull(m.score)}</span></div>`).join('')}</div>
+    ${ribbon('Состав')}${allyStLegend(a)}
+    <div class="atable">${a.members.slice(0, 5).map((m, i) => `<div class="atr4 ${m.st ? 'ast' : ''}">${stCell(m)}<span>${i + 1}</span><span><a data-cprof="${m.id}" style="color:${nameColor(m.rep)}">${esc(m.login)}</a><br>${repIcons(m.rep)}${allyMedalsRow(m)}</span><span>${epImg(m.ep)}</span><span>${fmtFull(m.score)}</span></div>`).join('')}</div>
     <button class="pbar" data-aw="members">Весь состав</button>
     <div class="ptiles pbig">
       ${aTile('data-aw="manage"', `${AL}manage.png`, 'Управление')}
@@ -58,7 +68,7 @@ function allyMainWin() {
 
 function allyMembersWin() {
   const a = S.ally; if (!a) return loading('Весь состав');
-  return `${ribbon('Весь состав')}<div class="atable">${a.members.map((m, i) => `<div class="atr4"><span>${i + 1}</span><span><a data-cprof="${m.id}" style="color:${nameColor(m.rep)}">${esc(m.login)}</a><br>${repIcons(m.rep)}${allyMedalsRow(m)}<small>рейтинг ${fmtFull(m.rating)} + репутация ${fmtFull(m.rep)}</small></span><span>${epImg(m.ep)}</span><span>${fmtFull(m.score)}</span></div>`).join('')}</div>`;
+  return `${ribbon('Весь состав')}${allyStLegend(a)}<div class="atable">${a.members.map((m, i) => `<div class="atr4 ${m.st ? 'ast' : ''}">${stCell(m)}<span>${i + 1}</span><span><a data-cprof="${m.id}" style="color:${nameColor(m.rep)}">${esc(m.login)}</a><br>${repIcons(m.rep)}${allyMedalsRow(m)}<small>рейтинг ${fmtFull(m.rating)} + репутация ${fmtFull(m.rep)}</small></span><span>${epImg(m.ep)}</span><span>${fmtFull(m.score)}</span></div>`).join('')}</div>`;
 }
 function allyTitlesWin() {
   const a = S.ally; if (!a) return loading('Звания и погоны');
@@ -249,6 +259,10 @@ $('#sheetBody').addEventListener('submit', (e) => {
 const prevMilA = milMsg;
 milMsg = function (m) { // eslint-disable-line no-global-assign
   if (m.t === 'ally') { S.ally = m.data; return refreshSheet(); }
+  if (m.t === 'allyst') { // свой по альянсу вошёл или вышел
+    const x = S.ally && S.ally.members.find((q) => q.id === m.id); if (!x || !x.st) return;
+    x.st = m.st; if ([allyMainWin, allyMembersWin].includes(S.sheets[S.sheets.length - 1])) refreshSheet(); return;
+  }
   if (m.t === 'allytopic') { S.allyTopic = m.data; if (m.data) S.allyTopicId = m.data.id; return refreshSheet(); }
   prevMilA(m);
 };

@@ -12,6 +12,7 @@ const RIGHTS = { mail: 'Рассылка уведомлений', invite: 'Пр�
 const DIPLO = { ally: 'Союз', nap: 'Пакт о ненападении', war: 'Война' };
 const RES4 = ['wood', 'stone', 'iron', 'food'];
 const clean = (s, n) => String(s || '').trim().slice(0, n);
+const AWAY_DAYS = 5; // не заходил столько дней — в составе альянса серый камень
 
 function install(Game) {
   const P = Game.prototype;
@@ -99,12 +100,21 @@ function install(Game) {
     const al = this.allianceOf(user);
     return !!(al && al.members.includes(r.owner) && ['battle', 'scout', 'reinforce'].includes(r.kind) && this.allyCan(al, user.id, 'logs'));
   };
+  // кто из альянса в игре — камень у ника в составе: 'on' в игре, 'off' не в игре, 'away' не заходил 5+ дней.
+  // Точное время не отдаём (как и в профиле — его видят только сам игрок и админ). Админ невидим — всегда «не в игре».
+  // on — id игроков в игре (web.js: game.onlineIds, по открытым соединениям); без сервера — флаг online
+  P.allySt = function allySt(m, on, now = Date.now()) {
+    if (m.admin) return 'off';
+    if (on ? on.has(m.id) : m.online) return 'on';
+    return now - (m.lastSeen || m.created || now) > AWAY_DAYS * 86400000 ? 'away' : 'off';
+  };
   // полная карточка альянса для окна «Альянс»
   P.allyView = function allyView(user, al) {
     const me = user.id, can = (r) => this.allyCan(al, me, r), now = Date.now();
+    const on = user.alliance === al.id ? (this.onlineIds ? this.onlineIds() : null) : false; // кто в игре — только своим (модератор в чужом не видит)
     const members = al.members.map((id) => { const m = this.userById(id); if (!m) return null;
       const t = this.allyTitle(al, id); return { id, login: m.login, rating: this.userRating(m), rep: m.reputation ?? START_REP, score: this.userRating(m) + (m.reputation ?? START_REP), medals: this.allyMedals(m), ...t,
-        rights: id === al.leader ? Object.keys(RIGHTS) : ((al.ranks || {})[id] || {}).rights || [] }; }).filter(Boolean).sort((a, b) => b.score - a.score);
+        rights: id === al.leader ? Object.keys(RIGHTS) : ((al.ranks || {})[id] || {}).rights || [], ...(on === false ? {} : { st: this.allySt(m, on, now) }) }; }).filter(Boolean).sort((a, b) => b.score - a.score);
     const A = this.db.alliances || {};
     // военные логи: каждое военное действие участников — нападение, оборона, разведка (своя и вражеская), подкрепления
     const reports = can('logs') ? (this.db.reports || []).filter((r) => !r.fwd && al.members.includes(r.owner) && ['battle', 'scout', 'reinforce'].includes(r.kind)).slice(-200).reverse()
