@@ -34,36 +34,50 @@ const UNIT_LIST = [
   [202, 'Разведчик', 'humans', 'human/hd/scout', 'scout', B.SPY, 1, { [B.TOWNHALL]: 5, [B.SMITH]: 2, [B.STABLE]: 1 }], // тренируется в Центре разведки
   [203, 'Чародей', 'humans', 'human/hd/mage', 'mage', B.MAGE_ACADEMY, 1, { [B.BARRACKS]: 1 }],
   [204, 'Рыцарь', 'humans', 'human/hd/knight', 'heavy_cav', B.BARRACKS, 10, { [B.WORKSHOP]: 7, [B.SMITH]: 5 }],
+  [264, 'Рейтар', 'humans', 'human/hd/reiter', 'heavy_cav', B.STABLE, 7, { [B.WORKSHOP]: 7, [B.SMITH]: 5 }],
+  [262, 'Ведьмак', 'humans', 'human/hd/witcher', 'mage', B.MAGE_ACADEMY, 3, { [B.SMITH]: 1 }],
+  [263, 'Варлок', 'humans', 'human/hd/mage', 'mage', B.MAGE_ACADEMY, 10, { [B.WORKSHOP]: 7, [B.SMITH]: 5 }], // картинка пока — Чародея
   [205, 'Паладин', 'humans', 'human/hd/paladin', 'heavy_cav', B.STABLE, 3, { [B.SMITH]: 1 }],
   [260, 'Колосс', 'humans', 'human/hd/colossus', 'elite_inf', B.MAGE_ACADEMY, 7, { [B.SMITH]: 3, [B.MAGIC_SCHOOL]: 7 }], // список на скрине может быть обрезан
   [259, 'Нурух', 'humans', 'human/hd/nuruh', 'legendary', B.STABLE, 10, { [B.WORKSHOP]: 10 }],
   [206, 'Джин', 'humans', 'human/hd/jin', 'legendary', B.PORTAL, 1], // на скринах оригинала нет — оставлен как был
   // эльфы — как в оригинале (скрины окна «Юнит»): имена, требования, характеристики — в ORIG ниже
-  [207, 'Эльф лучник', 'elves', 'elf/hd/archer', 'ranged', B.BARRACKS, 1],
-  [208, 'Танцующий с клинками', 'elves', 'elf/hd/fighter', 'atk_inf', B.BARRACKS, 3, { [B.SMITH]: 1 }],
+  [207, 'Лучник', 'elves', 'elf/hd/archer', 'ranged', B.BARRACKS, 1],
+  [208, 'Мастер клинка', 'elves', 'elf/hd/fighter', 'atk_inf', B.BARRACKS, 3, { [B.SMITH]: 1 }],
   [257, 'Химера', 'elves', 'elf/hd/chimera', 'atk_inf', B.SMITH, 3],
   [209, 'Скаут', 'elves', 'elf/hd/scout', 'scout', B.SPY, 1, { [B.STABLE]: 1, [B.SMITH]: 3 }], // тренируется в Центре разведки
   [210, 'Созидающая', 'elves', 'elf/hd/create', 'mage', B.MAGE_ACADEMY, 1, { [B.BARRACKS]: 1 }],
+  [265, 'Страж границ', 'elves', 'elf/hd/warden', 'elite_inf', B.BARRACKS, 10, { [B.WORKSHOP]: 7, [B.SMITH]: 5 }],
+  [266, 'Эльфийский всадник', 'elves', 'elf/hd/rider', 'light_cav', B.STABLE, 1],
+  [267, 'Повелитель стихий', 'elves', 'elf/hd/elemental', 'mage', B.MAGE_ACADEMY, 3, { [B.SMITH]: 1 }],
+  [268, 'Дух леса', 'elves', 'elf/hd/spirit', 'mage', B.MAGE_ACADEMY, 10, { [B.WORKSHOP]: 7, [B.SMITH]: 5 }],
   [258, 'Зверь', 'elves', 'elf/hd/beast', 'elite_inf', B.BARRACKS, 10, { [B.SMITH]: 5 }],
   [212, 'Единорог', 'elves', 'elf/hd/edinorog', 'heavy_cav', B.STABLE, 3, { [B.SMITH]: 1 }],
   [211, 'Кентавр', 'elves', 'elf/hd/kenaur', 'light_cav', B.STABLE, 7, { [B.WORKSHOP]: 7, [B.SMITH]: 5 }],
   [213, 'Энт', 'elves', 'elf/hd/ent', 'legendary', B.MAGE_ACADEMY, 10, { [B.WORKSHOP]: 10 }], // список обрезан
   // гномы — как в оригинале (скрины окна «Юнит»): имена, требования, характеристики — в ORIG ниже
-  [214, 'Гном топорщик', 'dwarves', 'dwarv/hd/fighter', 'atk_inf', B.BARRACKS, 1],
+  [214, 'Топорщик', 'dwarves', 'dwarv/hd/fighter', 'atk_inf', B.BARRACKS, 1],
   [215, 'Арбалетчик', 'dwarves', 'dwarv/hd/arbalet', 'ranged', B.BARRACKS, 3, { [B.SMITH]: 1 }],
   [255, 'Горный великан', 'dwarves', 'dwarv/hd/giant', 'def_inf', B.BARRACKS, 1, { [B.SMITH]: 3 }],
   [216, 'Жрец Рун', 'dwarves', 'dwarv/hd/elder', 'mage', B.MAGE_ACADEMY, 1, { [B.BARRACKS]: 1 }],
   [217, 'Грифон разведчик', 'dwarves', 'dwarv/hd/gryphon', 'scout', B.SPY, 1, { [B.STABLE]: 1, [B.WORKSHOP]: 1, [B.SMITH]: 3 }], // тренируется в Центре разведки
   [218, 'Защитник гор', 'dwarves', 'dwarv/hd/defender', 'heavy_cav', B.STABLE, 1],
+  [269, 'Грифоний наездник', 'dwarves', 'dwarv/hd/gryphon', 'light_cav', B.STABLE, 3, { [B.SMITH]: 1 }], // картинка пока — Грифона
+  [270, 'Топтун', 'dwarves', 'dwarv/hd/stomper', 'heavy_cav', B.STABLE, 7, { [B.WORKSHOP]: 7, [B.SMITH]: 5 }],
+  [271, 'Громовержец', 'dwarves', 'dwarv/hd/thunder', 'mage', B.MAGE_ACADEMY, 3, { [B.SMITH]: 1 }],
   [256, 'Механический центурион', 'dwarves', 'dwarv/hd/centurion', 'elite_inf', B.MAGE_ACADEMY, 10, { [B.WORKSHOP]: 7, [B.SMITH]: 5 }],
   [219, 'Револьверщик', 'dwarves', 'dwarv/hd/revolver', 'elite_inf', B.BARRACKS, 10, { [B.WORKSHOP]: 7, [B.SMITH]: 5 }],
   [220, 'Йети', 'dwarves', 'dwarv/hd/yeti', 'legendary', B.BARRACKS, 10, { [B.WORKSHOP]: 10 }],
   // орки — как в оригинале (скрины окна «Юнит»): имена, требования, характеристики — в ORIG ниже
-  [245, 'Мародер', 'orcs', 'orc/hd/marauder', 'atk_inf', B.BARRACKS, 1],
+  [245, 'Мародёр', 'orcs', 'orc/hd/marauder', 'atk_inf', B.BARRACKS, 1],
   [247, 'Бугай', 'orcs', 'orc/hd/bugai', 'def_inf', B.BARRACKS, 3, { [B.SMITH]: 1 }],
   [252, 'Орк загонщик', 'orcs', 'orc/hd/hunter', 'scout', B.SPY, 1, { [B.BARRACKS]: 5, [B.MAGE_ACADEMY]: 1 }], // тренируется в Центре разведки
   [253, 'Осквернитель', 'orcs', 'orc/hd/defiler', 'mage', B.MAGE_ACADEMY, 1, { [B.BARRACKS]: 1 }],
   [246, 'Урук-хай', 'orcs', 'orc/hd/uruk', 'def_inf', B.BARRACKS, 10, { [B.WORKSHOP]: 7, [B.SMITH]: 5 }],
+  [272, 'Варг', 'orcs', 'orc/hd/warg', 'light_cav', B.STABLE, 1],
+  [273, 'Загонщик', 'orcs', 'orc/hd/hunter', 'light_cav', B.STABLE, 3, { [B.SMITH]: 1 }],
+  [274, 'Потрошитель', 'orcs', 'orc/hd/ripper', 'heavy_cav', B.STABLE, 7, { [B.WORKSHOP]: 7, [B.SMITH]: 5 }],
+  [275, 'Заклинатель', 'orcs', 'orc/hd/caster', 'mage', B.MAGE_ACADEMY, 3, { [B.SMITH]: 1 }],
   [254, 'Варлок', 'orcs', 'orc/hd/warlock', 'mage', B.STABLE, 5, { [B.BARRACKS]: 7, [B.WORKSHOP]: 3, [B.SMITH]: 7 }],
   [250, 'Тиран', 'orcs', 'orc/hd/tyrant', 'elite_inf', B.BARRACKS, 10, { [B.SMITH]: 10 }],
   [248, 'Шаман', 'orcs', 'orc/hd/shaman', 'mage', B.MAGE_ACADEMY, 10, { [B.WORKSHOP]: 7, [B.SMITH]: 5 }],
@@ -187,6 +201,63 @@ const RIOT_STEP = 15, RIOT_CAPTURED = 95; // бунт: +15% за каждое п
 const MARCH = 2; // все армии и торговцы ходят вдвое быстрее (походы, возврат, подкрепления) — экспедиций не касается
 const CAMP_FAST = 3; // набеги и нападения на лагеря разбойников (и логово «Тёмных земель») — втрое быстрее, туда и обратно
 const RECALL_MS = 4 * 60 * 1000; // армию, отправленную по ошибке, можно вернуть в первые 4 минуты (реальные, не зависят от скорости мира)
+// Все четыре расы — по «Справке» (окно «Юнит»): тип, жизнь, атака на пехоту / магов / конницу, груз, скорость, цена и время.
+// Бой у нас свой: атака (у магов — магия) = среднее трёх атак; защита — прежняя (у новых — как у похожих).
+// Цена и время тренировки — ×4 к «Справке» (tc/tt); Кузница, наём генерала и воскрешение считаются по прежней цене (refCost).
+const SPRAVKA_K = 4;
+const SPRAVKA = {
+  // id: [тип, жизнь, [пех, маг, кон], груз, скорость, [дерево, камень, железо, еда], время сек, доп.]
+  200: ['infantry', 36, [4, 18, 0], 3, 17, [8, 3, 10, 5], 60], // Мечник
+  201: ['infantry', 54, [13, 27, 1], 7, 13, [16, 6, 22, 12], 90], // Копейщик
+  204: ['infantry', 94, [31, 63, 12], 10, 11, [25, 9, 33, 18], 105], // Рыцарь
+  261: ['cavalry', 66, [33, 1, 8], 3, 22, [11, 4, 15, 8], 90], // Кирасир
+  205: ['cavalry', 88, [44, 2, 22], 6, 18, [22, 8, 29, 15], 120], // Паладин
+  264: ['cavalry', 148, [99, 19, 49], 9, 15, [32, 11, 43, 23], 135, { def: 40, mdef: 20, pop: 50 }], // Рейтар
+  203: ['magic', 80, [2, 10, 40], 9, 11, [15, 5, 19, 10], 120], // Чародей
+  262: ['magic', 100, [2, 25, 50], 15, 9, [27, 9, 36, 19], 150, { def: 5, mdef: 25, pop: 18 }], // Ведьмак
+  263: ['magic', 165, [22, 55, 110], 23, 8, [39, 13, 52, 28], 165, { def: 15, mdef: 40, pop: 30 }], // Варлок
+  259: ['cavalry', 56, [28, 1, 14], 0, 10, [16, 6, 21, 11], 120, { bldDmg: 50, oneUse: true }], // Нурух — исчезает после боя
+  207: ['infantry', 40, [5, 20, 1], 3, 15, [10, 8, 3, 5], 60], // Лучник
+  208: ['infantry', 60, [15, 30, 1], 7, 12, [22, 16, 6, 12], 90], // Мастер клинка
+  265: ['infantry', 105, [35, 70, 14], 10, 10, [33, 25, 9, 18], 105, { def: 45, mdef: 15, pop: 45 }], // Страж границ
+  266: ['cavalry', 54, [27, 1, 6], 4, 20, [15, 11, 4, 8], 90, { def: 15, mdef: 0, pop: 8 }], // Эльфийский всадник
+  212: ['cavalry', 72, [36, 1, 18], 7, 16, [29, 22, 8, 15], 120], // Единорог
+  211: ['cavalry', 121, [81, 16, 40], 10, 14, [43, 32, 11, 23], 135], // Кентавр
+  210: ['magic', 88, [2, 11, 44], 9, 10, [19, 15, 5, 10], 120], // Созидающая
+  267: ['magic', 110, [2, 27, 55], 19, 8, [36, 27, 9, 19], 150, { def: 5, mdef: 40, pop: 27 }], // Повелитель стихий
+  268: ['magic', 181, [24, 60, 121], 23, 7, [52, 39, 13, 28], 165, { def: 20, mdef: 50, pop: 45 }], // Дух леса
+  213: ['magic', 70, [1, 17, 35], 0, 10, [26, 19, 7, 14], 150, { bldDmg: 63, oneUse: true }], // Энт — исчезает после боя
+  214: ['infantry', 44, [5, 22, 1], 4, 14, [3, 10, 8, 5], 60], // Топорщик
+  215: ['infantry', 66, [16, 33, 1], 8, 11, [6, 22, 16, 12], 90], // Арбалетчик
+  219: ['infantry', 115, [38, 77, 15], 12, 9, [9, 33, 25, 18], 105], // Револьверщик
+  218: ['cavalry', 60, [30, 1, 7], 4, 18, [4, 15, 11, 8], 90], // Защитник гор
+  269: ['cavalry', 80, [40, 2, 20], 8, 14, [8, 29, 22, 15], 120, { def: 25, mdef: 5, pop: 15 }], // Грифоний наездник
+  270: ['cavalry', 135, [90, 18, 45], 11, 13, [11, 43, 32, 23], 135, { def: 40, mdef: 20, pop: 45 }], // Топтун
+  216: ['magic', 72, [1, 9, 36], 10, 9, [5, 19, 15, 10], 120], // Жрец рун
+  271: ['magic', 90, [2, 22, 45], 19, 7, [9, 36, 27, 19], 150, { def: 5, mdef: 30, pop: 25 }], // Громовержец
+  256: ['magic', 148, [19, 49, 99], 31, 6, [13, 52, 39, 28], 165], // Механический центурион
+  220: ['infantry', 42, [10, 21, 1], 0, 10, [5, 16, 12, 9], 90, { bldDmg: 37, oneUse: true }], // Йети — исчезает после боя
+  245: ['infantry', 32, [4, 16, 0], 3, 18, [5, 3, 5, 8], 48], // Мародёр
+  247: ['infantry', 48, [12, 24, 1], 4, 14, [10, 6, 11, 18], 72], // Бугай
+  246: ['infantry', 84, [28, 56, 11], 7, 12, [15, 10, 16, 28], 84], // Урук-хай
+  272: ['cavalry', 48, [24, 1, 6], 3, 24, [7, 4, 7, 12], 72, { def: 15, mdef: 0, pop: 6 }], // Варг
+  273: ['cavalry', 64, [32, 1, 16], 4, 19, [13, 8, 14, 24], 96, { def: 25, mdef: 5, pop: 15 }], // Загонщик
+  274: ['cavalry', 108, [72, 14, 36], 7, 17, [19, 12, 21, 36], 108, { def: 40, mdef: 20, pop: 45 }], // Потрошитель
+  253: ['magic', 64, [1, 8, 32], 6, 12, [9, 6, 9, 16], 96], // Осквернитель
+  275: ['magic', 80, [2, 20, 40], 10, 10, [16, 10, 17, 30], 120, { def: 5, mdef: 25, pop: 18 }], // Заклинатель
+  248: ['magic', 132, [17, 44, 88], 20, 8, [23, 15, 25, 44], 132], // Шаман
+  249: ['infantry', 33, [8, 16, 1], 0, 10, [7, 5, 8, 13], 72, { bldDmg: 30, oneUse: true }], // Кулак ярости — исчезает после боя
+};
+for (const [id, [type, hp, a3, carry, speed, cost, sec, x = {}]] of Object.entries(SPRAVKA)) {
+  const u = UNIT[id]; if (!u) continue;
+  const avg = Math.round((a3[0] + a3[1] + a3[2]) / 3);
+  Object.assign(u, { type, hp, carry, speed, attack: type === 'magic' ? 0 : avg, magic: type === 'magic' ? avg : 0,
+    tc: Object.fromEntries(RES4.map((r, i) => [r, cost[i] * SPRAVKA_K])), tt: sec * SPRAVKA_K });
+  if (x.def !== undefined) u.def = { inf: x.def, cav: x.def, mag: x.mdef };
+  if (x.pop) Object.assign(u, { pop: x.pop, upkeep: Math.max(1, Math.round(x.pop / 3)) });
+  if (x.bldDmg) u.bldDmg = x.bldDmg;
+  if (x.oneUse) u.oneUse = true;
+}
 // уникальные воины — только награда заданий и походов (в Кладовой), не тренируются. На 20% сильнее своего прообраза расы
 // (здоровье, атака, магия, защита), скорость, груз, население и содержание — как у прообраза. Картинка — gfx/units/uniq/<key>.png,
 // пока её нет — картинка прообраза. slot: inf / cav / mag — так задания выдают их любой расе.
@@ -226,6 +297,7 @@ UNIT[233].raceOvr = { elves: { cost: { wood: 13316, stone: 10412, iron: 12012, f
 // от них считаются Кузница, наём и воскрешение генерала (их не меняли); лечение в Лазарете — четверть новой цены
 const halfCost = (c) => Object.fromEntries(Object.entries(c).map(([r, v]) => [r, Math.round(v / 2)]));
 for (const u of UNITS) if (u.id !== GENERAL_ID && !u.undead) {
+  if (u.tc) { Object.assign(u, { refCost: u.cost, refTime: u.time, cost: u.tc, time: u.tt }); delete u.tc; delete u.tt; continue; } // «Справка» ×4
   Object.assign(u, { refCost: u.cost, refTime: u.time, cost: halfCost(u.cost), time: Math.round(u.time / 2) });
   for (const o of Object.values(u.raceOvr || {})) if (o.cost) Object.assign(o, { refCost: o.cost, cost: halfCost(o.cost) });
 }
@@ -2411,4 +2483,4 @@ const catalogJson = () => ({
   hero: require('./hero').heroCatalog(),
 });
 
-module.exports = { CAMP_FAST, MARCH, RIOT_STEP, RIOT_CAPTURED, uniqueFor, EXPED, ART_HOURS, NEWBIE_RATING, install, UNITS, UNIT, B, GENERAL_ID, GEN, SCIENCES, RELIGIONS, NPC, MISSIONS, unitsForRace, unitImg, catalogJson, ART_TYPES, RARITY, ART_BREAK, EXPED_PER, EXPED_CAP, RUINS };
+module.exports = { SPRAVKA, CAMP_FAST, MARCH, RIOT_STEP, RIOT_CAPTURED, uniqueFor, EXPED, ART_HOURS, NEWBIE_RATING, install, UNITS, UNIT, B, GENERAL_ID, GEN, SCIENCES, RELIGIONS, NPC, MISSIONS, unitsForRace, unitImg, catalogJson, ART_TYPES, RARITY, ART_BREAK, EXPED_PER, EXPED_CAP, RUINS };

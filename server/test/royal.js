@@ -753,7 +753,7 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(g.trainGeneral(c, 245).ok); assert.strictEqual(c.units[245], 4, 'юнит ушёл в генералы');
   assert.ok(g.trainGeneral(c, 245).error, 'второй генерал не тренируется');
   c.training.find((t) => t.unit === 236).start = 0; g.tick(c);
-  assert.ok(c.general && c.general.kind === 'Мародер');
+  assert.ok(c.general && c.general.kind === 'Мародёр');
   c.general.dead = true; u.gold = 10; const lv = c.general.level;
   assert.ok(g.reviveGeneral(c, u, 0, true).ok && !c.general.dead && u.gold === 10 - lv, `воскрешение ${lv} ур. — за ${lv} монет`);
   c.general.dead = true; c.units[245] = 2; assert.ok(g.trainGeneral(c, 245).ok); assert.strictEqual(c.deadGenerals.length, 1, 'павший остаётся в списке');
@@ -819,6 +819,8 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
 { // бой как в Travian: сильный побеждает с малыми потерями, проигравший при нападении гибнет весь; стена, Кузница, тараны, набег
   const luck0 = process.env.LUCK; process.env.LUCK = '0';
   const A = g.register({ login: 'btlAA', password: '12345', race: 3 }).user, Dd = g.register({ login: 'btlDD', password: '12345', race: 3 }).user;
+  // механика боя проверяется на прежнем Бугае (атака 20, жизнь 50) — у орков теперь цифры «Справки»
+  const bu = require('../src/army').UNIT[247], buKeep = { attack: bu.attack, hp: bu.hp }; Object.assign(bu, { attack: 20, hp: 50 });
   const ca = g.castleOf(A), cd = g.castleOf(Dd); g.mil(ca); g.mil(cd);
   const fence = (L) => { cd.wall = L; }; // стена — уровень замка, без клетки
   const fight = (au, du, opt = {}) => { cd.units = { ...du }; cd.squads = []; ca.forge = opt.fa || {}; cd.forge = {}; fence(opt.wall || 0); return g.clash(ca, { units: { ...au }, mission: opt.m || 'attack' }, cd, null, Date.now()); };
@@ -873,6 +875,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   cd.grid[0][kd] = -1; cd.levels[0][kd] = 0; delete cd.wounded;
   ca.grid[0][k] = -1; ca.levels[0][k] = 0; delete ca.wounded;
   console.log('✓ Лазарет: половина павших — ранеными (1000 мест за уровень), остальные гибнут; лечение за четверть цены и сразу, тараны — нет, оборона — тоже');
+  Object.assign(bu, buKeep);
   if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
 }
 { // задания: обучение, ежедневные, поход в логово
@@ -1565,6 +1568,9 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
 { // лагеря разбойников и руины: у победителя потери вдвое меньше; добыча (с 21.10 в 4 раза меньше) покрывает лечение павших в Лазарете
   const luck0 = process.env.LUCK; process.env.LUCK = '0';
   const AR = require('../src/army'), cr = g.castleOf(g.register({ login: 'campProfit', password: '12345', race: 0 }).user); g.mil(cr); cr.general = null;
+  // расчёт лагерей проверяется на прежнем мечнике (атака 10, жизнь 25, груз 62, цена 35/40/48/25) — у людей теперь цифры «Справки»
+  const m0 = AR.UNIT[200], keep = { attack: m0.attack, hp: m0.hp, carry: m0.carry, cost: m0.cost };
+  Object.assign(m0, { attack: 10, hp: 25, carry: 62, cost: { wood: 35, stone: 40, iron: 48, food: 25 } });
   const vs = (npc, n) => { const a = { units: { 200: n }, mission: 'attack', general: false }; const R = g.clash(cr, a, null, AR.NPC[npc], Date.now()); return { win: R.win, lost: n - (a.units[200] || 0) }; };
   const r62 = vs(30, 62); assert.ok(r62.win && r62.lost >= 9 && r62.lost <= 13, `лёгкий лагерь, 62 мечника: погибло ${r62.lost} (вдвое меньше прежних ~21)`);
   const cost = Object.values(AR.UNIT[200].cost).reduce((q, v) => q + v, 0), loot = Object.values(AR.NPC[30].loot).reduce((q, v) => q + v, 0);
@@ -1583,6 +1589,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.ok(cr.res.wood >= capW - 1 && cr.res.wood <= capW, `${mission}: 100 в замок, 800 пропало`);
   }
   assert.strictEqual(g.stashOf(g.userById(cr.owner)).res.wood || 0, st0, 'добыча сверх Складов — не в Кладовую');
+  Object.assign(m0, keep);
   if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
   console.log(`✓ Лагеря: 62 мечника на лёгкий — погибло ${r62.lost}; 93 — ${r93.lost}, добыча ${loot} больше лечения павших (${heal}); тяжёлый — 40 000, руины — 27 500`);
 }
@@ -1830,11 +1837,16 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const half = { 202: [45, 50, 35, 28, 600], 209: [53, 35, 23, 15, 960], 217: [28, 53, 35, 35, 1090], 252: [40, 38, 43, 85, 1190] }; // оригинал / 2
   for (const [id, v] of Object.entries(half)) { const u = UNIT[id]; assert.deepStrictEqual([u.cost.wood, u.cost.stone, u.cost.iron, u.cost.food, u.time], v, `${u.name}: вдвое дешевле и быстрее`); }
   // и все остальные воины — вдвое дешевле и быстрее (и цена для отдельных рас); генерал, Кузница и наём генерала — по прежней цене
-  for (const u of UNITS.filter((x) => x.id !== GENERAL_ID && !x.undead)) {
+  const SPR = require('../src/army').SPRAVKA; // люди и эльфы — цена «Справки» ×4 (проверено ниже)
+  for (const u of UNITS.filter((x) => x.id !== GENERAL_ID && !x.undead && !SPR[x.id] && !SPR[x.base])) {
     assert.ok(u.refCost && Object.keys(u.cost).every((r) => u.cost[r] === Math.round(u.refCost[r] / 2)) && u.time === Math.round(u.refTime / 2), `${u.name}: вдвое дешевле и быстрее`);
   }
   assert.deepStrictEqual(UNIT[224].raceOvr.orcs.cost, { wood: 2500, stone: 2500, iron: 2500, food: 3750 }, 'Путешественник орков — тоже вдвое');
-  assert.deepStrictEqual(UNIT[200].cost, { wood: 35, stone: 40, iron: 48, food: 25 }, 'Мечник вдвое дешевле (было 70/80/95/50)');
+  assert.deepStrictEqual(UNIT[200].cost, { wood: 32, stone: 12, iron: 40, food: 20 }, 'Мечник: цена «Справки» ×4 (8/3/10/5)');
+  assert.ok(UNIT[200].time === 240 && UNIT[200].hp === 36 && UNIT[200].speed === 17 && UNIT[200].carry === 3, 'Мечник: время ×4, жизнь, скорость, груз — по «Справке»');
+  for (const [id, n, b, l] of [[262, 'Ведьмак', B.MAGE_ACADEMY, 3], [263, 'Варлок', B.MAGE_ACADEMY, 10], [264, 'Рейтар', B.STABLE, 7], [265, 'Страж границ', B.BARRACKS, 10], [266, 'Эльфийский всадник', B.STABLE, 1], [267, 'Повелитель стихий', B.MAGE_ACADEMY, 3], [268, 'Дух леса', B.MAGE_ACADEMY, 10], [269, 'Грифоний наездник', B.STABLE, 3], [270, 'Топтун', B.STABLE, 7], [271, 'Громовержец', B.MAGE_ACADEMY, 3], [272, 'Варг', B.STABLE, 1], [273, 'Загонщик', B.STABLE, 3], [274, 'Потрошитель', B.STABLE, 7], [275, 'Заклинатель', B.MAGE_ACADEMY, 3]])
+    assert.ok(UNIT[id].name === n && UNIT[id].building === b && UNIT[id].level === l && UNIT[id].def && UNIT[id].cost.wood === SPR[id][5][0] * 4, `новый юнит: ${n}`);
+  assert.ok(UNIT[213].oneUse && UNIT[259].oneUse && UNIT[213].bldDmg === 63 && UNIT[259].bldDmg === 50, 'Энт и Нурух исчезают после боя, урон зданиям по «Справке»');
   assert.ok(!UNIT[GENERAL_ID].refCost && g.genTrainCost(UNIT[200]).cost.wood === UNIT[200].refCost.wood * 20 && g.forgeCost(UNIT[200], 'a', 0).cost.wood > UNIT[200].cost.wood, 'наём генерала и Кузница — по прежней цене');
   const pl = g.register({ login: 'spyPl1', password: '12345', race: 0 }).user, c = g.castleOf(pl); g.maxOut(c); c.training = [];
   const w0 = c.res.wood; assert.ok(!g.train(c, 200, 10).error && w0 - c.res.wood === 10 * UNIT[200].cost.wood, `10 Мечников — за новую цену (${w0 - c.res.wood})`);
@@ -1875,10 +1887,11 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   ca.forge = { 200: { a: 19, d: 19 } };
   const atk = () => { cd.units = { 200: 1 }; return g.clash(ca, { units: { 200: 100 }, mission: 'attack', general: false }, cd, null, Date.now()).calc.att.total; };
   const a0 = atk(); assert.ok(rules(1).data.on && g.newBattle(), 'новые правила включены'); const a1 = atk();
-  assert.ok(Math.abs(a1 / a0 - 15 / 29) < 0.01, `Кузница: мечник +19 → в бою +5 (атака ${a0} → ${a1})`);
+  const AR2 = require('../src/army'), mA = AR2.UNIT[200].attack, capA = Math.max(5, Math.floor(mA / 2)); // база мечника — из «Справки»
+  assert.ok(Math.abs(a1 / a0 - (mA + capA) / (mA + 19)) < 0.01, `Кузница: мечник +19 → в бою +${capA} (атака ${a0} → ${a1})`);
   ca.forge = { 200: { a: 5 } }; ca.upJobs = {}; Object.assign(ca.res, { wood: 1e6, stone: 1e6, iron: 1e6, food: 1e6, people: 1e5 });
   assert.ok(/Предел для этого воина — \+5/.test(g.forgeOp(ca, { unit: 200, kind: 'a' }).error || ''), 'выше предела не улучшить');
-  assert.ok(g.milState(ca, A).forgeCap[200].a === 5 && g.milState(ca, A).forgeCap[204].a === 22, 'окну Кузницы — предел (мечник +5, рыцарь +22)');
+  const kA = AR2.UNIT[204].attack; assert.ok(g.milState(ca, A).forgeCap[200].a === capA && g.milState(ca, A).forgeCap[204].a === Math.max(5, Math.floor(kA / 2)), 'окну Кузницы — предел (половина базы, не меньше +5)');
   // 2. тараны: проигранное нападение Забор не ломает (прежние правила — ломало)
   const ram = (on) => { rules(on); g.setBuildingLevel(cd, 22, 20); cd.units = { 201: 1000 }; const R = g.clash(cf, { units: { 243: 180, 200: 1 }, mission: 'attack', general: false }, cd, null, Date.now()); return { win: R.win, wall: g.buildingLevel(cd, 22) }; };
   const r0 = ram(0), r1 = ram(1);
@@ -2286,8 +2299,8 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     c.artifacts = []; delete c.general;
     const d = g.castleOf(g.register({ login: 'balance2', password: '12345', race: 0 }).user); g.mil(d);
     process.env.LUCK = '0'; c.units = {}; c.squads = []; c.armies = []; d.units = { 240: 100 }; d.squads = []; d.armies = [];
-    const r = g.clash(c, { units: { 204: 100 }, general: false, mission: 'attack' }, d, null, Date.now()); delete process.env.LUCK;
-    assert.ok(r.win, 'рыцари бьют катапульты: у катапульты слабая защита от кавалерии');
+    const r = g.clash(c, { units: { 205: 100 }, general: false, mission: 'attack' }, d, null, Date.now()); delete process.env.LUCK; // Рыцарь теперь пехота — конница: Паладин
+    assert.ok(r.win, 'паладины бьют катапульты: у катапульты слабая защита от кавалерии');
     console.log('✓ Баланс боя: командование генерала до +50%, из одинаковых артефактов действует один, защита от кавалерии в бою');
   }
   { // карта мира: новый замок не встаёт вплотную к лагерю или руинам (картинки налезали)
