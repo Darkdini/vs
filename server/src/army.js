@@ -30,44 +30,44 @@ const UNIT_LIST = [
   // люди — как в оригинале (скрины окна «Юнит»): имена, требования, характеристики — в ORIG ниже
   [200, 'Мечник', 'humans', 'human/hd/swordman', 'atk_inf', B.BARRACKS, 1],
   [201, 'Копейщик', 'humans', 'human/hd/javelineer', 'def_inf', B.BARRACKS, 3, { [B.SMITH]: 1 }],
-  [261, 'Кирасир', 'humans', 'human/hd/cuirassier', 'light_cav', B.SMITH, 3],
+  [261, 'Кирасир', 'humans', 'human/hd/cuirassier', 'light_cav', B.STABLE, 1],
   [202, 'Разведчик', 'humans', 'human/hd/scout', 'scout', B.SPY, 1, { [B.TOWNHALL]: 5, [B.SMITH]: 2, [B.STABLE]: 1 }], // тренируется в Центре разведки
   [203, 'Чародей', 'humans', 'human/hd/mage', 'mage', B.MAGE_ACADEMY, 1, { [B.BARRACKS]: 1 }],
-  [204, 'Рыцарь', 'humans', 'human/hd/knight', 'heavy_cav', B.BARRACKS, 10, { [B.STABLE]: 5, [B.WORKSHOP]: 1 }],
-  [205, 'Паладин', 'humans', 'human/hd/paladin', 'heavy_cav', B.STABLE, 5, { [B.WORKSHOP]: 5 }],
+  [204, 'Рыцарь', 'humans', 'human/hd/knight', 'heavy_cav', B.BARRACKS, 10, { [B.WORKSHOP]: 7, [B.SMITH]: 5 }],
+  [205, 'Паладин', 'humans', 'human/hd/paladin', 'heavy_cav', B.STABLE, 3, { [B.SMITH]: 1 }],
   [260, 'Колосс', 'humans', 'human/hd/colossus', 'elite_inf', B.MAGE_ACADEMY, 7, { [B.SMITH]: 3, [B.MAGIC_SCHOOL]: 7 }], // список на скрине может быть обрезан
-  [259, 'Нурух', 'humans', 'human/hd/nuruh', 'legendary', B.MAGE_ACADEMY, 10, { [B.WORKSHOP]: 10 }], // список обрезан
+  [259, 'Нурух', 'humans', 'human/hd/nuruh', 'legendary', B.STABLE, 10, { [B.WORKSHOP]: 10 }],
   [206, 'Джин', 'humans', 'human/hd/jin', 'legendary', B.PORTAL, 1], // на скринах оригинала нет — оставлен как был
   // эльфы — как в оригинале (скрины окна «Юнит»): имена, требования, характеристики — в ORIG ниже
   [207, 'Эльф лучник', 'elves', 'elf/hd/archer', 'ranged', B.BARRACKS, 1],
   [208, 'Танцующий с клинками', 'elves', 'elf/hd/fighter', 'atk_inf', B.BARRACKS, 3, { [B.SMITH]: 1 }],
   [257, 'Химера', 'elves', 'elf/hd/chimera', 'atk_inf', B.SMITH, 3],
   [209, 'Скаут', 'elves', 'elf/hd/scout', 'scout', B.SPY, 1, { [B.STABLE]: 1, [B.SMITH]: 3 }], // тренируется в Центре разведки
-  [210, 'Созидающая', 'elves', 'elf/hd/create', 'mage', B.BARRACKS, 5, { [B.MAGE_ACADEMY]: 1 }],
-  [211, 'Кентавр', 'elves', 'elf/hd/kenaur', 'light_cav', B.STABLE, 5, { [B.SMITH]: 7 }], // список на скрине обрезан — видно Конюшня 5, Кузнец 7
+  [210, 'Созидающая', 'elves', 'elf/hd/create', 'mage', B.MAGE_ACADEMY, 1, { [B.BARRACKS]: 1 }],
   [258, 'Зверь', 'elves', 'elf/hd/beast', 'elite_inf', B.BARRACKS, 10, { [B.SMITH]: 5 }],
-  [212, 'Единорог', 'elves', 'elf/hd/edinorog', 'heavy_cav', B.STABLE, 7, { [B.MAGE_ACADEMY]: 5, [B.WORKSHOP]: 5 }], // список обрезан
+  [212, 'Единорог', 'elves', 'elf/hd/edinorog', 'heavy_cav', B.STABLE, 3, { [B.SMITH]: 1 }],
+  [211, 'Кентавр', 'elves', 'elf/hd/kenaur', 'light_cav', B.STABLE, 7, { [B.WORKSHOP]: 7, [B.SMITH]: 5 }],
   [213, 'Энт', 'elves', 'elf/hd/ent', 'legendary', B.MAGE_ACADEMY, 10, { [B.WORKSHOP]: 10 }], // список обрезан
   // гномы — как в оригинале (скрины окна «Юнит»): имена, требования, характеристики — в ORIG ниже
   [214, 'Гном топорщик', 'dwarves', 'dwarv/hd/fighter', 'atk_inf', B.BARRACKS, 1],
   [215, 'Арбалетчик', 'dwarves', 'dwarv/hd/arbalet', 'ranged', B.BARRACKS, 3, { [B.SMITH]: 1 }],
   [255, 'Горный великан', 'dwarves', 'dwarv/hd/giant', 'def_inf', B.BARRACKS, 1, { [B.SMITH]: 3 }],
-  [216, 'Жрец Рун', 'dwarves', 'dwarv/hd/elder', 'mage', B.MAGE_ACADEMY, 1, { [B.BARRACKS]: 5 }],
+  [216, 'Жрец Рун', 'dwarves', 'dwarv/hd/elder', 'mage', B.MAGE_ACADEMY, 1, { [B.BARRACKS]: 1 }],
   [217, 'Грифон разведчик', 'dwarves', 'dwarv/hd/gryphon', 'scout', B.SPY, 1, { [B.STABLE]: 1, [B.WORKSHOP]: 1, [B.SMITH]: 3 }], // тренируется в Центре разведки
-  [218, 'Защитник гор', 'dwarves', 'dwarv/hd/defender', 'heavy_cav', B.STABLE, 5, { [B.BARRACKS]: 7, [B.WORKSHOP]: 3, [B.SMITH]: 7 }],
-  [256, 'Механический центурион', 'dwarves', 'dwarv/hd/centurion', 'elite_inf', B.MAGE_ACADEMY, 7, { [B.SMITH]: 5 }],
-  [219, 'Револьверщик', 'dwarves', 'dwarv/hd/revolver', 'elite_inf', B.BARRACKS, 10, { [B.WORKSHOP]: 10, [B.SMITH]: 8 }],
-  [220, 'Йети', 'dwarves', 'dwarv/hd/yeti', 'legendary', B.MAGE_ACADEMY, 10, { [B.WORKSHOP]: 10 }],
+  [218, 'Защитник гор', 'dwarves', 'dwarv/hd/defender', 'heavy_cav', B.STABLE, 1],
+  [256, 'Механический центурион', 'dwarves', 'dwarv/hd/centurion', 'elite_inf', B.MAGE_ACADEMY, 10, { [B.WORKSHOP]: 7, [B.SMITH]: 5 }],
+  [219, 'Револьверщик', 'dwarves', 'dwarv/hd/revolver', 'elite_inf', B.BARRACKS, 10, { [B.WORKSHOP]: 7, [B.SMITH]: 5 }],
+  [220, 'Йети', 'dwarves', 'dwarv/hd/yeti', 'legendary', B.BARRACKS, 10, { [B.WORKSHOP]: 10 }],
   // орки — как в оригинале (скрины окна «Юнит»): имена, требования, характеристики — в ORIG ниже
   [245, 'Мародер', 'orcs', 'orc/hd/marauder', 'atk_inf', B.BARRACKS, 1],
   [247, 'Бугай', 'orcs', 'orc/hd/bugai', 'def_inf', B.BARRACKS, 3, { [B.SMITH]: 1 }],
   [252, 'Орк загонщик', 'orcs', 'orc/hd/hunter', 'scout', B.SPY, 1, { [B.BARRACKS]: 5, [B.MAGE_ACADEMY]: 1 }], // тренируется в Центре разведки
-  [253, 'Осквернитель', 'orcs', 'orc/hd/defiler', 'mage', B.MAGE_ACADEMY, 5],
-  [246, 'Урук-хай', 'orcs', 'orc/hd/uruk', 'def_inf', B.STABLE, 1, { [B.WORKSHOP]: 1, [B.SMITH]: 3 }],
+  [253, 'Осквернитель', 'orcs', 'orc/hd/defiler', 'mage', B.MAGE_ACADEMY, 1, { [B.BARRACKS]: 1 }],
+  [246, 'Урук-хай', 'orcs', 'orc/hd/uruk', 'def_inf', B.BARRACKS, 10, { [B.WORKSHOP]: 7, [B.SMITH]: 5 }],
   [254, 'Варлок', 'orcs', 'orc/hd/warlock', 'mage', B.STABLE, 5, { [B.BARRACKS]: 7, [B.WORKSHOP]: 3, [B.SMITH]: 7 }],
   [250, 'Тиран', 'orcs', 'orc/hd/tyrant', 'elite_inf', B.BARRACKS, 10, { [B.SMITH]: 10 }],
-  [248, 'Шаман', 'orcs', 'orc/hd/shaman', 'mage', B.BARRACKS, 10, { [B.WORKSHOP]: 10, [B.SMITH]: 8 }],
-  [249, 'Кулак Ярости', 'orcs', 'orc/hd/fist', 'legendary', B.STABLE, 10, { [B.SMITH]: 10 }], // требования на скрине не видны — прежние
+  [248, 'Шаман', 'orcs', 'orc/hd/shaman', 'mage', B.MAGE_ACADEMY, 10, { [B.WORKSHOP]: 7, [B.SMITH]: 5 }],
+  [249, 'Кулак Ярости', 'orcs', 'orc/hd/fist', 'legendary', B.BARRACKS, 10, { [B.SMITH]: 10 }],
   [251, 'Изувер', 'orcs', 'orc/hd/butcher', 'legendary', B.PORTAL, 1], // на скринах оригинала нет — оставлен как был
   // специальные — у каждой расы своя картинка (units/<раса>/torg.png и т.д.)
   [221, 'Торговец', 'all', 'torg', 'merchant', B.MARKET, 1],
