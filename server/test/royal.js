@@ -653,6 +653,14 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(!grp().hidden && grp().users.length === 3, 'новый аккаунт на том же телефоне — группа снова в списке');
   assert.ok(g.adminOp(adm, 'multiok', { key }).ok && grp().hidden); g.adminOp(adm, 'multiunok', { key }); assert.ok(!grp().hidden, '«Вернуть»');
   assert.ok(!g.adminOp(adm, 'devban', { dev: 'a'.repeat(32), fp: info.fp }).error);
+  { // «Убрать ботов»: все боты и их замки исчезают с карты, живые игроки остаются
+    const users0 = Object.values(g.db.users).filter((u) => !u.bot).length;
+    assert.ok(/Создано ботов: 5/.test(g.adminOp(adm, 'bots', { n: 5 }).msg || ''));
+    const bc = Object.values(g.db.users).filter((u) => u.bot).flatMap((u) => u.castleIds || []);
+    assert.ok(/Удалено ботов: 5/.test(g.adminOp(adm, 'botsdel').msg || ''), 'убраны все боты');
+    assert.ok(!Object.values(g.db.users).some((u) => u.bot) && bc.every((id) => !g.db.castles[id]) && Object.values(g.db.users).length === users0, 'замков ботов нет, игроки на месте');
+    console.log('✓ админка: «Убрать ботов» — боты и их замки удалены, игроки на месте');
+  }
   assert.ok(g.devBanned('a'.repeat(32)) && !g.db.fpBans, 'бан телефона — без «железа»');
   assert.strictEqual(g.devInfo(b, '5.6.7.8', { ...info, dev: 'd'.repeat(32) }), '', 'другой телефон той же модели — не в бане');
   assert.ok(!g.devBanned('d'.repeat(32)));
