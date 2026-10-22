@@ -103,7 +103,7 @@ function regroupWin(k) {
 }
 
 // ---------- Военный поход ----------
-const CAMPAIGN_MISSIONS = [['raid', 'Набег'], ['attack', 'Нападение'], ['reinforce', 'Подкрепление'], ['scout', 'Разведка'], ['expedition', 'Экспедиция'], ['settle', 'Освоение'], ['rune', 'Сбор руны']];
+const CAMPAIGN_MISSIONS = [['raid', 'Набег'], ['attack', 'Нападение'], ['reinforce', 'Подкрепление'], ['scout', 'Разведка'], ['settle', 'Освоение'], ['rune', 'Сбор руны']];
 function openArmySheet(pre = {}) {
   // армию игрок выбирает сам (из «В поход» у армии — уже выбрана); армия идёт целиком
   S.cmp = { army: pre.army !== undefined ? String(pre.army) : '', mission: pre.mission && pre.mission !== 'undefined' ? pre.mission : 'raid', x: pre.x ?? '', y: pre.y ?? '', portal: false, sched: false, at: '', res: {} };

@@ -68,7 +68,7 @@ function milEffect(def, L) {
     14: () => ({ text: 'обучение ученых (ускоряют науку)', short: 'ученые' }),
     15: () => ({ text: `науки до ${L} уровня`, short: `науки ${L}` }),
     16: () => ({ text: `археологи, +${3 * L}% к находке артефакта`, short: `+${3 * L}%` }),
-    17: () => ({ text: `экспедиции в руины, +${2 * L}% к находке`, short: `+${2 * L}%` }),
+    17: () => ({ text: `экспедиции за артефактами, +${2 * L}% к находке`, short: `+${2 * L}%` }),
     18: () => { const n = 1 + Math.floor(L / 3); return { text: `активных артефактов: ${n}`, short: `${n} ${plural(n, 'слот', 'слота', 'слотов')}` }; },
     19: () => ({ text: `торговцы везут на ${Math.round(L * 100 / 45)}% больше ресурсов и ходят на ${5 * L}% быстрее`, short: `+${Math.round(L * 100 / 45)}%` }),
     21: () => ({ text: '+5% к контрразведке; видны армии, идущие на Ваши замки (подробности — по уровню Центра разведки)', short: 'дозор' }),
@@ -410,7 +410,7 @@ function reportHtml(r) {
       ${d.loyalty ? `<div>Бунт в замке после нападения: ${100 - d.loyalty.to}% ${d.captured ? `<span class="rgood">${d.def.npc ? 'Руины захвачены!' : 'Замок захвачен!'}</span>`
         : d.royalBlocked ? `<span class="rbad">Замок не захвачен: ${d.royalBlocked.wait ? `захват возможен через ${d.royalBlocked.wait} дн. игры` : 'не хватает лояльности населения'}.</span>` : ''}</div>` : ''}
       ${d.capitalBlocked ? '<div><span class="rbad">Столицу захватить нельзя.</span></div>' : ''}
-      ${d.npcBack ? `<div><span class="rgood">Лагерь разбит и исчез с карты.</span> Со временем в этой провинции появится новый.</div>` : ''}
+      ${d.npcBack ? (d.npcBack === 'ruins' ? `<div><span class="rgood">Руины разграблены и исчезли с карты.</span> Со временем в этой провинции появятся новые.</div>` : `<div><span class="rgood">Лагерь разбит и исчез с карты.</span> Со временем в этой провинции появится новый.</div>`) : ''}
       ${d.siteTaken && !d.siteTaken.blocked ? `<div><span class="${attV ? 'rgood' : 'rbad'}">${attV ? 'Недострой захвачен! Ваши путешественники продолжают стройку.' : 'Ваш недострой захвачен врагом.'}</span></div>` : ''}
       ${d.siteTaken && d.siteTaken.blocked ? `<div><span class="rbad">Недострой не захвачен: ${esc(d.siteTaken.blocked)}</span></div>` : ''}
       ${d.site && d.win && !d.siteTaken && d.mission === 'attack' ? `<div>Охрана недостроя разбита, но стройка продолжается — забрать её может нападение, в котором выживут ${M().settleTake || 3} путешественника.</div>` : ''}
@@ -464,8 +464,7 @@ function worldActions(o, x, y) {
   if (!npc) return '<p class="muted small">Здесь пусто.</p>';
   return `<dl class="kv">${npc.level ? `<dt>Сложность</dt><dd><b>${esc(npc.level)}</b></dd>` : ''}<dt>Охрана</dt><dd>~${fmtFull(npc.def.inf)}</dd><dt>Запас</dt><dd>${RES4.map((r) => fmtN(npc.loot[r])).join(' / ')}</dd></dl>
     <div class="btns" style="margin-top:8px">${b('attack', 'Атака')}${b('raid', 'Набег')}${b('scout', 'Разведка')}</div>
-    ${npc.ruins ? `<p class="small">Бунт в руинах: <b>${100 - (o.loyalty ?? 100)}%</b>. Захват — <b>нападение с Бунтарями</b>: каждая победа добавляет 15% бунта, при 100% руины станут вашим замком.</p>
-      <div class="btns" style="margin-top:8px">${b('expedition', 'Экспедиция')}</div>` : ''}`;
+    ${npc.ruins ? `<p class="small">Бунт в руинах: <b>${100 - (o.loyalty ?? 100)}%</b>. Захват — <b>нападение с Бунтарями</b>: каждая победа добавляет 15% бунта (с Бунтарями руины не грабят), при 100% руины станут вашим замком. Нападение без Бунтарей грабит руины, и они исчезают с карты.</p>` : ''}`;
 }
 
 // ---------- справочник войск (Ещё → Войска) ----------

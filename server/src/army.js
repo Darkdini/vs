@@ -1117,9 +1117,8 @@ function install(Game, helpers) {
     if (target && HOSTILE.includes(mission) && this.sameAlliance(castle.owner, target.owner)) return { error: 'Это замок Вашего альянса — нападать, грабить и разведывать нельзя. Можно отправить подкрепление или ресурсы.' };
     if (mission === 'scout' && roles.some((r) => !['scout', 'eye'].includes(r))) return { error: 'В разведку идут только разведчики (и Око).' };
     if (mission === 'expedition') {
-      if (!this.buildingLevel(castle, B.EXPEDITION)) return { error: 'Нужна Экспедиция.' };
-      if (!obj || !NPC[obj.img] || !NPC[obj.img].ruins) return { error: 'Экспедиции идут в руины (Заброшенный замок).' };
-      if (roles.some((r) => r !== 'archaeologist')) return { error: 'В экспедицию идут только археологи.' };
+      // раскопки в руинах убраны (с 22.10): археологи ходили без боя и без предела — вечный поиск артефактов; армии, ушедшие раньше, доходят как прежде
+      return { error: 'В руины экспедиции больше не ходят — отправляйте археологов из здания «Экспедиция».' };
     }
     if (mission === 'trade') {
       if (!target) return { error: 'Торговцы везут ресурсы только в замок.' };
@@ -1635,6 +1634,8 @@ function install(Game, helpers) {
     }
     // добыча
     let loot = null;
+    // руины: нападение с Бунтарями поднимает бунт и не грабит (руины остаются для захвата); без Бунтарей — грабёж, и руины исчезают
+    const ruinRiot = !target && !lair && npc && npc.ruins && a.mission === 'attack' && (a.units[233] || 0) > 0;
     if (aliveAfter && win) {
       let carry = Object.entries(a.units).reduce((s, [id, n]) => s + UNIT[id].carry * n, 0);
       if (a.general && c.general && !c.general.dead) carry = Math.floor(carry * (1 + this.heroBonus(c.general).loot)); // умение «Жадность»
@@ -1644,7 +1645,7 @@ function install(Game, helpers) {
       if (target) { const hid = this.bonus(target).hidden; calc.hidden = hid; avail = Object.fromEntries(RES4.map((r) => [r, Math.max(0, Math.floor(target.res[r]) - hid)])); }
       else {
         const st = (this.db.npc = this.db.npc || {})[where];
-        avail = st && st.until > t ? { wood: 0, stone: 0, iron: 0, food: 0 } : { ...npc.loot };
+        avail = (st && st.until > t) || ruinRiot ? { wood: 0, stone: 0, iron: 0, food: 0 } : { ...npc.loot };
       }
       // выносим равномерно
       let left = RES4.filter((r) => avail[r] > 0);
@@ -1701,8 +1702,10 @@ function install(Game, helpers) {
       }
     }
     a.loot = loot;
-    // лагерь разбойников побеждён — исчезает с карты и через 3 часа появляется на новом месте той же провинции (game.js npcGone)
-    const npcBack = win && !target && !lair && obj && CAMPS.includes(obj.img) ? this.npcGone(a.x, a.y, t) : null;
+    // лагерь разбойников побеждён (или руины разграблены — с 22.10, без Бунтарей) — исчезает с карты и через 3 часа появляется на новом месте
+    // той же провинции (game.js npcGone); прежде руины стояли на месте, и их грабили снова и снова
+    const ruinGone = win && npc && npc.ruins && !ruinRiot && !captured && obj && this.worldObjects(a.x, a.y, 1, 1).length;
+    const npcBack = win && !target && !lair && obj && (CAMPS.includes(obj.img) || ruinGone) ? this.npcGone(a.x, a.y, t) : null;
     // статистика для Зала Славы (social.js)
     if (loot) this.addStat(c.owner, 'loot', RES4.reduce((q, k) => q + loot[k], 0));
     this.addStat(c.owner, 'kills', target ? popOf(dLost) : (npc ? Math.round(npc.def.inf / 20 * dLoss) : 0));
@@ -1725,7 +1728,7 @@ function install(Game, helpers) {
         : { npc: npc.name, img: obj.img, lossPct: Math.round(dLoss * 100), garrison: R.garrison },
       site: target && target.site ? { end: target.site.end } : null, siteTaken: siteTaken ? (took ? { x: a.x, y: a.y } : { blocked: siteTaken.blocked }) : null,
       loot, siege, loyalty, capitalBlocked, royalBlocked, captured: captured ? { name: captured.name, x: a.x, y: a.y, rebel: captured.rebel || 0 } : null,
-      npcBack: npcBack ? true : null, // лагерь разбит; когда появится новый — игроку не говорим
+      npcBack: npcBack ? (npc.ruins ? 'ruins' : true) : null, // лагерь разбит (руины разграблены); когда появится новый — игроку не говорим
     };
     const lines = [
       `${MISSIONS[a.mission]} на ${tname}. ${win ? 'Победа!' : 'Поражение.'}`,
@@ -1735,7 +1738,8 @@ function install(Game, helpers) {
       ...siege,
     ];
     if (loyalty) lines.push(`Бунт в замке: ${100 - loyalty.from}% → ${100 - loyalty.to}%`);
-    if (npcBack) lines.push('Лагерь разбит и исчез с карты — со временем в этой провинции появится новый.');
+    if (npcBack) lines.push(npc.ruins ? 'Руины разграблены и исчезли с карты — со временем в этой провинции появятся новые.' : 'Лагерь разбит и исчез с карты — со временем в этой провинции появится новый.');
+    if (ruinRiot && win) lines.push('Бунтари поднимают бунт в руинах — руины не грабят.');
     if (took) lines.push(`Недострой захвачен! Ваши путешественники (${SETTLE_TAKE}) продолжают стройку — замок будет готов через ${Math.max(1, Math.round((target.site.end - t) / 3600000))} ч.`);
     else if (siteTaken && siteTaken.blocked) lines.push(`Недострой не захвачен: ${siteTaken.blocked}`);
     else if (target && target.site && a.mission === 'attack' && win) lines.push(`Охрана недостроя разбита, но стройка продолжается: чтобы забрать её, нужно, чтобы в победном нападении выжили ${SETTLE_TAKE} путешественника.`);

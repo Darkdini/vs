@@ -2459,7 +2459,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.ok(/не игрок/.test(g.adminOp(adm, 'abandon', { login: nb.login }).error || ''), 'ничейного не забросить');
     const wo = g.worldObjects(cap.x, cap.y, 1, 1)[0]; assert.ok(wo.nobody === 1 && wo.race === 'orcs', 'на карте — ничей, раса прежняя');
     const nv = g.adminOp(adm, 'nobodyview', {}).data; assert.ok(nv.castles.length >= 2 && nv.castles.some((c) => c.x === two.x && c.y === two.y && c.riot === 60 && c.was === 'nbLost1') && nv.log[0].login === 'nbLost1', 'список ничейных замков в админке');
-    two.res.wood = 0; g.tick(two, Date.now() + 3600000); assert.ok(two.res.wood > 0, 'ресурсы растут как обычно');
+    two.res.wood = 50; g.tick(two, Date.now() + 3600000); assert.ok(two.res.wood === 50, 'ресурсы ничейного замка не растут (с 22.10 — не вечная кормушка)');
     ca.units = { 200: 10 }; ca.squads = []; ca.armies = [];
     assert.ok(/ничей/.test(g.sendArmy(ca, { from: 'castle', mission: 'reinforce', x: two.x, y: two.y }).error || '') && /ничей/.test(g.sendTrade(ca, { x: two.x, y: two.y, res: { wood: 10 } }).error || ''), 'в ничейный замок — ни подкреплений, ни торговцев');
     assert.ok(!g.castleShield(two) && g.sciOf(two).eco === 7 && g.sciOf(cap).eco === 7, 'купол снят, науки замка — прежние');
@@ -2602,17 +2602,19 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     g.moveCastle(vc, cell.x, cell.y);
     const moved = g.provNpc(pn).find((o) => o.img === 24);
     assert.ok(vc.x === cell.x && vc.y === cell.y && (moved.x !== ruins.x || moved.y !== ruins.y) && !g.npcCrowded(moved.x, moved.y), 'руины переехали, замок на месте');
-    // руины: набег забирает запас, но бунт в руинах не сбрасывается (раньше сбрасывался вместе с запасом)
+    // руины (с 22.10): нападение с Бунтарями поднимает бунт и не грабит — руины остаются; без Бунтарей — грабёж, и руины исчезают
+    // с карты на 3 часа (прежде стояли на месте — их грабили снова и снова)
     const where = `${moved.x}:${moved.y}`; g.db.npc = g.db.npc || {}; g.db.npc[where] = { loyalty: 70 };
-    wc.units = { 204: 20000 }; wc.armies = [];
-    const r2 = g.sendArmy(wc, { units: { 204: 20000 }, x: moved.x, y: moved.y, mission: 'attack' }); assert.ok(!r2.error, r2.error); g.tickWorld(r2.army.arrive + 1000);
-    const rr = g.reportsOf(W.id).find((x) => x.data && x.data.type === 'battle' && x.data.x === moved.x && x.data.y === moved.y);
-    assert.ok(rr && rr.data.win && rr.data.loot && rr.data.loot.wood > 0 && !rr.data.npcBack, 'руины разграблены и остались на карте');
-    assert.ok(g.db.npc[where].loyalty === 70 && g.db.npc[where].until > Date.now(), 'запас руин восстанавливается, бунт в руинах сохранён');
-    // захваченные руины (на их месте — замок) появляются через 3 часа (с 22.10; был час) на новом месте
-    const tg = Date.now(); assert.strictEqual(g.npcGone(moved.x, moved.y, tg), Math.round(3 * HOUR / 1000)); g.moveCastle(vc, moved.x, moved.y);
-    assert.ok(!g.provNpc(pn, tg + 1000).some((o) => o.img === 24), 'руин нет, пока не прошло 3 часа');
-    const nr = g.provNpc(pn, tg + 3 * HOUR + 1000).find((o) => o.img === 24); assert.ok(nr && (nr.x !== moved.x || nr.y !== moved.y) && !g.npcCrowded(nr.x, nr.y), 'новые руины — на новом месте');
+    const hit = (units) => { wc.units = { ...units }; wc.armies = []; const r = g.sendArmy(wc, { units, x: moved.x, y: moved.y, mission: 'attack' }); assert.ok(!r.error, r.error); g.tickWorld(r.army.arrive + 1000); hit.at = r.army.arrive;
+      return g.reportsOf(W.id).find((x) => x.data && x.data.type === 'battle' && x.data.x === moved.x && x.data.y === moved.y && x.at >= r.army.depart); };
+    const rb = hit({ 204: 20000, 233: 5 });
+    assert.ok(rb && rb.data.win && !(rb.data.loot && Object.values(rb.data.loot).some((v) => v > 0)) && !rb.data.npcBack && g.db.npc[where].loyalty === 55 && g.worldObjects(moved.x, moved.y, 1, 1).length, 'с Бунтарями: бунт +15%, без грабежа, руины на месте');
+    const rr = hit({ 204: 20000 });
+    assert.ok(rr && rr.data.win && rr.data.loot.wood > 0 && rr.data.npcBack === 'ruins' && /Руины разграблены/.test(rr.lines.join(' ')), 'без Бунтарей: руины разграблены и исчезли');
+    assert.ok(!g.worldObjects(moved.x, moved.y, 1, 1).length && !g.provNpc(pn, hit.at + 3 * HOUR - 60000).some((o) => o.img === 24), 'руин нет, пока не прошло 3 часа');
+    const nr = g.provNpc(pn, hit.at + 3 * HOUR + 60000).find((o) => o.img === 24); assert.ok(nr && (nr.x !== moved.x || nr.y !== moved.y) && !g.npcCrowded(nr.x, nr.y), 'новые руины — на новом месте');
+    wc.units = { 230: 1 }; wc.armies = []; assert.ok(/больше не ходят/.test(g.sendArmy(wc, { units: { 230: 1 }, x: nr.x, y: nr.y, mission: 'expedition' }).error || ''), 'экспедиции в руины больше нет');
+    g.moveCastle(vc, moved.x, moved.y);
     // замок на границе провинции (стоял до увеличения провинций) переезжает внутрь той же провинции
     const p0 = provinceOf(vc.x, vc.y); g.moveCastle(vc, p0.px * PROV, vc.y); assert.ok(onProvEdge(vc.x, vc.y));
     g.provEdgeFix(); assert.ok(!onProvEdge(vc.x, vc.y) && provinceOf(vc.x, vc.y).n === p0.n, 'замок с границы переехал внутрь своей провинции');

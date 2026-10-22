@@ -673,6 +673,8 @@ class Game {
 
   accrue(castle, t) {
     const dtH = Math.max(0, t - castle.resAt) / 3600000;
+    // ничейный замок (nobody.js) — ресурсы не растут (с 22.10): иначе без хозяина он был вечной кормушкой для грабежа
+    if (this.isNobody && this.isNobody(castle.owner)) { castle.resAt = t; return; }
     const rate = this.rates(castle);
     const cap = this.capacity(castle);
     // сверх Склада (награда советника) ресурсы не растут, но и не срезаются — тратятся как обычно

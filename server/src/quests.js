@@ -73,7 +73,7 @@ const DAILY = [
   { id: 'd_loot', title: 'Богатая добыча', text: (n) => `Унесите из походов ${n} ресурсов.`, icon: 'res/wood.png', stat: 'loot', n: (g, c) => 1500 * th(g, c) },
   { id: 'd_built', title: 'Стройка века', text: (n) => `Завершите ${n} ${Wd.plural(n, 'постройку', 'постройки', 'построек')} или ${Wd.plural(n, 'улучшение', 'улучшения', 'улучшений')}.`, icon: b(10), stat: 'built', n: () => 3 },
   { id: 'd_trade', title: 'Караван', text: () => 'Отправьте торговцев с ресурсами.', icon: b(4), stat: 'trades', n: () => 1, ok: (g, c) => g.buildingLevel(c, 4) > 0 },
-  { id: 'd_exped', title: 'Раскопки', text: () => 'Отправьте экспедицию в руины.', icon: b(17), stat: 'expeds', n: () => 1, ok: (g, c) => g.buildingLevel(c, 17) > 0 },
+  { id: 'd_exped', title: 'Раскопки', text: () => 'Отправьте археологов в экспедицию (здание «Экспедиция»).', icon: b(17), stat: 'expeds', n: () => 1, ok: (g, c) => g.buildingLevel(c, 17) > 0 },
   { id: 'd_up', title: 'Мастерство', text: () => 'Начните улучшение в Кузнице или Школе магии.', icon: b(39), stat: 'upgrades', n: () => 1, ok: (g, c) => g.buildingLevel(c, 11) > 0 || g.buildingLevel(c, 39) > 0 },
   { id: 'd_win', title: 'Слава оружия', text: (n) => `Одержите ${n} ${Wd.plural(n, 'победу', 'победы', 'побед')} в боях.`, icon: 'gfx3d/rep/swords.png', stat: 'wins', n: () => 3 },
   { id: 'd_kills', title: 'Жатва битвы', text: (n) => `Уничтожьте в боях ${n} вражеских воинов.`, icon: 'gfx3d/rep/swords.png', stat: 'kills', n: (g, c) => 30 + 10 * Math.min(10, th(g, c)) },
