@@ -208,6 +208,7 @@ const RECALL_MS = 4 * 60 * 1000; // армию, отправленную по о
 // Бой у нас свой: атака (у магов — магия) = среднее трёх атак; защита — прежняя (у новых — как у похожих).
 // Цена и время тренировки — ×4 к «Справке» (tc/tt); Кузница, наём генерала и воскрешение считаются по прежней цене (refCost).
 const SPRAVKA_K = 4;
+const CARRY_K = 10; // груз — ×10 к «Справке» (там 3–31 ед.: добычу лагерей было нечем унести)
 const WRECK_K = 4; // разрушители зданий (Йети, Энт, Нурух, Кулак ярости — в Мастерской): ещё вчетверо дороже и дольше
 const SPRAVKA = {
   // id: [тип, жизнь, [пех, маг, кон], груз, скорость, [дерево, камень, железо, еда], время сек, доп.]
@@ -255,7 +256,7 @@ const SPRAVKA = {
 for (const [id, [type, hp, a3, carry, speed, cost, sec, x = {}]] of Object.entries(SPRAVKA)) {
   const u = UNIT[id]; if (!u) continue;
   const avg = Math.round((a3[0] + a3[1] + a3[2]) / 3);
-  Object.assign(u, { type, hp, carry, speed, attack: type === 'magic' ? 0 : avg, magic: type === 'magic' ? avg : 0,
+  Object.assign(u, { type, hp, carry: carry * CARRY_K, speed, attack: type === 'magic' ? 0 : avg, magic: type === 'magic' ? avg : 0,
     tc: Object.fromEntries(RES4.map((r, i) => [r, cost[i] * SPRAVKA_K * (x.bldDmg ? WRECK_K : 1)])), tt: sec * SPRAVKA_K * (x.bldDmg ? WRECK_K : 1) });
   if (x.def !== undefined) u.def = { inf: x.def, cav: x.def, mag: x.mdef };
   if (x.pop) Object.assign(u, { pop: x.pop, upkeep: Math.max(1, Math.round(x.pop / 3)) });
@@ -429,10 +430,12 @@ const NPC = {
   // В бою с лагерем и руинами потери победителя вдвое меньше (CAMP_LOSS), павшие уходят в Лазарет.
   // Добыча с 21.10 в 4 раза меньше (тяжёлый лагерь — 40 000 вместо 160 000, руины — 27 500 вместо 110 000): лагеря каждый час
   // давали больше своей экономики — по решению владельца; лагеря и руины по-прежнему возвращаются через час
-  30: { name: 'Лагерь разбойников (лёгкий)', level: 'Лёгкий', def: { inf: 270, cav: 240, mag: 120 }, loot: { wood: 250, stone: 250, iron: 175, food: 325 } },
-  31: { name: 'Лагерь разбойников (средний)', level: 'Средний', def: { inf: 2700, cav: 2400, mag: 1080 }, loot: { wood: 1875, stone: 1875, iron: 1500, food: 2250 } },
-  32: { name: 'Лагерь разбойников (тяжёлый)', level: 'Тяжёлый', def: { inf: 15000, cav: 13500, mag: 6000 }, loot: { wood: 10000, stone: 10000, iron: 8750, food: 11250 } },
-  24: { name: 'Заброшенный замок', def: { inf: 10080, cav: 9240, mag: 4200 }, loot: { wood: 6875, stone: 6875, iron: 6875, food: 6875 }, ruins: true },
+  // 22.10 охрана подогнана под новых юнитов (Справка, перенос ×10): армия своего уровня грабит с прибылью около +20%;
+  // шаманов (mag) больше — иначе маги грабили с +60%, а пехота в минус
+  30: { name: 'Лагерь разбойников (лёгкий)', level: 'Лёгкий', def: { inf: 90, cav: 80, mag: 170 }, loot: { wood: 250, stone: 250, iron: 175, food: 325 } },
+  31: { name: 'Лагерь разбойников (средний)', level: 'Средний', def: { inf: 950, cav: 850, mag: 1430 }, loot: { wood: 1875, stone: 1875, iron: 1500, food: 2250 } },
+  32: { name: 'Лагерь разбойников (тяжёлый)', level: 'Тяжёлый', def: { inf: 6200, cav: 5650, mag: 8600 }, loot: { wood: 10000, stone: 10000, iron: 8750, food: 11250 } },
+  24: { name: 'Заброшенный замок', def: { inf: 4300, cav: 3900, mag: 5900 }, loot: { wood: 6875, stone: 6875, iron: 6875, food: 6875 }, ruins: true },
 };
 const NPC_REGEN_SEC = 3600;
 const CAMP_LOSS = 0.5; // в бою с лагерем разбойников и руинами победитель теряет вдвое меньше (поражение — по-прежнему вся армия)

@@ -1568,17 +1568,23 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
 { // лагеря разбойников и руины: у победителя потери вдвое меньше; добыча (с 21.10 в 4 раза меньше) покрывает лечение павших в Лазарете
   const luck0 = process.env.LUCK; process.env.LUCK = '0';
   const AR = require('../src/army'), cr = g.castleOf(g.register({ login: 'campProfit', password: '12345', race: 0 }).user); g.mil(cr); cr.general = null;
-  // расчёт лагерей проверяется на прежнем мечнике (атака 10, жизнь 25, груз 62, цена 35/40/48/25) — у людей теперь цифры «Справки»
-  const m0 = AR.UNIT[200], keep = { attack: m0.attack, hp: m0.hp, carry: m0.carry, cost: m0.cost };
-  Object.assign(m0, { attack: 10, hp: 25, carry: 62, cost: { wood: 35, stone: 40, iron: 48, food: 25 } });
-  const vs = (npc, n) => { const a = { units: { 200: n }, mission: 'attack', general: false }; const R = g.clash(cr, a, null, AR.NPC[npc], Date.now()); return { win: R.win, lost: n - (a.units[200] || 0) }; };
-  const r62 = vs(30, 62); assert.ok(r62.win && r62.lost >= 9 && r62.lost <= 13, `лёгкий лагерь, 62 мечника: погибло ${r62.lost} (вдвое меньше прежних ~21)`);
-  const cost = Object.values(AR.UNIT[200].cost).reduce((q, v) => q + v, 0), loot = Object.values(AR.NPC[30].loot).reduce((q, v) => q + v, 0);
-  const r93 = vs(30, 93), heal = Math.round(r93.lost * cost / 4); // лечение в Лазарете — четверть цены
-  assert.ok(r93.win && loot > heal && loot < r93.lost * cost && (93 - r93.lost) * AR.UNIT[200].carry >= loot, `втрое больше нужного: добыча ${loot} больше лечения павших ${heal}, но меньше их цены ${r93.lost * cost}`);
+  // с 22.10 охрана подогнана под юнитов «Справки» (груз ×10): армия своего уровня ценой втрое больше добычи грабит с прибылью около +20%
+  // (прибыль = добыча − цена павших × 0,625: половина павших — раненые, их лечение — четверть цены); проигрыш — гибнет вся армия
+  const sum = (o) => Object.values(o).reduce((q, v) => q + v, 0), med = (a) => { const q = [...a].sort((x, y) => x - y); return (q[(q.length - 1) >> 1] + q[q.length >> 1]) / 2; };
+  const races = ['humans', 'elves', 'dwarves', 'orcs'], cs = races.map((r, i) => { const c = g.castleOf(g.register({ login: 'campRace' + i, password: '12345', race: i }).user); g.mil(c); c.general = null; return c; });
+  const net = (k, ri, u) => { const loot = sum(AR.NPC[k].loot), n = Math.ceil(3 * loot / sum(u.cost)), a = { units: { [u.id]: n }, mission: 'attack', general: false };
+    const R = g.clash(cs[ri], a, null, AR.NPC[k], Date.now()), lost = n - (a.units[u.id] || 0);
+    if (!R.win) assert.strictEqual(lost, n, 'проиграл — погибла вся армия');
+    return ((R.win ? Math.min(loot, (n - lost) * u.carry) : 0) - lost * sum(u.cost) * 0.625) / loot * 100; };
+  const tiers = { 30: [0], 31: [0, 2], 32: [2], 24: [2] }, got = {};
+  for (const k of [30, 31, 32, 24]) {
+    const all = races.flatMap((r, ri) => [3, 12, 20].flatMap((b) => { const l = AR.UNITS.filter((u) => u.race === r && u.building === b && !u.notrain).sort((x, y) => x.level - y.level); return tiers[k].map((t) => net(k, ri, l[t])); }));
+    got[k] = Math.round(med(all)); assert.ok(got[k] >= 10 && got[k] <= 35, `${AR.NPC[k].name}: прибыль своего уровня ${got[k]}% (около +20%)`);
+  }
   assert.strictEqual(Object.values(AR.NPC[32].loot).reduce((q, v) => q + v, 0), 40000, 'тяжёлый лагерь — 40 000 (было 160 000)');
   assert.strictEqual(Object.values(AR.NPC[24].loot).reduce((q, v) => q + v, 0), 27500, 'руины — 27 500 (было 110 000)');
-  assert.ok(vs(30, 20).lost === 20, 'проиграл — погибла вся армия, как прежде');
+  const vs = (npc, n) => { const a = { units: { 200: n }, mission: 'attack', general: false }; const R = g.clash(cr, a, null, AR.NPC[npc], Date.now()); return { win: R.win, lost: n - (a.units[200] || 0) }; };
+  assert.ok(vs(30, 3).lost === 3, 'проиграл — погибла вся армия, как прежде');
   const pvp = g.castleOf(g.register({ login: 'campPvpZ', password: '12345', race: 0 }).user); g.mil(pvp); pvp.units = { 200: 30 };
   const ap = { units: { 200: 200 }, mission: 'attack', general: false }; const Rp = g.clash(cr, ap, pvp, null, Date.now()); assert.ok(Rp.win, 'бой с игроком — как прежде');
   // добыча (с лагерей, руин и игроков одинаково): в замок до вместимости Складов, сверх — пропадает, в Кладовую не идёт
@@ -1589,9 +1595,44 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.ok(cr.res.wood >= capW - 1 && cr.res.wood <= capW, `${mission}: 100 в замок, 800 пропало`);
   }
   assert.strictEqual(g.stashOf(g.userById(cr.owner)).res.wood || 0, st0, 'добыча сверх Складов — не в Кладовую');
-  Object.assign(m0, keep);
   if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
-  console.log(`✓ Лагеря: 62 мечника на лёгкий — погибло ${r62.lost}; 93 — ${r93.lost}, добыча ${loot} больше лечения павших (${heal}); тяжёлый — 40 000, руины — 27 500`);
+  console.log(`✓ Лагеря под юнитов «Справки»: армия своего уровня втрое дороже добычи грабит с прибылью — лёгкий ${got[30]}%, средний ${got[31]}%, тяжёлый ${got[32]}%, руины ${got[24]}%; тяжёлый — 40 000, руины — 27 500`);
+}
+{ // юниты не задваиваются: нападение и набег на игрока с отрядом и подкреплением, поход на лагерь — после похода войск ровно «было − погибло»,
+  // повторный тик ничего не возвращает второй раз, вылеченных в Лазарете не больше раненых
+  const luck0 = process.env.LUCK; process.env.LUCK = '0';
+  const AR = require('../src/army'), sum = (o) => Object.values(o || {}).reduce((q, v) => q + v, 0);
+  const mk = (l, race) => { const u = g.register({ login: l, password: '12345', race }).user, c = g.castleOf(u); u.newbieOff = true; g.mil(c); g.maxOut(c); c.general = null; c.shieldUntil = 0; return c; };
+  const pick = (r, b, t) => AR.UNITS.filter((u) => u.race === r && u.building === b && !u.notrain).sort((x, y) => x.level - y.level)[t].id;
+  const tot = (c) => sum(c.units) + c.squads.reduce((q, x) => q + sum(x.units), 0) + (c.armies || []).reduce((q, a) => q + sum(a.units), 0);
+  const cA = mk('dupAtk', 0), cD = mk('dupDef', 1), cR = mk('dupRef', 3);
+  const hA = pick('humans', 3, 2), hB = pick('humans', 12, 2), eA = pick('elves', 3, 1), eB = pick('elves', 3, 0), oA = pick('orcs', 3, 1);
+  cA.units = { [hA]: 300, [hB]: 200 }; cD.units = { [eA]: 120 }; cD.squads = [{ id: 'dupsq', name: 'Отряд', units: { [eB]: 80 } }]; cR.units = { [oA]: 60 };
+  const log = []; g.clash = function (...x) { const R = Object.getPrototypeOf(this).clash.apply(this, x); log.push(R); return R; };
+  let t = Date.now(); const step = () => { t += 1e9; g.tickWorld(t); };
+  assert.ok(!g.sendArmy(cR, { units: { [oA]: 60 }, x: cD.x, y: cD.y, mission: 'reinforce' }).error, 'подкрепление ушло'); step();
+  assert.ok(g.guestsOf(cD).length === 1, 'подкрепление стоит в замке');
+  for (const mission of ['attack', 'raid']) {
+    const A0 = tot(cA), D0 = tot(cD), R0 = tot(cR), W0 = sum(cA.wounded);
+    const r = g.sendArmy(cA, { units: { ...cA.units }, x: cD.x, y: cD.y, mission }); assert.ok(r.army, JSON.stringify(r.error));
+    assert.strictEqual(tot(cA), A0, `${mission}: армия в пути — те же войска`);
+    log.length = 0; step(); step(); step();
+    assert.strictEqual(log.length, 1, `${mission}: один бой`); const R = log[0], lost = (ids) => ids.reduce((q, id) => q + ((R.dLost || {})[id] || 0), 0);
+    assert.strictEqual(tot(cA), A0 - sum(R.aLost), `${mission}: нападающие — было ${A0}, погибло ${sum(R.aLost)}, стало ${tot(cA)}`);
+    assert.ok(!(cA.armies || []).length, `${mission}: армия вернулась и не висит в пути`);
+    assert.strictEqual(tot(cD), D0 - lost([eA, eB]), `${mission}: защитники — было ${D0}, стало ${tot(cD)}`);
+    assert.strictEqual(tot(cR), R0 - lost([oA]), `${mission}: подкрепление — было ${R0}, стало ${tot(cR)}`);
+    assert.ok(sum(cA.wounded) - W0 <= sum(R.aLost), `${mission}: раненых не больше павших`);
+    const A1 = tot(cA); step(); step(); assert.strictEqual(tot(cA), A1, `${mission}: повторный тик — никто не вернулся второй раз`);
+  }
+  const W = sum(cA.wounded), A2 = tot(cA); cA.res = { wood: 1e7, stone: 1e7, iron: 1e7, food: 1e7, people: 1e6 };
+  if (W) { assert.ok(g.healWounded(cA, {}).ok, 'лечение'); assert.ok(tot(cA) === A2 + W && !sum(cA.wounded), 'вылечено ровно столько, сколько раненых'); assert.ok(g.healWounded(cA, {}).error, 'второй раз — некого'); }
+  const camp = g.worldObjects(cA.x - 40, cA.y - 40, 80, 80).find((o) => o.kind === 'object' && [30, 31, 32].includes(o.img));
+  if (camp) { const A3 = tot(cA); log.length = 0; assert.ok(!g.sendArmy(cA, { units: { ...cA.units }, x: camp.x, y: camp.y, mission: 'attack' }).error, 'поход на лагерь'); step(); step(); step();
+    assert.ok(log.length === 1 && tot(cA) === A3 - sum(log[0].aLost), `лагерь: было ${A3}, погибло ${sum(log[0].aLost)}, стало ${tot(cA)}`); }
+  delete g.clash;
+  if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
+  console.log(`✓ Юниты не задваиваются: нападение и набег на замок с отрядом и подкреплением${camp ? ', лагерь' : ''} — войск ровно «было − погибло», повторный тик ничего не добавляет, вылечено = ранено`);
 }
 { // лагеря разбойников: набег втрое быстрее (туда и обратно), на игроков — как было
   const R = g.register({ login: 'campRunner', password: '12345', race: 0 }).user, rc = g.castleOf(R); g.mil(rc);
@@ -1843,7 +1884,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   }
   assert.deepStrictEqual(UNIT[224].raceOvr.orcs.cost, { wood: 2500, stone: 2500, iron: 2500, food: 3750 }, 'Путешественник орков — тоже вдвое');
   assert.deepStrictEqual(UNIT[200].cost, { wood: 32, stone: 12, iron: 40, food: 20 }, 'Мечник: цена «Справки» ×4 (8/3/10/5)');
-  assert.ok(UNIT[200].time === 240 && UNIT[200].hp === 36 && UNIT[200].speed === 17 && UNIT[200].carry === 3, 'Мечник: время ×4, жизнь, скорость, груз — по «Справке»');
+  assert.ok(UNIT[200].time === 240 && UNIT[200].hp === 36 && UNIT[200].speed === 17 && UNIT[200].carry === 30, 'Мечник: время ×4, жизнь, скорость — по «Справке», груз ×10 (3 → 30)');
   for (const [id, n, b, l] of [[262, 'Ведьмак', B.MAGE_ACADEMY, 3], [263, 'Варлок', B.MAGE_ACADEMY, 10], [264, 'Рейтар', B.STABLE, 7], [265, 'Страж границ', B.BARRACKS, 10], [266, 'Эльфийский всадник', B.STABLE, 1], [267, 'Повелитель стихий', B.MAGE_ACADEMY, 3], [268, 'Дух леса', B.MAGE_ACADEMY, 10], [269, 'Грифоний наездник', B.STABLE, 3], [270, 'Топтун', B.STABLE, 7], [271, 'Громовержец', B.MAGE_ACADEMY, 3], [272, 'Варг', B.STABLE, 1], [273, 'Загонщик', B.STABLE, 3], [274, 'Потрошитель', B.STABLE, 7], [275, 'Заклинатель', B.MAGE_ACADEMY, 3]])
     assert.ok(UNIT[id].name === n && UNIT[id].building === b && UNIT[id].level === l && UNIT[id].def && UNIT[id].cost.wood === SPR[id][5][0] * 4, `новый юнит: ${n}`);
   { // Таверна: +4,4% груза торговцев за уровень (Рынок 20 + Таверна 10 — 1300)
