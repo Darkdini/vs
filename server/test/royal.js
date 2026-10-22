@@ -1581,6 +1581,14 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     const all = races.flatMap((r, ri) => [3, 12, 20].flatMap((b) => { const l = AR.UNITS.filter((u) => u.race === r && u.building === b && !u.notrain).sort((x, y) => x.level - y.level); return tiers[k].map((t) => net(k, ri, l[t])); }));
     got[k] = Math.round(med(all)); assert.ok(got[k] >= 10 && got[k] <= 35, `${AR.NPC[k].name}: прибыль своего уровня ${got[k]}% (около +20%)`);
   }
+  { // охрана крепнет вместе с бонусами атаки нападающего: прокачанный замок (Кузница, науки, ранг) грабит не выгоднее нового (было +80%)
+    const mix = (c) => { const us = [3, 12, 20].map((bb) => AR.UNITS.filter((u) => u.race === 'humans' && u.building === bb && !u.notrain).sort((x, y) => x.level - y.level)[2]), loot = sum(AR.NPC[32].loot), units = {};
+      for (const u of us) units[u.id] = Math.ceil(loot / sum(u.cost)); const a = { units: { ...units }, mission: 'attack', general: false }; const R = g.clash(c, a, null, AR.NPC[32], Date.now());
+      let lost = 0, carry = 0; for (const [id, n] of Object.entries(units)) { lost += (n - (a.units[id] || 0)) * sum(AR.UNIT[id].cost); carry += (a.units[id] || 0) * AR.UNIT[id].carry; }
+      return Math.round(((R.win ? Math.min(loot, carry) : 0) - lost * 0.625) / loot * 100); };
+    const mx = g.castleOf(g.register({ login: 'campMaxed', password: '12345', race: 0 }).user); g.mil(mx); g.maxOut(mx); mx.general = null;
+    const p0 = mix(cs[0]), p1 = mix(mx); assert.ok(p1 - p0 <= 8 && p0 > 0, `тяжёлый лагерь, смешанная элита людей: новый замок ${p0}%, прокачанный ${p1}%`);
+  }
   assert.strictEqual(Object.values(AR.NPC[32].loot).reduce((q, v) => q + v, 0), 40000, 'тяжёлый лагерь — 40 000 (было 160 000)');
   assert.strictEqual(Object.values(AR.NPC[24].loot).reduce((q, v) => q + v, 0), 27500, 'руины — 27 500 (было 110 000)');
   const vs = (npc, n) => { const a = { units: { 200: n }, mission: 'attack', general: false }; const R = g.clash(cr, a, null, AR.NPC[npc], Date.now()); return { win: R.win, lost: n - (a.units[200] || 0) }; };

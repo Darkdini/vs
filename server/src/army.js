@@ -430,12 +430,12 @@ const NPC = {
   // В бою с лагерем и руинами потери победителя вдвое меньше (CAMP_LOSS), павшие уходят в Лазарет.
   // Добыча с 21.10 в 4 раза меньше (тяжёлый лагерь — 40 000 вместо 160 000, руины — 27 500 вместо 110 000): лагеря каждый час
   // давали больше своей экономики — по решению владельца; лагеря и руины возвращаются через 3 часа (с 22.10; был час)
-  // 22.10 охрана подогнана под новых юнитов (Справка, перенос ×10): армия своего уровня грабит с прибылью около +20%;
+  // 22.10 охрана подогнана под новых юнитов (Справка, перенос ×10): армия своего уровня (смешанная: пехота, конница, маги) грабит с прибылью около +20%;
   // шаманов (mag) больше — иначе маги грабили с +60%, а пехота в минус
-  30: { name: 'Лагерь разбойников (лёгкий)', level: 'Лёгкий', def: { inf: 90, cav: 80, mag: 170 }, loot: { wood: 250, stone: 250, iron: 175, food: 325 } },
-  31: { name: 'Лагерь разбойников (средний)', level: 'Средний', def: { inf: 950, cav: 850, mag: 1430 }, loot: { wood: 1875, stone: 1875, iron: 1500, food: 2250 } },
-  32: { name: 'Лагерь разбойников (тяжёлый)', level: 'Тяжёлый', def: { inf: 6200, cav: 5650, mag: 8600 }, loot: { wood: 10000, stone: 10000, iron: 8750, food: 11250 } },
-  24: { name: 'Заброшенный замок', def: { inf: 4300, cav: 3900, mag: 5900 }, loot: { wood: 6875, stone: 6875, iron: 6875, food: 6875 }, ruins: true },
+  30: { name: 'Лагерь разбойников (лёгкий)', level: 'Лёгкий', def: { inf: 100, cav: 90, mag: 190 }, loot: { wood: 250, stone: 250, iron: 175, food: 325 } },
+  31: { name: 'Лагерь разбойников (средний)', level: 'Средний', def: { inf: 1070, cav: 950, mag: 1600 }, loot: { wood: 1875, stone: 1875, iron: 1500, food: 2250 } },
+  32: { name: 'Лагерь разбойников (тяжёлый)', level: 'Тяжёлый', def: { inf: 6300, cav: 5750, mag: 8800 }, loot: { wood: 10000, stone: 10000, iron: 8750, food: 11250 } },
+  24: { name: 'Заброшенный замок', def: { inf: 4450, cav: 4050, mag: 6150 }, loot: { wood: 6875, stone: 6875, iron: 6875, food: 6875 }, ruins: true },
 };
 const NPC_REGEN_SEC = 3 * 3600; // запас руин восстанавливается за 3 часа (с 22.10; было час) — игроку время не показывается
 const CAMP_LOSS = 0.5; // в бою с лагерем разбойников и руинами победитель теряет вдвое меньше (поражение — по-прежнему вся армия)
@@ -1379,7 +1379,12 @@ function install(Game, helpers) {
       return (s.def * pi + (s.defC ?? s.def) * pc) * k + Math.max(s.mdef, pd * magFloor) * pm * mk; };
     const genDef = target && target.general && !target.general.dead && !target.general.away ? this.genStats(target.general).def * dK : 0;
     const DBASE = bD ? 10 * wallK : 0; // пустой замок: только забор
-    const DP = sum(D, (s) => s.n * defOf(s)) + genDef + DBASE;
+    const isCamp = !target && npc && [30, 31, 32, 24].some((k) => NPC[k] === npc); // лагеря и руины (не логова «Тёмных земель»)
+    // лагеря и руины (с 22.10): охрана крепнет вместе с бонусами атаки нападающего — Кузница, науки, ранг, генерал, снаряжение.
+    // Иначе прокачанный замок грабил лагеря почти без потерь (+80% прибыли вместо ~+20%); прокачка помогает, но меньше
+    const AP0 = sum(A, (s) => s.n * ((UNIT[s.id].attack || 0) + (UNIT[s.id].magic || 0))) || 1, buff = AP / (1 + luck / 100) / morale / AP0;
+    const campBuff = isCamp ? Math.max(1, buff) : 1;
+    const DP = (sum(D, (s) => s.n * defOf(s)) + genDef + DBASE) * campBuff;
     const PD = sum(D, (s) => s.n * s.atk), MD = sum(D, (s) => s.n * s.mag); // атака защитников в бою не участвует (как в Travian) — только для справки
     const win = AP > DP;
     if (nb && target && wallL < wall0 && win) { this.setBuildingLevel(target, B.FENCE, wallL); siege.push(`Забор: ${wall0} → ${wallL} ур. (тараны)`); siegeN += wall0 - wallL; } // новые правила: тараны — только при победе
@@ -1388,7 +1393,7 @@ function install(Game, helpers) {
     const x = Math.pow(Math.min(AP, DP) / Math.max(AP, DP, 1e-9), LOSS_POW);
     const raid = a.mission === 'raid';
     const lossW = raid ? x / (1 + x) : x, lossL = raid ? 1 / (1 + x) : 1;
-    const campK = !target && npc && [30, 31, 32, 24].some((k) => NPC[k] === npc) ? CAMP_LOSS : 1; // лагеря и руины (не логова «Тёмных земель»)
+    const campK = isCamp ? CAMP_LOSS : 1;
     const aShare = D.length || DP > DBASE ? (win ? lossW * campK : lossL) : 0, dShare = win ? lossL : lossW;
     const roll = (v) => { let l = Math.floor(v); if (process.env.LUCK !== '0' ? Math.random() < v - l : v - l >= 0.5) l++; return l; };
     const aLostN = new Map(A.map((s) => [s, Math.min(s.n, roll(s.n * aShare))])), dLostN = new Map(D.map((s) => [s, Math.min(s.n, roll(s.n * dShare))]));
