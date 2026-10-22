@@ -262,13 +262,20 @@ for (const [id, [type, hp, a3, carry, speed, cost, sec, x = {}]] of Object.entri
   if (x.bldDmg) u.bldDmg = x.bldDmg;
   if (x.oneUse) u.oneUse = true;
 }
-// разрушители зданий (Мастерская) у всех рас одинаковые по силе, цене и времени (20 мин); цена — в ресурсах своей расы
-const WRECK = { hp: 50, pow: 13, def: 22, mdef: 6, bldDmg: 45, speed: 10, pop: 85, total: 780, time: 1200 };
-for (const id of [259, 213, 220, 249]) {
+// разрушители зданий (Мастерская): цена в сумме у всех 780 (в ресурсах своей расы), 20 мин; сила равная по сумме,
+// но у каждой расы свой упор: люди — быстрее и крепче в защите, эльфы — живучий маг, гномы — бронированный, орки — бьют сильнее
+// оценка: жизнь + 3×атака + 1,5×средняя защита + урон зданиям + 2×скорость ≈ 180 у всех
+const WRECK = { total: 780, time: 1200, pop: 85, units: {
+  259: { hp: 48, pow: 13, def: 24, mdef: 6, bldDmg: 44, speed: 11 }, // Нурух
+  213: { hp: 59, pow: 12, def: 20, mdef: 10, bldDmg: 42, speed: 9 }, // Энт
+  220: { hp: 52, pow: 12, def: 26, mdef: 5, bldDmg: 46, speed: 9 }, // Йети
+  249: { hp: 45, pow: 15, def: 20, mdef: 5, bldDmg: 48, speed: 10 }, // Кулак ярости
+} };
+for (const [id, w] of Object.entries(WRECK.units)) {
   const u = UNIT[id], sum = RES4.reduce((q, r) => q + u.tc[r], 0);
   const cost = Object.fromEntries(RES4.map((r) => [r, Math.round(u.tc[r] * WRECK.total / sum)]));
-  Object.assign(u, { hp: WRECK.hp, attack: u.type === 'magic' ? 0 : WRECK.pow, magic: u.type === 'magic' ? WRECK.pow : 0, def: { inf: WRECK.def, cav: WRECK.def, mag: WRECK.mdef },
-    bldDmg: WRECK.bldDmg, speed: WRECK.speed, pop: WRECK.pop, upkeep: Math.round(WRECK.pop / 3), tc: cost, tt: WRECK.time });
+  Object.assign(u, { hp: w.hp, attack: u.type === 'magic' ? 0 : w.pow, magic: u.type === 'magic' ? w.pow : 0, def: { inf: w.def, cav: w.def, mag: w.mdef },
+    bldDmg: w.bldDmg, speed: w.speed, pop: WRECK.pop, upkeep: Math.round(WRECK.pop / 3), tc: cost, tt: WRECK.time });
 }
 // уникальные воины — только награда заданий и походов (в Кладовой), не тренируются. На 20% сильнее своего прообраза расы
 // (здоровье, атака, магия, защита), скорость, груз, население и содержание — как у прообраза. Картинка — gfx/units/uniq/<key>.png,
