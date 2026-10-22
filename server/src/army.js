@@ -162,8 +162,8 @@ const ORIG = {
 const SCALE = { stat: 0.42, cost: 0.5, time: 0.45 };
 // население: базовые воины ×4, элита/маги/легендарные ×8 (как у орков оригинала: 3–8 и 25–45)
 const POP_K = (role) => (['elite_inf', 'heavy_cav', 'legendary', 'mage', 'valkyrie', 'giant', 'shadow'].includes(role) ? 8 : 4);
-// лимит тренировки: не больше TRAIN_DAY воинов на замок за последние 24 часа (Генерал не считается)
-const TRAIN_DAY = Number(process.env.TRAIN_DAY || 400);
+// лимита тренировки в сутки нет (снят по решению владельца); при желании задаётся TRAIN_DAY в окружении сервера
+const TRAIN_DAY = Number(process.env.TRAIN_DAY) || Infinity;
 function buildUnit([id, name, race, img, role, building, level, req = {}, stats], noOrig = false) {
   const base = { id, name, race, img, role, building, level, req, spy: role === 'scout' ? 1 : 0 };
   const o = !noOrig && ORIG[id];
@@ -2394,7 +2394,7 @@ function install(Game, helpers) {
     const b = this.bonus(castle);
     const al = this.allianceOf(user);
     return {
-      trainDay: { used: this.trainedToday(castle), max: TRAIN_DAY, next: (castle.trainLog || [])[0] ? castle.trainLog[0].at + 86400000 : 0 },
+      trainDay: Number.isFinite(TRAIN_DAY) ? { used: this.trainedToday(castle), max: TRAIN_DAY, next: (castle.trainLog || [])[0] ? castle.trainLog[0].at + 86400000 : 0 } : null,
       units: castle.units, training: castle.training.map((t) => ({ id: t.id, unit: t.unit, building: t.building, count: t.count, done: t.done, each: t.each, start: t.start })),
       general: castle.general && !castle.general.dead && this.generalView(castle),
       deadGenerals: this.deadList(castle).map((g) => ({ name: g.name, kind: g.kind, kindId: g.kindId, level: g.level, reviveAt: g.reviveAt || 0, ...this.reviveCostOf(g, castle), fund: g.fund || null })),
