@@ -19,19 +19,21 @@ const DUNG_BACK_SEC = 2 * 3600; // раскопанный лагерь появ�
 const ARCH_ID = 230, GUARD_ID = 231; // Археолог, Страж глубин
 const RAID_K = 1.5; // в налёт — Стражей не больше полутора лимитов лагеря: отнять у полной охраны можно, но дорого
 const COIN_DAY = 24 * 3600 * 1000; // «Монета Древних Королей» — не чаще раза в сутки на игрока (иначе вместо неё репутация)
-// сложности: count — лагерей на карте; hours — раскопки; limit — археологов (и Стражей) в отряде не больше; chance — шанс
-// находки (+20% при полном отряде археологов, +1% за ур. Лагеря археологов, не больше DUNG_CAP); die — доля гибнущих
-// археологов (от die до die + 10%); lvl — нужный уровень Экспедиции; def — охрана лагеря (сила против пехоты; Страж бьёт на 25);
+// сложности: count — лагерей на карте; hours — раскопки; limit — археологов (и Стражей) в отряде не больше; шанс находки —
+// DUNG_K × √(археологи / limit) + 1% за ур. Лагеря археологов, не больше DUNG_CAP (один археолог в лагере на 100 — ~7%, полный
+// отряд — 65%: археологи нужны, отправить одного «для галочки» нельзя); die — доля гибнущих археологов (от die до die + 10%,
+// каждый погибает со своим шансом — без округления, гибнет и единственный); игроку доля не показывается, только итог в отчёте;
+// lvl — нужный уровень Экспедиции; def — охрана лагеря (сила против пехоты; Страж бьёт на 25);
 // finds — что можно найти: [вид, вес] — art:<тип> артефакт, exp — опыт генерала, res — клад ресурсов, rep — репутация, coin — монета
 const DUNG = [
   null,
-  { name: 'Заброшенная стоянка', count: 50, hours: 2, limit: 100, chance: 0.2, die: 0.05, lvl: 1, def: 300, finds: [['art:cloak', 1], ['art:eye', 1]] },
-  { name: 'Старый раскоп', count: 50, hours: 3, limit: 300, chance: 0.25, die: 0.1, lvl: 2, def: 1200, finds: [['art:claw', 2], ['exp', 3]] },
-  { name: 'Засыпанный храм', count: 50, hours: 4, limit: 400, chance: 0.3, die: 0.15, lvl: 4, def: 3000, finds: [['art:seal', 1], ['art:heart', 1]] },
-  { name: 'Рунные врата', count: 50, hours: 5.5, limit: 450, chance: 0.35, die: 0.2, lvl: 6, def: 5500, finds: [['art:hand', 1], ['res', 2]] },
-  { name: 'Сокрытое святилище', count: 50, hours: 7, limit: 500, chance: 0.4, die: 0.25, lvl: 8, def: 8000, finds: [['coin', 1], ['rep', 3]] },
+  { name: 'Заброшенная стоянка', count: 50, hours: 2, limit: 100, die: 0.05, lvl: 1, def: 300, finds: [['art:cloak', 1], ['art:eye', 1]] },
+  { name: 'Старый раскоп', count: 50, hours: 3, limit: 300, die: 0.1, lvl: 2, def: 1200, finds: [['art:claw', 2], ['exp', 3]] },
+  { name: 'Засыпанный храм', count: 50, hours: 4, limit: 400, die: 0.15, lvl: 4, def: 3000, finds: [['art:seal', 1], ['art:heart', 1]] },
+  { name: 'Рунные врата', count: 50, hours: 5.5, limit: 450, die: 0.2, lvl: 6, def: 5500, finds: [['art:hand', 1], ['res', 2]] },
+  { name: 'Сокрытое святилище', count: 50, hours: 7, limit: 500, die: 0.25, lvl: 8, def: 8000, finds: [['coin', 1], ['rep', 3]] },
 ];
-const DUNG_CAP = 0.75; // находка — никогда не наверняка
+const DUNG_CAP = 0.75, DUNG_K = 0.65; // находка — никогда не наверняка
 // охрана лагеря — для боя (army.js clash: npc.dung — крепнет вместе с бонусами нападающего, как охрана лагерей разбойников)
 const GUARDS = DUNG.map((d, l) => (d ? { name: `Охрана: ${d.name}`, level: String(l), def: { inf: d.def, cav: d.def, mag: Math.round(d.def / 2) }, loot: { wood: 0, stone: 0, iron: 0, food: 0 }, dung: true } : null));
 const travelSec = (l) => Math.max(30, Math.round((10 + 5 * l) * 60 / SPEED)); // путь до лагеря: 15–35 минут (не зависит от расстояния)
@@ -90,7 +92,7 @@ function install(Game) {
     return n;
   };
   P.dungChance = function dungChance(castle, l, arch) {
-    return Math.min(DUNG_CAP, DUNG[l].chance + 0.2 * Math.min(1, arch / DUNG[l].limit) + 0.01 * this.buildingLevel(castle, A().B.ARCH_CAMP));
+    return Math.min(DUNG_CAP, DUNG_K * Math.sqrt(Math.min(1, Math.max(0, arch) / DUNG[l].limit)) + 0.01 * this.buildingLevel(castle, A().B.ARCH_CAMP));
   };
   // игроки с одного телефона (возможные мульты) друг на друга в Подземелье не нападают: иначе свой второй аккаунт копал бы для главного
   P.sameDevice = function sameDevice(u1, u2) {
@@ -263,7 +265,8 @@ function install(Game) {
     const D = DUNG[camp.l], arch = a.units[ARCH_ID] || 0;
     const chance = this.dungChance(c, camp.l, arch); // шанс — по тем, кто начал копать
     // обвалы и ловушки: гибнет часть археологов (насовсем, не в Лазарет)
-    const dead = Math.min(arch, Math.round(arch * (D.die + Math.random() * 0.1)));
+    const rate = D.die + Math.random() * 0.1; let dead = 0;
+    for (let i = 0; i < arch; i++) if (Math.random() < rate) dead++;
     const lost = dead ? `При раскопках ${Wd.plural(dead, 'погиб', 'погибли', 'погибло')} ${Wd.num(dead, 'археолог', 'археолога', 'археологов')} из ${arch} (${pick(['обвал в галерее', 'древняя ловушка', 'ядовитый газ из гробницы', 'проснувшаяся стража склепа'])}).` : 'Все археологи живы.';
     if (dead) { a.units[ARCH_ID] -= dead; if (!a.units[ARCH_ID]) delete a.units[ARCH_ID]; }
     if (Math.random() < chance) {
@@ -321,8 +324,7 @@ function install(Game) {
       arrive: a.arrive, back: a.back, digEnd: a.digEnd || 0, find: findView(findOf(a)), units: a.units });
     const L = this.buildingLevel(castle, B.EXPEDITION), ac = this.buildingLevel(castle, B.ARCH_CAMP);
     return { w: DUNG_W, h: DUNG_H, now, camps, mine, max: DUNG_MAX, active: this.dungActive(user), exp: L, archCamp: ac, raidK: RAID_K, have: { arch: castle.units[ARCH_ID] || 0, guard: castle.units[GUARD_ID] || 0 },
-      kinds: DUNG.map((k, l) => (k ? { l, name: k.name, lvl: k.lvl, dig: digSec(l), go: travelSec(l), limit: k.limit, base: Math.round(Math.min(DUNG_CAP, k.chance + 0.01 * ac) * 100), cap: Math.round(DUNG_CAP * 100),
-        die: Math.round(k.die * 100), guard: Math.ceil(k.def / A().UNIT[GUARD_ID].attack), finds: k.finds.map(([key, w]) => ({ key, w })) } : null)) };
+      kinds: DUNG.map((k, l) => (k ? { l, name: k.name, lvl: k.lvl, dig: digSec(l), go: travelSec(l), limit: k.limit, camp: ac, k: Math.round(DUNG_K * 100), cap: Math.round(DUNG_CAP * 100), guard: Math.ceil(k.def / A().UNIT[GUARD_ID].attack), finds: k.finds.map(([key, w]) => ({ key, w })) } : null)) };
   };
   P.dungName = function dungName(l) { return DUNG[l] ? DUNG[l].name : 'Подземелье'; };
 
