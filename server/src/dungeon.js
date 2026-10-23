@@ -324,7 +324,7 @@ function install(Game) {
       arrive: a.arrive, back: a.back, digEnd: a.digEnd || 0, find: findView(findOf(a)), units: a.units });
     const L = this.buildingLevel(castle, B.EXPEDITION), ac = this.buildingLevel(castle, B.ARCH_CAMP);
     return { w: DUNG_W, h: DUNG_H, now, camps, mine, max: DUNG_MAX, active: this.dungActive(user), exp: L, archCamp: ac, raidK: RAID_K, have: { arch: castle.units[ARCH_ID] || 0, guard: castle.units[GUARD_ID] || 0 },
-      kinds: DUNG.map((k, l) => (k ? { l, name: k.name, lvl: k.lvl, dig: digSec(l), go: travelSec(l), limit: k.limit, camp: ac, k: Math.round(DUNG_K * 100), cap: Math.round(DUNG_CAP * 100), guard: Math.ceil(k.def / A().UNIT[GUARD_ID].attack), finds: k.finds.map(([key, w]) => ({ key, w })) } : null)) };
+      kinds: DUNG.map((k, l) => (k ? { l, name: k.name, lvl: k.lvl, dig: digSec(l), go: travelSec(l), limit: k.limit, camp: ac, k: Math.round(DUNG_K * 100), cap: Math.round(DUNG_CAP * 100), guard: Math.ceil(k.def / A().UNIT[GUARD_ID].attack) } : null)) }; // что можно найти — не отдаётся: секрет
   };
   P.dungName = function dungName(l) { return DUNG[l] ? DUNG[l].name : 'Подземелье'; };
 

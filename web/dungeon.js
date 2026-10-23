@@ -11,8 +11,6 @@ const DG_GUARD = ['', 'слабая', 'средняя', 'сильная', 'оч�
 const DG_ARCH = 230, DG_GUARDU = 231; // Археолог, Страж глубин — в Подземелье ходят только они
 // находки по видам: картинка и имя для окна лагеря
 const DG_FIND = { 'art:cloak': 'arts/d_cloak.png', 'art:eye': 'arts/d_eye.png', 'art:claw': 'arts/d_claw.png', 'art:seal': 'arts/d_seal.png', 'art:heart': 'arts/d_heart.png', 'art:hand': 'arts/d_hand.png', coin: 'arts/d_coin.png' };
-const dgFindName = (key) => (key.startsWith('art:') ? (M().artifacts[key.slice(4)] || {}).name : { exp: 'Хроники Ветерана', res: 'Клад', rep: 'Лавры древних', coin: 'Монета Древних Королей' }[key]) || key;
-const dgFindDesc = (key) => (key.startsWith('art:') ? (M().artifacts[key.slice(4)] || {}).desc : { exp: '100–300 опыта генералу', res: '1 000–3 000 каждого ресурса', rep: 'репутация +1…3', coin: '1 монета (не чаще раза в сутки)' }[key]) || '';
 const dgFindIco = (key) => (DG_FIND[key] ? `<img src="${GFX}${DG_FIND[key]}" alt="">` : `<span class="dgfi">${{ exp: '📜', res: '💰', rep: '🏅' }[key] || '✦'}</span>`);
 function openDung() { S.dg = S.dg || { data: null, sel: 0, units: {} }; send({ t: 'dung', op: 'view' }); openSheet(dungWin); }
 function dungMsg(m) {
@@ -55,7 +53,6 @@ function dungMineWin() {
 const dungHelpWin = () => `${ribbon('Подземелье')}<div class="card small"><p>На карте — лагеря археологов пяти сложностей (цифра у лагеря). Чем выше сложность — тем сильнее охрана, дольше раскопки и ценнее находки, но и опаснее для археологов. Шанс находки зависит от того, сколько археологов вы отправили.</p>
   <p>В Подземелье ходят только археологи и Стражи глубин (тренируются в Экспедиции). Археологи копают, Стражи бьются с охраной лагеря. Одновременно — не больше трёх раскопок. Находят не всегда, а часть археологов гибнет в обвалах и ловушках.</p>
   <p>Нашли — отряд ждёт в лагере. Нажмите на лагерь и «Забрать»: находка сразу окажется в замке (артефакт — в Сокровищнице, пробуждается в Башне артефактов). Пока не забрали, любой игрок может напасть Стражами и отнять находку — в Подземелье нет ни купола, ни защиты новичка, ни союзов.</p>
-  <p>Находки: 1 — «Покров Безмолвия», «Око Призрака»; 2 — «Коготь Полководца», опыт генерала; 3 — «Печать Нерушимости», «Сердце Твердыни»; 4 — «Длань Хранителя», клад ресурсов; 5 — «Монета Древних Королей», репутация.</p>
   <p>Зелёный круг — ваш отряд, красный — чужой. Двигайте карту пальцем, нажмите на лагерь.</p></div>`;
 // холст создаётся один раз и переносится в окно при каждой перерисовке (положение карты сохраняется)
 function dgMount() {
@@ -129,8 +126,7 @@ const dgRow = (u, val, cap) => `<div class="simrow my"><img src="${unitSrc(u)}" 
 function dungCampWin() {
   const s = S.dg, d = s && s.data, c = d && d.camps.find((q) => q.id === s.sel);
   if (!c) return `${ribbon('Лагерь')}<p class="parch-note">Этого лагеря больше нет — его раскопали. Новый появится в другом месте.</p>`;
-  const k = d.kinds[c.l], o = c.o, arch = s.units[DG_ARCH] || 0, sumW = k.finds.reduce((q, f) => q + f.w, 0);
-  const finds = k.finds.map((f) => `<div class="dgfind">${dgFindIco(f.key)}<div><b>${esc(dgFindName(f.key))}</b> <small>${Math.round(f.w / sumW * 100)}%</small><br><small>${esc(dgFindDesc(f.key))}</small></div></div>`).join('');
+  const k = d.kinds[c.l], o = c.o, arch = s.units[DG_ARCH] || 0; // что можно найти — секрет: узнают только из находок
   const info = `<div class="dginfo"><img src="${DG}camp${c.l}.png" alt=""><div>
     <div>Сложность: <b>${c.l} из 5</b></div>
     <div>Путь: <b>${fmtT(k.go)}</b> · раскопки: <b>${fmtT(k.dig)}</b></div>
@@ -138,7 +134,7 @@ function dungCampWin() {
     <div>Шанс находки: <b>${Math.min(k.cap, Math.round(k.k * Math.sqrt(Math.min(1, arch / k.limit)) + k.camp))}%</b> <small>(чем больше археологов, тем выше; больше всего — с полным отрядом из ${fmtFull(k.limit)})</small></div>
     <div class="small">В обвалах и ловушках гибнет часть археологов — сколько, узнаете из отчёта.</div>
     ${d.exp < k.lvl ? `<div class="bad">Нужна Экспедиция ${k.lvl} ур.</div>` : ''}</div></div>
-    <div class="ribbon rband"><span>Что можно найти</span></div><div class="dgfinds">${finds}</div>`;
+    <p class="small muted center">Что скрыто в лагере — тайна. Чем выше сложность, тем ценнее находки.</p>`;
   const U = (id) => unitById(id);
   let body;
   if (o && o.me) body = `<div class="dgstat me">Здесь ваш отряд: ${dgState(o)}<div class="dgunits">${dgUnitsLine(o.units)}</div></div>
