@@ -73,10 +73,29 @@ const GIFTS = {
   p_decree: { name: 'Королевский указ', img: 'gifts/p_decree.png', gold: 11, premium: true, cats: ['misc'], isNew: true },
   p_beer: { name: 'Гусь-полторашка', img: 'gifts/p_beer.png', gold: 30, premium: true, cats: ['boys', 'party', 'misc'], isNew: true },
   p_scepter: { name: 'Скипетр власти', img: 'gifts/p_scepter.png', gold: 15, premium: true, cats: ['boys'], isNew: true },
+  // 24.10: обычные
+  g_cake: { name: 'Праздничный торт', img: 'gifts/g_cake.png', gold: 1, cats: ['party', 'girls'], isNew: true },
+  g_chicken: { name: 'Жареная курочка', img: 'gifts/g_chicken.png', gold: 1, cats: ['boys', 'party'], isNew: true },
+  g_flowers: { name: 'Полевой букет', img: 'gifts/g_flowers.png', gold: 2, cats: ['girls'], isNew: true },
+  g_dragon: { name: 'Плюшевый дракончик', img: 'gifts/g_dragon.png', gold: 2, cats: ['girls', 'misc'], isNew: true },
+  g_lute: { name: 'Лютня менестреля', img: 'gifts/g_lute.png', gold: 2, cats: ['party', 'misc'], isNew: true },
+  g_horseshoe: { name: 'Подкова на удачу', img: 'gifts/g_horseshoe.png', gold: 1, cats: ['misc'], isNew: true },
+  g_apples: { name: 'Корзина яблок', img: 'gifts/g_apples.png', gold: 1, cats: ['misc'], isNew: true },
+  g_letter: { name: 'Любовное письмо', img: 'gifts/g_letter.png', gold: 2, cats: ['girls'], isNew: true },
+  // 24.10: премиум
+  g_feather: { name: 'Перо феникса', img: 'gifts/g_feather.png', gold: 12, premium: true, cats: ['misc'], isNew: true },
+  g_egg: { name: 'Драконье яйцо', img: 'gifts/g_egg.png', gold: 15, premium: true, cats: ['boys', 'war'], isNew: true },
+  g_rose: { name: 'Зачарованная роза', img: 'gifts/g_rose.png', gold: 14, premium: true, cats: ['girls'], isNew: true },
+  g_musicbox: { name: 'Музыкальная шкатулка', img: 'gifts/g_musicbox.png', gold: 10, premium: true, cats: ['girls', 'party'], isNew: true },
+  g_unicorn: { name: 'Единорог', img: 'gifts/g_unicorn.png', gold: 18, premium: true, cats: ['girls'], isNew: true },
+  g_crystal: { name: 'Хрустальный замок', img: 'gifts/g_crystal.png', gold: 20, premium: true, cats: ['girls', 'misc'], isNew: true },
+  g_mirror: { name: 'Волшебное зеркало', img: 'gifts/g_mirror.png', gold: 12, premium: true, cats: ['girls'], isNew: true },
+  g_starbottle: { name: 'Звезда в бутылке', img: 'gifts/g_starbottle.png', gold: 16, premium: true, cats: ['misc', 'party'], isNew: true },
 };
 // разделы окна «Подарки» (как в оригинале): порядок в списке; пустые разделы не показываются
 const GIFT_CATS = [['premium', 'Премиум'], ['girls', 'Девушкам'], ['boys', 'Парням'], ['war', 'Военные'], ['party', 'К празднику'], ['enemy', 'Врагам'], ['misc', 'Разное']];
 const GIFTS_DAY = 20;
+const GIFT_PAGE = 10; // подарков на странице окна «Подарки»
 const REP_PER_GOLD = 2; // 1 монета = 2 репутации // сколько подарков игрок может отправить за сутки
 
 const CHAT_KEEP = 100; // сколько последних сообщений хранит общий чат (листать вверх — история)
@@ -190,6 +209,12 @@ function install(Game) {
   // полный профиль для окна «Профиль»
   // ally — подарок из казны альянса (право «Казначейство»): только участнику своего альянса, не себе; монеты — из казны
   // (казна альянса тратится только на подарки участникам и медали, ally.js)
+  P.giftView = function giftView(g) { return { gift: g.gift, from: (this.userById(g.from) || { login: '—' }).login, fromId: g.from, at: g.at, text: g.text || '', ally: g.ally || '' }; };
+  // окно «Подарки» игрока: по GIFT_PAGE на страницу, новые — первыми
+  P.giftPage = function giftPage(u, page) {
+    const all = (u.gifts || []).slice().reverse(), pages = Math.max(1, Math.ceil(all.length / GIFT_PAGE)), pg = Math.min(Math.max(0, Math.floor(Number(page)) || 0), pages - 1);
+    return { id: u.id, login: u.login, total: all.length, page: pg, pages, list: all.slice(pg * GIFT_PAGE, pg * GIFT_PAGE + GIFT_PAGE).map((g) => this.giftView(g)) };
+  };
   P.sendGift = function sendGift(user, toId, giftId, text, ally = false) {
     const g = GIFTS[giftId]; if (!g) return { error: 'Нет такого подарка.' };
     const to = this.userById(Number(toId)); if (!to) return { error: 'Игрок не найден.' };
@@ -266,7 +291,8 @@ function install(Game) {
       deny: this.canReach ? ((dm, dg) => ({ msg: dm, gift: dg, note: u.admin && dm && dg ? 'Писать в личку и дарить подарки администратору могут только его друзья.' : [...new Set([dm, dg].filter(Boolean))].join(' ') }))(this.canReach(viewer, u, 'msg') || '', this.canReach(viewer, u, 'gift') || '') : {}, bday: u.bday ? this.bdayText(u.bday) : '', bdayRaw: u.id === viewer.id ? u.bday || '' : undefined,
       repToday: ((viewer.repGiven || {})[u.id] || 0) > Date.now() - 86400000,
       about: u.about || '', avatar: u.avatar || 0, frame: u.frame || '', gold: u.id === viewer.id ? u.gold || 0 : undefined,
-      gifts: (u.gifts || []).slice(-50).reverse().map((g) => ({ gift: g.gift, from: (this.userById(g.from) || { login: '—' }).login, fromId: g.from, at: g.at, text: g.text || '', ally: g.ally || '' })),
+      // в профиле — три последних подарка и сколько всего (как в оригинале); весь список — страницами (giftPage)
+      gifts: (u.gifts || []).slice(-3).reverse().map((g) => this.giftView(g)), giftsN: (u.gifts || []).length,
       online: u.id === viewer.id || viewer.admin ? !!u.online : false,
     };
   };

@@ -409,7 +409,10 @@ function profileWin(p) {
   const aw = p.awards || [];
   const awards = aw.length ? `<div data-plist="awards">${ribbon(`Награждения - ${aw.length} ›`)}${row(aw, (m) => `<img class="pmed" src="${GFX}smallicon/status/${m.kind}.png" alt="">`)}</div>` : '';
   const gifts = p.gifts || [];
-  const giftsRow = gifts.length ? `<div data-plist="gifts">${ribbon(`Подарки - ${gifts.length} ›`)}${row(gifts, (g) => `<img class="pgi" src="${GFX}${(S.cat.gifts[g.gift] || {}).img}" alt="">`)}</div>` : `${ribbon('Подарки - 0')}<div class="parch-note">Подарков пока нет.</div>`;
+  // как в оригинале: «Подарки игрока - N», три последних крупно и «Посмотреть» — весь список страницами (giftListWin)
+  const giftsN = p.giftsN ?? gifts.length;
+  const giftsRow = giftsN ? `${ribbon(`Подарки игрока - ${fmtFull(giftsN)}`)}<div class="pgtop" data-giftlist="${p.id}">${gifts.slice(0, 3).map((g) => `<img src="${GFX}${(S.cat.gifts[g.gift] || {}).img}" alt="">`).join('')}</div>
+    <button class="pbar" data-giftlist="${p.id}">🎁 Посмотреть</button>` : `${ribbon('Подарки игрока - 0')}<div class="parch-note">Подарков пока нет.</div>`;
   const hon = p.honors || []; // медали «для красоты» (honors.js) — в строке «Звание», рядом со значками модераторов
   // значки убийцы мирового босса (boss.js)
   const bb = p.bossBadges || [], SLAY = { dragon: 'Драконоборец', troll: 'Сокрушитель троллей', lich: 'Изгоняющий тьму' };
@@ -706,26 +709,50 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
   if (m.t === 'ratings') { S.rlist = m.list; return refreshSheet(); }
   if (m.t === 'players') { S.plist = m.list; return refreshSheet(); }
   if (m.t === 'notes') { S.notes = m.text; return refreshSheet(); }
-  if (m.t === 'giftdel') { // свой подарок удалён: убрать из открытого профиля (то же окно профиля под списком)
-    const p = S.lastProfile; if (p && p.id === m.to) p.gifts = (p.gifts || []).filter((g) => !(g.at === m.at && g.gift === m.gift && g.fromId === S.st.user.id && !g.ally));
-    return refreshSheet();
+  if (m.t === 'giftdel') { // свой подарок удалён: обновить список подарков и профиль под ним
+    if (S.gl && S.gl.id === m.to) send({ t: 'giftlist', id: m.to, page: S.gl.page || 0 });
+    send({ t: 'profile', id: m.to }); return;
   }
+  if (m.t === 'giftlist') { S.gl = { ...m, t: undefined }; return S.sheets.includes(giftListWin) ? refreshSheet() : openSheet(giftListWin); }
   prevMilMsg(m);
 };
 // полные списки разделов профиля (нажатие на ряд значков)
 function profileListWin(kind) {
   const p = S.lastProfile; if (!p) return '';
   // свой подарок (не из казны альянса) даритель может удалить — за столько же монет, сколько он стоил (social.js deleteGift)
-  if (kind === 'gifts') return `${ribbon(`Подарки - ${(p.gifts || []).length}`)}<p class="center"><b>${esc(p.login)}</b></p><div class="pgifts">${(p.gifts || []).map((g) => { const G = S.cat.gifts[g.gift] || {}, mine = g.fromId === S.st.user.id && !g.ally;
-    return `<div class="pgiftw"><button class="pgift" data-cprof="${g.fromId}" title="${esc(G.name || '')}"><img src="${GFX}${G.img}" alt=""><small>от ${g.ally ? `альянса [${esc(g.ally)}]` : esc(g.from)}</small>${g.text ? `<i>«${esc(g.text)}»</i>` : ''}</button>${mine ? `<button class="btn small pgdel" data-gdel="${g.at}" data-gid="${esc(g.gift)}">Удалить · ${G.gold || 1} ${gimg('coins_s.png', 'ri')}</button>` : ''}</div>`; }).join('')}</div>`;
   return `${ribbon('Награждения')}<p class="center"><b>${esc(p.login)}</b></p>${(p.awards || []).map((m) => `<div class="award"><img src="${GFX}smallicon/status/${m.kind}.png" alt=""><div><b>${esc(ALLY_MEDAL[m.kind] || 'Медаль')} от альянса [${esc(m.tag)}]</b><small>${m.text ? `«${esc(m.text)}» · ` : ''}вручил ${esc(m.by)} · получено ${fmtDay(m.at)}</small></div></div>`).join('')}`;
 }
 $('#sheetBody').addEventListener('click', (e) => { const t = e.target.closest('[data-plist]'); if (t) openSheet(() => profileListWin(t.dataset.plist)); });
+// окно «Подарки» игрока, как в оригинале: «Отправить подарок!» (в чужом профиле), листалка, у каждого подарка — большая картинка,
+// «Премиум подарок», «От: ник» (нажимается — профиль дарителя), пожелание и дата; свой подарок даритель может удалить
+function giftListWin() {
+  const L = S.gl; if (!L) return `${ribbon('🎁 Подарки')}<p class="parch-note">Загрузка…</p>`;
+  const self = L.id === S.st.user.id, p = S.lastProfile, deny = p && p.id === L.id && p.deny && p.deny.gift;
+  const pg = L.page, last = L.pages - 1, btn = (to, t) => `<button data-glpg="${to}" ${to < 0 || to > last || to === pg ? 'disabled' : ''}>${t}</button>`;
+  const items = L.list.map((g) => { const G = S.cat.gifts[g.gift] || {}, mine = g.fromId === S.st.user.id && !g.ally;
+    return `<div class="glitem"><img src="${GFX}${G.img}" alt="${esc(G.name || '')}">
+      ${G.premium ? `<div class="glprem">${gimg('premium_crown.png', 'ri')} Премиум подарок</div>` : ''}
+      <div class="glfrom">От: ${g.ally ? `альянса [${esc(g.ally)}]` : `<a class="plink" data-cprof="${g.fromId}">${esc(g.from)}</a>`}</div>
+      ${g.text ? `<div class="gltext">${esc(g.text)}</div>` : ''}<div class="gldate">${esc(G.name || '')} · ${fmtDay(g.at)}</div>
+      ${mine ? `<button class="btn small pgdel" data-gdel="${g.at}" data-gid="${esc(g.gift)}" data-gto="${L.id}">Удалить · ${G.gold || 1} ${gimg('coins_s.png', 'ri')}</button>` : ''}</div>`; }).join('');
+  return `${ribbon('🎁 Подарки')}
+    ${!self && !deny ? `<div class="center glsend"><a class="plink" data-glsend>Отправить подарок!</a></div>` : ''}
+    <p class="center"><b>${esc(L.login)}</b> · всего ${fmtFull(L.total)}</p>
+    ${L.pages > 1 ? `<div class="pager">${btn(0, '◀◀')}${btn(pg - 1, '◀')}<span>${pg + 1}</span>${btn(pg + 1, '▶')}${btn(last, '▶▶')}</div>` : ''}
+    ${items || '<p class="parch-note">Подарков пока нет.</p>'}`;
+}
+$('#sheetBody').addEventListener('click', (e) => {
+  const t = e.target.closest('[data-giftlist],[data-glpg],[data-glsend]'); if (!t) return;
+  const d = t.dataset;
+  if (d.giftlist) { S.gl = null; return send({ t: 'giftlist', id: Number(d.giftlist), page: 0 }); }
+  if (d.glpg !== undefined && !t.disabled && S.gl) { send({ t: 'giftlist', id: S.gl.id, page: Number(d.glpg) }); const b = $('#sheetBody'); if (b) b.scrollTop = 0; return; }
+  if (d.glsend !== undefined && S.gl) { S.giftTo = { id: S.gl.id, login: S.gl.login }; S.giftAlly = false; S.giftCat = 'all'; S.giftNew = false; S.giftPage = 0; return openSheet(giftsWin); }
+});
 $('#sheetBody').addEventListener('click', (e) => { // «Удалить» под своим подарком в чужом профиле
   const t = e.target.closest('[data-gdel]'); if (!t) return;
-  const p = S.lastProfile, G = S.cat.gifts[t.dataset.gid] || {}, n = G.gold || 1;
-  if (!p || !confirm(`Удалить подарок «${G.name || 'Подарок'}» у ${p.login}? Это стоит ${n} ${plural(n, 'монету', 'монеты', 'монет')}.`)) return;
-  send({ t: 'giftdel', to: p.id, at: Number(t.dataset.gdel), gift: t.dataset.gid });
+  const to = Number(t.dataset.gto) || (S.lastProfile || {}).id, who = S.gl && S.gl.id === to ? S.gl.login : (S.lastProfile || {}).login, G = S.cat.gifts[t.dataset.gid] || {}, n = G.gold || 1;
+  if (!to || !confirm(`Удалить подарок «${G.name || 'Подарок'}» у ${who}? Это стоит ${n} ${plural(n, 'монету', 'монеты', 'монет')}.`)) return;
+  send({ t: 'giftdel', to, at: Number(t.dataset.gdel), gift: t.dataset.gid });
 });
 // профиль — новый вид
 profileSheet = function (p) { S.lastProfile = p; return profileWin(p); }; // eslint-disable-line no-global-assign

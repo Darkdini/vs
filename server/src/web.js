@@ -431,6 +431,8 @@ const API = {
     this.send({ t: 'profile', refresh: true, profile: this.game.profileOf(to, this.user) });
   },
   // даритель удаляет свой подарок у получателя за монеты (social.js deleteGift); клиент убирает его из открытого профиля
+  // окно «Подарки» игрока — страницами (social.js giftPage)
+  giftlist(m) { const u = this.game.userById(Number(m.id)); if (!u || u.nobody) return this.error('Игрок не найден.'); this.send({ t: 'giftlist', ...this.game.giftPage(u, m.page) }); },
   giftdel(m) {
     const r = this.game.deleteGift(this.user, m.to, m.at, m.gift);
     if (r.error) return this.error(r.error);

@@ -2679,3 +2679,14 @@ img.artsp { filter: drop-shadow(0 0 4px #c89aff) drop-shadow(0 0 8px #6a3aff); }
 .dgfound img { width: 56px; height: 56px; }
 .dgcap { display: block; font-size: .72em; color: #6a4a2a; }
 .pbar.dgclaim { background: linear-gradient(#e8b84a, #a8701a); color: #2a1408; font-weight: 700; }
+/* подарки игрока: три последних в профиле и окно «Подарки» (как в оригинале) */
+.pgtop { display: flex; justify-content: center; gap: 4%; margin: 6px 0; cursor: pointer; }
+.pgtop img { width: 30%; max-width: 130px; aspect-ratio: 1; object-fit: contain; filter: drop-shadow(0 3px 3px rgba(0,0,0,.35)); }
+.glsend { margin: 4px 0 8px; font: 400 min(26px, 6vw) var(--serif); }
+.glitem { padding: 10px 6px 12px; border-bottom: 1px solid #b08a5a; text-align: center; color: #2a1408; font-family: var(--serif); }
+.glitem > img { width: 46%; max-width: 190px; aspect-ratio: 1; object-fit: contain; filter: drop-shadow(0 4px 4px rgba(0,0,0,.35)); }
+.glprem { color: #d01818; font-size: min(24px, 5.6vw); display: flex; align-items: center; justify-content: center; gap: 6px; }
+.glprem img { height: 1.2em; }
+.glfrom { font-size: min(24px, 5.6vw); margin-top: 2px; }
+.gltext { font-size: min(22px, 5.2vw); margin: 4px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.gldate { font-size: min(14px, 3.5vw); color: #6a4a2a; }
