@@ -767,7 +767,9 @@ function install(Game, helpers) {
   P.forgeLvl = function forgeLvl(castle, id, kind) { const f = castle.forge && castle.forge[id]; return f ? f[kind] || 0 : 0; };
   // Кузница и Школа магии — только воины рас; Бунтарь, Путешественник, Катапульта и Таран (общие) — без улучшений (с 23.10)
   P.forgeUnits = function forgeUnits(castle) {
-    return unitsForRace(this.raceOf(castle)).filter((u) => u.race !== 'all' && u.id !== GENERAL_ID && !u.quest && (!u.retired || (castle.units[u.id] || 0) > 0)); // старых — только если они есть в замке
+    const ord = [B.BARRACKS, B.STABLE, B.MAGE_ACADEMY, B.SPY, B.WORKSHOP]; // порядок как в оригинале: Казарма, Конюшня, Академия, разведчик, разрушитель; снятые — в конце
+    const k = (u) => (u.retired ? 100 : 0) + (ord.includes(u.building) ? ord.indexOf(u.building) : 50);
+    return unitsForRace(this.raceOf(castle)).filter((u) => u.race !== 'all' && u.id !== GENERAL_ID && !u.quest && (!u.retired || (castle.units[u.id] || 0) > 0)).sort((x, y) => k(x) - k(y) || x.level - y.level); // старых — только если они есть в замке
   };
   // Кузница и Школа магии — как в оригинале. Уровень параметра показывается с 1 (без улучшений — 1), каждое улучшение +1 к базе.
   // Стоимость улучшения до уровня T (показываемого) = цена юнита × c·g^T, люди — население юнита × тот же множитель × 0,97,
@@ -776,7 +778,8 @@ function install(Game, helpers) {
     const f = UP[kind].c * UP[kind].g ** T;
     return { cost: Object.fromEntries(RES4.map((r) => [r, Math.min(UP_CAP, Math.round((u.refCost || u.cost)[r] * f))])), people: Math.round(u.pop * f * 0.97), sec: Math.max(5, Math.round((T + 2) * 1800 / SPEED)) };
   };
-  P.magicUnits = function magicUnits(castle) { return unitsForRace(this.raceOf(castle)).filter((u) => u.magic > 0 && u.race !== 'all' && u.id !== GENERAL_ID && !u.quest && (!u.retired || (castle.units[u.id] || 0) > 0)); };
+  // Школа магии — как в оригинале: все воины расы (как в Кузнице), у каждого магическая атака и магическая защита (с 23.10; раньше — только маги)
+  P.magicUnits = function magicUnits(castle) { return this.forgeUnits(castle); };
   P.upgradeOp = function upgradeOp(castle, { unit, kind }) {
     this.tick(castle); this.mil(castle);
     const up = UP[kind]; if (!up) return { error: 'Неверный параметр.' };
@@ -1338,9 +1341,10 @@ function install(Game, helpers) {
     let morale = 1;
     const defUser = target && this.ownerOf(target);
     if (defUser && att && defUser.id !== att.id) { const aR = this.userRating(att), dR = Math.max(1, this.userRating(defUser)); if (aR > dR) morale = Math.max(0.5, (dR / aR) ** 0.3); }
+    // Кузница и Школа магии (с 23.10, как в оригинале): оба параметра работают у всех воинов — маг с улучшенной атакой бьёт и физически, воин с магической атакой — и магией
     const stack = (m, id, n, own, castle, extra) => { const u = UNIT[id]; if (!u || !n) return null; const cap = nb ? forgeCaps(u) : null;
       const f = (k) => { const v = castle && u.race !== 'all' ? this.forgeLvl(castle, id, k) : 0; return cap ? Math.min(v, cap[k]) : v; }; // новые правила: Кузница — не больше половины базы; общие воины (Бунтарь, Путешественник, Катапульта, Таран) — без улучшений
-      return { m, id, n, own, hp: u.hp || 50, atk: u.attack ? u.attack + f('a') : 0, cav: u.type === 'cavalry', mag: u.magic ? u.magic + f('m') : 0, def: (u.def ? u.def.inf : 0) + f('d'), defC: (u.def ? u.def.cav : 0) + f('d'), mdef: (u.def ? u.def.mag : 0) + f('md'), ...extra }; };
+      return { m, id, n, own, hp: u.hp || 50, atk: (u.attack || 0) + f('a'), cav: u.type === 'cavalry', mag: (u.magic || 0) + f('m'), def: (u.def ? u.def.inf : 0) + f('d'), defC: (u.def ? u.def.cav : 0) + f('d'), mdef: (u.def ? u.def.mag : 0) + f('md'), ...extra }; };
     // нападающие
     const A = Object.entries(a.units).map(([id, n]) => stack(a.units, id, n, false, c)).filter(Boolean);
     let genA = 0, cmd = 0; if (a.general && c.general && !c.general.dead) { const gs = this.genStats(c.general); genA = gs.atk; cmd = gs.catk; }
@@ -1466,7 +1470,7 @@ function install(Game, helpers) {
     if (defUser && att && defUser.id !== att.id) { const aR = this.userRating(att), dR = Math.max(1, this.userRating(defUser)); if (aR > dR) morale = Math.max(0.5, (dR / aR) ** 0.3); }
     const stack = (m, id, n, own, castle, extra) => { const u = UNIT[id]; if (!u || !n) return null; const cap = nb ? forgeCaps(u) : null;
       const f = (k) => { const v = castle && u.race !== 'all' ? this.forgeLvl(castle, id, k) : 0; return cap ? Math.min(v, cap[k]) : v; }; // новые правила: Кузница — не больше половины базы; общие воины (Бунтарь, Путешественник, Катапульта, Таран) — без улучшений
-      return { m, id, n, own, hp: u.hp || 50, atk: u.attack ? u.attack + f('a') : 0, cav: u.type === 'cavalry', mag: u.magic ? u.magic + f('m') : 0, def: (u.def ? u.def.inf : 0) + f('d'), defC: (u.def ? u.def.cav : 0) + f('d'), mdef: (u.def ? u.def.mag : 0) + f('md'), row: ROW[u.type] || 1, ...extra }; };
+      return { m, id, n, own, hp: u.hp || 50, atk: (u.attack || 0) + f('a'), cav: u.type === 'cavalry', mag: (u.magic || 0) + f('m'), def: (u.def ? u.def.inf : 0) + f('d'), defC: (u.def ? u.def.cav : 0) + f('d'), mdef: (u.def ? u.def.mag : 0) + f('md'), row: ROW[u.type] || 1, ...extra }; };
     // генерал в строю: принимает часть удара своей личной защитой и здоровьем (гибель генерала решается отдельно — после боя)
     const genStack = (g) => { const gs = this.genStats(g), u = UNIT[GENERAL_ID]; return { m: null, gen: true, id: GENERAL_ID, n: 1, own: false, hp: u.hp, atk: 0, mag: 0, def: gs.def, defC: gs.def, mdef: u.def.mag, row: 1 }; };
     // нападающие
@@ -2397,7 +2401,7 @@ function install(Game, helpers) {
       Object.assign(castle.general.pts, { atk: 20, def: 20, catk: 80, cdef: 60, heal: 10, career: 8 }); castle.general.free = 0;
     }
     castle.sciences = Object.assign(this.sciOf(castle), { eco: 20, eng: 20, fhi: 20, war: 20 });
-    for (const u of this.forgeUnits(castle)) castle.forge[u.id] = { a: 19, d: 19, ...(u.magic > 0 ? { m: 19, md: 19 } : {}) }; // Кузница и Школа магии — 20 ур. (уровень показывается с 1)
+    for (const u of this.forgeUnits(castle)) castle.forge[u.id] = { a: 19, d: 19, m: 19, md: 19 }; // Кузница и Школа магии — 20 ур. (уровень показывается с 1)
     castle.religion = castle.religion || 'war';
     if (castle.artifacts.length < 4) for (const type of ['atk', 'def', 'prod', 'speed']) castle.artifacts.push({ id: this.db.nextId++, type, rarity: 2, active: true, found: Date.now() });
     const cap = this.capacity(castle);

@@ -609,14 +609,14 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.strictEqual(g.newsUnread(late), 0, 'старые новости новичку не мигают');
   console.log('✓ новости: публикует админ, непрочитанная → конверт, после прочтения исчезает, остаётся в списке, комментарии');
 }
-// Школа магии: как Кузница — маг. атака только у магов, маг. защита у всех; +1 за уровень, до уровня Школы
+// Школа магии: как Кузница — все воины расы, маг. атака и маг. защита у каждого (с 23.10; раньше — только маги); +1 за уровень, до уровня Школы
 {
   const u = g.register({ login: 'mschool', password: '12345', race: 0 }).user, c = g.castleOf(u);
   assert.ok(g.magicOp(c, { unit: 203, kind: 'm' }).error, 'без Школы магии нельзя');
   g.maxOut(c); c.forge = {}; for (const r of ['wood', 'stone', 'iron', 'food']) c.res[r] = 1e9;
   const mag0 = g.armyPower(c, { 203: 10 }, false).mag;
   c.res.people = 1e6;
-  assert.ok(g.magicOp(c, { unit: 200, kind: 'm' }).error, 'Мечника (без маг. атаки) в Школе магии нет');
+  assert.ok(g.magicUnits(c).some((x) => x.id === 200) && g.magicOp(c, { unit: 233, kind: 'm' }).error, 'Мечник — в Школе магии (как в оригинале, с 23.10), Бунтаря нет');
   assert.ok(g.magicOp(c, { unit: 203, kind: 'm' }).ok);
   assert.ok(/Уже проводится/.test(g.magicOp(c, { unit: 261, kind: 'm' }).error || '') || g.magicOp(c, { unit: 203, kind: 'm' }).error, 'одно улучшение маг. атаки за раз');
   assert.ok(g.magicOp(c, { unit: 203, kind: 'md' }).ok, 'маг. защита — параллельно');
