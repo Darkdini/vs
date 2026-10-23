@@ -199,10 +199,10 @@ function trainCard(u) {
 }
 
 
-// Военный штаб: Армии, Генерал, Расписание походов, Обзор армий (Симулятор и Учения появятся, когда будут готовы)
+// Военный штаб: Армии, Генерал, Расписание походов, Обзор армий (симулятор боя — из отчёта разведки, sim.js)
 function hqHtml() {
   return `<button class="rbar" data-armies>Армии</button><button class="rbar" data-general>Генерал</button>
-    <button class="rbar ${isPrem() ? '' : 'rlock'}" data-hq="sched">${isPrem() ? '' : '🔒 '}Расписание походов</button><button class="rbar" data-moves>Обзор армий</button>`;
+    <button class="rbar ${isPrem() ? '' : 'rlock'}" data-hq="sched">${isPrem() ? '' : '🔒 '}Расписание походов</button><button class="rbar" data-moves>Обзор армий</button><button class="rbar" data-simopen>Симулятор боя</button>`;
 }
 // «Расписание походов» — армии, отправленные по расписанию и ещё не вышедшие
 function schedWin() {
@@ -392,7 +392,8 @@ function reportHtml(r) {
       ${band('kingatt', 'Нападение')}${sideBlock(d.att, d.att.rating, d.att.cx, d.att.cy, `${ic('skull')} Общие потери: ${d.att.lost} из ${d.att.sent} ( ${pct(d.att.lost, d.att.sent)}% )`)}
       ${band('kingdef', 'Защита')}${d.def.npc ? `<div class="rp">Игрок: Неизвестный игрок<br>Объект: ${esc(d.def.npc)}<br>(Рейтинг: -, X: ${d.x}, Y: ${d.y})</div>` : sideBlock(d.def, d.def.rating, d.x, d.y)}
       ${bar('swords', 'Армия атаки')}${bar('glass', 'Разведка')}
-      <div class="rp">${d.info && d.info.length ? d.info.map(esc).join('<br>') : 'Разведчики ничего не узнали.'}</div>${foot}`;
+      <div class="rp">${d.info && d.info.length ? d.info.map(esc).join('<br>') : 'Разведчики ничего не узнали.'}</div>
+      ${d.ok && d.sim && r.owner === S.st.user.id ? '<button class="pbar" data-simrep>⚔ В симулятор боя</button>' : ''}${foot}`;
   }
   if (d.type !== 'battle') return `${head}<div class="rp">${(r.lines || []).map(esc).join('<br>')}</div>${foot}`;
   const attV = d.side === 'att';

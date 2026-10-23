@@ -285,6 +285,7 @@ function onMsg(m) {
     case 'market': case 'marketdone': marketMsg(m); break;
     case 'privacy': privacyMsg(m); break;
     case 'brank': brankMsg(m); break;
+    case 'sim': simMsg(m); break; // симулятор боя (sim.js)
     case 'brtop': brTopMsg(m); break;
     case 'zags': case 'zprops': case 'zpairs': case 'zpair': case 'zdone': zagsMsg(m); break;
     case 'news': newsMsg(m); break;

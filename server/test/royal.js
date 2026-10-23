@@ -1642,6 +1642,38 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
   console.log(`✓ Юниты не задваиваются: нападение и набег на замок с отрядом и подкреплением${camp ? ', лагерь' : ''} — войск ровно «было − погибло», повторный тик ничего не добавляет, вылечено = ранено`);
 }
+{ // симулятор боя: данные из разведки, бой той же формулой, ничего в игре не меняется
+  const luck0 = process.env.LUCK; process.env.LUCK = '0';
+  const AR = require('../src/army'), sum = (o) => Object.values(o || {}).reduce((q, v) => q + v, 0);
+  const mk = (l, race) => { const u = g.register({ login: l, password: '12345', race }).user, c = g.castleOf(u); u.newbieOff = true; g.mil(c); g.maxOut(c); c.shieldUntil = 0; return c; };
+  const ca = mk('simAtk1', 0), cd = mk('simDef1', 1);
+  ca.units = { 204: 300, 263: 200, 264: 200, 243: 180 }; cd.units = { 265: 300, 266: 200, 268: 150 }; cd.squads = [];
+  // разведка: Центр разведки 20 ур., разведчиков много — видно всё
+  const spy = AR.UNITS.find((u) => u.race === 'humans' && u.role === 'scout'); ca.units[spy.id] = 500;
+  const r = g.sendArmy(ca, { units: { [spy.id]: 500 }, x: cd.x, y: cd.y, mission: 'scout' }); assert.ok(r.army, JSON.stringify(r));
+  r.army.arrive = Date.now() - 1; g.tickWorld(Date.now());
+  const rep = g.reportsOf(ca.owner).find((x) => x.kind === 'scout' && x.data && x.data.sim); assert.ok(rep, 'в отчёте разведки — данные для симулятора');
+  const sim = rep.data.sim, bD = g.bonus(cd);
+  assert.ok(sim.race === 'elves' && sim.units[265] === 300 && sim.wall === bD.wall && Math.abs(sim.defK - bD.def) < 1e-9 && sim.gen && sim.gen.level === cd.general.level, 'раса, войска, Забор, бонус защиты, генерал — из разведки');
+  const before = JSON.stringify([ca.units, ca.wounded || {}, ca.res, cd.units, cd.wall]);
+  const army = { 204: 300, 263: 200, 264: 200, 243: 180 };
+  const S1 = g.simBattle(ca, { units: army, general: true, mission: 'attack', def: sim });
+  assert.ok(S1.ok && S1.att.length === 4 && S1.def.length >= 3, JSON.stringify(S1).slice(0, 200));
+  assert.strictEqual(JSON.stringify([ca.units, ca.wounded || {}, ca.res, cd.units, cd.wall]), before, 'симулятор ничего не меняет: войска, раненые, ресурсы, Забор');
+  // настоящий бой на копиях — тот же исход
+  const A2 = structuredClone(ca), D2 = structuredClone(cd); const real = g.clash(A2, { units: { ...army }, mission: 'attack', general: true }, D2, null, Date.now());
+  assert.ok(real.win === S1.win && Math.abs(real.calc.att.total - S1.ap) <= 1 && Math.abs(real.calc.def.total - S1.dp) <= 2 && sum(real.aLost) === S1.att.reduce((q, x) => q + x.lost, 0),
+    `симулятор = настоящий бой: атака ${S1.ap}/${real.calc.att.total}, защита ${S1.dp}/${real.calc.def.total}`);
+  assert.ok(S1.wallTo !== null && S1.wallTo < S1.wall, 'тараны ломают Забор и в симуляторе');
+  // лагерь: та же охрана, что в бою
+  const C3 = AR.NPC[32], S2 = g.simBattle(ca, { units: { 204: 200, 263: 150, 264: 150 }, mission: 'attack', def: { npc: 32 } }), R2 = g.clash(structuredClone(ca), { units: { 204: 200, 263: 150, 264: 150 }, mission: 'attack', general: false }, null, C3, Date.now());
+  assert.ok(S2.ok && S2.win === R2.win && S2.dp === R2.calc.def.total && S2.stock === 40000 && typeof S2.profit === 'number', 'лагерь в симуляторе — как в бою, с прибылью: ' + JSON.stringify([S2.error, S2.win, R2.win, S2.dp, R2.calc.def.total, S2.stock, S2.profit]));
+  // мусор не ломает
+  for (const bad of [{}, { units: { 9999: 5 } }, { units: { 204: -5 } }, { units: { 204: 10 }, def: { npc: 77 } }, { units: { __proto__: 1 } }]) assert.ok(g.simBattle(ca, bad).error, JSON.stringify(bad));
+  assert.ok(g.simBattle(ca, { units: { 204: 1e12 }, def: { race: 'elves', units: { 265: 'abc' }, wall: 99, defK: 1e9 } }).ok, 'числа обрезаются');
+  if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
+  console.log(`✓ Симулятор боя: данные из разведки (раса, войска, Забор, бонус защиты, генерал), исход как в настоящем бою (атака ${S1.ap}, защита ${S1.dp}), в игре ничего не меняется`);
+}
 { // лагеря разбойников: набег втрое быстрее (туда и обратно), на игроков — как было
   const R = g.register({ login: 'campRunner', password: '12345', race: 0 }).user, rc = g.castleOf(R); g.mil(rc);
   const camp = g.provNpc(require('../src/game').provinceOf(rc.x, rc.y).n).find((o) => [30, 31, 32].includes(o.img)); // лагеря своей провинции

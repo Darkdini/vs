@@ -1345,14 +1345,14 @@ function install(Game, helpers) {
     let genA = 0, cmd = 0; if (a.general && c.general && !c.general.dead) { const gs = this.genStats(c.general); genA = gs.atk; cmd = gs.catk; }
     // умения и снаряжение генерала (hero.js): у нападающего — если генерал в этой армии, у защитника — если генерал дома
     const hA = a.general && c.general && !c.general.dead ? this.heroBonus(c.general) : null;
-    const hD = target && target.general && !target.general.dead && !target.general.away ? this.heroBonus(target.general) : null;
+    const hD = target && target.sim ? target.sim.hero : target && target.general && !target.general.dead && !target.general.away ? this.heroBonus(target.general) : null; // target.sim — замок симулятора (simBattle)
     const hAtk = hA ? 1 + hA.atk + (a.mission === 'attack' ? hA.fury : 0) : 1;
     const kA = bA.atk * (1 + cmd) * hAtk * morale * (1 + luck / 100), kmA = bA.magic * bA.atk * (hA ? 1 + hA.mag : 1) * morale * (1 + luck / 100);
     // защитники: Замковая армия и отряды (свои), подкрепления (со своей Кузницей), генерал; у NPC — охрана лагеря
     let D = [], bD = null, wallL = 0, wall0 = 0;
     const siege = []; let siegeN = 0;
     if (target) {
-      bD = this.bonus(target); wall0 = wallL = bD.wall;
+      bD = target.sim ? target.sim.bonus : this.bonus(target); wall0 = wallL = bD.wall;
       // тараны: урон по стене (со скринов) до боя
       let ram = Object.entries(a.units).reduce((q, [id, n]) => q + ((UNIT[id] && UNIT[id].wallDmg) || 0) * n, 0);
       if (hA) ram *= 1 + hA.ram;
@@ -1377,7 +1377,7 @@ function install(Game, helpers) {
     const magFloor = nb ? 0.75 : 0.5;
     const defOf = (s) => { const pd = (s.def + (s.defC ?? s.def)) / 2, k = s.gb ? s.gb.def * wallK * home : dK, mk = s.gb ? s.gb.def * s.gb.magic * wallK * home : mdK;
       return (s.def * pi + (s.defC ?? s.def) * pc) * k + Math.max(s.mdef, pd * magFloor) * pm * mk; };
-    const genDef = target && target.general && !target.general.dead && !target.general.away ? this.genStats(target.general).def * dK : 0;
+    const genDef = target && target.sim ? target.sim.genDef * dK : target && target.general && !target.general.dead && !target.general.away ? this.genStats(target.general).def * dK : 0;
     const DBASE = bD ? 10 * wallK : 0; // пустой замок: только забор
     const isCamp = !target && npc && [30, 31, 32, 24].some((k) => NPC[k] === npc); // лагеря и руины (не логова «Тёмных земель»)
     // лагеря и руины (с 22.10): охрана крепнет вместе с бонусами атаки нападающего — Кузница, науки, ранг, генерал, снаряжение.
@@ -1904,6 +1904,7 @@ function install(Game, helpers) {
     const lost = applyLoss(a.units, lossFrac);
     const alive = Object.values(a.units).some((n) => n > 0);
     const where = `${a.x}:${a.y}`;
+    let sim = null; // данные для симулятора боя (кнопка «В симулятор» в отчёте)
     const lines = [`Разведка ${target ? target.name : where}. Потери: ${unitsLine(a.units, lost)}`];
     if (!alive) lines.push('Разведчики не вернулись.');
     else if (target && this.spyShield(this.ownerOf(target))) {
@@ -1913,22 +1914,29 @@ function install(Game, helpers) {
       const alivePart = Object.values(a.units).reduce((s, n) => s + n, 0) / sent;
       const can = (k) => lvl >= SPY_OPEN[k].level && alivePart > SPY_OPEN[k].survive;
       lines.push(`Выжило разведчиков: ${Math.round(alivePart * 100)}%. Центр разведки ${lvl} ур.`);
+      sim = { uid: target.owner, race: this.raceOf(target) }; // для симулятора боя — только то, что разведчики увидели
       if (can('armies')) {
+        sim.units = mergeUnits([target.units, ...target.squads.map((q) => q.units)]);
+        const g = target.general; if (g && !g.dead && !g.away) { const hb = this.heroBonus(g); sim.gen = { level: g.level, def: this.genStats(g).def, hdef: hb.def, hwall: hb.wall }; }
         lines.push(`Армии в замке: ${unitsLine(mergeUnits([target.units, ...target.squads.map((q) => q.units)]))}`);
         if (target.general && !target.general.dead) lines.push(`Генерал ${target.general.level} ур.`);
       }
+      if (can('res')) sim.res = Object.fromEntries(RES4.map((r) => [r, Math.floor(target.res[r])]));
       if (can('res')) lines.push(`Ресурсы: дерево ${Math.floor(target.res.wood)}, камень ${Math.floor(target.res.stone)}, железо ${Math.floor(target.res.iron)}, еда ${Math.floor(target.res.food)}`);
       if (can('build')) {
         const list = []; target.grid[0].forEach((id, i) => { if (id >= 0 && target.levels[0][i]) list.push(`${C.BY_ID[id].name} ${target.levels[0][i]}`); });
         lines.push(`Здания: ${list.join(', ') || '—'}. Забор ${b.wall} ур., Тайник прячет ${b.hidden}.`);
+        Object.assign(sim, { wall: b.wall, wallPer: b.wallPer, defK: b.def, magK: b.magic, hidden: b.hidden });
+        sim.forge = Object.fromEntries(Object.entries(target.forge || {}).filter(([, f]) => f && (f.d || f.md)).map(([id, f]) => [id, { d: f.d || 0, md: f.md || 0 }])); // Кузница и Школа магии: защита воинов
       }
       if (can('riot')) lines.push(`Бунт в замке: ${Math.round(100 - (target.loyalty ?? 100))}%${this.isCapital(target) ? ' (столица — захватить нельзя)' : ''}`);
-      if (can('reinf')) { const g = this.guestsOf(target); lines.push(`Подкрепления: ${g.length ? g.map((x) => `${this.ownerOf(x.c).login}: ${unitsLine(x.a.units)}`).join('; ') : 'нет'}`); }
+      if (can('reinf')) { const g = this.guestsOf(target); sim.reinf = mergeUnits(g.map((x) => x.a.units)); lines.push(`Подкрепления: ${g.length ? g.map((x) => `${this.ownerOf(x.c).login}: ${unitsLine(x.a.units)}`).join('; ') : 'нет'}`); }
       const hidden = Object.keys(SPY_OPEN).filter((k) => !can(k)).map((k) => SPY_OPEN[k].name);
       if (hidden.length) lines.push(`Не удалось узнать: ${hidden.join(', ')}.`);
     } else {
       const obj = this.worldObjects(a.x, a.y, 1, 1)[0];
       const npc = obj && NPC[obj.img];
+      if (npc) sim = { npc: obj.img };
       lines.push(npc ? `${npc.name}: охрана ~${npc.def.inf}, запас ${RES4.map((r) => npc.loot[r]).join('/')}` : 'Здесь пусто.');
       if (npc && npc.ruins) lines.push(`Бунт в руинах: ${Math.round(100 - (((this.db.npc || {})[where] || {}).loyalty ?? 100))}% — захват нападением с Бунтарями (+${RIOT_STEP}% за победу, при 100% руины ваши).`);
     }
@@ -1936,10 +1944,57 @@ function install(Game, helpers) {
     const sdata = { type: 'scout', ok: alive, x: a.x, y: a.y,
       att: { id: me.id, login: me.login, castle: c.name, cx: c.x, cy: c.y, rating: this.rating(c), sent, lost: Object.values(lost).reduce((q, n) => q + n, 0) },
       def: target ? { id: tu.id, login: tu.login, castle: target.name, rating: this.rating(target) } : { npc: ((NPC[(this.worldObjects(a.x, a.y, 1, 1)[0] || {}).img] || {}).name) || 'Пустошь' },
-      info: lines.slice(1) };
+      info: lines.slice(1), sim: alive ? sim : null };
     this.report(c.owner, `Разведка ${target ? target.name : where}${alive ? '' : ' — провал'}`, lines, 'scout', sdata);
     if (target && lossFrac > 0) this.report(target.owner, 'Замечены вражеские разведчики', [`Разведчики игрока ${this.ownerOf(c).login} у вашего замка. Уничтожено: ${Math.round(lossFrac * 100)}%.`], 'scout');
     this.goBack(c, a, t);
+  };
+
+  // ----- симулятор боя (кнопка «В симулятор» в отчёте разведки) -----
+  // Бой считается той же формулой (clash), но на копии своего замка и на «замке-симуляции» из данных разведки: войска не гибнут,
+  // ресурсы не тратятся, удача 0. Своё (армия, генерал, Кузница, науки, ранг, артефакты) — настоящее; у противника — то, что передал
+  // клиент (по умолчанию — из разведки). p = { units, general, mission, def: { npc } | { race, uid, units, reinf, wall, wallPer, defK, magK, gen, res, hidden } }
+  P.simBattle = function simBattle(c, p = {}) {
+    this.tick(c); this.mil(c);
+    const num = (v, lo, hi, d) => { v = Number(v); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d; };
+    const clean = (o) => {
+      const r = {};
+      if (o && typeof o === 'object' && !Array.isArray(o)) for (const [id, n0] of Object.entries(o)) { const n = Math.floor(num(n0, 0, 1e7, 0)); if (n > 0 && Object.prototype.hasOwnProperty.call(UNIT, id) && Number(id) !== GENERAL_ID) r[id] = n; }
+      return r;
+    };
+    const units = clean(p.units); if (!Object.keys(units).length) return { error: 'Укажите, какие войска отправить.' };
+    const mission = p.mission === 'raid' ? 'raid' : 'attack', d = p.def && typeof p.def === 'object' ? p.def : {};
+    const A = structuredClone(c), general = !!(p.general && A.general && !A.general.dead && !A.general.away);
+    let D = null, npc = null;
+    if (d.npc !== undefined && d.npc !== null) { npc = [30, 31, 32, 24].includes(Number(d.npc)) ? NPC[Number(d.npc)] : null; if (!npc) return { error: 'Такого лагеря нет.' }; }
+    else {
+      const race = ['humans', 'elves', 'dwarves', 'orcs'].includes(d.race) ? d.race : 'humans', wall = Math.round(num(d.wall, 0, 20, 0)), g = d.gen && typeof d.gen === 'object' ? d.gen : null;
+      const uid = Number(d.uid) !== c.owner && this.userById(Number(d.uid)) ? Number(d.uid) : 0; // настоящий противник — для боевого духа (сильный бьёт слабого хуже)
+      const forge = {}; if (d.forge && typeof d.forge === 'object') for (const [id, f] of Object.entries(d.forge)) if (Object.prototype.hasOwnProperty.call(UNIT, id) && f && typeof f === 'object') forge[id] = { d: Math.round(num(f.d, 0, 100, 0)), md: Math.round(num(f.md, 0, 100, 0)) };
+      D = { id: -1, owner: uid, name: 'Симулятор', units: mergeUnits([clean(d.units), clean(d.reinf)]), squads: [], general: null, wall, armies: [], forge,
+        grid: [new Int8Array(49).fill(-1), new Int8Array(225).fill(-1)], levels: [new Int8Array(49), new Int8Array(225)],
+        sim: { bonus: { def: num(d.defK, 1, 5, 1), magic: num(d.magK, 1, 3, 1), wall, wallPer: num(d.wallPer, 0, 0.2, { humans: 0.03, elves: 0.035, dwarves: 0.02, orcs: 0.025 }[race]) },
+          genDef: g ? num(g.def, 0, 1e5, 0) : 0, hero: g ? { def: num(g.hdef, 0, 2, 0), wall: num(g.hwall, 0, 2, 0) } : null } };
+      if (!Object.keys(D.units).length && !wall && !g) return { error: 'Укажите войска противника или уровень Забора.' };
+    }
+    const luck0 = process.env.LUCK; process.env.LUCK = '0';
+    let R; const a = { units: { ...units }, mission, general }, d0 = D ? { ...D.units } : null; // d0 — войска противника до боя (clash вычитает павших)
+    try { R = this.clash(A, a, D, npc, Date.now()); } finally { if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0; }
+    const costOf = (id) => Object.values(UNIT[id].cost || {}).reduce((q, v) => q + v, 0);
+    const att = Object.entries(units).map(([id, n]) => ({ id: Number(id), was: n, lost: R.aLost[id] || 0, wounded: R.aWnd[id] || 0 }));
+    const def = npc ? (R.garrison || []).map((x) => ({ name: x.name, was: x.n, lost: x.lost }))
+      : Object.entries(d0).map(([id, n]) => ({ id: Number(id), was: n, lost: R.dLost[id] || 0 }));
+    let carry = R.win ? Object.entries(a.units).reduce((q, [id, n]) => q + (UNIT[id].carry || 0) * n, 0) : 0;
+    if (carry && general) carry = Math.floor(carry * (1 + this.heroBonus(A.general).loot));
+    // цена потерь: погибшие — по цене тренировки, раненые — по цене лечения в Лазарете
+    const lossCost = att.reduce((q, x) => q + (x.lost - x.wounded) * costOf(x.id) + x.wounded * costOf(x.id) * HEAL_K, 0);
+    const res = d.res && typeof d.res === 'object' ? d.res : null, hid = Math.floor(num(d.hidden, 0, 1e9, 0));
+    const stock = npc ? RES4.reduce((q, r) => q + npc.loot[r], 0) : res ? RES4.reduce((q, r) => q + Math.max(0, Math.floor(num(res[r], 0, 1e9, 0)) - hid), 0) : null;
+    const loot = stock === null ? null : Math.min(carry, stock);
+    return { ok: true, win: R.win, mission, ap: R.calc.att.total, dp: R.calc.def.total, morale: R.calc.morale, att, def, npc: npc ? npc.name : null,
+      wall: R.calc.def.wall0, wallTo: R.calc.def.wall < R.calc.def.wall0 ? R.calc.def.wall : null, wounded: R.calc.wounded, // wallTo — Забор в бою после таранов
+      carry, stock, loot, lossCost: Math.round(lossCost),
+      profit: loot === null ? null : Math.round(loot - lossCost), general };
   };
 
   // экспедиция археологов в руины
