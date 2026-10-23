@@ -872,8 +872,9 @@ function giftsWin() {
     <div class="center bwline gnew"><a class="${S.giftNew ? 'plink' : 'gsel'}" data-gnew="0">Все</a> <a class="${S.giftNew ? 'gsel' : 'plink'}" data-gnew="1">Новые</a></div>
     <div class="pager"><button data-gpg="0" ${pg ? '' : 'disabled'}>◀◀</button><button data-gpg="${pg - 1}" ${pg ? '' : 'disabled'}>◀</button><span>${pg + 1} / ${pages}</span><button data-gpg="${pg + 1}" ${pg < pages - 1 ? '' : 'disabled'}>▶</button><button data-gpg="${pages - 1}" ${pg < pages - 1 ? '' : 'disabled'}>▶▶</button></div>
     <div class="bwline center">Кому: <b>${esc(p.login)}</b> · ${S.giftAlly ? `из казны альянса ${gimg('coins_s.png', 'ri')} ${fmtFull((S.ally || {}).treasury || 0)}` : `у вас ${gimg('coins_s.png', 'ri')} ${fmtFull(S.st.user.gold || 0)}`}</div>
-    ${show.length ? show.map(([id, g]) => `<div class="giftrow"><img src="${GFX}${g.img}" alt="">
-      ${g.premium ? '<div class="gprem">Премиум подарок</div>' : ''}
+    ${show.length ? show.map(([id, g], i) => `${!i || !!show[i - 1][1].premium !== !!g.premium ? (g.premium ? `<div class="ribbon gsec prem">👑 Премиум подарки</div><p class="small center gsecnote">Уникальные — дарить можно только с премиумом</p>` : '<div class="ribbon gsec">Подарки</div>') : ''}
+      <div class="giftrow ${g.premium ? 'prem' : ''}"><img src="${GFX}${g.img}" alt="">
+      ${g.premium ? `<div class="gprem">${gimg('premium_crown.png', 'ri')} Премиум подарок</div>` : ''}
       <div class="bwline center">${esc(g.name)} ( ${gimg('coins_s.png', 'ri')} ${g.gold})</div>
       ${g.premium && !isPrem() ? '<div class="center bwline muted">🔒 Уникальный подарок — дарить можно с премиумом</div>' : `<div class="center bwline">🎁 <a class="plink" data-giftsend="${id}">Отправить</a> игроку!</div>`}</div>`).join('') : '<p class="parch-note">В этом разделе пока нет подарков.</p>'}`;
 }
