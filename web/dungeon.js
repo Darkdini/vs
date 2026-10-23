@@ -126,15 +126,13 @@ const dgRow = (u, val, cap) => `<div class="simrow my"><img src="${unitSrc(u)}" 
 function dungCampWin() {
   const s = S.dg, d = s && s.data, c = d && d.camps.find((q) => q.id === s.sel);
   if (!c) return `${ribbon('Лагерь')}<p class="parch-note">Этого лагеря больше нет — его раскопали. Новый появится в другом месте.</p>`;
-  const k = d.kinds[c.l], o = c.o, arch = s.units[DG_ARCH] || 0; // что можно найти — секрет: узнают только из находок
+  const k = d.kinds[c.l], o = c.o; // что можно найти, шанс и потери — секрет: узнают только из отчётов
   const info = `<div class="dginfo"><img src="${DG}camp${c.l}.png" alt=""><div>
     <div>Сложность: <b>${c.l} из 5</b></div>
     <div>Путь: <b>${fmtT(k.go)}</b> · раскопки: <b>${fmtT(k.dig)}</b></div>
     <div>Охрана лагеря: нужно больше <b>${fmtFull(k.guard)}</b> Стражей</div>
-    <div>Шанс находки: <b>${Math.min(k.cap, Math.round(k.k * Math.sqrt(Math.min(1, arch / k.limit)) + k.camp))}%</b> <small>(чем больше археологов, тем выше; больше всего — с полным отрядом из ${fmtFull(k.limit)})</small></div>
-    <div class="small">В обвалах и ловушках гибнет часть археологов — сколько, узнаете из отчёта.</div>
     ${d.exp < k.lvl ? `<div class="bad">Нужна Экспедиция ${k.lvl} ур.</div>` : ''}</div></div>
-    <p class="small muted center">Что скрыто в лагере — тайна. Чем выше сложность, тем ценнее находки.</p>`;
+    <p class="small muted center">Что скрыто в лагере — тайна. Удача любит тех, кто не жалеет археологов… но подземелье не щадит никого.</p>`;
   const U = (id) => unitById(id);
   let body;
   if (o && o.me) body = `<div class="dgstat me">Здесь ваш отряд: ${dgState(o)}<div class="dgunits">${dgUnitsLine(o.units)}</div></div>

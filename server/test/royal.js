@@ -963,7 +963,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   Math.random = () => 0.01; a.digEnd = Date.now() - 1; g.tickWorld(); Math.random = R0;
   const rep = g.db.reports.filter((r) => r.owner === ua.id).slice(-1)[0];
   assert.ok(a.state === 'found' && a.find && a.find.type === 'cloak' && (a.units[230] || 0) < arch && /нашли «Покров Безмолвия»/.test(rep.title) && rep.lines.some((l) => l.includes(`из ${arch}`)), 'нашли «Покров Безмолвия», археологи погибли — в отчёте');
-  { const k = g.dungView(ca, ua).kinds[1]; assert.ok(k.die === undefined && k.finds === undefined && g.dungChance(ca, 1, 1) < 0.2 && g.dungChance(ca, 1, 100) >= 0.65 && g.dungChance(ca, 5, 500) <= 0.75, 'доля гибели и что можно найти скрыты; шанс — от числа археологов (один «для галочки» — почти ноль)'); }
+  { const k = g.dungView(ca, ua).kinds[1]; assert.ok(k.die === undefined && k.finds === undefined && k.k === undefined && k.cap === undefined && g.dungChance(ca, 1, 1) < 0.2 && g.dungChance(ca, 1, 100) >= 0.65 && g.dungChance(ca, 5, 500) <= 0.75, 'доля гибели и что можно найти скрыты; шанс — от числа археологов (один «для галочки» — почти ноль)'); }
   const v = g.dungView(cb, ub).camps.find((q) => q.id === camp.id);
   assert.ok(v.o && v.o.login === 'dungA' && v.o.s === 'found' && !v.o.me && !v.o.find, 'другой видит, кто копает, но не что нашли');
   ub.devs = [{ dev: 'phone1' }]; ua.devs = [{ dev: 'phone1' }]; cb.units = { 231: 150, 200: 1000 };
