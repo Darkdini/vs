@@ -41,7 +41,7 @@ function simWin() {
         <label>Защита, +%<input class="rgin" type="number" inputmode="numeric" min="0" max="400" value="${Math.round((s.defK - 1) * 100)}" data-simdef></label>
       </div>
       ${note(`${s.known.wall ? 'Забор и бонус защиты (науки, ранг, артефакты, генерал) — по разведке.' : `Постройки разведчики не увидели — Забор и бонус защиты впишите сами${s.rank ? ' (боевой ранг противника уже учтён)' : ''}.`}`)}
-      ${s.rank ? `<div class="simgen">⚔ Боевой ранг противника: <b>${s.rank.idx + 1}. ${esc(s.rank.title)}</b> — +${Math.round(s.rank.def * 1000) / 10}% к защите</div>` : ''}
+      ${s.rank ? `<div class="simgen">⚔ Боевой ранг противника: <b>${s.rank.idx + 1}. ${esc(s.rank.title)}</b> — +${String(Math.round(s.rank.def * 1000) / 10).replace('.', ',')}% к защите</div>` : ''}
       ${s.gen ? `<div class="simgen">${gimg(`units/${HD_DIR[s.race] || 'human/hd'}/general.png`, 'ric')} Генерал противника ${fmtFull(s.gen.level)} ур. — дома, защищает замок</div>` : ''}`;
   }
   const have = simHave(), g = MY().general, gOk = g && !g.dead && !g.away;
@@ -69,7 +69,8 @@ function simResHtml() {
       : `<div class="simline">Воины унесут до <b>${fmtFull(r.carry)}</b> ресурсов (сколько их в замке — разведка не узнала).</div>`) : '';
   return `<div class="simres ${r.win ? 'win' : 'lose'}">
       <div class="simverdict">${r.win ? '⚔ Победа атаки' : '🛡 Поражение атаки'}</div>
-      <div class="simline">Бонусы в расчёте: атака <b>+${r.atkPct}%</b>${r.myRank ? ` (в т. ч. ваш боевой ранг +${r.myRank}%)` : ''}${r.npc ? '' : `, защита <b>+${r.defPct}%</b>`}</div>
+      <div class="simline">Бонусы в расчёте: атака <b>+${r.atkPct}%</b>${r.myRank ? ` (в т. ч. ваш боевой ранг +${String(r.myRank).replace('.', ',')}%)` : ''}${r.npc ? '' : `, защита <b>+${r.defPct}%</b>`}</div>
+      ${r.genGain !== null ? `<div class="simline">${r.general ? `Генерал ${fmtFull(r.genLevel)} ур. в армии: <b>+${String(r.genGain).replace('.', ',')}%</b> к силе атаки` : `Без генерала. С генералом ${fmtFull(r.genLevel)} ур. сила атаки была бы <b>+${String(r.genGain).replace('.', ',')}%</b> — отметьте его выше`}${r.genGain < 2 ? ' (мало: распределите очки генерала в атаку и командование)' : ''}.</div>` : ''}
       <div class="simline">Сила атаки <b>${fmtFull(r.ap)}</b> · защиты <b>${fmtFull(r.dp)}</b> — ${r.ap >= r.dp ? 'атака' : 'защита'} сильнее в <b>${kk}</b> раза</div>
       ${r.wallTo !== null ? `<div class="simline">Тараны: Забор ${r.wall} → <b>${r.wallTo}</b> ур.${r.win ? '' : ' (в бою; сломан останется, только если атака победит)'}</div>` : ''}
       ${r.morale < 100 ? `<div class="simline">Боевой дух ${r.morale}% — противник намного слабее вас, атака бьёт хуже.</div>` : ''}

@@ -1668,6 +1668,13 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(real.win === S1.win && Math.abs(real.calc.att.total - S1.ap) <= 1 && Math.abs(real.calc.def.total - S1.dp) <= 2 && sum(real.aLost) === S1.att.reduce((q, x) => q + x.lost, 0),
     `симулятор = настоящий бой: атака ${S1.ap}/${real.calc.att.total}, защита ${S1.dp}/${real.calc.def.total}`);
   assert.ok(S1.wallTo !== null && S1.wallTo < S1.wall, 'тараны ломают Забор и в симуляторе');
+  const G1 = g.simBattle(ca, { units: army, general: false, mission: 'attack', def: sim });
+  assert.ok(S1.genGain > 0 && G1.genGain === S1.genGain && G1.ap < S1.ap && S1.genLevel === ca.general.level, `генерал: +${S1.genGain}% к атаке — видно и с ним, и без него`);
+  // Кузница и Школа магии — без Бунтаря, Путешественника, Катапульты, Тарана; их улучшения в бою не действуют
+  const fl = g.forgeUnits(ca).map((u) => u.id), ml = g.magicUnits(ca).map((u) => u.id);
+  assert.ok([224, 233, 240, 243].every((id) => !fl.includes(id) && !ml.includes(id)) && fl.length && ml.length, 'общие воины не улучшаются');
+  ca.forge[243] = { a: 50, d: 50 }; const S3 = g.simBattle(ca, { units: { 243: 100, 204: 50 }, def: sim }); delete ca.forge[243]; const S4 = g.simBattle(ca, { units: { 243: 100, 204: 50 }, def: sim });
+  assert.strictEqual(S3.ap, S4.ap, 'старые улучшения Тарана в бою не действуют');
   // лагерь: та же охрана, что в бою
   const C3 = AR.NPC[32], S2 = g.simBattle(ca, { units: { 204: 200, 263: 150, 264: 150 }, mission: 'attack', def: { npc: 32 } }), R2 = g.clash(structuredClone(ca), { units: { 204: 200, 263: 150, 264: 150 }, mission: 'attack', general: false }, null, C3, Date.now());
   assert.ok(S2.ok && S2.win === R2.win && S2.dp === R2.calc.def.total && S2.stock === 40000 && typeof S2.profit === 'number', 'лагерь в симуляторе — как в бою, с прибылью: ' + JSON.stringify([S2.error, S2.win, R2.win, S2.dp, R2.calc.def.total, S2.stock, S2.profit]));

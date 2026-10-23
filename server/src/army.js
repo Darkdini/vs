@@ -765,8 +765,9 @@ function install(Game, helpers) {
 
   // ----- Кузница: улучшение атаки/защиты каждого юнита (+1 к базовому параметру за уровень, до уровня Кузнеца) -----
   P.forgeLvl = function forgeLvl(castle, id, kind) { const f = castle.forge && castle.forge[id]; return f ? f[kind] || 0 : 0; };
+  // Кузница и Школа магии — только воины рас; Бунтарь, Путешественник, Катапульта и Таран (общие) — без улучшений (с 23.10)
   P.forgeUnits = function forgeUnits(castle) {
-    return unitsForRace(this.raceOf(castle)).filter((u) => (u.race !== 'all' || ['catapult', 'ram'].includes(u.role)) && u.id !== GENERAL_ID && !u.quest && (!u.retired || (castle.units[u.id] || 0) > 0)); // старых — только если они есть в замке
+    return unitsForRace(this.raceOf(castle)).filter((u) => u.race !== 'all' && u.id !== GENERAL_ID && !u.quest && (!u.retired || (castle.units[u.id] || 0) > 0)); // старых — только если они есть в замке
   };
   // Кузница и Школа магии — как в оригинале. Уровень параметра показывается с 1 (без улучшений — 1), каждое улучшение +1 к базе.
   // Стоимость улучшения до уровня T (показываемого) = цена юнита × c·g^T, люди — население юнита × тот же множитель × 0,97,
@@ -775,7 +776,7 @@ function install(Game, helpers) {
     const f = UP[kind].c * UP[kind].g ** T;
     return { cost: Object.fromEntries(RES4.map((r) => [r, Math.min(UP_CAP, Math.round((u.refCost || u.cost)[r] * f))])), people: Math.round(u.pop * f * 0.97), sec: Math.max(5, Math.round((T + 2) * 1800 / SPEED)) };
   };
-  P.magicUnits = function magicUnits(castle) { return unitsForRace(this.raceOf(castle)).filter((u) => u.magic > 0 && u.id !== GENERAL_ID && !u.quest && (!u.retired || (castle.units[u.id] || 0) > 0)); };
+  P.magicUnits = function magicUnits(castle) { return unitsForRace(this.raceOf(castle)).filter((u) => u.magic > 0 && u.race !== 'all' && u.id !== GENERAL_ID && !u.quest && (!u.retired || (castle.units[u.id] || 0) > 0)); };
   P.upgradeOp = function upgradeOp(castle, { unit, kind }) {
     this.tick(castle); this.mil(castle);
     const up = UP[kind]; if (!up) return { error: 'Неверный параметр.' };
@@ -1338,7 +1339,7 @@ function install(Game, helpers) {
     const defUser = target && this.ownerOf(target);
     if (defUser && att && defUser.id !== att.id) { const aR = this.userRating(att), dR = Math.max(1, this.userRating(defUser)); if (aR > dR) morale = Math.max(0.5, (dR / aR) ** 0.3); }
     const stack = (m, id, n, own, castle, extra) => { const u = UNIT[id]; if (!u || !n) return null; const cap = nb ? forgeCaps(u) : null;
-      const f = (k) => { const v = castle ? this.forgeLvl(castle, id, k) : 0; return cap ? Math.min(v, cap[k]) : v; }; // новые правила: Кузница — не больше половины базы
+      const f = (k) => { const v = castle && u.race !== 'all' ? this.forgeLvl(castle, id, k) : 0; return cap ? Math.min(v, cap[k]) : v; }; // новые правила: Кузница — не больше половины базы; общие воины (Бунтарь, Путешественник, Катапульта, Таран) — без улучшений
       return { m, id, n, own, hp: u.hp || 50, atk: u.attack ? u.attack + f('a') : 0, cav: u.type === 'cavalry', mag: u.magic ? u.magic + f('m') : 0, def: (u.def ? u.def.inf : 0) + f('d'), defC: (u.def ? u.def.cav : 0) + f('d'), mdef: (u.def ? u.def.mag : 0) + f('md'), ...extra }; };
     // нападающие
     const A = Object.entries(a.units).map(([id, n]) => stack(a.units, id, n, false, c)).filter(Boolean);
@@ -1464,7 +1465,7 @@ function install(Game, helpers) {
     const defUser = target && this.ownerOf(target);
     if (defUser && att && defUser.id !== att.id) { const aR = this.userRating(att), dR = Math.max(1, this.userRating(defUser)); if (aR > dR) morale = Math.max(0.5, (dR / aR) ** 0.3); }
     const stack = (m, id, n, own, castle, extra) => { const u = UNIT[id]; if (!u || !n) return null; const cap = nb ? forgeCaps(u) : null;
-      const f = (k) => { const v = castle ? this.forgeLvl(castle, id, k) : 0; return cap ? Math.min(v, cap[k]) : v; }; // новые правила: Кузница — не больше половины базы
+      const f = (k) => { const v = castle && u.race !== 'all' ? this.forgeLvl(castle, id, k) : 0; return cap ? Math.min(v, cap[k]) : v; }; // новые правила: Кузница — не больше половины базы; общие воины (Бунтарь, Путешественник, Катапульта, Таран) — без улучшений
       return { m, id, n, own, hp: u.hp || 50, atk: u.attack ? u.attack + f('a') : 0, cav: u.type === 'cavalry', mag: u.magic ? u.magic + f('m') : 0, def: (u.def ? u.def.inf : 0) + f('d'), defC: (u.def ? u.def.cav : 0) + f('d'), mdef: (u.def ? u.def.mag : 0) + f('md'), row: ROW[u.type] || 1, ...extra }; };
     // генерал в строю: принимает часть удара своей личной защитой и здоровьем (гибель генерала решается отдельно — после боя)
     const genStack = (g) => { const gs = this.genStats(g), u = UNIT[GENERAL_ID]; return { m: null, gen: true, id: GENERAL_ID, n: 1, own: false, hp: u.hp, atk: 0, mag: 0, def: gs.def, defC: gs.def, mdef: u.def.mag, row: 1 }; };
@@ -1966,20 +1967,27 @@ function install(Game, helpers) {
     const units = clean(p.units); if (!Object.keys(units).length) return { error: 'Укажите, какие войска отправить.' };
     const mission = p.mission === 'raid' ? 'raid' : 'attack', d = p.def && typeof p.def === 'object' ? p.def : {};
     const A = structuredClone(c), general = !!(p.general && A.general && !A.general.dead && !A.general.away);
-    let D = null, npc = null;
+    let D = null, npc = null, mkD = null; // mkD — новый «замок-симуляция» (бой вычитает павших)
     if (d.npc !== undefined && d.npc !== null) { npc = [30, 31, 32, 24].includes(Number(d.npc)) ? NPC[Number(d.npc)] : null; if (!npc) return { error: 'Такого лагеря нет.' }; }
     else {
       const race = ['humans', 'elves', 'dwarves', 'orcs'].includes(d.race) ? d.race : 'humans', wall = Math.round(num(d.wall, 0, 20, 0)), g = d.gen && typeof d.gen === 'object' ? d.gen : null;
       const uid = Number(d.uid) !== c.owner && this.userById(Number(d.uid)) ? Number(d.uid) : 0; // настоящий противник — для боевого духа (сильный бьёт слабого хуже)
       const forge = {}; if (d.forge && typeof d.forge === 'object') for (const [id, f] of Object.entries(d.forge)) if (Object.prototype.hasOwnProperty.call(UNIT, id) && f && typeof f === 'object') forge[id] = { d: Math.round(num(f.d, 0, 100, 0)), md: Math.round(num(f.md, 0, 100, 0)) };
-      D = { id: -1, owner: uid, name: 'Симулятор', units: mergeUnits([clean(d.units), clean(d.reinf)]), squads: [], general: null, wall, armies: [], forge,
+      mkD = () => ({ id: -1, owner: uid, name: 'Симулятор', units: mergeUnits([clean(d.units), clean(d.reinf)]), squads: [], general: null, wall, armies: [], forge,
         grid: [new Int8Array(49).fill(-1), new Int8Array(225).fill(-1)], levels: [new Int8Array(49), new Int8Array(225)],
         sim: { bonus: { def: num(d.defK, 1, 5, 1), magic: num(d.magK, 1, 3, 1), wall, wallPer: num(d.wallPer, 0, 0.2, { humans: 0.03, elves: 0.035, dwarves: 0.02, orcs: 0.025 }[race]) },
-          genDef: g ? num(g.def, 0, 1e5, 0) : 0, hero: g ? { def: num(g.hdef, 0, 2, 0), wall: num(g.hwall, 0, 2, 0) } : null } };
+          genDef: g ? num(g.def, 0, 1e5, 0) : 0, hero: g ? { def: num(g.hdef, 0, 2, 0), wall: num(g.hwall, 0, 2, 0) } : null } });
+      D = mkD();
     }
     const luck0 = process.env.LUCK; process.env.LUCK = '0';
     let R; const a = { units: { ...units }, mission, general }, d0 = D ? { ...D.units } : null; // d0 — войска противника до боя (clash вычитает павших)
-    try { R = this.clash(A, a, D, npc, Date.now()); } finally { if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0; }
+    // генерал: сколько силы атаки он добавляет — тот же бой с генералом и без (у кого генерал дома)
+    const genOk = !!(A.general && !A.general.dead && !A.general.away);
+    let genGain = null;
+    try {
+      R = this.clash(A, a, D, npc, Date.now());
+      if (genOk) { const R2 = this.clash(structuredClone(c), { units: { ...units }, mission, general: !general }, mkD ? mkD() : null, npc, Date.now()); const w = general ? R.calc.att.total : R2.calc.att.total, wo = general ? R2.calc.att.total : R.calc.att.total; genGain = wo ? Math.round((w / wo - 1) * 1000) / 10 : 0; }
+    } finally { if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0; }
     const costOf = (id) => Object.values(UNIT[id].cost || {}).reduce((q, v) => q + v, 0);
     const att = Object.entries(units).map(([id, n]) => ({ id: Number(id), was: n, lost: R.aLost[id] || 0, wounded: R.aWnd[id] || 0 }));
     const def = npc ? (R.garrison || []).map((x) => ({ name: x.name, was: x.n, lost: x.lost }))
@@ -1995,7 +2003,7 @@ function install(Game, helpers) {
       atkPct: R.calc.att.bonusPct, defPct: R.calc.def.bonusPct, myRank: this.brBonus ? Math.round(this.brBonus(this.ownerOf(c)).atk * 1000) / 10 : 0, // бонусы в расчёте (ранг — в них)
       wall: R.calc.def.wall0, wallTo: R.calc.def.wall < R.calc.def.wall0 ? R.calc.def.wall : null, wounded: R.calc.wounded, // wallTo — Забор в бою после таранов
       carry, stock, loot, lossCost: Math.round(lossCost),
-      profit: loot === null ? null : Math.round(loot - lossCost), general };
+      profit: loot === null ? null : Math.round(loot - lossCost), general, genGain, genLevel: genOk ? A.general.level : null };
   };
 
   // экспедиция археологов в руины

@@ -360,7 +360,7 @@ function client() {
     // ---- Кузница: улучшение атаки/защиты юнита, +1 к базе за уровень ----
     adm.send({ t: 'admin', op: 'max' });
     let fs0 = (await adm.expect('state', (m) => m.castle.mil.forge && m.castle.mil.forge[200] && m.castle.mil.forge[200].a === 19)).castle.mil;
-    assert.ok(fs0.forgeUnits.includes(240));
+    assert.ok(!fs0.forgeUnits.includes(240) && !fs0.forgeUnits.includes(243) && !fs0.magicUnits.includes(233)); // Катапульта, Таран, Бунтарь — без улучшений (с 23.10)
     adm.send({ t: 'forge', unit: 200, kind: 'a' });
     await adm.expect('error', (m) => /Достигнут максимальный/.test(m.msg));
     adm.send({ t: 'forge', unit: 221, kind: 'a' });
