@@ -250,7 +250,7 @@ function playerCard(p) {
 // открывается из карточки игрока (весь аккаунт или замок) и с карты мира (окно «Замок» — у админа плитка «Осмотр»)
 function openInspect(arg) { S.adm.insp = null; S.adm.inspArg = arg; send({ t: 'admin', op: 'inspect', ...arg }); openSheet(admInspectWin); }
 const INSP_MIS = { attack: 'Нападение', raid: 'Набег', scout: 'Разведка', trade: 'Торговля', reinforce: 'Подкрепление', expedition: 'Раскопки', settle: 'Освоение', rally: 'Созыв', rune: 'Сбор руны' };
-const INSP_ST = { go: 'идёт', wait: 'ждёт выхода', stay: 'стоит', back: 'возвращается' };
+const INSP_ST = { go: 'идёт', wait: 'ждёт выхода', stay: 'стоит', back: 'возвращается', dig: 'копает в Подземелье', found: 'нашёл артефакт, ждёт отзыва' };
 const INSP_STAT = { loot: 'награблено', kills: 'убито в нападениях', defKills: 'убито в защите', arts: 'артефакты (очки)', expeds: 'экспедиций', trades: 'торговых походов', boost: 'пробуждений',
   genExp: 'опыт генерала', runes: 'рун собрано', ruins: 'осад руин', repGold: 'монет на репутацию', loyal: 'лояльность за дела', npcWins: 'побед над лагерями', stashTake: 'взято из Кладовой' };
 const INSP_RAR = ['обычный', 'редкий', 'легендарный'];

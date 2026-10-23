@@ -115,7 +115,7 @@ function check(tag) {
     for (const q of c.squads || []) unitsOk(q.units, `армия ${q.id}`);
     for (const a of c.armies || []) {
       unitsOk(a.units, `поход ${a.id}`);
-      if (!['go', 'back', 'wait', 'stay'].includes(a.state)) add(`поход ${a.id}: состояние ${a.state}`);
+      if (!['go', 'back', 'wait', 'stay', ...(a.dung ? ['dig', 'found'] : [])].includes(a.state)) add(`поход ${a.id}: состояние ${a.state}`); // dig, found — отряд в лагере Подземелья (dungeon.js)
       if (!fin(a.arrive) || !fin(a.depart) || (a.state === 'back' && !fin(a.back))) add(`поход ${a.id}: время ${a.depart}/${a.arrive}/${a.back}`);
       if (a.state === 'go' && a.arrive < NOW - 5 * 60000) add(`поход ${a.id} (${a.mission}) завис: должен был прийти ${Math.round((NOW - a.arrive) / 60000)} мин назад`);
       if (a.state === 'back' && a.back < NOW - 5 * 60000) add(`поход ${a.id} (${a.mission}) не вернулся: ${Math.round((NOW - a.back) / 60000)} мин`);

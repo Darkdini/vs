@@ -2640,3 +2640,33 @@ p.ghint.center { margin: 2px 8px 6px; text-align: center; font: 14px var(--serif
 .simmax { height: 36px; border: 1px solid #c9a15a; border-radius: 4px; background: linear-gradient(#7a3a22, #4e1e0c); color: #f6e7b8; font: 400 min(15px, 3.8vw) var(--serif); display: flex; align-items: center; justify-content: center; gap: 2px; padding: 0 3px; }
 .simmax img { width: 18px; height: 18px; }
 .simgrid .rgin { height: 38px; }
+
+/* ---------- Подземелье (dungeon.js) ---------- */
+.dgbtn { display: flex; align-items: center; gap: 10px; width: 100%; margin: 6px 0 10px; padding: 8px 10px; border: 2px solid #c9a15a; border-radius: 8px;
+  background: linear-gradient(#3a2a1c, #1c120a); color: #f6e7b8; text-align: left; font: 400 min(18px, 4.4vw) var(--serif); box-shadow: 0 2px 6px rgba(0,0,0,.5); }
+.dgbtn img { width: 64px; height: 64px; object-fit: contain; flex: none; }
+.dgbtn b { display: block; font-size: min(22px, 5.4vw); color: #ffd98a; }
+.dgbtn small { display: block; color: #d8c49a; font-size: min(14px, 3.5vw); }
+.dghead { display: flex; justify-content: space-between; gap: 8px; margin: 2px 0 6px; font: 400 min(17px, 4.2vw) var(--serif); color: #2a1408; }
+.dgmine { display: flex; align-items: center; gap: 8px; margin: 4px 0; padding: 4px 6px; border: 1px solid #a07840; border-radius: 6px; background: rgba(255, 240, 200, .45); font: 400 min(16px, 4vw) var(--serif); color: #2a1408; }
+.dgmine img { width: 42px; height: 42px; object-fit: contain; flex: none; }
+.dgmine .btn { flex: none; }
+.dgfull { position: absolute; inset: 0; overflow: hidden; background: #140d07; }
+/* карта Подземелья — на весь экран: своя кнопка выхода вместо полосы с кнопками окна */
+#sheet:has(.dgfull) #sheetBack, #sheet:has(.dgfull) #sheetClose { display: none; }
+#sheetBody:has(> .dgfull) { overflow: hidden; }
+.dgexit { position: absolute; right: 10px; bottom: calc(12px + var(--safe-b)); z-index: 1; width: 56px; height: 56px; border: 2px solid #c9a15a; border-radius: 50%;
+  background: radial-gradient(#7a2a12, #3a0e04); color: #ffd98a; font: 700 28px/1 var(--serif); box-shadow: 0 3px 8px rgba(0,0,0,.7); }
+.dgcv { position: absolute; inset: 0; display: block; touch-action: none; cursor: grab; }
+.dgbar { position: absolute; left: 0; right: 0; top: 0; z-index: 1; display: flex; align-items: center; gap: 8px; padding: calc(6px + env(safe-area-inset-top, 0px)) 8px 6px;
+  background: linear-gradient(rgba(20,12,6,.92), rgba(20,12,6,.6)); color: #f6e7b8; font: 400 min(16px, 4vw) var(--serif); }
+.dgbar b { font-size: min(21px, 5.2vw); color: #ffd98a; }
+.dgbar span { flex: 1; }
+.dgbar .btn { flex: none; }
+.dginfo { display: flex; gap: 10px; align-items: center; margin: 4px 0 8px; font: 400 min(17px, 4.2vw) var(--serif); color: #2a1408; }
+.dginfo > img { width: 38%; max-width: 170px; object-fit: contain; filter: drop-shadow(0 3px 4px rgba(0,0,0,.5)); }
+.dgstat { margin: 6px 0; padding: 8px; border-radius: 6px; font: 400 min(17px, 4.2vw) var(--serif); color: #2a1408; border: 1px solid #a07840; background: rgba(255, 240, 200, .5); }
+.dgstat.me { border-color: #3c8a3c; } .dgstat.foe { border-color: #a03020; }
+.dgunits { display: flex; flex-wrap: wrap; gap: 2px 8px; margin-top: 2px; font-size: min(14px, 3.5vw); }
+.dgunits span { display: inline-flex; align-items: center; gap: 2px; }
+.dgunits img { width: 24px; height: 24px; object-fit: contain; }

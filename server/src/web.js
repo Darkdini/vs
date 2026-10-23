@@ -822,6 +822,20 @@ const API = {
   artifact(m) { const r = this.game.activateArtifact(this.castle, m.id, !!m.on); if (r.msg) this.toast(r.msg); this.result(r); },
   artbreak(m) { const r = this.game.breakArtifact(this.castle, m.id); if (r.msg) this.toast(r.msg); this.result(r); },
   exped(m) { const r = this.game.expedGo(this.castle, String(m.kind || ''), m.n); if (r.msg) this.toast(r.msg); this.result(r); },
+  // Подземелье (dungeon.js): op view — карта; go — на раскопки; attack — налёт на чужой отряд; recall — отозвать свой отряд (из любого своего замка)
+  dung(m) {
+    const op = String(m.op || 'view'), g = this.game;
+    if (op !== 'view') {
+      const now = Date.now(); if (now - (this.dungAt || 0) < 700) return this.error('Не так часто — подождите секунду.'); this.dungAt = now;
+      let r;
+      if (op === 'go') r = g.dungGo(this.castle, m.camp, m.units);
+      else if (op === 'attack') r = g.dungAttack(this.castle, m.camp, m.units);
+      else if (op === 'recall') { const c = g.castlesOf(this.user).find((k) => (k.armies || []).some((a) => a.id === Number(m.id))); r = c ? g.dungRecall(c, m.id) : { error: 'Отряд не найден.' }; }
+      else r = { error: 'Неизвестное действие.' };
+      if (r.msg) this.toast(r.msg); this.result(r);
+    }
+    this.send({ t: 'dung', data: g.dungView(this.castle, this.user) });
+  },
   alliance(m) {
     const r = this.game.alliance(this.user, this.castle, m);
     if (r && r.msg) this.toast(r.msg);

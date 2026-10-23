@@ -890,6 +890,7 @@ require('./shield').install(Game);
 require('./friends').install(Game);
 require('./pics').install(Game);
 require('./zags').install(Game);
+require('./dungeon').install(Game); // Подземелье: лагеря археологов, раскопки и кража артефактов
 require('./chests').install(Game);
 require('./coin').install(Game);
 require('./market').install(Game);

@@ -942,6 +942,43 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   void w0; console.log('✓ Задания и Кладовая: общая на игрока, извлечение в текущий замок до лимита Склада, уникальные воины, опыт генерала');
   if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
 }
+{ // Подземелье (dungeon.js): лагеря пяти сложностей, раскопки с охраной, гибель археологов, ожидание отзыва, кража артефакта, лимит 3
+  const R0 = Math.random, sum = (o) => Object.values(o || {}).reduce((q, n) => q + n, 0);
+  const mk = (login, race) => { const u = g.register({ login, password: '12345', race }).user, c = g.castleOf(u); g.maxOut(c); g.mil(c); c.armies = []; c.artifacts = []; return [u, c]; };
+  const [ua, ca] = mk('dungA', 0), [ub, cb] = mk('dungB', 0), D = g.dung();
+  assert.ok(D.camps.length === 150 && [1, 2, 3, 4, 5].every((l) => D.camps.some((q) => q.l === l)), 'на карте 150 лагерей пяти сложностей');
+  const camp = D.camps.find((q) => q.l === 1); ca.units = { 230: 100, 200: 600 };
+  assert.ok(g.dungGo(ca, camp.id, { 200: 10 }).error, 'без археологов копать нельзя');
+  assert.ok(g.sendArmy(ca, { units: { 200: 1 }, x: cb.x, y: cb.y, mission: 'dig' }).error, 'раскопки — только из Экспедиции');
+  const n0 = g.armyTotal(ua);
+  assert.ok(g.dungGo(ca, camp.id, { 230: 100, 200: 300 }).ok && g.armyTotal(ua) === n0, 'отряд ушёл, войска учтены');
+  assert.ok(g.dungGo(cb, camp.id, { 230: 1 }).error, 'занятый лагерь не взять');
+  const a = ca.armies[0]; a.arrive = Date.now() - 1; g.tickWorld();
+  const arch = a.units[230] || 0, die = Math.round(arch * 0.051);
+  assert.ok(a.state === 'dig' && arch > 80, 'охрана разбита, раскопки идут');
+  Math.random = () => 0.01; a.digEnd = Date.now() - 1; g.tickWorld(); Math.random = R0;
+  assert.ok(a.state === 'found' && a.art && die > 0 && a.units[230] === arch - die && g.db.reports.slice(-1)[0].lines.some((l) => l.includes(`из ${arch}.`)), 'нашли артефакт, часть археологов погибла, отряд ждёт отзыва');
+  const v = g.dungView(cb, ub).camps.find((q) => q.id === camp.id);
+  assert.ok(v.o && v.o.login === 'dungA' && v.o.s === 'found' && !v.o.me, 'другой игрок видит, кто копает и что нашёл');
+  cb.units = { 200: 3000 };
+  assert.ok(g.dungAttack(cb, camp.id, { 200: 3000 }).ok, 'налёт на чужой отряд');
+  const s = cb.armies[0]; s.arrive = Date.now() - 1; g.tickWorld();
+  assert.ok(s.art && !a.art && !ca.armies.includes(a) && camp.gone > 0, 'налёт победил: артефакт отнят, лагерь исчез');
+  s.back = Date.now() - 1; g.tickWorld();
+  assert.ok(cb.artifacts.length === 1 && !s.art, 'артефакт засчитан, когда отряд дошёл до замка');
+  Math.random = () => 0.99; // не нашли: домой с черепками
+  const c2 = D.camps.find((q) => q.l === 2 && !q.gone && !q.occ); ca.units = { 230: 50, 200: 2000 };
+  assert.ok(g.dungGo(ca, c2.id, { 230: 50, 200: 1000 }).ok); const b2 = ca.armies.find((x) => x.dung === c2.id); b2.arrive = Date.now() - 1; g.tickWorld();
+  b2.digEnd = Date.now() - 1; g.tickWorld(); Math.random = R0;
+  assert.ok(b2.state === 'back' && !b2.art && b2.loot && b2.units[230] < 50 && c2.gone > 0, 'артефакта нет — домой с черепками, лагерь исчез');
+  const free = D.camps.filter((q) => q.l === 1 && !q.gone && !q.occ).slice(0, 4);
+  const r4 = free.map((q) => g.dungGo(ca, q.id, { 230: 1, 200: 300 }));
+  assert.ok(r4.slice(0, 3).every((x) => x.ok) && r4[3].error, 'раскопок — не больше 3');
+  const a3 = ca.armies.find((x) => x.dung === free[0].id); a3.arrive = Date.now() - 1; g.tickWorld();
+  assert.ok(g.dungRecall(ca, a3.id).ok && a3.state === 'back' && !free[0].occ && !free[0].gone, 'бросили раскопки — лагерь свободен');
+  camp.gone = Date.now() - 1; g.tickWorld(); assert.ok(!camp.gone, 'лагерь вернулся на карту');
+  console.log('✓ Подземелье: 150 лагерей, охрана, гибель археологов, артефакт ждёт отзыва, налёт отнимает находку, не больше 3 раскопок');
+}
 { // экспедиции из здания и временные артефакты
   const u = g.register({ login: 'expedU', password: '12345', race: 0 }).user, c = g.castleOf(u); g.maxOut(c); g.mil(c);
   c.units[230] = 25; c.artifacts = []; c.expeds = [];

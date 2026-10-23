@@ -489,7 +489,7 @@ const SPY_OPEN = {
   reinf: { name: 'Подкреплений', level: 16, survive: 0.9, cond: 'выжило больше 90% разведчиков' },
 };
 const HOSTILE = ['attack', 'raid', 'scout']; // враждебные походы — не на союзников по альянсу
-const MISSIONS = { raid: 'Набег', attack: 'Нападение', reinforce: 'Подкрепление', scout: 'Разведка', expedition: 'Экспедиция', trade: 'Торговля', settle: 'Освоение', rally: 'Созыв', rune: 'Сбор руны' };
+const MISSIONS = { raid: 'Набег', attack: 'Нападение', reinforce: 'Подкрепление', scout: 'Разведка', expedition: 'Экспедиция', trade: 'Торговля', settle: 'Освоение', rally: 'Созыв', rune: 'Сбор руны', dig: 'Раскопки', dsteal: 'Налёт в Подземелье' }; // dig, dsteal — Подземелье (dungeon.js)
 // «Освоение»: 10 путешественников идут на пустую клетку и строят там замок 3 дня (недострой виден на карте, его можно атаковать
 // и подкреплять; победное нападение, в котором выжили 3 путешественника, забирает недострой). Лояльность населения (Резиденция)
 // должна позволять новый замок; списывается она, когда замок достроен, — у того, чей он в этот момент
@@ -1097,6 +1097,7 @@ function install(Game, helpers) {
     }
     x = Math.round(Number(x)); y = Math.round(Number(y));
     if (!MISSIONS[mission]) return { error: 'Неизвестная миссия.' };
+    if (mission === 'dig' || mission === 'dsteal') return { error: 'В Подземелье отряды отправляют из здания «Экспедиция».' };
     // созыв на мирового босса (boss.js): войска идут в общую армию альянса и бьют вместе, когда созыв закончится
     const rally = mission === 'rally' ? this.rallyOf && this.rallyOf(this.ownerOf(castle)) : null;
     if (mission === 'rally') { if (!rally) return { error: 'Созыва нет: его объявляет руководство альянса в окне мирового босса.' }; x = rally.b.x; y = rally.b.y; at = 0; portal = false; }
@@ -1190,6 +1191,7 @@ function install(Game, helpers) {
   // ----- мир: армии прибывают и возвращаются (вызывается раз в секунду для всех замков) -----
   P.tickWorld = function tickWorld(now = Date.now()) {
     this.sitesTick(now); // недострои: достроены?
+    if (this.dungTick) this.dungTick(now); // Подземелье: раскопки закончились, лагеря вернулись (dungeon.js)
     if (this.rallyTick) this.rallyTick(now); // созывы на мирового босса: время вышло — армии складываются и бьют (boss.js), до прибытия остальных армий
     const due = [];
     for (const c of Object.values(this.db.castles)) {
@@ -1215,6 +1217,7 @@ function install(Game, helpers) {
       this.tgNotify(c.owner, 'home', `🏰 Армия вернулась в «${c.name}»: ${Wd.warriors(n)}${a.general ? ' и генерал' : ''}${loot ? `, добыча ${Wd.resources(Math.floor(loot))}` : ''}.`); }
     this.tick(c);
     this.mil(c);
+    if (a.art && this.dungHome) this.dungHome(c, a); // артефакт из Подземелья — в Сокровищницу (dungeon.js)
     const units = Object.fromEntries(Object.entries(a.units).filter(([id, n]) => n > 0 && Number(id) !== MERCHANT_ID)); // торговцы просто возвращаются на Рынок
     if (a.squad && a.squad.id) { // отряд возвращается отдельной армией
       c.squads.push({ id: a.squad.id, name: a.squad.name, units });
@@ -1384,7 +1387,7 @@ function install(Game, helpers) {
       return (s.def * pi + (s.defC ?? s.def) * pc) * k + Math.max(s.mdef, pd * magFloor) * pm * mk; };
     const genDef = target && target.sim ? target.sim.genDef * dK : target && target.general && !target.general.dead && !target.general.away ? this.genStats(target.general).def * dK : 0;
     const DBASE = bD ? 10 * wallK : 0; // пустой замок: только забор
-    const isCamp = !target && npc && [30, 31, 32, 24].some((k) => NPC[k] === npc); // лагеря и руины (не логова «Тёмных земель»)
+    const isCamp = !target && npc && ([30, 31, 32, 24].some((k) => NPC[k] === npc) || !!npc.dung); // лагеря, руины и охрана Подземелья (не логова «Тёмных земель»)
     // лагеря и руины (с 22.10): охрана крепнет вместе с бонусами атаки нападающего — Кузница, науки, ранг, генерал, снаряжение.
     // Иначе прокачанный замок грабил лагеря почти без потерь (+80% прибыли вместо ~+20%); прокачка помогает, но меньше
     const AP0 = sum(A, (s) => s.n * ((UNIT[s.id].attack || 0) + (UNIT[s.id].magic || 0))) || 1, buff = AP / (1 + luck / 100) / morale / AP0;
@@ -1567,6 +1570,7 @@ function install(Game, helpers) {
 
   // прибытие армии к цели
   P.arrive = function arrive(c, a, t) {
+    if (a.dung) return this.dungArrive(c, a, t); // Подземелье: раскопки или налёт (dungeon.js)
     const att = this.ownerOf(c);
     const target = this.castleAt(a.x, a.y);
     const where = `${a.x}:${a.y}`;
@@ -2123,7 +2127,7 @@ function install(Game, helpers) {
     for (const c of Object.values(this.db.castles)) {
       if (c === castle || !c.armies) continue;
       for (const a of c.armies) {
-        if (a.state !== 'go' || a.x !== castle.x || a.y !== castle.y || a.mission === 'scout') continue;
+        if (a.state !== 'go' || a.x !== castle.x || a.y !== castle.y || a.mission === 'scout' || a.dung) continue;
         const friendly = a.mission === 'trade' || a.mission === 'reinforce';
         if (!friendly && !watch) continue;
         const n = Object.values(a.units).reduce((q, k) => q + k, 0);
@@ -2145,7 +2149,7 @@ function install(Game, helpers) {
     for (const c of this.castlesOf(user)) {
       for (const a of c.armies || []) mine.push({ id: a.id, castle: c.name, cx: c.x, cy: c.y, mission: a.mission, x: a.x, y: a.y, state: a.state, depart: a.depart, arrive: a.arrive, back: a.back, sec: a.sec,
         stayName: a.state === 'stay' && this.db.castles[a.stayAt] ? this.db.castles[a.stayAt].name : null, n: Object.values(a.units).reduce((s, k) => s + k, 0),
-        units: a.units, general: !!a.general, army: a.squad ? a.squad.name : 'Армия', to: this.placeName(a.x, a.y),
+        units: a.units, general: !!a.general, army: a.squad ? a.squad.name : a.dung ? 'Отряд' : 'Армия', to: a.dung ? `Подземелье: ${this.dungName(a.dl)}` : this.placeName(a.x, a.y), dung: a.dung || 0, digEnd: a.digEnd || 0, art: !!a.art,
         recalled: a.recalled ?? null, recallUntil: (a.state === 'go' || a.state === 'wait') && a.mission !== 'expedition' ? a.depart + RECALL_MS : 0 });
       inc.push(...this.incoming(c).filter((a) => a.from !== user.login)); // свои армии между своими замками — уже в списке «свои»
     }
@@ -2481,7 +2485,7 @@ function install(Game, helpers) {
       deadGenerals: this.deadList(castle).map((g) => ({ name: g.name, kind: g.kind, kindId: g.kindId, level: g.level, reviveAt: g.reviveAt || 0, ...this.reviveCostOf(g, castle), fund: g.fund || null })),
       genElse: castle.general && !castle.general.dead ? null : (() => { const h = this.generalHome(castle.owner, castle); return h ? { id: h.castle.id, castle: h.castle.name, what: h.what, name: h.g ? h.g.name : '', level: h.g ? h.g.level : 0 } : null; })(),
       genTrain: (() => { const t = castle.training.find((x) => x.unit === GENERAL_ID); return t ? { kind: (UNIT[t.kindId] || {}).name || 'Генерал', kindId: t.kindId, end: t.start + t.each } : null; })(),
-      genUnits: this.genTrainUnits(castle).map((u) => ({ id: u.id, ...this.genTrainCost(u) })), armies: castle.armies.map((a) => ({ id: a.id, units: a.units, general: a.general, mission: a.mission, x: a.x, y: a.y, depart: a.depart, arrive: a.arrive, back: a.back, state: a.state, loot: a.loot, cargo: a.cargo, squad: a.squad, portal: a.portal,
+      genUnits: this.genTrainUnits(castle).map((u) => ({ id: u.id, ...this.genTrainCost(u) })), armies: castle.armies.map((a) => ({ id: a.id, units: a.units, general: a.general, mission: a.mission, x: a.x, y: a.y, depart: a.depart, arrive: a.arrive, back: a.back, state: a.state, loot: a.loot, cargo: a.cargo, squad: a.squad, portal: a.portal, dung: a.dung || 0, digEnd: a.digEnd || 0, art: !!a.art,
         stayName: a.state === 'stay' && this.db.castles[a.stayAt] ? this.db.castles[a.stayAt].name : null })),
       squads: castle.squads, merchants: this.merchants(castle),
       infirm: this.buildingLevel(castle, B.INFIRMARY) ? { cap: this.infirmCap(castle), used: this.infirmUsed(castle), // Лазарет: раненые и цена лечения

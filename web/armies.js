@@ -49,7 +49,8 @@ function armSections() {
   };
 }
 const armWhen = (a) => (a.state === 'wait' ? `выйдет через <span class="cd" data-e="${a.depart}"></span>` : a.state === 'go' ? `к ${a.x}:${a.y}, прибудет через <span class="cd" data-e="${a.arrive}"></span>`
-  : a.state === 'back' ? `возвращается, <span class="cd" data-e="${a.back}"></span>` : `стоит в «${esc(a.stayName || '')}»`);
+  : a.state === 'back' ? `возвращается, <span class="cd" data-e="${a.back}"></span>` : a.state === 'dig' ? `копает в Подземелье, <span class="cd" data-e="${a.digEnd}"></span>`
+  : a.state === 'found' ? 'нашёл артефакт в Подземелье — ждёт отзыва' : `стоит в «${esc(a.stayName || '')}»`);
 function armSectionWin(k) {
   const n = armSections(), T = { inc: 'Приближающиеся армии', mine: 'Ваши армии', reinf: 'Ваши подкрепления', outpost: 'Форпост', guests: 'Чужие подкрепления', portal: 'В портале' }[k];
   const own = (a) => `<div class="arow2"><div class="aicon"><img class="aswords" src="${ICO('swords')}" alt=""></div><div class="ainfo">

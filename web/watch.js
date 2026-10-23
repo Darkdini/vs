@@ -54,14 +54,15 @@ function moveWin() {
   const t = (ms) => new Date(ms).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
   const row = (k, v) => `<div class="mvline"><span>${k}</span><b>${v}</b></div>`;
   const state = a.state === 'wait' ? `выйдет в ${t(a.depart)} (через <span class="cd" data-e="${a.depart}"></span>)` : a.state === 'go' ? `в пути, прибудет в ${t(a.arrive)} (через <span class="cd" data-e="${a.arrive}"></span>)`
-    : a.state === 'back' ? `возвращается, дома в ${t(a.back)} (через <span class="cd" data-e="${a.back}"></span>)` : `стоит в «${esc(a.stayName || a.to)}»`;
+    : a.state === 'back' ? `возвращается, дома в ${t(a.back)} (через <span class="cd" data-e="${a.back}"></span>)` : a.state === 'dig' ? `копает, ещё <span class="cd" data-e="${a.digEnd}"></span>`
+    : a.state === 'found' ? 'нашёл артефакт — ждёт отзыва (Подземелье)' : `стоит в «${esc(a.stayName || a.to)}»`;
   // кто задаёт скорость: армия идёт со скоростью самого медленного воина
   const slow = Object.entries(a.units || {}).filter(([, n]) => n > 0).map(([id]) => unitById(Number(id))).filter((u) => u && u.speed > 0).sort((p, q) => p.speed - q.speed)[0];
   return `${ribbon(M().missions[a.mission] || 'Поход')}<div class="mvcard">
-    ${row('Тип похода', `<span class="mvtype mv-${a.mission}">${M().missions[a.mission] || a.mission}</span>`)}${row('Откуда', `${esc(a.castle)} (${a.cx}:${a.cy})`)}${row('Куда', `${esc(a.to)} (${a.x}:${a.y})`)}${row('Сейчас', state)}
+    ${row('Тип похода', `<span class="mvtype mv-${a.mission}">${M().missions[a.mission] || a.mission}</span>`)}${row('Откуда', `${esc(a.castle)} (${a.cx}:${a.cy})`)}${row('Куда', a.dung ? esc(a.to) : `${esc(a.to)} (${a.x}:${a.y})`)}${row('Сейчас', state)}
     ${a.depart ? row('Вышла', t(a.depart)) : ''}${a.sec ? row('Время в пути', fmtT(a.sec)) : ''}${row('Армия', `${esc(a.army || 'Армия')} · ${fmtFull(a.n)}${a.general ? ' + генерал' : ''}`)}${slow ? row('Скорость', `${slow.speed * (S.cat.march || 1)} кл./час — по самому медленному: ${esc(slow.name)}`) : ''}
 </div>
-    <button class="pbar" data-mvmap="${a.x}:${a.y}">🗺 Показать цель на карте</button>
+    ${a.dung ? '<button class="pbar" data-dgopen>🕳 Открыть Подземелье</button>' : `<button class="pbar" data-mvmap="${a.x}:${a.y}">🗺 Показать цель на карте</button>`}
     ${recallBtn(a)}
     ${a.state === 'stay' ? `<button class="pbar" data-recall="${a.id}">Отозвать домой</button>` : ''}`;
 }
@@ -94,7 +95,7 @@ function worldMovesFetch() {
   if ((key !== S.wmKey || Date.now() - (S.wmAt || 0) > 30000) && Date.now() - (S.wmAt || 0) > 2000) { S.wmKey = key; S.wmAt = Date.now(); S.wmQuiet = true; send({ t: 'moves' }); }
 }
 // есть ли что рисовать: тогда большой холст карты обновляется раз в секунду (app.js isoDrawNow)
-function worldMovesBusy() { const m = S.wm; return !!m && ((m.mine || []).some((a) => a.state === 'go' || a.state === 'back') || (m.incoming || []).some((a) => a.fx != null && a.depart)); }
+function worldMovesBusy() { const m = S.wm; return !!m && ((m.mine || []).some((a) => !a.dung && (a.state === 'go' || a.state === 'back')) || (m.incoming || []).some((a) => a.fx != null && a.depart)); }
 function worldMoves(w) {
   if (!S.st) return;
   const t = now(), m = S.wm; if (!m) return;
@@ -102,6 +103,7 @@ function worldMoves(w) {
   const P = (x, y) => { const p = tileScreen(x - ox, y - oy); return [p.sx + TW / 2, p.sy + TH / 2]; };
   const list = [];
   for (const a of m.mine || []) {
+    if (a.dung) continue; // отряды Подземелья — не на карте мира
     if (a.state === 'go') list.push({ f: [a.cx, a.cy], to: [a.x, a.y], t0: a.depart, t1: a.arrive, col: WM_COL[a.mission] || '#fff', ic: a.mission === 'reinforce' || a.mission === 'trade' ? 'reinf' : 'att' });
     else if (a.state === 'back' && a.recalled != null) list.push({ f: [a.cx + (a.x - a.cx) * a.recalled, a.cy + (a.y - a.cy) * a.recalled], to: [a.cx, a.cy], t0: a.arrive, t1: a.back, col: WM_COL.home, ic: 'home' }); // отозвана — назад с того места, где развернулась
     else if (a.state === 'back') list.push({ f: [a.x, a.y], to: [a.cx, a.cy], t0: a.back - (a.arrive - a.depart), t1: a.back, col: WM_COL.home, ic: 'home' });
