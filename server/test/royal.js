@@ -835,7 +835,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const w = fight({ 247: 300 }, { 247: 100 }, { wall: 10 }); assert.ok(w.calc.def.total > big.calc.def.total && w.calc.aLossPct > big.calc.aLossPct, 'стена усиливает защиту');
   const r = fight({ 243: 20, 247: 300 }, { 247: 100 }, { wall: 10 });
   assert.ok(r.siege.some((x) => /Забор: 10 → \d/.test(x)) && r.aLost[243] === 20, 'тараны ломают стену до боя и исчезают');
-  assert.ok(r.calc.healed > 0, 'раненые защитники дома выздоравливают');
+  assert.ok(r.calc.healed === 0 && r.calc.dLossPct === 100 && small.calc.healed > 0, 'нападение победило — защитники гибнут все (дома не выздоравливают); замок устоял — четверть павших выздоравливает');
   const raid = fight({ 247: 200 }, { 247: 200 }, { m: 'raid' });
   assert.ok(raid.calc.aLossPct < 100 && raid.calc.dLossPct < 100, 'набег: никто не гибнет целиком');
   console.log('✓ Бой как в Travian: втрое больше — потери', big.calc.aLossPct + '%, вдесятеро —', x10.calc.aLossPct + '%; стена, Кузница, тараны, набег');
@@ -1945,10 +1945,10 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     return { a: A.br.pts - a0, d: D.br.pts - d0, lost: rep.data.att.units[200].lost, home: cd.units[200] || 0 };
   };
   const f1 = fight(), pop = require('../src/army').UNIT[200].pop;
-  assert.ok(f1.home === 25 && f1.a === Math.round((75 + 25 * 0.25) * pop * 0.2), `нападающему: 75 павших полностью, 25 выздоровевших дома — четверть, путешественники — ничего (+${f1.a}; было бы ${Math.round((75 * pop + 2 * 3000) * 0.2)})`);
+  assert.ok(f1.home === 0 && f1.a === Math.round(100 * pop * 0.2), `нападающему: все 100 павших защитников (дома никто не выздоровел — нападение победило), путешественники — ничего (+${f1.a})`);
   { const w = Math.floor(f1.lost / 2); // ранеными — половина павших (Лазарет), остальные погибли
     assert.ok(f1.lost > 0 && (ca.wounded[200] || 0) === w && f1.d === Math.round(((f1.lost - w) + w * 0.25) * pop * 0.25 * 0.2), `защитнику (с 24.10 — четверть очков): за погибших — полностью, за раненых в Лазарете нападающего — четверть (+${f1.d} за ${f1.lost}, раненых ${w})`); }
-  const f2 = fight(); assert.strictEqual(f2.a, Math.round((75 + 25 * 0.25) * pop * 0.2 / 2), `второй бой с тем же игроком за сутки — вдвое меньше (+${f2.a})`);
+  const f2 = fight(); assert.strictEqual(f2.a, Math.round(100 * pop * 0.2 / 2), `второй бой с тем же игроком за сутки — вдвое меньше (+${f2.a})`);
   { const adm = Object.values(g.db.users).find((u) => u.admin); if (adm) { adm.br = { v: 3, pts: 50000, claimed: 3 }; g.brAdd(adm.id, 1000, null); assert.ok(g.brOf(adm).pts === 0 && g.brRank(adm) === -1 && g.brBonus(adm).atk === 0, 'у Советника ранга нет: набитый сброшен, новый не растёт'); } }
   console.log(`✓ Очки ранга: повтор за сутки 20 → 10 → 5, путешественники без очков, раненые за четверть (бой: +${f1.a}, повтор +${f2.a})`);
 }
@@ -1959,9 +1959,9 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   // нападение проиграно: «Полевой лекарь» (15%) спас часть воинов — генерал всё равно пал
   ca.general = g.newGeneral(ca, 20); ca.general.tal = { d1: 5, d2: 5 }; cd.general = null; ca.units = { 200: 100 }; cd.units = { 201: 3000 };
   go('attack'); assert.ok(ca.general.dead && (ca.units[200] || 0) > 0, `нападение проиграно — генерал пал, спасённые лекарем вернулись (${ca.units[200] || 0})`);
-  // оборона проиграна: четверть защитников выздоровела дома — генерал в замке всё равно пал
+  // оборона проиграна: защитники гибнут все (дома не выздоравливают — с 24.10), генерал в замке пал
   ca.general = null; cd.general = g.newGeneral(cd, 20); cd.units = { 201: 100 }; ca.units = { 200: 5000 };
-  go('attack'); assert.ok(cd.general.dead && (cd.units[201] || 0) > 0, `оборона проиграна — генерал пал, хотя ${cd.units[201] || 0} копейщиков выздоровели дома`);
+  go('attack'); assert.ok(cd.general.dead && !(cd.units[201] > 0), `оборона проиграна — генерал и все защитники пали (${cd.units[201] || 0})`);
   // набег — короткая стычка: генерал защитника жив
   cd.general = g.newGeneral(cd, 20); cd.units = { 201: 100 }; ca.units = { 200: 5000 };
   go('raid'); assert.ok(!cd.general.dead, 'набег — генерал защитника жив');
