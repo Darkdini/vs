@@ -1975,7 +1975,6 @@ function install(Game, helpers) {
         grid: [new Int8Array(49).fill(-1), new Int8Array(225).fill(-1)], levels: [new Int8Array(49), new Int8Array(225)],
         sim: { bonus: { def: num(d.defK, 1, 5, 1), magic: num(d.magK, 1, 3, 1), wall, wallPer: num(d.wallPer, 0, 0.2, { humans: 0.03, elves: 0.035, dwarves: 0.02, orcs: 0.025 }[race]) },
           genDef: g ? num(g.def, 0, 1e5, 0) : 0, hero: g ? { def: num(g.hdef, 0, 2, 0), wall: num(g.hwall, 0, 2, 0) } : null } };
-      if (!Object.keys(D.units).length && !wall && !g) return { error: 'Укажите войска противника или уровень Забора.' };
     }
     const luck0 = process.env.LUCK; process.env.LUCK = '0';
     let R; const a = { units: { ...units }, mission, general }, d0 = D ? { ...D.units } : null; // d0 — войска противника до боя (clash вычитает павших)

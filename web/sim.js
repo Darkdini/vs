@@ -18,7 +18,7 @@ function openSim(r) {
   const units = s.units ? { ...s.units } : null;
   S.sim = { title: d.def && (d.def.npc || `${d.def.castle} (${d.def.login})`), x: d.x, y: d.y, at: r.at, npc: s.npc ?? null, race: s.race || 'humans', uid: s.uid,
     dUnits: units, reinf: s.reinf ? { ...s.reinf } : null, known: { units: !!s.units, wall: s.wall !== undefined, def: s.defK !== undefined, res: !!s.res },
-    wall: s.wall ?? 0, defPct: s.defK ? Math.round((s.defK - 1) * 100) : 0, magK: s.magK || 1, wallPer: s.wallPer, gen: s.gen || null, res: s.res || null, hidden: s.hidden || 0, forge: s.forge || null,
+    wall: s.wall ?? 0, defK: s.defK || 1, magK: s.magK || 1, wallPer: s.wallPer, gen: s.gen || null, res: s.res || null, hidden: s.hidden || 0, forge: s.forge || null,
     mission: 'attack', general: false, units: {}, result: null };
   if (!units) { S.sim.dUnits = {}; for (const u of M().units.filter((x) => x.race === S.sim.race && [3, 12, 20].includes(x.building) && !x.notrain)) S.sim.dUnits[u.id] = 0; }
   openSheet(simWin);
@@ -37,7 +37,7 @@ function simWin() {
     foe = `${s.known.units ? '' : note('Армию разведчики не увидели — впишите сами, сколько воинов вы ждёте.')}${rows}${rein}
       <div class="simgrid">
         <label>Забор, ур.<input class="rgin" type="number" inputmode="numeric" min="0" max="20" value="${s.wall}" data-simwall></label>
-        <label>Защита, +%<input class="rgin" type="number" inputmode="numeric" min="0" max="400" value="${s.defPct}" data-simdef></label>
+        <label>Защита, +%<input class="rgin" type="number" inputmode="numeric" min="0" max="400" value="${Math.round((s.defK - 1) * 100)}" data-simdef></label>
       </div>
       ${note(`${s.known.wall ? 'Забор и бонус защиты (науки, ранг, артефакты, генерал) — по разведке.' : 'Постройки разведчики не увидели — Забор и бонус защиты впишите сами.'}`)}
       ${s.gen ? `<div class="simgen">${gimg(`units/${HD_DIR[s.race] || 'human/hd'}/general.png`, 'ric')} Генерал противника ${fmtFull(s.gen.level)} ур. — дома, защищает замок</div>` : ''}`;
@@ -90,7 +90,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.simclr !== undefined) { s.units = {}; s.result = null; return refreshSheet(); }
   if (d.simmax) { s.units[d.simmax] = simHave()[d.simmax] || 0; const i = $(`[data-simu="${d.simmax}"]`); if (i) i.value = s.units[d.simmax] || ''; return; }
   if (d.simgo !== undefined) {
-    const def = s.npc !== null ? { npc: s.npc } : { race: s.race, uid: s.uid, units: s.dUnits, reinf: s.reinf, wall: s.wall, defK: 1 + (Number(s.defPct) || 0) / 100, magK: s.magK, wallPer: s.wallPer, gen: s.gen, res: s.res, hidden: s.hidden, forge: s.forge };
+    const def = s.npc !== null ? { npc: s.npc } : { race: s.race, uid: s.uid, units: s.dUnits, reinf: s.reinf, wall: s.wall, defK: s.defK, magK: s.magK, wallPer: s.wallPer, gen: s.gen, res: s.res, hidden: s.hidden, forge: s.forge };
     send({ t: 'sim', units: s.units, general: s.general, mission: s.mission, def });
   }
 });
@@ -101,7 +101,7 @@ $('#sheetBody').addEventListener('input', (e) => {
   else if (d.simd) s.dUnits[d.simd] = v;
   else if (d.simr) s.reinf[d.simr] = v;
   else if (d.simwall !== undefined) s.wall = Math.min(20, v);
-  else if (d.simdef !== undefined) s.defPct = v;
+  else if (d.simdef !== undefined) s.defK = 1 + v / 100; // по разведке — точное значение, пока игрок его не изменил
   else if (d.simgen !== undefined) s.general = t.checked;
 });
 $('#sheetBody').addEventListener('change', (e) => { const t = e.target; if (S.sim && t.dataset && t.dataset.simgen !== undefined) S.sim.general = t.checked; });
