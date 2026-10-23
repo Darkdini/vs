@@ -4,7 +4,7 @@
 const WALL = 22;
 const wallHp = (L) => Math.round(40 * 1.2 ** L); // прочность одного уровня (как на сервере, army.js)
 function wallWin() {
-  const c = S.st.castle, L = c.wall || 0, def = S.by[WALL], b = (MY() && MY().bonus) || {}, per = b.wallPer || 0.03;
+  const c = S.st.castle, L = c.wall || 0, def = S.by[WALL], b = (MY() && MY().bonus) || {}, per = b.wallPer || 0.015;
   const q = c.queue.find((x) => x.wall), next = L + 1, max = def.max || 20;
   const hp = Array.from({ length: L }, (_, i) => wallHp(i + 1)).reduce((s, v) => s + v, 0);
   const cost = next <= max ? def.costs[next] : null;

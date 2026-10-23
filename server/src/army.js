@@ -472,7 +472,9 @@ const ROW = { infantry: 3, cavalry: 2, magic: 1, siege: 1, special: 1 }, DMG = 2
 const forgeCap = (b) => Math.max(5, Math.floor((b || 0) / 2));
 const forgeCaps = (u) => ({ a: forgeCap(u.attack), d: forgeCap(Math.max(u.def ? u.def.inf : 0, u.def ? u.def.cav : 0)), m: forgeCap(u.magic), md: forgeCap(u.def ? u.def.mag : 0) });
 const DEF_RANK_K = 0.25; // очки боевого ранга защитнику за разбитых нападающих — четверть (с 24.10)
-const DEF_HOME = 1.25; // замок помогает своим защитникам (и подкреплениям в нём): защита ×1,25 (до 23.10 — ×1,75: с Забором и прокачкой защита была в 2,5 раза сильнее равной армии — напасть было почти невозможно)
+const DEF_HOME = 1.1; // замок помогает своим защитникам (и подкреплениям в нём): защита ×1,1 (с 24.10; до 23.10 — ×1,75, потом ×1,25: обычный игрок брал замок соседа лишь армией в 1,5–2,5 раза больше и терял почти всю)
+// Забор: +% к защите за уровень по расе (с 24.10 — вдвое меньше: на 20 ур. было +40–70%)
+const WALL_PER = { humans: 0.015, elves: 0.0175, dwarves: 0.01, orcs: 0.0125 };
 const LOSS_POW = 1.5; // бой как в Travian: потери победителя = (слабая сторона / сильная)^1,5
 const wallHp = (L) => Math.round(40 * 1.2 ** L); // прочность одного уровня Забора (таран — 50 урона)
 const bldHp = (bid, L) => Math.round(((C.BY_ID[bid] && C.BY_ID[bid].hp) || 600) * (0.5 + 0.1 * L)); // прочность уровня здания
@@ -605,7 +607,7 @@ function install(Game, helpers) {
     const eff = artEffects(castle.artifacts); for (const a of castle.artifacts) if (a.active && eff.has(a.id)) art[a.type] += eff.get(a.id);
     const gen = castle.general && !castle.general.dead && !castle.general.away && castle.general.pts ? castle.general.pts.cdef : 0;
     const race = this.raceOf(castle);
-    const wallPer = { humans: 0.03, elves: 0.035, dwarves: 0.02, orcs: 0.025 }[race] || 0.03;
+    const wallPer = WALL_PER[race] || WALL_PER.humans;
     const ms = scienceMiles(sci);
     const br = this.brBonus ? this.brBonus(this.ownerOf(castle)) : { atk: 0, prod: 0 }; // боевой ранг
     return {
@@ -1357,7 +1359,7 @@ function install(Game, helpers) {
   // ===== бой как в Travian =====
   // Сила атаки (атака + Кузница, магия + Школа магии, бонусы, генерал, удача, боевой дух) против защиты: защита каждого воина
   // от пехоты, от кавалерии и от магии смешивается в той пропорции, в какой у нападающих пехота, кавалерия и маги; забор умножает защиту,
-  // а сам замок — ещё ×1,25 (DEF_HOME; лагерей и логов не касается).
+  // а сам замок — ещё ×1,1 (DEF_HOME; лагерей и логов не касается).
   // Сильнейший побеждает. Нападение: проигравший гибнет весь, победитель теряет (слабый/сильный)^1,5. Набег: победитель x/(1+x), проигравший 1/(1+x).
   // Тараны бьют забор до боя и после него исчезают.
   P.newBattle = function newBattle() { return !!(this.db.battleRules && this.db.battleRules.on); }; // новые правила боя (проба)
@@ -2021,7 +2023,7 @@ function install(Game, helpers) {
       const forge = {}; if (d.forge && typeof d.forge === 'object') for (const [id, f] of Object.entries(d.forge)) if (Object.prototype.hasOwnProperty.call(UNIT, id) && f && typeof f === 'object') forge[id] = { d: Math.round(num(f.d, 0, 100, 0)), md: Math.round(num(f.md, 0, 100, 0)) };
       mkD = () => ({ id: -1, owner: uid, name: 'Симулятор', units: mergeUnits([clean(d.units), clean(d.reinf)]), squads: [], general: null, wall, armies: [], forge,
         grid: [new Int8Array(49).fill(-1), new Int8Array(225).fill(-1)], levels: [new Int8Array(49), new Int8Array(225)],
-        sim: { bonus: { def: num(d.defK, 1, 5, 1), magic: num(d.magK, 1, 3, 1), wall, wallPer: num(d.wallPer, 0, 0.2, { humans: 0.03, elves: 0.035, dwarves: 0.02, orcs: 0.025 }[race]) },
+        sim: { bonus: { def: num(d.defK, 1, 5, 1), magic: num(d.magK, 1, 3, 1), wall, wallPer: num(d.wallPer, 0, 0.2, WALL_PER[race]) },
           genDef: g ? num(g.def, 0, 1e5, 0) : 0, hero: g ? { def: num(g.hdef, 0, 2, 0), wall: num(g.hwall, 0, 2, 0) } : null } });
       D = mkD();
     }

@@ -59,7 +59,7 @@ function unitStatsHtml(u) {
 function milEffect(def, L) {
   const pct = (v) => `${Math.round(v * 1000) / 10}%`;
   const train = () => ({ text: `открывает новых воинов по мере роста уровня`, short: `${L} ур.` }); // уровень не ускоряет тренировку (как в оригинале)
-  const wallPer = (MY().bonus && MY().bonus.wallPer) || { humans: 0.03, elves: 0.035, dwarves: 0.02, orcs: 0.025 }[S.st.user.race] || 0.03; // с вехами Инженерии — как на сервере
+  const wallPer = (MY().bonus && MY().bonus.wallPer) || { humans: 0.015, elves: 0.0175, dwarves: 0.01, orcs: 0.0125 }[S.st.user.race] || 0.015; // с вехами Инженерии — как на сервере
   const fx = {
     2: () => ({ text: 'армии, генерал, бунтари; отправка войск', short: 'армии' }),
     3: train, 12: train, 20: train, 23: train,
