@@ -1649,16 +1649,19 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const ca = mk('simAtk1', 0), cd = mk('simDef1', 1);
   ca.units = { 204: 300, 263: 200, 264: 200, 243: 180 }; cd.units = { 265: 300, 266: 200, 268: 150 }; cd.squads = [];
   // разведка: Центр разведки 20 ур., разведчиков много — видно всё
+  g.brOf(g.userById(cd.owner)).pts = 200000; // у защитника боевой ранг — в разведке он виден всегда
   const spy = AR.UNITS.find((u) => u.race === 'humans' && u.role === 'scout'); ca.units[spy.id] = 500;
   const r = g.sendArmy(ca, { units: { [spy.id]: 500 }, x: cd.x, y: cd.y, mission: 'scout' }); assert.ok(r.army, JSON.stringify(r));
   r.army.arrive = Date.now() - 1; g.tickWorld(Date.now());
   const rep = g.reportsOf(ca.owner).find((x) => x.kind === 'scout' && x.data && x.data.sim); assert.ok(rep, 'в отчёте разведки — данные для симулятора');
   const sim = rep.data.sim, bD = g.bonus(cd);
   assert.ok(sim.race === 'elves' && sim.units[265] === 300 && sim.wall === bD.wall && Math.abs(sim.defK - bD.def) < 1e-9 && sim.gen && sim.gen.level === cd.general.level, 'раса, войска, Забор, бонус защиты, генерал — из разведки');
+  assert.ok(sim.rank && sim.rank.def > 0 && sim.rank.idx === g.brRank(g.userById(cd.owner)), 'боевой ранг противника — в данных разведки');
   const before = JSON.stringify([ca.units, ca.wounded || {}, ca.res, cd.units, cd.wall]);
   const army = { 204: 300, 263: 200, 264: 200, 243: 180 };
   const S1 = g.simBattle(ca, { units: army, general: true, mission: 'attack', def: sim });
   assert.ok(S1.ok && S1.att.length === 4 && S1.def.length >= 3, JSON.stringify(S1).slice(0, 200));
+  assert.ok(Number.isFinite(S1.atkPct) && S1.defPct === Math.round((bD.def - 1) * 100) && S1.myRank >= 0, 'бонусы в расчёте показаны (ранг — в них)');
   assert.strictEqual(JSON.stringify([ca.units, ca.wounded || {}, ca.res, cd.units, cd.wall]), before, 'симулятор ничего не меняет: войска, раненые, ресурсы, Забор');
   // настоящий бой на копиях — тот же исход
   const A2 = structuredClone(ca), D2 = structuredClone(cd); const real = g.clash(A2, { units: { ...army }, mission: 'attack', general: true }, D2, null, Date.now());

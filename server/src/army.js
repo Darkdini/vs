@@ -1915,6 +1915,7 @@ function install(Game, helpers) {
       const can = (k) => lvl >= SPY_OPEN[k].level && alivePart > SPY_OPEN[k].survive;
       lines.push(`Выжило разведчиков: ${Math.round(alivePart * 100)}%. Центр разведки ${lvl} ур.`);
       sim = { uid: target.owner, race: this.raceOf(target) }; // для симулятора боя — только то, что разведчики увидели
+      if (this.brBonus) { const ru = this.ownerOf(target), i = this.brRank(ru); if (i >= 0) sim.rank = { idx: i, title: require('./battlerank').rankInfo(i).title, def: this.brBonus(ru).atk }; } // боевой ранг виден всем (профиль) — учитывается всегда
       if (can('armies')) {
         sim.units = mergeUnits([target.units, ...target.squads.map((q) => q.units)]);
         const g = target.general; if (g && !g.dead && !g.away) { const hb = this.heroBonus(g); sim.gen = { level: g.level, def: this.genStats(g).def, hdef: hb.def, hwall: hb.wall }; }
@@ -1991,6 +1992,7 @@ function install(Game, helpers) {
     const stock = npc ? RES4.reduce((q, r) => q + npc.loot[r], 0) : res ? RES4.reduce((q, r) => q + Math.max(0, Math.floor(num(res[r], 0, 1e9, 0)) - hid), 0) : null;
     const loot = stock === null ? null : Math.min(carry, stock);
     return { ok: true, win: R.win, mission, ap: R.calc.att.total, dp: R.calc.def.total, morale: R.calc.morale, att, def, npc: npc ? npc.name : null,
+      atkPct: R.calc.att.bonusPct, defPct: R.calc.def.bonusPct, myRank: this.brBonus ? Math.round(this.brBonus(this.ownerOf(c)).atk * 1000) / 10 : 0, // бонусы в расчёте (ранг — в них)
       wall: R.calc.def.wall0, wallTo: R.calc.def.wall < R.calc.def.wall0 ? R.calc.def.wall : null, wounded: R.calc.wounded, // wallTo — Забор в бою после таранов
       carry, stock, loot, lossCost: Math.round(lossCost),
       profit: loot === null ? null : Math.round(loot - lossCost), general };
