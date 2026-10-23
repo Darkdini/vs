@@ -409,9 +409,10 @@ const ART_TYPES = {
   cloak: { name: 'Покров Безмолвия', desc: 'замок нельзя разведать: чужая разведка проваливается', hours: 8, special: true, def: true },
   eye: { name: 'Око Призрака', desc: 'ваши разведчики невидимы: противник не узнаёт о разведке', hours: 12, special: true },
   claw: { name: 'Коготь Полководца', desc: 'атака генерала ×2', hours: 12, special: true },
-  seal: { name: 'Печать Нерушимости', desc: 'разрушители (тараны, катапульты, ломающие здания воины) не действуют на замок', hours: 12, special: true, def: true },
-  heart: { name: 'Сердце Твердыни', desc: 'защита Забора ×2', hours: 12, special: true, def: true },
-  hand: { name: 'Длань Хранителя', desc: '+25% к защите войск в замке', hours: 12, special: true, def: true },
+  // seal, heart, hand — «стена» (wall): в замке одновременно действует только один из них (с 24.10 — вместе делали замок неприступным)
+  seal: { name: 'Печать Нерушимости', desc: 'разрушители (тараны, катапульты, ломающие здания воины) бьют по замку вдвое слабее', hours: 12, special: true, def: true, wall: true },
+  heart: { name: 'Сердце Твердыни', desc: 'защита Забора ×1,5', hours: 12, special: true, def: true, wall: true },
+  hand: { name: 'Длань Хранителя', desc: '+15% к защите войск в замке', hours: 12, special: true, def: true, wall: true },
   coin: { name: 'Монета Древних Королей', desc: 'пробудите — получите 1 монету', special: true, coin: true },
 };
 const ART_BASIC = ['atk', 'def', 'prod', 'speed', 'train']; // обычные артефакты (с редкостью) — для сундуков, заданий и Лавки
@@ -470,6 +471,7 @@ const ROW = { infantry: 3, cavalry: 2, magic: 1, siege: 1, special: 1 }, DMG = 2
 // против магии у кого нет защиты от магии — ¾ обычной защиты (было ½); удача нападающего ±5% (было ±10%)
 const forgeCap = (b) => Math.max(5, Math.floor((b || 0) / 2));
 const forgeCaps = (u) => ({ a: forgeCap(u.attack), d: forgeCap(Math.max(u.def ? u.def.inf : 0, u.def ? u.def.cav : 0)), m: forgeCap(u.magic), md: forgeCap(u.def ? u.def.mag : 0) });
+const DEF_RANK_K = 0.25; // очки боевого ранга защитнику за разбитых нападающих — четверть (с 24.10)
 const DEF_HOME = 1.25; // замок помогает своим защитникам (и подкреплениям в нём): защита ×1,25 (до 23.10 — ×1,75: с Забором и прокачкой защита была в 2,5 раза сильнее равной армии — напасть было почти невозможно)
 const LOSS_POW = 1.5; // бой как в Travian: потери победителя = (слабая сторона / сильная)^1,5
 const wallHp = (L) => Math.round(40 * 1.2 ** L); // прочность одного уровня Забора (таран — 50 урона)
@@ -614,7 +616,7 @@ function install(Game, helpers) {
       speed: (1 + SCIENCES.fhi.per * sci.fhi) * (1 + art.speed) * (1 + ms.speed),
       train: (1 - 0.02 * L(B.ALCHEMY)) * (1 - art.train) * (1 - ms.train),
       build: (1 - SCIENCES.eng.per * sci.eng) * (1 - ms.build),
-      wall: L(B.FENCE), wallPer: wallPer * (1 + ms.wall) * (this.artOn(castle, 'heart') ? 2 : 1), // «Сердце Твердыни» — защита Забора ×2
+      wall: L(B.FENCE), wallPer: wallPer * (1 + ms.wall) * (this.artOn(castle, 'heart') ? 1.5 : 1), // «Сердце Твердыни» — защита Забора ×1,5
       hidden: L(B.CACHE) ? Math.round(200 * 1.3 ** (L(B.CACHE) - 1) * (race === 'dwarves' ? 2 : 1) * (1 + ms.hidden)) : 0,
       watch: L(B.WATCHTOWER), spyCenter: L(B.SPY), mason: L(B.MASON),
       tradeCarry: 1 + TRADE_CARRY * L(B.TRADE_HALL) + ms.tradeCarry, tradeSpeed: 1 + 0.05 * L(B.TRADE_HALL) + ms.tradeSpeed, // Торговая палата: +5% скорости торговцев за уровень (20 ур. — вдвое быстрее)
@@ -1386,7 +1388,7 @@ function install(Game, helpers) {
       // тараны: урон по стене (со скринов) до боя
       let ram = Object.entries(a.units).reduce((q, [id, n]) => q + ((UNIT[id] && UNIT[id].wallDmg) || 0) * n, 0);
       if (hA) ram *= 1 + hA.ram;
-      if (this.artOn(target, 'seal')) { if (ram && a.mission === 'attack') siege.push('«Печать Нерушимости»: тараны бессильны'); ram = 0; } // разрушители не действуют
+      if (this.artOn(target, 'seal') && ram) { if (a.mission === 'attack') siege.push('«Печать Нерушимости»: тараны бьют вдвое слабее'); ram /= 2; } // разрушители вдвое слабее
       if (ram && a.mission === 'attack') { while (wallL > 0 && ram >= wallHp(wallL)) { ram -= wallHp(wallL); wallL--; } }
       if (wallL < wall0 && !nb) { this.setBuildingLevel(target, B.FENCE, wallL); siege.push(`Забор: ${wall0} → ${wallL} ур. (тараны)`); siegeN += wall0 - wallL; } // новые правила — только после победы (ниже)
       for (const m of [target.units, ...target.squads.map((q) => q.units)]) for (const [id, n] of Object.entries(m)) { if (UNIT[id] && UNIT[id].dungOnly && !target.dung) continue; const s = stack(m, id, n, true, target); if (s) D.push(s); } // Страж глубин замок не защищает
@@ -1394,7 +1396,7 @@ function install(Game, helpers) {
       for (const g of this.guestsOf(target)) { const gb = nb ? this.bonus(g.c) : null; for (const [id, n] of Object.entries(g.a.units)) { const s = stack(g.a.units, id, n, false, g.c, gb ? { gb } : undefined); if (s) D.push(s); } }
     } else for (const g of npcGarrison(npc)) D.push({ m: null, id: g.key, n: g.n, own: false, npc: g, hp: g.hp, atk: g.atk, mag: g.mag, def: g.def, mdef: g.mdef });
     const wallK = bD ? 1 + bD.wallPer * (hD ? 1 + hD.wall : 1) * wallL : 1, hDd = hD ? 1 + hD.def : 1;
-    const home = target && !target.site ? DEF_HOME * (this.artOn(target, 'hand') ? 1.25 : 1) : 1; // недострой — ещё не крепость; «Длань Хранителя» — +25% к защите войск в замке
+    const home = target && !target.site ? DEF_HOME * (this.artOn(target, 'hand') ? 1.15 : 1) : 1; // недострой — ещё не крепость; «Длань Хранителя» — +15% к защите войск в замке
     const dK = bD ? bD.def * wallK * hDd * home : 1, mdK = bD ? bD.def * bD.magic * wallK * hDd * home : 1;
     // ---- бой как в Travian: сила атаки против защиты, смешанной по составу нападающих ----
     const sum = (L, f) => L.reduce((q, s) => q + f(s), 0);
@@ -1515,7 +1517,7 @@ function install(Game, helpers) {
       // тараны: урон по стене (со скринов) до боя
       let ram = Object.entries(a.units).reduce((q, [id, n]) => q + ((UNIT[id] && UNIT[id].wallDmg) || 0) * n, 0);
       if (hA) ram *= 1 + hA.ram;
-      if (this.artOn(target, 'seal')) { if (ram && a.mission === 'attack') siege.push('«Печать Нерушимости»: тараны бессильны'); ram = 0; } // разрушители не действуют
+      if (this.artOn(target, 'seal') && ram) { if (a.mission === 'attack') siege.push('«Печать Нерушимости»: тараны бьют вдвое слабее'); ram /= 2; } // разрушители вдвое слабее
       if (ram && a.mission === 'attack') { while (wallL > 0 && ram >= wallHp(wallL)) { ram -= wallHp(wallL); wallL--; } }
       if (wallL < wall0) { this.setBuildingLevel(target, B.FENCE, wallL); siege.push(`Забор: ${wall0} → ${wallL} ур. (тараны)`); siegeN += wall0 - wallL; }
       for (const m of [target.units, ...target.squads.map((q) => q.units)]) for (const [id, n] of Object.entries(m)) { if (UNIT[id] && UNIT[id].dungOnly && !target.dung) continue; const s = stack(m, id, n, true, target); if (s) D.push(s); } // Страж глубин замок не защищает
@@ -1697,12 +1699,13 @@ function install(Game, helpers) {
     }
     // осада: стена и тараны — до боя (в clash), здания ломают после победы Йети, Энт, Нурух, Кулак Ярости (урон по зданиям) и катапульты
     const siege = [...R.siege]; let siegeN = R.siegeN;
-    if (target && !target.site && a.mission === 'attack' && win && this.artOn(target, 'seal') && Object.keys(a.units).some((id) => UNIT[id] && UNIT[id].bldDmg || Number(id) === 240)) siege.push('«Печать Нерушимости»: разрушители не смогли повредить здания');
-    if (target && !target.site && a.mission === 'attack' && win && !this.artOn(target, 'seal')) {
+    if (target && !target.site && a.mission === 'attack' && win && this.artOn(target, 'seal') && Object.keys(a.units).some((id) => UNIT[id] && UNIT[id].bldDmg || Number(id) === 240)) siege.push('«Печать Нерушимости»: разрушители бьют по зданиям вдвое слабее');
+    if (target && !target.site && a.mission === 'attack' && win) {
       const bD = this.bonus(target), bA = this.bonus(c);
       let dmg = Object.entries(a.units).reduce((q, [id, n]) => q + ((UNIT[id] && UNIT[id].bldDmg) || 0) * n, 0) * bA.atk;
       dmg += (a.units[240] || 0) * (UNIT[240] ? UNIT[240].attack : 0) * 4;
       dmg /= 1 + 0.05 * bD.mason; // Каменотёс бережёт здания
+      if (this.artOn(target, 'seal')) dmg /= 2; // «Печать Нерушимости»
       const cells = Array.from(target.grid[0], (id, i) => [id, i]).filter(([id, i]) => id > 0 && id !== B.FENCE && target.levels[0][i] > 0);
       for (let k = 0; dmg >= 1 && cells.length && k < 3; k++) { // до трёх случайных зданий
         const [bid, cell] = cells.splice(Math.floor(Math.random() * cells.length), 1)[0];
@@ -1751,7 +1754,8 @@ function install(Game, helpers) {
     if (target) { this.addStat(target.owner, 'defKills', popOf(aLost)); this.addStat(target.owner, 'defLost', popOf(dLost)); this.addStat(target.owner, 'attLost', popOf(dLost)); }
     this.addStat(c.owner, 'attLost', popOf(aLost)); // Зал Гибели: все потери — нападения на замки и NPC, защита своего замка (выше), бой с боссом (boss.js)
     if (this.brAdd) { // боевой ранг (battlerank.js): мирные юниты очков не дают, раненые — за четверть
-      if (target) { this.brAdd(c.owner, rankPop(dLost, R.dWnd, R.dHeal), target.owner); this.brAdd(target.owner, rankPop(aLost, R.aWnd), c.owner); }
+      // защитник — за четверть (DEF_RANK_K): иначе разбитые о прокачанный замок армии «качали» ему ранг, а ранг крепил защиту дальше
+      if (target) { this.brAdd(c.owner, rankPop(dLost, R.dWnd, R.dHeal), target.owner); this.brAdd(target.owner, rankPop(aLost, R.aWnd) * DEF_RANK_K, c.owner); }
       else if (npc) this.brAdd(c.owner, Math.round(npc.def.inf / 20 * dLoss), null);
     }
     if (siegeN) this.addStat(c.owner, 'ruins', siegeN);
@@ -2121,6 +2125,8 @@ function install(Game, helpers) {
       const cd = (castle.artCd || {})[a.type] || 0;
       if (cd > now) return { error: `«${T.name}» можно пробудить снова через ${Math.ceil((cd - now) / 3600000)} ч.` };
       if (T.def && this.hostileIncoming(castle)) return { error: 'На замок уже идёт вражеская армия — защитный артефакт сейчас не пробудить.' };
+      const other = T.wall && castle.artifacts.find((x) => x.active && x !== a && (ART_TYPES[x.type] || {}).wall && (x.until || 0) > now);
+      if (other) return { error: `В замке уже действует «${ART_TYPES[other.type].name}» — защитные артефакты Подземелья не складываются, одновременно только один.` };
       castle.artCd = { ...(castle.artCd || {}), [a.type]: now + ART_CD * 3600000 / SPEED };
     }
     // действует один артефакт каждого вида (artEffects): такой же или сильнее уже пробуждён — новый не добавил бы силы

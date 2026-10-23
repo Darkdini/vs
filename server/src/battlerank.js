@@ -45,6 +45,7 @@ function install(Game) {
   P.brOf = function brOf(u) {
     // 20.10 пороги ненадолго считались суммами стоимостей рангов (v4) — назад на прежние: ранг тот же, очки сверх его порога сохраняются
     if (u.br && u.br.v === 4) { let i = -1, sum = 0; while (i + 1 < N && u.br.pts >= sum + NEED[i + 1]) sum += NEED[++i]; if (i >= 0) u.br.pts = NEED[i] + (u.br.pts - sum); u.br.v = 3; }
+    if (u.admin && u.br && (u.br.pts || u.br.claimed >= 0)) { u.br.pts = 0; u.br.claimed = -1; delete u.br.foes; } // у Советника ранга нет (с 24.10; набитый раньше — сброшен)
     if (!u.br || u.br.v !== 3) { const s = this.stats(u), pts = Math.min(NEED[START_MAX], Math.round((s.kills || 0) + (s.defKills || 0))); u.br = { v: 3, pts, claimed: rankIdx(pts) }; }
     return u.br;
   };
@@ -66,12 +67,12 @@ function install(Game) {
     const inf = rankInfo(last);
     return { ok: true, msg: `${n > 1 ? `Награды за ${n} ${require('./words').plural(n, 'ранг', 'ранга', 'рангов')}` : `Награда за ранг ${last + 1}. ${inf.title}`} — в Кладовой: армия ${fmtN(army)}, ресурсы по ${fmtN(res)}${exp ? `, опыт генерала +${fmtN(exp)}` : ''}.` };
   };
-  P.brRank = function brRank(u) { return u ? rankIdx(this.brOf(u).pts) : -1; }; // ранг — сразу по очкам
+  P.brRank = function brRank(u) { return u && !u.admin ? rankIdx(this.brOf(u).pts) : -1; }; // ранг — сразу по очкам; у Советника (админа) ранга нет — и бонуса тоже
   P.brBonus = function brBonus(u) { return bonusAt(u ? this.brRank(u) : -1); };
   // очки за бой: who — кто получает, vs — противник (null для лагеря разбойников). С тем же игроком за сутки (b.foes — когда
   // были бои) каждый следующий бой вдвое меньше: второй — половина, третий — четверть (как опыт генерала, army.js battleExp)
   P.brAdd = function brAdd(whoId, pts, vsId, time = Date.now()) {
-    const u = this.userById(whoId); if (!u || u.bot || !(pts > 0)) return;
+    const u = this.userById(whoId); if (!u || u.bot || u.admin || !(pts > 0)) return; // Советник (админ) ранга не набирает
     const b = this.brOf(u), was = rankIdx(b.pts);
     let k = PTS_K * (vsId === null ? NPC_K : 1);
     if (vsId) {

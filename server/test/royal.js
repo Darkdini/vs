@@ -1008,14 +1008,16 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const sr2 = g.sendArmy(ca, { units: { [spy]: 50 }, x: cb.x, y: cb.y, mission: 'scout' }); sr2.army.arrive = Date.now() - 1; g.tickWorld();
   assert.ok(g.db.reports.filter((r) => r.owner === ub.id).length === before && /^Разведка/.test(g.db.reports.filter((r) => r.owner === ua.id).slice(-1)[0].title), '«Око Призрака»: противник не узнаёт о разведке');
   const w0 = g.bonus(cb).wallPer; g.activateArtifact(cb, art(cb, 'heart').id, true);
-  assert.ok(Math.abs(g.bonus(cb).wallPer - 2 * w0) < 1e-12, '«Сердце Твердыни»: защита Забора ×2');
+  assert.ok(Math.abs(g.bonus(cb).wallPer - 1.5 * w0) < 1e-12, '«Сердце Твердыни»: защита Забора ×1,5');
+  cb.artCd = {}; assert.ok(/не складываются/.test(g.activateArtifact(cb, art(cb, 'seal').id, true).error || ''), 'защитные артефакты Подземелья не складываются');
   ca.armies = []; ca.units = { 200: 50 }; const go = g.sendArmy(ca, { units: { 200: 50 }, x: cb.x, y: cb.y, mission: 'attack' });
   assert.ok(go.army && /вражеская армия/.test(g.activateArtifact(cb, art(cb, 'hand').id, true).error || ''), 'защитный артефакт не пробудить, когда на замок уже идут');
   ca.armies = []; ca.units = {};
   { const p0 = g.armyPower(ca, {}, true).raw.gen; g.activateArtifact(ca, art(ca, 'claw').id, true); assert.ok(p0 > 0 && g.armyPower(ca, {}, true).raw.gen === 2 * p0, '«Коготь Полководца»: атака генерала ×2'); }
-  { cb.artCd = {}; ca.armies = []; const wall0 = g.buildingLevel(cb, AR.B.FENCE); g.activateArtifact(cb, art(cb, 'seal').id, true);
-    const R = g.clash(ca, { units: { 243: 500, 200: 10 }, mission: 'attack', general: false }, cb, null, Date.now());
-    assert.ok(wall0 > 0 && g.buildingLevel(cb, AR.B.FENCE) === wall0 && R.siege.some((x) => /Печать/.test(x)), '«Печать Нерушимости»: тараны не ломают Забор'); }
+  { cb.artCd = {}; ca.armies = []; cb.artifacts = []; const wall0 = g.buildingLevel(cb, AR.B.FENCE);
+    const hit = () => { const D = structuredClone(cb); g.clash(structuredClone(ca), { units: { 243: 40, 200: 10 }, mission: 'attack', general: false }, D, null, Date.now()); return wall0 - g.buildingLevel(D, AR.B.FENCE); };
+    const plain = hit(); g.activateArtifact(cb, art(cb, 'seal').id, true); const sealed = hit();
+    assert.ok(plain > 0 && sealed < plain, `«Печать Нерушимости»: тараны ломают Забор слабее (${plain} → ${sealed} ур.)`); cb.artifacts = []; }
   const coin = art(cb, 'coin'), gold0 = ub.gold || 0;
   assert.ok(g.activateArtifact(cb, coin.id, true).ok && ub.gold === gold0 + 1 && !cb.artifacts.includes(coin), '«Монета Древних Королей»: +1 монета');
   assert.ok(!DG.DUNG.some((d) => d && d.finds.some(([k]) => ['art:atk', 'art:def', 'art:prod', 'art:speed', 'art:train'].includes(k))) && AR.ART_BASIC.length === 5, 'старые артефакты в Подземелье не выпадают, сундуки и задания — только обычные');
@@ -1945,8 +1947,9 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const f1 = fight(), pop = require('../src/army').UNIT[200].pop;
   assert.ok(f1.home === 25 && f1.a === Math.round((75 + 25 * 0.25) * pop * 0.2), `нападающему: 75 павших полностью, 25 выздоровевших дома — четверть, путешественники — ничего (+${f1.a}; было бы ${Math.round((75 * pop + 2 * 3000) * 0.2)})`);
   { const w = Math.floor(f1.lost / 2); // ранеными — половина павших (Лазарет), остальные погибли
-    assert.ok(f1.lost > 0 && (ca.wounded[200] || 0) === w && f1.d === Math.round(((f1.lost - w) + w * 0.25) * pop * 0.2), `защитнику: за погибших — полностью, за раненых в Лазарете нападающего — четверть (+${f1.d} за ${f1.lost}, раненых ${w})`); }
+    assert.ok(f1.lost > 0 && (ca.wounded[200] || 0) === w && f1.d === Math.round(((f1.lost - w) + w * 0.25) * pop * 0.25 * 0.2), `защитнику (с 24.10 — четверть очков): за погибших — полностью, за раненых в Лазарете нападающего — четверть (+${f1.d} за ${f1.lost}, раненых ${w})`); }
   const f2 = fight(); assert.strictEqual(f2.a, Math.round((75 + 25 * 0.25) * pop * 0.2 / 2), `второй бой с тем же игроком за сутки — вдвое меньше (+${f2.a})`);
+  { const adm = Object.values(g.db.users).find((u) => u.admin); if (adm) { adm.br = { v: 3, pts: 50000, claimed: 3 }; g.brAdd(adm.id, 1000, null); assert.ok(g.brOf(adm).pts === 0 && g.brRank(adm) === -1 && g.brBonus(adm).atk === 0, 'у Советника ранга нет: набитый сброшен, новый не растёт'); } }
   console.log(`✓ Очки ранга: повтор за сутки 20 → 10 → 5, путешественники без очков, раненые за четверть (бой: +${f1.a}, повтор +${f2.a})`);
 }
 { // генерал гибнет по исходу боя (21.10): «Полевой лекарь» и выздоровевшие дома больше не спасают его; набег — не гибнет; уцелеть — до 30%
