@@ -15,7 +15,8 @@ const uimg = (u, cls = 'ui') => `<img class="${cls}" src="${unitSrc(u)}" alt="">
 const raceUnit = (u, race = S.st.user.race) => (u && u.raceOvr && u.raceOvr[race] ? { ...u, ...u.raceOvr[race] } : u); // цена общих юнитов по расе
 const myUnitList = () => M().units.filter((u) => (u.race === S.st.user.race || u.race === 'all') && !u.notrain).map((u) => raceUnit(u));
 // своя графика артефактов (web/gfx/arts): Меч героя, Щит предков, Рог изобилия, Крылатые сапоги, Свиток мастера; редкость — цветом свечения (.artr1 / .artr2)
-const ART_ICON = { atk: 'arts/atk.png', def: 'arts/def.png', prod: 'arts/prod.png', speed: 'arts/speed.png', train: 'arts/train.png' };
+const ART_ICON = { atk: 'arts/atk.png', def: 'arts/def.png', prod: 'arts/prod.png', speed: 'arts/speed.png', train: 'arts/train.png',
+  cloak: 'arts/d_cloak.png', eye: 'arts/d_eye.png', claw: 'arts/d_claw.png', seal: 'arts/d_seal.png', heart: 'arts/d_heart.png', hand: 'arts/d_hand.png', coin: 'arts/d_coin.png' }; // d_* — артефакты Подземелья
 const TYPE_NAME = { infantry: 'пехота', cavalry: 'кавалерия', magic: 'магия', siege: 'осада', special: 'особый' };
 S.cnt = {}; S.army = null; S.reports = null; S.alliances = null;
 
@@ -304,27 +305,29 @@ function religionHtml() {
   return `<div class="section">Выбор веры (один раз)</div>${Object.entries(M().religions).map(([k, r]) => `<div class="card"><b>${esc(r.name)}</b><p class="small">${esc(r.desc)}</p><button class="btn primary small" data-religion="${k}">Принять</button></div>`).join('')}`;
 }
 
-// Экспедиция: археологи тренируются здесь же и уходят на поиски (три вида экспедиций)
+// Экспедиция: археологи и Стражи глубин тренируются здесь же и ходят только в Подземелье (dungeon.js); идущие ещё старые экспедиции видны до возвращения
 function expedHtml() {
-  const my = MY(), I = my.expedInfo, ex = my.expeds || []; if (!I) return '';
-  const free = I.slots - ex.length, n = Math.max(0, Math.min(I.have, I.maxN, S.exN ?? Math.min(10, I.have)));
-  const KIMG = { near: 'build/hd3/arhcamp.png', city: 'ground/castle_old.png', tomb: 'ground/mount.png' };
+  const my = MY(), ex = my.expeds || [], u = my.units || {};
   return `<button class="dgbtn" data-dgopen><img src="${GFX}dungeon/cave.png" alt=""><span><b>Подземелье</b><small>Лагеря археологов: копайте артефакты и отнимайте чужие находки</small></span></button>
-    <div class="section">Экспедиции</div>
-    ${ex.map((x) => { const k = I.kinds.find((y) => y.k === x.kind); return `<div class="card job exrun"><img class="exic" src="${GFX}units/human/hd/arheolog.png" alt="">
-      <div class="grow"><b>${esc(k ? k.name : '')}</b> · археологов ${x.n}<div class="bar"><i data-s="${x.start}" data-e="${x.end}"></i></div></div><span class="cd" data-e="${x.end}"></span></div>`; }).join('')}
-    <div class="card exhead"><div>Археологов в замке: <b>${fmtFull(I.have)}</b> · экспедиций: <b>${ex.length} из ${I.slots}</b></div>
-      <label class="exn">В экспедицию: <input type="number" inputmode="numeric" min="1" max="${Math.min(I.have, I.maxN)}" value="${n}" data-exn> <small>(не больше ${I.maxN}; +${(I.kinds[0] || {}).per || 1}% к находке за каждого)</small></label></div>
-    ${I.kinds.map((k) => `<div class="excard ${k.open ? '' : 'off'}"><div class="exscene"><img src="${GFX}${KIMG[k.k]}" alt=""></div>
-      <div class="grow"><b>${esc(k.name)}</b><p>${esc(k.desc)}</p>
-        <div class="exstats"><span>${TIME_IC} ${fmtT(k.sec)}</span><span>🔍 ${Math.min(k.cap || 80, k.base + (k.per || 1) * n)}%</span><span>💠 редкий ${k.rare}% · легенд. ${k.legend}%</span>${k.risk ? `<span class="bad">☠ риск ${k.risk}%</span>` : '<span>🛡 без риска</span>'}</div>
-        ${k.open ? `<button class="btn primary small" data-exgo="${k.k}" ${free > 0 && n > 0 ? '' : 'disabled'}>Отправить</button>` : `<p class="reasons">Откроется с Экспедицией ${k.lvl} ур.</p>`}</div></div>`).join('')}`;
+    <div class="card exhead"><div>Археологов в замке: <b>${fmtFull(u[230] || 0)}</b> · Стражей глубин: <b>${fmtFull(u[231] || 0)}</b></div>
+      <small>Археологи копают, Стражи глубин охраняют их и ходят в налёты. И те и другие ходят только в Подземелье.</small></div>
+    ${ex.map((x) => `<div class="card job exrun"><img class="exic" src="${GFX}units/human/hd/arheolog.png" alt="">
+      <div class="grow"><b>Экспедиция возвращается</b> · археологов ${x.n}<div class="bar"><i data-s="${x.start}" data-e="${x.end}"></i></div></div><span class="cd" data-e="${x.end}"></span></div>`).join('')}`;
 }
 const ART_HOURS = [12, 24, 48];
+// артефакт Подземелья: своё действие и срок, без редкости; пробудить тот же вид снова — через сутки (artCd); монета — сразу +1 монета
+function artSpecialHtml(a, t) {
+  const cd = (MY().artCd || {})[a.type] || 0, wait = !a.active && cd > now();
+  const btn = a.active ? '' : `<div class="artbtns"><button class="btn small primary" data-art="${a.id}" data-on="1" ${t.hours ? `data-hours="${t.hours}"` : 'data-coin="1"'} ${wait ? 'disabled' : ''}>${t.coin ? 'Получить монету' : 'Пробудить'}</button>${t.coin ? '' : `<button class="btn small danger" data-artbreak="${a.id}">Разбить</button>`}</div>`;
+  return `<div class="card unit artsp"><div class="top">${gimg(ART_ICON[a.type] || ART_ICON.atk, 'artico artsp')}
+    <div class="grow"><b>${esc(t.name)}</b><span class="muted small">${esc(t.desc)}${a.active ? ' · <b class="good">пробуждён</b>' : ''}</span></div>${btn}</div>
+    ${a.active && a.until ? `<div class="artlife"><div class="bar"><i data-s="${a.until - t.hours * 3600000 / S.cat.speed}" data-e="${a.until}"></i></div><span>иссякнет через <span class="cd" data-e="${a.until}"></span></span></div>`
+      : `<p class="small muted">${t.coin ? 'Артефакт Подземелья. Пробудите — и монета ваша.' : `Артефакт Подземелья: действует ${t.hours} ч, затем рассыпается. Тот же вид снова — не раньше чем через сутки${t.def ? '; защитный не пробудить, когда на замок уже идёт вражеская армия' : ''}.`}${wait ? ` <b>Можно через <span class="cd" data-e="${cd}"></span>.</b>` : ''}</p>`}</div>`;
+}
 function artifactsHtml() {
   const my = MY(), active = my.artifacts.filter((a) => a.active).length;
   return `<div class="section">Артефакты</div><p class="small muted">Пробуждено ${active} из ${my.bonus.artSlots} (Башня артефактов), хранится ${my.artifacts.length} из ${my.bonus.artStore} (Сокровищница). Одновременно действует только один артефакт каждого вида — самый сильный. Ненужный спящий артефакт можно разбить на осколки — освободится место, а взамен немного ресурсов.</p>
-    ${my.artifacts.map((a) => { const t = M().artifacts[a.type], r = M().rarity[a.rarity]; return `<div class="card unit"><div class="top">${gimg(ART_ICON[a.type] || ART_ICON.atk, `artico artr${a.rarity}`)}
+    ${my.artifacts.map((a) => { const t = M().artifacts[a.type] || {}; if (t.special) return artSpecialHtml(a, t); const r = M().rarity[a.rarity]; return `<div class="card unit"><div class="top">${gimg(ART_ICON[a.type] || ART_ICON.atk, `artico artr${a.rarity}`)}
       <div class="grow"><b>${esc(t.name)}</b><span class="muted small">${r.name}: +${Math.round(r.bonus * 100)}% — ${esc(t.desc)}${a.active ? ` · <b class="good">пробуждён${a.eff !== undefined && a.eff < r.bonus - 1e-9 ? (a.eff > 0 ? `, действует +${Math.round(a.eff * 100)}%` : ', не действует — пробуждён более сильный этого вида') : ''}</b>` : ''}</span></div>
       ${a.active ? '' : `<div class="artbtns"><button class="btn small primary" data-art="${a.id}" data-on="1" data-hours="${ART_HOURS[a.rarity]}">Пробудить</button><button class="btn small danger" data-artbreak="${a.id}">Разбить</button></div>`}</div>
       ${a.active && a.until ? `<div class="artlife"><div class="bar"><i data-s="${a.until - ART_HOURS[a.rarity] * 3600000 / S.cat.speed}" data-e="${a.until}"></i></div><span>иссякнет через <span class="cd" data-e="${a.until}"></span></span></div>` : `<p class="small muted">Пробуждённый действует ${ART_HOURS[a.rarity]} ч, затем рассыпается. Разбить — +${fmtFull(M().artBreak[a.rarity])} каждого ресурса.</p>`}</div>`; }).join('') || '<p class="muted small">Артефактов нет — их приносят экспедиции археологов (здание «Экспедиция»).</p>'}`;
@@ -507,7 +510,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.repfwd) { const to = prompt('Кому переслать отчёт? Ник игрока:'); if (to) send({ t: 'repfwd', id: Number(d.repfwd), to }); return; }
   if (d.sci) return send({ t: 'research', sci: d.sci });
   if (d.religion) return send({ t: 'religion', id: d.religion });
-  if (d.art) { if (!confirm(`Пробудить артефакт? Он будет действовать ${d.hours} ч, а затем рассыплется.`)) return; return send({ t: 'artifact', id: Number(d.art), on: true }); }
+  if (d.art) { if (!confirm(d.coin ? 'Пробудить «Монету Древних Королей»? Вы получите 1 монету, артефакт исчезнет.' : `Пробудить артефакт? Он будет действовать ${d.hours} ч, а затем рассыплется.`)) return; return send({ t: 'artifact', id: Number(d.art), on: true }); }
   if (d.artbreak) {
     const a = MY().artifacts.find((x) => x.id === Number(d.artbreak)); if (!a) return;
     if (!confirm(`Разбить «${M().artifacts[a.type].name}» (${M().rarity[a.rarity].name})? Он исчезнет навсегда, взамен — по ${fmtFull(M().artBreak[a.rarity])} каждого ресурса. Что не влезет в Склады — в Кладовую.`)) return;

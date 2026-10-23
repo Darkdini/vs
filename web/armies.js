@@ -139,7 +139,7 @@ function emptyWin(x, y) {
 function campaignFit(mission, units) {
   const fits = { scout: (r) => ['scout', 'eye'].includes(r), expedition: (r) => r === 'archaeologist', trade: (r) => r === 'merchant', settle: (r) => !['merchant', 'archaeologist', 'sage'].includes(r), attack: (r) => !['merchant', 'archaeologist', 'sage'].includes(r) }[mission]
     || ((r) => !['merchant', 'archaeologist', 'sage', 'settler'].includes(r));
-  return Object.fromEntries(Object.entries(units || {}).filter(([id, n]) => n > 0 && unitById(id) && fits(unitById(id).role)));
+  return Object.fromEntries(Object.entries(units || {}).filter(([id, n]) => n > 0 && unitById(id) && fits(unitById(id).role) && !unitById(id).dungOnly)); // Страж глубин — только в Подземелье
 }
 // идёт ли генерал с армией: в нападение/набег, а подкреплением — только в свой замок (перевод генерала)
 // замок союзника по альянсу: на него только подкрепление (нападать, грабить и разведывать нельзя)

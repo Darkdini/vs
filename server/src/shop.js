@@ -127,7 +127,7 @@ function install(Game) {
       else { // артефакты: в Сокровищницу столицы; полна — разбит на осколки (ресурсы в Кладовую)
         const rarity = Number(k.slice(3));
         for (let j = 0; j < n; j++) {
-          const type = Object.keys(Ar.ART_TYPES)[rnd(0, Object.keys(Ar.ART_TYPES).length - 1)], name = `${Ar.ART_TYPES[type].name} (${Ar.RARITY[rarity].name})`;
+          const type = Ar.ART_BASIC[rnd(0, Ar.ART_BASIC.length - 1)], name = `${Ar.ART_TYPES[type].name} (${Ar.RARITY[rarity].name})`;
           if (cap && cap.artifacts.length < this.bonus(cap).artStore) { cap.artifacts.push({ id: this.db.nextId++, type, rarity, active: false, found: Date.now() }); lines.push(`Артефакт: ${name} — в Сокровищнице замка «${cap.name}».`); }
           else { const g = Ar.ART_BREAK[rarity]; for (const r of RES4) stash[r] = (stash[r] || 0) + g; lines.push(`Артефакт: ${name} — Сокровищница полна, разбит на осколки: по ${fmt(g)} каждого ресурса в Кладовую.`); }
         }

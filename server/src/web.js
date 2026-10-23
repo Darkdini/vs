@@ -822,7 +822,7 @@ const API = {
   artifact(m) { const r = this.game.activateArtifact(this.castle, m.id, !!m.on); if (r.msg) this.toast(r.msg); this.result(r); },
   artbreak(m) { const r = this.game.breakArtifact(this.castle, m.id); if (r.msg) this.toast(r.msg); this.result(r); },
   exped(m) { const r = this.game.expedGo(this.castle, String(m.kind || ''), m.n); if (r.msg) this.toast(r.msg); this.result(r); },
-  // Подземелье (dungeon.js): op view — карта; go — на раскопки; attack — налёт на чужой отряд; recall — отозвать свой отряд (из любого своего замка)
+  // Подземелье (dungeon.js): op view — карта; go — на раскопки; attack — налёт на чужой отряд; recall — бросить раскопки; claim — «Забрать» находку (отряд из любого своего замка)
   dung(m) {
     const op = String(m.op || 'view'), g = this.game;
     if (op !== 'view') {
@@ -830,7 +830,7 @@ const API = {
       let r;
       if (op === 'go') r = g.dungGo(this.castle, m.camp, m.units);
       else if (op === 'attack') r = g.dungAttack(this.castle, m.camp, m.units);
-      else if (op === 'recall') { const c = g.castlesOf(this.user).find((k) => (k.armies || []).some((a) => a.id === Number(m.id))); r = c ? g.dungRecall(c, m.id) : { error: 'Отряд не найден.' }; }
+      else if (op === 'recall' || op === 'claim') { const c = g.castlesOf(this.user).find((k) => (k.armies || []).some((a) => a.id === Number(m.id))); r = !c ? { error: 'Отряд не найден.' } : op === 'claim' ? g.dungClaim(c, m.id) : g.dungRecall(c, m.id); }
       else r = { error: 'Неизвестное действие.' };
       if (r.msg) this.toast(r.msg); this.result(r);
     }

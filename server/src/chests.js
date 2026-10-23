@@ -45,7 +45,7 @@ function install(Game) {
   const unitName = (u, slot) => { const x = A().uniqueFor(u.race, slot); return x ? x.name : `Уникальные воины (${SLOT_NAME[slot]})`; };
   const give = (g, u, p) => {
     if (p.rw) g.stashAdd(u, p.rw);
-    if (p.art !== undefined) { const c = g.castlesOf(u)[0]; g.mil(c); const types = Object.keys(A().ART_TYPES); c.artifacts.push({ id: g.db.nextId++, type: types[rnd(0, types.length - 1)], rarity: p.art, active: false, found: Date.now() }); }
+    if (p.art !== undefined) { const c = g.castlesOf(u)[0]; g.mil(c); const types = A().ART_BASIC; c.artifacts.push({ id: g.db.nextId++, type: types[rnd(0, types.length - 1)], rarity: p.art, active: false, found: Date.now() }); }
   };
   const announce = (g, u, text) => {
     g.db.chat = g.db.chat || [];

@@ -4,7 +4,7 @@
 
 S.sim = null;
 const SIM_B = [3, 12, 20, 23]; // Казарма, Конюшня, Академия магов, Мастерская
-const SIM_NOFIGHT = ['merchant', 'scout', 'eye', 'archaeologist', 'sage'];
+const SIM_NOFIGHT = ['merchant', 'scout', 'eye', 'archaeologist', 'sage', 'dguard'];
 const simHave = () => { const m = MY(), o = { ...(m.units || {}) }; for (const q of m.squads || []) for (const [id, n] of Object.entries(q.units || {})) o[id] = (o[id] || 0) + n; return o; };
 // свои воины: кого можно тренировать (и разрушители, Таран) + кто уже есть в замке
 function simMyUnits() {

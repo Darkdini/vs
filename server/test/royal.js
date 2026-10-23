@@ -942,50 +942,91 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   void w0; console.log('✓ Задания и Кладовая: общая на игрока, извлечение в текущий замок до лимита Склада, уникальные воины, опыт генерала');
   if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
 }
-{ // Подземелье (dungeon.js): лагеря пяти сложностей, раскопки с охраной, гибель археологов, ожидание отзыва, кража артефакта, лимит 3
-  const R0 = Math.random, sum = (o) => Object.values(o || {}).reduce((q, n) => q + n, 0);
+{ // Подземелье (dungeon.js): только археологи и Стражи глубин, лимиты, находки по уровням, «Забрать», налёт, мульты, монета раз в сутки
+  const R0 = Math.random, AR = require('../src/army'), DG = require('../src/dungeon');
   const mk = (login, race) => { const u = g.register({ login, password: '12345', race }).user, c = g.castleOf(u); g.maxOut(c); g.mil(c); c.armies = []; c.artifacts = []; return [u, c]; };
   const [ua, ca] = mk('dungA', 0), [ub, cb] = mk('dungB', 0), D = g.dung();
-  assert.ok(D.camps.length === 150 && [1, 2, 3, 4, 5].every((l) => D.camps.some((q) => q.l === l)), 'на карте 150 лагерей пяти сложностей');
-  const camp = D.camps.find((q) => q.l === 1); ca.units = { 230: 100, 200: 600 };
-  assert.ok(g.dungGo(ca, camp.id, { 200: 10 }).error, 'без археологов копать нельзя');
-  assert.ok(g.sendArmy(ca, { units: { 200: 1 }, x: cb.x, y: cb.y, mission: 'dig' }).error, 'раскопки — только из Экспедиции');
+  assert.ok(D.camps.length === 250 && [1, 2, 3, 4, 5].every((l) => D.camps.filter((q) => q.l === l).length === 50), 'на карте по 50 лагерей каждой сложности');
+  assert.ok(AR.UNIT[231].dungOnly && AR.UNIT[231].building === AR.B.EXPEDITION && AR.UNIT[231].race === 'all', 'Страж глубин — общий, тренируется в Экспедиции');
+  const camp = D.camps.find((q) => q.l === 1); ca.units = { 230: 300, 231: 300, 200: 600 };
+  assert.ok(g.dungGo(ca, camp.id, { 230: 10, 200: 10 }).error, 'обычные войска в Подземелье не ходят');
+  assert.ok(g.dungGo(ca, camp.id, { 231: 10 }).error, 'без археологов копать нельзя');
+  assert.ok(g.dungGo(ca, camp.id, { 230: 101, 231: 10 }).error, 'в лагерь 1 ур. — не больше 100 археологов');
+  assert.ok(g.sendArmy(ca, { units: { 231: 5 }, x: cb.x, y: cb.y, mission: 'attack' }).error && g.sendArmy(ca, { units: { 230: 1 }, x: cb.x, y: cb.y, mission: 'dig' }).error, 'Страж глубин и раскопки — только в Подземелье');
+  { const keep = ca.units; ca.units = {}; const p0 = g.defensePower(ca, 1, 0).raw.phys; ca.units = { 231: 300 }; const p1 = g.defensePower(ca, 1, 0).raw.phys; ca.units = keep; assert.ok(p0 === p1, 'Страж глубин замок не защищает'); }
   const n0 = g.armyTotal(ua);
-  assert.ok(g.dungGo(ca, camp.id, { 230: 100, 200: 300 }).ok && g.armyTotal(ua) === n0, 'отряд ушёл, войска учтены');
+  assert.ok(g.dungGo(ca, camp.id, { 230: 100, 231: 60 }).ok && g.armyTotal(ua) === n0, 'отряд ушёл, войска учтены');
   assert.ok(g.dungGo(cb, camp.id, { 230: 1 }).error, 'занятый лагерь не взять');
   const a = ca.armies[0]; a.arrive = Date.now() - 1; g.tickWorld();
   const arch = a.units[230] || 0, die = Math.round(arch * 0.051);
-  assert.ok(a.state === 'dig' && arch > 80, 'охрана разбита, раскопки идут');
+  assert.ok(a.state === 'dig' && arch === 100 && a.units[231] < 60, 'охрану разбили Стражи, археологи целы, раскопки идут');
   Math.random = () => 0.01; a.digEnd = Date.now() - 1; g.tickWorld(); Math.random = R0;
-  assert.ok(a.state === 'found' && a.art && die > 0 && a.units[230] === arch - die && g.db.reports.slice(-1)[0].lines.some((l) => l.includes(`из ${arch}.`)), 'нашли артефакт, часть археологов погибла, отряд ждёт отзыва');
+  const rep = g.db.reports.filter((r) => r.owner === ua.id).slice(-1)[0];
+  assert.ok(a.state === 'found' && a.find && a.find.type === 'cloak' && a.units[230] === arch - die && /нашли «Покров Безмолвия»/.test(rep.title) && rep.lines.some((l) => l.includes(`из ${arch}`)), 'нашли «Покров Безмолвия», часть археологов погибла — в отчёте');
   const v = g.dungView(cb, ub).camps.find((q) => q.id === camp.id);
-  assert.ok(v.o && v.o.login === 'dungA' && v.o.s === 'found' && !v.o.me, 'другой игрок видит, кто копает и что нашёл');
-  cb.units = { 200: 3000 };
-  assert.ok(g.dungAttack(cb, camp.id, { 200: 3000 }).ok, 'налёт на чужой отряд');
+  assert.ok(v.o && v.o.login === 'dungA' && v.o.s === 'found' && !v.o.me && !v.o.find, 'другой видит, кто копает, но не что нашли');
+  ub.devs = [{ dev: 'phone1' }]; ua.devs = [{ dev: 'phone1' }]; cb.units = { 231: 150, 200: 1000 };
+  assert.ok(/телефона/.test(g.dungAttack(cb, camp.id, { 231: 100 }).error || ''), 'с одного телефона нападать нельзя');
+  ub.devs = [{ dev: 'phone2' }];
+  assert.ok(g.dungAttack(cb, camp.id, { 200: 100 }).error && g.dungAttack(cb, camp.id, { 231: 151 }).error, 'в налёт — только Стражи и не больше полутора лимитов');
+  assert.ok(g.dungAttack(cb, camp.id, { 231: 150 }).ok, 'налёт Стражами');
   const s = cb.armies[0]; s.arrive = Date.now() - 1; g.tickWorld();
-  assert.ok(s.art && !a.art && !ca.armies.includes(a) && camp.gone > 0, 'налёт победил: артефакт отнят, лагерь исчез');
+  assert.ok(s.find && s.find.type === 'cloak' && !ca.armies.includes(a) && camp.gone > 0, 'налёт победил: находка отнята, лагерь исчез');
   s.back = Date.now() - 1; g.tickWorld();
-  assert.ok(cb.artifacts.length === 1 && !s.art, 'артефакт засчитан, когда отряд дошёл до замка');
-  Math.random = () => 0.99; // не нашли: домой с черепками
-  const c2 = D.camps.find((q) => q.l === 2 && !q.gone && !q.occ); ca.units = { 230: 50, 200: 2000 };
-  assert.ok(g.dungGo(ca, c2.id, { 230: 50, 200: 1000 }).ok); const b2 = ca.armies.find((x) => x.dung === c2.id); b2.arrive = Date.now() - 1; g.tickWorld();
-  b2.digEnd = Date.now() - 1; g.tickWorld(); Math.random = R0;
-  assert.ok(b2.state === 'back' && !b2.art && b2.loot && b2.units[230] < 50 && c2.gone > 0, 'артефакта нет — домой с черепками, лагерь исчез');
-  const free = D.camps.filter((q) => q.l === 1 && !q.gone && !q.occ).slice(0, 4);
-  const r4 = free.map((q) => g.dungGo(ca, q.id, { 230: 1, 200: 300 }));
+  assert.ok(cb.artifacts.length === 1 && cb.artifacts[0].type === 'cloak' && !s.find, 'отнятое засчитано, когда Стражи дошли до замка');
+  // «Забрать»: находка сразу в замке, отряд домой
+  const c2 = D.camps.find((q) => q.l === 2 && !q.gone && !q.occ); ca.units = { 230: 300, 231: 300 };
+  assert.ok(g.dungGo(ca, c2.id, { 230: 300, 231: 250 }).ok); const b2 = ca.armies.find((x) => x.dung === c2.id); b2.arrive = Date.now() - 1; g.tickWorld();
+  assert.ok(b2.state === 'dig', 'лагерь 2 ур.: 250 Стражей прошли охрану');
+  Math.random = () => 0.01; b2.digEnd = Date.now() - 1; g.tickWorld(); Math.random = R0;
+  assert.ok(b2.state === 'found' && b2.find.type === 'claw', 'нашли «Коготь Полководца»');
+  ca.artifacts = []; assert.ok(g.dungClaim(ca, b2.id).ok && ca.artifacts.some((x) => x.type === 'claw') && b2.state === 'back' && c2.gone > 0, '«Забрать»: артефакт в замке, отряд домой');
+  // монета — не чаще раза в сутки, иначе репутация
+  Math.random = () => 0; const f1 = g.dungRoll(ua, 5, Date.now()), f2 = g.dungRoll(ua, 5, Date.now()); Math.random = R0;
+  assert.ok(f1.type === 'coin' && f2.k === 'rep' && f2.n >= 1 && f2.n <= 3, 'монета раз в сутки, потом — репутация 1–3');
+  Math.random = () => 0.99; const fr = g.dungRoll(ua, 4, Date.now()), fe = g.dungRoll(ua, 2, Date.now()); Math.random = R0;
+  assert.ok(fr.k === 'res' && Object.values(fr.res).every((x) => x >= 1000 && x <= 3000) && fe.k === 'exp' && fe.n >= 100 && fe.n <= 300, 'клад 1000–3000 и опыт генерала 100–300');
+  // лимит 3 раскопки
+  const free = D.camps.filter((q) => q.l === 1 && !q.gone && !q.occ).slice(0, 4); ca.units = { 230: 100, 231: 400 };
+  const r4 = free.map((q) => g.dungGo(ca, q.id, { 230: 1, 231: 60 }));
   assert.ok(r4.slice(0, 3).every((x) => x.ok) && r4[3].error, 'раскопок — не больше 3');
   const a3 = ca.armies.find((x) => x.dung === free[0].id); a3.arrive = Date.now() - 1; g.tickWorld();
   assert.ok(g.dungRecall(ca, a3.id).ok && a3.state === 'back' && !free[0].occ && !free[0].gone, 'бросили раскопки — лагерь свободен');
   camp.gone = Date.now() - 1; g.tickWorld(); assert.ok(!camp.gone, 'лагерь вернулся на карту');
-  console.log('✓ Подземелье: 150 лагерей, охрана, гибель археологов, артефакт ждёт отзыва, налёт отнимает находку, не больше 3 раскопок');
+  // артефакты Подземелья
+  const art = (c, type) => { const x = { id: g.db.nextId++, type, active: false, found: Date.now() }; c.artifacts.push(x); return x; };
+  ca.artifacts = []; cb.artifacts = []; ca.artCd = {}; cb.artCd = {};
+  const ok1 = g.activateArtifact(cb, art(cb, 'cloak').id, true);
+  assert.ok(ok1.ok && g.artOn(cb, 'cloak') && /8 ч/.test(ok1.msg), '«Покров» пробуждён на 8 ч');
+  assert.ok(/снова через/.test(g.activateArtifact(cb, art(cb, 'cloak').id, true).error || ''), 'тот же вид — не раньше чем через сутки');
+  const spy = Object.keys(AR.UNIT).find((id) => AR.UNIT[id].race === 'humans' && AR.UNIT[id].role === 'scout'); ca.units = { [spy]: 50 };
+  const sr = g.sendArmy(ca, { units: { [spy]: 50 }, x: cb.x, y: cb.y, mission: 'scout' }); sr.army.arrive = Date.now() - 1; g.tickWorld();
+  assert.ok(/неудача/.test(g.db.reports.filter((r) => r.owner === ua.id).slice(-1)[0].title) && g.db.reports.filter((r) => r.owner === ub.id).slice(-1)[0].title === 'Разведка отражена', '«Покров»: разведка проваливается, хозяин знает');
+  cb.artifacts = []; ca.armies = []; ca.units = { [spy]: 50 }; const before = g.db.reports.filter((r) => r.owner === ub.id).length;
+  g.activateArtifact(ca, art(ca, 'eye').id, true);
+  const sr2 = g.sendArmy(ca, { units: { [spy]: 50 }, x: cb.x, y: cb.y, mission: 'scout' }); sr2.army.arrive = Date.now() - 1; g.tickWorld();
+  assert.ok(g.db.reports.filter((r) => r.owner === ub.id).length === before && /^Разведка/.test(g.db.reports.filter((r) => r.owner === ua.id).slice(-1)[0].title), '«Око Призрака»: противник не узнаёт о разведке');
+  const w0 = g.bonus(cb).wallPer; g.activateArtifact(cb, art(cb, 'heart').id, true);
+  assert.ok(Math.abs(g.bonus(cb).wallPer - 2 * w0) < 1e-12, '«Сердце Твердыни»: защита Забора ×2');
+  ca.armies = []; ca.units = { 200: 50 }; const go = g.sendArmy(ca, { units: { 200: 50 }, x: cb.x, y: cb.y, mission: 'attack' });
+  assert.ok(go.army && /вражеская армия/.test(g.activateArtifact(cb, art(cb, 'hand').id, true).error || ''), 'защитный артефакт не пробудить, когда на замок уже идут');
+  ca.armies = []; ca.units = {};
+  { const p0 = g.armyPower(ca, {}, true).raw.gen; g.activateArtifact(ca, art(ca, 'claw').id, true); assert.ok(p0 > 0 && g.armyPower(ca, {}, true).raw.gen === 2 * p0, '«Коготь Полководца»: атака генерала ×2'); }
+  { cb.artCd = {}; ca.armies = []; const wall0 = g.buildingLevel(cb, AR.B.FENCE); g.activateArtifact(cb, art(cb, 'seal').id, true);
+    const R = g.clash(ca, { units: { 243: 500, 200: 10 }, mission: 'attack', general: false }, cb, null, Date.now());
+    assert.ok(wall0 > 0 && g.buildingLevel(cb, AR.B.FENCE) === wall0 && R.siege.some((x) => /Печать/.test(x)), '«Печать Нерушимости»: тараны не ломают Забор'); }
+  const coin = art(cb, 'coin'), gold0 = ub.gold || 0;
+  assert.ok(g.activateArtifact(cb, coin.id, true).ok && ub.gold === gold0 + 1 && !cb.artifacts.includes(coin), '«Монета Древних Королей»: +1 монета');
+  assert.ok(!DG.DUNG.some((d) => d && d.finds.some(([k]) => ['art:atk', 'art:def', 'art:prod', 'art:speed', 'art:train'].includes(k))) && AR.ART_BASIC.length === 5, 'старые артефакты в Подземелье не выпадают, сундуки и задания — только обычные');
+  console.log('✓ Подземелье: Стражи глубин, 250 лагерей, лимиты, находки по уровням, «Забрать», налёт, защита от мультов, монета раз в сутки; артефакты Покров, Око, Сердце, Монета, перезарядка и запрет при атаке');
 }
 { // экспедиции из здания и временные артефакты
   const u = g.register({ login: 'expedU', password: '12345', race: 0 }).user, c = g.castleOf(u); g.maxOut(c); g.mil(c);
   c.units[230] = 25; c.artifacts = []; c.expeds = [];
   assert.ok(require('../src/army').UNIT[230].building === 17, 'археологи тренируются в Экспедиции');
-  const r = g.expedGo(c, 'tomb', 30); assert.ok(r.ok && c.units[230] === 5 && c.expeds.length === 1 && c.expeds[0].n === 20, 'в экспедицию — не больше 20');
-  assert.ok(g.expedGo(c, 'nope', 1).error, 'неизвестная экспедиция');
-  c.expeds[0].end = Date.now() - 1; g.tick(c);
+  assert.ok(g.expedGo(c, 'tomb', 30).error && c.units[230] === 25, 'с 24.10 археологи ходят только в Подземелье');
+  c.expeds.push({ id: 1, kind: 'tomb', n: 20, start: Date.now() - 2, end: Date.now() - 1 }); c.units[230] = 5; // ушедшая раньше экспедиция возвращается как прежде
+  g.tick(c);
   assert.ok(!c.expeds.length && c.units[230] >= 5 && g.db.reports.slice(-1)[0].title.startsWith('Экспедиция вернулась'), 'экспедиция вернулась с отчётом');
   { // добыча артефактов труднее: экспедиции 15/30/45% + 1% за археолога, до 80%; руины 10% + 1%, до 50%; полная Сокровищница — осколки
     const AR = require('../src/army'), I = g.expedInfo(c), near = I.kinds.find((k) => k.k === 'near');

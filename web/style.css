@@ -2670,3 +2670,12 @@ p.ghint.center { margin: 2px 8px 6px; text-align: center; font: 14px var(--serif
 .dgunits { display: flex; flex-wrap: wrap; gap: 2px 8px; margin-top: 2px; font-size: min(14px, 3.5vw); }
 .dgunits span { display: inline-flex; align-items: center; gap: 2px; }
 .dgunits img { width: 24px; height: 24px; object-fit: contain; }
+img.artsp { filter: drop-shadow(0 0 4px #c89aff) drop-shadow(0 0 8px #6a3aff); } /* артефакты Подземелья */
+.dgfinds { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 4px 0 8px; }
+.dgfind, .dgfound { display: flex; align-items: center; gap: 6px; padding: 5px; border: 1px solid #a07840; border-radius: 6px; background: rgba(255, 240, 200, .45); font: 400 min(15px, 3.8vw) var(--serif); color: #2a1408; }
+.dgfind img, .dgfound img { width: 40px; height: 40px; object-fit: contain; flex: none; filter: drop-shadow(0 0 4px #c89aff); }
+.dgfi { width: 40px; flex: none; text-align: center; font-size: 28px; }
+.dgfound { margin: 6px 0; border: 2px solid #c9a15a; background: linear-gradient(rgba(255, 236, 170, .8), rgba(240, 210, 140, .7)); }
+.dgfound img { width: 56px; height: 56px; }
+.dgcap { display: block; font-size: .72em; color: #6a4a2a; }
+.pbar.dgclaim { background: linear-gradient(#e8b84a, #a8701a); color: #2a1408; font-weight: 700; }
