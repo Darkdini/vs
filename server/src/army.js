@@ -862,19 +862,24 @@ function install(Game, helpers) {
   };
   // опыт генерала за бой. Чтобы генерал не качался «за пару секунд», действуют ограничения (игрокам не показываются):
   //  • за один бой — не больше 15% опыта текущего уровня (минимум 7 боёв на уровень), с 25 ур. — 10%;
-  //  • за сутки — не больше опыта на 1 уровень, с 25 ур. — на полуровня (и сами уровни там дороже — GEN_HARD);
-  //  • карьера (+0,5% за очко) и премиум (×2) увеличивают и опыт, и оба лимита.
+  //  • за сутки — не больше опыта на 1 уровень, с 25 ур. — на полуровня (и сами уровни там дороже — GEN_HARD); лимит твёрдый
+  //    (с 24.10): карьера, премиум и Шлем ускоряют набор, но лимит не поднимают; опыт из Кладовой — в тот же лимит (genDayLeft);
+  //  • карьера (+0,5% за очко), премиум (×2) и Шлем увеличивают опыт за бой и лимит за бой.
+  // сколько опыта генерал ещё может получить сегодня (бои и Кладовая вместе)
+  P.genDayLeft = function genDayLeft(g) {
+    const span = this.generalNeed(g.level) - (g.level > 1 ? this.generalNeed(g.level - 1) : 0), day = new Date().toISOString().slice(0, 10);
+    if (!g.day || g.day.d !== day) g.day = { d: day, exp: 0 };
+    return Math.max(0, Math.ceil(span * (g.level >= GEN_HARD.from ? GEN_HARD.day : GEN.dayLevels)) - g.day.exp);
+  };
   P.addGeneralExp = function addGeneralExp(castle, exp) {
     const g = castle.general; if (!g || g.dead || !(exp > 0)) return null;
     this.normGeneral(g, castle);
     const mult = (1 + GEN.career * g.pts.career) * (this.isPremium(this.userById(castle.owner)) ? 2 : 1) * (1 + this.heroBonus(g).exp);
     const span = this.generalNeed(g.level) - (g.level > 1 ? this.generalNeed(g.level - 1) : 0);
-    const day = new Date().toISOString().slice(0, 10);
-    if (!g.day || g.day.d !== day) g.day = { d: day, exp: 0 };
-    const hard = g.level >= GEN_HARD.from;
-    const battleCap = Math.max(20, Math.ceil(span * (hard ? GEN_HARD.battle : GEN.battleCap) * mult)), dayCap = Math.ceil(span * (hard ? GEN_HARD.day : GEN.dayLevels) * mult);
-    const raw = Math.round(exp * mult), got = Math.max(0, Math.min(raw, battleCap, dayCap - g.day.exp));
-    const capped = got < raw ? (g.day.exp + got >= dayCap ? 'day' : 'battle') : null;
+    const left = this.genDayLeft(g), hard = g.level >= GEN_HARD.from;
+    const battleCap = Math.max(20, Math.ceil(span * (hard ? GEN_HARD.battle : GEN.battleCap) * mult));
+    const raw = Math.round(exp * mult), got = Math.max(0, Math.min(raw, battleCap, left));
+    const capped = got < raw ? (got >= left ? 'day' : 'battle') : null;
     g.day.exp += got; if (got > 0) this.addStat(castle.owner, 'genExp', got);
     const from = g.level; g.exp += got;
     while (g.level < GEN.maxLevel && g.exp >= this.generalNeed(g.level)) { g.level++; g.free += GEN.perLevel; }

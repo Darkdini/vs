@@ -193,6 +193,10 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(g.addGeneralExp(c1, 10000000).got === Math.ceil(s10 * 0.15), 'до 25 ур. — 15% уровня за бой');
   let l10 = 10; for (let i = 0; i < 50; i++) l10 = g.addGeneralExp(c1, 10000000).level;
   assert.strictEqual(l10, 11, 'до 25 ур. — уровень за сутки');
+  // лимит за сутки твёрдый (с 24.10): премиум ×2 ускоряет набор, но лимит не поднимает
+  { const pu = g.userById(c1.owner), p0 = pu.premium; pu.premium = Date.now() + 864e5; c1.general = g.newGeneral(c1, 10);
+    let l = 10; for (let i = 0; i < 50; i++) l = g.addGeneralExp(c1, 10000000).level; pu.premium = p0;
+    assert.ok(l === 11 && c1.general.day.exp <= g.generalNeed(11) - g.generalNeed(10), `с премиумом — тоже не больше уровня за сутки (${l} ур., ${c1.general.day.exp})`); }
   // лимиты игроку не показываются: ни в окне «Генерал», ни в отчёте о бое
   const gv = g.generalView(c1); assert.ok(gv.lim === undefined && gv.day === undefined, 'в окно генерала лимиты не уходят');
   console.log(`✓ генерал: 1 опыт за 10 населения, повторный бой ×0,5; с 25 ур. за бой ≤10% уровня (${fmt(Math.ceil(span * 0.1))} на 100 ур.), за сутки ≤ полуровня; лимиты скрыты`);
@@ -899,7 +903,11 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(g.train(c, 309, 1).error, 'уникальных не тренируют');
   g.mil(c); const n0 = c.units[309] || 0; assert.ok(g.stashTake(u, c, 'unit', 309, 3).ok && c.units[309] === n0 + 3 && u.stash.units[309] === 2, 'воины в замок');
   assert.ok(g.stashTake(u, c, 'exp', 'exp', 50).error, 'опыт — только живому генералу');
-  c.general = g.newGeneral(c, 1); assert.ok(g.stashTake(u, c, 'exp', 'exp', 120).ok && c.general.level === 2 && !u.stash.exp, 'опыт генералу: уровень вырос');
+  c.general = g.newGeneral(c, 1); u.stash.exp = 1000; // опыт из Кладовой — в дневной лимит генерала (с 24.10): за день — около уровня, остальное ждёт
+  { const t = g.stashTake(u, c, 'exp', 'exp', 1000); assert.ok(t.ok && /завтра/.test(t.msg) && c.general.level === 2 && u.stash.exp < 1000 && u.stash.exp > 0, `опыт генералу: уровень вырос, сверх дневного лимита — остался в Кладовой (${u.stash.exp})`); }
+  for (let i = 0; i < 5 && !g.stashTake(u, c, 'exp', 'exp', 1000).error;) i++;
+  { const v = g.stashView(u, c).find((x) => x.kind === 'exp'), rest = u.stash.exp; assert.ok(c.general.level === 2 && rest > 0 && v.max === 0 && v.tired && /завтра/.test(g.stashTake(u, c, 'exp', 'exp', 70).error) && u.stash.exp === rest, `лимит на сегодня набран — передать нельзя, опыт ждёт в Кладовой (${rest})`);
+    c.general.day.d = '2000-01-01'; assert.ok(g.stashTake(u, c, 'exp', 'exp', 1000).ok && u.stash.exp < rest, 'на другой день — передаётся'); u.stash.exp = 0; }
   assert.ok(g.stashTake(u, c, 'unit', '__proto__', 1).error && g.stashTake(u, c, 'res', 'gold', 1).error, 'чужие ключи отвергаются');
   { // Кладовая одна на игрока: награда, полученная в первом замке, извлекается во втором
     const c2 = g.createCastle(u); u.castleIds = [...(u.castleIds || [c.id]), c2.id];
