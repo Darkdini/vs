@@ -471,7 +471,7 @@ const ROW = { infantry: 3, cavalry: 2, magic: 1, siege: 1, special: 1 }, DMG = 2
 // против магии у кого нет защиты от магии — ¾ обычной защиты (было ½); удача нападающего ±5% (было ±10%)
 const forgeCap = (b) => Math.max(5, Math.floor((b || 0) / 2));
 const forgeCaps = (u) => ({ a: forgeCap(u.attack), d: forgeCap(Math.max(u.def ? u.def.inf : 0, u.def ? u.def.cav : 0)), m: forgeCap(u.magic), md: forgeCap(u.def ? u.def.mag : 0) });
-const DEF_RANK_K = 0.25; // очки боевого ранга защитнику за разбитых нападающих — четверть (с 24.10)
+const DEF_RANK_K = 0; // очки боевого ранга — только за нападения и набеги: защитнику за разбитых нападающих — ничего (с 24.10)
 const DEF_HOME = 1.1; // замок помогает своим защитникам (и подкреплениям в нём): защита ×1,1 (с 24.10; до 23.10 — ×1,75, потом ×1,25: обычный игрок брал замок соседа лишь армией в 1,5–2,5 раза больше и терял почти всю)
 // Забор: +% к защите за уровень по расе (с 24.10 — вдвое меньше: на 20 ур. было +40–70%)
 const WALL_PER = { humans: 0.015, elves: 0.0175, dwarves: 0.01, orcs: 0.0125 };
@@ -1654,13 +1654,13 @@ function install(Game, helpers) {
     if (win) { this.addStat(c.owner, 'wins', 1); if (!target) this.addStat(c.owner, 'npcWins', 1); if (lair) this.lairWon(c.owner, lair.k); } // задания
     // снаряжение генерала в боях не выпадает — его куёт Кузнец за руны (hero.js runeForge)
     // генералы
-    const genA = [], genD = []; let genExpA = 0, genExpD = 0, genDiedD = false; // опыт генералов — в отчёт числом
+    const genA = [], genD = []; let genExpA = 0, genExpD = 0, genDiedD = false, genSavedA = false, genSavedD = false; // опыт генералов — в отчёт числом
     // генерал гибнет, когда армия разбита в бою: нападение проиграно (или не уцелел никто) — даже если «Полевой лекарь» кого-то спас
     // (до 21.10 спасённые воины спасали и генерала — он не погибал почти никогда); шанс уцелеть — умения и снаряжение (не больше 30%)
     const wipedA = aLoss >= 1 && (!win || !aliveAfter);
     if (a.general && c.general) {
       const hb = this.heroBonus(c.general);
-      if (wipedA && Math.random() < hb.survive) genA.push('Армия разбита, но генерал чудом уцелел и вернулся домой (умения и снаряжение).');
+      if (wipedA && Math.random() < hb.survive) { genSavedA = true; genA.push('Армия разбита, но генерал чудом уцелел и вернулся домой (умения и снаряжение).'); }
       else if (wipedA) { c.general.dead = true; delete c.general.away; a.general = false; this.heroStrip(c, c.general); genA.push('Генерал пал в бою — опыт не получен. Его снаряжение вернулось в Оружейную.'); }
       else {
         const e = this.battleExp({ killedPop: popOf(dLost), win, mission: a.mission, npc: target ? null : npc, dLoss, mine: c, enemy: target });
@@ -1670,7 +1670,10 @@ function install(Game, helpers) {
     // генерал защитника гибнет, когда оборона проиграла нападение — даже если часть защитников потом выздоровела дома (HEAL_HOME;
     // до 21.10 выздоровевшие спасали и генерала). Набег — короткая стычка: генерал не гибнет, как и войска целиком
     if (target && target.general && !target.general.dead && !target.general.away) {
-      if (win && a.mission === 'attack' && dLoss >= 1 && Math.random() >= this.heroBonus(target.general).survive) { target.general.dead = true; this.heroStrip(target, target.general); genD.push('Ваш генерал пал, защищая замок.'); genDiedD = true; }
+      const wipedD = win && a.mission === 'attack' && dLoss >= 1;
+      if (wipedD && Math.random() >= this.heroBonus(target.general).survive) { target.general.dead = true; this.heroStrip(target, target.general); genD.push('Ваш генерал пал, защищая замок.'); genDiedD = true; }
+      // уцелел по шансу «Несокрушимого» и снаряжения — как у нападающего: без опыта и с пояснением в отчёте (раньше — молча «в строю»)
+      else if (wipedD) { genSavedD = true; genD.push('Оборона разбита, но ваш генерал чудом уцелел (умения и снаряжение) — опыт не получен.'); }
       else {
         const e = this.battleExp({ killedPop: popOf(aLost), win: !win, mission: 'attack', mine: target, enemy: c });
         const ge = this.addGeneralExp(target, e.exp); genExpD = ge ? ge.got : 0; const l = genLine('Ваш генерал', ge, e); if (l) genD.push(l);
@@ -1758,7 +1761,7 @@ function install(Game, helpers) {
     if (target) { this.addStat(target.owner, 'defKills', popOf(aLost)); this.addStat(target.owner, 'defLost', popOf(dLost)); this.addStat(target.owner, 'attLost', popOf(dLost)); }
     this.addStat(c.owner, 'attLost', popOf(aLost)); // Зал Гибели: все потери — нападения на замки и NPC, защита своего замка (выше), бой с боссом (boss.js)
     if (this.brAdd) { // боевой ранг (battlerank.js): мирные юниты очков не дают, раненые — за четверть
-      // защитник — за четверть (DEF_RANK_K): иначе разбитые о прокачанный замок армии «качали» ему ранг, а ранг крепил защиту дальше
+      // защитнику — ничего (DEF_RANK_K = 0): ранг — только за нападения и набеги; иначе разбитые о замок армии «качали» ему ранг
       if (target) { this.brAdd(c.owner, rankPop(dLost, R.dWnd, R.dHeal), target.owner); this.brAdd(target.owner, rankPop(aLost, R.aWnd) * DEF_RANK_K, c.owner); }
       else if (npc) this.brAdd(c.owner, Math.round(npc.def.inf / 20 * dLoss), null);
     }
@@ -1770,8 +1773,8 @@ function install(Game, helpers) {
     const genDied = !!(c.general && c.general.dead && a.general === false && aLoss >= 1);
     const data = {
       type: 'battle', mission: a.mission, win, x: a.x, y: a.y, luck, calc,
-      att: { id: att.id, login: att.login, race: att.race, castle: c.name, army: a.squad ? a.squad.name : 'Замковая армия', cx: c.x, cy: c.y, rating: this.rating(c), lossRes: lossRes(aLost), units: side(a.units, aLost), general: a.general || genDied ? (c.general ? c.general.level : 0) : 0, generalDied: genDied, genExp: genExpA },
-      def: target ? { id: captured ? captured.prevOwner : defUser.id, login: captured ? captured.prevLogin : defUser.login, race: captured ? captured.prevRace : defUser.race, castle: took ? took.prevName : target.name, rating: this.rating(target), lossRes: lossRes(dLost), units: side(dAll, dLost), wall: this.bonus(target).wall, general: target.general && !target.general.away ? target.general.level : 0, generalDied: genDiedD, genExp: genExpD }
+      att: { id: att.id, login: att.login, race: att.race, castle: c.name, army: a.squad ? a.squad.name : 'Замковая армия', cx: c.x, cy: c.y, rating: this.rating(c), lossRes: lossRes(aLost), units: side(a.units, aLost), general: a.general || genDied ? (c.general ? c.general.level : 0) : 0, generalDied: genDied, generalSaved: genSavedA, genExp: genExpA },
+      def: target ? { id: captured ? captured.prevOwner : defUser.id, login: captured ? captured.prevLogin : defUser.login, race: captured ? captured.prevRace : defUser.race, castle: took ? took.prevName : target.name, rating: this.rating(target), lossRes: lossRes(dLost), units: side(dAll, dLost), wall: this.bonus(target).wall, general: target.general && !target.general.away ? target.general.level : 0, generalDied: genDiedD, generalSaved: genSavedD, genExp: genExpD }
         : { npc: npc.name, img: obj.img, lossPct: Math.round(dLoss * 100), garrison: R.garrison },
       site: target && target.site ? { end: target.site.end } : null, siteTaken: siteTaken ? (took ? { x: a.x, y: a.y } : { blocked: siteTaken.blocked }) : null,
       loot, siege, loyalty, capitalBlocked, royalBlocked, captured: captured ? { name: captured.name, x: a.x, y: a.y, rebel: captured.rebel || 0 } : null,

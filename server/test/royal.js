@@ -1947,10 +1947,10 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const f1 = fight(), pop = require('../src/army').UNIT[200].pop;
   assert.ok(f1.home === 0 && f1.a === Math.round(100 * pop * 0.2), `нападающему: все 100 павших защитников (дома никто не выздоровел — нападение победило), путешественники — ничего (+${f1.a})`);
   { const w = Math.floor(f1.lost / 2); // ранеными — половина павших (Лазарет), остальные погибли
-    assert.ok(f1.lost > 0 && (ca.wounded[200] || 0) === w && f1.d === Math.round(((f1.lost - w) + w * 0.25) * pop * 0.25 * 0.2), `защитнику (с 24.10 — четверть очков): за погибших — полностью, за раненых в Лазарете нападающего — четверть (+${f1.d} за ${f1.lost}, раненых ${w})`); }
+    assert.ok(f1.lost > 0 && (ca.wounded[200] || 0) === w && f1.d === 0, `защитнику (с 24.10) очков нет — ранг только за нападения и набеги (+${f1.d} за ${f1.lost}, раненых ${w})`); }
   const f2 = fight(); assert.strictEqual(f2.a, Math.round(100 * pop * 0.2 / 2), `второй бой с тем же игроком за сутки — вдвое меньше (+${f2.a})`);
   { const adm = Object.values(g.db.users).find((u) => u.admin); if (adm) { adm.br = { v: 3, pts: 50000, claimed: 3 }; g.brAdd(adm.id, 1000, null); assert.ok(g.brOf(adm).pts === 0 && g.brRank(adm) === -1 && g.brBonus(adm).atk === 0, 'у Советника ранга нет: набитый сброшен, новый не растёт'); } }
-  console.log(`✓ Очки ранга: повтор за сутки 20 → 10 → 5, путешественники без очков, раненые за четверть (бой: +${f1.a}, повтор +${f2.a})`);
+  console.log(`✓ Очки ранга: повтор за сутки 20 → 10 → 5, путешественники без очков, раненые за четверть, защитнику — 0 (бой: +${f1.a}, повтор +${f2.a})`);
 }
 { // генерал гибнет по исходу боя (21.10): «Полевой лекарь» и выздоровевшие дома больше не спасают его; набег — не гибнет; уцелеть — до 30%
   const mk = (login) => g.register({ login, password: '12345', race: 0 }).user;
@@ -1965,6 +1965,12 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   // набег — короткая стычка: генерал защитника жив
   cd.general = g.newGeneral(cd, 20); cd.units = { 201: 100 }; ca.units = { 200: 5000 };
   go('raid'); assert.ok(!cd.general.dead, 'набег — генерал защитника жив');
+  // оборона разбита, но генерал уцелел по шансу (Math.random — 0): без опыта, в отчёте — «чудом уцелел»
+  { cd.general = g.newGeneral(cd, 20); cd.units = { 201: 100 }; ca.units = { 200: 5000 }; const e0 = cd.general.exp, rnd = Math.random, hb = g.heroBonus;
+    g.heroBonus = function (gn) { const r = hb.call(this, gn); return gn === cd.general ? { ...r, survive: 0.3 } : r; }; Math.random = () => 0.01;
+    try { go('attack'); } finally { Math.random = rnd; g.heroBonus = hb; }
+    const rep = g.reportsOf(D.id).find((x) => x.data && x.data.type === 'battle');
+    assert.ok(!cd.general.dead && cd.general.exp === e0 && rep.data.def.generalSaved && !rep.data.def.genExp, 'оборона разбита, генерал уцелел — без опыта, в отчёте «чудом уцелел»'); }
   // шанс уцелеть: «Несокрушимый» (40%) и рунный щит +5 (56%) — вместе не больше 30%
   const sv = g.heroBonus({ tal: { d4: 5 }, eq: { shield: { slot: 'shield', r: 4, plus: 5 } } }).survive;
   assert.strictEqual(sv, 0.3, `шанс уцелеть — не больше 30% (${sv})`);

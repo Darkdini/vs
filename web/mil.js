@@ -436,7 +436,7 @@ function reportHtml(r) {
   const dWhy = dL || !dW || d.win || kD < 2 ? '' : why(`Защита была в ${kD} ${plural(kD, 'раз', 'раза', 'раз')} сильнее атаки — при таком перевесе защитники почти не теряют войск.`);
   // «Армия атаки» / «Армия защиты» — раскрываются нажатием: потери, потери в ресурсах, по юнитам «погибло из было», генерал
   const unitRows = (units, race) => Object.entries(units || {}).map(([id, v]) => { const u = unitById(id); return u ? `<div class="rul"><img class="ric" src="${unitSrc(u, race)}" alt=""> ${esc(u.name)}: ${fmtFull(v.lost)} из ${fmtFull(v.was)}</div>` : ''; }).join('');
-  const genRow = (s) => (s.general ? `<div class="rul">${gimg(`units/${HD_DIR[s.race] || 'human/hd'}/general.png`, 'ric')} Генерал ${s.general} ур.: ${s.generalDied ? '<span class="rbad">пал в бою</span>' : s.genExp ? `+${fmtFull(s.genExp)} опыта` : 'в строю'}</div>` : '');
+  const genRow = (s) => (s.general ? `<div class="rul">${gimg(`units/${HD_DIR[s.race] || 'human/hd'}/general.png`, 'ric')} Генерал ${s.general} ур.: ${s.generalDied ? '<span class="rbad">пал в бою</span>' : s.generalSaved ? 'чудом уцелел (умения и снаряжение)' : s.genExp ? `+${fmtFull(s.genExp)} опыта` : 'в строю'}</div>` : '');
   const armyBox = (icon, title, sub, body) => `<details class="rarmy"><summary class="rbar"><img src="${REPG}${icon}.png" alt=""> ${title}</summary>${ribbon(sub)}${body}</details>`;
   const attBox = armyBox('swords', 'Армия атаки', `Армия атаки${d.att.army ? `: ${esc(d.att.army)}` : ''}`,
     `<div class="rp">${ic('skull')} Потери: ${fmtFull(aL)} из ${fmtFull(aW)} ( ${pct(aL, aW)}% )<br>Потери в ресурсах:${resRow(d.att.lossRes)}${unitRows(d.att.units, d.att.race)}${genRow(d.att)}</div>`);
