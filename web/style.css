@@ -1469,9 +1469,13 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .tname { font: 400 min(28px, 6.6vw) var(--serif); color: #2a1408; }
 .timg { height: 150px; width: auto; max-width: 70%; object-fit: contain; margin: 4px auto; display: block; background: none; border: 0; }
 .tparams-h { font: 400 min(26px, 6vw) var(--serif); color: #2a1408; margin-top: 4px; }
-.tparams { display: grid; grid-template-columns: repeat(7, 1fr); margin: 2px 0 8px; }
+.tparams { display: grid; grid-template-columns: repeat(6, 1fr); margin: 2px 0 8px; }
+.tspec { text-align: center; margin: -2px 0 2px; }
+.uspec { font-size: 15px; color: #5a2d0c; white-space: nowrap; }
+.uspec img { width: 20px; height: 20px; vertical-align: -4px; }
+.grid4 small + img { width: 18px; height: 18px; vertical-align: -3px; }
 .tparams div { display: flex; flex-direction: column; align-items: center; }
-.tparams img { width: 22px; height: 22px; object-fit: contain; }
+.tparams img { width: 26px; height: 26px; object-fit: contain; }
 .tparams b { font: 400 min(24px, 5.6vw) var(--serif); color: #2a1408; }
 .tcost { background: #8f9878; border: 3px solid #c9a15a; border-radius: 8px; box-shadow: inset 0 0 0 2px #6b7258; padding: 6px 6px 8px; color: #fff6e0; }
 .tcost-h { font: 400 min(26px, 6vw) var(--serif); margin-bottom: 2px; }

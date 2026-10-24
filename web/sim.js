@@ -18,7 +18,7 @@ function openSim(r) {
   const units = s.units ? { ...s.units } : null;
   S.sim = { title: d.def && (d.def.npc || `${d.def.castle} (${d.def.login})`), x: d.x, y: d.y, at: r.at, npc: s.npc ?? null, race: s.race || 'humans', uid: s.uid,
     dUnits: units, reinf: s.reinf ? { ...s.reinf } : null, known: { units: !!s.units, wall: s.wall !== undefined, def: s.defK !== undefined, res: !!s.res },
-    rank: s.rank || null, wall: s.wall ?? 0, defK: s.defK || 1 + (s.rank ? s.rank.def : 0), magK: s.magK || 1, wallPer: s.wallPer, gen: s.gen || null, res: s.res || null, hidden: s.hidden || 0, forge: s.forge || null,
+    rank: s.rank || null, wall: s.wall ?? 0, defK: s.defK || 1 + (s.rank ? s.rank.def : 0), atkK: s.atkK || 1 + (s.rank ? s.rank.def : 0), magK: s.magK || 1, wallPer: s.wallPer, gen: s.gen || null, res: s.res || null, hidden: s.hidden || 0, forge: s.forge || null,
     mission: 'attack', general: false, units: {}, result: null };
   // defK: постройки не видны — учтён хотя бы боевой ранг противника (он виден всем)
   if (!units) { S.sim.dUnits = {}; for (const u of M().units.filter((x) => x.race === S.sim.race && [3, 12, 20].includes(x.building) && !x.notrain)) S.sim.dUnits[u.id] = 0; }
@@ -71,7 +71,7 @@ function simResHtml() {
       <div class="simverdict">${r.win ? '⚔ Победа атаки' : '🛡 Поражение атаки'}</div>
       <div class="simline">Бонусы в расчёте: атака <b>+${r.atkPct}%</b>${r.myRank ? ` (в т. ч. ваш боевой ранг +${String(r.myRank).replace('.', ',')}%)` : ''}${r.npc ? '' : `, защита <b>+${r.defPct}%</b>`}</div>
       ${r.genGain !== null ? `<div class="simline">${r.general ? `Генерал ${fmtFull(r.genLevel)} ур. в армии: <b>+${String(r.genGain).replace('.', ',')}%</b> к силе атаки` : `Без генерала. С генералом ${fmtFull(r.genLevel)} ур. сила атаки была бы <b>+${String(r.genGain).replace('.', ',')}%</b> — отметьте его выше`}${r.genGain < 2 ? ' (мало: распределите очки генерала в атаку и командование)' : ''}.</div>` : ''}
-      <div class="simline">Сила атаки <b>${fmtFull(r.ap)}</b> · защиты <b>${fmtFull(r.dp)}</b> — ${r.ap >= r.dp ? 'атака' : 'защита'} сильнее в <b>${kk}</b> раза</div>
+      <div class="simline">Сила нападающих <b>${fmtFull(r.ap)}</b> · защитников <b>${fmtFull(r.dp)}</b> — ${r.ap >= r.dp ? 'нападающие' : 'защитники'} сильнее в <b>${kk}</b> раза</div>
       ${r.wallTo !== null ? `<div class="simline">Тараны: Забор ${r.wall} → <b>${r.wallTo}</b> ур.${r.win ? '' : ' (в бою; сломан останется, только если атака победит)'}</div>` : ''}
       ${r.morale < 100 ? `<div class="simline">Боевой дух ${r.morale}% — противник намного слабее вас, атака бьёт хуже.</div>` : ''}
       ${need ? `<div class="simline">Для победы атака должна быть сильнее примерно на <b>${need}%</b> — больше войск, Тараны против Забора или генерал.</div>` : ''}
@@ -94,7 +94,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.simclr !== undefined) { s.units = {}; s.result = null; return refreshSheet(); }
   if (d.simmax) { s.units[d.simmax] = simHave()[d.simmax] || 0; const i = $(`[data-simu="${d.simmax}"]`); if (i) i.value = s.units[d.simmax] || ''; return; }
   if (d.simgo !== undefined) {
-    const def = s.npc !== null ? { npc: s.npc } : { race: s.race, uid: s.uid, units: s.dUnits, reinf: s.reinf, wall: s.wall, defK: s.defK, magK: s.magK, wallPer: s.wallPer, gen: s.gen, res: s.res, hidden: s.hidden, forge: s.forge };
+    const def = s.npc !== null ? { npc: s.npc } : { race: s.race, uid: s.uid, units: s.dUnits, reinf: s.reinf, wall: s.wall, defK: s.defK, atkK: s.atkK, magK: s.magK, wallPer: s.wallPer, gen: s.gen, res: s.res, hidden: s.hidden, forge: s.forge };
     send({ t: 'sim', units: s.units, general: s.general, mission: s.mission, def });
   }
 });

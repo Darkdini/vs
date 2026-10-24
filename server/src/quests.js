@@ -126,7 +126,8 @@ const CAMP = [
   { title: 'Логово дракона', text: 'Древний дракон Игнитар проснулся под горой. Его пламя видно из столицы. Это последнее испытание Тёмных земель.', img: 'quest/lair_dragon.png', boss: 'quest/boss_dragon.png',
     g: [S_('Драконид', 'cavalry', 160, 60, 10, 60, 30, 150), S_('Кобольд-жрец', 'magic', 60, 0, 40, 20, 50, 100), S_('Дракон Игнитар', 'cavalry', 30000, 600, 200, 250, 150, 1)], reward: R(25000, { art: 2, u: { inf: 50, cav: 30, mag: 30 }, exp: 3000 }) },
 ];
-const CAMP_GARRISON = (k) => CAMP[k] && { name: `Логово: ${CAMP[k].title}`, garrison: CAMP[k].g.map((x) => ({ ...x })), def: { inf: 0, cav: 0, mag: 0 },
+const LAIR_HPK = [0.19, 0.14, 0.72, 0.082, 0.154, 0.3, 0.126]; // здоровье охраны логов в бою как в оригинале (с 24.10): нужная армия — как прежде
+const CAMP_GARRISON = (k) => CAMP[k] && { name: `Логово: ${CAMP[k].title}`, hpK: LAIR_HPK[k], garrison: CAMP[k].g.map((x) => ({ ...x })), def: { inf: 0, cav: 0, mag: 0 },
   loot: { wood: 400 * (k + 1), stone: 400 * (k + 1), iron: 300 * (k + 1), food: 500 * (k + 1) }, lair: k };
 
 function install(Game) {

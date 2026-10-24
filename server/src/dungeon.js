@@ -35,7 +35,8 @@ const DUNG = [
 ];
 const CAMP_PER = 0.005, CAMP_MAX = 0.1; // прибавка шанса за уровень Лагеря археологов и её предел; находка — никогда не наверняка
 // охрана лагеря — для боя (army.js clash: npc.dung — крепнет вместе с бонусами нападающего, как охрана лагерей разбойников)
-const GUARDS = DUNG.map((d, l) => (d ? { name: `Охрана: ${d.name}`, level: String(l), def: { inf: d.def, cav: d.def, mag: Math.round(d.def / 2) }, loot: { wood: 0, stone: 0, iron: 0, food: 0 }, dung: true } : null));
+const GUARD_HPK = [0, 0.49, 0.21, 0.2, 0.2, 0.2]; // здоровье охраны в бою как в оригинале (с 24.10): Стражей для победы нужно столько же, сколько прежде
+const GUARDS = DUNG.map((d, l) => (d ? { name: `Охрана: ${d.name}`, level: String(l), hpK: GUARD_HPK[l], def: { inf: d.def, cav: d.def, mag: Math.round(d.def / 2) }, loot: { wood: 0, stone: 0, iron: 0, food: 0 }, dung: true } : null));
 const travelSec = (l) => Math.max(30, Math.round((10 + 5 * l) * 60 / SPEED)); // путь до лагеря: 15–35 минут (не зависит от расстояния)
 const digSec = (l) => Math.max(60, Math.round(DUNG[l].hours * 3600 / SPEED));
 const LIVE = ['go', 'dig', 'found'];
@@ -242,7 +243,7 @@ function install(Game) {
     for (const id of Object.keys(d.units)) if (!(d.units[id] > 0)) delete d.units[id];
     const att = this.ownerOf(c), def = this.ownerOf(dc), name = DUNG[camp.l].name, f = findOf(d);
     const sides = [`Нападение: ${att.login} — ${unitsLine(aWas, R.aLost)}.`, `Отряд в лагере: ${def.login} — ${unitsLine(dWas, R.dLost)}.`,
-      `Сила нападения ${R.calc.att.total.toLocaleString('ru-RU')} против защиты ${R.calc.def.total.toLocaleString('ru-RU')}.`];
+      `Сила нападающих ${R.calc.att.str.toLocaleString('ru-RU')} против защитников ${R.calc.def.str.toLocaleString('ru-RU')}.`];
     const aL = [`Ваши Стражи напали на лагерь «${name}» (${camp.l} ур.).`, ...sides], dL = [`На ваш отряд в лагере «${name}» (${camp.l} ур.) напал ${att.login}.`, ...sides];
     if (R.calc.wounded) aL.push(`Ранены и ушли в Лазарет: ${Wd.warriors(R.calc.wounded)}.`);
     if (dWnd) dL.push(`Ранены и ушли в Лазарет: ${Wd.warriors(dWnd)}.`);

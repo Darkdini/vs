@@ -8,6 +8,7 @@ const UPK = {
   forge: { title: 'Кузница', kinds: ['a', 'd'], bld: 11, list: 'forgeUnits', op: 'forge', names: { a: 'атаки', d: 'защиты' } },
   magic: { title: 'Магическая школа', kinds: ['m', 'md'], bld: 39, list: 'magicUnits', op: 'magic', names: { m: 'магической атаки', md: 'магической защиты' } },
 };
+const UP_NOTE = { a: '+5% к урону воина за уровень', d: '+5% к здоровью против воинов за уровень', m: '+5% к урону воина за уровень', md: '+5% к здоровью против магов за уровень' }; // бой как в оригинале (army.js FORGE_K)
 const fLvl = (id, k) => ((MY().forge || {})[id] || {})[k] || 0; // число улучшений (бонус к параметру)
 // новые правила боя (проба, админка): улучшение не больше половины базы — предел с сервера (army.js forgeCaps), иначе null
 const fCap = (id, k) => { const c = MY().forgeCap; return c && c[id] ? c[id][k] : null; };
@@ -22,7 +23,7 @@ function upUnitWin() {
   const w = UPK[S.upw], u = unitById(S.upUnit), my = MY(), next = (my.upNext || {})[u.id] || {}, L = buildingLevel(w.bld), jobs = my.upJobs || {};
   const row = (k) => {
     const cur = shownLvl(u.id, k), T = cur + 1, n = next[k], job = jobs[k];
-    const head = `<div class="uphead">Текущий уровень ${w.names[k]} <img class="fi" src="${FI[k]}" alt=""> ${cur}</div>`;
+    const head = `<div class="uphead">Текущий уровень ${w.names[k]} <img class="fi" src="${FI[k]}" alt=""> ${cur}</div><div class="small muted">${UP_NOTE[k]}</div>`;
     if (job) return `${head}<div class="upbody">${job.unit === u.id ? `Идёт улучшение на ${job.level + 1} уровень. Осталось: <span class="cd" data-e="${job.end}"></span>` : 'Уже проводится улучшение данного параметра для другого юнита!'}</div>`;
     const cap = fCap(u.id, k), lv = fLvl(u.id, k);
     if (cap !== null && lv >= cap) return `${head}<div class="upbody">Предел для этого воина — +${cap}: по новым правилам боя улучшение не больше половины базового параметра.${lv > cap ? ` В бою действует +${cap} из +${lv}.` : ''}</div>`;

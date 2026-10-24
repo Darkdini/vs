@@ -45,11 +45,19 @@ function forgeEff(id) {
   const fg = (S.st && MY().forge && MY().forge[id]) || {}, cap = S.st && MY().forgeCap && MY().forgeCap[id];
   return cap ? Object.fromEntries(['a', 'd', 'm', 'md'].map((k) => [k, Math.min(fg[k] || 0, cap[k])])) : fg;
 }
+// бой как в оригинале (с 24.10): у воина три атаки — по пехоте, по коннице, по магам — и здоровье; специализация — значок у имени
+const SPEC_TXT = { A: ['a', 'Атакующий', 'в обороне бьёт вдвое слабее'], D: ['d', 'Защитник', 'при нападении бьёт вдвое слабее'], U: ['u', 'Универсал', 'бьёт в полную силу всегда'] };
+const CLS_TXT = { infantry: 'пехота', cavalry: 'конница', magic: 'маги' };
+// значки атак по родам войск и специализации — как в «Справке» оригинала (gfx/smallicon/atk_*.png, spec_*.png)
+const A3_IC = { inf: 'atk_inf', cav: 'atk_cav', mag: 'atk_mag' }, A3_NAME = { inf: 'Атака на пехоту', cav: 'Атака на конницу', mag: 'Атака на магов' };
+const unitA3 = (u) => u.a3 || { inf: (u.attack || 0) + (u.magic || 0), cav: (u.attack || 0) + (u.magic || 0), mag: (u.attack || 0) + (u.magic || 0) };
+const specHtml = (u) => { const t = SPEC_TXT[u.spec] || SPEC_TXT.U; return `<span class="uspec" title="${t[2]}"><img src="${GFX}smallicon/spec_${t[0]}.png" alt=""> ${t[1]}${CLS_TXT[u.type] ? ` · ${CLS_TXT[u.type]}` : ''}</span>`; };
 function unitStatsHtml(u) {
   // справка — только базовые цифры воина, без улучшений Кузницы
-  return `<div class="grid4 g5"><div><small>Здоровье</small>${u.hp || '—'}</div><div><small>Атака</small>${u.attack}${u.magic ? `<br>маг ${u.magic}` : ''}</div>
-    <div><small>Защита п/к/м</small>${u.def.inf}/${u.def.cav}/${u.def.mag}</div>
-    <div><small>Скорость</small>${u.speed} кл/ч</div><div><small>Груз</small>${u.carry}</div></div>
+  const a = unitA3(u);
+  return `<div class="small">${specHtml(u)} — ${(SPEC_TXT[u.spec] || SPEC_TXT.U)[2]}</div>
+    <div class="grid4 g5"><div><small>Здоровье</small>${u.hp || '—'}</div>${['inf', 'cav'].map((k) => `<div><small>${A3_NAME[k]}</small>${STAT_IC(A3_IC[k])} ${a[k]}</div>`).join('')}
+    <div><small>${A3_NAME.mag}</small>${STAT_IC(A3_IC.mag)} ${a.mag}</div><div><small>Скорость</small>${u.speed} кл/ч</div><div><small>Груз</small>${u.carry}</div></div>
     ${u.wallDmg ? `<div class="small">Ущерб стене: <b>${u.wallDmg} ед.</b>${u.oneUse ? ' · исчезает после боя' : ''}</div>` : ''}${u.bldDmg ? `<div class="small">Ущерб зданиям: <b>${u.bldDmg} ед.</b></div>` : ''}
     <div class="chips">${RES4.map((r) => `<span data-need="${r}:${u.cost[r]}">${RES_IC[r]} ${fmtFull(u.cost[r])}</span>`).join('')}
     <span>${RES_IC.people} ${u.pop}</span><span>${TIME_IC} ${fmtT(unitTrainSec(u))}</span></div>`;
@@ -73,7 +81,7 @@ function milEffect(def, L) {
     18: () => { const n = 1 + Math.floor(L / 3); return { text: `активных артефактов: ${n}`, short: `${n} ${plural(n, 'слот', 'слота', 'слотов')}` }; },
     19: () => ({ text: `торговцы везут на ${Math.round(L * 100 / 45)}% больше ресурсов и ходят на ${5 * L}% быстрее`, short: `+${Math.round(L * 100 / 45)}%` }),
     21: () => ({ text: '+5% к контрразведке; видны армии, идущие на Ваши замки (подробности — по уровню Центра разведки)', short: 'дозор' }),
-    22: () => ({ text: `+${pct(wallPer * L)} к защите войск в замке`, short: `+${pct(wallPer * L)}` }),
+    22: () => ({ text: `+${pct(wallPer * L)} к здоровью защитников замка`, short: `+${pct(wallPer * L)}` }),
     24: () => ({ text: 'путешественники (освоение новых замков) и бунтари (захват)', short: '' }),
     25: () => ({ text: `религия: +${L}% к её бонусу`, short: `+${L}%` }),
     26: () => { const h = Math.round(200 * 1.3 ** (L - 1) * (S.st.user.race === 'dwarves' ? 2 : 1) * ((MY().sciences || {}).eco >= 10 ? 1.25 : 1)); return { text: `прячет ${fmtFull(h)} каждого ресурса от грабежа`, short: fmtN(h) }; }, // как на сервере: гномы ×2, Экономика 10 — ещё +25%
@@ -186,11 +194,11 @@ function trainHtml(def, units) {
 const STAT_IC = (f) => `<img src="${GFX}smallicon/${f}.png" alt="">`;
 function trainCard(u) {
   const lock = unitLock(u), max = unitMax(u), n = Math.min(S.cnt[u.id] ?? 0, max); // как в оригинале: по умолчанию 0
-  const fg = forgeEff(u.id), plus = (v, k) => v + (k || 0);
-  return `<div class="tcard"><div class="tname">${esc(u.name)}</div>${uimg(u, 'timg')}
+  // с улучшениями Кузницы и Школы магии: атака и маг. атака — +5% урона за уровень, защита — +5% здоровья (против магов — маг. защита)
+  const fg = forgeEff(u.id), dk = 1 + 0.05 * ((fg.a || 0) + (fg.m || 0)), a = unitA3(u), v = (x) => Math.round(x * dk);
+  return `<div class="tcard"><div class="tname">${esc(u.name)}</div><div class="tspec">${specHtml(u)}</div>${uimg(u, 'timg')}
     <div class="tparams-h">Параметры юнита:</div>
-    <div class="tparams"><div>${STAT_IC('health')}<b>${u.hp}</b></div><div>${STAT_IC('phiattack')}<b>${plus(u.attack, u.attack ? fg.a : 0)}</b></div><div>${STAT_IC('magattack')}<b>${plus(u.magic, u.magic ? fg.m : 0)}</b></div>
-      <div>${STAT_IC('phidef')}<b>${plus(u.def.inf, fg.d)}</b></div><div>${STAT_IC('magdef')}<b>${plus(u.def.mag, fg.md)}</b></div><div>${STAT_IC('speed')}<b>${u.speed}</b></div><div>${STAT_IC('carry')}<b>${u.carry}</b></div></div>
+    <div class="tparams"><div>${STAT_IC('health')}<b>${Math.round(u.hp * (1 + 0.05 * (fg.d || 0)))}</b></div>${['inf', 'cav', 'mag'].map((k) => `<div title="${A3_NAME[k]}">${STAT_IC(A3_IC[k])}<b>${v(a[k])}</b></div>`).join('')}<div>${STAT_IC('speed')}<b>${u.speed}</b></div><div>${STAT_IC('carry')}<b>${u.carry}</b></div></div>
     <div class="tcost"><div class="tcost-h">Стоимость тренировки:</div><div class="tcost-r">${RES4.map((r) => `<span data-need="${r}:${u.cost[r]}">${RES_IC[r]}<b>${fmtFull(u.cost[r])}</b></span>`).join('')}
       <span>${RES_IC.people}<b>${u.pop}</b></span><span>${TIME_IC}<b>${fmtT(unitTrainSec(u))}</b></span></div></div>
     ${lock ? `<div class="needlist"><div class="needhead">Необходимо:</div>${unitNeeds(u).map((x) => `<div class="need ${x.ok ? 'ok' : ''}">${x.ok ? '✔' : '✖'} ${esc(x.name)} ${x.lvl} ур.</div>`).join('')}${unitNeeds(u).every((x) => x.ok) ? `<p class="reasons">${esc(lock)}</p>` : ''}</div>`
@@ -423,8 +431,9 @@ function reportHtml(r) {
       ${(d.siege || []).map((x) => `<div>${esc(x)}</div>`).join('')}
       ${d.gear ? `<div>${esc(d.gear)}</div>` : ''}</div>`;
   const lossLine = (L, W) => `${ic('skull')} Общие потери: ${fmtFull(L)} из ${fmtFull(W)} ( ${pct(L, W)}% )`;
-  // почему потерь 0: защитников не было — боя нет; или перевес огромный — потери победителя (слабый / сильный)^1,5 меньше одного воина
-  const AP = d.calc ? d.calc.att.total : 0, DP = d.calc ? d.calc.def.total : 0, times = (a, b) => (b > 0 ? Math.round(a / b) : 0);
+  // почему потерь 0: защитников не было — боя нет; или перевес огромный — победитель теряет меньше одного воина
+  // сила сторон: с 24.10 (бой как в оригинале) — str: √(урон × здоровье), до того — total
+  const AP = d.calc ? d.calc.att.str ?? d.calc.att.total : 0, DP = d.calc ? d.calc.def.str ?? d.calc.def.total : 0, times = (a, b) => (b > 0 ? Math.round(a / b) : 0);
   const why = (t) => `<div class="rwhy">${t}</div>`, kA = times(AP, DP), kD = times(DP, AP);
   const aWhy = aL || !aW ? '' : !d.def.npc && !dW && !d.def.general ? why('В замке не было защитников — сражаться было не с кем, поэтому потерь нет.')
     : d.win && kA >= 2 ? why(`Атака была в ${kA} ${plural(kA, 'раз', 'раза', 'раз')} сильнее ${d.def.npc ? 'охраны' : 'защиты'} — при таком перевесе победитель почти не теряет войск.`) : '';

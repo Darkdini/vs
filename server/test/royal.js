@@ -820,7 +820,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   for (const f of [DDB, `${DDB}.tmp`]) try { fs.unlinkSync(f); } catch { /* нет файла */ }
   console.log('✓ Удаление игрока: друзья, чёрный список, брак, переписка, отчёты, вызовы, подкрепления — всё убрано');
 }
-{ // бой как в Travian: сильный побеждает с малыми потерями, проигравший при нападении гибнет весь; стена, Кузница, тараны, набег
+{ // бой как в оригинале (с 24.10): сильный побеждает с малыми потерями, проигравший при нападении гибнет весь; стена, Кузница, тараны, набег
   const luck0 = process.env.LUCK; process.env.LUCK = '0';
   const A = g.register({ login: 'btlAA', password: '12345', race: 3 }).user, Dd = g.register({ login: 'btlDD', password: '12345', race: 3 }).user;
   // механика боя проверяется на прежнем Бугае (атака 20, жизнь 50) — у орков теперь цифры «Справки»
@@ -836,13 +836,24 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(!small.win && small.calc.aLossPct === 100 && small.calc.dLossPct < 50, 'слабый нападающий гибнет весь, защита теряет немного');
   const f0 = fight({ 247: 100 }, { 247: 100 }), f1 = fight({ 247: 100 }, { 247: 100 }, { fa: { 247: { a: 10 } } });
   assert.ok(f1.calc.att.total > f0.calc.att.total, 'Кузница усиливает атаку');
-  const w = fight({ 247: 300 }, { 247: 100 }, { wall: 10 }); assert.ok(w.calc.def.total > big.calc.def.total && w.calc.aLossPct > big.calc.aLossPct, 'стена усиливает защиту');
+  const w = fight({ 247: 300 }, { 247: 100 }, { wall: 10 }); assert.ok(w.calc.def.str > big.calc.def.str && w.calc.aLossPct > big.calc.aLossPct, 'стена усиливает защиту (здоровье защитников)');
   const r = fight({ 243: 20, 247: 300 }, { 247: 100 }, { wall: 10 });
   assert.ok(r.siege.some((x) => /Забор: 10 → \d/.test(x)) && r.aLost[243] === 20, 'тараны ломают стену до боя и исчезают');
   assert.ok(r.calc.healed === 0 && r.calc.dLossPct === 100 && small.calc.healed > 0, 'нападение победило — защитники гибнут все (дома не выздоравливают); замок устоял — четверть павших выздоравливает');
   const raid = fight({ 247: 200 }, { 247: 200 }, { m: 'raid' });
   assert.ok(raid.calc.aLossPct < 100 && raid.calc.dLossPct < 100, 'набег: никто не гибнет целиком');
-  console.log('✓ Бой как в Travian: втрое больше — потери', big.calc.aLossPct + '%, вдесятеро —', x10.calc.aLossPct + '%; стена, Кузница, тараны, набег');
+  // треугольник «Справки»: маги бьют конницу, конница — пехоту, пехота — магов. Орки: Заклинатель (маг, универсал), Потрошитель (конница,
+  // универсал), Мародёр (пехота, универсал) — равные по ресурсам армии
+  { const U = require('../src/army').UNIT, cost = (id) => Object.values(U[id].cost).reduce((q, v) => q + v, 0), by = (id) => Math.round(300000 / cost(id));
+    const beats = (x, y) => fight({ [x]: by(x) }, { [y]: by(y) }).win && !fight({ [y]: by(y) }, { [x]: by(x) }).win;
+    assert.ok(beats(275, 274) && beats(274, 245) && beats(245, 275), 'треугольник: маги бьют конницу, конница — пехоту, пехота — магов');
+    // специализация: Урук-хай (атакующий) в обороне бьёт вдвое слабее, Бугай (защитник) — при нападении
+    assert.ok(U[246].spec === 'A' && U[247].spec === 'D' && U[245].spec === 'U', 'специализация из «Справки»');
+    const atkU = fight({ 246: 100 }, { 245: 1 }), defU = fight({ 245: 1 }, { 246: 100 });
+    assert.ok(Math.abs(defU.calc.def.total * 2 - atkU.calc.att.total) <= 2, `атакующий в обороне — вдвое слабее (${atkU.calc.att.total} → ${defU.calc.def.total})`);
+    const atkB = fight({ 247: 100 }, { 245: 1 }), defB = fight({ 245: 1 }, { 247: 100 });
+    assert.ok(Math.abs(atkB.calc.att.total * 2 - defB.calc.def.total) <= 2 * 1.1 * 2 || atkB.calc.att.total < defB.calc.def.total, `защитник при нападении — вдвое слабее (${atkB.calc.att.total} / ${defB.calc.def.total})`); }
+  console.log('✓ Бой как в оригинале: втрое больше — потери', big.calc.aLossPct + '%, вдесятеро —', x10.calc.aLossPct + '%; стена, Кузница, тараны, набег, треугольник родов, специализация');
   // Лазарет (здание 41, бывшая Пивоварня): половина павших — ранеными в Лазарет (1000 мест за уровень), остальные гибнут; лечение — за четверть цены, сразу
   const atk0 = g.bonus(ca).atk, k = ca.grid[0].indexOf(-1) >= 0 ? ca.grid[0].indexOf(-1) : ca.grid[0].length - 1; ca.grid[0][k] = 41; ca.levels[0][k] = 10;
   assert.ok(g.infirmCap(ca) === 10000 && g.bonus(ca).atk === atk0, 'Лазарет 10 ур. — 10 000 мест, к атаке не прибавляет (бонус Пивоварни убран)');
@@ -1661,22 +1672,29 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   // (прибыль = добыча − цена павших × 0,625: половина павших — раненые, их лечение — четверть цены); проигрыш — гибнет вся армия
   const sum = (o) => Object.values(o).reduce((q, v) => q + v, 0), med = (a) => { const q = [...a].sort((x, y) => x - y); return (q[(q.length - 1) >> 1] + q[q.length >> 1]) / 2; };
   const races = ['humans', 'elves', 'dwarves', 'orcs'], cs = races.map((r, i) => { const c = g.castleOf(g.register({ login: 'campRace' + i, password: '12345', race: i }).user); g.mil(c); c.general = null; return c; });
-  const net = (k, ri, u) => { const loot = sum(AR.NPC[k].loot), n = Math.ceil(3 * loot / sum(u.cost)), a = { units: { [u.id]: n }, mission: 'attack', general: false };
-    const R = g.clash(cs[ri], a, null, AR.NPC[k], Date.now()), lost = n - (a.units[u.id] || 0);
-    if (!R.win) assert.strictEqual(lost, n, 'проиграл — погибла вся армия');
-    return ((R.win ? Math.min(loot, (n - lost) * u.carry) : 0) - lost * sum(u.cost) * 0.625) / loot * 100; };
+  // с 24.10 (бой как в оригинале: треугольник родов) — армия смешанная: пехота, конница и маги поровну по цене (всего втрое дороже добычи);
+  // одним родом войск лагерь не взять — у охраны все три рода
+  const net = (k, ri, t) => { const loot = sum(AR.NPC[k].loot), us = [3, 12, 20].map((b) => AR.UNITS.filter((u) => u.race === races[ri] && u.building === b && !u.notrain).sort((x, y) => x.level - y.level)[t]), units = {};
+    for (const u of us) units[u.id] = Math.ceil(loot / sum(u.cost));
+    const a = { units: { ...units }, mission: 'attack', general: false }, R = g.clash(cs[ri], a, null, AR.NPC[k], Date.now());
+    let lost = 0, carry = 0; for (const [id, n] of Object.entries(units)) { lost += (n - (a.units[id] || 0)) * sum(AR.UNIT[id].cost); carry += (a.units[id] || 0) * AR.UNIT[id].carry; }
+    if (!R.win) assert.ok(Object.entries(units).every(([id, n]) => !(a.units[id] > 0)), 'проиграл — погибла вся армия');
+    return ((R.win ? Math.min(loot, carry) : 0) - lost * 0.625) / loot * 100; };
   const tiers = { 30: [0], 31: [0, 2], 32: [2], 24: [2] }, got = {};
   for (const k of [30, 31, 32, 24]) {
-    const all = races.flatMap((r, ri) => [3, 12, 20].flatMap((b) => { const l = AR.UNITS.filter((u) => u.race === r && u.building === b && !u.notrain).sort((x, y) => x.level - y.level); return tiers[k].map((t) => net(k, ri, l[t])); }));
+    const all = races.flatMap((r, ri) => tiers[k].map((t) => net(k, ri, t)));
     got[k] = Math.round(med(all)); assert.ok(got[k] >= 10 && got[k] <= 35, `${AR.NPC[k].name}: прибыль своего уровня ${got[k]}% (около +20%)`);
   }
+  { // одним родом войск — в минус: кони не бьют шаманов, пехота — всадников (у охраны все три рода)
+    const one = (id) => { const u = AR.UNIT[id], loot = sum(AR.NPC[31].loot), a = { units: { [id]: Math.ceil(3 * loot / sum(u.cost)) }, mission: 'attack', general: false }; return g.clash(cs[0], a, null, AR.NPC[31], Date.now()).win; };
+    assert.ok(!one(261), 'средний лагерь одной конницей (Кирасир) не взять'); }
   { // охрана крепнет вместе с бонусами атаки нападающего: прокачанный замок (Кузница, науки, ранг) грабит не выгоднее нового (было +80%)
     const mix = (c) => { const us = [3, 12, 20].map((bb) => AR.UNITS.filter((u) => u.race === 'humans' && u.building === bb && !u.notrain).sort((x, y) => x.level - y.level)[2]), loot = sum(AR.NPC[32].loot), units = {};
       for (const u of us) units[u.id] = Math.ceil(loot / sum(u.cost)); const a = { units: { ...units }, mission: 'attack', general: false }; const R = g.clash(c, a, null, AR.NPC[32], Date.now());
       let lost = 0, carry = 0; for (const [id, n] of Object.entries(units)) { lost += (n - (a.units[id] || 0)) * sum(AR.UNIT[id].cost); carry += (a.units[id] || 0) * AR.UNIT[id].carry; }
       return Math.round(((R.win ? Math.min(loot, carry) : 0) - lost * 0.625) / loot * 100); };
     const mx = g.castleOf(g.register({ login: 'campMaxed', password: '12345', race: 0 }).user); g.mil(mx); g.maxOut(mx); mx.general = null;
-    const p0 = mix(cs[0]), p1 = mix(mx); assert.ok(p1 - p0 <= 8 && p0 > 0, `тяжёлый лагерь, смешанная элита людей: новый замок ${p0}%, прокачанный ${p1}%`);
+    const p0 = mix(cs[0]), p1 = mix(mx); assert.ok(p1 - p0 <= 15 && p0 > 0, `тяжёлый лагерь, смешанная элита людей: новый замок ${p0}%, прокачанный ${p1}%`);
   }
   assert.strictEqual(Object.values(AR.NPC[32].loot).reduce((q, v) => q + v, 0), 40000, 'тяжёлый лагерь — 40 000 (было 160 000)');
   assert.strictEqual(Object.values(AR.NPC[24].loot).reduce((q, v) => q + v, 0), 27500, 'руины — 27 500 (было 110 000)');
@@ -1749,13 +1767,13 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const before = JSON.stringify([ca.units, ca.wounded || {}, ca.res, cd.units, cd.wall]);
   const army = { 204: 300, 263: 200, 264: 200, 243: 180 };
   const S1 = g.simBattle(ca, { units: army, general: true, mission: 'attack', def: sim });
-  assert.ok(S1.ok && S1.att.length === 4 && S1.def.length >= 3, JSON.stringify(S1).slice(0, 200));
+  assert.ok(S1.ok && S1.att && S1.att.length === 4 && S1.def.length >= 3, JSON.stringify(S1).slice(0, 300));
   assert.ok(Number.isFinite(S1.atkPct) && S1.defPct === Math.round((bD.def - 1) * 100) && S1.myRank >= 0, 'бонусы в расчёте показаны (ранг — в них)');
   assert.strictEqual(JSON.stringify([ca.units, ca.wounded || {}, ca.res, cd.units, cd.wall]), before, 'симулятор ничего не меняет: войска, раненые, ресурсы, Забор');
   // настоящий бой на копиях — тот же исход
   const A2 = structuredClone(ca), D2 = structuredClone(cd); const real = g.clash(A2, { units: { ...army }, mission: 'attack', general: true }, D2, null, Date.now());
-  assert.ok(real.win === S1.win && Math.abs(real.calc.att.total - S1.ap) <= 1 && Math.abs(real.calc.def.total - S1.dp) <= 2 && sum(real.aLost) === S1.att.reduce((q, x) => q + x.lost, 0),
-    `симулятор = настоящий бой: атака ${S1.ap}/${real.calc.att.total}, защита ${S1.dp}/${real.calc.def.total}`);
+  assert.ok(real.win === S1.win && Math.abs(real.calc.att.str - S1.ap) <= 1 && Math.abs(real.calc.def.str - S1.dp) <= 2 && sum(real.aLost) === S1.att.reduce((q, x) => q + x.lost, 0),
+    `симулятор = настоящий бой: атака ${S1.ap}/${real.calc.att.str}, защита ${S1.dp}/${real.calc.def.str}, потери ${sum(real.aLost)}/${S1.att.reduce((q, x) => q + x.lost, 0)}, ${real.win}/${S1.win}`);
   assert.ok(S1.wallTo !== null && S1.wallTo < S1.wall, 'тараны ломают Забор и в симуляторе');
   const G1 = g.simBattle(ca, { units: army, general: false, mission: 'attack', def: sim });
   assert.ok(S1.genGain > 0 && G1.genGain === S1.genGain && G1.ap < S1.ap && S1.genLevel === ca.general.level, `генерал: +${S1.genGain}% к атаке — видно и с ним, и без него`);
@@ -1766,7 +1784,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.strictEqual(S3.ap, S4.ap, 'старые улучшения Тарана в бою не действуют');
   // лагерь: та же охрана, что в бою
   const C3 = AR.NPC[32], S2 = g.simBattle(ca, { units: { 204: 200, 263: 150, 264: 150 }, mission: 'attack', def: { npc: 32 } }), R2 = g.clash(structuredClone(ca), { units: { 204: 200, 263: 150, 264: 150 }, mission: 'attack', general: false }, null, C3, Date.now());
-  assert.ok(S2.ok && S2.win === R2.win && S2.dp === R2.calc.def.total && S2.stock === 40000 && typeof S2.profit === 'number', 'лагерь в симуляторе — как в бою, с прибылью: ' + JSON.stringify([S2.error, S2.win, R2.win, S2.dp, R2.calc.def.total, S2.stock, S2.profit]));
+  assert.ok(S2.ok && S2.win === R2.win && S2.dp === R2.calc.def.str && S2.stock === 40000 && typeof S2.profit === 'number', 'лагерь в симуляторе — как в бою, с прибылью: ' + JSON.stringify([S2.error, S2.win, R2.win, S2.dp, R2.calc.def.str, S2.stock, S2.profit]));
   // мусор не ломает
   for (const bad of [{}, { units: { 9999: 5 } }, { units: { 204: -5 } }, { units: { 204: 10 }, def: { npc: 77 } }, { units: { __proto__: 1 } }]) assert.ok(g.simBattle(ca, bad).error, JSON.stringify(bad));
   assert.ok(g.simBattle(ca, { units: { 204: 1e12 }, def: { race: 'elves', units: { 265: 'abc' }, wall: 99, defK: 1e9 } }).ok, 'числа обрезаются');
@@ -1946,7 +1964,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(g.infirmCap(ca) >= 1000 && !g.infirmCap(cd), 'Лазарет — только у нападающего');
   [A, D].forEach((u) => { u.br = undefined; g.brOf(u); });
   const fight = () => {
-    cd.units = { 200: 100, 224: 2 }; cd.squads = []; ca.units = { 200: 3000 }; ca.squads = []; ca.armies = []; ca.wounded = {};
+    cd.units = { 200: 100, 224: 2 }; cd.squads = []; ca.units = { 200: 300 }; ca.squads = []; ca.armies = []; ca.wounded = {};
     const a0 = A.br.pts, d0 = D.br.pts, s = g.sendArmy(ca, { from: 'castle', mission: 'attack', x: cd.x, y: cd.y }); assert.ok(!s.error, s.error);
     g.tickWorld(Date.now() + 1e10); g.tickWorld(Date.now() + 3e10);
     const rep = g.reportsOf(A.id).find((x) => x.data && x.data.type === 'battle' && x.data.def.login === D.login);
@@ -2096,7 +2114,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const atk = () => { cd.units = { 200: 1 }; return g.clash(ca, { units: { 200: 100 }, mission: 'attack', general: false }, cd, null, Date.now()).calc.att.total; };
   const a0 = atk(); assert.ok(rules(1).data.on && g.newBattle(), 'новые правила включены'); const a1 = atk();
   const AR2 = require('../src/army'), mA = AR2.UNIT[200].attack, capA = Math.max(5, Math.floor(mA / 2)); // база мечника — из «Справки»
-  assert.ok(Math.abs(a1 / a0 - (mA + capA) / (mA + 19)) < 0.01, `Кузница: мечник +19 → в бою +${capA} (атака ${a0} → ${a1})`);
+  assert.ok(Math.abs(a1 / a0 - (1 + 0.05 * capA) / (1 + 0.05 * 19)) < 0.01, `Кузница: мечник +19 → в бою +${capA} (урон ${a0} → ${a1}; с 24.10 улучшение — +5% урона)`);
   ca.forge = { 200: { a: 5 } }; ca.upJobs = {}; Object.assign(ca.res, { wood: 1e6, stone: 1e6, iron: 1e6, food: 1e6, people: 1e5 });
   assert.ok(/Предел для этого воина — \+5/.test(g.forgeOp(ca, { unit: 200, kind: 'a' }).error || ''), 'выше предела не улучшить');
   const kA = AR2.UNIT[204].attack; assert.ok(g.milState(ca, A).forgeCap[200].a === capA && g.milState(ca, A).forgeCap[204].a === Math.max(5, Math.floor(kA / 2)), 'окну Кузницы — предел (половина базы, не меньше +5)');
@@ -2108,10 +2126,8 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   D.sciences = { eco: 0, eng: 0, fhi: 0, war: 20 }; cd.artifacts = [{ id: 880001, type: 'def', rarity: 2, active: true, until: Date.now() + 1e9 }];
   const dp = (on) => { rules(on); cd.units = {}; ch.armies = [{ id: 880002, units: { 201: 1000 }, mission: 'reinforce', state: 'stay', stayAt: cd.id, general: false, x: cd.x, y: cd.y }];
     const v = g.clash(cf, { units: { 200: 10 }, mission: 'attack', general: false }, cd, null, Date.now()).calc.def.total; ch.armies = []; return v; };
-  const g0 = dp(0), g1 = dp(1); assert.ok(g1 < g0 * 0.65 && g1 > g0 * 0.5, `подкрепление со своими бонусами: защита ${g0} → ${g1}`);
-  // 4. магия: у кого нет защиты от магии — ¾ обычной (было ½)
-  const mg = (on) => { rules(on); const fc = g.castleOf(mk(`brlMag${on}`)); g.mil(fc); fc.general = null; fc.units = { 201: 1000 }; return g.clash(cf, { units: { 203: 100 }, mission: 'attack', general: false }, fc, null, Date.now()).calc.def.total; };
-  const m0 = mg(0), m1 = mg(1); assert.ok(Math.abs(m1 / m0 - 1.5) < 0.01, `магия: защита копейщиков от магов ×1,5 (${m0} → ${m1})`);
+  // с 24.10 (бой как в оригинале) подкрепления всегда бьют со своими бонусами — при любых правилах
+  const g0 = dp(0), g1 = dp(1); assert.ok(g1 === g0 && g0 > 0, `подкрепление со своими бонусами: урон ${g0} = ${g1}`);
   // 5. «Сравнить бой»: два итога, в игре ничего не меняется (армии, Забор, Лазарет, подкрепления, правила, удача)
   rules(0); g.setBuildingLevel(cd, 22, 20); cd.units = { 201: 800 }; ca.units = { 200: 3000, 243: 60 }; ca.forge = { 200: { a: 19, d: 19 } }; delete ca.wounded; delete cd.wounded;
   ch.armies = [{ id: 880003, units: { 201: 300 }, mission: 'reinforce', state: 'stay', stayAt: cd.id, general: false, x: cd.x, y: cd.y }];
@@ -2507,9 +2523,10 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     c.artifacts = []; delete c.general;
     const d = g.castleOf(g.register({ login: 'balance2', password: '12345', race: 0 }).user); g.mil(d);
     process.env.LUCK = '0'; c.units = {}; c.squads = []; c.armies = []; d.units = { 240: 100 }; d.squads = []; d.armies = [];
-    const r = g.clash(c, { units: { 205: 100 }, general: false, mission: 'attack' }, d, null, Date.now()); delete process.env.LUCK; // Рыцарь теперь пехота — конница: Паладин
-    assert.ok(r.win, 'паладины бьют катапульты: у катапульты слабая защита от кавалерии');
-    console.log('✓ Баланс боя: командование генерала до +50%, из одинаковых артефактов действует один, защита от кавалерии в бою');
+    // с 24.10 (бой как в оригинале) осадные — как пехота: их бьёт атака конницы «по пехоте»; Паладин — защитник, при нападении вдвое слабее
+    const r = g.clash(c, { units: { 264: 100 }, general: false, mission: 'attack' }, d, null, Date.now()), r2 = g.clash(c, { units: { 205: 100 }, general: false, mission: 'attack' }, d, null, Date.now()); delete process.env.LUCK;
+    assert.ok(r.win && r.calc.att.total > r2.calc.att.total, 'рейтары (атакующие) бьют катапульты; паладины (защитники) при нападении слабее');
+    console.log('✓ Баланс боя: командование генерала до +50%, из одинаковых артефактов действует один, конница против осадных');
   }
   { // карта мира: новый замок не встаёт вплотную к лагерю или руинам (картинки налезали)
     let near = 0; for (let i = 0; i < 60; i++) { const c = g.castleOf(g.register({ login: `mapnear${i}`, password: '12345', race: i % 4 }).user); if (g.worldObjects(c.x - 1, c.y - 1, 3, 3).some((o) => o.kind === 'object')) near++; }

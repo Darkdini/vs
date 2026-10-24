@@ -259,7 +259,7 @@ const SPRAVKA = {
 for (const [id, [type, hp, a3, carry, speed, cost, sec, x = {}]] of Object.entries(SPRAVKA)) {
   const u = UNIT[id]; if (!u) continue;
   const avg = Math.round((a3[0] + a3[1] + a3[2]) / 3);
-  Object.assign(u, { type, hp, carry: carry * CARRY_K, speed, attack: type === 'magic' ? 0 : avg, magic: type === 'magic' ? avg : 0,
+  Object.assign(u, { type, hp, carry: carry * CARRY_K, speed, attack: type === 'magic' ? 0 : avg, magic: type === 'magic' ? avg : 0, a3: { inf: a3[0], cav: a3[2], mag: a3[1] },
     tc: Object.fromEntries(RES4.map((r, i) => [r, cost[i] * SPRAVKA_K * (x.bldDmg ? WRECK_K : 1)])), tt: sec * SPRAVKA_K * (x.bldDmg ? WRECK_K : 1) });
   if (x.def !== undefined) u.def = { inf: x.def, cav: x.def, mag: x.mdef };
   if (x.pop) Object.assign(u, { pop: x.pop, upkeep: Math.max(1, Math.round(x.pop / 3)) });
@@ -279,8 +279,24 @@ for (const [id, w] of Object.entries(WRECK.units)) {
   const u = UNIT[id], sum = RES4.reduce((q, r) => q + u.tc[r], 0);
   const cost = Object.fromEntries(RES4.map((r) => [r, Math.round(u.tc[r] * WRECK.total / sum)]));
   Object.assign(u, { hp: w.hp, attack: u.type === 'magic' ? 0 : w.pow, magic: u.type === 'magic' ? w.pow : 0, def: { inf: w.def, cav: w.def, mag: w.mdef },
-    bldDmg: w.bldDmg, speed: w.speed, pop: WRECK.pop, upkeep: Math.round(WRECK.pop / 3), tc: cost, tt: WRECK.time });
+    bldDmg: w.bldDmg, speed: w.speed, pop: WRECK.pop, upkeep: Math.round(WRECK.pop / 3), tc: cost, tt: WRECK.time, a3: { inf: w.pow, cav: w.pow, mag: w.pow } });
 }
+// специализация (значок в «Справке», с 24.10): A — атакующий (🪓, в обороне бьёт вдвое слабее), D — защитник (🛡, при нападении — вдвое
+// слабее), U — универсал (бьёт в полную силу всегда); кого нет в списке — универсал
+const SPEC = {
+  200: 'A', 201: 'U', 204: 'D', 261: 'U', 205: 'D', 264: 'A', 203: 'D', 262: 'A', 263: 'U', 259: 'A', // люди
+  207: 'D', 208: 'A', 265: 'U', 266: 'A', 212: 'U', 211: 'D', 210: 'U', 267: 'D', 268: 'A', 213: 'A', // эльфы
+  214: 'U', 215: 'D', 219: 'A', 218: 'D', 269: 'A', 270: 'U', 216: 'A', 271: 'U', 256: 'D', 220: 'A', // гномы
+  245: 'U', 247: 'D', 246: 'A', 272: 'D', 273: 'A', 274: 'U', 253: 'A', 275: 'U', 248: 'D', 249: 'A', // орки
+};
+const SPEC_K = 0.5;
+const FORGE_K = 0.05; // Кузница и Школа магии: +5% урона (атака, маг. атака) или здоровья (защита — против воинов, маг. защита — против магов) за уровень
+const CLS = (t) => (t === 'cavalry' ? 'cav' : t === 'magic' ? 'mag' : 'inf'); // род войск для ударов: осадные и мирные — как пехота
+// охрана лагерей, руин, Подземелья и логов: урон — атака и магия поровну по всем родам; защита — множитель здоровья (1 + защита / NPC_ARM)
+const NPC_DMG = 1, NPC_ARM = 20;
+for (const u of UNITS) u.spec = SPEC[u.id] || 'U';
+// три атаки воина: по пехоте, по коннице, по магам (у кого их нет в «Справке» — атака и магия поровну по всем)
+const a3Of = (u) => { if (u.a3) return u.a3; const v = (u.attack || 0) + (u.magic || 0); return { inf: v, cav: v, mag: v }; };
 // уникальные воины — только награда заданий и походов (в Кладовой), не тренируются. На 20% сильнее своего прообраза расы
 // (здоровье, атака, магия, защита), скорость, груз, население и содержание — как у прообраза. Картинка — gfx/units/uniq/<key>.png,
 // пока её нет — картинка прообраза. slot: inf / cav / mag — так задания выдают их любой расе.
@@ -294,7 +310,8 @@ const UNIQ_K = 1.2;
 for (const [id, name, race, base, slot, key] of UNIQUE) {
   const b = UNIT[base], k = (v) => Math.round(v * UNIQ_K);
   const img = require('./gfxpack').exists(path.join(__dirname, '..', '..', 'web'), `gfx/units/uniq/${key}.png`) ? `uniq/${key}` : b.img;
-  const u = { ...b, id, name, race, img, base, slot, quest: true, notrain: true, hp: k(b.hp), attack: k(b.attack), magic: k(b.magic), def: { inf: k(b.def.inf), cav: k(b.def.cav), mag: k(b.def.mag) } };
+  const u = { ...b, id, name, race, img, base, slot, quest: true, notrain: true, hp: k(b.hp), attack: k(b.attack), magic: k(b.magic), def: { inf: k(b.def.inf), cav: k(b.def.cav), mag: k(b.def.mag) },
+    a3: Object.fromEntries(Object.entries(a3Of(b)).map(([c, v]) => [c, k(v)])) };
   UNITS.push(u); UNIT[id] = u;
 }
 // нежить — только из сундуков Лавки (Сокровища), служит любой расе. Сильнее любого воина игры: атака (у Лича — магия), защита и здоровье
@@ -319,6 +336,7 @@ UNIT[233].raceOvr = { elves: { cost: { wood: 13316, stone: 10412, iron: 12012, f
 // цена и время тренировки всех воинов — вдвое меньше оригинала (и у разных рас — тоже). refCost / refTime — прежние:
 // от них считаются Кузница, наём и воскрешение генерала (их не меняли); лечение в Лазарете — четверть новой цены
 const halfCost = (c) => Object.fromEntries(Object.entries(c).map(([r, v]) => [r, Math.round(v / 2)]));
+for (const u of UNITS) { if (!u.spec) u.spec = 'U'; if (!u.a3) u.a3 = { ...a3Of(u) }; } // всем — специализация и три атаки (нежить, генерал, общие воины)
 for (const u of UNITS) if (u.id !== GENERAL_ID && !u.undead) {
   if (u.tc) { Object.assign(u, { refCost: u.cost, refTime: u.time, cost: u.tc, time: u.tt }); delete u.tc; delete u.tt; continue; } // «Справка» ×4
   Object.assign(u, { refCost: u.cost, refTime: u.time, cost: halfCost(u.cost), time: Math.round(u.time / 2) });
@@ -447,13 +465,15 @@ const NPC = {
   // давали больше своей экономики — по решению владельца; лагеря и руины возвращаются через 3 часа (с 22.10; был час)
   // 22.10 охрана подогнана под новых юнитов (Справка, перенос ×10): армия своего уровня (смешанная: пехота, конница, маги) грабит с прибылью около +20%;
   // шаманов (mag) больше — иначе маги грабили с +60%, а пехота в минус
-  30: { name: 'Лагерь разбойников (лёгкий)', level: 'Лёгкий', def: { inf: 100, cav: 90, mag: 190 }, loot: { wood: 250, stone: 250, iron: 175, food: 325 } },
-  31: { name: 'Лагерь разбойников (средний)', level: 'Средний', def: { inf: 1070, cav: 950, mag: 1600 }, loot: { wood: 1875, stone: 1875, iron: 1500, food: 2250 } },
-  32: { name: 'Лагерь разбойников (тяжёлый)', level: 'Тяжёлый', def: { inf: 6300, cav: 5750, mag: 8800 }, loot: { wood: 10000, stone: 10000, iron: 8750, food: 11250 } },
-  24: { name: 'Заброшенный замок', def: { inf: 4450, cav: 4050, mag: 6150 }, loot: { wood: 6875, stone: 6875, iron: 6875, food: 6875 }, ruins: true },
+  30: { name: 'Лагерь разбойников (лёгкий)', level: 'Лёгкий', hpK: 0.69, def: { inf: 100, cav: 90, mag: 190 }, loot: { wood: 250, stone: 250, iron: 175, food: 325 } },
+  31: { name: 'Лагерь разбойников (средний)', level: 'Средний', hpK: 0.28, def: { inf: 1070, cav: 950, mag: 1600 }, loot: { wood: 1875, stone: 1875, iron: 1500, food: 2250 } },
+  32: { name: 'Лагерь разбойников (тяжёлый)', level: 'Тяжёлый', hpK: 0.24, def: { inf: 6300, cav: 5750, mag: 8800 }, loot: { wood: 10000, stone: 10000, iron: 8750, food: 11250 } },
+  24: { name: 'Заброшенный замок', hpK: 0.23, def: { inf: 4450, cav: 4050, mag: 6150 }, loot: { wood: 6875, stone: 6875, iron: 6875, food: 6875 }, ruins: true },
 };
 const NPC_REGEN_SEC = 3 * 3600; // запас руин восстанавливается за 3 часа (с 22.10; было час) — игроку время не показывается
-const CAMP_LOSS = 0.5; // в бою с лагерем разбойников и руинами победитель теряет вдвое меньше (поражение — по-прежнему вся армия)
+// в бою с лагерем разбойников и руинами победитель терял вдвое меньше; с 24.10 (бой как в оригинале) победитель и так теряет меньше —
+// множитель 1 (hpK у лагерей — здоровье охраны: смешанная армия своего уровня грабит с прибылью около +20%, как прежде)
+const CAMP_LOSS = 1;
 const CAMPS = [30, 31, 32]; // лагеря разбойников: лёгкий, средний, тяжёлый
 // бой (как в Travian): сила атаки против защиты, смешанной по составу нападающих; лечение раненых дома
 const HEAL_HOME = 0.25; // раненые защитники в своём замке: четверть павших выздоравливает (если замок устоял или это набег)
@@ -483,12 +503,17 @@ const GUARD = {
   guard: { name: 'Страж', type: 'infantry', hp: 60, atk: 14, mag: 0, def: 18, mdef: 6 },
   shaman: { name: 'Шаман', type: 'magic', hp: 35, atk: 0, mag: 12, def: 5, mdef: 20 },
   troll: { name: 'Тролль', type: 'infantry', hp: 220, atk: 40, mag: 0, def: 45, mdef: 15 },
+  // всадники (с 24.10): в бою как в оригинале у охраны все три рода — иначе маги (бьют конницу) против лагеря были бесполезны
+  rider: { name: 'Всадник', type: 'cavalry', hp: 50, atk: 16, mag: 0, def: 14, mdef: 5 },
+  wolfrider: { name: 'Волчий всадник', type: 'cavalry', hp: 180, atk: 36, mag: 0, def: 40, mdef: 12 },
 };
 function npcGarrison(npc) {
   if (!npc) return [];
   if (npc.garrison) return npc.garrison.map((g) => ({ ...g }));
-  const big = npc.def.inf >= 1000, g = big ? GUARD.troll : GUARD.guard;
-  return [{ key: big ? 'troll' : 'guard', n: Math.max(1, Math.round(npc.def.inf / g.def / (big ? 1.1 : 1))), ...g }, { key: 'shaman', n: Math.max(0, Math.round(npc.def.mag / GUARD.shaman.mdef)), ...GUARD.shaman }].filter((x) => x.n > 0);
+  // пехота — половина защиты от пехоты, всадники — половина защиты от конницы, шаманы — защита от магии
+  const big = npc.def.inf >= 1000, g = big ? GUARD.troll : GUARD.guard, rd = big ? GUARD.wolfrider : GUARD.rider;
+  return [{ key: big ? 'troll' : 'guard', n: Math.max(1, Math.round(npc.def.inf / 2 / g.def / (big ? 1.1 : 1))), ...g }, { key: big ? 'wolfrider' : 'rider', n: Math.max(0, Math.round(npc.def.cav / 2 / rd.def)), ...rd },
+    { key: 'shaman', n: Math.max(0, Math.round(npc.def.mag / GUARD.shaman.mdef)), ...GUARD.shaman }].filter((x) => x.n > 0);
 }
 const NEWBIE_RATING = Number(process.env.NEWBIE_RATING || 100); // (прежнее правило по рейтингу — больше не используется)
 // защита новичка: ровно NEWBIE_DAYS дней с регистрации (по умолчанию 3); нападёт сам на игрока — защита снимается
@@ -1361,13 +1386,15 @@ function install(Game, helpers) {
     if (this.tgNotify && ['battle', 'scout', 'expedition'].includes(kind)) this.tgNotify(userId, 'battle', `📜 ${title}`);
   };
 
-  // ===== бой как в Travian =====
-  // Сила атаки (атака + Кузница, магия + Школа магии, бонусы, генерал, удача, боевой дух) против защиты: защита каждого воина
-  // от пехоты, от кавалерии и от магии смешивается в той пропорции, в какой у нападающих пехота, кавалерия и маги; забор умножает защиту,
-  // а сам замок — ещё ×1,1 (DEF_HOME; лагерей и логов не касается).
-  // Сильнейший побеждает. Нападение: проигравший гибнет весь, победитель теряет (слабый/сильный)^1,5. Набег: победитель x/(1+x), проигравший 1/(1+x).
-  // Тараны бьют забор до боя и после него исчезают.
-  P.newBattle = function newBattle() { return !!(this.db.battleRules && this.db.battleRules.on); }; // новые правила боя (проба)
+  // ===== бой как в оригинале (с 24.10; раньше — «как в Travian»: сила атаки против защиты) =====
+  // У воина три атаки — по пехоте, по коннице и по магам («Справка») — и здоровье; защиты нет. Свой удар воин делит между родами войск
+  // противника в той доле, сколько у каждого рода здоровья: пехота бьёт магов, маги — конницу, конница — пехоту (так в «Справке»).
+  // Специализация: атакующие (A) в обороне бьют вдвое слабее, защитники (D) при нападении — вдвое слабее, универсалы — в полную силу.
+  // Бой идёт раундами, обе стороны бьют одновременно; урон / здоровье = павшие. Нападение — до гибели одной из сторон (проигравший гибнет
+  // весь); набег — короткая стычка: пока одна из сторон не потеряет половину здоровья. Урон: Кузница «атака» и Школа магии «маг. атака» —
+  // +5% за уровень, науки, генерал, удача, боевой дух; здоровье: Кузница «защита» — +5% против воинов, «маг. защита» — +5% против магов,
+  // науки, Забор, сам замок (DEF_HOME). Тараны бьют Забор до боя и после него исчезают.
+  P.newBattle = function newBattle() { return !!(this.db.battleRules && this.db.battleRules.on); }; // новые правила (проба администратора): удача ±5%, Кузница — не больше половины базы
   P.clash = function clash(c, a, target, npc, t) {
     const att = this.ownerOf(c), bA = this.bonus(c), nb = this.newBattle();
     const luck = process.env.LUCK === '0' ? 0 : nb ? Math.round(Math.random() * 10 - 5) : Math.round(Math.random() * 20 - 10);
@@ -1375,20 +1402,27 @@ function install(Game, helpers) {
     let morale = 1;
     const defUser = target && this.ownerOf(target);
     if (defUser && att && defUser.id !== att.id) { const aR = this.userRating(att), dR = Math.max(1, this.userRating(defUser)); if (aR > dR) morale = Math.max(0.5, (dR / aR) ** 0.3); }
-    // Кузница и Школа магии (с 23.10, как в оригинале): оба параметра работают у всех воинов — маг с улучшенной атакой бьёт и физически, воин с магической атакой — и магией
-    const stack = (m, id, n, own, castle, extra) => { const u = UNIT[id]; if (!u || !n) return null; const cap = nb ? forgeCaps(u) : null;
-      const f = (k) => { const v = castle && u.race !== 'all' ? this.forgeLvl(castle, id, k) : 0; return cap ? Math.min(v, cap[k]) : v; }; // новые правила: Кузница — не больше половины базы; общие воины (Бунтарь, Путешественник, Катапульта, Таран) — без улучшений
-      return { m, id, n, own, hp: u.hp || 50, atk: (u.attack || 0) + f('a'), cav: u.type === 'cavalry', mag: (u.magic || 0) + f('m'), def: (u.def ? u.def.inf : 0) + f('d'), defC: (u.def ? u.def.cav : 0) + f('d'), mdef: (u.def ? u.def.mag : 0) + f('md'), ...extra }; };
+    const raid = a.mission === 'raid';
+    // воин в бою: a — урон по пехоте/коннице/магам (с Кузницей и специализацией), hpP / hpM — множители здоровья против воинов / против магов
+    const stack = (m, id, n, own, castle, side, extra) => { const u = UNIT[id]; if (!u || !n) return null; const cap = nb ? forgeCaps(u) : null;
+      const f = (k) => { const v = castle && u.race !== 'all' ? this.forgeLvl(castle, id, k) : 0; return cap ? Math.min(v, cap[k]) : v; }; // общие воины (Бунтарь, Путешественник, Катапульта, Таран) — без улучшений
+      const sp = side === 'att' ? (u.spec === 'D' ? SPEC_K : 1) : (u.spec === 'A' ? SPEC_K : 1), dm = (1 + FORGE_K * (f('a') + f('m'))) * sp, A3 = a3Of(u);
+      return { m, id, n, own, cls: CLS(u.type), mage: u.type === 'magic', hp: u.hp || 10, a: { inf: A3.inf * dm, cav: A3.cav * dm, mag: A3.mag * dm },
+        hpP: 1 + FORGE_K * f('d'), hpM: 1 + FORGE_K * f('md'), shield: !u.oneUse, ...extra }; };
+    // генерал в строю: бьёт своей атакой по всем родам поровну, принимает часть ударов (его гибель решается после боя)
+    const genStack = (atk, def) => ({ m: null, gen: true, id: GENERAL_ID, n: 1, own: false, cls: 'inf', mage: false, hp: UNIT[GENERAL_ID].hp + 5 * def, a: { inf: atk, cav: atk, mag: atk }, hpP: 1, hpM: 1, shield: true });
     // нападающие
-    const A = Object.entries(a.units).map(([id, n]) => stack(a.units, id, n, false, c)).filter(Boolean);
-    let genA = 0, cmd = 0; if (a.general && c.general && !c.general.dead) { const gs = this.genStats(c.general); genA = gs.atk * (this.artOn(c, 'claw') ? 2 : 1); cmd = gs.catk; } // «Коготь Полководца» — атака генерала ×2
+    const A = Object.entries(a.units).map(([id, n]) => stack(a.units, id, n, false, c, 'att')).filter(Boolean);
+    let genA = 0, cmd = 0; if (a.general && c.general && !c.general.dead) { const gs = this.genStats(c.general); genA = gs.atk * (this.artOn(c, 'claw') ? 2 : 1); cmd = gs.catk; A.push(genStack(genA, gs.def)); } // «Коготь Полководца» — атака генерала ×2
     // умения и снаряжение генерала (hero.js): у нападающего — если генерал в этой армии, у защитника — если генерал дома
     const hA = a.general && c.general && !c.general.dead ? this.heroBonus(c.general) : null;
     const hD = target && target.sim ? target.sim.hero : target && target.general && !target.general.dead && !target.general.away ? this.heroBonus(target.general) : null; // target.sim — замок симулятора (simBattle)
-    const hAtk = hA ? 1 + hA.atk + (a.mission === 'attack' ? hA.fury : 0) : 1;
-    const kA = bA.atk * (1 + cmd) * hAtk * morale * (1 + luck / 100), kmA = bA.magic * bA.atk * (hA ? 1 + hA.mag : 1) * morale * (1 + luck / 100);
-    // защитники: Замковая армия и отряды (свои), подкрепления (со своей Кузницей), генерал; у NPC — охрана лагеря
-    let D = [], bD = null, wallL = 0, wall0 = 0;
+    const hAtk = hA ? 1 + hA.atk + (a.mission === 'attack' ? hA.fury : 0) : 1, raidK = raid && hA ? 1 + hA.raid : 1;
+    const kA = bA.atk * (1 + cmd) * hAtk * morale * (1 + luck / 100) * raidK, kmA = bA.magic * bA.atk * (hA ? 1 + hA.mag : 1) * morale * (1 + luck / 100) * raidK;
+    const aHp = bA.def * (hA ? 1 + hA.def : 1), aMHp = aHp * bA.magic;
+    for (const s of A) { const k = s.mage ? kmA : kA; s.a = { inf: s.a.inf * k, cav: s.a.cav * k, mag: s.a.mag * k }; s.hpP *= aHp; s.hpM *= aMHp; }
+    // защитники: Замковая армия и отряды (свои), подкрепления (со своими бонусами; от замка — Забор и сам замок), генерал; у NPC — охрана
+    const D = []; let bD = null, wallL = 0, wall0 = 0;
     const siege = []; let siegeN = 0;
     if (target) {
       bD = target.sim ? target.sim.bonus : this.bonus(target); wall0 = wallL = bD.wall;
@@ -1398,52 +1432,77 @@ function install(Game, helpers) {
       if (this.artOn(target, 'seal') && ram) { if (a.mission === 'attack') siege.push('«Печать Нерушимости»: тараны бьют вдвое слабее'); ram /= 2; } // разрушители вдвое слабее
       if (ram && a.mission === 'attack') { while (wallL > 0 && ram >= wallHp(wallL)) { ram -= wallHp(wallL); wallL--; } }
       if (wallL < wall0 && !nb) { this.setBuildingLevel(target, B.FENCE, wallL); siege.push(`Забор: ${wall0} → ${wallL} ур. (тараны)`); siegeN += wall0 - wallL; } // новые правила — только после победы (ниже)
-      for (const m of [target.units, ...target.squads.map((q) => q.units)]) for (const [id, n] of Object.entries(m)) { if (UNIT[id] && UNIT[id].dungOnly && !target.dung) continue; const s = stack(m, id, n, true, target); if (s) D.push(s); } // Страж глубин замок не защищает
-      // подкрепления; новые правила — со своими бонусами (gb: наука, религия, артефакты, ранг своего хозяина), от замка — Забор и защита замка
-      for (const g of this.guestsOf(target)) { const gb = nb ? this.bonus(g.c) : null; for (const [id, n] of Object.entries(g.a.units)) { const s = stack(g.a.units, id, n, false, g.c, gb ? { gb } : undefined); if (s) D.push(s); } }
-    } else for (const g of npcGarrison(npc)) D.push({ m: null, id: g.key, n: g.n, own: false, npc: g, hp: g.hp, atk: g.atk, mag: g.mag, def: g.def, mdef: g.mdef });
-    const wallK = bD ? 1 + bD.wallPer * (hD ? 1 + hD.wall : 1) * wallL : 1, hDd = hD ? 1 + hD.def : 1;
-    const home = target && !target.site ? DEF_HOME * (this.artOn(target, 'hand') ? 1.15 : 1) : 1; // недострой — ещё не крепость; «Длань Хранителя» — +15% к защите войск в замке
-    const dK = bD ? bD.def * wallK * hDd * home : 1, mdK = bD ? bD.def * bD.magic * wallK * hDd * home : 1;
-    // ---- бой как в Travian: сила атаки против защиты, смешанной по составу нападающих ----
+      const wallK = 1 + bD.wallPer * (hD ? 1 + hD.wall : 1) * wallL, hDd = hD ? 1 + hD.def : 1;
+      const home = !target.site ? DEF_HOME * (this.artOn(target, 'hand') ? 1.15 : 1) : 1; // недострой — ещё не крепость; «Длань Хранителя» — +15% к защите войск в замке
+      // у «замка-симуляции» (симулятор, лагерь Подземелья) бонуса атаки нет — 1
+      const put = (s, b) => { if (!s) return; const ba = b.atk ?? 1, bm = b.magic ?? 1, k = s.mage ? bm * ba : ba, hk = (b.def ?? 1) * wallK * hDd * home; s.a = { inf: s.a.inf * k, cav: s.a.cav * k, mag: s.a.mag * k }; s.hpP *= hk; s.hpM *= hk * bm; D.push(s); };
+      for (const m of [target.units, ...target.squads.map((q) => q.units)]) for (const [id, n] of Object.entries(m)) { if (UNIT[id] && UNIT[id].dungOnly && !target.dung) continue; put(stack(m, id, n, true, target, 'def'), bD); } // Страж глубин замок не защищает
+      for (const g of this.guestsOf(target)) { const gb = this.bonus(g.c); for (const [id, n] of Object.entries(g.a.units)) put(stack(g.a.units, id, n, false, g.c, 'def'), gb); }
+      if (target.sim ? target.sim.genDef : target.general && !target.general.dead && !target.general.away) {
+        const gs = target.sim ? { atk: target.sim.genAtk || 0, def: target.sim.genDef } : this.genStats(target.general); put(genStack(gs.atk, gs.def), bD);
+      }
+    } else for (const g of npcGarrison(npc)) { const v = (g.atk || 0) + (g.mag || 0); D.push({ m: null, id: g.key, n: g.n, own: false, npc: g, cls: CLS(g.type), mage: g.type === 'magic', hp: g.hp, a: { inf: v * NPC_DMG, cav: v * NPC_DMG, mag: v * NPC_DMG }, hpP: (1 + (g.def || 0) / NPC_ARM) * (npc.hpK || 1), hpM: (1 + (g.mdef || 0) / NPC_ARM) * (npc.hpK || 1), shield: true }); }
     const sum = (L, f) => L.reduce((q, s) => q + f(s), 0);
-    const raidK = a.mission === 'raid' && hA ? 1 + hA.raid : 1;
-    const inf = sum(A, (s) => (s.cav ? 0 : s.n * s.atk)) + genA, cav = sum(A, (s) => (s.cav ? s.n * s.atk : 0)), mag = sum(A, (s) => s.n * s.mag);
-    const PA = (inf + cav) * kA * raidK, MA = mag * kmA * raidK, AP = PA + MA;
-    // доли родов атаки: защита от пехоты, от кавалерии и от магии смешиваются в этой пропорции
-    const raw = inf + cav + mag || 1, pi = inf / raw, pc = cav / raw, pm = mag / raw;
-    // у охраны лагерей нет отдельной защиты от кавалерии; от магии доспех держит хотя бы половину обычной защиты (у многих юнитов защита от магии 0;
-    // новые правила — ¾); подкрепления при новых правилах — со своими бонусами (s.gb)
-    const magFloor = nb ? 0.75 : 0.5;
-    const defOf = (s) => { const pd = (s.def + (s.defC ?? s.def)) / 2, k = s.gb ? s.gb.def * wallK * home : dK, mk = s.gb ? s.gb.def * s.gb.magic * wallK * home : mdK;
-      return (s.def * pi + (s.defC ?? s.def) * pc) * k + Math.max(s.mdef, pd * magFloor) * pm * mk; };
-    const genDef = target && target.sim ? target.sim.genDef * dK : target && target.general && !target.general.dead && !target.general.away ? this.genStats(target.general).def * dK : 0;
-    const DBASE = bD ? 10 * wallK : 0; // пустой замок: только забор
+    const avg = (s) => (s.a.inf + s.a.cav + s.a.mag) / 3;
     const isCamp = !target && npc && ([30, 31, 32, 24].some((k) => NPC[k] === npc) || !!npc.dung); // лагеря, руины и охрана Подземелья (не логова «Тёмных земель»)
-    // лагеря и руины (с 22.10): охрана крепнет вместе с бонусами атаки нападающего — Кузница, науки, ранг, генерал, снаряжение.
-    // Иначе прокачанный замок грабил лагеря почти без потерь (+80% прибыли вместо ~+20%); прокачка помогает, но меньше
-    const AP0 = sum(A, (s) => s.n * ((UNIT[s.id].attack || 0) + (UNIT[s.id].magic || 0))) || 1, buff = AP / (1 + luck / 100) / morale / AP0;
-    const campBuff = isCamp ? Math.max(1, buff) : 1;
-    const DP = (sum(D, (s) => s.n * defOf(s)) + genDef + DBASE) * campBuff;
-    const PD = sum(D, (s) => s.n * s.atk), MD = sum(D, (s) => s.n * s.mag); // атака защитников в бою не участвует (как в Travian) — только для справки
-    const win = AP > DP;
-    if (nb && target && wallL < wall0 && win) { this.setBuildingLevel(target, B.FENCE, wallL); siege.push(`Забор: ${wall0} → ${wallL} ур. (тараны)`); siegeN += wall0 - wallL; } // новые правила: тараны — только при победе
-    // потери: x = (слабая сторона / сильная)^1,5. Нападение — проигравший гибнет весь, победитель теряет x.
-    // Набег — короткая стычка: победитель теряет x/(1+x), проигравший 1/(1+x) — никто не гибнет целиком
-    const x = Math.pow(Math.min(AP, DP) / Math.max(AP, DP, 1e-9), LOSS_POW);
-    const raid = a.mission === 'raid';
-    const lossW = raid ? x / (1 + x) : x, lossL = raid ? 1 / (1 + x) : 1;
-    const campK = isCamp ? CAMP_LOSS : 1;
-    const aShare = D.length || DP > DBASE ? (win ? lossW * campK : lossL) : 0, dShare = win ? lossL : lossW;
+    // лагеря и руины (с 22.10): охрана крепнет вместе с бонусами нападающего — Кузница, науки, ранг, генерал, снаряжение (урону — здоровьем, здоровью — уроном).
+    // Иначе прокачанный замок грабил лагеря почти без потерь; прокачка помогает, но меньше
+    if (isCamp) {
+      const base = sum(A, (s) => (s.gen ? 0 : s.n * ((a3Of(UNIT[s.id]).inf + a3Of(UNIT[s.id]).cav + a3Of(UNIT[s.id]).mag) / 3))) + genA;
+      const buff = Math.max(1, (sum(A, (s) => s.n * avg(s)) / (1 + luck / 100) / morale) / (base || 1));
+      // и здоровье нападающих (Кузница «защита», науки, генерал): охрана бьёт во столько же раз сильнее
+      const hpBuff = Math.max(1, sum(A, (s) => (s.gen || !s.shield ? 0 : s.n * s.hp * (s.hpP + s.hpM) / 2)) / (sum(A, (s) => (s.gen || !s.shield ? 0 : s.n * s.hp)) || 1));
+      for (const s of D) { s.hpP *= buff; s.hpM *= buff; s.a = { inf: s.a.inf * hpBuff, cav: s.a.cav * hpBuff, mag: s.a.mag * hpBuff }; }
+    }
+    // сила сторон для отчёта: урон за удар (воины / маги) и здоровье
+    const powOf = (L, mage) => sum(L, (s) => (s.mage === mage ? s.n * avg(s) : 0));
+    const PA = powOf(A, false), MA = powOf(A, true), PD = powOf(D, false), MD = powOf(D, true);
+    // ---- раунды ----
+    const n0 = new Map([...A, ...D].map((s) => [s, s.n]));
+    const troops = (L) => sum(L, (s) => (s.gen || !s.shield ? 0 : s.n));
+    const hpLeft = (L) => sum(L, (s) => (s.gen || !s.shield ? 0 : s.n * s.hp)), hpA0 = hpLeft(A), hpD0 = hpLeft(D);
+    const ehp = (L) => sum(L, (s) => (s.gen || !s.shield ? 0 : s.n * s.hp * (s.hpP + s.hpM) / 2)), ehpA0 = ehp(A), ehpD0 = ehp(D); // здоровье с бонусами — для силы в отчёте
+    const strike = (X, Y) => { // кого убьёт сторона X у стороны Y полным ударом
+      const hpC = { inf: 0, cav: 0, mag: 0 }; for (const s of Y) if (s.shield && s.n > 0) hpC[s.cls] += s.n * s.hp;
+      const all = hpC.inf + hpC.cav + hpC.mag, kill = new Map(); if (!all) return kill;
+      const dP = { inf: 0, cav: 0, mag: 0 }, dM = { inf: 0, cav: 0, mag: 0 };
+      for (const s of X) if (s.n > 0) for (const k of ['inf', 'cav', 'mag']) if (hpC[k]) (s.mage ? dM : dP)[k] += s.n * s.a[k] * hpC[k] / all;
+      for (const s of Y) if (s.shield && s.n > 0) { const part = s.n * s.hp / hpC[s.cls]; kill.set(s, part * (dP[s.cls] / (s.hp * s.hpP) + dM[s.cls] / (s.hp * s.hpM))); }
+      return kill;
+    };
+    let rounds = 0, still = false;
+    if (troops(A) >= 0.5 && troops(D) >= 0.5) for (; rounds < 5000; rounds++) {
+      const kD = strike(A, D), kA = strike(D, A);
+      const fr = (km, L) => { const tot = troops(L); let k = 0; for (const [s, v] of km) if (!s.gen) k += v; return tot > 0 ? k / tot : 0; };
+      const f = Math.max(fr(kD, D), fr(kA, A)); if (!(f > 1e-12)) { still = true; break; } // никто никого не может ранить
+      const step = Math.min(1, 0.02 / f); // раунд — не больше 2% войска стороны: бой почти непрерывный, исход не зависит от размера раунда
+      for (const [s, v] of kD) s.n = Math.max(0, s.n - v * step);
+      for (const [s, v] of kA) s.n = Math.max(0, s.n - v * step);
+      if (troops(A) < 0.5 || troops(D) < 0.5) break;
+      if (raid && (1 - hpLeft(A) / hpA0 >= 0.5 || 1 - hpLeft(D) / hpD0 >= 0.5)) break;
+    }
+    const lostHpA = hpA0 ? 1 - hpLeft(A) / hpA0 : 0, lostHpD = hpD0 ? 1 - hpLeft(D) / hpD0 : 1;
+    const deadA = hpA0 > 0 && troops(A) < 0.5, deadD = troops(D) < 0.5;
+    // исход: нападение — пока одна сторона не погибнет (если раунды кончились — проигравший тот, кто потерял большую долю); набег — кто потерял меньше
+    const win = !hpA0 ? false : deadD && !deadA ? true : deadA ? false : still && !raid ? false : lostHpA < lostHpD;
+    const isCampK = isCamp ? CAMP_LOSS : 1;
     const roll = (v) => { let l = Math.floor(v); if (process.env.LUCK !== '0' ? Math.random() < v - l : v - l >= 0.5) l++; return l; };
-    const aLostN = new Map(A.map((s) => [s, Math.min(s.n, roll(s.n * aShare))])), dLostN = new Map(D.map((s) => [s, Math.min(s.n, roll(s.n * dShare))]));
+    const lostOf = (s, all) => Math.min(n0.get(s), all ? n0.get(s) : roll(n0.get(s) - s.n));
+    // нападение: проигравший гибнет весь (если бой не встал: никто никого не ранит — тогда никто и не гибнет); тараны и разрушители — одноразовые (ниже)
+    const wipeA = !raid && !win && !still, wipeD = !raid && win;
+    const aLostN = new Map(A.filter((s) => !s.gen).map((s) => [s, s.shield ? Math.min(n0.get(s), roll((wipeA ? n0.get(s) : n0.get(s) - s.n) * (win ? isCampK : 1))) : 0]));
+    const dLostN = new Map(D.filter((s) => !s.gen).map((s) => [s, lostOf(s, wipeD)]));
+    for (const s of A) s.n = n0.get(s); for (const s of D) s.n = n0.get(s); // дальше — исходная численность (потери — в aLostN / dLostN)
+    if (nb && target && wallL < wall0 && win) { this.setBuildingLevel(target, B.FENCE, wallL); siege.push(`Забор: ${wall0} → ${wallL} ур. (тараны)`); siegeN += wall0 - wallL; } // новые правила: тараны — только при победе
+    const AL = A.filter((s) => !s.gen), DL = D.filter((s) => !s.gen);
+    const aShare = sum(AL, (s) => aLostN.get(s) * s.hp) / (sum(AL, (s) => s.n * s.hp) || 1), dShare = DL.length ? sum(DL, (s) => dLostN.get(s) * s.hp) / (sum(DL, (s) => s.n * s.hp) || 1) : 1;
     const routed = 0;
     // применяем потери; раненые защитники в своём замке частично выздоравливают
     const aLost = {}, dLost = {}, dAll = {}, dOwn = {}; // dOwn — павшие свои защитники замка (без подкреплений)
     let saved = 0; // умение «Полевой лекарь»: часть павших в походе выживает (тараны одноразовые — нет)
-    for (const s of A) { let l = aLostN.get(s); if (l && hA && hA.heal && !UNIT[s.id].oneUse) { const h = Math.floor(l * hA.heal); l -= h; saved += h; } if (l) { s.m[s.id] -= l; aLost[s.id] = (aLost[s.id] || 0) + l; } }
+    for (const s of AL) { let l = aLostN.get(s); if (l && hA && hA.heal && !UNIT[s.id].oneUse) { const h = Math.floor(l * hA.heal); l -= h; saved += h; } if (l) { s.m[s.id] -= l; aLost[s.id] = (aLost[s.id] || 0) + l; } }
     let healed = 0; const dHeal = {}; // dHeal — выздоровевшие дома защитники { id: n }
-    for (const s of D) {
+    for (const s of DL) {
       let l = dLostN.get(s); if (!l) { if (s.m) dAll[s.id] = (dAll[s.id] || 0) + s.n; continue; }
       // выздоровление дома — только если замок устоял или это набег: нападение, взявшее верх, губит защитников целиком (с 24.10;
       // раньше четверть павших вставала и в проигранном бою — «выжили обе стороны»). Раненые всё равно идут в свой Лазарет (ниже)
@@ -1461,13 +1520,14 @@ function install(Game, helpers) {
     const aWnd = {}, dWnd = {};
     const wounded = npc && npc.boss ? 0 : this.toInfirmary(c, aLost, aWnd), dWounded = target ? this.toInfirmary(target, dOwn, dWnd) : 0;
     const cnt = (L) => sum(L, (s) => s.n) || 1;
-    const aLoss = sum(A, (s) => aLostN.get(s)) / cnt(A), dLoss = D.length ? sum(D, (s) => dLostN.get(s)) / cnt(D) : 1;
-    const calc = { rule: a.mission === 'attack' ? 'attack' : 'raid', model: 3, luck, morale: Math.round(morale * 100),
-      att: { phys: Math.round(PA), mag: Math.round(MA), gen: Math.round(genA), bonusPct: Math.round((kA / (1 + luck / 100) / morale - 1) * 100), total: Math.round(AP), hpLostPct: Math.round(aShare * 100) },
-      def: { npc: !target, phys: Math.round(PD), mag: Math.round(MD), bonusPct: bD ? Math.round((bD.def - 1) * 100) : 0, wall: wallL, wall0, wallPct: Math.round((wallK - 1) * 100), total: Math.round(DP), hpLostPct: Math.round(dShare * 100) },
+    const aLoss = sum(AL, (s) => aLostN.get(s)) / cnt(AL), dLoss = DL.length ? sum(DL, (s) => dLostN.get(s)) / cnt(DL) : 1;
+    const wallK = bD ? 1 + bD.wallPer * (hD ? 1 + hD.wall : 1) * wallL : 1;
+    const calc = { rule: a.mission === 'attack' ? 'attack' : 'raid', model: 4, luck, morale: Math.round(morale * 100), rounds,
+      att: { phys: Math.round(PA), mag: Math.round(MA), gen: Math.round(genA), bonusPct: Math.round((kA / (1 + luck / 100) / morale / raidK - 1) * 100), total: Math.round(PA + MA), hp: Math.round(hpA0), str: Math.round(Math.sqrt((PA + MA) * ehpA0)), hpLostPct: Math.round(aShare * 100) },
+      def: { npc: !target, phys: Math.round(PD), mag: Math.round(MD), bonusPct: bD ? Math.round((bD.def - 1) * 100) : 0, wall: wallL, wall0, wallPct: Math.round((wallK - 1) * 100), total: Math.round(PD + MD), hp: Math.round(hpD0), str: Math.round(Math.sqrt((PD + MD) * ehpD0)), hpLostPct: Math.round(dShare * 100) },
       aLossPct: Math.round(aLoss * 100), dLossPct: Math.round(dLoss * 100), routed, healed, ramsUsed, saved, wounded, dWounded };
-    const garrison = target ? null : D.map((s) => ({ name: s.npc.name, n: s.n, lost: dLostN.get(s) }));
-    return { garrison, win, luck, calc, aLost, dLost, dAll, aWnd, dWnd, dHeal, aLoss: aShare >= 1 ? 1 : aLoss, dLoss: dShare >= 1 || !D.length ? 1 : dLoss, siege, siegeN };
+    const garrison = target ? null : DL.map((s) => ({ name: s.npc.name, n: s.n, lost: dLostN.get(s) }));
+    return { garrison, win, luck, calc, aLost, dLost, dAll, aWnd, dWnd, dHeal, aLoss: aShare >= 1 ? 1 : aLoss, dLoss: dShare >= 1 || !DL.length ? 1 : dLoss, siege, siegeN };
   };
 
   // «Сравнить бой» (админка, проба новых правил): вся армия столицы att нападает (или набег) на столицу def — по прежним и по новым
@@ -1487,7 +1547,7 @@ function install(Game, helpers) {
       const a = { units: { ...A.units }, mission, general: !!(general && A.general && !A.general.dead && !A.general.away) };
       const gN = guests.reduce((q, x) => q + cnt(x.a.units), 0), sent = cnt(a.units), had = cnt(D.units) + D.squads.reduce((q, x) => q + cnt(x.units), 0) + gN; // до боя
       const R = this.clash(A, a, D, null, Date.now());
-      return { win: R.win, ap: R.calc.att.total, dp: R.calc.def.total, morale: R.calc.morale, sent, aLost: cnt(R.aLost), wounded: R.calc.wounded || 0, saved: R.calc.saved || 0,
+      return { win: R.win, ap: R.calc.att.str, dp: R.calc.def.str, morale: R.calc.morale, sent, aLost: cnt(R.aLost), wounded: R.calc.wounded || 0, saved: R.calc.saved || 0,
         had, dLost: cnt(R.dLost), dWounded: R.calc.dWounded || 0, healed: R.calc.healed || 0, guests: gN, wall0: R.calc.def.wall0, wall: g2wall(D) };
     };
     const g2wall = (D) => this.buildingLevel(D, B.FENCE);
@@ -1654,7 +1714,7 @@ function install(Game, helpers) {
     if (target) { this.tick(target); this.mil(target); }
     const R = this.clash(c, a, target, npc, t);
     const { win, luck, calc, aLost, dLost, dAll } = R;
-    const aLoss = R.aLoss, dLoss = R.dLoss, aSum = calc.att.total, Dsum = calc.def.total;
+    const aLoss = R.aLoss, dLoss = R.dLoss;
     const aliveAfter = Object.values(a.units).some((n) => n > 0);
     if (win) { this.addStat(c.owner, 'wins', 1); if (!target) this.addStat(c.owner, 'npcWins', 1); if (lair) this.lairWon(c.owner, lair.k); } // задания
     // снаряжение генерала в боях не выпадает — его куёт Кузнец за руны (hero.js runeForge)
@@ -1979,7 +2039,7 @@ function install(Game, helpers) {
       if (this.brBonus) { const ru = this.ownerOf(target), i = this.brRank(ru); if (i >= 0) sim.rank = { idx: i, title: require('./battlerank').rankInfo(i).title, def: this.brBonus(ru).atk }; } // боевой ранг виден всем (профиль) — учитывается всегда
       if (can('armies')) {
         sim.units = mergeUnits([target.units, ...target.squads.map((q) => q.units)]); for (const id of Object.keys(sim.units)) if (UNIT[id] && UNIT[id].dungOnly) delete sim.units[id]; // Стражи глубин замок не защищают
-        const g = target.general; if (g && !g.dead && !g.away) { const hb = this.heroBonus(g); sim.gen = { level: g.level, def: this.genStats(g).def, hdef: hb.def, hwall: hb.wall }; }
+        const g = target.general; if (g && !g.dead && !g.away) { const hb = this.heroBonus(g); const gs = this.genStats(g); sim.gen = { level: g.level, atk: gs.atk, def: gs.def, hdef: hb.def, hwall: hb.wall }; }
         lines.push(`Армии в замке: ${unitsLine(mergeUnits([target.units, ...target.squads.map((q) => q.units)]))}`);
         if (target.general && !target.general.dead) lines.push(`Генерал ${target.general.level} ур.`);
       }
@@ -1988,8 +2048,8 @@ function install(Game, helpers) {
       if (can('build')) {
         const list = []; target.grid[0].forEach((id, i) => { if (id >= 0 && target.levels[0][i]) list.push(`${C.BY_ID[id].name} ${target.levels[0][i]}`); });
         lines.push(`Здания: ${list.join(', ') || '—'}. Забор ${b.wall} ур., Тайник прячет ${b.hidden}.`);
-        Object.assign(sim, { wall: b.wall, wallPer: b.wallPer, defK: b.def, magK: b.magic, hidden: b.hidden });
-        sim.forge = Object.fromEntries(Object.entries(target.forge || {}).filter(([, f]) => f && (f.d || f.md)).map(([id, f]) => [id, { d: f.d || 0, md: f.md || 0 }])); // Кузница и Школа магии: защита воинов
+        Object.assign(sim, { wall: b.wall, wallPer: b.wallPer, defK: b.def, atkK: b.atk, magK: b.magic, hidden: b.hidden }); // atkK — урон защитников (бой как в оригинале)
+        sim.forge = Object.fromEntries(Object.entries(target.forge || {}).filter(([, f]) => f && (f.a || f.d || f.m || f.md)).map(([id, f]) => [id, { a: f.a || 0, d: f.d || 0, m: f.m || 0, md: f.md || 0 }])); // Кузница и Школа магии: урон и здоровье воинов
       }
       if (can('riot')) lines.push(`Бунт в замке: ${Math.round(100 - (target.loyalty ?? 100))}%${this.isCapital(target) ? ' (столица — захватить нельзя)' : ''}`);
       if (can('reinf')) { const g = this.guestsOf(target); sim.reinf = mergeUnits(g.map((x) => x.a.units)); lines.push(`Подкрепления: ${g.length ? g.map((x) => `${this.ownerOf(x.c).login}: ${unitsLine(x.a.units)}`).join('; ') : 'нет'}`); }
@@ -2015,7 +2075,7 @@ function install(Game, helpers) {
   // ----- симулятор боя (кнопка «В симулятор» в отчёте разведки) -----
   // Бой считается той же формулой (clash), но на копии своего замка и на «замке-симуляции» из данных разведки: войска не гибнут,
   // ресурсы не тратятся, удача 0. Своё (армия, генерал, Кузница, науки, ранг, артефакты) — настоящее; у противника — то, что передал
-  // клиент (по умолчанию — из разведки). p = { units, general, mission, def: { npc } | { race, uid, units, reinf, wall, wallPer, defK, magK, gen, res, hidden } }
+  // клиент (по умолчанию — из разведки). p = { units, general, mission, def: { npc } | { race, uid, units, reinf, wall, wallPer, defK, atkK, magK, gen, res, hidden } }
   P.simBattle = function simBattle(c, p = {}) {
     this.tick(c); this.mil(c);
     const num = (v, lo, hi, d) => { v = Number(v); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d; };
@@ -2032,11 +2092,11 @@ function install(Game, helpers) {
     else {
       const race = ['humans', 'elves', 'dwarves', 'orcs'].includes(d.race) ? d.race : 'humans', wall = Math.round(num(d.wall, 0, 20, 0)), g = d.gen && typeof d.gen === 'object' ? d.gen : null;
       const uid = Number(d.uid) !== c.owner && this.userById(Number(d.uid)) ? Number(d.uid) : 0; // настоящий противник — для боевого духа (сильный бьёт слабого хуже)
-      const forge = {}; if (d.forge && typeof d.forge === 'object') for (const [id, f] of Object.entries(d.forge)) if (Object.prototype.hasOwnProperty.call(UNIT, id) && f && typeof f === 'object') forge[id] = { d: Math.round(num(f.d, 0, 100, 0)), md: Math.round(num(f.md, 0, 100, 0)) };
+      const forge = {}; if (d.forge && typeof d.forge === 'object') for (const [id, f] of Object.entries(d.forge)) if (Object.prototype.hasOwnProperty.call(UNIT, id) && f && typeof f === 'object') forge[id] = { a: Math.round(num(f.a, 0, 100, 0)), d: Math.round(num(f.d, 0, 100, 0)), m: Math.round(num(f.m, 0, 100, 0)), md: Math.round(num(f.md, 0, 100, 0)) };
       mkD = () => ({ id: -1, owner: uid, name: 'Симулятор', units: mergeUnits([clean(d.units), clean(d.reinf)]), squads: [], general: null, wall, armies: [], forge,
         grid: [new Int8Array(49).fill(-1), new Int8Array(225).fill(-1)], levels: [new Int8Array(49), new Int8Array(225)],
-        sim: { bonus: { def: num(d.defK, 1, 5, 1), magic: num(d.magK, 1, 3, 1), wall, wallPer: num(d.wallPer, 0, 0.2, WALL_PER[race]) },
-          genDef: g ? num(g.def, 0, 1e5, 0) : 0, hero: g ? { def: num(g.hdef, 0, 2, 0), wall: num(g.hwall, 0, 2, 0) } : null } });
+        sim: { bonus: { def: num(d.defK, 1, 5, 1), atk: num(d.atkK, 1, 5, 1), magic: num(d.magK, 1, 3, 1), wall, wallPer: num(d.wallPer, 0, 0.2, WALL_PER[race]) },
+          genDef: g ? num(g.def, 0, 1e5, 0) : 0, genAtk: g ? num(g.atk, 0, 1e5, 0) : 0, hero: g ? { def: num(g.hdef, 0, 2, 0), wall: num(g.hwall, 0, 2, 0) } : null } });
       D = mkD();
     }
     const luck0 = process.env.LUCK; process.env.LUCK = '0';
@@ -2046,7 +2106,7 @@ function install(Game, helpers) {
     let genGain = null;
     try {
       R = this.clash(A, a, D, npc, Date.now());
-      if (genOk) { const R2 = this.clash(structuredClone(c), { units: { ...units }, mission, general: !general }, mkD ? mkD() : null, npc, Date.now()); const w = general ? R.calc.att.total : R2.calc.att.total, wo = general ? R2.calc.att.total : R.calc.att.total; genGain = wo ? Math.round((w / wo - 1) * 1000) / 10 : 0; }
+      if (genOk) { const R2 = this.clash(structuredClone(c), { units: { ...units }, mission, general: !general }, mkD ? mkD() : null, npc, Date.now()); const w = general ? R.calc.att.str : R2.calc.att.str, wo = general ? R2.calc.att.str : R.calc.att.str; genGain = wo ? Math.round((w / wo - 1) * 1000) / 10 : 0; }
     } finally { if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0; }
     const costOf = (id) => Object.values(UNIT[id].cost || {}).reduce((q, v) => q + v, 0);
     const att = Object.entries(units).map(([id, n]) => ({ id: Number(id), was: n, lost: R.aLost[id] || 0, wounded: R.aWnd[id] || 0 }));
@@ -2059,7 +2119,8 @@ function install(Game, helpers) {
     const res = d.res && typeof d.res === 'object' ? d.res : null, hid = Math.floor(num(d.hidden, 0, 1e9, 0));
     const stock = npc ? RES4.reduce((q, r) => q + npc.loot[r], 0) : res ? RES4.reduce((q, r) => q + Math.max(0, Math.floor(num(res[r], 0, 1e9, 0)) - hid), 0) : null;
     const loot = stock === null ? null : Math.min(carry, stock);
-    return { ok: true, win: R.win, mission, ap: R.calc.att.total, dp: R.calc.def.total, morale: R.calc.morale, att, def, npc: npc ? npc.name : null,
+    // ap, dp — сила сторон: √(урон × здоровье)
+    return { ok: true, win: R.win, mission, ap: R.calc.att.str, dp: R.calc.def.str, morale: R.calc.morale, att, def, npc: npc ? npc.name : null,
       atkPct: R.calc.att.bonusPct, defPct: R.calc.def.bonusPct, myRank: this.brBonus ? Math.round(this.brBonus(this.ownerOf(c)).atk * 1000) / 10 : 0, // бонусы в расчёте (ранг — в них)
       wall: R.calc.def.wall0, wallTo: R.calc.def.wall < R.calc.def.wall0 ? R.calc.def.wall : null, wounded: R.calc.wounded, // wallTo — Забор в бою после таранов
       carry, stock, loot, lossCost: Math.round(lossCost),
