@@ -1654,6 +1654,8 @@ function install(Game, helpers) {
     if (win) { this.addStat(c.owner, 'wins', 1); if (!target) this.addStat(c.owner, 'npcWins', 1); if (lair) this.lairWon(c.owner, lair.k); } // задания
     // снаряжение генерала в боях не выпадает — его куёт Кузнец за руны (hero.js runeForge)
     // генералы
+    // уровень генерала защитника, если он был в бою: жив и дома (воскрешающийся павший не сражается — до 24.10 отчёт всё равно показывал его «в строю»)
+    const genInD = target && target.general && !target.general.dead && !target.general.away ? target.general.level : 0;
     const genA = [], genD = []; let genExpA = 0, genExpD = 0, genDiedD = false, genSavedA = false, genSavedD = false; // опыт генералов — в отчёт числом
     // генерал гибнет, когда армия разбита в бою: нападение проиграно (или не уцелел никто) — даже если «Полевой лекарь» кого-то спас
     // (до 21.10 спасённые воины спасали и генерала — он не погибал почти никогда); шанс уцелеть — умения и снаряжение (не больше 30%)
@@ -1774,7 +1776,7 @@ function install(Game, helpers) {
     const data = {
       type: 'battle', mission: a.mission, win, x: a.x, y: a.y, luck, calc,
       att: { id: att.id, login: att.login, race: att.race, castle: c.name, army: a.squad ? a.squad.name : 'Замковая армия', cx: c.x, cy: c.y, rating: this.rating(c), lossRes: lossRes(aLost), units: side(a.units, aLost), general: a.general || genDied ? (c.general ? c.general.level : 0) : 0, generalDied: genDied, generalSaved: genSavedA, genExp: genExpA },
-      def: target ? { id: captured ? captured.prevOwner : defUser.id, login: captured ? captured.prevLogin : defUser.login, race: captured ? captured.prevRace : defUser.race, castle: took ? took.prevName : target.name, rating: this.rating(target), lossRes: lossRes(dLost), units: side(dAll, dLost), wall: this.bonus(target).wall, general: target.general && !target.general.away ? target.general.level : 0, generalDied: genDiedD, generalSaved: genSavedD, genExp: genExpD }
+      def: target ? { id: captured ? captured.prevOwner : defUser.id, login: captured ? captured.prevLogin : defUser.login, race: captured ? captured.prevRace : defUser.race, castle: took ? took.prevName : target.name, rating: this.rating(target), lossRes: lossRes(dLost), units: side(dAll, dLost), wall: this.bonus(target).wall, general: genInD, generalDied: genDiedD, generalSaved: genSavedD, genExp: genExpD }
         : { npc: npc.name, img: obj.img, lossPct: Math.round(dLoss * 100), garrison: R.garrison },
       site: target && target.site ? { end: target.site.end } : null, siteTaken: siteTaken ? (took ? { x: a.x, y: a.y } : { blocked: siteTaken.blocked }) : null,
       loot, siege, loyalty, capitalBlocked, royalBlocked, captured: captured ? { name: captured.name, x: a.x, y: a.y, rebel: captured.rebel || 0 } : null,

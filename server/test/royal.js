@@ -1974,6 +1974,10 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   // шанс уцелеть: «Несокрушимый» (40%) и рунный щит +5 (56%) — вместе не больше 30%
   const sv = g.heroBonus({ tal: { d4: 5 }, eq: { shield: { slot: 'shield', r: 4, plus: 5 } } }).survive;
   assert.strictEqual(sv, 0.3, `шанс уцелеть — не больше 30% (${sv})`);
+  // павший генерал воскрешается — в обороне его нет, и в отчёте тоже
+  { cd.general = g.newGeneral(cd, 20); cd.general.dead = true; cd.general.reviveAt = Date.now() + 1e12; cd.units = { 201: 100 }; ca.units = { 200: 5000 }; go('attack');
+    const rep = g.reportsOf(D.id).find((x) => x.data && x.data.type === 'battle');
+    assert.ok(cd.general.dead && !rep.data.def.general && !rep.data.def.genExp, `воскрешающийся генерал в отчёте обороны не показан (${rep.data.def.general})`); }
   console.log('✓ Генерал: гибнет, когда нападение или оборона проиграны (лекарь и выздоровевшие не спасают), в набеге — нет; уцелеть — до 30%');
 }
 { // закрыть игру (closedtest.js): по умолчанию открыта; закрывает и открывает только администратор — на 8 или 24 часа, потом открывается сама;
