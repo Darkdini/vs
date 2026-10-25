@@ -1261,6 +1261,7 @@ function install(Game, helpers) {
   P.tickWorld = function tickWorld(now = Date.now()) {
     this.sitesTick(now); // недострои: достроены?
     if (this.dungTick) this.dungTick(now); // Подземелье: раскопки закончились, лагеря вернулись (dungeon.js)
+    if (this.trapTick) this.trapTick(now); // Темница: вербовка закончилась, пленные сбежали (trap.js)
     if (this.huntTick) this.huntTick(now); // Зона охоты: Генералы дошли до чудовищ — удар (hunt.js)
     if (this.rallyTick) this.rallyTick(now); // созывы на мирового босса: время вышло — армии складываются и бьют (boss.js), до прибытия остальных армий
     const due = [];
@@ -1734,6 +1735,7 @@ function install(Game, helpers) {
     const npc = lair ? lair.npc : obj && NPC[obj.img];
     if (!target && !npc) { this.report(c.owner, `Поход ${where}: цель исчезла`, ['Армия вернулась домой.'], 'battle'); return this.goBack(c, a, t); }
     if (target) { this.tick(target); this.mil(target); }
+    const trap = target && this.trapCatch ? this.trapCatch(target, c, a, att, t) : null; // Капкан ловит часть армии до боя (trap.js)
     const R = this.clash(c, a, target, npc, t);
     const { win, luck, calc, aLost, dLost, dAll } = R;
     const aLoss = R.aLoss, dLoss = R.dLoss;
@@ -1897,6 +1899,7 @@ function install(Game, helpers) {
       loot ? `Добыча: дерево ${loot.wood}, камень ${loot.stone}, железо ${loot.iron}, еда ${loot.food}` : 'Добычи нет — армия погибла.',
       ...siege,
     ];
+    if (trap) lines.splice(1, 0, `Капкан замка ${target.name} поймал до боя ${trap.n} воинов (${this.trapLine(trap.units)}) — они в Темнице.`);
     if (loyalty) lines.push(`Бунт в замке: ${100 - loyalty.from}% → ${100 - loyalty.to}%`);
     if (npcBack) lines.push(npc.ruins ? 'Руины разграблены и исчезли с карты — со временем в этой провинции появятся новые.' : 'Лагерь разбит и исчез с карты — со временем в этой провинции появится новый.');
     if (ruinRiot && win) lines.push('Бунтари поднимают бунт в руинах — руины не грабят.');
@@ -1919,6 +1922,7 @@ function install(Game, helpers) {
     if (target) {
       this.report(captured ? captured.prevOwner : took ? took.prevOwner : target.owner, `Оборона от ${att.login}`, [
         `${MISSIONS[a.mission]} от ${att.login} (${c.name}).`,
+        ...(trap ? [`Ваш Капкан поймал до боя ${trap.n} воинов (${this.trapLine(trap.units)}) — они в Темнице: казните или завербуйте их за сутки.`] : []),
         `Атакующие: ${unitsLine(a.units, aLost)}`,
         `Ваши войска: ${unitsLine(dAll, dLost)}`,
         loot ? `Унесено: дерево ${loot.wood}, камень ${loot.stone}, железо ${loot.iron}, еда ${loot.food}` : 'Враг разбит, ничего не унесено.',
@@ -2539,7 +2543,7 @@ function install(Game, helpers) {
   P.maxOut = function maxOut(castle) {
     this.mil(castle);
     const race = this.raceOf(castle);
-    const castleBuildings = C.BUILDINGS.filter((b) => b.layer === 'castle' && b.id !== 0 && b.id !== 1 && b.id !== B.FENCE);
+    const own = this.ownerOf(castle), castleBuildings = C.BUILDINGS.filter((b) => b.layer === 'castle' && b.id !== 0 && b.id !== 1 && b.id !== B.FENCE && (!b.adminOnly || (own && own.admin))); // Капкан (пока проверяет админ) — только админу
     castle.wall = (C.BY_ID[B.FENCE] || {}).max || 20; // стена — без клетки
     const cells = C.CASTLE_OK.filter((i) => i !== 24); castle.layoutV = 2; castle.storeExtra = 0; castle.storeExtraLv = 0;
     castle.grid[0] = new Int8Array(49).fill(-1); castle.levels[0] = new Int8Array(49);

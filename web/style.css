@@ -2775,3 +2775,13 @@ img.artsp { filter: drop-shadow(0 0 4px #c89aff) drop-shadow(0 0 8px #6a3aff); }
 .hnsp:disabled { opacity: .45; }
 .hnci { width: 14px; height: 14px; object-fit: contain; }
 .rbar img[src*="hunt/"] { width: 34px; height: 34px; object-fit: contain; }
+/* Капкан и Темница (trap.js) */
+.trline { font: 16px var(--serif); color: var(--ink2); text-align: center; margin: 8px 0; }
+.trline.ok { color: #2f5a12; }
+.trbox { border: 1px solid #b08a5a88; border-radius: 8px; padding: 8px; margin: 10px 0; background: #fff3; }
+.trhead { font: bold 16px var(--serif); text-align: center; margin-bottom: 6px; }
+.trunits { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.trunit { display: flex; flex-direction: column; align-items: center; width: 74px; font: 12px var(--serif); text-align: center; }
+.trunit b { font-size: 14px; }
+.trimg { width: 52px; height: 52px; object-fit: contain; }
+.trnote { text-align: center; margin: 2px 0 8px; color: var(--ink2); }

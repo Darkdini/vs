@@ -3112,6 +3112,35 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.ok(g.huntGo(A, ca, big.id).ok && g.huntSpeed(A).ok && A.gold === 100 - hc - 3, 'ускорить поход за 3 монеты');
     console.log('✓ Алтарь: Зона охоты — Генерал бьёт чудовище, заклинания за кристаллы, ответный удар, награда по доле урона, лечение и ускорение');
   }
+  { // Капкан: до боя ловит до 1000 воинов (разведчиков не трогает) → Темница; казнь — лояльность не больше 100 в сутки, вербовка 15% за 4 ч
+    const mk = (login) => { const u = g.register({ login, password: '12345', race: 0 }).user, c = g.castleOf(u); g.mil(c); g.maxOut(c); return [u, c]; };
+    const [Au, ca] = mk('trapAtt1'), [Du, cd] = mk('trapDef1'), [Pu, cp] = mk('trapPl1');
+    const rt0 = g.rating(cd); assert.ok(!g.buildingLevel(cd, 48), 'полная прокачка игрока Капкан не ставит');
+    { const fc = require('../src/catalog').CASTLE_OK.find((k) => k !== 24 && cd.grid[0][k] === -1); cd.grid[0][fc] = 48; cd.levels[0][fc] = 1; }
+    assert.ok(g.buildingLevel(cd, 48) === 1 && g.rating(cd) === rt0, 'Капкан (поставил админ) рейтинг полного замка не меняет');
+    g.setBuildingLevel(cp, 48, 0); assert.ok(/администрац/.test(g.startBuild(cp, 0, cp.grid[0].indexOf(-1), 48).error || ''), 'игрок Капкан пока не строит');
+    const hit = (units) => { ca.armies = []; ca.units = { ...units }; const go = g.sendArmy(ca, { units, x: cd.x, y: cd.y, mission: 'attack' }); assert.ok(go.army, go.error); g.arrive(ca, go.army, Date.now()); };
+    hit({ 200: 1500, 202: 10 });
+    assert.ok(cd.prison && cd.prison.units[200] === 1000 && !cd.prison.units[202] && cd.prison.login === 'trapAtt1', 'поймано 1000, разведчики — нет');
+    const rp = (u, re) => g.db.reports.some((r) => r.owner === u.id && r.lines.some((l) => re.test(l)));
+    assert.ok(rp(Au, /Капкан замка .* поймал до боя 1000/) && rp(Du, /Ваш Капкан поймал до боя 1000/), 'в отчётах обеих сторон');
+    const v = g.trapView(Du, cd); assert.ok(!v.ready && v.prison.n === 1000 && v.prison.rMin === 100 && v.prison.rMax === 150, 'Капкан перезаряжается, согласятся от 100 до 150');
+    const want = g.trapLoyalty(Du, cd), ex = g.trapExecute(Du, cd);
+    assert.ok(ex.ok && want > 0 && want <= 100 && Du.trapLoyToday === want && !cd.prison && g.mstats(Du).execute === 1000, `казнь: +${want} лояльности, зал «Казни»`);
+    for (const r of ['wood', 'stone', 'iron', 'food']) cd.res[r] = 30000;
+    { const ch = g.trapCharge(cd); assert.ok(ch.ok && cd.res.wood < 11000 && g.trapView(Du, cd).ready, JSON.stringify(ch) + ' ' + 'перезарядка сразу — за 20 000 каждого ресурса'); }
+    hit({ 200: 400 }); // вся армия в Капкане — боя нет, ничего не ломается
+    assert.ok(cd.prison.units[200] === 400 && Du.trapLoyToday + g.trapLoyalty(Du, cd) <= 100, 'не больше 100 лояльности за казни в сутки');
+    const n0 = cd.units[200] || 0, rc = g.trapRecruit(Du, cd);
+    assert.ok(rc.ok && !cd.prison && cd.recruit.pool[200] === 400 && (cd.units[200] || 0) === n0, 'вербовка началась, итог — через 4 ч');
+    g.trapTick(cd.recruit.end + 1); const rn = cd.units[200] - n0;
+    assert.ok(!cd.recruit && rn >= 40 && rn <= 60 && g.mstats(Du).recruit === rn, `через 4 ч в армии ${rn} из 400 (10–15%), зал «Вербовка»`);
+    const sd = g.sameDevice; g.sameDevice = () => true; cd.trap.readyAt = 0; hit({ 200: 300 }); g.sameDevice = sd;
+    assert.ok(cd.prison.noLoy && g.trapLoyalty(Du, cd) === 0, 'пленные с того же телефона — без лояльности');
+    g.trapTick(cd.prison.until + 1); assert.ok(!cd.prison && cd.trapLog.some((e) => e.act === 'escape'), 'сутки не тронули — сбежали');
+    assert.ok(g.halls().some((h) => h.id === 'recruit') && g.halls().some((h) => h.id === 'execute'), 'залы «Казни» и «Вербовка»');
+    console.log('✓ Капкан: ловит до 1000 до боя, Темница — казнь (лояльность ≤ 100 в сутки, без мультов) или вербовка 10–15% за 4 ч, перезарядка 12 ч, побег через сутки');
+  }
   try { fs.unlinkSync(DB); } catch {}
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });

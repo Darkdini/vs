@@ -154,6 +154,7 @@ function buildingFunctions(def, lvl) {
   let h = '';
   if (def.id === 0) return `<button class="rbar" data-wallwin>Стена${S.st.castle.wall ? ` · ${S.st.castle.wall} ур.` : ''}</button><button class="rbar" data-shieldopen>🛡 Защита</button>`; // Ратуша: стена замка (wall.js)
   if (def.id === 47) return altarHtml(); // Алтарь: Зона охоты (hunt.js)
+  if (def.id === 48) return trapHtml(); // Капкан и Темница (trap.js)
   if (def.id === 46) return residenceHtml(); // Резиденция: лояльность населения (residence.js)
   if (def.id === 41) return infirmaryHtml(); // Лазарет: раненые и лечение
   if (def.id === 11) return '<button class="rbar" data-forge>Юниты</button><button class="rbar" data-runeforge>Ковка снаряжения за руны</button>' + upJobsHtml(11) + runeJobHtml(); // Кузница (forge.js, runes.js)

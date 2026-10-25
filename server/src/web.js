@@ -88,7 +88,7 @@ function catalogJson() {
       prov: G.PROV, provN: G.PROV_N, provNo: Array.from({ length: G.PROV_N * G.PROV_N }, (_, i) => G.provNo(i + 1)), time: C.TIME, rating: C.RATING, store: G.STORE, baseRate: G.BASE_RATE, peopleFactor: G.PEOPLE_FACTOR, minBuildSec: 3,
     },
     buildings: C.BUILDINGS.map((b) => ({
-      id: b.id, name: b.name, desc: b.desc, layer: b.layer, max: b.max || 20, unique: !!b.unique, req: b.req || {},
+      id: b.id, name: b.name, desc: b.desc, layer: b.layer, max: b.max || 20, unique: !!b.unique, adminOnly: !!b.adminOnly, req: b.req || {},
       produces: b.produces || null, tiers: b.tiers || null, about: b.about || '', hp: C.durability(b, 1), time: b.time || 0,
       costs: Array.from({ length: (b.max || 20) + 1 }, (_, l) => (l === 0 ? null : C.levelCost(b, l))),
     })),
@@ -866,6 +866,16 @@ const API = {
     this.send({ t: 'dung', data: g.dungView(this.castle, this.user) });
   },
   // «Алтарь» → Зона охоты (hunt.js): view — карта; go — в поход на чудовище (до двух заклинаний); speed — ускорить; heal — вылечить
+  // «Капкан» и Темница (trap.js): view; execute — казнить пленных; recruit — завербовать 15%; charge — перезарядить за ресурсы
+  trap(m) {
+    const op = String(m.op || 'view'), g = this.game, c = this.castle;
+    if (op !== 'view') {
+      const now = Date.now(); if (now - (this.trapAt || 0) < 500) return this.error('Не так часто — подождите секунду.'); this.trapAt = now;
+      const r = op === 'execute' ? g.trapExecute(this.user, c) : op === 'recruit' ? g.trapRecruit(this.user, c) : op === 'charge' ? g.trapCharge(c) : { error: 'Неизвестное действие.' };
+      if (r.msg) this.toast(r.msg); this.result(r);
+    }
+    this.send({ t: 'trap', data: g.trapView(this.user, c) });
+  },
   hunt(m) {
     const op = String(m.op || 'view'), g = this.game;
     if (!require('./hunt').OPEN && !this.user.admin) return this.error('Зона охоты пока закрыта — скоро откроется.');

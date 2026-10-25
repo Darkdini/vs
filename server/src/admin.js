@@ -170,6 +170,7 @@ function install(Game) {
         dead: this.deadList(c).map((d) => ({ name: d.name, level: d.level, reviveAt: d.reviveAt || 0 })), bag: this.heroGear(c).length,
         units: units(c.units), squads: [...(c.squads || []).map((q) => ({ name: q.name, units: units(q.units) })), ...(Object.keys(c.reserve || {}).length ? [{ name: '🛡 Резерв', units: units(c.reserve) }] : [])],
         training: (c.training || []).map((t) => ({ name: t.unit === GENERAL_ID ? `Генерал (${nm(t.kindId)})` : nm(t.unit), left: t.count - (t.done || 0), end: t.start + t.each * t.count })),
+        trapLog: (c.trapLog || []).slice(-15).reverse(), prison: c.prison ? { n: Object.values(c.prison.units).reduce((s, n) => s + n, 0), login: c.prison.login, noLoy: !!c.prison.noLoy } : null, // Капкан (trap.js)
         wounded: units(c.wounded), healing: (c.healing || []).map((t) => ({ name: nm(t.unit), left: t.count - (t.done || 0) })),
         armies: c.armies.map((a) => ({ mission: a.mission, state: a.state, x: a.x, y: a.y, arrive: a.arrive, general: !!a.general, units: units(a.units), stay: a.state === 'stay' && this.db.castles[a.stayAt] ? this.db.castles[a.stayAt].name : null })),
         guests: this.guestsOf(c).map((x) => ({ from: (this.ownerOf(x.c) || {}).login || '?', castle: x.c.name, units: units(x.a.units) })),

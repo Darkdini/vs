@@ -37,13 +37,13 @@ function install(Game) {
     for (const u of Object.values(this.db.users)) {
       if (u.bot || u.admin) continue;
       const st = this.stats(u), cs = this.castlesOf(u);
-      const snap = { at: now, army: this.armyTotal(u), trained: st.trained || 0, stashUnits: st.stashUnits || 0, healed: st.healed || 0, gold: u.gold || 0, royal: u.royal || 0, castles: cs.length };
+      const snap = { at: now, army: this.armyTotal(u), trained: st.trained || 0, stashUnits: st.stashUnits || 0, healed: st.healed || 0, recruited: st.recruited || 0, gold: u.gold || 0, royal: u.royal || 0, castles: cs.length };
       const p = u.snap;
       const fresh = !p || (u.admTouch && u.admTouch >= p.at); // первый замер или админ менял игрока — только запоминаем
       if (!fresh) {
         // армия: рост сверх обученного, взятого из Кладовой и вылеченного в Лазарете (раненые в армию не входят — вернулись лечением)
-        const trained = snap.trained - p.trained, fromStash = snap.stashUnits - p.stashUnits, healed = snap.healed - (p.healed || 0);
-        const grow = snap.army - p.army, legal = trained + fromStash + healed;
+        const trained = snap.trained - p.trained, fromStash = snap.stashUnits - p.stashUnits, healed = snap.healed - (p.healed || 0), recruited = snap.recruited - (p.recruited || 0); // + завербованные в Темнице (trap.js)
+        const grow = snap.army - p.army, legal = trained + fromStash + healed + recruited;
         if (snap.castles === p.castles && grow - legal > Math.max(30, p.army * 0.1)) {
           this.alert(u, 'army', `Армия ${p.army.toLocaleString('ru-RU')} → ${snap.army.toLocaleString('ru-RU')} (+${(grow).toLocaleString('ru-RU')})`, `обучено ${Math.max(0, trained)}, из Кладовой ${fromStash}, из Лазарета ${healed} — без объяснения +${(grow - legal).toLocaleString('ru-RU')}`);
         }

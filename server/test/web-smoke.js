@@ -63,7 +63,7 @@ function client() {
     const catR = await fetch(`http://127.0.0.1:${WEB_PORT}/catalog.json?h=${catH}`);
     assert.match(catR.headers.get('cache-control'), /immutable/);
     const cat = await catR.json();
-    assert.equal(cat.buildings.length, 46); // с 22.10 без Таверны, с 25.10 — Алтарь
+    assert.equal(cat.buildings.length, 47); // с 22.10 без Таверны, с 25.10 — Алтарь
     console.log('✓ каталог: зданий', cat.buildings.length);
 
     a.send({ t: 'register', login: 'Webby', password: 'pass1', race: '1' });
@@ -403,7 +403,7 @@ function client() {
     adm.send({ t: 'halls' });
     const hl = await adm.expect('halls');
     assert.ok(hl.season && hl.season.end > Date.now());
-    assert.ok(hl.list.length === 20 && hl.pages.length === 4 && hl.list.every((h) => h.bonus.length === 3 && h.desc && Number.isFinite(h.pos)), 'Зал Славы: 20 категорий, 4 страницы');
+    assert.ok(hl.list.length === 21 && hl.pages.length === 5 && hl.list.every((h) => h.bonus.length === 3 && h.desc && Number.isFinite(h.pos)), 'Зал Славы: 21 категория, 5 страниц');
     adm.send({ t: 'admin', op: 'season' });
     await adm.expect('toast', (m) => /Месяц подведён досрочно/.test(m.msg));
     adm.send({ t: 'profile', id: s3.user.id });

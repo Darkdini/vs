@@ -23,7 +23,7 @@ const BUILD_IMG = ['castle', 'storage', 'mbases', 'baraks', 'market', 'lands/far
   'build', 'smith', 'stables', 'diplomat', 'wisdom_house', 'university', 'arhcamp', 'expedition', 'art_tower', 'commerce', 'magtower',
   'guard_tower', null, 'workshop', 'traveler', 'temple', 'secret', 'lands/wood3', 'lands/stone3', 'lands/iron3', 'lands/farm3', 'lands/house3',
   'lands/wood5', 'lands/stone5', 'lands/iron5', 'lands/farm5', 'lands/house5', 'lands/fish1', 'portal', 'magscool', 'builder', 'infirmary', 'gendel',
-  'alchimia', 'reasury', 'spycentr', 'resident', 'altar'];
+  'alchimia', 'reasury', 'spycentr', 'resident', 'altar', 'trap'];
 // здания земель — своя картинка на каждый из 5 уровней (номера 100–129: Огород, Хибара, Дровосек, Каменщик, Рудник, Рыболовная заводь)
 ['farm', 'house', 'wood', 'stone', 'iron', 'fish'].forEach((k, i) => { for (let l = 1; l <= 5; l++) BUILD_IMG[100 + i * 5 + l - 1] = `lands/${k}${l}`; });
 const RACE_IMG = { humans: 'units/human/hd/knight.png', elves: 'units/elf/hd/archer.png', dwarves: 'units/dwarv/hd/fighter.png', orcs: 'units/orc/hd/marauder.png' };
@@ -290,6 +290,7 @@ function onMsg(m) {
     case 'sim': simMsg(m); break; // симулятор боя (sim.js)
     case 'dung': dungMsg(m); break; // Подземелье (dungeon.js)
     case 'hunt': huntMsg(m); break; // Алтарь → Зона охоты (hunt.js)
+    case 'trap': trapMsg(m); break; // Капкан и Темница (trap.js)
     case 'brtop': brTopMsg(m); break;
     case 'zags': case 'zprops': case 'zpairs': case 'zpair': case 'zdone': zagsMsg(m); break;
     case 'news': newsMsg(m); break;
@@ -785,7 +786,7 @@ function emptySheet(view, cell) {
     title = ['Лес', 'Валуны', 'Горы'][L.decor[y][x]] || { 0: 'Луг', 7: 'Пашня', 8: 'Каменистая земля', 9: 'Вода' }[L.base[y][x]] || 'Земля';
     sub = `Земли: строительство · клетка ${x + 1}:${y + 1}`;
   } else {
-    opts = S.cat.buildings.filter((b) => b.layer === 'castle' && b.id !== 22).map((b) => b.id); // стена — из Ратуши (wall.js)
+    opts = S.cat.buildings.filter((b) => b.layer === 'castle' && b.id !== 22 && (!b.adminOnly || S.st.user.admin)).map((b) => b.id); // Капкан — пока только админу // стена — из Ратуши (wall.js)
     title = 'Замок: строительство'; sub = 'Свободное место — выберите здание';
   }
   const items = opts.map((id) => S.by[id]).map((def) => ({ def, blk: blockers(def, 1, view, cell) }))
@@ -907,7 +908,7 @@ const HD = {
   'ground/wood.png': ['ground/wood.png', 159 / 63], 'ground/walun.png': ['ground/walun.png', 167 / 63], 'ground/mount.png': ['ground/mount.png', 200 / 64],
   // здания замка — новая графика «Средневековье»: каждое на своей ромбовидной плите; [масштаб, ширина плиты, y центра плиты, x центра плиты] в точках картинки.
   // плита — шириной 48 точек на экране, её центр — в центре клетки
-  ...Object.fromEntries(Object.entries({ castle: [5.625, 270, 226.7, 135.0], storage: [5.625, 270, 152.7, 135.5], mbases: [5.625, 270, 237.9, 135.0], baraks: [5.625, 270, 154.5, 137.3], market: [5.625, 270, 156.8, 137.3], smith: [5.625, 270, 208.2, 135.6], stables: [5.625, 270, 170.3, 137.3], diplomat: [5.625, 270, 191.7, 138.6], wisdom_house: [5.625, 270, 283.1, 140.5], university: [5.625, 270, 189.5, 139.1], arhcamp: [5.625, 270, 171.4, 135.6], expedition: [5.625, 270, 181.8, 151.9], art_tower: [5.625, 270, 339.4, 139.2], commerce: [5.625, 270, 228.7, 137.4], magtower: [5.625, 270, 299.4, 140.0], guard_tower: [5.625, 270, 262.1, 135.0], workshop: [5.625, 270, 148.4, 135.5], traveler: [5.625, 270, 214.1, 137.3], temple: [5.625, 270, 252.5, 135.6], secret: [5.625, 270, 164.5, 135.6], portal: [5.625, 270, 210.5, 136.2], magscool: [5.625, 270, 199.3, 136.8], builder: [5.625, 270, 166.7, 137.2], infirmary: [5.625, 270, 194.9, 136.8], gendel: [5.583, 268, 214.2, 135.0], alchimia: [5.625, 270, 241.6, 135.0], reasury: [5.625, 270, 182.2, 141.2], spycentr: [5.625, 270, 240.5, 135.7], resident: [5.625, 270, 197.5, 138.5], altar: [5.625, 270, 132.4, 137.1], build: [5.625, 270, 163.9, 136.1] }).map(([n, [k, fw, ay, ax]]) => [`build/${n}.png`, [`build/hd3/${n}.png`, k, fw, ay, ax]])),
+  ...Object.fromEntries(Object.entries({ castle: [5.625, 270, 226.7, 135.0], storage: [5.625, 270, 152.7, 135.5], mbases: [5.625, 270, 237.9, 135.0], baraks: [5.625, 270, 154.5, 137.3], market: [5.625, 270, 156.8, 137.3], smith: [5.625, 270, 208.2, 135.6], stables: [5.625, 270, 170.3, 137.3], diplomat: [5.625, 270, 191.7, 138.6], wisdom_house: [5.625, 270, 283.1, 140.5], university: [5.625, 270, 189.5, 139.1], arhcamp: [5.625, 270, 171.4, 135.6], expedition: [5.625, 270, 181.8, 151.9], art_tower: [5.625, 270, 339.4, 139.2], commerce: [5.625, 270, 228.7, 137.4], magtower: [5.625, 270, 299.4, 140.0], guard_tower: [5.625, 270, 262.1, 135.0], workshop: [5.625, 270, 148.4, 135.5], traveler: [5.625, 270, 214.1, 137.3], temple: [5.625, 270, 252.5, 135.6], secret: [5.625, 270, 164.5, 135.6], portal: [5.625, 270, 210.5, 136.2], magscool: [5.625, 270, 199.3, 136.8], builder: [5.625, 270, 166.7, 137.2], infirmary: [5.625, 270, 194.9, 136.8], gendel: [5.583, 268, 214.2, 135.0], alchimia: [5.625, 270, 241.6, 135.0], reasury: [5.625, 270, 182.2, 141.2], spycentr: [5.625, 270, 240.5, 135.7], resident: [5.625, 270, 197.5, 138.5], altar: [5.625, 270, 132.4, 137.1], trap: [5.625, 270, 165.3, 135.5], build: [5.625, 270, 163.9, 136.1] }).map(([n, [k, fw, ay, ax]]) => [`build/${n}.png`, [`build/hd3/${n}.png`, k, fw, ay, ax]])),
   'build/watch1.png': ['build/hd3/guard_tower.png', 5.625, 270, 262.1, 135.0], 'build/watch2.png': ['build/hd3/guard_tower.png', 5.625, 270, 262.1, 135.0], 'build/watch3.png': ['build/hd3/guard_tower.png', 5.625, 270, 262.1, 135.0] };
 
 function pic(path) {
