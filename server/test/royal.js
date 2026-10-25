@@ -3117,7 +3117,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     const [Au, ca] = mk('trapAtt1'), [Du, cd] = mk('trapDef1'), [Pu, cp] = mk('trapPl1');
     const rt0 = g.rating(cd); assert.ok(!g.buildingLevel(cd, 48), 'полная прокачка игрока Капкан не ставит');
     { const fc = require('../src/catalog').CASTLE_OK.find((k) => k !== 24 && cd.grid[0][k] === -1); cd.grid[0][fc] = 48; cd.levels[0][fc] = 1; }
-    assert.ok(g.buildingLevel(cd, 48) === 1 && g.rating(cd) === rt0, 'Капкан (поставил админ) рейтинг полного замка не меняет');
+    assert.ok(rt0 === 2200 && g.buildingLevel(cd, 48) === 1 && g.rating(cd) === 2222 && g.ratingParts(cd).trap === 22, 'полный замок 2200, с Капканом — 2222');
     g.setBuildingLevel(cp, 48, 0); assert.ok(/администрац/.test(g.startBuild(cp, 0, cp.grid[0].indexOf(-1), 48).error || ''), 'игрок Капкан пока не строит');
     const hit = (units) => { ca.armies = []; ca.units = { ...units }; const go = g.sendArmy(ca, { units, x: cd.x, y: cd.y, mission: 'attack' }); assert.ok(go.army, go.error); g.arrive(ca, go.army, Date.now()); };
     hit({ 200: 1500, 202: 10 });

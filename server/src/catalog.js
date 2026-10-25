@@ -173,8 +173,10 @@ const LANDS_FULL_LEVELS = LANDS_N * LANDS_N * LAND_EFF_MAX; // все клетк
 const RATING_FULL = 2200, RATING_LANDS = 1000, RATING_K = 1300 / CASTLE_FULL_LEVELS;
 const CASTLE_NOW_LEVELS = RATING_TYPES.reduce((s, b) => s + (b.max || 20), 0) + (STORE_MAX - 1) * BY_ID_MAX_STORE; // полный замок сейчас: 532 ур.
 const RATING_CASTLE = Math.round(CASTLE_NOW_LEVELS * RATING_K), RATING_STORE = RATING_FULL - RATING_CASTLE - RATING_LANDS; // 971 и 229
-const RATING = { max: RATING_FULL, castleMax: RATING_CASTLE, storeMax: RATING_STORE, landsMax: RATING_LANDS,
-  castle: RATING_K, store: RATING_STORE / (STORE_MAX * BY_ID_MAX_STORE), lands: RATING_LANDS / LANDS_FULL_LEVELS };
+// Капкан (с 25.10) — свой рейтинг сверх 2200: замок с отстроенным Капканом даёт 2222
+const TRAP_ID = 48, RATING_TRAP = 22;
+const RATING = { max: RATING_FULL + RATING_TRAP, castleMax: RATING_CASTLE, storeMax: RATING_STORE, landsMax: RATING_LANDS, trapMax: RATING_TRAP, trapId: TRAP_ID,
+  trap: RATING_TRAP / BUILDINGS.find((b) => b.id === TRAP_ID).max, castle: RATING_K, store: RATING_STORE / (STORE_MAX * BY_ID_MAX_STORE), lands: RATING_LANDS / LANDS_FULL_LEVELS };
 
 // Какую картинку показывать для уровня (земли «растут»: маленькое → среднее → большое здание)
 function displayId(b, level) {
