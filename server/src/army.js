@@ -109,12 +109,13 @@ const CUSTOM = {
 };
 
 // характеристики оригинала (окно «Постройка юнитов»): ❤ здоровье, ⚔ атака, маг. атака, 🛡 защита, маг. защита, скорость, груз;
-// цена дерево/камень/железо/еда, людей, время (сек)
+// цена дерево/камень/железо/еда, людей, время (сек); разведчики (202, 209, 217, 252) — самые быстрые воины своей расы:
+// на 2 клетки в час быстрее самого быстрого (с 25.10)
 const ORIG = {
   // орки (скрины окна «Юнит» оригинала) — значения один в один
   245: { type: 'infantry', hp: 40, atk: 15, mag: 0, def: 10, mdef: 0, speed: 11, carry: 101, cost: [85, 80, 90, 180], pop: 6, time: 1440 }, // Мародер 24:00
   247: { type: 'infantry', hp: 50, atk: 20, mag: 0, def: 15, mdef: 0, speed: 6, carry: 31, cost: [75, 80, 85, 165], pop: 12, time: 1960 }, // Бугай 32:40
-  252: { type: 'cavalry', hp: 25, atk: 15, mag: 0, def: 10, mdef: 0, speed: 14, carry: 0, cost: [80, 75, 85, 170], pop: 15, time: 2380 }, // Орк загонщик 39:40
+  252: { type: 'cavalry', hp: 25, atk: 15, mag: 0, def: 10, mdef: 0, speed: 26, carry: 0, cost: [80, 75, 85, 170], pop: 15, time: 2380 }, // Орк загонщик 39:40
   253: { type: 'magic', hp: 25, atk: 0, mag: 10, def: 0, mdef: 25, speed: 7, carry: 60, cost: [85, 85, 90, 170], pop: 9, time: 1560 }, // Осквернитель 26:00
   246: { type: 'cavalry', hp: 100, atk: 50, mag: 10, def: 45, mdef: 15, speed: 12, carry: 60, cost: [100, 95, 105, 220], pop: 39, time: 3480 }, // Урук-хай 58:00
   254: { type: 'magic', hp: 55, atk: 0, mag: 15, def: 0, mdef: 25, speed: 6, carry: 60, cost: [125, 80, 70, 215], pop: 24, time: 2700 }, // Варлок 45:00
@@ -125,7 +126,7 @@ const ORIG = {
   200: { type: 'infantry', hp: 25, atk: 10, mag: 0, def: 10, mdef: 0, speed: 7, carry: 62, cost: [70, 80, 95, 50], pop: 3, time: 720 }, // Мечник 12:00
   201: { type: 'infantry', hp: 20, atk: 10, mag: 0, def: 15, mdef: 0, speed: 6, carry: 47, cost: [95, 75, 120, 50], pop: 9, time: 1099 }, // Копейщик 18:19
   261: { type: 'cavalry', hp: 25, atk: 15, mag: 0, def: 20, mdef: 0, speed: 10, carry: 90, cost: [75, 80, 97, 60], pop: 5, time: 840 }, // Кирасир 14:00
-  202: { type: 'cavalry', hp: 25, atk: 10, mag: 0, def: 10, mdef: 0, speed: 15, carry: 0, cost: [90, 100, 70, 55], pop: 15, time: 1200 }, // Разведчик 20:00
+  202: { type: 'cavalry', hp: 25, atk: 10, mag: 0, def: 10, mdef: 0, speed: 24, carry: 0, cost: [90, 100, 70, 55], pop: 15, time: 1200 }, // Разведчик 20:00
   203: { type: 'magic', hp: 25, atk: 0, mag: 30, def: 0, mdef: 15, speed: 8, carry: 70, cost: [85, 95, 125, 70], pop: 12, time: 1099 }, // Чародей 18:19
   204: { type: 'cavalry', hp: 50, atk: 45, mag: 0, def: 10, mdef: 5, speed: 9, carry: 101, cost: [140, 110, 195, 65], pop: 30, time: 2400 }, // Рыцарь 40:00
   205: { type: 'cavalry', hp: 65, atk: 50, mag: 5, def: 35, mdef: 30, speed: 11, carry: 86, cost: [125, 135, 230, 75], pop: 45, time: 2440 }, // Паладин 40:40
@@ -135,7 +136,7 @@ const ORIG = {
   207: { type: 'infantry', hp: 30, atk: 8, mag: 0, def: 20, mdef: 0, speed: 6, carry: 47, cost: [95, 80, 70, 50], pop: 6, time: 990 }, // Эльф лучник 16:30
   208: { type: 'infantry', hp: 25, atk: 10, mag: 0, def: 15, mdef: 0, speed: 8, carry: 55, cost: [120, 100, 60, 50], pop: 12, time: 1580 }, // Танцующий с клинками 26:20
   257: { type: 'infantry', hp: 30, atk: 20, mag: 0, def: 10, mdef: 0, speed: 10, carry: 70, cost: [97, 77, 78, 60], pop: 9, time: 1080 }, // Химера 18:00
-  209: { type: 'cavalry', hp: 20, atk: 10, mag: 0, def: 15, mdef: 0, speed: 16, carry: 0, cost: [105, 70, 45, 30], pop: 9, time: 1920 }, // Скаут 32:00
+  209: { type: 'cavalry', hp: 20, atk: 10, mag: 0, def: 15, mdef: 0, speed: 22, carry: 0, cost: [105, 70, 45, 30], pop: 9, time: 1920 }, // Скаут 32:00
   210: { type: 'magic', hp: 35, atk: 0, mag: 20, def: 0, mdef: 35, speed: 7, carry: 62, cost: [135, 100, 85, 60], pop: 27, time: 1540 }, // Созидающая 25:40
   211: { type: 'cavalry', hp: 60, atk: 40, mag: 0, def: 30, mdef: 0, speed: 12, carry: 94, cost: [175, 105, 135, 80], pop: 39, time: 2640 }, // Кентавр 44:00
   258: { type: 'infantry', hp: 70, atk: 60, mag: 0, def: 40, mdef: 0, speed: 9, carry: 80, cost: [185, 110, 140, 90], pop: 48, time: 2880 }, // Зверь 48:00
@@ -146,7 +147,7 @@ const ORIG = {
   215: { type: 'infantry', hp: 25, atk: 15, mag: 0, def: 15, mdef: 0, speed: 7, carry: 47, cost: [70, 115, 85, 60], pop: 12, time: 1460 }, // Арбалетчик 24:20
   255: { type: 'infantry', hp: 30, atk: 5, mag: 0, def: 25, mdef: 0, speed: 7, carry: 70, cost: [77, 90, 85, 60], pop: 7, time: 1260 }, // Горный великан 21:00
   216: { type: 'magic', hp: 25, atk: 0, mag: 30, def: 0, mdef: 30, speed: 9, carry: 62, cost: [90, 145, 105, 50], pop: 15, time: 1620 }, // Жрец Рун 27:00
-  217: { type: 'cavalry', hp: 25, atk: 20, mag: 0, def: 5, mdef: 0, speed: 13, carry: 0, cost: [55, 105, 70, 70], pop: 21, time: 2180 }, // Грифон разведчик 36:20
+  217: { type: 'cavalry', hp: 25, atk: 20, mag: 0, def: 5, mdef: 0, speed: 20, carry: 0, cost: [55, 105, 70, 70], pop: 21, time: 2180 }, // Грифон разведчик 36:20
   218: { type: 'cavalry', hp: 60, atk: 56, mag: 5, def: 25, mdef: 0, speed: 8, carry: 86, cost: [100, 175, 95, 80], pop: 33, time: 2800 }, // Защитник гор 46:40
   256: { type: 'infantry', hp: 70, atk: 30, mag: 0, def: 45, mdef: 25, speed: 9, carry: 80, cost: [125, 185, 130, 85], pop: 53, time: 3000 }, // Механический центурион 50:00
   219: { type: 'infantry', hp: 80, atk: 40, mag: 20, def: 45, mdef: 5, speed: 9, carry: 78, cost: [165, 205, 175, 85], pop: 51, time: 3330 }, // Револьверщик 55:30

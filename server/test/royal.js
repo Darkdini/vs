@@ -3072,6 +3072,14 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.ok(/Ратушу снести нельзя/.test(g.demolish(c, 0, c.grid[0].indexOf(0)).error || ''), 'Ратушу снести нельзя');
     console.log(`✓ Снос здания: ${Math.round(sec / 60)} мин, здание работает до конца сноса, снос можно отменить`);
   }
+  { // разведчик — самый быстрый воин своей расы
+    const A = require('../src/army');
+    for (const race of ['humans', 'elves', 'dwarves', 'orcs']) {
+      const us = A.unitsForRace(race).filter((u) => u.race === race), sc = us.find((u) => u.role === 'scout');
+      assert.ok(sc && us.every((u) => u === sc || u.speed < sc.speed), `${race}: ${sc && sc.name} (${sc && sc.speed}) быстрее всех`);
+    }
+    console.log('✓ Разведчики — самые быстрые воины своих рас');
+  }
   try { fs.unlinkSync(DB); } catch {}
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });
