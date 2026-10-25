@@ -7,6 +7,7 @@
 // Поход к чудовищу — по таймеру (ускорить вдвое — за монеты); бой — когда Генерал дошёл (huntTick, раз в секунду).
 const SPEED = Number(process.env.SPEED || 1);
 const ALTAR = 47;
+const OPEN = false; // пока проверяет админ: Алтарь строят все, в Зону охоты (и Умения, Соревнования) входит только админ
 const EL = ['fire', 'water', 'air', 'earth'];
 const EL_NAME = { fire: 'Огонь', water: 'Вода', air: 'Воздух', earth: 'Земля' };
 const OPP = { fire: 'water', water: 'fire', air: 'earth', earth: 'air' }; // против своей противоположности чудовище беззащитно
@@ -155,4 +156,4 @@ function install(Game) {
   };
 }
 
-module.exports = { install, ALTAR, EL, MOB, SPELL, MAP_W, MAP_H };
+module.exports = { install, OPEN, ALTAR, EL, MOB, SPELL, MAP_W, MAP_H };

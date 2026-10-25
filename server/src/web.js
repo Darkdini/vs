@@ -868,6 +868,7 @@ const API = {
   // «Алтарь» → Зона охоты (hunt.js): view — карта; go — в поход на чудовище (до двух заклинаний); speed — ускорить; heal — вылечить
   hunt(m) {
     const op = String(m.op || 'view'), g = this.game;
+    if (!require('./hunt').OPEN && !this.user.admin) return this.error('Зона охоты пока закрыта — скоро откроется.');
     if (op !== 'view') {
       const now = Date.now(); if (now - (this.huntAt || 0) < 500) return this.error('Не так часто — подождите секунду.'); this.huntAt = now;
       const r = op === 'go' ? g.huntGo(this.user, this.castle, m.mob, m.spells) : op === 'speed' ? g.huntSpeed(this.user) : op === 'heal' ? g.huntHeal(this.user) : { error: 'Неизвестное действие.' };

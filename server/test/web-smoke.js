@@ -85,6 +85,10 @@ function client() {
     assert.equal(s3.castle.levels[0][25], 1);
     console.log('✓ стройка Склада завершилась');
 
+    a.send({ t: 'hunt', op: 'view' });
+    assert.ok(/закрыта/.test((await a.expect('error')).msg), 'Зона охоты пока только для админа');
+    console.log('✓ Зона охоты закрыта для игроков (пока проверяет админ)');
+
     a.send({ t: 'build', view: 1, cell: 0, building: 5 }); // (0,0) — земля, Огород не положен? проверяем, что сервер решает сам
     const r = await Promise.race([a.expect('error'), a.expect('state', (m) => m.castle.queue.length === 1)]);
     console.log('✓ стройка на землях проверяется сервером:', r.t === 'error' ? r.msg : 'разрешено');

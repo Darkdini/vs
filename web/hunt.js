@@ -185,6 +185,7 @@ $('#sheetBody').addEventListener('click', (e) => {
 });
 // окно Алтаря: Зона охоты (Умения и Соревнования — следующим шагом)
 function altarHtml() {
+  if (!S.st.user.admin) return `<p class="parch-note">Зона охоты, Умения и Соревнования скоро откроются.</p>`; // пока проверяет админ (hunt.js OPEN)
   return `<button class="rbar" data-huntopen><img src="${HN}m_fire2.png" alt=""> Зона охоты</button>
     <button class="rbar" disabled><img src="${HN}s_air.png" alt=""> Умения <small>· скоро</small></button>
     <button class="rbar" disabled><img src="${HN}i_chest.png" alt=""> Соревнования <small>· скоро</small></button>`;
