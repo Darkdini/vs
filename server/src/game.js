@@ -920,6 +920,7 @@ require('./runes').install(Game);
 require('./boss').install(Game);
 require('./closedtest').install(Game);
 require('./staff').install(Game); // «МАСТЕРА»: общение админа и тестеров // после admin.js: дополняет adminOp командами test…
+require('./hunt').install(Game); // «Алтарь» → Зона охоты: Генералы бьют чудовищ стихий (hunt.js)
 require('./link').install(Game); // «СВЯЗЬ»: переписка игроков с мастерами игры (после staff.js)
 require('./honors').install(Game); // медали в профиле («Первопроходец»): дополняет adminOp командами honor…
 require('./nobody').install(Game); // «Забросить замки» (админ): замки — ничьи, захват без столицы; обёртки над army.js, royal.js, friends.js — последним

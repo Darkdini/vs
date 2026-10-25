@@ -865,6 +865,16 @@ const API = {
     }
     this.send({ t: 'dung', data: g.dungView(this.castle, this.user) });
   },
+  // «Алтарь» → Зона охоты (hunt.js): view — карта; go — в поход на чудовище (до двух заклинаний); speed — ускорить; heal — вылечить
+  hunt(m) {
+    const op = String(m.op || 'view'), g = this.game;
+    if (op !== 'view') {
+      const now = Date.now(); if (now - (this.huntAt || 0) < 500) return this.error('Не так часто — подождите секунду.'); this.huntAt = now;
+      const r = op === 'go' ? g.huntGo(this.user, this.castle, m.mob, m.spells) : op === 'speed' ? g.huntSpeed(this.user) : op === 'heal' ? g.huntHeal(this.user) : { error: 'Неизвестное действие.' };
+      if (r.msg) this.toast(r.msg); this.result(r);
+    }
+    this.send({ t: 'hunt', data: g.huntView(this.user) });
+  },
   alliance(m) {
     const r = this.game.alliance(this.user, this.castle, m);
     if (r && r.msg) this.toast(r.msg);

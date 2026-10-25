@@ -1261,6 +1261,7 @@ function install(Game, helpers) {
   P.tickWorld = function tickWorld(now = Date.now()) {
     this.sitesTick(now); // недострои: достроены?
     if (this.dungTick) this.dungTick(now); // Подземелье: раскопки закончились, лагеря вернулись (dungeon.js)
+    if (this.huntTick) this.huntTick(now); // Зона охоты: Генералы дошли до чудовищ — удар (hunt.js)
     if (this.rallyTick) this.rallyTick(now); // созывы на мирового босса: время вышло — армии складываются и бьют (boss.js), до прибытия остальных армий
     const due = [];
     for (const c of Object.values(this.db.castles)) {

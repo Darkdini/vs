@@ -2742,3 +2742,36 @@ img.artsp { filter: drop-shadow(0 0 4px #c89aff) drop-shadow(0 0 8px #6a3aff); }
 .iconbtn { min-width: 40px; min-height: 40px; }
 .card.razing h4 { color: #a8200c; } /* снос здания */
 .card.razing .bar i { background: linear-gradient(90deg, #ff7a5a, #b01800); }
+/* «Алтарь» → Зона охоты (hunt.js) */
+.hnbar { flex-direction: column; align-items: stretch; gap: 4px; background: linear-gradient(#1a0f07ee, #1a0f0799); }
+.hnhp { display: flex; align-items: center; gap: 6px; }
+.hnheart { color: #ff4a4a; font-size: 20px; }
+.hnhpbar { position: relative; flex: 1; height: 20px; border: 2px solid #c9a15a; border-radius: 10px; background: #2a1408; overflow: hidden; }
+.hnhpbar i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(#7fe05a, #2f9a1c); }
+.hnhpbar b { position: relative; display: block; text-align: center; font-size: 12px; line-height: 16px; color: #fff; text-shadow: 0 1px 2px #000; }
+.hnhpbar.big { height: 24px; margin: 6px 0; } .hnhpbar.big b { line-height: 20px; font-size: 14px; }
+.hncry { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #f6e7c1; }
+.hncry > span { display: inline-flex; align-items: center; gap: 2px; }
+.hncry .hnic { width: 20px; height: 20px; object-fit: contain; }
+.hncry .hngold { margin-left: auto; }
+.hnmarch { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 13px; color: #b8ff7a; }
+.hnmob { display: flex; gap: 10px; align-items: center; }
+.hnmob > img { width: 120px; height: 120px; object-fit: contain; flex: none; }
+.hnres { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+.hnri { width: 20px; height: 20px; object-fit: contain; }
+.hnphys { width: 20px; text-align: center; }
+.hnrew { display: flex; align-items: center; gap: 6px; }
+.hnrew .hnic { width: 40px; height: 40px; object-fit: contain; }
+.hnrew small { flex: 1; }
+.hnslots { display: flex; justify-content: center; gap: 12px; margin: 6px 0; }
+.hnslot { width: 92px; height: 70px; border: 2px solid #8a5a2a; border-radius: 8px; background: #3a1d0c; color: #f6e7c1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+.hnslot small { font-size: 10px; line-height: 1.1; }
+.hnsi { width: 34px; height: 34px; object-fit: contain; }
+.hnspells { display: grid; gap: 4px; }
+.hnsrow { display: grid; grid-template-columns: 38px repeat(3, 1fr); gap: 4px; align-items: center; }
+.hnsp { border: 1px solid #8a5a2a; border-radius: 6px; background: #f3e1bb; color: #3a1d0c; padding: 3px 2px; display: flex; flex-direction: column; align-items: center; line-height: 1.15; }
+.hnsp small { font-size: 10px; display: inline-flex; align-items: center; gap: 2px; }
+.hnsp.on { background: #ffd56a; border-color: #c27a14; box-shadow: 0 0 0 2px #c27a14 inset; }
+.hnsp:disabled { opacity: .45; }
+.hnci { width: 14px; height: 14px; object-fit: contain; }
+.rbar img[src*="hunt/"] { width: 34px; height: 34px; object-fit: contain; }

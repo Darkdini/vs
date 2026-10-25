@@ -64,6 +64,8 @@ const BUILDINGS = [
   B(39, 'Школа магии', 'Школа для повышения магической атаки и защиты воинов.', 'castle', { max: 20, unique: true, req: { 20: 3 } }),
   B(40, 'Каменотес', 'Увеличивает устойчивость зданий к разрушению.', 'castle', { max: 20, unique: true, req: { 0: 5 } }),
   B(41, 'Лазарет', 'Сюда попадает половина павших в боях воинов — ранеными (остальные гибнут). Лекари сразу ставят их на ноги за четверть цены тренировки.', 'castle', { max: 10, unique: true, req: { 0: 5 } }), // бывшая Пивоварня (уровни сохранились)
+  B(47, 'Алтарь', 'Святилище охотников: отсюда Генерал уходит в Зону охоты бить чудовищ четырёх стихий.', 'castle', { max: 20, unique: true, req: { 0: 5, 2: 1 },
+    about: 'Зона охоты — общая для всех земля, где бродят чудовища огня, воды, воздуха и земли. Генерал идёт к чудовищу и бьёт его сам, а боевые заклинания (за кристаллы стихий) усиливают удар. Здоровье чудовища общее: его бьют все охотники, а когда оно падёт, награду — кристаллы, ресурсы, опыт Генералу, иногда руны — делят по доле урона.' }),
   B(43, 'Лавка алхимиков', 'Место сбора алхимиков замка. Тайные рецепты, зелья, отвары готовят тут.', 'castle', { max: 10, unique: true, req: { 15: 5 } }),
   B(44, 'Сокровищница', 'Самые ценные реликвии, драгоценности заключены в Сокровищницу.', 'castle', { max: 20, unique: true, req: { 0: 10 } }),
   B(45, 'Центр разведки', 'Служит для управления разведывательными операциями замка.', 'castle', { max: 20, unique: true, req: { 0: 5, 11: 3, 12: 1 },
@@ -163,10 +165,12 @@ const CASTLE_CELLS = 43; // для рейтинга — прежняя заст�
 // убранные здания замка (их уровни в замках при загрузке возвращаются ресурсами в Кладовую — game.js goneFix): Таверна — с 22.10
 // (груз торговцев теперь даёт Торговая палата). В счёт рейтинга входят, как раньше: рейтинг за прочие здания не меняется
 const GONE = { 42: { id: 42, name: 'Таверна', layer: 'castle', max: 10 } };
-const CASTLE_FULL_LEVELS = CASTLE_TYPES.reduce((s, b) => s + (b.max || 20), 0) + Object.values(GONE).reduce((s, b) => s + b.max, 0) + (CASTLE_CELLS - CASTLE_TYPES.length - Object.keys(GONE).length) * BY_ID_MAX_STORE;
+// новые здания (Алтарь — с 25.10) в расчёт «полного замка» не входят: рейтинг игроков от их появления не меняется
+const RATING_TYPES = CASTLE_TYPES.filter((b) => b.id !== 47);
+const CASTLE_FULL_LEVELS = RATING_TYPES.reduce((s, b) => s + (b.max || 20), 0) + Object.values(GONE).reduce((s, b) => s + b.max, 0) + (CASTLE_CELLS - RATING_TYPES.length - Object.keys(GONE).length) * BY_ID_MAX_STORE;
 const LANDS_FULL_LEVELS = LANDS_N * LANDS_N * LAND_EFF_MAX; // все клетки земель застраиваемые (в прежних уровнях: рейтинг считает landEff)
 const RATING_FULL = 2200, RATING_LANDS = 1000, RATING_K = 1300 / CASTLE_FULL_LEVELS;
-const CASTLE_NOW_LEVELS = CASTLE_TYPES.reduce((s, b) => s + (b.max || 20), 0) + (STORE_MAX - 1) * BY_ID_MAX_STORE; // полный замок сейчас: 532 ур.
+const CASTLE_NOW_LEVELS = RATING_TYPES.reduce((s, b) => s + (b.max || 20), 0) + (STORE_MAX - 1) * BY_ID_MAX_STORE; // полный замок сейчас: 532 ур.
 const RATING_CASTLE = Math.round(CASTLE_NOW_LEVELS * RATING_K), RATING_STORE = RATING_FULL - RATING_CASTLE - RATING_LANDS; // 971 и 229
 const RATING = { max: RATING_FULL, castleMax: RATING_CASTLE, storeMax: RATING_STORE, landsMax: RATING_LANDS,
   castle: RATING_K, store: RATING_STORE / (STORE_MAX * BY_ID_MAX_STORE), lands: RATING_LANDS / LANDS_FULL_LEVELS };

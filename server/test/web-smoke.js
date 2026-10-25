@@ -63,7 +63,7 @@ function client() {
     const catR = await fetch(`http://127.0.0.1:${WEB_PORT}/catalog.json?h=${catH}`);
     assert.match(catR.headers.get('cache-control'), /immutable/);
     const cat = await catR.json();
-    assert.equal(cat.buildings.length, 46); // с 22.10 без Таверны
+    assert.equal(cat.buildings.length, 47); // с 22.10 без Таверны, с 25.10 — Алтарь
     console.log('✓ каталог: зданий', cat.buildings.length);
 
     a.send({ t: 'register', login: 'Webby', password: 'pass1', race: '1' });

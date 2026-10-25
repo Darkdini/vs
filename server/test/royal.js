@@ -3080,6 +3080,34 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     }
     console.log('✓ Разведчики — самые быстрые воины своих рас');
   }
+  // «Алтарь» → Зона охоты: Генерал бьёт чудовище, заклинания за кристаллы, ответный удар, награда по доле урона
+  {
+    const H = require('../src/hunt');
+    const mk = (login) => { const u = g.register({ login, password: '12345', race: 0 }).user; const c = g.castleOf(u); g.mil(c); g.maxOut(c); return [u, c]; };
+    const [A, ca] = mk('hunterA1'), [Bu, cb] = mk('hunterB1'), [N, cn] = mk('hunterN1');
+    cn.general = null; assert.ok(/Генерал/.test(g.huntGo(N, cn, 1).error || ''), 'без Генерала — нельзя');
+    g.setBuildingLevel(cn, 47, 0); assert.ok(/Нужен Алтарь/.test(g.huntGo(N, cn, 1).error || ''), 'без Алтаря — нельзя');
+    const v = g.huntView(A); assert.ok(v.mobs.length === 24 && v.crystals.fire === 10 && v.me.hp === v.me.max && v.spells.length === 12, 'карта: 24 чудовища, по 10 кристаллов, здоровье полное');
+    const m = g.huntDb().mobs.find((x) => x.l === 1 && !x.dead), opp = { fire: 'water', water: 'fire', air: 'earth', earth: 'air' }[m.el];
+    assert.ok(/кристаллов/.test(g.huntGo(A, ca, m.id, [{ el: opp, l: 3 }]).error || ''), 'не хватает кристаллов на заклинание III');
+    const r = g.huntGo(A, ca, m.id, [{ el: opp, l: 1 }, { el: m.el, l: 1 }]);
+    assert.ok(r.ok && A.crystals[opp] === 8 && A.crystals[m.el] === 8 && A.hunt.march, 'в поход с двумя заклинаниями, кристаллы списаны');
+    assert.ok(/уже в походе/.test(g.huntGo(A, ca, m.id).error || ''), 'второй поход — нельзя');
+    m.hp = m.max = 200000; const hp0 = m.hp; g.huntTick(A.hunt.march.end + 1); // запас, чтобы первый удар не добил
+    const L = A.hunt.last; const sp = L.hits.filter((x) => x.kind !== 'phys');
+    assert.ok(L && L.dealt > 0 && hp0 - m.hp === L.dealt && L.got > 0 && A.hunt.hp < A.hunt.max && !A.hunt.march, `удар: ${L.dealt}, ответ: ${L.got}`);
+    assert.ok(sp.find((x) => x.kind === m.el).dmg < sp.find((x) => x.kind === opp).dmg, 'заклинание своей стихии чудовища слабее противоположной');
+    // добить вдвоём: награда по доле урона
+    m.hp = 1000; m.dmg = { [A.id]: 3000 }; const cr0 = A.crystals[m.el], crB = (Bu.crystals || {})[m.el] || 10;
+    const rb = g.huntGo(Bu, cb, m.id); assert.ok(rb.ok, "Bu в поход: " + rb.error); Bu.hunt.march.end = Date.now() - 1; g.huntTick();
+    assert.ok(m.dead && A.crystals[m.el] > cr0 && Bu.crystals[m.el] > crB && g.db.reports.some((x) => x.owner === A.id && /Охота: .* повержен/.test(x.title)), 'чудовище пало — награда обоим, по доле урона');
+    // лечение за монеты, нехватка здоровья
+    A.hunt.hp = 10; A.gold = 100; const big = g.huntDb().mobs.find((x) => x.l === 3 && !x.dead);
+    assert.ok(/Запас жизни/.test(g.huntGo(A, ca, big.id).error || ''), 'мало здоровья — в бой нельзя');
+    const hc = g.huntHealCost(A); assert.ok(hc >= 1 && g.huntHeal(A).ok && A.gold === 100 - hc && A.hunt.hp === A.hunt.max, `вылечить за ${hc} монет`);
+    assert.ok(g.huntGo(A, ca, big.id).ok && g.huntSpeed(A).ok && A.gold === 100 - hc - 3, 'ускорить поход за 3 монеты');
+    console.log('✓ Алтарь: Зона охоты — Генерал бьёт чудовище, заклинания за кристаллы, ответный удар, награда по доле урона, лечение и ускорение');
+  }
   try { fs.unlinkSync(DB); } catch {}
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });
