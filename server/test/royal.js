@@ -992,6 +992,9 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(g.dungAttack(cb, camp.id, { 231: 150 }).ok, 'налёт Стражами');
   const s = cb.armies[0]; s.arrive = Date.now() - 1; g.tickWorld();
   assert.ok(s.find && s.find.type === 'cloak' && !ca.armies.includes(a) && camp.gone > 0, 'налёт победил: находка отнята, лагерь исчез');
+  { const ra = g.db.reports.filter((r) => r.owner === cb.owner && /Налёт в Подземелье/.test(r.title)).at(-1), rd = g.db.reports.filter((r) => r.owner === ca.owner && /Подземелье: на отряд напали/.test(r.title)).at(-1);
+    const nA = g.userById(cb.owner).login, nD = g.userById(ca.owner).login, txt = JSON.stringify([ra.lines, rd.lines]);
+    assert.ok(ra && rd && !txt.includes(nA) && !txt.includes(nD) && /напал неизвестный отряд/.test(rd.lines[0]), 'отчёты налёта анонимны: ников нет ни у нападающего, ни у защитника'); }
   s.back = Date.now() - 1; g.tickWorld();
   assert.ok(cb.artifacts.length === 1 && cb.artifacts[0].type === 'cloak' && !s.find, 'отнятое засчитано, когда Стражи дошли до замка');
   // «Забрать»: находка сразу в замке, отряд домой

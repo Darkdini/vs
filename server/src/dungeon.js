@@ -241,10 +241,11 @@ function install(Game) {
     const R = this.clash(c, a, D, null, t);
     const dWnd = this.toInfirmary(dc, R.dLost); // павшие защитники — ранеными в Лазарет своего замка
     for (const id of Object.keys(d.units)) if (!(d.units[id] > 0)) delete d.units[id];
-    const att = this.ownerOf(c), def = this.ownerOf(dc), name = DUNG[camp.l].name, f = findOf(d);
-    const sides = [`Нападение: ${att.login} — ${unitsLine(aWas, R.aLost)}.`, `Отряд в лагере: ${def.login} — ${unitsLine(dWas, R.dLost)}.`,
-      `Сила нападающих ${R.calc.att.str.toLocaleString('ru-RU')} против защитников ${R.calc.def.str.toLocaleString('ru-RU')}.`];
-    const aL = [`Ваши Стражи напали на лагерь «${name}» (${camp.l} ур.).`, ...sides], dL = [`На ваш отряд в лагере «${name}» (${camp.l} ур.) напал ${att.login}.`, ...sides];
+    const name = DUNG[camp.l].name, f = findOf(d);
+    // в Подземелье бой анонимный: ни нападающий, ни защитник не узнают ника соперника — чтобы не было вражды между альянсами
+    const str = `Сила нападающих ${R.calc.att.str.toLocaleString('ru-RU')} против защитников ${R.calc.def.str.toLocaleString('ru-RU')}.`;
+    const aL = [`Ваши Стражи напали на лагерь «${name}» (${camp.l} ур.).`, `Ваши Стражи: ${unitsLine(aWas, R.aLost)}.`, `Неизвестный отряд в лагере: ${unitsLine(dWas, R.dLost)}.`, str];
+    const dL = [`На ваш отряд в лагере «${name}» (${camp.l} ур.) напал неизвестный отряд.`, `Неизвестный отряд: ${unitsLine(aWas, R.aLost)}.`, `Ваш отряд: ${unitsLine(dWas, R.dLost)}.`, str];
     if (R.calc.wounded) aL.push(`Ранены и ушли в Лазарет: ${Wd.warriors(R.calc.wounded)}.`);
     if (dWnd) dL.push(`Ранены и ушли в Лазарет: ${Wd.warriors(dWnd)}.`);
     const alive = Object.values(d.units).some((n) => n > 0);
