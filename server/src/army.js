@@ -2016,7 +2016,7 @@ function install(Game, helpers) {
       }
     } else if (castle.general && this.heroStrip) this.heroStrip({ owner: prev.id }, castle.general); // некуда отступить — хотя бы вещи остаются в Оружейной прежнего хозяина (замок уже не его)
     castle.deadGenerals = [];
-    castle.units = {}; castle.squads = []; castle.reserve = {}; castle.training = []; castle.armies = []; castle.general = null; castle.research = null;
+    castle.units = {}; castle.squads = []; castle.reserve = {}; castle.razing = []; castle.training = []; castle.armies = []; castle.general = null; castle.research = null;
     delete castle.calmJob; castle.loyalty = 100 - RIOT_CAPTURED; castle.loyAt = Date.now(); // после захвата в замке бунт 95%: хозяин снижает его в Храме за ресурсы
     att.castleIds = [...this.castlesOf(att).map((k) => k.id), castle.id];
     this.addStat(att.id, 'capRating', this.rating(castle)); // Развитие не учитывает рейтинг захваченных замков

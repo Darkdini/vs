@@ -314,20 +314,29 @@ function client() {
     assert.equal(ds.cap.wood, 95000); // 5 складов по 20 ур. (18 960) + 200
     const storeCell = ds.grid[0].indexOf(1);
     adm.send({ t: 'demolish', view: 0, cell: storeCell });
-    await adm.expect('toast', (m) => /Здание разрушено: Склад/.test(m.msg));
+    await adm.expect('toast', (m) => /Снос начат: Склад/.test(m.msg));
+    ds = (await adm.expect('state', (m) => m.castle.razing.some((z) => z.cell === storeCell))).castle;
+    assert.equal(ds.grid[0][storeCell], 1, 'пока идёт снос, здание стоит');
+    adm.send({ t: 'build', view: 0, cell: storeCell, building: 1 });
+    await adm.expect('error', (m) => /сначала отмените снос/.test(m.msg));
+    adm.send({ t: 'demolish', view: 0, cell: storeCell, cancel: 1 });
+    await adm.expect('toast', (m) => /Снос отменён: Склад/.test(m.msg));
+    adm.send({ t: 'demolish', view: 0, cell: storeCell });
+    await adm.expect('toast', (m) => /Снос начат: Склад/.test(m.msg));
+    adm.send({ t: 'admin', op: 'finish' }); adm.send({ t: 'sync' });
     ds = (await adm.expect('state', (m) => m.castle.grid[0][storeCell] === -1)).castle;
     assert.equal(ds.cap.wood, 76040);
     adm.send({ t: 'build', view: 0, cell: storeCell, building: 25 }); // второй Храм нельзя — повторяться может только Склад
     await adm.expect('error', (m) => /Такое здание уже есть/.test(m.msg));
     adm.send({ t: 'demolish', view: 0, cell: ds.grid[0].indexOf(0) });
-    await adm.expect('error', (m) => /Ратушу разрушить нельзя/.test(m.msg));
+    await adm.expect('error', (m) => /Ратушу снести нельзя/.test(m.msg));
     adm.send({ t: 'admin', op: 'max' });
     await adm.expect('state', (m) => m.castle.cap.wood === 95000 && m.castle.rating === 2200 && m.castle.ratingParts.store === 247);
     adm.send({ t: 'demolish', view: 0, cell: 3 });
     await adm.expect('error', (m) => /Здесь нет здания/.test(m.msg));
     adm.send({ t: 'build', view: 0, cell: 3, building: 1 });
     await adm.expect('error', (m) => /Здесь строить нельзя/.test(m.msg));
-    console.log('✓ склады: не больше 5, полные 5 × 18 960 + 200 = 95 000, без одного — 76 040, «Разрушить»; полный замок — рейтинг 2200');
+    console.log('✓ склады: не больше 5, полные 5 × 18 960 + 200 = 95 000, без одного — 76 040, снос за 30 минут (отмена, «Готово» админа); полный замок — рейтинг 2200');
 
     // ---- аватар: только пиксели 96×96, PNG собирает сервер; мусор и шелл отклоняются ----
     const px = Buffer.alloc(96 * 96 * 4); for (let i = 0; i < px.length; i += 4) { px[i] = 200; px[i + 1] = 30; px[i + 3] = 255; }

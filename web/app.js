@@ -142,6 +142,7 @@ function resNow(r) {
 // лимит строек: 3, с премиумом (и у админа) — 5, как на сервере
 const maxQueue = () => (S.st.user.admin || (S.st.user.premium || 0) > Date.now() ? 5 : S.cat.maxQueue);
 const queueAt = (view, cell) => S.st.castle.queue.find((q) => q.view === view && q.cell === cell);
+const razingAt = (view, cell) => (S.st.castle.razing || []).find((z) => z.view === view && z.cell === cell); // снос здания (30 минут)
 // можно ли строить: список причин, почему нельзя (пусто — можно)
 function blockers(def, level, view, cell) {
   const c = S.st.castle, out = [];
@@ -721,12 +722,16 @@ function bwinHead(def, lvl, right, title = def.name) {
 // карточка здания; ctx = {view, cell} — можно строить, null — только справочник
 function buildingSheet(def, lvl, ctx) {
   const th = S.st.castle.townhall, w = ratingPer(def);
-  const q = ctx && queueAt(ctx.view, ctx.cell);
+  const q = ctx && queueAt(ctx.view, ctx.cell), z = ctx && razingAt(ctx.view, ctx.cell);
   const cur = currentLine(def, lvl);
   let h = bwinHead(def, lvl, `<b>${esc(def.name)}</b><div>${lvl ? `${lvl} уровень` : 'не построено'}</div><div>Рейтинг ★: ${fr(landEff(def, lvl) * w)}</div>`) +
     `${lvl ? `<div class="bwline center">Текущая прочность здания: ${fmtFull(def.hp * landEff(def, lvl))}</div>` : ''}
     <div class="bwline">${esc(def.desc)}</div>${cur ? `<hr class="cwhr"><div class="bwline">${cur}</div>` : ''}`;
-  if (q) {
+  if (z) { // идёт снос: здание работает, пока не исчезнет; снос можно отменить
+    h += `<div class="card next razing"><h4>Здание сносится</h4><div class="bar"><i data-s="${z.start}" data-e="${z.end}"></i></div>
+      <p class="small" style="margin:6px 0 0">Исчезнет через: <span class="cd" data-e="${z.end}"></span>. Ресурсы не вернутся.</p>
+      <button class="btn small" data-demolishx="${ctx.view},${ctx.cell}">Отменить снос</button></div>`;
+  } else if (q) {
     h += `<div class="card next"><h4>Строится ${q.level} уровень</h4><div class="bar"><i data-s="${q.start}" data-e="${q.end}"></i></div>
       <p class="small" style="margin:6px 0 0">Осталось: <span class="cd" data-e="${q.end}"></span></p>${typeof shopSpeedBtns === 'function' ? shopSpeedBtns(q) : ''}</div>`;
   } else if (lvl < def.max) {
@@ -741,7 +746,7 @@ function buildingSheet(def, lvl, ctx) {
       <button class="btn primary" data-build="${ctx.view},${ctx.cell},${def.id}" ${blk.length ? 'disabled' : ''}>${lvl ? 'Развить' : 'Построить'}</button>` : ''}</div>`;
   }
   if (ctx && lvl > 0) h += buildingFunctions(def, lvl); // функции здания (mil.js) — как в оригинале, над «Разрушить»
-  if (ctx) h += `${lvl > 0 && def.id !== 0 && !q ? `<button class="rbar" data-demolish="${ctx.view},${ctx.cell}"><img src="${GFX}smallicon/upgrade.png" alt=""> Разрушить</button>` : ''}
+  if (ctx) h += `${lvl > 0 && def.id !== 0 && !q && !z ? `<button class="rbar" data-demolish="${ctx.view},${ctx.cell}"><img src="${GFX}smallicon/upgrade.png" alt=""> Снести</button>` : ''}
     <button class="rbar" data-about="${def.id}"><img src="${GFX}smallicon/soft_help.png" alt=""> О здании</button>`;
   return h;
 }
@@ -760,10 +765,11 @@ function aboutSheet(def) {
     ${ribbon('Необходимые здания:')}${reqs.length ? reqs.map(([id, l]) => `<div class="reqbar ${buildingLevel(Number(id)) >= l ? '' : 'no'}">${esc(S.by[id].name)} ${l} ур.</div>`).join('') : '<div class="bwline">Нет.</div>'}`;
 }
 $('#sheetBody').addEventListener('click', (e) => {
-  const t = e.target.closest('[data-demolish],[data-about]'); if (!t) return;
+  const t = e.target.closest('[data-demolish],[data-demolishx],[data-about]'); if (!t) return;
   if (t.dataset.about) return openSheet(() => aboutSheet(S.by[t.dataset.about]));
+  if (t.dataset.demolishx) { const [view, cell] = t.dataset.demolishx.split(',').map(Number); return send({ t: 'demolish', view, cell, cancel: 1 }); }
   const [view, cell] = t.dataset.demolish.split(',').map(Number), def = S.by[S.st.castle.grid[view][cell]];
-  if (def && confirm(`Разрушить «${def.name}» ${S.st.castle.levels[view][cell]} ур.? Здание пропадёт, ресурсы не вернутся.`)) { send({ t: 'demolish', view, cell }); closeSheet(); }
+  if (def && confirm(`Снести «${def.name}» ${S.st.castle.levels[view][cell]} ур.? Снос займёт 30 минут, потом здание исчезнет, ресурсы не вернутся. Пока идёт снос, его можно отменить.`)) send({ t: 'demolish', view, cell });
 });
 
 
@@ -1161,7 +1167,7 @@ function landLvlFlush() {
 const LANDBARS = [];
 function landBarsFlush() {
   const x = ictx, placed = [];
-  for (const [cx, top, f, w] of LANDBARS.sort((a, b) => b[1] - a[1])) {
+  for (const [cx, top, f, w, raze] of LANDBARS.sort((a, b) => b[1] - a[1])) { // raze — снос: полоса красная
     const h = 7, p = Math.max(0, Math.min(1, f)), hit = (X, Y) => placed.find((r) => X < r[0] + r[2] + 2 && X + w + 2 > r[0] && Y < r[1] + h + 2 && Y + h + 2 > r[1]);
     let bx = cx - w / 2, by = top - h / 2; // top — центр клетки
     // задевает соседнюю: сначала сдвиг вбок (от соседки, не дальше полуширины), потом — выше
@@ -1171,7 +1177,7 @@ function landBarsFlush() {
     x.save();
     x.fillStyle = 'rgba(20, 14, 6, 0.85)'; x.strokeStyle = '#c8963e'; x.lineWidth = 1.2;
     x.beginPath(); x.roundRect ? x.roundRect(bx, by, w, h, 3) : x.rect(bx, by, w, h); x.fill(); x.stroke();
-    if (p > 0) { const g = x.createLinearGradient(0, by, 0, by + h); g.addColorStop(0, '#9dff4a'); g.addColorStop(1, '#3fb000'); x.fillStyle = g; x.beginPath(); x.roundRect ? x.roundRect(bx + 1.5, by + 1.5, (w - 3) * p, h - 3, 2) : x.rect(bx + 1.5, by + 1.5, (w - 3) * p, h - 3); x.fill(); }
+    if (p > 0) { const g = x.createLinearGradient(0, by, 0, by + h); g.addColorStop(0, raze ? '#ff7a5a' : '#9dff4a'); g.addColorStop(1, raze ? '#b01800' : '#3fb000'); x.fillStyle = g; x.beginPath(); x.roundRect ? x.roundRect(bx + 1.5, by + 1.5, (w - 3) * p, h - 3, 2) : x.rect(bx + 1.5, by + 1.5, (w - 3) * p, h - 3); x.fill(); }
     x.restore();
   }
   LANDBARS.length = 0;
@@ -1193,7 +1199,8 @@ function drawCellBuilding(view, cell, b, lvl, p, k = 1, sel = false) {
       if (view === 0) CB_REC.push({ im, x: bx, y: top, w, h, d: p.sy + TH / 2 }); } } // здания замка — для «Жизни в замке»: жителей за зданием прячет его же картинка // новые здания: центр основания (ромб шириной base) — в центре клетки
     if (sel) ictx.restore();
   }
-  if (q) { const f = (now() - q.start) / (q.end - q.start); LANDBARS.push([p.sx + TW / 2, p.sy + TH / 2, f, TW * (view === 1 ? 0.6 : 0.42)]); } // в центре своей клетки — клетки не пересекаются, полосы тоже // полоса над зданием — поверх всех зданий (landBarsFlush)
+  if (q) { const f = (now() - q.start) / (q.end - q.start); LANDBARS.push([p.sx + TW / 2, p.sy + TH / 2, f, TW * (view === 1 ? 0.6 : 0.42)]); }
+  const z = razingAt(view, cell); if (z) LANDBARS.push([p.sx + TW / 2, p.sy + TH / 2, (now() - z.start) / (z.end - z.start), TW * (view === 1 ? 0.6 : 0.42), true]); // снос — красная полоса // в центре своей клетки — клетки не пересекаются, полосы тоже // полоса над зданием — поверх всех зданий (landBarsFlush)
   if (S.showLvl && b >= 0 && lvl > 0 && top !== null) LVLQ.push([p.sx + TW / 2, Math.max(top + 8, p.sy - TH * 1.4), lvl]);
 }
 // уровни зданий (кнопка со стрелкой вверху): значки рисуются поверх всех зданий

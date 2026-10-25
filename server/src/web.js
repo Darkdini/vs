@@ -147,6 +147,7 @@ class WebSession {
         id: c.id, name: c.name, x: c.x, y: c.y, grid: { 0: Array.from(c.grid[0]), 1: Array.from(c.grid[1]) }, levels: { 0: Array.from(c.levels[0]), 1: Array.from(c.levels[1]) },
         res: c.res, rate: this.game.rates(c), cap: this.game.capacity(c),
         queue: c.queue.map((q) => ({ view: q.view, cell: q.cell, building: q.building, level: q.level, start: q.start, end: q.end, wall: !!q.wall })), wall: c.wall || 0,
+        razing: (c.razing || []).map((z) => ({ view: z.view, cell: z.cell, start: z.start, end: z.end })), // снос зданий (30 минут)
         rating: this.game.rating(c), ratingParts: this.game.ratingParts(c), townhall: this.game.buildingLevel(c, 0),
         mil: this.game.milState(c, u),
         loyalty: Math.round(c.loyalty ?? 100), capital: this.game.isCapital(c),
@@ -161,7 +162,7 @@ class WebSession {
     if (!this.user) return;
     const done = this.game.tick(this.castle);
     if (!done.length) return;
-    for (const d of done) this.toast(`Готово: ${C.BY_ID[d.building].name} ${d.level} ур.`);
+    for (const d of done) this.toast(d.raze ? `Снесено: ${C.BY_ID[d.building].name}` : `Готово: ${C.BY_ID[d.building].name} ${d.level} ур.`);
     this.pushState();
   }
 
@@ -414,9 +415,9 @@ const API = {
   moves() { this.send({ t: 'moves', data: this.game.kingdomMoves(this.user) }); },
   festival(m) { const r = this.game.festival(this.user, this.castle, m.id); if (r.msg) this.toast(r.msg); this.result(r); },
   demolish(m) {
-    const r = this.game.demolish(this.castle, Number(m.view), Number(m.cell));
+    const r = m.cancel ? this.game.demolishCancel(this.castle, Number(m.view), Number(m.cell)) : this.game.demolish(this.castle, Number(m.view), Number(m.cell));
     if (r.error) return this.error(r.error);
-    this.toast(`Здание разрушено: ${r.name}`); this.pushState();
+    this.toast(m.cancel ? `Снос отменён: ${r.name}` : `Снос начат: ${r.name} — здание исчезнет через ${Math.round(r.sec / 60)} мин.`); this.pushState();
   },
   world(m) {
     const c = this.castle, R = Math.max(13, Math.min(45, Math.round(Number(m.r)) || 13)); // участок мира: ±13…±45 клеток — сколько видно на экране клиента (отдалённая карта — вся провинция и соседи)

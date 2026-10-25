@@ -2740,3 +2740,5 @@ img.artsp { filter: drop-shadow(0 0 4px #c89aff) drop-shadow(0 0 8px #6a3aff); }
 .apdays .btn.on { border-image-source: url(gfx/smallicon/btn_gold.png); color: #2e1804; text-shadow: none; }
 .btn.small { min-height: 40px; padding: 6px 18px; font-size: 15px; line-height: 1.2; }
 .iconbtn { min-width: 40px; min-height: 40px; }
+.card.razing h4 { color: #a8200c; } /* снос здания */
+.card.razing .bar i { background: linear-gradient(90deg, #ff7a5a, #b01800); }

@@ -57,6 +57,7 @@ const meadowAt = (X, Y) => { if (!WOPEN) return true; const m = (a, n) => ((a % 
   const px = m((X + Y) * 31 + 31, WOPEN.W), py = m((Y - X) * 16 + 16, WOPEN.H), i = Math.floor(py / WOPEN.S) * WOPEN.w + Math.floor(px / WOPEN.S);
   return !!(WOPEN.b[i >> 3] & (128 >> (i & 7))); };     // новый замок — не ближе 2 клеток к другим замкам (между замками хотя бы одна пустая клетка)
 const SAVE_MS = Number(process.env.SAVE_MS || 10000); // автосохранение раз в 10 с (и при остановке)
+const DEMOLISH_SEC = Math.max(5, Math.round(1800 / SPEED)); // снос здания — 30 минут (castle.razing)
 const MAX_QUEUE = Number(process.env.MAX_QUEUE || 3); // оригинал: 3 стройки одновременно (премиум — 5)
 
 // ---------- рельеф «Земель» ----------
@@ -665,6 +666,17 @@ class Game {
       done.push(item);
       if (this.addStat) this.addStat(castle.owner, 'built', 1); // задания: улучшено зданий
     }
+    // снос: время вышло — здание убирается с клетки (если на ней всё ещё то же здание), лишние ресурсы сверх Склада пропадают
+    if ((castle.razing || []).some((z) => z.end <= now)) {
+      for (const z of castle.razing.filter((x) => x.end <= now).sort((a, b) => a.end - b.end)) {
+        this.accrue(castle, z.end);
+        if (castle.grid[z.view][z.cell] !== z.building) continue;
+        castle.grid[z.view][z.cell] = -1; castle.levels[z.view][z.cell] = 0;
+        const cap = this.capacity(castle); for (const r of C.RES) castle.res[r] = Math.min(castle.res[r], cap[r]);
+        done.push({ ...z, raze: true }); this.cache = {};
+      }
+      castle.razing = castle.razing.filter((x) => x.end > now);
+    }
     this.accrue(castle, now);
     this.tickTraining(castle, now); // тренировка войск, исследования, воскрешение генерала (army.js)
     if (done.length) this.store.save();
@@ -691,6 +703,7 @@ class Game {
     if (!def) return { error: 'Неизвестное здание.' };
     if (buildingId === WALL_ID) return { error: 'Стена развивается в Ратуше.' };
     if (castle.queue.some((q) => q.view === view && q.cell === cell)) return { error: 'Здесь уже идёт строительство.', state: 1 };
+    if ((castle.razing || []).some((z) => z.view === view && z.cell === cell)) return { error: 'Здание сносится — сначала отмените снос.', state: 1 };
     const maxQ = this.isPremium(this.userById(castle.owner)) ? 5 : MAX_QUEUE; // премиум — 5 строек
     if (castle.queue.length >= maxQ) return { error: `Одновременно можно строить не больше ${maxQ} зданий.${maxQ < 5 ? ' С премиумом — 5.' : ''}` };
     const current = castle.grid[view][cell];
@@ -750,22 +763,27 @@ class Game {
     return { item };
   }
 
-  // «Разрушить»: здание убирается с клетки целиком (ресурсы не возвращаются). Ратушу разрушить нельзя.
+  // «Снести»: через 30 минут здание убирается с клетки целиком (ресурсы не возвращаются); пока идёт снос, здание работает,
+  // снос можно отменить (demolishCancel). Ратушу снести нельзя.
   demolish(castle, view, cell) {
     this.tick(castle);
     const size = GRID[view];
     if (!size || !(cell >= 0 && cell < size * size)) return { error: 'Неверная клетка.' };
     const b = castle.grid[view][cell];
     if (b < 0 || !castle.levels[view][cell]) return { error: 'Здесь нет здания.' };
-    if (b === 0) return { error: 'Ратушу разрушить нельзя.' };
+    if (b === 0) return { error: 'Ратушу снести нельзя.' };
     if (castle.queue.some((q) => q.view === view && q.cell === cell)) return { error: 'Здание сейчас строится.' };
-    const name = C.BY_ID[b].name;
-    castle.grid[view][cell] = -1; castle.levels[view][cell] = 0;
-    const cap = this.capacity(castle);
-    for (const r of C.RES) castle.res[r] = Math.min(castle.res[r], cap[r]); // склад стал меньше — лишнее пропадает
-    this.cache = {};
-    this.store.save();
-    return { ok: true, name };
+    castle.razing = castle.razing || [];
+    if (castle.razing.some((z) => z.view === view && z.cell === cell)) return { error: 'Здание уже сносится.' };
+    const now = Date.now(), z = { view, cell, building: b, level: castle.levels[view][cell], start: now, end: now + DEMOLISH_SEC * 1000 };
+    castle.razing.push(z); this.store.save();
+    return { ok: true, name: C.BY_ID[b].name, end: z.end, sec: DEMOLISH_SEC };
+  }
+  demolishCancel(castle, view, cell) {
+    this.tick(castle);
+    const z = (castle.razing || []).find((x) => x.view === view && x.cell === cell); if (!z) return { error: 'Снос не идёт.' };
+    castle.razing = castle.razing.filter((x) => x !== z); this.store.save();
+    return { ok: true, name: C.BY_ID[z.building].name };
   }
 
   // Объекты карты мира в прямоугольнике: замки игроков + руины и лагеря провинций (npcIn).

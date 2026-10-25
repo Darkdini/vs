@@ -215,6 +215,7 @@ function install(Game) {
         for (const c of castles) {
           this.mil(c);
           for (const q of c.queue) q.end = now;
+          for (const z of c.razing || []) z.end = now; // снос зданий
           for (const t of c.training) t.start = now - t.each * t.count;
           if (c.research) c.research.end = now;
           for (const j of Object.values(c.upJobs || {})) j.end = now;

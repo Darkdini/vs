@@ -41,7 +41,7 @@ function install(Game) {
         for (const [id, n] of Object.entries(a.units || {})) if (n > 0) c.units[id] = (c.units[id] || 0) + n;
         if (a.cargo) for (const r of RES4) c.res[r] += a.cargo[r] || 0;
       }
-      c.armies = []; c.general = null; c.deadGenerals = []; c.training = []; c.research = null; c.queue = []; c.expeds = []; c.upJobs = {}; // генерал — пропал
+      c.armies = []; c.general = null; c.deadGenerals = []; c.training = []; c.research = null; c.queue = []; c.razing = []; c.expeds = []; c.upJobs = {}; // генерал — пропал
       delete c.wounded; delete c.healing; delete c.calmJob; delete c.shieldUntil; delete c.forgeJob; delete c.magicJob; delete c.magicJobs; // купол снят — замок можно брать сразу
       nb.castleIds.push(c.id); list.push({ x: c.x, y: c.y });
     }
