@@ -2781,6 +2781,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     const rep = g.reportsOf(W.id).find((x) => x.data && x.data.type === 'battle' && x.data.x === camp.x && x.data.y === camp.y);
     assert.ok(rep && rep.data.win && rep.data.npcBack === true && /появится новый/.test(rep.lines.join(' ')) && !/мин|час/.test(rep.lines.join(' ').split('появится новый')[1]), 'победа: в отчёте — новый лагерь появится, но когда — не сказано');
     assert.ok(!g.provNpc(pn, t1).some((o) => o.img === 30) && !g.worldObjects(camp.x, camp.y, 1, 1).length, 'побеждённый лагерь исчез с карты');
+    assert.ok(g.hallValue(W, 'camps') === 1 && g.halls().find((h) => h.id === 'camps').pos[W.id] > 0, 'Зал славы «Зачистка»: +1 за разбитый лагерь');
     assert.ok(!g.provNpc(pn, t1 + 3 * HOUR - 60000).some((o) => o.img === 30), 'за минуту до срока (3 часа, с 22.10) его ещё нет');
     const back = g.provNpc(pn, t1 + 3 * HOUR + 1000).find((o) => o.img === 30);
     assert.ok(back && (back.x !== camp.x || back.y !== camp.y) && provinceOf(back.x, back.y).n === pn && !onProvEdge(back.x, back.y) && !g.npcCrowded(back.x, back.y),

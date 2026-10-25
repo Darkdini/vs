@@ -1846,6 +1846,7 @@ function install(Game, helpers) {
     // той же провинции (game.js npcGone); прежде руины стояли на месте, и их грабили снова и снова
     const ruinGone = win && npc && npc.ruins && !ruinRiot && !captured && obj && this.worldObjects(a.x, a.y, 1, 1).length;
     const npcBack = win && !target && !lair && obj && (CAMPS.includes(obj.img) || ruinGone) ? this.npcGone(a.x, a.y, t) : null;
+    if (win && !target && !lair && obj && CAMPS.includes(obj.img)) this.addStat(c.owner, 'camps', 1); // Зал славы «Зачистка»
     // статистика для Зала Славы (social.js)
     if (loot) this.addStat(c.owner, 'loot', RES4.reduce((q, k) => q + loot[k], 0));
     this.addStat(c.owner, 'kills', target ? popOf(dLost) : (npc ? Math.round(npc.def.inf / 20 * dLoss) : 0));
