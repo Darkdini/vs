@@ -19,7 +19,7 @@ const RACE_DIR = { humans: 'human/hd', elves: 'elf/hd', dwarves: 'dwarv/hd', orc
 // ---------- здания с функциями (id из клиента) ----------
 const B = {
   TOWNHALL: 0, STORE: 1, HQ: 2, BARRACKS: 3, MARKET: 4, SMITH: 11, STABLE: 12, EMBASSY: 13, SAGES: 14, UNIVERSITY: 15,
-  ARCH_CAMP: 16, EXPEDITION: 17, ART_TOWER: 18, TRADE_HALL: 19, MAGE_ACADEMY: 20, WATCHTOWER: 21, FENCE: 22, WORKSHOP: 23,
+  EXPEDITION: 17, ART_TOWER: 18, TRADE_HALL: 19, MAGE_ACADEMY: 20, WATCHTOWER: 21, FENCE: 22, WORKSHOP: 23,
   TRAVELER: 24, TEMPLE: 25, CACHE: 26, PORTAL: 38, MAGIC_SCHOOL: 39, MASON: 40, INFIRMARY: 41, TAVERN: 42, ALCHEMY: 43,
   TREASURY: 44, SPY: 45,
 };
@@ -2173,11 +2173,11 @@ function install(Game, helpers) {
   // экспедиция археологов в руины
   P.expedition = function expedition(c, a, t) {
     const n = a.units[230] || 0;
-    const chance = Math.min(RUINS.cap, RUINS.chance + RUINS.per * n + 0.03 * this.buildingLevel(c, B.ARCH_CAMP) + 0.02 * this.buildingLevel(c, B.EXPEDITION));
+    const chance = Math.min(RUINS.cap, RUINS.chance + RUINS.per * n + 0.05 * this.buildingLevel(c, B.EXPEDITION));
     const lines = [`Раскопки в руинах ${a.x}:${a.y}, археологов: ${n}. Шанс находки ${Math.round(chance * 100)}%.`];
     if (Math.random() < chance) {
       const types = ART_BASIC, type = types[Math.floor(Math.random() * types.length)];
-      const roll = Math.random() + 0.02 * this.buildingLevel(c, B.ARCH_CAMP), rarity = roll > 0.95 ? 2 : roll > 0.7 ? 1 : 0;
+      const roll = Math.random() + 0.02 * this.buildingLevel(c, B.EXPEDITION), rarity = roll > 0.95 ? 2 : roll > 0.7 ? 1 : 0;
       this.addStat(c.owner, 'arts', 1 + rarity * 2); // качество: обычный 1, редкий 3, легендарный 5
       lines.push(this.artFound(c, type, rarity, t));
     } else lines.push('Ничего не найдено.');
@@ -2187,7 +2187,7 @@ function install(Game, helpers) {
 
   // ----- экспедиции из здания «Экспедиция» -----
   P.expedInfo = function expedInfo(castle) {
-    const L = this.buildingLevel(castle, B.EXPEDITION), camp = this.buildingLevel(castle, B.ARCH_CAMP);
+    const L = this.buildingLevel(castle, B.EXPEDITION), camp = L; // прибавка Лагеря археологов (с 25.10 его нет) — от уровня Экспедиции
     return { slots: L ? 1 + Math.floor(L / 4) : 0, maxN: EXPED_MAXN, have: castle.units[230] || 0,
       kinds: Object.entries(EXPED).map(([k, e]) => ({ k, name: e.name, desc: e.desc, sec: Math.max(10, Math.round(e.hours * 3600 / SPEED)), lvl: e.lvl, open: L >= e.lvl, risk: Math.round(e.risk * 100),
         base: Math.round((e.chance + 0.03 * camp + 0.02 * L) * 100), per: Math.round(EXPED_PER * 100), cap: Math.round(EXPED_CAP * 100), rare: Math.round(Math.min(1, 0.3 + e.bias + 0.02 * camp) * 100), legend: Math.round(Math.min(1, 0.05 + e.bias + 0.02 * camp) * 100) })) };
@@ -2195,7 +2195,7 @@ function install(Game, helpers) {
   // с 24.10 археологи копают только в Подземелье (dungeon.js); ушедшие раньше экспедиции возвращаются как прежде (expedBack)
   P.expedGo = function expedGo() { return { error: 'Археологи теперь копают только в Подземелье — кнопка «Подземелье» в Экспедиции.' }; };
   P.expedBack = function expedBack(castle, x) {
-    const e = EXPED[x.kind], L = this.buildingLevel(castle, B.EXPEDITION), camp = this.buildingLevel(castle, B.ARCH_CAMP);
+    const e = EXPED[x.kind], L = this.buildingLevel(castle, B.EXPEDITION), camp = L; // прибавка Лагеря археологов (с 25.10 его нет) — от уровня Экспедиции
     const lines = [`«${e.name}»: ушло археологов ${x.n}.`];
     let lost = 0; for (let i = 0; i < x.n; i++) if (Math.random() < e.risk) lost++;
     if (lost) lines.push(rndPick(['Обвал в галерее', 'Древняя ловушка', 'Проклятие гробницы', 'Нападение песчаных гиен']) + `: не вернулось ${lost}.`);

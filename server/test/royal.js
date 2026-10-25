@@ -2071,6 +2071,9 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     g.goneFix(tc); assert.ok(tc.grid[0][cell] === -1 && !tc.levels[0][cell] && !tc.queue.some((x) => x.building === 42), 'Таверна убрана, стройка отменена');
     assert.strictEqual((g.stashOf(tp).res.wood || 0) - w0, want, 'потраченное на Таверну — в Кладовой'); g.goneFix(tc); assert.strictEqual((g.stashOf(tp).res.wood || 0) - w0, want, 'второй раз не возвращается');
     cell = tc.grid[0].indexOf(-1); tc.grid[0][cell] = 42; tc.levels[0][cell] = 1; g.tick(tc); assert.ok(tc.grid[0][cell] === -1, 'и при обычном ходе времени');
+    // Лагерь археологов (с 25.10 нет): так же — уровни в Кладовую; Экспедиции он больше не нужен
+    cell = tc.grid[0].indexOf(-1); tc.grid[0][cell] = 16; tc.levels[0][cell] = 2; const w1 = g.stashOf(tp).res.wood || 0;
+    g.goneFix(tc); assert.ok(!C.BY_ID[16] && tc.grid[0][cell] === -1 && (g.stashOf(tp).res.wood || 0) - w1 === C.levelCost(C.GONE[16], 1).wood + C.levelCost(C.GONE[16], 2).wood && !C.BY_ID[17].req[16], 'Лагеря археологов нет: уровни — в Кладовую, Экспедиции он не нужен');
   }
   for (const id of [250, 254, 260, 258, 257, 255, 239, 244]) assert.ok(UNIT[id].notrain && UNIT[id].retired, `${UNIT[id].name}: старый воин — больше не тренируется, в армии остаётся`);
   for (const r of ['humans', 'elves', 'dwarves', 'orcs']) assert.strictEqual(UNITS.filter((u) => u.race === r && !u.notrain && [B.BARRACKS, B.STABLE, B.MAGE_ACADEMY].includes(u.building)).length, 9, `${r}: в Казарме, Конюшне, Академии — по 3 воина (4-й — в Мастерской)`);
@@ -2501,17 +2504,17 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.ok(free === undefined || /не больше 5/.test(g.startBuild(c, 0, free, 1).error || 'не больше 5'), 'шестой Склад нельзя');
     console.log('✓ Замок на новом фоне: 33 места, 5 Складов, вместимость и рейтинг сохранены');
   }
-  { // полный замок: рейтинг 2200 = постройки 953 + развитие Складов 247 + земли 1000 (до 22.10 с Таверной — 971 + 229); 5 Складов 20 ур. — 95 000
+  { // полный замок: рейтинг 2200 = постройки 935 + развитие Складов 265 + земли 1000 (до 22.10 с Таверной — 971 + 229, до 25.10 с Лагерем археологов — 953 + 247); 5 Складов 20 ур. — 95 000
     const u = g.register({ login: 'full2200', password: '12345', race: 1 }).user, c = g.castleOf(u); g.mil(c);
     const p0 = g.ratingParts(c);
     g.maxOut(c);
     const p = g.ratingParts(c);
-    assert.deepStrictEqual([p.castle, p.store, p.lands, p.total, p.storeLv], [953, 247, 1000, 2200, 100], `полный замок: ${JSON.stringify(p)}`);
+    assert.deepStrictEqual([p.castle, p.store, p.lands, p.total, p.storeLv], [935, 265, 1000, 2200, 100], `полный замок: ${JSON.stringify(p)}`);
     assert.strictEqual(g.rating(c), 2200);
     assert.strictEqual(g.capacity(c).wood, 95000, 'вместимость 5 Складов 20 ур. — 95 000');
     c.levels[0][c.grid[0].indexOf(1)] = 10; // один Склад — 10 ур.
     const q = g.ratingParts(c);
-    assert.ok(q.storeLv === 90 && q.store === 222 && q.total === q.castle + q.store + q.lands && q.total < 2200, `Склад 10 ур.: ${JSON.stringify(q)}`);
+    assert.ok(q.storeLv === 90 && q.store === 239 && q.total === q.castle + q.store + q.lands && q.total < 2200, `Склад 10 ур.: ${JSON.stringify(q)}`);
     console.log(`✓ Рейтинг: новый замок ${p0.total}, полный — ${p.total} (постройки ${p.castle} + Склады ${p.store} + земли ${p.lands}); вместимость 5 Складов 20 ур. — 95 000`);
   }
   { // баланс боя: командование генерала с убывающей отдачей, одинаковые артефакты с убыванием, защита от кавалерии в бою

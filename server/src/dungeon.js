@@ -33,7 +33,7 @@ const DUNG = [
   { name: 'Рунные врата', count: 50, hours: 5.5, limit: 450, die: 0.2, lvl: 6, def: 5500, k: 0.25, cap: 0.35, finds: [['art:hand', 1], ['res', 2]] },
   { name: 'Сокрытое святилище', count: 50, hours: 7, limit: 500, die: 0.25, lvl: 8, def: 8000, k: 0.15, cap: 0.25, finds: [['coin', 1], ['rep', 3]] },
 ];
-const CAMP_PER = 0.005, CAMP_MAX = 0.1; // прибавка шанса за уровень Лагеря археологов и её предел; находка — никогда не наверняка
+const CAMP_PER = 0.005, CAMP_MAX = 0.1; // прибавка шанса за уровень Экспедиции (до 25.10 — Лагеря археологов) и её предел; находка — никогда не наверняка
 // охрана лагеря — для боя (army.js clash: npc.dung — крепнет вместе с бонусами нападающего, как охрана лагерей разбойников)
 const GUARD_CNT = [0, 0.63, 0.43, 0.19, 0.19, 0.19]; // численность охраны (воины из тренировок, с 24.10): Стражей для победы нужно столько же, сколько прежде
 const GUARDS = DUNG.map((d, l) => (d ? { name: `Охрана: ${d.name}`, level: String(l), cntK: GUARD_CNT[l], def: { inf: d.def, cav: d.def, mag: Math.round(d.def / 2) }, loot: { wood: 0, stone: 0, iron: 0, food: 0 }, dung: true } : null));
@@ -93,7 +93,7 @@ function install(Game) {
     return n;
   };
   P.dungChance = function dungChance(castle, l, arch) {
-    const k = DUNG[l]; return Math.min(k.cap, k.k * Math.sqrt(Math.min(1, Math.max(0, arch) / k.limit)) + Math.min(CAMP_MAX, CAMP_PER * this.buildingLevel(castle, A().B.ARCH_CAMP)));
+    const k = DUNG[l]; return Math.min(k.cap, k.k * Math.sqrt(Math.min(1, Math.max(0, arch) / k.limit)) + Math.min(CAMP_MAX, CAMP_PER * this.buildingLevel(castle, A().B.EXPEDITION)));
   };
   // игроки с одного телефона (возможные мульты) друг на друга в Подземелье не нападают: иначе свой второй аккаунт копал бы для главного
   P.sameDevice = function sameDevice(u1, u2) {
@@ -324,8 +324,8 @@ function install(Game) {
     const mine = [];
     for (const c of this.castlesOf(user)) for (const a of c.armies || []) if (a.dung) mine.push({ id: a.id, cid: c.id, castle: c.name, mission: a.mission, state: a.state, camp: a.dung, l: a.dl,
       arrive: a.arrive, back: a.back, digEnd: a.digEnd || 0, find: findView(findOf(a)), units: a.units });
-    const L = this.buildingLevel(castle, B.EXPEDITION), ac = this.buildingLevel(castle, B.ARCH_CAMP);
-    return { w: DUNG_W, h: DUNG_H, now, camps, mine, max: DUNG_MAX, active: this.dungActive(user), exp: L, archCamp: ac, raidK: RAID_K, have: { arch: castle.units[ARCH_ID] || 0, guard: castle.units[GUARD_ID] || 0 },
+    const L = this.buildingLevel(castle, B.EXPEDITION);
+    return { w: DUNG_W, h: DUNG_H, now, camps, mine, max: DUNG_MAX, active: this.dungActive(user), exp: L, raidK: RAID_K, have: { arch: castle.units[ARCH_ID] || 0, guard: castle.units[GUARD_ID] || 0 },
       kinds: DUNG.map((k, l) => (k ? { l, name: k.name, lvl: k.lvl, dig: digSec(l), go: travelSec(l), limit: k.limit, guard: Math.ceil(k.def / A().UNIT[GUARD_ID].attack) } : null)) }; // что можно найти, шанс и потери — не отдаются: секрет
   };
   P.dungName = function dungName(l) { return DUNG[l] ? DUNG[l].name : 'Подземелье'; };
