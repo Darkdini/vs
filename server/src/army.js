@@ -487,12 +487,12 @@ const INFIRM_CAP = 1000, HEAL_K = 0.25, INFIRM_SHARE = 0.5;
 // очки боевого ранга: мирные юниты — без очков, раненые (в Лазарет и выздоровевшие дома) — за четверть (army.js rankPop)
 const RANK_NONE = ['merchant', 'settler', 'sage', 'archaeologist', 'rebel'], RANK_WOUND = 0.25;
 const ROW = { infantry: 3, cavalry: 2, magic: 1, siege: 1, special: 1 }, DMG = 2, ROUT = 0.3; // бой с боссом (clashHp): ряды строя, множитель урона, бегство
-// Новые правила боя (проба, включает администратор: db.battleRules.on; P.newBattle): Кузница — не больше половины базового
-// параметра воина (минимум +5): дешёвые воины больше не сильнее элиты (мечник 10 → 15, а не 29; паладин 50 → 69, как было);
+// Новые правила боя (проба, включает администратор: db.battleRules.on; P.newBattle): Кузница и Школа магии — у всех воинов
+// до 20 уровня по каждому параметру (с 25.10; раньше — не больше половины старого параметра, у Шамана атака стояла на 6);
 // тараны ломают Забор, только если нападение победило; подкрепления — со своими бонусами (от чужого замка — Забор и защита замка);
 // против магии у кого нет защиты от магии — ¾ обычной защиты (было ½); удача нападающего ±5% (было ±10%)
-const forgeCap = (b) => Math.max(5, Math.floor((b || 0) / 2));
-const forgeCaps = (u) => ({ a: forgeCap(u.attack), d: forgeCap(Math.max(u.def ? u.def.inf : 0, u.def ? u.def.cav : 0)), m: forgeCap(u.magic), md: forgeCap(u.def ? u.def.mag : 0) });
+const FORGE_TOP = 19; // +19 улучшений — 20-й уровень (уровень показывается с 1)
+const forgeCaps = () => ({ a: FORGE_TOP, d: FORGE_TOP, m: FORGE_TOP, md: FORGE_TOP });
 const DEF_RANK_K = 0; // очки боевого ранга — только за нападения и набеги: защитнику за разбитых нападающих — ничего (с 24.10)
 const DEF_HOME = 1.1; // замок помогает своим защитникам (и подкреплениям в нём): защита ×1,1 (с 24.10; до 23.10 — ×1,75, потом ×1,25: обычный игрок брал замок соседа лишь армией в 1,5–2,5 раза больше и терял почти всю)
 // Забор: +% к защите за уровень по расе (с 24.10 — вдвое меньше: на 20 ур. было +40–70%)
@@ -853,7 +853,6 @@ function install(Game, helpers) {
     if (castle.upJobs[kind]) return { error: 'Уже проводится улучшение данного параметра для другого юнита!' };
     const s = this.forgeLvl(castle, u.id, kind), T = s + 2; // показываемый уровень после улучшения
     if (T > 20) return { error: 'Достигнут максимальный уровень (20).' };
-    if (this.newBattle() && s >= forgeCaps(u)[kind]) return { error: `Предел для этого воина — +${forgeCaps(u)[kind]}: по новым правилам боя улучшение не больше половины базового параметра.` };
     if (T > L) return { error: `Нужен уровень здания ${T}.` };
     const { cost, people, sec } = this.forgeCost(u, kind, T);
     for (const r of RES4) if (castle.res[r] < cost[r]) return { error: 'Недостаточно ресурсов.' };
@@ -2665,7 +2664,7 @@ function install(Game, helpers) {
         members: a.members.length, slots: this.allianceSlots(a), leader: (this.userById(a.leader) || {}).login || '?', score: this.allianceScore(a), by: (user.inviteBy || {})[a.id] || '' })),
       // отправленные приглашения своего альянса (для окна «Приглашения» у того, кто может приглашать)
       invited: al && this.allyCan(al, user.id, 'invite') ? Object.values(this.db.users).filter((u) => (u.invites || []).includes(al.id)).map((u) => ({ id: u.id, login: u.login, rating: this.userRating(u) })) : [],
-      forge: castle.forge, forgeCap: this.newBattle() ? Object.fromEntries([...new Set([...this.forgeUnits(castle), ...this.magicUnits(castle)])].map((u) => [u.id, forgeCaps(u)])) : null, upJobs: castle.upJobs, forgeUnits: this.forgeUnits(castle).map((u) => u.id), magicUnits: this.magicUnits(castle).map((u) => u.id),
+      forge: castle.forge, forgeCap: null, upJobs: castle.upJobs, forgeUnits: this.forgeUnits(castle).map((u) => u.id), magicUnits: this.magicUnits(castle).map((u) => u.id),
       upNext: Object.fromEntries([...new Set([...this.forgeUnits(castle), ...this.magicUnits(castle)])].map((u) => [u.id, Object.fromEntries(['a', 'd', 'm', 'md'].map((k) => [k, this.forgeCost(u, k, this.forgeLvl(castle, u.id, k) + 2)]))])),
       admin: !!user.admin, royal: this.royalView(user, castle), watch: this.hasWatch(user), watchLevel: this.watchIntel(user), // watchLevel — уровень сведений (Центр разведки), не самой башни
       stash: this.stashCount(user), // значок «Кладовая»: сколько видов наград ждёт

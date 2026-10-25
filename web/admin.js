@@ -52,7 +52,7 @@ const GOLD_ALL = () => aSec('🎁 Золото всем игрокам', `<p cla
 const ALLY_GOLD = () => aSec('🏦 Казна альянса', `<p class="small">Казна альянса пополняется только отдельно: покупкой за звёзды Telegram (кнопки в окне «Казна Альянса») или здесь. Свои монеты игроки туда не переводят, игрокам казна не выдаётся — тратится только на медали и подарки участникам. С минусом — списать.</p><form class="stack" data-aform="allygold"><input name="tag" maxlength="5" placeholder="Тег альянса" autocapitalize="characters" autocomplete="off" required><input class="anum" name="n" type="number" inputmode="numeric" placeholder="Сколько монет" required><button class="btn primary">Пополнить казну</button></form>`);
 // «⚔ Правила боя (проба)» (server/src/army.js newBattle, battleCompare): новые правила включаются и выключаются для всех боёв;
 // «Сравнить бой» — тот же бой по прежним и по новым правилам, в игре ничего не меняется
-const BATTLE_RULES = 'Кузница — не больше половины базового параметра воина (минимум +5 уровней); тараны ломают Забор, только если нападение победило; удача нападающего ±5% (было ±10%).';
+const BATTLE_RULES = 'Кузница и Школа магии — у всех воинов до 20 уровня по каждому параметру; тараны ломают Забор, только если нападение победило; удача нападающего ±5% (было ±10%).';
 const battleCmpHtml = (c) => {
   const n = (v) => fmtFull(Math.round(v || 0)), row = (t, f) => `<tr><th>${t}</th><td>${f(c.old)}</td><td>${f(c.new)}</td></tr>`;
   return `<p class="small"><b>${esc(c.att)}</b> → <b>${esc(c.def)}</b>: ${c.mission === 'raid' ? 'набег' : 'нападение'}${c.general ? ' с генералом' : ''}</p>

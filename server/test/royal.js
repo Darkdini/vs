@@ -2109,15 +2109,15 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const ca = g.castleOf(A), cd = g.castleOf(D), ch = g.castleOf(H), cf = g.castleOf(F); g.maxOut(ca); g.maxOut(cd); g.mil(ch); g.mil(cf);
   for (const c of [ca, cd, ch, cf]) { c.general = null; c.squads = []; c.armies = []; }
   const rules = (on) => g.adminOp(adm, 'battlerules', { on });
-  // 1. Кузница: мечник с +19 — в бою +5 (половина базы 10, минимум +5); выше предела не улучшить; в состоянии — предел для окна Кузницы
+  // 1. Кузница: с 25.10 предела «половина базы» нет — мечник с +19 бьёт с +19 и при новых правилах, улучшать можно до 20 уровня
   ca.forge = { 200: { a: 19, d: 19 } };
   const atk = () => { cd.units = { 200: 1 }; return g.clash(ca, { units: { 200: 100 }, mission: 'attack', general: false }, cd, null, Date.now()).calc.att.total; };
   const a0 = atk(); assert.ok(rules(1).data.on && g.newBattle(), 'новые правила включены'); const a1 = atk();
   const AR2 = require('../src/army'), mA = AR2.UNIT[200].attack, capA = Math.max(5, Math.floor(mA / 2)); // база мечника — из «Справки»
-  assert.ok(Math.abs(a1 / a0 - (1 + 0.05 * capA) / (1 + 0.05 * 19)) < 0.01, `Кузница: мечник +19 → в бою +${capA} (урон ${a0} → ${a1}; с 24.10 улучшение — +5% урона)`);
+  assert.ok(Math.abs(a1 / a0 - 1) < 0.01, `Кузница: мечник +19 — в бою те же +19 и при новых правилах (урон ${a0} → ${a1}; база ${mA}, прежний предел был бы +${capA})`);
   ca.forge = { 200: { a: 5 } }; ca.upJobs = {}; Object.assign(ca.res, { wood: 1e6, stone: 1e6, iron: 1e6, food: 1e6, people: 1e5 });
-  assert.ok(/Предел для этого воина — \+5/.test(g.forgeOp(ca, { unit: 200, kind: 'a' }).error || ''), 'выше предела не улучшить');
-  const kA = AR2.UNIT[204].attack; assert.ok(g.milState(ca, A).forgeCap[200].a === capA && g.milState(ca, A).forgeCap[204].a === Math.max(5, Math.floor(kA / 2)), 'окну Кузницы — предел (половина базы, не меньше +5)');
+  assert.ok(g.forgeOp(ca, { unit: 200, kind: 'a' }).ok, 'после +5 улучшать дальше можно');
+  ca.forge = { 200: { a: 19 } }; ca.upJobs = {}; assert.ok(/максимальный уровень \(20\)/.test(g.forgeOp(ca, { unit: 200, kind: 'a' }).error || '') && g.milState(ca, A).forgeCap === null, 'до 20 уровня — и всё; окну Кузницы предела нет');
   // 2. тараны: проигранное нападение Забор не ломает (прежние правила — ломало)
   const ram = (on) => { rules(on); g.setBuildingLevel(cd, 22, 20); cd.units = { 201: 1000 }; const R = g.clash(cf, { units: { 243: 180, 200: 1 }, mission: 'attack', general: false }, cd, null, Date.now()); return { win: R.win, wall: g.buildingLevel(cd, 22) }; };
   const r0 = ram(0), r1 = ram(1);
@@ -2135,11 +2135,11 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const s0 = snap(), cmp = g.adminOp(adm, 'battlecmp', { att: 'BRLATT1', def: 'brlDef1', mission: 'attack', general: 1 });
   const c = cmp.data && cmp.data.cmp;
   assert.ok(c && c.old && c.new && c.old.sent === 3060 && c.old.had === 1100 && c.old.guests === 300 && c.old.wall0 === 20, `сравнение: обе колонки, ник без учёта регистра (${cmp.error || ''})`);
-  assert.ok(c.new.ap < c.old.ap, `по новым правилам атака мечников с Кузницей слабее (${c.old.ap} → ${c.new.ap})`);
+  assert.ok(c.new.ap === c.old.ap, `Кузница одинакова по прежним и новым правилам — до 20 ур. (${c.old.ap} → ${c.new.ap})`);
   assert.strictEqual(snap(), s0, 'сравнение ничего не меняет в игре');
   assert.ok(g.adminOp(adm, 'battlecmp', { att: 'brlAtt1', def: 'nobody_such' }).error && g.adminOp(adm, 'battlecmp', { att: 'brlAtt1', def: 'brlAtt1' }).error, 'неизвестный ник и бой с собой — ошибка');
   ch.armies = []; rules(0); assert.ok(!g.newBattle(), 'прежние правила вернулись');
-  console.log(`✓ Новые правила боя (проба): Кузница до половины базы, тараны — при победе, подкрепления — свои бонусы, магия ¾; «Сравнить бой» без следа (атака ${c.old.ap} → ${c.new.ap})`);
+  console.log(`✓ Новые правила боя (проба): Кузница и Школа магии до 20 ур. у всех, тараны — при победе, подкрепления — свои бонусы, магия ¾; «Сравнить бой» без следа (атака ${c.old.ap} → ${c.new.ap})`);
 }
 { // подарок новичку: Премиум на 3 дня с регистрации — один раз, сам не продлевается; покупка — сверх подарка
   process.env.NEWBIE_PREMIUM_DAYS = '3';
