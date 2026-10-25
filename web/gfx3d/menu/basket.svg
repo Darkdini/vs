@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+<defs>
+<linearGradient id="bk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f09a50"/><stop offset="1" stop-color="#9a4a14"/></linearGradient>
+<pattern id="w" width="8" height="8" patternUnits="userSpaceOnUse"><path d="M0 4 Q2 0 4 4 T8 4" stroke="#6a2e08" stroke-width="1.2" fill="none"/><path d="M0 8 Q2 4 4 8 T8 8" stroke="#ffc080" stroke-opacity=".5" stroke-width="1" fill="none"/></pattern>
+<linearGradient id="wd" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d89a60"/><stop offset="1" stop-color="#6a3810"/></linearGradient>
+<radialGradient id="st" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#ffffff"/><stop offset=".5" stop-color="#a8aaa8"/><stop offset="1" stop-color="#4a4c4a"/></radialGradient>
+<radialGradient id="ir" cx=".4" cy=".3" r=".8"><stop offset="0" stop-color="#e8a878"/><stop offset="1" stop-color="#7a3a18"/></radialGradient>
+<radialGradient id="ap" cx=".4" cy=".3" r=".8"><stop offset="0" stop-color="#d8ff90"/><stop offset="1" stop-color="#4a9a18"/></radialGradient>
+</defs>
+<path d="M22 44 C22 14 78 14 78 44" stroke="#9a4a14" stroke-width="5" fill="none"/>
+<path d="M50 44 L80 10 L88 16 L60 48 Z" fill="url(#wd)" stroke="#4a2408"/><path d="M40 44 L66 18 L72 24 L48 48 Z" fill="url(#wd)" stroke="#4a2408"/>
+<path d="M28 34 L42 28 L48 40 L34 46 Z" fill="url(#ir)" stroke="#4a1e08"/><path d="M40 36 L52 32 L56 44 L44 46 Z" fill="url(#ir)" stroke="#4a1e08"/>
+<circle cx="66" cy="42" r="8" fill="url(#ap)" stroke="#2a6a08"/>
+<path d="M14 44 H86 L78 86 Q50 94 22 86 Z" fill="url(#bk)" stroke="#5a2408" stroke-width="1.5"/>
+<path d="M14 44 H86 L78 86 Q50 94 22 86 Z" fill="url(#w)"/>
+<rect x="12" y="40" width="76" height="8" rx="4" fill="#c86a2a" stroke="#5a2408"/>
+<path d="M58 70 C62 58 80 56 88 66 C94 76 86 90 72 90 C60 90 54 80 58 70 Z" fill="url(#st)" stroke="#3a3c3a"/>
+</svg>

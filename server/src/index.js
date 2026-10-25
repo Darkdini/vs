@@ -1,0 +1,69 @@
+'use strict';
+// «Средневековье» — сервер браузерной игры. Отдаёт клиент (web/) и говорит с ним по WebSocket (web.js).
+// Запуск: npm start (из папки server) → http://localhost:8080
+// Переменные окружения: WEB_PORT/PORT (8080), HOST (0.0.0.0), SPEED (скорость мира, 1 — как в оригинале), DB (файл базы),
+// ADMIN_LOGIN (секретный логин админа), ADMIN_PASS (пароль админа), TRUST_PROXY=1 (за Caddy / nginx / Cloudflare Tunnel; TRUST_PROXY=cf — только если весь трафик идёт через Cloudflare)
+
+const path = require('path');
+const { Game, Store } = require('./game');
+const { startWeb, WebSession, wheelCast, chatClosedCast, maintCast } = require('./web');
+
+const HOST = process.env.HOST || '0.0.0.0';
+const WEB_PORT = Number(process.env.WEB_PORT || process.env.PORT || 8080); // PORT задают хостинги (Render, Railway и т.п.)
+const DB = process.env.DB || path.join(__dirname, '..', 'data', 'db.json');
+
+const store = new Store(DB);
+const game = new Game(store);
+// файл maint.on рядом с базой — сервер запускается сразу с закрытой игрой на 8 или 24 часа (closedtest.js)
+const maintH = game.maintBoot(path.join(path.dirname(path.resolve(DB)), 'maint.on'));
+if (maintH) console.log(`Игра закрыта при запуске на ${maintH} ч (файл maint.on): игроки видят заглушку. Открыть раньше — Админка, кнопка вверху.`);
+const sessions = new Set();
+WebSession.all = sessions;
+
+// раз в секунду: армии в мире (прибытие, бой, возврат), очереди онлайн-игроков, уведомления
+setInterval(() => {
+  try { game.tickWorld(); game.seasonCheck(); game.bossCheck(); } catch (e) { console.error(e); }
+  try { const wo = game.wheelCheck(); if (wo.length) wheelCast(game, wo); } catch (e) { console.error(e); } // Колесо Фортуны: розыгрыш, итог
+  try { const cc = game.chatCloseCheck(); if (cc) chatClosedCast(game, cc); } catch (e) { console.error(e); } // закрытый чат открывается сам
+  try { if (game.maintCheck()) maintCast(game); } catch (e) { console.error(e); } // закрытая игра открывается сама (8 или 24 часа)
+  for (const s of sessions) { try { s.onTick(); } catch (e) { console.error(e); } }
+  for (const ev of game.drainEvents()) for (const s of sessions) if (s.user && s.user.id === ev.userId && s.notify) s.notify(ev.msg);
+}, 1000);
+
+// раз в минуту: сколько игроков онлайн — для статистики в Админ-панели (metrics.js)
+setInterval(() => { try { game.metricTick(new Set([...sessions].filter((s) => s.user && !s.user.bot).map((s) => s.user.id)).size); } catch (e) { console.error(e); } }, 60000);
+
+// раз в 30 секунд: фото в сообщениях старше 3 часов удаляются (pics.js)
+setInterval(() => { try { game.picSweep(); } catch (e) { console.error(e); } }, 30000);
+setInterval(() => { try { game.newsPicSweep(); } catch (e) { console.error(e); } }, 3600000); // скриншоты новостей: 3 месяца
+try { game.newsPicSweep(); } catch (e) { console.error(e); }
+// «Орёл-решка»: вызовы, которые никто не принял за сутки, — ставка обратно в Кладовую
+setInterval(() => { try { game.coinSweep(); game.marketSweep(); } catch (e) { console.error(e); } }, 300000); // и лоты Биржи Замков старше 7 дней
+
+// раз в 10 минут: копия базы в Telegram, если пора (tgbackup.js; раз в сутки в TG_BACKUP_HOUR)
+setInterval(() => { try { game.tgBackupCheck(); } catch (e) { console.error(e); } }, 600000);
+setTimeout(() => { try { game.tgBackupCheck(); } catch (e) { console.error(e); } }, 60000).unref();
+
+// раз в 10 минут: «Подозрительное» — резкие скачки армии, золота, лояльности, ресурсов (anomaly.js)
+setInterval(() => { try { game.anomalyScan(); } catch (e) { console.error(e); } }, 600000);
+
+// администратор: в игре — admin (вход под ADMIN_LOGIN, если задан), пароль ADMIN_PASS; 1 замок с нуля (ADMIN_FULL=1 — полная прокачка)
+if (game.ensureAdmin()) {
+  if (game.adminWasReset) console.log('Админ начат с нуля: один новый замок без развития.');
+  if (game.adminReset) console.log('Пароль admin сброшен на заданный в ADMIN_PASS.');
+  else if (game.adminNewPass) console.log(`Создан админ: логин admin, пароль ${game.adminNewPass} (записан в ${path.join(path.dirname(DB), 'ADMIN_PASSWORD.txt')} — смените его в Админ-панели)`);
+  else if (game.login('admin', 'admin')) console.log('ВНИМАНИЕ: у admin стандартный пароль «admin» — смените его: Админ-панель → Цель (пусто) → Сменить пароль');
+}
+
+game.tgPollStart();
+setInterval(() => { try { game.tgBuildScan(); } catch (e) { console.error(e); } }, 30000); // готовые стройки — в Telegram // бот Telegram игроков (tgauth.js), если задан TG_AUTH_TOKEN
+startWeb(game, sessions, { port: WEB_PORT, host: HOST, log: (m) => console.log(m) });
+console.log(`Средневековье: скорость мира x${process.env.SPEED || 1}, база ${DB}`);
+
+// pid рядом с базой — по нему restore.sh аккуратно останавливает сервер, если он запущен не службой (SIGTERM → сохранение базы)
+const PID = path.join(path.dirname(path.resolve(DB)), 'server.pid');
+try { require('fs').writeFileSync(PID, String(process.pid)); } catch { /* нет доступа */ }
+// кто был в игре до остановки — «последний раз в игре» сейчас (соединения закрываются вместе с процессом, без события close)
+const shutdown = () => { const t = Date.now(); for (const s of sessions) if (s.user) s.user.lastSeen = t; store.flush(); try { require('fs').unlinkSync(PID); } catch { /* уже нет */ } process.exit(0); };
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);

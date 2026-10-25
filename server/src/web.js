@@ -1,0 +1,1133 @@
+'use strict';
+// Браузерный клиент: HTTP (страница + картинки) и WebSocket с JSON-командами.
+// Один общий мир (Game) для всех подключённых браузеров.
+// Без зависимостей: WebSocket (RFC 6455) реализован здесь же, только то, что нужно (текстовые кадры, ping, close).
+
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const zlib = require('zlib');
+const SEC = require('./security');
+const SOC = require('./social');
+const C = require('./catalog');
+const G = require('./game');
+const ARMY = require('./army');
+
+const WEB_ROOT = path.join(__dirname, '..', '..', 'web');
+const ADMIN_FILE = path.join(WEB_ROOT, 'admin.js');
+const WS_MAX = 512 * 1024; // аватар 256×256 (сжатые точки) — до ~400 КБ
+const WS_MAX_ANON = 16 * 1024; // до входа — только вход, регистрация, капча: большие сообщения не нужны (раньше и до входа принималось по 512 КБ)
+const WS_ANON_ALL = Number(process.env.WS_ANON_ALL) || 3000; // соединений без входа на весь сервер (защита памяти от наплыва с разных адресов)
+const MIME = { '.webmanifest': 'application/manifest+json', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.apk': 'application/vnd.android.package-archive', '.ogg': 'audio/ogg', '.mp3': 'audio/mpeg' };
+
+// ---------- WebSocket ----------
+function wsAccept(req, socket) {
+  const key = req.headers['sec-websocket-key'];
+  const accept = crypto.createHash('sha1').update(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');
+  socket.write(['HTTP/1.1 101 Switching Protocols', 'Upgrade: websocket', 'Connection: Upgrade', `Sec-WebSocket-Accept: ${accept}`, '', ''].join('\r\n'));
+  socket.setNoDelay(true);
+}
+
+function wsFrame(opcode, payload) {
+  const len = payload.length;
+  const head = len < 126 ? Buffer.from([0x80 | opcode, len])
+    : len < 65536 ? Buffer.from([0x80 | opcode, 126, len >> 8, len & 0xff])
+      : (() => { const b = Buffer.alloc(10); b[0] = 0x80 | opcode; b[1] = 127; b.writeBigUInt64BE(BigInt(len), 2); return b; })();
+  return Buffer.concat([head, payload]);
+}
+
+class WsReader {
+  constructor() { this.buf = Buffer.alloc(0); this.parts = []; this.partsLen = 0; this.max = WS_MAX_ANON; }
+  push(chunk) {
+    this.buf = Buffer.concat([this.buf, chunk]);
+    // защита от переполнения памяти: кадр или сообщение из частей больше max (до входа 16 КБ, после — 512 КБ для аватара) — соединение рвётся;
+    // длина кадра проверяется по заголовку ниже, поэтому в буфере не копится больше одного недочитанного кадра
+    const out = [];
+    for (;;) {
+      if (this.buf.length < 2) break;
+      const fin = this.buf[0] & 0x80, opcode = this.buf[0] & 0x0f, masked = this.buf[1] & 0x80;
+      let len = this.buf[1] & 0x7f, off = 2;
+      if (len === 126) { if (this.buf.length < 4) break; len = this.buf.readUInt16BE(2); off = 4; }
+      else if (len === 127) { if (this.buf.length < 10) break; len = Number(this.buf.readBigUInt64BE(2)); off = 10; }
+      // кадр от браузера всегда замаскирован (RFC 6455); управляющий кадр (close, ping, pong) — не длиннее 125 байт
+      if (!masked || (opcode >= 8 && len > 125) || len > this.max) throw new Error('bad frame');
+      const need = off + 4 + len;
+      if (this.buf.length < need) break;
+      const mask = this.buf.subarray(off, off + 4), src = this.buf.subarray(off + 4, need), data = Buffer.allocUnsafe(len);
+      for (let i = 0; i < len; i++) data[i] = src[i] ^ mask[i & 3]; // простым циклом: прежний data.map вызывал функцию на каждый байт
+      this.buf = this.buf.subarray(need);
+      if (opcode === 0 || opcode === 1) {
+        this.parts.push(data); this.partsLen += len;
+        // сообщение из частей: в сумме не больше max и не больше 4096 частей (иначе тысячи кадров по 1 байту съедали бы память)
+        if (this.partsLen > this.max || this.parts.length > 4096) throw new Error('frame too big');
+        if (fin) { out.push({ opcode: 1, data: Buffer.concat(this.parts) }); this.parts = []; this.partsLen = 0; }
+      } else out.push({ opcode, data });
+    }
+    return out;
+  }
+}
+
+// ---------- каталог для клиента ----------
+// Всё, что нужно клиенту для таблиц по уровням: стоимость, время, добыча, вместимость, рейтинг.
+// Время в таблицах клиент считает сам по тем же формулам (зависит от уровня Ратуши): rules.time + speed.
+// версия сборки (файл VERSION кладётся в архив при сборке) — видна на экране входа и в консоли
+const VERSION = (() => { try { return fs.readFileSync(path.join(__dirname, '..', '..', 'VERSION'), 'utf8').trim(); } catch { return 'dev'; } })();
+function catalogJson() {
+  return {
+    version: VERSION,
+    speed: G.SPEED,
+    shopOpen: process.env.SHOP_OPEN === '1', // «Лавка Короля» для всех (иначе — только администратор)
+    pay: require('./tgpay').payInfo(), // покупка монет за звёзды Telegram: курс и пакеты
+    allyMedalCost: require('./ally').MEDAL_COST, // медаль альянса — за монеты казны альянса
+    gameRules: { intro: require('./rules').RULES_INTRO, list: require('./rules').RULES }, // «Правила игры» (rules.js): Справка, форум, модераторам
+    campFast: require('./army').CAMP_FAST,
+    march: require('./army').MARCH, // армии ходят быстрее во столько раз
+    maxQueue: G.MAX_QUEUE,
+    rules: {
+      prov: G.PROV, provN: G.PROV_N, provNo: Array.from({ length: G.PROV_N * G.PROV_N }, (_, i) => G.provNo(i + 1)), time: C.TIME, rating: C.RATING, store: G.STORE, baseRate: G.BASE_RATE, peopleFactor: G.PEOPLE_FACTOR, minBuildSec: 3,
+    },
+    buildings: C.BUILDINGS.map((b) => ({
+      id: b.id, name: b.name, desc: b.desc, layer: b.layer, max: b.max || 20, unique: !!b.unique, req: b.req || {},
+      produces: b.produces || null, tiers: b.tiers || null, about: b.about || '', hp: C.durability(b, 1), time: b.time || 0,
+      costs: Array.from({ length: (b.max || 20) + 1 }, (_, l) => (l === 0 ? null : C.levelCost(b, l))),
+    })),
+    castlePath: C.CASTLE_PATH, prod: C.PROD, prodK: C.PROD_K, resSpeed: G.RES_SPEED,
+    races: C.RACE_NAMES,
+    raceOrder: C.RACES,
+    premiumPlans: require('./premium').PLANS, gifts: require('./social').GIFTS, giftCats: require('./social').GIFT_CATS, repPerGold: require('./social').REP_PER_GOLD,
+    mil: ARMY.catalogJson(), // юниты игры, науки, религии, артефакты, NPC-лагеря
+    lands: { eff: C.LAND_EFF, time: C.LAND_TIME, base: G.LANDS_BASE, decor: G.LANDS_DECOR, n: G.LANDS_N, mult: C.LAND_YIELD, hutCap: C.HUT_CAP_MULT },
+    landOptions: G.LANDS_BASE.map((row, y) => row.map((_, x) => G.landOptions(x, y))),
+  };
+}
+
+// кто сейчас в игре (открытые соединения с входом; один игрок с двух устройств — один раз)
+// обновить состояние (оповещения) у игрока, если он сейчас в игре
+function pushTo(u) { if (u) for (const s of WebSession.all || []) if (s.user && s.user.id === u.id) s.pushState(); }
+// администратора в списке и в счётчике онлайна нет — для игроков он всегда «не в игре»
+function onlineUsers() {
+  const seen = new Map();
+  for (const s of WebSession.all || []) if (s.user && !s.user.bot && !s.user.admin) seen.set(s.user.id, { id: s.user.id, login: s.user.login, rep: s.user.reputation ?? 10 });
+  return seen;
+}
+const onlineCount = () => onlineUsers().size;
+// u.online — у игрока есть открытое соединение со входом (с любого устройства).
+// Игрок вошёл или вышел совсем — соальянсникам в игре сразу: точка в составе альянса (ally.js allyOnline, alliance.js).
+// Админ и боты для игроков всегда «не в игре» — о них не рассылается
+const liveSession = (u, except) => [...(WebSession.all || [])].some((s) => s !== except && s.user && s.user.id === u.id);
+function allyPresenceCast(u, on) {
+  if (!u || u.admin || u.bot || !u.alliance) return;
+  for (const s of WebSession.all || []) if (s.user && s.user.id !== u.id && s.user.alliance === u.alliance) s.send({ t: 'allyon', id: u.id, on });
+}
+
+// ---------- сессия браузера ----------
+class WebSession {
+  constructor(game, socket, log) {
+    this.game = game; this.socket = socket; this.log = log; this.user = null;
+  }
+
+  send(obj) { if (!this.socket.destroyed) this.socket.write(wsFrame(1, Buffer.from(JSON.stringify(obj)))); }
+  get castle() { return this.user && this.game.castleOf(this.user); }
+  error(msg) { this.failed = true; this.send({ t: 'error', msg }); }
+  toast(msg) { this.send({ t: 'toast', msg }); }
+
+  questsLite() { try { const q = this.game.questsState(this.user, this.castle); return { ready: q.ready, cal: q.cal.ready, adv: this.game.advState(this.user, this.castle), tut: q.tut.finished ? null : { title: q.tut.title, have: q.tut.have, need: q.tut.need, done: q.tut.done } }; } catch (e) { return null; } }
+  pushState() {
+    const c = this.castle; this.game.tick(c);
+    const u = this.user;
+    this.send({
+      t: 'state',
+      now: Date.now(),
+      quests: this.questsLite(),
+      user: { id: u.id, login: u.login, avatar: u.avatar || 0, ally: u.alliance || null, race: u.race, raceName: C.RACE_NAMES[u.race], premium: u.premium || 0, gold: u.gold || 0, goldLog: (u.goldLog || []).slice(-50).reverse(), admin: !!u.admin, mod: !!u.mod, smod: !!u.smod, alertsNew: u.admin ? this.game.alertsNew() : 0, payNew: u.admin ? this.game.payNew() : 0, secNew: u.admin ? this.game.secNew() : 0, zagsNew: this.game.zagsNew(u), friendsNew: this.game.friendsNew(u), staff: this.game.staffOk(u), staffNew: this.game.staffUnread(u), brank: (({ idx, icon, stars, title }) => ({ idx, icon, stars, title }))(require('./battlerank').rankInfo(this.game.brRank(u))), brNew: this.game.brChests ? this.game.brChests(u) : 0, // сундуков наград ранга ждёт (метка на значке) black: this.game.privacyOf(u).black, multiNew: u.admin ? (this.game.db.multiLog || []).filter((x) => x.at > (u.multiSeen || 0)).length : 0,
+        modReqNew: u.admin && this.game.modReqList ? this.game.modReqList().length : 0, // заявки в модераторы, ждущие решения админа
+        warn: u.warnPending || null }, // предупреждение модератора в чате (chatmod.js) — окно, пока игрок не нажмёт «Понятно»
+      castle: {
+        id: c.id, name: c.name, x: c.x, y: c.y, grid: { 0: Array.from(c.grid[0]), 1: Array.from(c.grid[1]) }, levels: { 0: Array.from(c.levels[0]), 1: Array.from(c.levels[1]) },
+        res: c.res, rate: this.game.rates(c), cap: this.game.capacity(c),
+        queue: c.queue.map((q) => ({ view: q.view, cell: q.cell, building: q.building, level: q.level, start: q.start, end: q.end, wall: !!q.wall })), wall: c.wall || 0,
+        rating: this.game.rating(c), ratingParts: this.game.ratingParts(c), townhall: this.game.buildingLevel(c, 0),
+        mil: this.game.milState(c, u),
+        loyalty: Math.round(c.loyalty ?? 100), capital: this.game.isCapital(c),
+      },
+      castles: this.game.castlesOf(u).map((k, i) => ({ id: k.id, name: k.name, x: k.x, y: k.y, capital: i === 0, active: k.id === c.id, rating: this.game.rating(k), loyalty: Math.round(k.loyalty ?? 100) })),
+      nickPrice: Number(process.env.NICK_PRICE) || 100, msgColor: u.msgColor || 0, msgColors: require('./premium').MSG_COLORS, unread: (this.game.db.messages || []).filter((m) => m.to === u.id && !m.read).length + this.game.linkUnread(u), linkNew: this.game.linkUnread(u), newsUnread: this.game.newsUnread(u), newsFirst: this.game.newsFirst(u),
+      moves: this.game.moveCounts(u),
+    });
+  }
+
+  onTick() {
+    if (!this.user) return;
+    const done = this.game.tick(this.castle);
+    if (!done.length) return;
+    for (const d of done) this.toast(`Готово: ${C.BY_ID[d.building].name} ${d.level} ур.`);
+    this.pushState();
+  }
+
+  notifyMail(fromLogin) { this.toast(`Новое письмо от ${fromLogin}`); this.pushState(); }
+  notify(msg) { this.toast(msg); this.pushState(); } // события игры: тренировка, бой, возврат армии, отчёты
+  sendChat(msg) { this.send({ t: 'chatmsg', msg }); }
+
+  result(r) { if (r && r.error) this.error(r.error); this.pushState(); }
+
+  handle(msg) {
+    // защита от подмены запросов: только объект с командой-строкой; ключи и значения вида __proto__/constructor/toString отвергаются
+    if (!msg || typeof msg !== 'object' || Array.isArray(msg) || typeof msg.t !== 'string') { this.game.secEvent(this.ip, 'bad', 'не команда'); return this.error('Неверный запрос.'); }
+    if (hasEvil(msg, 0)) { this.game.secEvent(this.ip, 'bad', `__proto__/constructor в «${String(msg.t).slice(0, 20)}»`); return this.error('Неверный запрос.'); }
+    // от флуда: не больше 25 запросов в секунду с соединения, при 200+ за 10 секунд соединение рвётся
+    if (!RATE_OFF) {
+      const now = Date.now(); this.rl = (this.rl || []).filter((t) => t > now - 10000); this.rl.push(now);
+      if (this.rl.length > 200) { this.log(`flood ${this.ip} ${this.user ? this.user.login : ''}`); this.game.secEvent(this.ip, 'flood', this.user ? this.user.login : ''); return this.socket.destroy(); }
+      if (this.rl.filter((t) => t > now - 1000).length > 25) return this.error('Слишком часто — подождите секунду.');
+    }
+    const fn = Object.prototype.hasOwnProperty.call(API, msg.t) ? API[msg.t] : null;
+    if (!fn) { this.game.secEvent(this.ip, 'bad', `неизвестная команда «${String(msg.t).slice(0, 30)}»`); return this.error(`Неизвестная команда ${msg.t}`); }
+    if (!['register', 'login', 'hello', 'captcha', 'ping', 'reset'].includes(msg.t) && !this.user) return this.error('Сначала войдите.');
+    this.failed = false;
+    const ret = fn.call(this, msg); if (ret && ret.catch) ret.catch((e) => { this.log(`handler error: ${e.stack}`); this.error('Ошибка сервера.'); });
+    // лояльность населения (Резиденция) растёт за действия, а не за онлайн
+    if (!this.failed && this.user && ROYAL_ACTIONS.has(msg.t)) this.game.royalGain(this.user);
+    // Зал Славы «Присутствие»: минуты в игре (пауза больше 5 минут не считается)
+    if (this.user) this.game.markActive(this.user); // день активности — для статистики «вернулся ли новичок»
+    if (this.user) { const t = Date.now(), last = this.actAt || t; this.actAt = t; this.presMs = (this.presMs || 0) + Math.min(t - last, 300000);
+      if (this.presMs >= 60000) { const m = Math.floor(this.presMs / 60000); this.presMs -= m * 60000; this.game.addStat(this.user.id, 'presence', m); } }
+  }
+}
+// Колесо Фортуны (wheel.js) — всем в игре: вид колеса (каждому свой: «вы участвуете»), сообщение чата, число участников.
+// Сначала колесо, потом сообщение — карточка в чате появляется сразу целиком. from — кто запустил (ему закрыть окно запуска)
+function wheelCast(g, out, from) {
+  const all = [...(WebSession.all || [])].filter((s) => s.user);
+  for (const ev of out) {
+    if (ev.view) for (const s of all) s.send({ t: 'wheel', w: g.wheelView(ev.view, s.user), ...(ev.made && s === from ? { made: 1 } : {}) });
+    if (ev.chat) for (const s of all) s.sendChat(ev.chat);
+    if (ev.cnt) for (const s of all) s.send({ t: 'wheeln', id: ev.cnt, n: ev.n });
+  }
+}
+// чат закрыт или открыт (chatmod.js) — всем в игре: плашка с отсчётом и сообщение модератора в ленте
+function chatClosedCast(g, r) {
+  for (const s of WebSession.all || []) if (s.user) { s.send({ t: 'chatclosed', until: r.until || 0 }); if (r.chat) s.sendChat(r.chat); }
+}
+// закрытая игра открылась сама по сроку (closedtest.js maintCheck): у открытых экранов входа заглушка исчезает, у админа — новое состояние
+function maintCast(g) {
+  const data = g.maintView();
+  for (const s of WebSession.all || []) { if (!s.user) s.send({ t: 'maint', msg: '' }); else if (s.user.admin) s.send({ t: 'admininfo', op: 'maint', data }); }
+}
+// «МАСТЕРА»: тем, кто открыл эту тему, — свежие сообщения; в списке тем — свежий список; остальным мастерам — счётчик непрочитанного
+function staffNotify(g, topic) {
+  for (const s of WebSession.all || []) {
+    if (!s.user || !g.staffOk(s.user)) continue;
+    if (topic === -1 && s.staffTopic === -1) { const o = s.linkUid ? g.linkOpen(s.linkUid) : null; s.send(o && !o.error ? { t: 'staff', view: 'linkth', data: o, live: 1 } : { t: 'staff', view: 'link', data: g.linkList(), live: 1 }); }
+    else if (topic > 0 && s.staffTopic === topic) { const o = g.staffOpen(s.user, topic); if (!o.error) s.send({ t: 'staff', view: 'topic', data: o, live: 1 }); else { s.staffTopic = 0; s.send({ t: 'staff', view: 'list', data: g.staffView(s.user) }); } }
+    else if (s.staffTopic === 0) s.send({ t: 'staff', view: 'list', data: g.staffView(s.user), live: 1 });
+    s.send({ t: 'staffnew', n: g.staffUnread(s.user) });
+  }
+}
+// «СВЯЗЬ»: игроку — свежая переписка (если окно открыто) и счётчик на конверте
+function linkPush(g, uid) {
+  for (const s of WebSession.all || []) if (s.user && s.user.id === uid) { if (s.linkMine) s.send({ t: 'link', data: g.linkMine(s.user), live: 1 }); s.pushState(); }
+}
+const RATE_OFF = process.env.RATE_OFF === '1'; // только для автотестов
+const PW_FAILS = new Map(); // игрок → время неверных попыток старого пароля при смене (passwd)
+// ключ для адресов файлов (код админ-панели, фото «МАСТЕРОВ»): живёт, только пока открыта игра (соединение), и не даёт войти.
+// Раньше в адрес шёл токен «Запомнить меня» (90 дней) — он оставался в загрузках телефона и в журналах
+const MEDIA = new Map(); // ключ → сессия
+const mediaUser = (q) => { const s = MEDIA.get(String(q.get('k') || '')); return s && s.user && !s.socket.destroyed ? s.user : null; };
+const PROTO_NAMES = new Set([...Object.getOwnPropertyNames(Object.prototype), 'prototype']);
+function hasEvil(v, depth) {
+  if (depth > 8) return true;
+  if (typeof v === 'string') return PROTO_NAMES.has(v);
+  if (v && typeof v === 'object') for (const k of Object.keys(v)) if (PROTO_NAMES.has(k) || hasEvil(v[k], depth + 1)) return true;
+  return false;
+}
+// замок для действия: текущий или (премиум) любой свой по cid
+function pickCastle(s, m) {
+  const id = Number(m && m.cid); if (!id || id === s.castle.id) return s.castle;
+  if (!s.game.isPremium(s.user)) { s.error('Управление всеми замками из одного окна — с премиумом.'); return null; }
+  const c = s.game.db.castles[id]; if (!c || c.owner !== s.user.id) { s.error('Это не ваш замок.'); return null; }
+  return c;
+}
+const ROYAL_ACTIONS = new Set(['forge', 'ritual', 'calm', 'build', 'wall', 'train', 'send', 'research', 'exchange', 'squad', 'artifact', 'religion']);
+
+const API = {
+  // справочник игры (~120 КБ) не шлём по сокету каждый раз: только отпечаток, а сам файл браузер берёт по HTTP
+  // (/catalog.json?h=… — сжатый и с вечным кэшем: при повторном входе он уже в памяти телефона)
+  hello() { this.send({ t: 'catalog', h: catalogFile().hash, v: VERSION, closed: this.game.closedOn(), maint: this.game.maintOn() ? this.game.maintMsg() : '' }); }, // maint — технические работы (closedtest.js): у игроков заглушка вместо входа // closed — закрытый тест (closedtest.js): экран входа без регистрации // v — версия игры: у открытой старой страницы клиент сам перезагрузится
+  // капча для регистрации: новая при каждом запросе и после каждой попытки
+  captcha() { const c = SEC.captcha(); this.captchaAns = { a: c.answer, exp: Date.now() + 300000 }; this.send({ t: 'captcha', img: c.img }); },
+  register(m) {
+    if (this.game.maintOn()) return this.send({ t: 'maint', msg: this.game.maintMsg() }); // технические работы
+    if (this.game.closedOn()) return this.error('Идёт закрытое тестирование — регистрация временно закрыта.');
+    const test = process.env.NO_CAPTCHA === '1'; // только для автотестов
+    if (this.game.devBanned(m.dev)) return this.error('Регистрация с этого устройства запрещена администрацией.');
+    const lim = !test && this.game.regAllowed(this.ip); if (lim) return this.error(lim);
+    const c = this.captchaAns; this.captchaAns = null;
+    const ok = test || (c && c.exp > Date.now() && Number(String(m.captcha || '').trim()) === c.a);
+    if (!ok) { API.captcha.call(this); return this.error('Неверный ответ на пример — попробуйте ещё раз.'); }
+    const res = this.game.register({ login: m.login, password: m.password, email: m.email, race: m.race, nick: m.nick });
+    if (res.error) { API.captcha.call(this); return this.error(res.error); }
+    this.game.regDone(this.ip);
+    res.user.regIp = this.ip; this.game.trackLogin(res.user, this.ip, m.dev); res.user.regDev = String(m.dev || '').slice(0, 40);
+    res.user.passLog = [{ at: Date.now(), by: 'reg', ip: this.ip, dev: String(m.dev || '').slice(0, 12), h: res.user.pass }]; // журнал паролей (game.js passLogPush)
+    this.log(`web registered ${res.user.login}`);
+    this.send({ t: 'registered', login: res.user.login });
+  },
+  login(m) {
+    const lockMsg = (sec) => this.send({ t: 'loginlock', sec, msg: `Слишком много неудачных попыток входа. Попробуйте через ${Math.ceil(sec / 60)} мин.` });
+    const wait = m.token ? 0 : this.game.loginBlocked(this.ip, m.login); if (wait) { this.log(`вход ${String(m.login || '').slice(0, 20)}: заблокирован ещё ${wait} с (адрес ${this.ip})`); this.game.secEvent(this.ip, 'lock', String(m.login || '').slice(0, 30)); return lockMsg(wait); }
+    // вход по паролю или по токену «Запомнить меня» (пароль в браузере не хранится)
+    const u = m.token ? this.game.tokenLogin(m.login, m.token) : this.game.login(m.login, m.password);
+    if (!u && m.token) return this.error('Сессия устарела — войдите заново.');
+    if (!u) {
+      const known = !!this.game.db.accts[String(m.login || '').trim().toLowerCase()];
+      this.log(`вход ${JSON.stringify(String(m.login || '').slice(0, 20))}: ${known ? `неверный пароль (${String(m.password || '').length} симв.)` : 'нет такого игрока'}`);
+      const lg = String(m.login || '').trim().toLowerCase(), ak = this.game.db.accts[lg], isAdm = lg === 'admin' || lg === String(process.env.ADMIN_LOGIN || '').trim().toLowerCase() || !!(ak && this.game.db.users[ak] && this.game.db.users[ak].admin);
+      this.game.secEvent(this.ip, isAdm ? 'admin' : 'login', isAdm ? 'вход в аккаунт администратора' : String(m.login || '').slice(0, 30)); // «Безопасность» (secwatch.js)
+      const w = this.game.loginFailed(this.ip, m.login); if (w) return lockMsg(w);
+      const left = this.game.loginTriesLeft(this.ip);
+      return this.error(`Неверный логин или пароль . Осталось попыток: ${left}.`);
+    }
+    if (!m.token) this.game.loginOk(this.ip);
+    if (this.game.maintOn() && !u.admin) { this.log(`вход ${u.login}: технические работы`); return this.send({ t: 'maint', msg: this.game.maintMsg() }); } // входит только администратор
+    this.game.trackLogin(u, this.ip, m.dev); this.dev = m.dev;
+    if (!u.admin && this.game.devBanned(m.dev)) return this.error('Это устройство заблокировано администрацией.');
+    if (!this.game.closedAllows(u)) { this.log(`вход ${u.login}: закрытый тест, не тестер`); return this.error('Идёт закрытое тестирование — вход только для тестеров.'); }
+    if (!this.game.banExpired(u)) return this.error(u.banUntil ? `Аккаунт заблокирован модерацией до ${new Date(u.banUntil + 3 * 3600000).toISOString().slice(0, 16).replace('T', ' ')} (МСК). Причина: ${u.banWhy || '—'}` : 'Аккаунт заблокирован администрацией.');
+    const prevSeen = u.lastSeen || 0, was = liveSession(u, this), prev = this.user !== u ? this.user : null; // was — уже в игре с другого устройства
+    this.user = u; u.online = true; u.lastSeen = Date.now(); this.game.markActive(u);
+    if (!was) allyPresenceCast(u, true);
+    if (prev && !liveSession(prev)) { prev.online = false; prev.lastSeen = Date.now(); allyPresenceCast(prev, false); } // вход под другим игроком без выхода
+    this.log(`web login ${u.login}`);
+    this.token = m.token ? String(m.token) : this.game.issueToken(u);
+    if (this.mkey) MEDIA.delete(this.mkey);
+    this.mkey = crypto.randomBytes(16).toString('hex'); MEDIA.set(this.mkey, this);
+    this.send({ t: 'auth', login: u.login, token: this.token, mkey: this.mkey });
+    if (u.admin && !m.token && String(m.password || '').toLowerCase() === 'admin') this.toast('⚠ У админа стандартный пароль «admin» — смените его: Админ-панель → Цель → Сменить пароль.');
+    this.pushState();
+    // советник встречает при входе: сколько игроков, что случилось за время отсутствия.
+    // Сервер шлёт доклад при каждом входе; клиент показывает его один раз за открытие игры (после обрыва связи — не повторяет)
+    this.send({ t: 'welcome', ...this.game.welcomeInfo(u, prevSeen), players: onlineCount() }); // сколько сейчас в игре — как «Игроки (N)» в чате
+  },
+  logout() {
+    const u = this.user; this.game.dropToken(u, this.token); MEDIA.delete(this.mkey); this.mkey = null; this.user = null;
+    if (!liveSession(u)) { u.online = false; u.lastSeen = Date.now(); allyPresenceCast(u, false); } // с другого устройства ещё в игре — остаётся «в игре»
+    this.send({ t: 'loggedout' });
+  },
+  sync() { this.pushState(); },
+  ping() { this.send({ t: 'pong' }); }, // проверка живости соединения (клиент после сворачивания приложения)
+  switch(m) { const r = this.game.switchCastle(this.user, m.id); if (r.error) return this.error(r.error); if (!m.quiet) this.toast(`Замок: ${this.castle.name}`); this.pushState(); }, // quiet — возврат в последний замок при входе
+  build(m) {
+    const res = this.game.startBuild(this.castle, Number(m.view), Number(m.cell), Number(m.building));
+    if (res.error) return this.error(res.error);
+    this.pushState();
+  },
+  // «Забыли пароль?» (mail.js, tgauth.js) — без входа: request — код на привязанную почту и в Telegram, confirm — код + новый пароль
+  reset(m) {
+    const g = this.game, op = String(m.op || '');
+    if (op === 'info') return this.send({ t: 'reset', info: g.tgAuthInfo(null), mail: g.mailInfo(null).on });
+    const r = op === 'confirm' ? g.resetConfirm(m.login, m.code, m.password, this.ip) : g.resetRequest(m.login, this.ip);
+    if (r.error) { if (op === 'confirm') g.secEvent(this.ip, 'login', `сброс пароля: ${String(m.login || '').slice(0, 30)}`); return this.send({ t: 'reset', op, ok: false, msg: r.error }); }
+    if (r.uid) for (const s of WebSession.all || []) if (s.user && s.user.id === r.uid) s.socket.destroy(); // прежние входы — из игры
+    this.send({ t: 'reset', op, ok: true, msg: r.msg, login: r.login });
+  },
+  // окно «Поход»: точное время пути (army.js marchEta) — как при отправке армии
+  eta(m) { const r = this.game.marchEta(this.game.castleOf(this.user), m || {}); this.send({ t: 'eta', key: String((m && m.key) || '').slice(0, 400), sec: r.sec }); },
+  // привязка почты в Профиле (mail.js): link — код на адрес (с паролем от аккаунта), confirm — код из письма, unlink — с паролем, cancel
+  email(m) {
+    const g = this.game, u = this.user, op = String(m.op || '');
+    const reply = (r) => this.send({ t: 'email', info: g.mailInfo(u), note: r ? { ok: !r.error, msg: r.error || r.msg } : null, done: r && !r.error ? op : '' });
+    if (op === 'link') return g.mailLinkStart(u, m.addr, m.password).then(reply);
+    if (op === 'confirm') return reply(g.mailLinkConfirm(u, m.code));
+    if (op === 'unlink') return g.mailUnlinkStart(u).then(reply); // код на привязанную почту
+    if (op === 'unlinkok') return reply(g.mailUnlinkConfirm(u, m.code));
+    if (op === 'uncancel') return reply(g.mailUnlinkCancel(u));
+    if (op === 'cancel') return reply(g.mailCancel(u));
+    reply(null);
+  },
+  // привязка Telegram в Профиле
+  tg(m) {
+    const g = this.game, op = String(m.op || '');
+    if (op === 'link') { const r = g.tgLinkStart(this.user); if (r.error) return this.error(r.error); return this.send({ t: 'tg', url: r.url, info: g.tgAuthInfo(this.user) }); }
+    if (op === 'buy') return g.payStart(this.user, m.pack, Date.now(), !!m.ally).then((r) => this.send(r.error ? { t: 'tg', buyErr: r.error } : { t: 'tg', url: r.url, buy: 1 })); // Казна (ally — казна альянса): счёт в звёздах (tgpay.js)
+    if (op === 'notify') { const r = g.tgNotifySet(this.user, String(m.kind || ''), !!m.on); if (r.error) return this.error(r.error); return this.send({ t: 'tg', info: g.tgAuthInfo(this.user) }); }
+    if (op === 'unlink' || op === 'unlinkok') { // отвязка: unlink — код в Telegram, unlinkok — ввод кода
+      const r = op === 'unlink' ? g.tgUnlinkStart(this.user) : g.tgUnlink(this.user, m.code);
+      return this.send({ t: 'tg', info: g.tgAuthInfo(this.user), note: { ok: !r.error, msg: r.error || r.msg } });
+    }
+    this.send({ t: 'tg', info: g.tgAuthInfo(this.user) });
+  },
+  // Ратуша → «Защита» (shield.js): view — сроки и цены; buy — купить
+  shield(m) {
+    const g = this.game;
+    if (['buy', 'off'].includes(m.op)) { // купить; снять купол насовсем (время сгорает)
+      const kind = String(m.kind || ''), r = m.op === 'buy' ? g.shieldBuy(this.user, this.castle, kind, m.days) : g.shieldOff(this.user, this.castle, kind);
+      this.pushState(); return this.send({ t: 'shield', data: g.shieldInfo(this.user, this.castle), note: { ok: !r.error, msg: r.error || r.msg } });
+    }
+    this.send({ t: 'shield', data: g.shieldInfo(this.user, this.castle) });
+  },
+  // «Лавка Короля» (shop.js): view — цены и лимиты; speed — ускорить стройку; chest — сундук ресурсов
+  shop(m) {
+    const g = this.game, u = this.user, op = String(m.op || '');
+    if (!g.shopAllowed(u)) return this.error('Лавка Короля скоро откроется.');
+    const DO = {
+      speed: () => g.shopSpeed(u, this.castle, m.key, m.mode), res: () => g.shopRes(u, this.castle, String(m.res || ''), m.size),
+      treasure: () => g.shopTreasure(u, String(m.id || '')), move: () => g.shopMove(u, this.castle, m.x, m.y), moveprov: () => g.shopMoveProv(u, this.castle, m.prov),
+      frame: () => g.shopFrame(u, m.id, false), frameuse: () => g.shopFrame(u, m.id, true),
+      fest: () => g.festival(u, this.castle, String(m.id || '')), // праздник Резиденции — из раздела «Лояльность»
+      rep: () => { const r = g.giveReputation(u, u.id, m.coins); return r.error ? r : { msg: `Репутация +${r.add} (теперь ${r.rep.toLocaleString('ru-RU')}).` }; }, // своя репутация
+    };
+    if (Object.prototype.hasOwnProperty.call(DO, op)) {
+      const r = DO[op]();
+      this.pushState();
+      return this.send({ t: 'shop', data: g.shopInfo(u), note: { ok: !r.error, msg: r.error || r.msg }, op, lines: r.lines || null }); // ответ — плашкой в окне лавки
+    }
+    this.send({ t: 'shop', data: g.shopInfo(u) });
+  },
+  wall() { const r = this.game.startWall(this.castle); if (r.error) return this.error(r.error); this.toast(`Стена: строится ${r.item.level} уровень.`); this.pushState(); },
+  avatar(m) {
+    const r = m.op === 'del' ? this.game.removeAvatar(this.user) : this.game.setAvatar(this.user, m.px, m.z, m.size);
+    if (r.error) return this.error(r.error);
+    this.toast(m.op === 'del' ? 'Аватар удалён.' : 'Аватар сохранён.');
+    API.profile.call(this, { id: this.user.id, acct: m.acct, refresh: 1 });
+  },
+  ritual(m) { const c = pickCastle(this, m); if (!c) return; const r = this.game.ritual(this.user, c, m.id, !!m.cid && this.game.isPremium(this.user)); if (m.cid) API.kingdom.call(this); if (r.msg) this.toast(r.msg); this.result(r); },
+  calm(m) { const c = pickCastle(this, m); if (!c) return; const r = this.game.calmRiot(this.user, c, m && m.pct !== undefined ? m.pct : 'all'); if (m && m.cid) API.kingdom.call(this); if (r.msg) this.toast(r.msg); this.result(r); },
+  magic(m) { const r = this.game.magicOp(this.castle, { unit: Number(m.unit), kind: m.kind }); if (r.msg) this.toast(r.msg); this.result(r); },
+  forge(m) { const r = this.game.forgeOp(this.castle, { unit: Number(m.unit), kind: m.kind }); if (r.msg) this.toast(r.msg); this.result(r); },
+  ally(m) {
+    // модератор форума / админ может открыть форум любого альянса (m.ally) — только просмотр и удаление
+    const mod = this.game.canModerate(this.user), foreign = mod && m.ally && Number(m.ally) !== this.user.alliance;
+    const al = foreign ? (this.game.db.alliances || {})[m.ally] : this.game.allianceOf(this.user);
+    if (!al) return this.error(foreign ? 'Альянс не найден.' : 'Вы не в альянсе.');
+    if (foreign && !['get', 'topicget', 'topicop', 'postdel'].includes(m.op)) return this.error('В чужом альянсе модератор может только удалять.');
+    if (m.op === 'get') return this.send({ t: 'ally', data: this.game.allyView(this.user, al) });
+    if (m.op === 'topicget') return this.send({ t: 'allytopic', data: this.game.allyTopic(this.user, al, m.topic) });
+    const r = this.game.allyOp(this.user, this.castle, m, al);
+    if (r.error) return this.error(r.error);
+    if (r.msg) this.toast(r.msg);
+    const al2 = foreign ? al : this.game.allianceOf(this.user);
+    if (al2 && m.op === 'postdel') this.send({ t: 'allytopic', data: this.game.allyTopic(this.user, al2, m.topic) });
+    if (al2) this.send({ t: 'ally', data: this.game.allyView(this.user, al2) });
+    if (al2 && (m.op === 'post' || m.op === 'topic')) this.send({ t: 'allytopic', data: this.game.allyTopic(this.user, al2, m.topic || r.topic) });
+    this.pushState();
+  },
+  moves() { this.send({ t: 'moves', data: this.game.kingdomMoves(this.user) }); },
+  festival(m) { const r = this.game.festival(this.user, this.castle, m.id); if (r.msg) this.toast(r.msg); this.result(r); },
+  demolish(m) {
+    const r = this.game.demolish(this.castle, Number(m.view), Number(m.cell));
+    if (r.error) return this.error(r.error);
+    this.toast(`Здание разрушено: ${r.name}`); this.pushState();
+  },
+  world(m) {
+    const c = this.castle, R = Math.max(13, Math.min(45, Math.round(Number(m.r)) || 13)); // участок мира: ±13…±45 клеток — сколько видно на экране клиента (отдалённая карта — вся провинция и соседи)
+    const lim = (v) => Math.max(R, Math.min(G.WORLD - 1 - R, Math.round(v))); // не за край карты
+    const cx = lim(Number.isFinite(m.cx) ? m.cx : c.x), cy = lim(Number.isFinite(m.cy) ? m.cy : c.y);
+    const objects = this.game.worldObjects(cx - R, cy - R, 2 * R + 1, 2 * R + 1);
+    const lair = this.game.lairOf(this.user); // логово похода «Тёмные земли» видно только хозяину
+    if (lair && !this.game.qinit(this.user).campWon && Math.abs(lair.x - cx) <= R && Math.abs(lair.y - cy) <= R) objects.push({ kind: 'object', x: lair.x, y: lair.y, img: 32, name: lair.npc.name, lair: true, qimg: (require('./quests').CAMP[lair.k] || {}).img });
+    const boss = this.game.bossNow(); // мировой босс виден всем
+    if (boss && Math.abs(boss.x - cx) <= R && Math.abs(boss.y - cy) <= R) objects.push({ kind: 'object', x: boss.x, y: boss.y, img: 33, name: boss.name, boss: { kind: boss.kind, hp: boss.hp, maxHp: boss.maxHp, end: boss.end } });
+    this.send({ t: 'world', cx, cy, radius: R, objects, home: { x: c.x, y: c.y } });
+  },
+  gift(m) {
+    const r = this.game.sendGift(this.user, m.to, m.gift, m.text, !!m.ally); // ally — из казны альянса
+    if (r.error) return this.error(r.error);
+    this.toast(r.msg);
+    const to = this.game.userById(Number(m.to));
+    for (const s of WebSession.all || []) if (s.user && to && s.user.id === to.id) { s.pushState(); if (s.dialogWith === this.user.id) API.dialog.call(s, { id: this.user.id, keep: 1 }); } // получателю — оповещение и сообщение сразу
+    this.send({ t: 'profile', refresh: true, profile: this.game.profileOf(to, this.user) });
+  },
+  // даритель удаляет свой подарок у получателя за монеты (social.js deleteGift); клиент убирает его из открытого профиля
+  // окно «Подарки» игрока — страницами (social.js giftPage)
+  giftlist(m) { const u = this.game.userById(Number(m.id)); if (!u || u.nobody) return this.error('Игрок не найден.'); this.send({ t: 'giftlist', ...this.game.giftPage(u, m.page) }); },
+  giftdel(m) {
+    const r = this.game.deleteGift(this.user, m.to, m.at, m.gift);
+    if (r.error) return this.error(r.error);
+    this.toast(r.msg); this.pushState();
+    this.send({ t: 'giftdel', to: Number(m.to), at: Number(m.at), gift: String(m.gift) });
+  },
+  avalike(m) { const r = this.game.avaLike(this.user, m.id); if (r.error) return this.error(r.error); this.send({ t: 'avalikes', done: r.msg, ...this.game.avaLikes(this.user, m.id) }); },
+  avalikes(m) { const r = this.game.avaLikes(this.user, m.id); if (r.error) return this.error(r.error); this.send({ t: 'avalikes', ...r }); },
+  profile(m) {
+    const k = m.login !== undefined ? String(m.login).trim() : null, U = this.game.db.users; // по нику — «Подарки» из Лавки
+    const u = k !== null ? (Object.prototype.hasOwnProperty.call(U, k) ? U[k] : Object.values(U).find((x) => x.login.toLowerCase() === k.toLowerCase()))
+      : this.game.userById(Number(m.id) || this.user.id);
+    if (!u) return this.error('Игрок не найден.');
+    if (u.nobody) return this.error('Ничейные земли — у них нет хозяина.'); // служебный владелец ничейных замков (nobody.js)
+    const profile = this.game.profileOf(u, this.user);
+    if (m.acct && u.id === this.user.id) { // «Кабинет → Профиль»: настройки своего аккаунта
+      const c = this.castle, v = this.user.violations || 0;
+      profile.acct = { castleName: c.name, castleDesc: c.desc || '', premium: this.game.isPremium(this.user), violations: v, uid: this.user.id, acctLogin: this.user.admin ? '' : this.user.acct || '', tg: this.game.tgAuthInfo(this.user), mail: this.game.mailInfo(this.user) };
+    }
+    this.send({ t: 'profile', acct: !!profile.acct, refresh: !!m.refresh, profile });
+  },
+  passwd(m) {
+    const t = Date.now(), u = this.user; PW_FAILS.set(u.id, (PW_FAILS.get(u.id) || []).filter((x) => x > t - 600000));
+    if (PW_FAILS.get(u.id).length >= 5) return this.error('Слишком много попыток со старым паролем. Попробуйте через 10 минут.');
+    const r = this.game.changePassword(u, m.old, m.new, this.ip, this.dev);
+    if (r.error) { if (/Старый пароль/.test(r.error)) { PW_FAILS.get(u.id).push(t); this.game.secEvent(this.ip, 'login', `смена пароля ${u.login}: неверный старый`); } return this.error(r.error); }
+    PW_FAILS.delete(u.id);
+    for (const s of WebSession.all || []) if (s !== this && s.user === u) s.socket.destroy(); // пароль сменили — другие устройства выходят сразу, а не при следующем входе
+    this.token = this.game.issueToken(this.user);
+    this.send({ t: 'auth', login: this.user.login, token: this.token, mkey: this.mkey }); // новый токен «Запомнить меня»
+    this.toast('Пароль изменён. На других устройствах нужно войти заново.');
+  },
+  // задания: окно «Задания» и награды
+  quests() { this.send({ t: 'quests', q: this.game.questsState(this.user, this.castle) }); },
+  qclaim(m) {
+    const r = this.game.questClaim(this.user, this.castle, String(m.kind || ''), String(m.id || ''));
+    if (r.error) return this.error(r.error);
+    this.send({ t: 'qdone', msg: r.msg, head: r.head, name: r.name, rc: r.rc }); this.pushState(); API.quests.call(this);
+  },
+  nickcase(m) { const r = this.game.changeNick(this.user, m.nick); if (r.error) return this.error(r.error); this.send({ t: 'renamed', login: this.user.login }); this.toast(`Ваш новый ник: ${this.user.login} (−${require('./words').coins(r.price)}). Входите под ним.`); this.pushState(); API.profile.call(this, { id: this.user.id, acct: 1, refresh: 1 }); },
+  msgcolor(m) { const r = this.game.setMsgColor(this.user, m.i); if (r.msg) this.toast(r.msg); this.result(r); this.pushState(); },
+  castleinfo(m) { const r = this.game.castleInfo(this.user, m.name, m.desc); if (r.error) return this.error(r.error); this.toast('Замок переименован.'); API.profile.call(this, { id: this.user.id, acct: 1, refresh: 1 }); },
+  // ---- Боевой ранг (server/src/battlerank.js) ----
+  brank(m) {
+    if (m.op === 'claim') { // забрать сундуки наград за новые ранги (до ранга m.upto или все) — в Кладовую
+      const r = this.game.brClaim(this.user, Number.isInteger(m.upto) ? m.upto : undefined); if (r.error) return this.error(r.error);
+      this.toast(r.msg); this.send({ t: 'brank', data: this.game.brView(this.user, this.user) }); return this.pushState();
+    }
+    if (m.op === 'top') return this.send({ t: 'brtop', data: this.game.brTop(this.user, m.page) }); // вкладка «Топ»: рейтинг по боевому рангу
+    const u = this.game.userById(Number(m.id) || this.user.id); if (!u) return this.error('Игрок не найден.'); this.send({ t: 'brank', data: this.game.brView(this.user, u) });
+  },
+  // ---- «Приватность» (server/src/privacy.js) ----
+  privacy(m) {
+    let r = null;
+    if (m.op === 'who') r = this.game.privacySet(this.user, m.who);
+    else if (m.op === 'add') r = this.game.blackAdd(this.user, m.who);
+    else if (m.op === 'del') r = this.game.blackDel(this.user, m.id);
+    if (r && r.error) return this.error(r.error);
+    if (r) { this.toast(r.msg); this.pushState(); }
+    this.send({ t: 'privacy', data: this.game.privacyView(this.user) });
+  },
+  // ---- Биржа Замков (server/src/market.js) ----
+  market() { this.send({ t: 'market', state: this.game.marketState(this.user) }); },
+  marketsell(m) { const r = this.game.marketSell(this.user, m.id, m.price); if (r.error) return this.error(r.error); this.toast(r.msg); API.market.call(this); },
+  marketcancel(m) { const r = this.game.marketCancel(this.user, m.id); if (r.error) return this.error(r.error); this.toast(r.msg); API.market.call(this); },
+  marketbuy(m) {
+    const r = this.game.marketBuy(this.user, m.id); if (r.error) { this.error(r.error); return API.market.call(this); }
+    this.send({ t: 'marketdone', msg: r.msg, castle: r.castle }); this.pushState(); API.market.call(this);
+    pushTo(r.seller); // продавцу — замок ушёл, золото пришло
+  },
+  // ---- «Орёл-решка» (server/src/coin.js) ----
+  coin() { this.coinOpen = true; this.send({ t: 'coin', state: this.game.coinState(this.user, this.castle) }); },
+  coinbet(m) {
+    const r = this.game.coinBet(this.user, this.castle, m.res, m.amount, m.side, m.to); if (r.error) return this.error(r.error);
+    this.toast(r.msg); this.pushState(); API.coin.call(this); pushTo(r.to);
+    for (const s of WebSession.all || []) if (s.user && s.user.id !== this.user.id && s.coinOpen) API.coin.call(s); // у всех, кто смотрит список, — новый вызов
+  },
+  coincancel(m) { const r = this.game.coinCancel(this.user, m.id); if (r.error) return this.error(r.error); this.toast(r.msg); this.pushState(); API.coin.call(this); },
+  coinaccept(m) {
+    const r = this.game.coinAccept(this.user, this.castle, m.id); if (r.error) { this.error(r.error); return API.coin.call(this); }
+    const { other, ...res } = r;
+    this.send({ t: 'coinres', res }); this.pushState(); API.coin.call(this); pushTo(other);
+    for (const s of WebSession.all || []) if (s.user && s.user.id !== this.user.id && s.coinOpen) API.coin.call(s);
+  },
+  coinwin(m) { this.coinOpen = !!m.open; },
+  // ---- «Сундучки» (server/src/chests.js) ----
+  chests() { this.send({ t: 'chests', state: this.game.chestsState(this.user) }); },
+  chestopen(m) {
+    const r = this.game.chestOpen(this.user, m.pick, !!m.golden); if (r.error) { this.error(r.error); return API.chests.call(this); }
+    this.send({ t: 'chestres', res: r }); this.pushState();
+    if (r.chat) for (const s of WebSession.all || []) if (s.user && s.sendChat) s.sendChat(r.chat);
+  },
+  // ---- ЗАГС (server/src/zags.js) ----
+  zags() { this.send({ t: 'zags', home: this.game.zagsHome(this.user) }); },
+  zprops() { this.send({ t: 'zprops', data: this.game.proposals(this.user) }); },
+  zpairs() { this.send({ t: 'zpairs', list: this.game.pairsList() }); },
+  zpair(m) { const r = this.game.pairPage(this.user, m.id); if (r.error) return this.error(r.error); this.send({ t: 'zpair', pair: r }); },
+  zpropose(m) { const r = this.game.propose(this.user, m.to, m.text, m.role); if (r.error) return this.error(r.error); this.send({ t: 'zdone', msg: r.msg, go: 'props' }); this.pushState(); pushTo(this.game.db.users[String(m.to || '').trim()]); },
+  zanswer(m) {
+    const p = (this.game.db.proposals || []).find((x) => x.id === Number(m.id)), other = p && this.game.userById(p.from === this.user.id ? p.to : p.from);
+    const r = this.game.proposalAnswer(this.user, m.id, String(m.op || '')); if (r.error) { this.error(r.error); return API.zprops.call(this); }
+    this.send({ t: 'zdone', msg: r.msg, pair: r.pair, go: r.pair ? 'pair' : 'props' }); this.pushState(); pushTo(other);
+  },
+  zdivorce() { const m = this.game.marriageOf(this.user), other = m && this.game.userById(m.king === this.user.id ? m.queen : m.king); const r = this.game.divorce(this.user); if (r.error) return this.error(r.error); this.send({ t: 'zdone', msg: r.msg, go: 'home' }); pushTo(other); },
+  zvote(m) { const r = this.game.pairVote(this.user, m.id, m.coins); if (r.error) return this.error(r.error); this.toast(r.msg); this.pushState(); API.zpair.call(this, m); },
+  zgift(m) { const r = this.game.pairGift(this.user, m.id, m.gift); if (r.error) return this.error(r.error); this.toast(r.msg); this.pushState(); API.zpair.call(this, m); },
+  zcomment(m) { const r = m.del ? this.game.pairCommentDel(this.user, m.id, m.del) : this.game.pairComment(this.user, m.id, m.text); if (r.error) return this.error(r.error); API.zpair.call(this, m); },
+  // ---- кабинет (server/src/social.js) ----
+  rep(m) {
+    const r = this.game.giveReputation(this.user, m.id, m.coins); if (r.error) return this.error(r.error);
+    this.toast(`Репутация +${r.add} (теперь ${r.rep}).`); this.pushState();
+    this.send({ t: 'profile', refresh: true, profile: this.game.profileOf(this.game.userById(Number(m.id)), this.user) });
+  },
+  friend(m) {
+    const r = this.game.friendOp(this.user, String(m.op || ''), m.id); if (r.error) return this.error(r.error); this.toast(r.msg);
+    const o = this.game.userById(Number(m.id)); if (o) pushTo(o);
+    if (m.view === 'my') API.myfriends.call(this); else if (m.view === 'list') API.friends.call(this);
+    this.pushState();
+  },
+  myfriends() { this.send({ t: 'myfriends', data: this.game.friendsView(this.user) }); },
+  bday(m) { const r = this.game.setBirthday(this.user, m.day, m.month); if (r.error) return this.error(r.error); this.toast(r.msg); this.send({ t: 'bday', bday: this.user.bday || '' }); },
+  friends() { this.send({ t: 'players', kind: 'friends', list: this.game.friendsOf(this.user) }); },
+  search(m) { this.send({ t: 'players', kind: 'search', q: m.q || '', list: this.game.searchPlayers(m.q) }); },
+  nearby() { this.send({ t: 'players', kind: 'nearby', list: this.game.nearby(this.user) }); },
+  notes(m) { if (typeof m.text === 'string') { this.game.setNotes(this.user, m.text); this.toast('Блокнот сохранён.'); } this.send({ t: 'notes', text: this.user.notes || '' }); },
+  about(m) { this.game.setAbout(this.user, m.text); this.toast('Сохранено.'); },
+  chat(m) {
+    const r = this.game.chatPost(this.user, m.text); if (r.error) return this.error(r.error);
+    for (const s of WebSession.all || []) if (s.user && s.sendChat) s.sendChat(r.msg);
+  },
+  premium(m) { const r = this.game.buyPremium(this.user, m.days, m.to); if (r.error) return this.error(r.error); this.toast(r.msg); this.pushState(); },
+  chatvote(m) {
+    const r = this.game.chatVote(this.user, m.id, m.v); if (r.error) return this.error(r.error);
+    for (const s of WebSession.all || []) if (s.user) s.send({ t: 'chatvote', id: r.id, up: r.up, dn: r.dn });
+  },
+  chatmod(m) {
+    const g = this.game, op = String(m.op || '');
+    // мягкие меры (chatmod.js): предупреждение — игрок видит окно, пока не нажмёт «Понятно»; закрыть чат на время
+    if (op === 'warnseen') { g.chatWarnSeen(this.user); return this.pushState(); }
+    if (op === 'info') { const r = g.chatWarnInfo(this.user, m.login); if (r.error) return this.error(r.error); return this.send({ t: 'chatmodinfo', data: r }); }
+    if (op === 'warn') { const r = g.chatWarn(this.user, m.login, m.rule); if (r.error) return this.error(r.error); this.toast(r.msg); pushTo(r.to);
+      const i = g.chatWarnInfo(this.user, r.to.login); if (!i.error) this.send({ t: 'chatmodinfo', data: i }); return; }
+    if (op === 'close') { const r = g.chatClose(this.user, m.minutes); if (r.error) return this.error(r.error); this.toast(r.msg); return chatClosedCast(g, r); }
+    const r = op === 'del' ? g.chatDelete(this.user, m.id) : g.chatBanUser(this.user, m.login, m.hours, m.rule);
+    if (r.error) return this.error(r.error);
+    if (op === 'del') for (const s of WebSession.all || []) if (s.user) { s.send({ t: 'chatdel', id: Number(m.id) }); if (r.poll) s.send({ t: 'chatpoll', id: r.poll, gone: 1, pin: g.chatPollPin() }); }
+    this.toast(r.msg || 'Сообщение удалено.');
+  },
+  // «Модерация» старшего модератора (smod.js): данные, сведения об игроке, действия
+  smod(m) {
+    const g = this.game, op = String(m.op || 'view');
+    if (op === 'view') { const r = g.smodView(this.user); if (r.error) return this.error(r.error); return this.send({ t: 'smod', view: 'main', data: r }); }
+    if (op === 'player') { const r = g.smodPlayer(this.user, m.login); if (r.error) return this.send({ t: 'smod', view: 'deny', msg: r.error }); return this.send({ t: 'smod', view: 'player', data: r }); }
+    const r = g.smodOp(this.user, m); if (r.error) return this.send({ t: 'smod', view: 'deny', msg: r.error });
+    this.send({ t: 'smod', view: 'ok', msg: r.msg });
+    if (r.kick) for (const s of WebSession.all || []) if (s.user && s.user.id === r.kick) s.socket.destroy(); // заблокированного — из игры
+    this.send({ t: 'smod', view: 'main', data: g.smodView(this.user) });
+    if (m.login && op !== 'nick') { const p = g.smodPlayer(this.user, m.login); if (!p.error) this.send({ t: 'smod', view: 'player', data: p }); }
+  },
+  chatlog() { this.send({ t: 'chatlog', list: this.game.chatLog(), closed: this.game.chatClosedUntil(), ...this.game.chatPollViews(this.user), ...this.game.chatWheelViews(this.user) }); },
+  // опрос в общем чате (chatpoll.js): создаёт и ведёт только админ, голосуют все; итоги — каждому своим видом
+  chatpoll(m) {
+    const g = this.game, r = g.chatPollOp(this.user, { ...m, op: String(m.op || '') });
+    if (r.error) return this.error(r.error);
+    if (r.note) this.toast(r.note);
+    const all = [...(WebSession.all || [])].filter((s) => s.user);
+    if (r.gone) { for (const s of all) s.send({ t: 'chatpoll', id: r.poll, gone: 1, msgId: r.msgId, pin: g.chatPollPin() }); return; }
+    // сначала опрос (каждому — свой вид: итоги после голоса), потом сообщение «📊 Опрос: …» — карточка появляется сразу целиком
+    for (const s of all) s.send({ t: 'chatpoll', id: r.poll, poll: g.chatPollView(r.poll, s.user), pin: g.chatPollPin(), ...(s === this && r.msg ? { made: 1 } : {}) });
+    if (r.msg) for (const s of all) if (s.sendChat) s.sendChat(r.msg);
+  },
+  // «Колесо Фортуны» (wheel.js): запускает и ведёт админ, «Участвую» — игроки (с одного телефона — один аккаунт)
+  wheel(m) {
+    const g = this.game, op = String(m.op || '');
+    if (op === 'join') { const r = g.wheelJoin(this.user, m.id, this.dev); if (r.error) return this.error(r.error); this.toast(r.msg); return this.send({ t: 'wheel', w: g.wheelView(m.id, this.user) }); }
+    const r = g.wheelOp(this.user, { ...m, op }); if (r.error) return this.error(r.error);
+    if (r.note) this.toast(r.note);
+    wheelCast(g, r.out || [], this);
+  },
+  // фото в общий чат — только админ (pics.js): begin — размеры, part — сжатые части; готово — сообщение всем
+  async chatpic(m) {
+    if (m.op === 'begin') { const r = this.game.picBeginChat(this.user, m.w, m.h, m.n, m.caption); if (r.error) return this.error(r.error); this.chatPicUp = r.up; return this.send({ t: 'chatpicok', i: 0 }); }
+    if (m.op !== 'part' || !this.chatPicUp) return this.error('Фото: начните отправку заново.');
+    const up = this.chatPicUp, r = await this.game.picPart(this.user, up, m.i, m.data);
+    if (r.error) { this.chatPicUp = null; return this.error(r.error); }
+    if (r.more) return this.send({ t: 'chatpicok', i: up.parts.length });
+    this.chatPicUp = null; this.send({ t: 'chatpicok', done: true });
+    for (const s of WebSession.all || []) if (s.user && s.sendChat) s.sendChat(r.chat);
+  },
+  // «Игроки (N)» в главном чате: кто сейчас в игре (только ники)
+  chatusers() {
+    const seen = onlineUsers();
+    this.send({ t: 'chatusers', list: [...seen.values()].sort((a, b) => a.login.localeCompare(b.login)) });
+  },
+  ratings(m) {
+    const k = m.kind;
+    const list = k === 'castles' ? this.game.ratingCastles() : k === 'alliances' ? this.game.ratingAlliances() : k === 'reputation' ? this.game.ratingReputation() : null;
+    if (!list) return API.rating.call(this);
+    this.send({ t: 'ratings', kind: k, list });
+  },
+  // общий форум: просмотр (sections/topics/posts/favs) и действия (topic/post/fav/topicop/postdel/ban/secmod)
+  forum(m) {
+    const g = this.game, u = this.user, op = String(m.op || '');
+    const view = (v) => { if (v && v.error) return this.error(v.error); return v; };
+    if (op === 'sections') return this.send({ t: 'forum', view: 'sections', data: g.forumSections(u) });
+    if (op === 'topics') { const v = view(g.forumTopics(u, m.section, m.page)); if (v) this.send({ t: 'forum', view: 'topics', data: v }); return; }
+    if (op === 'posts') { const v = view(g.forumPosts(u, m.topic, m.page)); if (v) this.send({ t: 'forum', view: 'posts', data: v }); return; }
+    if (op === 'favs') return this.send({ t: 'forum', view: 'favs', data: g.forumFavs(u) });
+    const r = g.forumOp(u, m);
+    if (r.error) return this.error(r.error);
+    if (r.msg) this.toast(r.msg);
+    if (op === 'topic' || op === 'post') { const v = g.forumPosts(u, r.topic, -1); if (!v.error) this.send({ t: 'forum', view: 'posts', data: v, replace: op === 'topic' ? 0 : 1, scroll: op === 'post' ? 1 : 0 }); return; }
+    if (op === 'secmod') return this.send({ t: 'forum', view: 'sections', data: g.forumSections(u), replace: 1 });
+    if (r.topic) { const v = g.forumPosts(u, r.topic, m.page); if (!v.error) this.send({ t: 'forum', view: 'posts', data: v, replace: 1, ...(op === 'pollcreate' ? { pollMade: 1 } : {}) }); else if (r.section) this.send({ t: 'forum', view: 'topics', data: g.forumTopics(u, r.section, 0), replace: 1 }); }
+  },
+  // чьи места показывать: свой зал или игрока, из профиля которого открыт Зал славы
+  allyinfo(m) { const al = Object.prototype.hasOwnProperty.call(this.game.db.alliances || {}, String(m.id)) ? this.game.db.alliances[m.id] : null; if (!al) return this.error('Альянс не найден.'); this.send({ t: 'allyinfo', ally: this.game.allyPublic(al), mine: this.user.alliance === al.id }); },
+  devinfo(m) { if (this.game.devInfo(this.user, this.ip, m) === 'banned') { this.error('Это устройство заблокировано администрацией.'); this.user.online = false; setTimeout(() => this.socket.destroy(), 300); } },
+  hall(m) { const r = this.game.hallPage(hallWho(this, m), String(m.id || ''), m.page); if (r.error) return this.error(r.error); this.send({ t: 'hall', hall: r }); },
+  halls(m = {}) { const who = hallWho(this, m), me = who.id, list = this.game.halls().map(({ all, ...h }) => ({ ...h, pos: h.pos[me] || 0, mine: this.game.hallValue(who, h.id), top: h.top })), s = this.game.season(); this.send({ t: 'halls', who: { id: who.id, login: who.login, self: who.id === this.user.id, admin: !!who.admin }, list, pages: SOC.HALL_PAGES, season: { key: s.key, end: s.end }, last: (this.game.db.hallHistory || []).slice(-1)[0] || null }); },
+  rating() {
+    const rows = this.game.leaderboard().slice(0, 500).map(({ u, r }) => ({ id: u.id, login: u.login, race: C.RACE_NAMES[u.race], raceId: u.race, rating: r }));
+    this.send({ t: 'rating', rows });
+  },
+  mail(m) {
+    const folder = Number(m.folder) || 0;
+    const list = this.game.mailList(this.user.id, folder).map((x) => {
+      const other = this.game.userById(folder === 1 ? x.to : x.from);
+      return { id: x.id, other: other ? other.login : '?', subject: x.subject, at: x.at, read: x.read };
+    });
+    this.send({ t: 'mail', folder, list });
+  },
+  // «Сообщения» как в оригинале: список переписок (последнее сообщение от каждого собеседника) и диалог с одним игроком
+  // новости от администрации: список / чтение / публикация / комментарии
+  news(m) {
+    const g = this.game, u = this.user, op = String(m.op || 'list');
+    if (op === 'list') return this.send({ t: 'news', view: 'list', data: g.newsList(u, m.page) });
+    if (op === 'get') { if (m.all) g.newsReadAll(u); const r = g.newsGet(u, m.id); if (r.error) return this.error(r.error); this.send({ t: 'news', view: 'item', data: r }); return this.pushState(); }
+    const r = g.newsOp(u, m); if (r.error) return this.error(r.error); this.toast(r.msg);
+    if (op === 'comment' || op === 'cmtdel' || op === 'cmtlock') { const it = g.newsGet(u, r.id); if (!it.error) this.send({ t: 'news', view: 'item', data: it, scroll: op === 'comment' ? 1 : 0 }); }
+    if (op === 'publish' || op === 'delete') { for (const s of WebSession.all || []) if (s.user) s.pushState(); }
+    if (op !== 'publish') this.send({ t: 'news', view: 'list', data: g.newsList(u, 0), quiet: 1 });
+  },
+  dialogclose() { this.dialogWith = undefined; },
+  dialogs(m) {
+    const me = this.user.id, by = new Map();
+    for (const x of this.game.db.messages || []) {
+      if ((x.to !== me && x.from !== me) || !this.game.msgSees(x, me)) continue; // удалённое у себя — не в списке
+      const o = x.from === me ? x.to : x.from, d = by.get(o) || { unread: 0 };
+      if (x.to === me && !x.read) d.unread++;
+      d.last = x; by.set(o, d);
+    }
+    const list = [...by.entries()].map(([id, d]) => { const u = this.game.userById(id); return u ? { id, login: u.login, race: u.race, avatar: u.avatar || 0, frame: u.frame || '',
+      text: d.last.text || d.last.subject || '', at: d.last.at, mine: d.last.from === me, unread: d.unread } : null; }).filter(Boolean).sort((a, b) => b.at - a.at);
+    const page = Math.max(0, Math.floor(Number(m.page)) || 0), pages = Math.max(1, Math.ceil(list.length / 10)), pg = Math.min(page, pages - 1);
+    const filter = m.filter === 'unread' ? list.filter((x) => x.unread) : list;
+    this.send({ t: 'dialogs', page: pg, pages: Math.max(1, Math.ceil(filter.length / 10)), filter: m.filter || 'all', list: filter.slice(pg * 10, pg * 10 + 10), total: list.length });
+  },
+  dialog(m) {
+    const me = this.user.id, key = String(m.with || '').trim();
+    const o = Number(m.id) ? this.game.userById(Number(m.id)) : Object.prototype.hasOwnProperty.call(this.game.db.users, key) ? this.game.db.users[key] : null;
+    if (!o) return this.error('Игрок не найден.');
+    if (!m.keep || this.dialogWith === undefined) this.dialogWith = o.id;
+    const all = (this.game.db.messages || []).filter((x) => ((x.from === me && x.to === o.id) || (x.from === o.id && x.to === me)) && this.game.msgSees(x, me)); // удалённое у себя — не показываем
+    let changed = false; for (const x of all) if (x.to === me && !x.read) { x.read = true; changed = true; }
+    if (changed) { this.game.store.save(); this.pushState(); }
+    const lim = Math.min(all.length, Math.max(30, Math.floor(Number(m.more)) || 30));
+    this.send({ t: 'dialog', with: { id: o.id, login: o.login, race: o.race, avatar: o.avatar || 0, frame: o.frame || '', friend: this.game.friendState ? this.game.friendState(this.user, o) : null,
+      deny: this.game.canReach(this.user, o, 'msg') || '' }, more: all.length > lim, // писать нельзя — вместо поля ввода причина (dialogs.js)
+      list: all.slice(-lim).map((x) => msgOut(this.game, x, me)), keep: !!m.keep });
+  },
+  // «История» переписки: страницы по 20 сообщений, под каждым — «Переслать»
+  dialoghist(m) { const r = this.game.dialogHistory(this.user, m.id, m.page); if (r.error) return this.error(r.error); this.send({ t: 'dialoghist', ...r, list: r.list.map((x) => msgOut(this.game, x, this.user.id)) }); },
+  // «Изменить»: удалить отмеченные (ids) или весь разговор (with) — только у себя
+  msgdel(m) {
+    const w = m.with !== undefined ? Number(m.with) : null; if (w !== null && !this.game.userById(w)) return this.error('Игрок не найден.');
+    const r = this.game.msgDelete(this.user, w !== null ? [] : [].concat(m.ids || []).slice(0, 200), w);
+    this.toast(r.n ? `Удалено сообщений: ${r.n}.` : 'Нечего удалять.'); this.pushState();
+    if (w !== null || m.dlg) API.dialog.call(this, { id: w !== null ? w : Number(m.dlg), keep: 1 });
+  },
+  // конверт в списке «Сообщения»: удалить все / прочитанные / с новыми переписки или отметить всё прочитанным; в ответ — та же страница
+  msgbulk(m) {
+    const op = ['all', 'read', 'new', 'readall'].includes(m.op) ? m.op : null; if (!op) return this.error('Неизвестное действие.');
+    const r = this.game.msgBulk(this.user, op);
+    this.toast(op === 'readall' ? (r.n ? `Прочитано сообщений: ${r.n}.` : 'Новых сообщений нет.') : r.dialogs ? `Удалено переписок: ${r.dialogs}.` : 'Нечего удалять.');
+    this.pushState(); API.dialogs.call(this, { page: m.page, filter: m.filter });
+  },
+  msgfwd(m) { // «Переслать» сообщение: получателю — как новое письмо (открыта переписка — обновится сразу)
+    const r = this.game.msgForward(this.user, m.id, m.to); if (r.error) return this.error(r.error); this.toast(r.msg);
+    for (const s of WebSession.all || []) if (s.user && s.user.id === r.to.id) { if (s.dialogWith === this.user.id) API.dialog.call(s, { id: this.user.id, keep: 1 }); else if (s.notifyMail) s.notifyMail(this.user.login); }
+  },
+  read(m) {
+    const x = (this.game.db.messages || []).find((y) => y.id === Number(m.id) && this.game.msgSees(y, this.user.id)); // участник и не удалил у себя
+    if (!x) return this.error('Письмо не найдено.');
+    if (x.to === this.user.id && !x.read) { x.read = true; this.game.store.save(); }
+    const from = this.game.userById(x.from), to = this.game.userById(x.to);
+    this.send({ t: 'letter', letter: { id: x.id, from: from && from.login, to: to && to.login, subject: x.subject, text: x.text, at: x.at } });
+  },
+  // фото в личных сообщениях (pics.js): begin → part… → сообщение с фото на 3 часа
+  // скриншот к новости (news.js): begin → part… → id для формы публикации
+  async newspic(m) {
+    if (m.op === 'begin') { const r = this.game.newsPicBegin(this.user, m.w, m.h, m.n); if (r.error) return this.error(r.error); this.npUp = r.up; return this.send({ t: 'newspicok', i: 0 }); }
+    if (m.op !== 'part' || !this.npUp) return this.error('Скриншот: начните загрузку заново.');
+    const r = await this.game.newsPicPart(this.user, this.npUp, m.i, m.data);
+    if (r.error) { this.npUp = null; return this.error(r.error); }
+    if (r.more) return this.send({ t: 'newspicok', i: this.npUp.parts.length });
+    this.npUp = null; this.send({ t: 'newspicok', done: true, id: r.id });
+  },
+  // «МАСТЕРА» (staff.js): view — темы; open — сообщения темы; остальное — действия. Изменение темы сразу видят все её участники
+  staff(m) {
+    const g = this.game, op = String(m.op || '');
+    if (!g.staffOk(this.user)) return this.error('Раздел только для мастеров.');
+    if (op === 'leave') { this.staffTopic = undefined; return; } // окно раздела закрыто — живые обновления не нужны
+    if (op === 'view') { this.staffTopic = 0; return this.send({ t: 'staff', view: 'list', data: g.staffView(this.user) }); }
+    if (op === 'link') { this.staffTopic = -1; this.linkUid = 0; return this.send({ t: 'staff', view: 'link', data: g.linkList() }); } // «СВЯЗЬ» (link.js): переписки игроков
+    if (op === 'linkopen') { const r = g.linkOpen(m.uid); if (r.error) return this.error(r.error); this.staffTopic = -1; this.linkUid = r.uid; return this.send({ t: 'staff', view: 'linkth', data: r }); }
+    if (op === 'open') { const r = g.staffOpen(this.user, m.topic); if (r.error) return this.error(r.error); this.staffTopic = r.topic.id; this.send({ t: 'staff', view: 'topic', data: r }); return this.pushState(); }
+    const r = g.staffOp(this.user, m); if (r.error) return this.error(r.error);
+    if (r.msg) this.toast(r.msg);
+    if (op === 'newtopic') { const o = g.staffOpen(this.user, r.topic); this.staffTopic = r.topic; this.send({ t: 'staff', view: 'topic', data: o }); }
+    if (r.gone) { this.staffTopic = 0; this.send({ t: 'staff', view: 'list', data: g.staffView(this.user) }); }
+    staffNotify(g, r.link ? -1 : r.topic || r.gone);
+    if (r.link) linkPush(g, r.link);
+  },
+  // «СВЯЗЬ» игрока (link.js): view — переписка (ответы мастеров прочитаны); post — сообщение; leave — окно закрыто
+  link(m) {
+    const g = this.game, op = String(m.op || '');
+    if (op === 'leave') { this.linkMine = false; return; }
+    if (op === 'post') { const r = g.linkPost(this.user, m.text); if (r.error) return this.error(r.error); staffNotify(g, -1); }
+    else if (op !== 'view') return;
+    this.linkMine = true; this.send({ t: 'link', data: g.linkMine(this.user) }); this.pushState();
+  },
+  async linkpic(m) { // скрин в «СВЯЗЬ»: begin → part… (как фото в «МАСТЕРАХ»)
+    if (m.op === 'begin') { const r = this.game.linkPicBegin(this.user, m.w, m.h, m.n, m.text); if (r.error) return this.error(r.error); this.lpUp = r.up; return this.send({ t: 'linkpicok', i: 0 }); }
+    if (m.op !== 'part' || !this.lpUp) return this.error('Скрин: начните отправку заново.');
+    const r = await this.game.linkPicPart(this.user, this.lpUp, m.i, m.data);
+    if (r.error) { this.lpUp = null; return this.error(r.error); }
+    if (r.more) return this.send({ t: 'linkpicok', i: this.lpUp.parts.length });
+    this.lpUp = null; this.send({ t: 'linkpicok', done: true }); staffNotify(this.game, -1); API.link.call(this, { op: 'view' });
+  },
+  async staffpic(m) {
+    if (m.op === 'begin') { const r = this.game.staffPicBegin(this.user, m.topic, m.w, m.h, m.n, m.text); if (r.error) return this.error(r.error); this.spUp = r.up; return this.send({ t: 'staffpicok', i: 0 }); }
+    if (m.op !== 'part' || !this.spUp) return this.error('Фото: начните отправку заново.');
+    const r = await this.game.staffPicPart(this.user, this.spUp, m.i, m.data);
+    if (r.error) { this.spUp = null; return this.error(r.error); }
+    if (r.more) return this.send({ t: 'staffpicok', i: this.spUp.parts.length });
+    this.spUp = null; this.send({ t: 'staffpicok', done: true }); staffNotify(this.game, r.topic);
+  },
+  async pic(m) {
+    if (m.op === 'begin') { const r = this.game.picBegin(this.user, m.to, m.w, m.h, m.n); if (r.error) return this.error(r.error); this.picUp = r.up; return this.send({ t: 'picok', i: 0 }); }
+    if (m.op !== 'part' || !this.picUp) return this.error('Фото: начните отправку заново.');
+    const up = this.picUp, r = await this.game.picPart(this.user, up, m.i, m.data);
+    if (r.error) { this.picUp = null; return this.error(r.error); }
+    if (r.more) return this.send({ t: 'picok', i: up.parts.length });
+    this.picUp = null; this.send({ t: 'picok', done: true });
+    API.dialog.call(this, { id: r.to.id, keep: 1 });
+    for (const s of WebSession.all || []) if (s.user && s.user.id === r.to.id) { if (s.dialogWith === this.user.id) API.dialog.call(s, { id: this.user.id, keep: 1 }); else if (s.notifyMail) s.notifyMail(this.user.login); }
+  },
+  sendmail(m) {
+    if (!String(m.text || '').trim()) return this.error('Пустое сообщение.');
+    const tu = this.game.db.users[String(m.to || '').trim()], deny = tu && this.game.canReach(this.user, tu, 'msg'); if (deny) return this.error(deny);
+    if (tu) { const lim = this.game.tooOften(this.user, 'mail'); if (lim) return this.error(lim); } // не чаще раза в секунду (security.js RATE.mail)
+    const res = this.game.sendMail(this.user, m.to, m.subject, m.text);
+    if (res.error) return this.error(res.error);
+    if (m.dialog) API.dialog.call(this, { id: res.to.id, keep: 1 }); else this.toast('Сообщение отправлено.');
+    for (const s of WebSession.all || []) if (s.user && s.user.id === res.to.id) { if (s.dialogWith === this.user.id) API.dialog.call(s, { id: this.user.id, keep: 1 }); else if (s.notifyMail) s.notifyMail(this.user.login); }
+  },
+  // ---- функции зданий и армия (server/src/army.js) ----
+  // Лазарет: вылечить раненых (units { id: n } или всех) — за четверть цены тренировки, сразу (army.js healWounded)
+  // симулятор боя (army.js simBattle): ничего не меняет в игре; не чаще раза в секунду
+  sim(m) {
+    const c = pickCastle(this, m); if (!c) return;
+    const now = Date.now(); if (now - (this.simAt || 0) < 1000) return this.error('Не так часто — подождите секунду.'); this.simAt = now;
+    const r = this.game.simBattle(c, m); if (r.error) return this.error(r.error);
+    this.send({ t: 'sim', ...r });
+  },
+  heal(m) { const c = pickCastle(this, m); if (!c) return; const r = this.game.healWounded(c, m.units && typeof m.units === 'object' && !Array.isArray(m.units) ? m.units : null); if (r && r.ok) this.toast(r.msg); this.result(r); },
+  train(m) { const c = pickCastle(this, m); if (!c) return; const r = this.game.train(c, Number(m.unit), Number(m.count)); if (r && r.job) this.toast('Тренировка начата!'); this.result(r); if (c !== this.castle) API.kingdom.call(this); },
+  kingdom() { if (!this.game.isPremium(this.user)) return this.error('Сводка королевства — с премиумом.'); this.send({ t: 'kingdom', list: this.game.kingdom(this.user) }); },
+  send(m) {
+    const r = this.game.sendArmy(this.castle, { units: m.units || {}, general: !!m.general, x: m.x, y: m.y, mission: m.mission, res: m.res, from: m.from, portal: !!m.portal, at: Number(m.at) || 0, pick: m.pick && typeof m.pick === 'object' && !Array.isArray(m.pick) ? m.pick : null, pickGen: !!m.pickGen, dropShield: m.dropShield === true });
+    if (r.domed) { this.failed = true; this.send({ t: 'error', msg: r.error, domeAsk: { what: r.domed } }); return this.pushState(); } // под куполом: клиент предупредит, что купол сгорит, и спросит
+    if (r.dropped) this.toast('Купол снят — оставшееся время сгорело.');
+    if (!r.error && m.mission === 'trade') this.toast(`Торговцы (${r.need}) отправились к ${m.x}:${m.y} — доставка через ${Math.floor(r.sec / 3600)}:${String(Math.floor(r.sec / 60) % 60).padStart(2, '0')}:${String(r.sec % 60).padStart(2, '0')}`);
+    else if (!r.error && r.army.rally) this.toast(`Армия встала в созыв — ударит по боссу через ${Math.ceil(r.sec / 60)} мин.`);
+    else if (!r.error) this.toast(r.army.state === 'wait' ? `Поход запланирован: ${ARMY.MISSIONS[m.mission]} ${m.x}:${m.y}` : `Армия выступила: ${ARMY.MISSIONS[m.mission]} ${m.x}:${m.y}`);
+    this.result(r);
+    if (!r.error && r.army.rally) rallyShow(this); // всем в альянсе — новый состав созыва в окне босса
+  },
+  squad(m) { const r = this.game.squadOp(this.castle, m); if (m.op === 'regroup' && r && r.ok) this.toast('Армия переформирована!'); if (m.op === 'recall' && r && r.ok) this.toast('Армия развернулась и идёт домой.'); this.result(r); },
+  boss() { this.send({ t: 'boss', data: this.game.bossView(this.user) }); },
+  // созыв альянса на мирового босса (boss.js): объявить — у всех в альянсе обновляется окно босса
+  rally() {
+    const r = this.game.rallyStart(this.user); if (r.error) return this.error(r.error);
+    this.toast('Созыв объявлен — альянсу отправлено оповещение.');
+    rallyShow(this);
+  },
+  // Кладовая игрока (stash.js): список наград и «Извлечь» в текущий замок
+  stash(m) {
+    if (m && m.op === 'take') { const r = this.game.stashTake(this.user, this.castle, String(m.kind || ''), m.key, m.n); if (r.error) return this.error(r.error); this.toast(r.msg); this.game.store.save(); this.pushState(); }
+    this.send({ t: 'stash', list: this.game.stashView(this.user, this.castle), castle: this.castle.name });
+  },
+  hero(m) { const r = this.game.heroOp(this.castle, this.user, { op: m.op, id: m.id, item: m.item, slot: m.slot, r: m.r }); if (r && r.msg) this.toast(r.msg); this.result(r); },
+  general(m) { const r = this.game.generalOp(this.castle, this.user, { op: m.op, name: m.name, pts: m.pts, idx: m.idx, gold: m.gold, unit: m.unit }); if (r && r.msg) this.toast(r.msg); this.result(r); },
+  exchange(m) { const r = this.game.exchange(this.castle, m.from, m.to, m.amount); if (!r.error) this.toast(`Обмен: получено ${r.got}`); this.result(r); },
+  research(m) { this.result(this.game.research(this.castle, m.sci)); },
+  religion(m) { this.result(this.game.setReligion(this.castle, m.id)); },
+  artifact(m) { const r = this.game.activateArtifact(this.castle, m.id, !!m.on); if (r.msg) this.toast(r.msg); this.result(r); },
+  artbreak(m) { const r = this.game.breakArtifact(this.castle, m.id); if (r.msg) this.toast(r.msg); this.result(r); },
+  exped(m) { const r = this.game.expedGo(this.castle, String(m.kind || ''), m.n); if (r.msg) this.toast(r.msg); this.result(r); },
+  // Подземелье (dungeon.js): op view — карта; go — на раскопки; attack — налёт на чужой отряд; recall — бросить раскопки; claim — «Забрать» находку (отряд из любого своего замка)
+  dung(m) {
+    const op = String(m.op || 'view'), g = this.game;
+    if (op !== 'view') {
+      const now = Date.now(); if (now - (this.dungAt || 0) < 700) return this.error('Не так часто — подождите секунду.'); this.dungAt = now;
+      let r;
+      if (op === 'go') r = g.dungGo(this.castle, m.camp, m.units);
+      else if (op === 'attack') r = g.dungAttack(this.castle, m.camp, m.units);
+      else if (op === 'recall' || op === 'claim') { const c = g.castlesOf(this.user).find((k) => (k.armies || []).some((a) => a.id === Number(m.id))); r = !c ? { error: 'Отряд не найден.' } : op === 'claim' ? g.dungClaim(c, m.id) : g.dungRecall(c, m.id); }
+      else r = { error: 'Неизвестное действие.' };
+      if (r.msg) this.toast(r.msg); this.result(r);
+    }
+    this.send({ t: 'dung', data: g.dungView(this.castle, this.user) });
+  },
+  alliance(m) {
+    const r = this.game.alliance(this.user, this.castle, m);
+    if (r && r.msg) this.toast(r.msg);
+    this.result(r);
+    if (r && r.ok && ['approve', 'kick', 'invite'].includes(m.op)) for (const s of WebSession.all || []) if (s !== this && s.user) s.pushState(); // новичку/исключённому — сразу новое состояние
+  },
+  alliances() {
+    // «Альянсы, подходящие вам»: где есть свободные места, крупные сверху
+    const list = Object.values(this.game.db.alliances || {}).map((a) => ({ id: a.id, name: a.name, tag: a.tag, members: a.members.length, slots: this.game.allianceSlots(a), score: this.game.allianceScore(a),
+      leader: (this.game.userById(a.leader) || {}).login, ad: a.ad || '', requested: (a.requests || []).includes(this.user.id) })).sort((x, y) => y.members - x.members);
+    this.send({ t: 'alliances', list });
+  },
+  // «Отчёты» — по 10 на страницу (page), новые сверху
+  reports(m) {
+    const r = this.game.reportsPage(this.user.id, m && m.page);
+    this.send({ t: 'reports', page: r.page, pages: r.pages, total: r.total, list: r.list.map((x) => ({ id: x.id, at: x.at, kind: x.kind, title: x.title, read: x.read, tone: this.game.reportTone(x), from: x.from })) });
+  },
+  // удалить: номера или из конверта 'all' / 'read' / 'new'; в ответ — та же страница списка
+  repdel(m) { const r = this.game.reportDelete(this.user, ['all', 'read', 'new'].includes(m.ids) ? m.ids : [].concat(m.ids || [])); this.toast(r.n ? `Удалено отчётов: ${r.n}` : 'Нечего удалять.'); API.reports.call(this, { page: m.page }); this.pushState(); },
+  repread(m) { const r = this.game.reportReadAll(this.user); this.toast(r.n ? `Прочитано отчётов: ${r.n}` : 'Новых отчётов нет.'); API.reports.call(this, { page: m.page }); this.pushState(); },
+  repfwd(m) { // пересланный отчёт приходит письмом: получателю — как новое письмо (открыта переписка — обновится сразу)
+    const r = this.game.reportForward(this.user, m.id, m.to); if (r.error) return this.error(r.error); this.toast(r.msg);
+    for (const s of WebSession.all || []) if (s.user && s.user.id === r.to.id) { if (s.dialogWith === this.user.id) API.dialog.call(s, { id: this.user.id, keep: 1 }); else { s.toast(`${this.user.login} переслал(а) вам отчёт — он в личных сообщениях.`); s.pushState(); } }
+  },
+  report(m) {
+    const x = (this.game.db.reports || []).find((y) => y.id === Number(m.id) && this.game.canSeeReport(this.user, y));
+    if (!x) return this.error('Отчёт не найден.');
+    if (!x.read && x.owner === this.user.id) { x.read = true; this.game.store.save(); }
+    this.send({ t: 'report', report: x });
+    this.pushState();
+  },
+  admin(m) {
+    if (m.op === 'mailtest' && this.user.admin) return this.game.mailTest(this.user, m.addr).then((r) => this.send({ t: 'admininfo', op: 'mailtest', data: r })); // проверочное письмо (mail.js)
+    const r = this.game.adminOp(this.user, m.op, { ...m, ip: this.ip, online: onlineCount() }); // ip и онлайн — с сервера, не от клиента
+    if (r.error) return this.error(r.error);
+    if (r.data) this.send({ t: 'admininfo', op: m.op, data: r.data });
+    else this.toast(r.msg || 'Готово.');
+    if (m.op === 'chat' && r.data) for (const s of WebSession.all || []) if (s.user && s.sendChat) s.sendChat(r.data);
+    if (m.op === 'banmany' || m.op === 'devban') for (const s of WebSession.all || []) if (s.user && !s.user.admin && (s.user.banned || this.game.devBanned(s.dev))) s.socket.destroy();
+    if (String(m.op || '').startsWith('test')) for (const s of WebSession.all || []) if (s.user && (!this.game.closedAllows(s.user) || s.user.id === r.kick)) { s.error('Идёт закрытое тестирование — вход только для тестеров.'); s.socket.destroy(); }
+    // технические работы: игроков — из игры (у них заглушка), у открытых экранов входа заглушка появляется или исчезает сразу
+    if (m.op === 'maint' && m.on !== undefined) {
+      const on = this.game.maintOn(), msg = on ? this.game.maintMsg() : '';
+      for (const s of WebSession.all || []) { if (s === this || (s.user && s.user.admin)) continue; if (s.user && on) { s.send({ t: 'maint', msg }); s.socket.destroy(); } else if (!s.user) s.send({ t: 'maint', msg }); }
+    }
+    if (m.login && !String(m.op || '').startsWith('test')) for (const s of WebSession.all || []) if (s.user && s.user.login === String(m.login).trim() && s !== this) { if (m.op === 'ban' || m.op === 'delete' || m.op === 'abandon') s.socket.destroy(); else s.pushState(); }
+    this.pushState();
+  },
+  bug(m) {
+    const lim = this.game.tooOften(this.user, 'bug'); if (lim) return this.error(lim);
+    const r = this.game.linkPost(this.user, m.text); if (r.error) return this.error(r.error); // в переписку «СВЯЗЬ» (link.js)
+    staffNotify(this.game, -1); linkPush(this.game, this.user.id);
+    this.log(`BUG REPORT (web): ${String(m.text || '').slice(0, 300)}`);
+    this.toast('Спасибо! Сообщение получили мастера игры — ответ придёт в Сообщения → «СВЯЗЬ».');
+  },
+};
+
+// сообщение переписки для клиента (диалог и «История»): фото — пока не истекло; rep — пересланный отчёт; fwd — «Переслано от …»
+const msgOut = (game, x, me) => ({ id: x.id, mine: x.from === me, subject: x.subject, text: x.text, at: x.at, color: x.color || '',
+  ...(x.pic && game.picGet(x.pic) ? { pic: x.pic, picExp: x.picExp } : x.pic || x.picGone ? { picGone: true } : {}),
+  ...(x.rep ? { rep: x.rep, repTitle: x.repTitle || '' } : {}), ...(x.fwd ? { fwd: x.fwd } : {}) });
+// созыв на мирового босса: всем в альянсе игрока — новое окно босса и состояние (не команда клиента — её нельзя вызвать запросом)
+const rallyShow = (ses) => { const al = ses.game.allianceOf(ses.user); if (al) for (const s of WebSession.all || []) if (s.user && al.members.includes(s.user.id)) { s.pushState(); s.send({ t: 'boss', data: ses.game.bossView(s.user) }); } };
+// Зал Славы: чьи места показывать — указанного игрока или свои (раньше функция лежала среди команд и её можно было вызвать запросом)
+const hallWho = (s, m) => (m.who !== undefined && s.game.userById(Number(m.who))) || s.user;
+
+// заголовки безопасности: скрипты только свои (внедрённый <img onerror> или <script> не выполнится), страницу нельзя встроить в чужой сайт
+const SEC_HEADERS = {
+  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+  'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY', 'Referrer-Policy': 'no-referrer',
+  'Strict-Transport-Security': 'max-age=15552000', 'Cross-Origin-Opener-Policy': 'same-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+};
+// IP игрока за прокси. TRUST_PROXY=1 (Caddy, nginx, Cloudflare Tunnel) — последний адрес X-Forwarded-For: его дописывает наш прокси,
+// всё левее мог прислать сам игрок. CF-Connecting-IP — только при TRUST_PROXY=cf (весь трафик идёт через Cloudflare),
+// иначе этот заголовок подделывается и обходит блокировку входа, баны и поиск мультов.
+function clientIp(req, socket) {
+  const direct = String(socket.remoteAddress || '').replace(/^::ffff:/, ''), tp = process.env.TRUST_PROXY;
+  if (tp === 'cf') return String(req.headers['cf-connecting-ip'] || '').trim() || direct;
+  if (tp === '1') { const xs = String(req.headers['x-forwarded-for'] || '').split(',').map((v) => v.trim()).filter(Boolean); return (xs[xs.length - 1] || direct).replace(/^::ffff:/, ''); }
+  return direct;
+}
+const WS_PER_IP = Number(process.env.WS_PER_IP) || 40; // соединений с одного адреса (семья, общежитие, NAT — с запасом)
+let GFXPACK; const gfxPack = () => (GFXPACK === undefined ? (GFXPACK = require('./gfxpack').open(WEB_ROOT)) : GFXPACK); // листы графики (если есть)
+// статика из памяти: файл читается и сжимается один раз, пока не изменится на диске
+const STATIC = new Map();
+function staticFile(file) {
+  let st; try { st = fs.statSync(file); } catch { // в пакете игры PNG/JPG могут быть только в WebP (x.png.webp) или в зашифрованном листе
+    const rel = path.relative(WEB_ROOT, file).split(path.sep).join('/'), gp = gfxPack();
+    if (gp && gp.has(rel)) { const h = STATIC.get(file); if (h) return h; const g = gp.get(rel);
+      const f = { key: 'pk', body: g.body, webp: null, hash: g.hash, type: g.mime, etag: `"pk-${g.hash}"`, img: true, gz: null }; STATIC.set(file, f); return f; }
+    if (!/\.(png|jpe?g)$/.test(file)) return null;
+    try { st = fs.statSync(`${file}.webp`); } catch { return null; }
+    const k = `w${st.size}-${st.mtimeMs}`, h = STATIC.get(file); if (h && h.key === k) return h;
+    const body = fs.readFileSync(`${file}.webp`);
+    const f = { key: k, body, webp: null, hash: require('crypto').createHash('md5').update(body).digest('hex').slice(0, 10), type: 'image/webp', etag: `"${st.size.toString(36)}-${Math.floor(st.mtimeMs).toString(36)}"`, img: true, gz: null };
+    STATIC.set(file, f); return f;
+  }
+  if (st.isDirectory()) return null;
+  const key = `${st.size}-${st.mtimeMs}`, hit = STATIC.get(file);
+  if (hit && hit.key === key) return hit;
+  const ext = path.extname(file), body = fs.readFileSync(file);
+  // облегчённая копия в WebP (её делает tools/pack.sh рядом: x.png.webp) — отдаётся браузерам, которые понимают WebP
+  let webp = null; if (ext === '.png' || ext === '.jpg') { try { const w = fs.readFileSync(`${file}.webp`); if (w.length < body.length) webp = w; } catch { /* нет копии */ } }
+  const f = { key, body, webp, hash: require('crypto').createHash('md5').update(body).digest('hex').slice(0, 10), type: MIME[ext] || 'application/octet-stream', etag: `"${st.size.toString(36)}-${Math.floor(st.mtimeMs).toString(36)}"`, img: ['.png', '.webp', '.jpg', '.ogg', '.mp3'].includes(ext),
+    gz: ['.html', '.js', '.css', '.svg', '.json', '.webmanifest'].includes(ext) && body.length > 1024 ? zlib.gzipSync(body) : null };
+  STATIC.set(file, f);
+  return f;
+}
+
+// список файлов игры с отпечатком содержимого (для sw.js): изменился файл — у игроков сразу новая версия, остальное берётся из кэша телефона
+// справочник игры одним сжатым файлом; пересобирается, если что-то в нём поменялось (отпечаток — по содержимому)
+let CATALOG = null;
+function catalogFile() {
+  const body = Buffer.from(JSON.stringify(catalogJson())), hash = require('crypto').createHash('md5').update(body).digest('hex').slice(0, 12);
+  if (!CATALOG || CATALOG.hash !== hash) CATALOG = { hash, body, gz: zlib.gzipSync(body) };
+  return CATALOG;
+}
+// отдать готовый текст (JSON/JS) — сжатым, если браузер умеет
+function sendText(req, res, f, type, cache) {
+  const head = { 'Content-Type': type, 'Cache-Control': cache, Vary: 'Accept-Encoding', ...SEC_HEADERS };
+  if (f.gz && /\bgzip\b/.test(req.headers['accept-encoding'] || '')) { res.writeHead(200, { ...head, 'Content-Encoding': 'gzip' }); return res.end(f.gz); }
+  res.writeHead(200, head); return res.end(f.body);
+}
+let MANIFEST = null;
+function assetManifest() {
+  if (MANIFEST) return MANIFEST;
+  const out = {}, walk = (dir, rel) => { for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, e.name), r = rel ? `${rel}/${e.name}` : e.name;
+    if (e.isDirectory()) walk(p, r); else if (/\.(png|jpe?g)\.webp$/.test(e.name) && !fs.existsSync(p.slice(0, -5))) { const f = staticFile(p.slice(0, -5)); if (f) out[r.slice(0, -5)] = f.hash; } else if (/\.(png|jpe?g|webp|svg|ogg|mp3|css|js|json|webmanifest|bin)$/.test(e.name) && !/\.(png|jpe?g)\.webp$/.test(e.name) && e.name !== 'sw.js' && e.name !== 'admin.js') { const f = staticFile(p); if (f) out[r] = f.hash; }
+  } };
+  try { walk(WEB_ROOT, ''); } catch { /* нет папки */ }
+  const body = Buffer.from(JSON.stringify(out));
+  MANIFEST = { body, gz: zlib.gzipSync(body) };
+  return MANIFEST;
+}
+
+function startWeb(game, sessions, { port, host, log }) {
+  // соединений ещё нет: отметки «в игре» с прошлого запуска (сервер остановили, когда игроки были в сети) снимаются —
+  // иначе игрок числился в игре до следующего входа (состав альянса, друзья, уведомления в Telegram)
+  for (const u of Object.values(game.db.users)) if (u.online) u.online = false;
+  const server = http.createServer((req, res) => {
+    const ip = clientIp(req, req.socket);
+    if (game.ipBanned(ip)) { res.writeHead(403, { 'Content-Type': 'text/plain' }); return res.end('forbidden'); }
+    // у сайта игры нет форм для отправки: POST/PUT и т. п. — попытка залить файл или подобрать уязвимость
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) { game.secEvent(ip, 'upload', `${req.method} ${String(req.url).slice(0, 60)}`); req.resume(); res.writeHead(405, { 'Content-Type': 'text/plain' }); return res.end('method not allowed'); }
+    // логин/пароль в адресе (форма ушла без скрипта) — сразу на чистый адрес, без кэша; сами данные никуда не пишутся
+    if (/[?&](password|login|captcha|nick)=/.test(req.url)) { res.writeHead(303, { Location: req.url.split('?')[0] || '/', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' }); return res.end(); }
+    let url; try { url = decodeURIComponent(req.url.split('?')[0]); } catch { url = '/'; }
+    const pm = /^\/pic\/([0-9a-f]{32})\.png$/.exec(url); // фото из сообщений (pics.js): только по случайному адресу, 3 часа
+    if (pm) {
+      const p = game.picGet(pm[1]);
+      if (!p) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('expired'); }
+      res.writeHead(200, { 'Content-Type': 'image/png', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'", 'Cache-Control': 'private, max-age=10800', 'Referrer-Policy': 'no-referrer' });
+      return res.end(p.png);
+    }
+    const lp = /^\/linkpic\/([0-9a-f]{32})\.png$/.exec(url); // скрин «СВЯЗИ» (link.js): игроку, приславшему его, и мастерам — по сессии, 8 часов
+    if (lp) {
+      const q = new URLSearchParams(req.url.split('?')[1] || ''), lu = mediaUser(q), body = lu && game.linkPicGet(lu, lp[1]);
+      if (!body) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('no pic'); }
+      res.writeHead(200, { 'Content-Type': 'image/png', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'", 'Cache-Control': 'private, max-age=3600', 'Referrer-Policy': 'no-referrer' });
+      return res.end(body);
+    }
+    const sp = /^\/staffpic\/([0-9a-f]{32})\.png$/.exec(url); // фото «МАСТЕРОВ» (staff.js): только участнику раздела по его сессии, 24 часа
+    if (sp) {
+      const q = new URLSearchParams(req.url.split('?')[1] || ''), su = mediaUser(q), body = su && game.staffPicGet(su, sp[1]);
+      if (!body) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('no pic'); }
+      const head = { 'Content-Type': 'image/png', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'", 'Cache-Control': 'private, max-age=3600', 'Referrer-Policy': 'no-referrer' };
+      if (q.get('dl')) head['Content-Disposition'] = `attachment; filename="mastera-${new Date(Date.now() + 3 * 3600000).toISOString().slice(0, 16).replace(/[-:T]/g, '')}-${sp[1].slice(0, 6)}.png"`; // кнопка «Скачать»: сохранить файлом
+      res.writeHead(200, head);
+      return res.end(body);
+    }
+    const np = /^\/newspic\/([0-9a-f]{32})\.png$/.exec(url); // скриншоты новостей (news.js): PNG собран сервером, имя случайное
+    if (np) {
+      let body; try { body = fs.readFileSync(game.newsPicFile(np[1])); } catch { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('no pic'); }
+      res.writeHead(200, { 'Content-Type': 'image/png', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'", 'Cache-Control': 'public, max-age=31536000, immutable' });
+      return res.end(body);
+    }
+    const ava = /^\/avatar\/(\d{1,9})\.png$/.exec(url); // аватары: только цифры → data/avatars/<id>.png (PNG собран сервером)
+    if (ava) {
+      let body; try { body = fs.readFileSync(game.avatarFile(ava[1])); } catch { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('no avatar'); }
+      res.writeHead(200, { 'Content-Type': 'image/png', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'", 'Cache-Control': 'public, max-age=86400' });
+      return res.end(body);
+    }
+    // админ-панель (admin.js) получает только админ с действующей сессией: остальным её код не виден даже в F12.
+    // Сверяется настоящий путь файла, а не текст адреса: раньше //admin.js, /./admin.js, /x/../admin.js отдавали её кому угодно
+    const file = path.normalize(path.join(WEB_ROOT, url === '/' ? 'index.html' : url));
+    if (file === ADMIN_FILE) {
+      const q = new URLSearchParams(req.url.split('?')[1] || ''), au = mediaUser(q);
+      if (!au || !au.admin) { game.secEvent(ip, 'admin', 'запрос кода админ-панели без входа'); res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('not found'); }
+      const f = staticFile(path.join(WEB_ROOT, 'admin.js'));
+      if (!f) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('not found'); }
+      return sendText(req, res, f, f.type, 'no-store');
+    }
+    if (url === '/assets.json') return sendText(req, res, assetManifest(), 'application/json', 'no-store');
+    if (url === '/catalog.json') {
+      const cf = catalogFile(), h = new URLSearchParams(req.url.split('?')[1] || '').get('h');
+      return sendText(req, res, cf, 'application/json; charset=utf-8', h === cf.hash ? 'public, max-age=31536000, immutable' : 'no-cache');
+    }
+    const f = (file === WEB_ROOT || file.startsWith(WEB_ROOT + path.sep)) && staticFile(file);
+    if (!f) { if (game.secProbe(req.url)) game.secEvent(ip, 'probe', String(req.url).slice(0, 80)); res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('not found'); }
+    // кэш: адрес с отпечатком (?h=, его подставляет sw.js) — навсегда; без отпечатка — браузер сверяет по ETag (304 без тела),
+    // поэтому после обновления игры старые картинки не показываются
+    const q = new URLSearchParams(req.url.split('?')[1] || ''), pinned = q.get('h') && q.get('h') === f.hash;
+    const useWebp = f.webp && /image\/webp/.test(req.headers.accept || '');
+    const etag = useWebp ? f.etag.replace(/"$/, '-w"') : f.etag;
+    const head = { 'Content-Type': useWebp ? 'image/webp' : f.type, ETag: etag, 'Cache-Control': pinned ? 'public, max-age=31536000, immutable' : 'no-cache', ...(f.webp ? { Vary: 'Accept' } : {}), ...SEC_HEADERS };
+    if (file.endsWith('.apk')) head['Content-Disposition'] = 'attachment; filename="srednevekovye.apk"'; // приложение для Android — скачивается файлом
+    if (req.headers['if-none-match'] === etag) { res.writeHead(304, head); return res.end(); }
+    if (useWebp) { res.writeHead(200, head); return res.end(f.webp); }
+    if (f.gz && /\bgzip\b/.test(req.headers['accept-encoding'] || '')) { res.writeHead(200, { ...head, 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' }); return res.end(f.gz); }
+    res.writeHead(200, head); res.end(f.body);
+  });
+
+  // медленные/зависшие запросы не держат сервер
+  server.headersTimeout = 15000; server.requestTimeout = 20000;
+  server.on('upgrade', (req, socket) => {
+    if (req.url !== '/ws' || String(req.headers.upgrade || '').toLowerCase() !== 'websocket') return socket.destroy();
+    // чужой сайт не может открыть соединение от имени игрока (Origin должен совпадать с адресом игры)
+    const origin = req.headers.origin, wip = clientIp(req, socket);
+    if (game.ipBanned(wip)) return socket.destroy();
+    if (origin) { let oh = ''; try { oh = new URL(origin).host; } catch { /* мусор */ } if (oh !== req.headers.host) { game.secEvent(wip, 'origin', String(origin).slice(0, 60)); return socket.destroy(); } }
+    const ip = clientIp(req, socket);
+    let same = 0, anon = 0; for (const s of sessions) { if (s.ip === ip) same++; if (!s.user) anon++; }
+    if (same >= WS_PER_IP) { log(`слишком много соединений с ${ip}`); game.secEvent(ip, 'conns', `${same}+ соединений`); return socket.destroy(); }
+    if (anon >= WS_ANON_ALL) { game.secEvent(ip, 'conns', `${anon} соединений без входа на сервере`); return socket.destroy(); }
+    wsAccept(req, socket);
+    const tag = `web ${socket.remoteAddress}:${socket.remotePort}`;
+    const slog = (m) => log(`${tag} ${m}`);
+    const session = new WebSession(game, socket, slog);
+    session.ip = ip;
+    sessions.add(session);
+    setTimeout(() => { if (!session.user && !socket.destroyed) socket.destroy(); }, 10 * 60000).unref(); // без входа — не дольше 10 минут
+    const reader = new WsReader();
+    socket.on('data', (chunk) => {
+      let frames;
+      reader.max = session.user ? WS_MAX : WS_MAX_ANON;
+      try { frames = reader.push(chunk); } catch { slog('слишком большое или неверное сообщение — соединение закрыто'); return socket.destroy(); }
+      for (const f of frames) {
+        if (f.opcode === 8) { socket.end(wsFrame(8, Buffer.alloc(0))); return; }
+        // ping: не больше 10 в секунду, иначе соединение рвётся (раньше ответ шёл на каждый, без ограничений)
+        if (f.opcode === 9) { const t = Date.now(); session.pings = (session.pings || []).filter((x) => x > t - 1000); session.pings.push(t); if (session.pings.length > 10) return socket.destroy(); socket.write(wsFrame(10, f.data)); continue; }
+        if (f.opcode !== 1) continue;
+        let msg;
+        try { msg = JSON.parse(f.data.toString('utf8')); } catch (e) { session.error('bad json'); continue; }
+        try { session.handle(msg); } catch (e) { slog(`handler error: ${e.stack}`); session.error('Ошибка сервера.'); }
+      }
+    });
+    socket.on('error', () => {});
+    socket.on('close', () => {
+      sessions.delete(session); if (session.mkey) MEDIA.delete(session.mkey);
+      const u = session.user; if (!u) return;
+      u.online = liveSession(u); u.lastSeen = Date.now();
+      if (!u.online) allyPresenceCast(u, false);
+    });
+  });
+
+  server.on('error', (e) => {
+    if (e.code === 'EADDRINUSE') console.error(`\n✗ Порт ${port} занят — уже запущен другой сервер игры (старая версия?). На сервере (VPS) игрой управляет служба: systemctl restart war; на своём компьютере — остановите прежний сервер и запустите снова.\n`);
+    else console.error(e);
+    process.exit(3);
+  });
+  server.listen(port, host, () => log(`Готово! Версия ${VERSION}. Откройте в Chrome: http://${host === '0.0.0.0' ? '127.0.0.1' : host}:${port}`));
+  return server;
+}
+
+module.exports = { startWeb, WebSession, wheelCast, chatClosedCast, maintCast };

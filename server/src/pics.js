@@ -1,0 +1,98 @@
+'use strict';
+// Фото в личных сообщениях — живут 3 часа, потом удаляются. Хранятся файлом data/pics/<id>.png (переживают перезапуск сервера).
+// Безопасно, как аватары: файл игрока на сервер НЕ попадает. Браузер сам уменьшает картинку (до 960 точек по стороне)
+// и присылает только сжатые цвета точек (RGB, deflate) частями по ~150 КБ. Сервер распаковывает с жёстким
+// ограничением размера, проверяет, что точек ровно ширина×высота, и сам собирает новый PNG — чужих байтов в нём нет.
+// Адрес картинки — случайный (128 бит): /pic/<id>.png, видят только участники переписки (ссылку больше никто не получает).
+// Фото в общем чате — только администратор: та же проверка и пересборка PNG, видят все игроки, живёт сутки.
+
+const zlib = require('zlib');
+const crypto = require('crypto');
+const { encodePng } = require('./avatar');
+
+const LIFE_MS = 3 * 3600000, MAX_SIDE = 960, MAX_PART = 160 * 1024, MAX_PARTS = 14, MAX_TOTAL_MB = 250;
+const PER_DAY = 40, GAP_MS = 15000, CHAT_LIFE_MS = 24 * 3600000, CHAT_GAP_MS = 5000;
+const PICS = new Map(); // id → { png, from, to, exp }
+let used = 0, loaded = false;
+const fs = require('fs'), path = require('path');
+const picDir = (g) => path.join(path.dirname(path.resolve(g.store.file)), 'pics');
+const picFile = (g, id) => (/^[0-9a-f]{32}$/.test(String(id)) ? path.join(picDir(g), `${id}.png`) : null);
+// после перезапуска: фото живых сообщений — снова в память из файлов
+const load = (g, now = Date.now()) => {
+  if (loaded) return; loaded = true;
+  for (const m of [...(g.db.messages || []), ...(g.db.chat || [])]) if (m.pic && m.picExp > now && !PICS.has(m.pic)) { // фото писем и общего чата
+    try { const png = fs.readFileSync(picFile(g, m.pic)); PICS.set(m.pic, { png, from: m.from, to: m.to || 0, exp: m.picExp }); used += png.length; } catch { /* файла нет — sweep отметит */ }
+  }
+  try { for (const f of fs.readdirSync(picDir(g))) if (!PICS.has(f.slice(0, 32))) fs.unlinkSync(path.join(picDir(g), f)); } catch { /* папки ещё нет */ } // лишние и просроченные файлы
+};
+
+const sweep = (g, now = Date.now()) => {
+  load(g, now);
+  for (const [id, p] of PICS) if (p.exp <= now) { used -= p.png.length; PICS.delete(id); try { fs.unlinkSync(picFile(g, id)); } catch { /* уже нет */ } }
+  for (const m of [...(g.db.messages || []), ...(g.db.chat || [])]) if (m.pic && !PICS.has(m.pic)) { delete m.pic; m.picGone = true; }
+};
+
+function install(Game) {
+  const P = Game.prototype;
+  P.picGet = function picGet(id) { load(this); const p = PICS.get(String(id)); return p && p.exp > Date.now() ? p : null; };
+  P.picSweep = function picSweep(now) { sweep(this, now); };
+  // начало загрузки: проверки до приёма данных
+  P.picBegin = function picBegin(user, toLogin, w, h, n) {
+    const to = this.db.users[String(toLogin || '').trim()];
+    if (!to) return { error: 'Получатель не найден.' };
+    if (to.id === user.id) return { error: 'Себе фото не отправить.' };
+    const deny = this.canReach && this.canReach(user, to, 'msg'); if (deny) return { error: deny };
+    w = Math.floor(Number(w)); h = Math.floor(Number(h)); n = Math.floor(Number(n));
+    if (!(w >= 8 && h >= 8 && w <= MAX_SIDE && h <= MAX_SIDE) || !(n >= 1 && n <= MAX_PARTS)) return { error: 'Неверная картинка.' };
+    const now = Date.now();
+    user.picLog = (user.picLog || []).filter((t) => t > now - 86400000);
+    if (user.picLog.length >= PER_DAY) return { error: `Не больше ${PER_DAY} фото в сутки.` };
+    if (user.picLog.length && now - user.picLog[user.picLog.length - 1] < GAP_MS) return { error: 'Фото — не чаще раза в 15 секунд.' };
+    sweep(this, now);
+    if (used > MAX_TOTAL_MB * 1048576) return { error: 'Сервер сейчас занят фото — попробуйте через пару минут.' };
+    return { ok: true, up: { to: to.id, toLogin: to.login, w, h, n, parts: [], size: 0, at: now } };
+  };
+  // фото в общий чат — только администратор (caption — подпись, не обязательна)
+  P.picBeginChat = function picBeginChat(user, w, h, n, caption) {
+    if (!user.admin) return { error: 'Фото в общий чат отправляет только администратор.' };
+    w = Math.floor(Number(w)); h = Math.floor(Number(h)); n = Math.floor(Number(n));
+    if (!(w >= 8 && h >= 8 && w <= MAX_SIDE && h <= MAX_SIDE) || !(n >= 1 && n <= MAX_PARTS)) return { error: 'Неверная картинка.' };
+    const now = Date.now();
+    if (user.chatPicAt && now - user.chatPicAt < CHAT_GAP_MS) return { error: 'Не так часто — подождите несколько секунд.' };
+    sweep(this, now);
+    if (used > MAX_TOTAL_MB * 1048576) return { error: 'Сервер сейчас занят фото — попробуйте через пару минут.' };
+    return { ok: true, up: { chat: true, caption: String(caption || '').trim().slice(0, 200), w, h, n, parts: [], size: 0, at: now } };
+  };
+  // часть данных; когда пришли все — распаковка, проверка, PNG, сообщение
+  P.picPart = async function picPart(user, up, i, data) {
+    i = Math.floor(Number(i));
+    if (!up || i !== up.parts.length || typeof data !== 'string') return { error: 'Фото: неверная часть — отправьте заново.' };
+    const buf = Buffer.from(data, 'base64');
+    if (!buf.length || buf.length > MAX_PART) return { error: 'Фото: слишком большая часть.' };
+    up.parts.push(buf); up.size += buf.length;
+    if (up.parts.length < up.n) return { ok: true, more: true };
+    const raw = await new Promise((res) => zlib.inflate(Buffer.concat(up.parts), { maxOutputLength: up.w * up.h * 3 + 1 }, (e, out) => res(e ? null : out)));
+    if (!raw || raw.length !== up.w * up.h * 3) return { error: 'Фото повреждено — попробуйте другое.' };
+    const rgba = Buffer.alloc(up.w * up.h * 4);
+    for (let s = 0, d = 0; s < raw.length; s += 3, d += 4) { rgba[d] = raw[s]; rgba[d + 1] = raw[s + 1]; rgba[d + 2] = raw[s + 2]; rgba[d + 3] = 255; }
+    const png = encodePng(rgba, up.w, up.h);
+    const id = crypto.randomBytes(16).toString('hex'), now = Date.now();
+    if (up.chat) { // общий чат: сообщение администратора с фото, видят все
+      PICS.set(id, { png, from: user.id, to: 0, exp: now + CHAT_LIFE_MS }); used += png.length;
+      try { fs.mkdirSync(picDir(this), { recursive: true }); fs.writeFileSync(picFile(this, id), png); } catch (e) { console.error('фото на диск:', e.message); }
+      user.chatPicAt = now;
+      const r = this.chatPost(user, up.caption || '📷 Фото', { pic: id, picExp: now + CHAT_LIFE_MS, picW: up.w, picH: up.h }); // размеры — чтобы место под фото было сразу
+      if (r.error) { PICS.delete(id); used -= png.length; try { fs.unlinkSync(picFile(this, id)); } catch { /* нет */ } return r; }
+      return { ok: true, chat: r.msg };
+    }
+    PICS.set(id, { png, from: user.id, to: up.to, exp: now + LIFE_MS }); used += png.length;
+    try { fs.mkdirSync(picDir(this), { recursive: true }); fs.writeFileSync(picFile(this, id), png); } catch (e) { console.error('фото на диск:', e.message); }
+    user.picLog = [...(user.picLog || []), now];
+    const r = this.sendMail(user, up.toLogin, 'Фото', '[фото]');
+    if (r.error) { PICS.delete(id); used -= png.length; try { fs.unlinkSync(picFile(this, id)); } catch { /* нет */ } return r; }
+    r.message.pic = id; r.message.picExp = now + LIFE_MS; this.store.save();
+    return { ok: true, to: r.to };
+  };
+}
+
+module.exports = { install, LIFE_MS, CHAT_LIFE_MS, MAX_SIDE, MAX_PART };

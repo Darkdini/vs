@@ -1,0 +1,558 @@
+'use strict';
+// Функции внутри зданий, армия, генерал, отчёты и админ-панель (сервер: server/src/army.js).
+// Подключается после app.js и пользуется его общими функциями (S, send, openSheet, gimg, RES_IC, fmtT…).
+
+const M = () => S.cat.mil;
+const MY = () => S.st.castle.mil;
+const RES4 = ['wood', 'stone', 'iron', 'food'];
+const HQ = 2;
+let UNIT_BY = null;
+const unitById = (id) => { if (!UNIT_BY) UNIT_BY = Object.fromEntries(M().units.map((u) => [u.id, u])); return UNIT_BY[id]; };
+// портреты юнитов: units/<раса>/hd/*.png, у каждой расы свои
+const HD_DIR = { dwarves: 'dwarv/hd', orcs: 'orc/hd', elves: 'elf/hd', humans: 'human/hd' };
+const unitSrc = (u, race = S.st.user.race) => `${GFX}units/${u.race === 'all' && !u.img.includes('/') ? `${HD_DIR[race] || 'human/hd'}/${u.img}` : u.img}.png`;
+const uimg = (u, cls = 'ui') => `<img class="${cls}" src="${unitSrc(u)}" alt="">`;
+const raceUnit = (u, race = S.st.user.race) => (u && u.raceOvr && u.raceOvr[race] ? { ...u, ...u.raceOvr[race] } : u); // цена общих юнитов по расе
+const myUnitList = () => M().units.filter((u) => (u.race === S.st.user.race || u.race === 'all') && !u.notrain).map((u) => raceUnit(u));
+// своя графика артефактов (web/gfx/arts): Меч героя, Щит предков, Рог изобилия, Крылатые сапоги, Свиток мастера; редкость — цветом свечения (.artr1 / .artr2)
+const ART_ICON = { atk: 'arts/atk.png', def: 'arts/def.png', prod: 'arts/prod.png', speed: 'arts/speed.png', train: 'arts/train.png',
+  cloak: 'arts/d_cloak.png', eye: 'arts/d_eye.png', claw: 'arts/d_claw.png', seal: 'arts/d_seal.png', heart: 'arts/d_heart.png', hand: 'arts/d_hand.png', coin: 'arts/d_coin.png' }; // d_* — артефакты Подземелья
+const TYPE_NAME = { infantry: 'пехота', cavalry: 'кавалерия', magic: 'магия', siege: 'осада', special: 'особый' };
+S.cnt = {}; S.army = null; S.reports = null; S.alliances = null;
+
+function unitTrainSec(u) {
+  return Math.max(1, Math.round(u.time * MY().bonus.train / S.cat.speed)); // уровень здания тренировку не ускоряет
+}
+// все условия тренировки юнита (как «Необходимо» в оригинале): основное здание + доп. требования
+const unitNeeds = (u) => [[u.building, u.level], ...Object.entries(u.req).map(([id, l]) => [Number(id), l])].map(([id, l]) => ({ name: S.by[id].name, lvl: l, ok: buildingLevel(id) >= l }));
+function unitLock(u) {
+  if (buildingLevel(u.building) < u.level) return `Нужно: ${S.by[u.building].name} ${u.level} ур.`;
+  for (const [id, l] of Object.entries(u.req)) if (buildingLevel(Number(id)) < l) return `Нужно: ${S.by[id].name} ${l} ур.`;
+  if (u.id === M().generalId && (MY().general || MY().training.some((t) => t.unit === u.id))) return 'Генерал в замке может быть только один.';
+  return null;
+}
+function unitMax(u) {
+  let n = Infinity;
+  for (const r of RES4) if (u.cost[r]) n = Math.min(n, Math.floor(resNow(r) / u.cost[r]));
+  if (u.pop) n = Math.min(n, Math.floor(S.st.castle.res.people / u.pop));
+  if (u.id === M().generalId) n = Math.min(n, 1);
+  if (u.id === 224 || u.id === 233) n = Math.min(n, 3); // за один заказ — не больше 3
+  else if (MY().trainDay) n = Math.min(n, MY().trainDay.max - MY().trainDay.used);
+  return Math.max(0, n === Infinity ? 0 : n);
+}
+// улучшения Кузницы, которые действуют в бою: при новых правилах боя (проба, админка) — не больше предела (forgeCap с сервера)
+function forgeEff(id) {
+  const fg = (S.st && MY().forge && MY().forge[id]) || {}, cap = S.st && MY().forgeCap && MY().forgeCap[id];
+  return cap ? Object.fromEntries(['a', 'd', 'm', 'md'].map((k) => [k, Math.min(fg[k] || 0, cap[k])])) : fg;
+}
+// бой как в оригинале (с 24.10): у воина три атаки — по пехоте, по коннице, по магам — и здоровье; специализация — значок у имени
+const SPEC_TXT = { A: ['a', 'Атакующий', 'в обороне бьёт вдвое слабее'], D: ['d', 'Защитник', 'при нападении бьёт вдвое слабее'], U: ['u', 'Универсал', 'бьёт в полную силу всегда'] };
+const CLS_TXT = { infantry: 'пехота', cavalry: 'конница', magic: 'маги' };
+// значки атак по родам войск и специализации — как в «Справке» оригинала (gfx/smallicon/atk_*.png, spec_*.png)
+const A3_IC = { inf: 'atk_inf', cav: 'atk_cav', mag: 'atk_mag' }, A3_NAME = { inf: 'Атака на пехоту', cav: 'Атака на конницу', mag: 'Атака на магов' };
+const unitA3 = (u) => u.a3 || { inf: (u.attack || 0) + (u.magic || 0), cav: (u.attack || 0) + (u.magic || 0), mag: (u.attack || 0) + (u.magic || 0) };
+const specHtml = (u) => { const t = SPEC_TXT[u.spec] || SPEC_TXT.U; return `<span class="uspec" title="${t[2]}"><img src="${GFX}smallicon/spec_${t[0]}.png" alt=""> ${t[1]}${CLS_TXT[u.type] ? ` · ${CLS_TXT[u.type]}` : ''}</span>`; };
+function unitStatsHtml(u) {
+  // справка — только базовые цифры воина, без улучшений Кузницы
+  const a = unitA3(u);
+  return `<div class="small">${specHtml(u)} — ${(SPEC_TXT[u.spec] || SPEC_TXT.U)[2]}</div>
+    <div class="grid4 g5"><div><small>Здоровье</small>${u.hp || '—'}</div>${['inf', 'cav'].map((k) => `<div><small>${A3_NAME[k]}</small>${STAT_IC(A3_IC[k])} ${a[k]}</div>`).join('')}
+    <div><small>${A3_NAME.mag}</small>${STAT_IC(A3_IC.mag)} ${a.mag}</div><div><small>Скорость</small>${u.speed} кл/ч</div><div><small>Груз</small>${u.carry}</div></div>
+    ${u.wallDmg ? `<div class="small">Ущерб стене: <b>${u.wallDmg} ед.</b>${u.oneUse ? ' · исчезает после боя' : ''}</div>` : ''}${u.bldDmg ? `<div class="small">Ущерб зданиям: <b>${u.bldDmg} ед.</b></div>` : ''}
+    <div class="chips">${RES4.map((r) => `<span data-need="${r}:${u.cost[r]}">${RES_IC[r]} ${fmtFull(u.cost[r])}</span>`).join('')}
+    <span>${RES_IC.people} ${u.pop}</span><span>${TIME_IC} ${fmtT(unitTrainSec(u))}</span></div>`;
+}
+
+// ---------- эффекты зданий (что даёт уровень) ----------
+function milEffect(def, L) {
+  const pct = (v) => `${Math.round(v * 1000) / 10}%`;
+  const train = () => ({ text: `открывает новых воинов по мере роста уровня`, short: `${L} ур.` }); // уровень не ускоряет тренировку (как в оригинале)
+  const wallPer = (MY().bonus && MY().bonus.wallPer) || { humans: 0.015, elves: 0.0175, dwarves: 0.01, orcs: 0.0125 }[S.st.user.race] || 0.015; // с вехами Инженерии — как на сервере
+  const fx = {
+    2: () => ({ text: 'армии, генерал, бунтари; отправка войск', short: 'армии' }),
+    3: train, 12: train, 20: train, 23: train,
+    4: () => ({ text: `груз торговцев ${fmtFull(45 * L)} ед., бартер 2 : 1`, short: `${fmtFull(45 * L)} ед.` }), // торговцев всегда 20, груз — 45 за уровень
+    11: () => ({ text: `улучшение атаки и защиты юнитов до ${L} ур.`, short: `до ${L} ур.` }),
+    13: () => { const n = Math.min(50, 5 * L); return { text: `мест в альянсе: ${n} (считается по Центру главы альянса)`, short: `${n} ${plural(n, 'место', 'места', 'мест')}` }; },
+    14: () => ({ text: 'обучение ученых (ускоряют науку)', short: 'ученые' }),
+    15: () => ({ text: `науки до ${L} уровня`, short: `науки ${L}` }),
+    16: () => ({ text: `археологи, +${3 * L}% к находке артефакта`, short: `+${3 * L}%` }),
+    17: () => ({ text: `экспедиции за артефактами, +${2 * L}% к находке`, short: `+${2 * L}%` }),
+    // Башня артефактов: пробуждённых — не больше трёх (army.js ART_ACTIVE_MAX)
+    18: () => { const n = Math.min(3, 1 + Math.floor(L / 3)); return { text: `активных артефактов: ${n}`, short: `${n} ${plural(n, 'слот', 'слота', 'слотов')}` }; },
+    19: () => ({ text: `торговцы везут на ${Math.round(L * 100 / 45)}% больше ресурсов и ходят на ${5 * L}% быстрее`, short: `+${Math.round(L * 100 / 45)}%` }),
+    21: () => ({ text: '+5% к контрразведке; видны армии, идущие на Ваши замки (подробности — по уровню Центра разведки)', short: 'дозор' }),
+    22: () => ({ text: `+${pct(wallPer * L)} к здоровью защитников замка`, short: `+${pct(wallPer * L)}` }),
+    24: () => ({ text: 'путешественники (освоение новых замков) и бунтари (захват)', short: '' }),
+    25: () => ({ text: `религия: +${L}% к её бонусу`, short: `+${L}%` }),
+    26: () => { const h = Math.round(200 * 1.3 ** (L - 1) * (S.st.user.race === 'dwarves' ? 2 : 1) * ((MY().sciences || {}).eco >= 10 ? 1.25 : 1)); return { text: `прячет ${fmtFull(h)} каждого ресурса от грабежа`, short: fmtN(h) }; }, // как на сервере: гномы ×2, Экономика 10 — ещё +25%
+    38: () => ({ text: 'походы через Портал — вчетверо быстрее', short: '' }),
+    39: () => ({ text: `+${2 * L}% магической атаки и защиты`, short: `+${2 * L}%` }),
+    40: () => { const p = Math.round((1 - 1 / (1 + 0.05 * L)) * 100); return { text: `здания получают на ${p}% меньше урона (катапульты и осадные воины)`, short: `−${p}%` }; }, // урон ÷ (1 + 5% × ур.)
+    41: () => ({ text: `мест для раненых: ${fmtFull(1000 * L)}; ранеными становится половина павших; лечение — за четверть цены тренировки, сразу`, short: `${fmtFull(1000 * L)} мест` }), // Лазарет (army.js INFIRM_CAP)
+    43: () => ({ text: `тренировка быстрее на ${2 * L}%`, short: `−${2 * L}%` }),
+    44: () => ({ text: `хранит ${3 + L} ${plural(3 + L, 'артефакт', 'артефакта', 'артефактов')}`, short: `${3 + L}` }),
+    45: () => ({ text: `+${5 * L}% к контрразведке; тренирует разведчиков; с Караульной башней — сведения о вражеских армиях`, short: `+${5 * L}%` }),
+  }[def.id];
+  return fx ? fx() : null;
+}
+
+// ---------- Лазарет (здание 41): раненые воины и лечение — за четверть цены тренировки, сразу (server: army.js healWounded) ----------
+// Лазарет: цена лечения n раненых — как на сервере (healCostOf): цена одного без округления × n, округлить
+S.healN = {}; // сколько выбрано по видам (окно перерисовывается — число не теряется)
+const healCost = (w, n) => Object.fromEntries(RES4.map((r) => [r, Math.round(((w.one || {})[r] || 0) * n)]));
+// скольких хватит ресурсов вылечить сейчас (ресурсы — с приростом, resNow)
+function healMax(w) {
+  const fits = (n) => { const c = healCost(w, n); return RES4.every((r) => resNow(r) >= c[r]); };
+  let lo = 0, hi = w.n;
+  while (lo < hi) { const m = Math.ceil((lo + hi) / 2); if (fits(m)) lo = m; else hi = m - 1; }
+  return lo;
+}
+const healCostRow = (w, n) => { const c = healCost(w, Math.max(1, n)); return RES4.map((r) => `<span data-need="${r}:${c[r]}">${RES_IC[r]}<b>${fmtFull(c[r])}</b></span>`).join(''); };
+function infirmaryHtml() {
+  const I = MY().infirm; if (!I) return '';
+  const cost = (c) => RES4.map((r) => `<span data-need="${r}:${c[r]}">${RES_IC[r]}<b>${fmtFull(c[r])}</b></span>`).join(''); // w.cost — уже за всех раненых этого вида (как спишет сервер)
+  const all = I.wounded.reduce((q, w) => q + w.n, 0), allCost = Object.fromEntries(RES4.map((r) => [r, I.wounded.reduce((q, w) => q + w.cost[r], 0)]));
+  // по видам, как «Постройка юнитов»: количество (не больше, чем хватит ресурсов), ползунок, цена за выбранное, «Сколько хватит» и «Вылечить»
+  const rows = I.wounded.map((w) => { const u = unitById(w.id); if (!u) return '';
+    const max = healMax(w), n = Math.min(S.healN[w.id] || 0, max);
+    return `<div class="tcard"><div class="tname">${esc(u.name)} — раненых: ${fmtFull(w.n)}</div>${uimg(u, 'timg')}
+    <div class="tcost"><div class="tcost-h" data-hhead="${w.id}">${n ? `Лечение ${fmtFull(n)}:` : 'Лечение одного:'}</div><div class="tcost-r" data-hcost="${w.id}">${healCostRow(w, n)}</div></div>
+    <div class="tqty">Количество: <input type="number" inputmode="numeric" min="0" max="${max}" value="${n}" data-hcnt="${w.id}"> /${fmtFull(max)}</div>
+    <input type="range" class="tslider" min="0" max="${Math.max(1, max)}" value="${n}" data-hrange="${w.id}" style="--p:${max ? n / max * 100 : 0}%" ${max ? '' : 'disabled'}>
+    <div class="hbtns"><button class="pbar" data-hmax="${w.id}" ${max ? '' : 'disabled'}>Сколько хватит</button><button class="pbar tbtn" data-heal="${w.id}" ${max ? '' : 'disabled'}>Вылечить</button></div>
+    ${max < w.n ? `<p class="hnote">${max ? `Ресурсов хватит на ${fmtFull(max)} из ${fmtFull(w.n)}.` : 'Ресурсов не хватает даже на одного.'}</p>` : ''}</div>`; }).join('');
+  return `${ribbon('Раненые')}<p class="coinhint">Мест: <b>${fmtFull(I.used)} из ${fmtFull(I.cap)}</b>. Сюда попадают Ваши воины, павшие в нападениях и набегах из этого замка и при его обороне.
+      Лечение — за четверть цены тренировки и сразу: ждать не нужно, вылеченные тут же возвращаются в Замковую армию.</p>
+    ${all ? `${rows}${I.wounded.length > 1 ? `<div class="tcost"><div class="tcost-h">Вылечить всех раненых (${fmtFull(all)}):</div><div class="tcost-r">${cost(allCost)}</div></div>
+      <button class="pbar" data-heal="all">Вылечить всех</button>` : ''}` : '<p class="parch-note">Раненых нет.</p>'}`;
+}
+$('#sheetBody').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-heal],[data-hmax]'); if (!b) return;
+  const id = b.dataset.heal || b.dataset.hmax, w = ((MY().infirm || {}).wounded || []).find((x) => String(x.id) === id);
+  if (b.dataset.hmax) { if (w) { S.healN[id] = healMax(w); refreshSheet(); } return; } // «Сколько хватит»: на сколько хватит ресурсов
+  if (id === 'all') return send({ t: 'heal', units: null }); // «Вылечить всех»
+  const n = Math.floor(S.healN[id] || 0);
+  if (!(n > 0)) return toast('Выберите количество или нажмите «Сколько хватит».', 'err');
+  S.healN[id] = 0; send({ t: 'heal', units: { [id]: n } });
+});
+// Лазарет: поле «Количество» и ползунок связаны; цена и время — за выбранное число
+$('#sheetBody').addEventListener('input', (e) => {
+  const d = e.target.dataset, id = d.hcnt || d.hrange; if (!id) return;
+  const w = ((MY().infirm || {}).wounded || []).find((x) => String(x.id) === id); if (!w) return;
+  const max = healMax(w), n = Math.max(0, Math.min(max, Math.floor(Number(e.target.value)) || 0)); S.healN[id] = n;
+  const r = $(`[data-hrange="${id}"]`), i = $(`[data-hcnt="${id}"]`), h = $(`[data-hhead="${id}"]`), c = $(`[data-hcost="${id}"]`);
+  if (r) { if (d.hcnt) r.value = n; r.style.setProperty('--p', `${max ? n / max * 100 : 0}%`); }
+  if (i && d.hrange) i.value = n;
+  if (h) h.textContent = n ? `Лечение ${fmtFull(n)}:` : 'Лечение одного:';
+  if (c) c.innerHTML = healCostRow(w, n);
+});
+
+// ---------- функции здания (в шторке здания, ниже улучшения) ----------
+function buildingFunctions(def, lvl) {
+  if (!lvl || !S.cat.mil) return '';
+  let h = '';
+  if (def.id === 0) return `<button class="rbar" data-wallwin>Стена${S.st.castle.wall ? ` · ${S.st.castle.wall} ур.` : ''}</button><button class="rbar" data-shieldopen>🛡 Защита</button>`; // Ратуша: стена замка (wall.js)
+  if (def.id === 46) return residenceHtml(); // Резиденция: лояльность населения (residence.js)
+  if (def.id === 41) return infirmaryHtml(); // Лазарет: раненые и лечение
+  if (def.id === 11) return '<button class="rbar" data-forge>Юниты</button><button class="rbar" data-runeforge>Ковка снаряжения за руны</button>' + upJobsHtml(11) + runeJobHtml(); // Кузница (forge.js, runes.js)
+  if (def.id === 39) return '<button class="rbar" data-magic>Юниты</button>' + upJobsHtml(39); // Школа магии (forge.js)
+  if (def.id === 21) return '<button class="rbar" data-moves>Передвижения армий</button>'; // Караульная башня (watch.js)
+  if (def.id === 45) return spyButtons() + trainJobsHtml(45); // Центр разведки: Возможности / Тренировать / Разведка (spy.js)
+  if (def.id === HQ) h += hqHtml();
+  if (def.id === 4) h += marketHtml();
+  if (def.id === 13) h += diplomacyButtons();
+  if (def.id === 15) return `<button class="rbar" data-scilist>Науки</button>${sciJob()}`; // Университет (science.js)
+  if (def.id === 14) h += universityHtml(def.id);
+  if (def.id === 25) h += templeHtml();
+  if (def.id === 17) h += expedHtml();
+  if (def.id === 18 || def.id === 44) h += artifactsHtml();
+  if (def.id === 24) h += `<div class="section">Бунтари</div><div class="card small">Количество доступных бунтарей является общим для всего Королевства, и зависит от количества лояльности для захвата последующих замков.</div>
+    <div class="card small">Бунтарей и путешественников — не больше 3 за один заказ. «Освоение»: армия, в которой 10 путешественников, строит новый замок на пустой клетке карты 3 дня (нажмите на пустую клетку → «Основать замок»).</div>`;
+  const units = myUnitList().filter((u) => u.building === def.id);
+  // как в оригинале: кнопка «Тренировать» открывает окно «Постройка юнитов», ниже — «Юниты:» с идущими партиями
+  if (units.length && def.id !== HQ) h += // генерал — через «Генерал» (general.js), как в оригинале
+    `<button class="rbar" data-trainopen="${def.id}">Тренировать</button>${trainJobsHtml(def.id)}`; // в штабе — только чтобы нанять генерала, если его нет
+  return h;
+}
+// «Юниты:» — партии в тренировке: «Мародер 8/402 · Осталось 23:17:25» (готово/всего, время до конца партии)
+function trainJobsHtml(bid) {
+  const jobs = MY().training.filter((t) => t.building === bid);
+  return jobs.length ? `${ribbon('Юниты:')}${jobs.map((t) => { const u = unitById(t.unit), end = t.start + t.each * t.count;
+    return `<div class="upjob"><img src="${unitSrc(u)}" alt=""> ${esc(u.name)} ${t.done}/${t.count}<br>Осталось <img class="ri" src="${GFX}res/time.png" alt=""> <span class="cd" data-e="${end}"></span></div>`; }).join('')}` : '';
+}
+function trainWin(bid) {
+  const units = myUnitList().filter((u) => u.building === bid);
+  return `${ribbon('Постройка юнитов')}${units.length ? trainHtml(S.by[bid], units) : '<p class="parch-note">Нет юнитов для тренировки.</p>'}`;
+}
+
+function trainHtml(def, units) {
+  return `
+    ${units.map((u) => trainCard(u)).join('')}`;
+}
+// карточка тренировки — как «Постройка юнитов» в оригинале: параметры значками, зелёная плашка стоимости,
+// «Количество: N /макс», ползунок (картинки ProgressBar из клиента) и кнопка «Тренировать»
+const STAT_IC = (f) => `<img src="${GFX}smallicon/${f}.png" alt="">`;
+function trainCard(u) {
+  const lock = unitLock(u), max = unitMax(u), n = Math.min(S.cnt[u.id] ?? 0, max); // как в оригинале: по умолчанию 0
+  // с улучшениями Кузницы и Школы магии: атака и маг. атака — +5% урона за уровень, защита — +5% здоровья (против магов — маг. защита)
+  const fg = forgeEff(u.id), dk = 1 + 0.05 * ((fg.a || 0) + (fg.m || 0)), a = unitA3(u), v = (x) => Math.round(x * dk);
+  return `<div class="tcard"><div class="tname">${esc(u.name)}</div><div class="tspec">${specHtml(u)}</div>${uimg(u, 'timg')}
+    <div class="tparams-h">Параметры юнита:</div>
+    <div class="tparams"><div>${STAT_IC('health')}<b>${Math.round(u.hp * (1 + 0.05 * (fg.d || 0)))}</b></div>${['inf', 'cav', 'mag'].map((k) => `<div title="${A3_NAME[k]}">${STAT_IC(A3_IC[k])}<b>${v(a[k])}</b></div>`).join('')}<div>${STAT_IC('speed')}<b>${u.speed}</b></div><div>${STAT_IC('carry')}<b>${u.carry}</b></div></div>
+    <div class="tcost"><div class="tcost-h">Стоимость тренировки:</div><div class="tcost-r">${RES4.map((r) => `<span data-need="${r}:${u.cost[r]}">${RES_IC[r]}<b>${fmtFull(u.cost[r])}</b></span>`).join('')}
+      <span>${RES_IC.people}<b>${u.pop}</b></span><span>${TIME_IC}<b>${fmtT(unitTrainSec(u))}</b></span></div></div>
+    ${lock ? `<div class="needlist"><div class="needhead">Необходимо:</div>${unitNeeds(u).map((x) => `<div class="need ${x.ok ? 'ok' : ''}">${x.ok ? '✔' : '✖'} ${esc(x.name)} ${x.lvl} ур.</div>`).join('')}${unitNeeds(u).every((x) => x.ok) ? `<p class="reasons">${esc(lock)}</p>` : ''}</div>`
+    : `<div class="tqty">Количество: <input type="number" inputmode="numeric" min="0" max="${max}" value="${n}" data-cnt-input="${u.id}"> /${max}</div>
+    <input type="range" class="tslider" min="0" max="${Math.max(1, max)}" value="${n}" data-cnt-range="${u.id}" style="--p:${max ? n / max * 100 : 0}%" ${max ? '' : 'disabled'}>
+    <button class="pbar tbtn" data-train="${u.id}" ${max ? '' : 'disabled'}>Тренировать</button>`}</div>`;
+}
+
+
+// Военный штаб: Армии, Генерал, Расписание походов, Обзор армий (симулятор боя — из отчёта разведки, sim.js)
+function hqHtml() {
+  return `<button class="rbar" data-armies>Армии</button><button class="rbar" data-general>Генерал</button>
+    <button class="rbar ${isPrem() ? '' : 'rlock'}" data-hq="sched">${isPrem() ? '' : '🔒 '}Расписание походов</button><button class="rbar" data-moves>Обзор армий</button><button class="rbar" data-simopen>Симулятор боя</button>`;
+}
+// «Расписание походов» — армии, отправленные по расписанию и ещё не вышедшие
+function schedWin() {
+  const list = (MY().armies || []).filter((a) => a.state === 'wait');
+  return `${ribbon('Расписание походов')}${list.map((a) => `<div class="arow2"><div class="aicon"><img class="aswords" src="${G3}menu/swords.svg" alt=""></div><div class="ainfo">
+    <div class="aname">${M().missions[a.mission]} ${a.x}:${a.y}</div><div class="acount"><img src="${G3}hq/helmet.png" alt=""> ${fmtFull(Object.values(a.units).reduce((q, n) => q + n, 0))} · выйдет через <span class="cd" data-e="${a.depart}"></span></div></div></div>`).join('') || '<p class="parch-note">Запланированных походов нет.</p>'}`;
+}
+$('#sheetBody').addEventListener('click', (e) => {
+  const t = e.target.closest('[data-hq]'); if (!t) return;
+  const k = t.dataset.hq;
+  if (k === 'sched' && !isPrem()) return toast('Расписание походов — только с премиумом.', 'err');
+  if (k === 'sched') return openSheet(schedWin);
+});
+
+// Рынок — как в оригинале: груз и скорость торговца, «Передать», «Бартер» (обмен), «Торговцы»
+function marketHtml() {
+  const m = MY().merchants || { total: 0, free: 0, away: 0, carry: 0, speed: 0 };
+  return `<div class="bwline">Торговый центр замка.</div>
+    <div class="bwline">Количество ресурсов переносимых одним торговцем <img class="fi" src="${G3}menu/basket.svg" alt=""> <b>${fmtFull(m.carry)}</b> ед.</div>
+    <div class="bwline">Скорость торговца ▶▶ <b>${m.speed * (S.cat.march || 1)}</b> полей/час</div>
+    <button class="pbar" data-mkt="give">Передать</button>
+    <button class="pbar" data-mkt="barter">Бартер</button>
+    <button class="pbar" data-mkt="merch">Торговцы</button>`;
+}
+// время в пути торговцев до X:Y (как на сервере: расстояние / скорость)
+function mktSec(g) {
+  const m = MY().merchants, c = S.st.castle; if (g.x === '' || g.y === '' || !m.speed) return 0;
+  const own = (S.st.castles || []).some((k) => k.x === Number(g.x) && k.y === Number(g.y)) ? 3 : 1; // свои замки — втрое быстрее
+  const d = Math.hypot(Number(g.x) - c.x, Number(g.y) - c.y); return d ? Math.min(Math.max(5, Math.round(600 / S.cat.speed)), Math.max(5, Math.round(d / (m.speed * own * (S.cat.march || 1)) * 3600 / S.cat.speed))) : 0; // не дольше 10 минут
+}
+const mktTime = (g) => { const s = mktSec(g); return s ? `${fmtT(s)} <small>(обратно столько же)</small>` : '—'; };
+function mktGiveWin() {
+  const m = MY().merchants, g = S.mkt || (S.mkt = { x: '', y: '', res: {} });
+  const total = RES4.reduce((s, r) => s + (Number(g.res[r]) || 0), 0), need = m.carry ? Math.ceil(total / m.carry) : 0;
+  return `${ribbon('Передать')}
+    <div class="bwline">Свободных торговцев: <b>${m.free}</b> из ${m.total} · каждый везёт <b>${fmtFull(m.carry)}</b></div>
+    ${(S.st.castles || []).filter((c) => !c.active).length ? `<div class="mkown"><span>Мои замки:</span>${S.st.castles.filter((c) => !c.active).map((c) => `<button class="${String(g.x) === String(c.x) && String(g.y) === String(c.y) ? 'on' : ''}" data-mkown="${c.x},${c.y}">${esc(c.name)} <small>${c.x}:${c.y}</small></button>`).join('')}</div>` : ''}
+    <div class="row2 cxy"><label>X<input type="number" inputmode="numeric" data-mkx="x" value="${esc(g.x)}"></label><label>Y<input type="number" inputmode="numeric" data-mkx="y" value="${esc(g.y)}"></label></div>
+    <div class="row2">${RES4.map((r) => `<label>${RES_IC[r]}<input type="number" inputmode="numeric" min="0" data-mkr="${r}" value="${g.res[r] || ''}" placeholder="0"></label>`).join('')}</div>
+    <div class="cinfo">Понадобится торговцев: <b id="mkNeed" class="${need > m.free ? 'bad' : ''}">${need}</b></div>
+    <div class="cinfo">Доставка: <b id="mkTime">${mktTime(g)}</b> · скорость ${m.speed * (S.cat.march || 1)} полей/час, в свои замки — ${m.speed * 3 * (S.cat.march || 1)}, не дольше 10 минут</div>
+    <button class="pbar" data-mkt="send">Отправить</button>`;
+}
+function mktMerchWin() {
+  const m = MY().merchants;
+  return `${ribbon('Торговцы')}<div class="bwline">Всего торговцев: <b>${m.total}</b></div><div class="bwline">Свободных: <b>${m.free}</b></div>
+    <div class="bwline">Зарезервированных: <b>${m.reserved}</b></div><div class="bwline">В пути: <b>${m.away}</b></div>
+    <p class="small muted">Торговцы не тренируются и не участвуют в боях — при Рынке их всегда 20. Груз — 45 ед. за уровень Рынка (20 ур. — 900 ед.), скорость — ${(m.speed || 60) * (S.cat.march || 1)} полей/час.</p>`;
+}
+function mktBarterWin() {
+  const opt = (sel) => RES4.map((r) => `<option value="${r}" ${r === sel ? 'selected' : ''}>${RES_NAME[r]}</option>`).join('');
+  return `${ribbon('Бартер')}<form class="card stack" data-form="exchange">
+      <div class="row2"><label>Отдать<select name="from">${opt('wood')}</select></label><label>Получить<select name="to">${opt('iron')}</select></label></div>
+      <input name="amount" type="number" inputmode="numeric" min="1" placeholder="Сколько отдать" required data-bxamt>
+      <p class="small muted">Курс 2 : 1 — отдаёте 2 единицы, получаете 1.</p><p class="bxgot" data-bxgot>Получите: <b>0</b></p><button class="btn primary">Обменять</button></form>`;
+}
+$('#sheetBody').addEventListener('click', (e) => {
+  const own = e.target.closest('[data-mkown]');
+  if (own) { const [x, y] = own.dataset.mkown.split(','); S.mkt.x = x; S.mkt.y = y; return refreshSheet(); }
+  const t = e.target.closest('[data-mkt]'); if (!t) return;
+  const k = t.dataset.mkt;
+  if (k === 'give') { S.mkt = null; return openSheet(mktGiveWin); }
+  if (k === 'merch') return openSheet(mktMerchWin);
+  if (k === 'barter') return openSheet(mktBarterWin);
+  if (k === 'send') { const g = S.mkt; return send({ t: 'send', mission: 'trade', x: Number(g.x), y: Number(g.y), res: g.res }); }
+});
+$('#sheetBody').addEventListener('input', (e) => {
+  const d = e.target.dataset; if (!S.mkt || (d.mkx === undefined && d.mkr === undefined)) return;
+  if (d.mkx) S.mkt[d.mkx] = e.target.value; else S.mkt.res[d.mkr] = Math.max(0, Math.floor(Number(e.target.value)) || 0);
+  const m = MY().merchants, total = RES4.reduce((s, r) => s + (Number(S.mkt.res[r]) || 0), 0), need = m.carry ? Math.ceil(total / m.carry) : 0, el = $('#mkNeed');
+  if (el) { el.textContent = need; el.classList.toggle('bad', need > m.free); }
+  const tm = $('#mkTime'); if (tm) tm.innerHTML = mktTime(S.mkt);
+});
+
+
+function universityHtml(id) {
+  const my = MY(), uni = buildingLevel(15), sages = my.units[227] || 0;
+  if (id === 14) return `<div class="card small">Ученые ускоряют исследования в Университете: −2% времени за каждого в замке (до −50%). Сейчас: ${sages}.</div>`;
+  const r = my.research;
+  return `<div class="section">Науки</div>
+    ${r ? `<div class="card job"><div class="grow"><b>Изучается: ${esc(M().sciences[r.sci].name)} ${r.level} ур.</b><div class="bar"><i data-s="${r.start}" data-e="${r.end}"></i></div></div><span class="cd" data-e="${r.end}"></span></div>` : ''}
+    ${Object.entries(M().sciences).map(([k, s]) => { const l = my.sciences[k], n = l + 1, can = n <= uni && !r;
+      const sec = Math.max(3, Math.round(M().scienceTime[Math.min(20, n)] * Math.max(0.5, 1 - 0.02 * sages) / S.cat.speed));
+      return `<div class="card unit"><div class="top">${gimg(`smallicon/${s.icon}.png`, 'ui s')}<div class="grow"><b>${esc(s.name)} ${l} ур.</b><span class="muted small">${esc(s.desc)}</span></div></div>
+      ${n > 20 ? '<p class="small">Максимум.</p>' : `<div class="chips">${RES4.map((q) => `<span data-need="${q}:${M().scienceCost[n][q]}">${RES_IC[q]} ${fmtFull(M().scienceCost[n][q])}</span>`).join('')}<span>${TIME_IC} ${fmtT(sec)}</span></div>
+      ${n > uni ? `<p class="reasons">Нужен Университет ${n} ур.</p>` : `<button class="btn primary small" data-sci="${k}" ${can ? '' : 'disabled'}>Изучить ${n} ур.</button>`}`}</div>`; }).join('')}`;
+}
+
+// Храм как в оригинале: «Бонус лояльности +N%» с полоской, кнопки «Бунт» и «Ритуалы» (temple.js)
+function templeHtml() {
+  const r = MY().royal, pct = r ? Math.round(r.bonus * 100) : 0, cap = r ? Math.round(r.bonusCap * 100) : 0;
+  return `<div class="bwline">Бонус <img class="crown" src="${GFX}smallicon/bonus_status/coronalgold.png" alt=""> лояльности + ${pct}%</div>
+    <div class="tbar"><i style="width:${cap ? Math.min(100, pct / cap * 100) : 0}%"></i></div>
+    <button class="rbar" data-temple="riot">Бунт</button><button class="rbar" data-temple="rituals">Ритуалы</button>`;
+}
+function religionHtml() {
+  const rel = MY().religion, L = buildingLevel(25);
+  if (rel) return `<div class="section">Вера</div><div class="card"><b>${esc(M().religions[rel].name)}</b><p class="small">${esc(M().religions[rel].desc)} — сейчас +${L}%.</p></div>`;
+  return `<div class="section">Выбор веры (один раз)</div>${Object.entries(M().religions).map(([k, r]) => `<div class="card"><b>${esc(r.name)}</b><p class="small">${esc(r.desc)}</p><button class="btn primary small" data-religion="${k}">Принять</button></div>`).join('')}`;
+}
+
+// Экспедиция: археологи и Стражи глубин тренируются здесь же и ходят только в Подземелье (dungeon.js); идущие ещё старые экспедиции видны до возвращения
+function expedHtml() {
+  const my = MY(), ex = my.expeds || [], u = my.units || {};
+  return `<button class="dgbtn" data-dgopen><img src="${GFX}dungeon/cave.png" alt=""><span><b>Подземелье</b><small>Лагеря археологов: копайте артефакты и отнимайте чужие находки</small></span></button>
+    <div class="card exhead"><div>Археологов в замке: <b>${fmtFull(u[230] || 0)}</b> · Стражей глубин: <b>${fmtFull(u[231] || 0)}</b></div>
+      <small>Археологи копают, Стражи глубин охраняют их и ходят в налёты. И те и другие ходят только в Подземелье.</small></div>
+    ${ex.map((x) => `<div class="card job exrun"><img class="exic" src="${GFX}units/human/hd/arheolog.png" alt="">
+      <div class="grow"><b>Экспедиция возвращается</b> · археологов ${x.n}<div class="bar"><i data-s="${x.start}" data-e="${x.end}"></i></div></div><span class="cd" data-e="${x.end}"></span></div>`).join('')}`;
+}
+const ART_HOURS = [12, 24, 48];
+// артефакт Подземелья: своё действие и срок, без редкости; пробудить тот же вид снова — через сутки (artCd); монета — сразу +1 монета
+function artSpecialHtml(a, t) {
+  const cd = (MY().artCd || {})[a.type] || 0, wait = !a.active && cd > now();
+  const btn = a.active ? '' : `<div class="artbtns"><button class="btn small primary" data-art="${a.id}" data-on="1" ${t.hours ? `data-hours="${t.hours}"` : 'data-coin="1"'} ${wait ? 'disabled' : ''}>${t.coin ? 'Получить монету' : 'Пробудить'}</button>${t.coin ? '' : `<button class="btn small danger" data-artbreak="${a.id}">Разбить</button>`}</div>`;
+  return `<div class="card unit artsp"><div class="top">${gimg(ART_ICON[a.type] || ART_ICON.atk, 'artico artsp')}
+    <div class="grow"><b>${esc(t.name)}</b><span class="muted small">${esc(t.desc)}${a.active ? ' · <b class="good">пробуждён</b>' : ''}</span></div>${btn}</div>
+    ${a.active && a.until ? `<div class="artlife"><div class="bar"><i data-s="${a.until - t.hours * 3600000 / S.cat.speed}" data-e="${a.until}"></i></div><span>иссякнет через <span class="cd" data-e="${a.until}"></span></span></div>`
+      : `<p class="small muted">${t.coin ? 'Артефакт Подземелья. Пробудите — и монета ваша.' : `Артефакт Подземелья: действует ${t.hours} ч, затем рассыпается. Тот же вид снова — не раньше чем через сутки${t.def ? '; защитный не пробудить, когда на замок уже идёт вражеская армия' : ''}.`}${wait ? ` <b>Можно через <span class="cd" data-e="${cd}"></span>.</b>` : ''}</p>`}</div>`;
+}
+function artifactsHtml() {
+  const my = MY(), active = my.artifacts.filter((a) => a.active).length;
+  return `<div class="section">Артефакты</div><p class="small muted">Пробуждено ${active} из ${my.bonus.artSlots} (Башня артефактов), хранится ${my.artifacts.length} из ${my.bonus.artStore} (Сокровищница). Одновременно действует только один артефакт каждого вида — самый сильный. Ненужный спящий артефакт можно разбить на осколки — освободится место, а взамен немного ресурсов.</p>
+    ${my.artifacts.map((a) => { const t = M().artifacts[a.type] || {}; if (t.special) return artSpecialHtml(a, t); const r = M().rarity[a.rarity]; return `<div class="card unit"><div class="top">${gimg(ART_ICON[a.type] || ART_ICON.atk, `artico artr${a.rarity}`)}
+      <div class="grow"><b>${esc(t.name)}</b><span class="muted small">${r.name}: +${Math.round(r.bonus * 100)}% — ${esc(t.desc)}${a.active ? ` · <b class="good">пробуждён${a.eff !== undefined && a.eff < r.bonus - 1e-9 ? (a.eff > 0 ? `, действует +${Math.round(a.eff * 100)}%` : ', не действует — пробуждён более сильный этого вида') : ''}</b>` : ''}</span></div>
+      ${a.active ? '' : `<div class="artbtns"><button class="btn small primary" data-art="${a.id}" data-on="1" data-hours="${ART_HOURS[a.rarity]}">Пробудить</button><button class="btn small danger" data-artbreak="${a.id}">Разбить</button></div>`}</div>
+      ${a.active && a.until ? `<div class="artlife"><div class="bar"><i data-s="${a.until - ART_HOURS[a.rarity] * 3600000 / S.cat.speed}" data-e="${a.until}"></i></div><span>иссякнет через <span class="cd" data-e="${a.until}"></span></span></div>` : `<p class="small muted">Пробуждённый действует ${ART_HOURS[a.rarity]} ч, затем рассыпается. Разбить — +${fmtFull(M().artBreak[a.rarity])} каждого ресурса.</p>`}</div>`; }).join('') || '<p class="muted small">Артефактов нет — их приносят экспедиции археологов (здание «Экспедиция»).</p>'}`;
+}
+
+// ---------- отправка войск — окно «Военный поход» в armies.js ----------
+
+// ---------- отчёты ----------
+function openReports() { S.reports = null; S.repPage = 0; S.mailMenu = null; send({ t: 'reports', page: 0 }); openSheet(reportsHtml); }
+// дата как в оригинале: «Сегодня, 14:03», «Вчера, 14:03», иначе «27.09.2026 13:07»
+function repDate(t) {
+  const d = new Date(t), hm = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  const day = (x) => new Date(x).toDateString(), now = Date.now();
+  if (day(t) === day(now)) return `Сегодня, ${hm}`;
+  if (day(t) === day(now - 864e5)) return `Вчера, ${hm}`;
+  return `${d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${hm}`;
+}
+const REPG = 'gfx3d/rep/';
+// список — по 10 на страницу (сервер: reports { page }), внизу слева конверт с меню (mailMenuHtml в dialogs.js)
+function reportsHtml() {
+  const R = S.reports;
+  return `<div class="ribbon"><span><img class="renv" src="${REPG}envnew.svg" alt=""> Отчеты ${R ? R.total : ''}</span></div>${R ? mailPager('reppg', R.page, R.pages) : ''}
+    <div class="replist">${!R ? '<p class="parch-note">Загрузка…</p>' : R.list.map((r) => `<button class="repcard ${r.tone || 'info'} ${r.read ? '' : 'new'}" data-report="${r.id}">
+      <b><img class="renv" src="${REPG}${r.read ? 'env' : 'envnew'}.svg" alt=""> ${esc(r.title)}</b><span>От: ${esc(r.from || 'Советник')}</span><span>${repDate(r.at)}</span></button>`).join('') || '<p class="parch-note">Отчётов пока нет.</p>'}</div>
+    ${mailMenuHtml('rep')}`;
+}
+// окно отчёта как в оригинале: шапка «От/Тема/дата», итог похода, стороны, армии с потерями по юнитам
+function reportHtml(r) {
+  S.openReport = r;
+  const d = r.data || {}, pct = (a, b) => (b ? Math.round(a / b * 100) : 0);
+  const ic = (n) => `<img class="ric" src="${REPG}${n}.png" alt="">`;
+  const plink = (id, name) => id ? `<button class="rlink" data-profile="${id}">${esc(name)}</button>` : esc(name);
+  const band = (icon, text) => `<div class="ribbon rband"><span><img src="${REPG}${icon}.png" alt=""> ${text}</span></div>`;
+  const bar = (icon, text) => `<div class="rbar"><img src="${REPG}${icon}.png" alt=""> ${text}</div>`;
+  const head = `${ribbon('Отчет')}<div class="rp">От: ${esc(r.from || 'Советник')}<br>Тема: <b>${esc(r.title)}</b><br>${repDate(r.at)}</div><hr class="rhr">`;
+  const foot = `<hr class="rhr"><div class="rtiles"><button class="rtile" data-repfwd="${r.id}"><img src="${REPG}fwd.png" alt="Переслать"></button>
+    ${r.owner === S.st.user.id && !r.fwd ? `<button class="rtile" data-repdel="${r.id}"><img src="${REPG}del.png" alt="Удалить"></button>` : ''}</div>`; // пересланный (fwd) живёт при письме
+  const sideBlock = (s, rating, x, y, lossLine) => `<div class="rp">Игрок: ${plink(s.id, s.login)}<br>Замок: ${x !== '-' && x != null ? `<button class="rlink" data-goworld="${x},${y}">${esc(s.castle || '')}</button>` : esc(s.castle || '')}<br>(Рейтинг: ${rating ?? '-'}, X: ${x}, Y: ${y})${lossLine ? `<br>${lossLine}` : ''}</div>`;
+  if (d.type === 'invite') { // приглашение в альянс: вступить прямо из отчёта
+    const a = d.ally || {}, live = (MY().invites || []).find((x) => x.id === a.id), inAl = MY().alliance;
+    return `${head}<div class="invcard"><div class="invh">Вас пригласили в альянс</div>
+      <div class="invname"><b>[${esc(a.tag || '')}]</b> ${esc(a.name || '')}</div>
+      <div class="invinfo">Пригласил: ${plink(d.from && d.from.id, (d.from && d.from.login) || '')}${live ? ` · глава: <b>${esc(live.leader)}</b> · участников: <b>${live.members}${live.slots ? ` / ${live.slots}` : ''}</b>` : ''}</div>
+      ${inAl && inAl.id === a.id ? '<p class="parch-note">Вы уже в этом альянсе.</p>' : inAl ? `<p class="parch-note">Вы уже в альянсе [${esc(inAl.tag)}]. Чтобы вступить, сначала выйдите из него.</p>`
+        : live ? `<div class="two"><button class="pbtn invyes" data-repinv="accept" data-id="${a.id}">Принять</button><button class="pbtn invno" data-repinv="decline" data-id="${a.id}">Отклонить</button></div>
+          <p class="small muted center">Вступление по приглашению — сразу, Дипломатический центр не нужен.</p><button class="rlinkbig" data-repinvgo>Все приглашения (Дипломатический центр)</button>`
+        : '<p class="parch-note">Приглашение уже недействительно (отклонено или отозвано).</p>'}</div>${foot}`;
+  }
+  if (d.type === 'friendreq') { // заявка в друзья: принять или отклонить прямо из отчёта
+    const u = d.from || {}, st = d.state;
+    return `${head}<div class="invcard"><div class="invh">Предложение дружбы</div>
+      <div class="invname">${plink(u.id, u.login || '')}</div><div class="invinfo">Рейтинг: <b>${fmtFull(u.rating || 0)}</b></div>
+      ${st === 'accepted' ? '<p class="parch-note">Заявка принята — вы друзья.</p>' : st === 'declined' ? '<p class="parch-note">Заявка отклонена.</p>' : st === 'cancelled' ? '<p class="parch-note">Игрок отозвал заявку.</p>'
+        : `<div class="two"><button class="pbtn invyes" data-frreq="accept" data-id="${u.id}">Принять</button><button class="pbtn invno" data-frreq="decline" data-id="${u.id}">Отклонить</button></div>`}
+      <button class="rlinkbig" data-frgo>Мои друзья</button></div>${foot}`;
+  }
+  if (d.type === 'friendok') { // дружба принята
+    const u = d.from || {};
+    return `${head}<div class="invcard"><div class="invh">🤝 Дружба принята</div>
+      <div class="invname">${plink(u.id, u.login || '')}</div><div class="invinfo">теперь Ваш друг · Рейтинг: <b>${fmtFull(u.rating || 0)}</b></div>
+      <button class="rlinkbig" data-frgo>Мои друзья</button></div>${foot}`;
+  }
+  if (d.type === 'scout') {
+    const res = d.ok ? '<span class="rgood">Разведка прошла успешно.</span>' : '<span class="rbad">Разведка провалилась.</span>';
+    return `${head}<div class="rp">Тип похода: Разведка<br>${ic('star')} Результат атаки: ${res}</div><hr class="rhr">
+      ${band('kingatt', 'Нападение')}${sideBlock(d.att, d.att.rating, d.att.cx, d.att.cy, `${ic('skull')} Общие потери: ${d.att.lost} из ${d.att.sent} ( ${pct(d.att.lost, d.att.sent)}% )`)}
+      ${band('kingdef', 'Защита')}${d.def.npc ? `<div class="rp">Игрок: Неизвестный игрок<br>Объект: ${esc(d.def.npc)}<br>(Рейтинг: -, X: ${d.x}, Y: ${d.y})</div>` : sideBlock(d.def, d.def.rating, d.x, d.y)}
+      ${bar('swords', 'Армия атаки')}${bar('glass', 'Разведка')}
+      <div class="rp">${d.info && d.info.length ? d.info.map(esc).join('<br>') : 'Разведчики ничего не узнали.'}</div>
+      ${d.ok && d.sim && r.owner === S.st.user.id ? '<button class="pbar" data-simrep>⚔ В симулятор боя</button>' : ''}${foot}`;
+  }
+  if (d.type !== 'battle') return `${head}<div class="rp">${(r.lines || []).map(esc).join('<br>')}</div>${foot}`;
+  const attV = d.side === 'att';
+  const tot = (u) => Object.values(u || {}).reduce((q, v) => q + v.was, 0), lostN = (u) => Object.values(u || {}).reduce((q, v) => q + v.lost, 0);
+  const aW = tot(d.att.units), aL = lostN(d.att.units), dW = tot(d.def.units), dL = lostN(d.def.units);
+  // как в оригинале: «Победа атаки.» / «Поражение атаки.» — с точки зрения нападения
+  const result = d.win ? ['rgood', 'Победа атаки.'] : ['rbad', 'Поражение атаки.'];
+  const resRow = (o, keys = ['wood', 'stone', 'iron', 'food', 'people']) => `<div class="rres">${keys.map((k) => `<span>${RES_IC[k]} ${fmtFull(Math.round((o && o[k]) || 0))}</span>`).join('')}</div>`;
+  const reb = d.att.units && d.att.units[233], rebLeft = reb ? reb.was - reb.lost : 0, rebU = unitById(233);
+  // строки — блоками (без <br> после строки ресурсов, иначе пустая строка)
+  const top = `<div class="rp">Тип похода: ${esc(M().missions[d.mission] || 'Нападение')}<br>
+      ${d.luck !== undefined ? `${ic('horse')} Удача атаки ${d.luck} %<br>` : ''}
+      ${ic('star')} Результат атаки: <span class="${result[0]}">${result[1]}</span>
+      ${d.loot && RES4.some((k) => d.loot[k] > 0) ? `<div>Было украдено ресурсов${d.att.army ? ` армией ${esc(d.att.army)}` : ''}:</div>${resRow(d.loot, RES4)}` : ''}
+      ${d.loyalty ? `<div>Бунт в замке после нападения: ${100 - d.loyalty.to}% ${d.captured ? `<span class="rgood">${d.def.npc ? 'Руины захвачены!' : 'Замок захвачен!'}</span>`
+        : d.royalBlocked ? `<span class="rbad">Замок не захвачен: ${d.royalBlocked.wait ? `захват возможен через ${d.royalBlocked.wait} дн. игры` : 'не хватает лояльности населения'}.</span>` : ''}</div>` : ''}
+      ${d.capitalBlocked ? '<div><span class="rbad">Столицу захватить нельзя.</span></div>' : ''}
+      ${d.npcBack ? (d.npcBack === 'ruins' ? `<div><span class="rgood">Руины разграблены и исчезли с карты.</span> Со временем в этой провинции появятся новые.</div>` : `<div><span class="rgood">Лагерь разбит и исчез с карты.</span> Со временем в этой провинции появится новый.</div>`) : ''}
+      ${d.siteTaken && !d.siteTaken.blocked ? `<div><span class="${attV ? 'rgood' : 'rbad'}">${attV ? 'Недострой захвачен! Ваши путешественники продолжают стройку.' : 'Ваш недострой захвачен врагом.'}</span></div>` : ''}
+      ${d.siteTaken && d.siteTaken.blocked ? `<div><span class="rbad">Недострой не захвачен: ${esc(d.siteTaken.blocked)}</span></div>` : ''}
+      ${d.site && d.win && !d.siteTaken && d.mission === 'attack' ? `<div>Охрана недостроя разбита, но стройка продолжается — забрать её может нападение, в котором выживут ${M().settleTake || 3} путешественника.</div>` : ''}
+      ${d.captured && rebU && (d.captured.rebel || rebLeft) ? `<div><img class="ric" src="${unitSrc(rebU, d.att.race)}" alt=""> ${d.captured.rebel || rebLeft} ${plural(d.captured.rebel || rebLeft, 'Бунтарь остался', 'Бунтаря остались', 'Бунтарей остались')} в замке.</div>` : ''}
+      ${(d.siege || []).map((x) => `<div>${esc(x)}</div>`).join('')}
+      ${d.gear ? `<div>${esc(d.gear)}</div>` : ''}</div>`;
+  const lossLine = (L, W) => `${ic('skull')} Общие потери: ${fmtFull(L)} из ${fmtFull(W)} ( ${pct(L, W)}% )`;
+  // почему потерь 0: защитников не было — боя нет; или перевес огромный — победитель теряет меньше одного воина
+  // сила сторон: с 24.10 (бой как в оригинале) — str: √(урон × здоровье), до того — total
+  const AP = d.calc ? d.calc.att.str ?? d.calc.att.total : 0, DP = d.calc ? d.calc.def.str ?? d.calc.def.total : 0, times = (a, b) => (b > 0 ? Math.round(a / b) : 0);
+  const why = (t) => `<div class="rwhy">${t}</div>`, kA = times(AP, DP), kD = times(DP, AP);
+  const aWhy = aL || !aW ? '' : !d.def.npc && !dW && !d.def.general ? why('В замке не было защитников — сражаться было не с кем, поэтому потерь нет.')
+    : d.win && kA >= 2 ? why(`Атака была в ${kA} ${plural(kA, 'раз', 'раза', 'раз')} сильнее ${d.def.npc ? 'охраны' : 'защиты'} — при таком перевесе победитель почти не теряет войск.`) : '';
+  // павшие: «Полевой лекарь» спас сразу (нападавшему); раненые — в Лазарет замка (нападавшему и защитнику)
+  const ofW = (n) => `${fmtFull(n)} ${plural(n, 'воина', 'воинов', 'воинов')}`, cl = d.calc || {};
+  const healWhy = (attV && cl.saved ? why(`Полевой лекарь спас ${ofW(cl.saved)} — они вернутся домой.`) : '')
+    + (attV && cl.wounded ? why(`В Лазарет отправлено раненых: ${fmtFull(cl.wounded)} (ранеными становится половина павших) — вылечите их там за четверть цены.`) : '');
+  const dHealWhy = !attV && cl.dWounded && !d.captured ? why(`В Лазарет отправлено раненых: ${fmtFull(cl.dWounded)} (ранеными становится половина павших) — вылечите их там за четверть цены.`) : '';
+  const dWhy = dL || !dW || d.win || kD < 2 ? '' : why(`Защита была в ${kD} ${plural(kD, 'раз', 'раза', 'раз')} сильнее атаки — при таком перевесе защитники почти не теряют войск.`);
+  // «Армия атаки» / «Армия защиты» — раскрываются нажатием: потери, потери в ресурсах, по юнитам «погибло из было», генерал
+  const unitRows = (units, race) => Object.entries(units || {}).map(([id, v]) => { const u = unitById(id); return u ? `<div class="rul"><img class="ric" src="${unitSrc(u, race)}" alt=""> ${esc(u.name)}: ${fmtFull(v.lost)} из ${fmtFull(v.was)}</div>` : ''; }).join('');
+  const genRow = (s) => (s.general ? `<div class="rul">${gimg(`units/${HD_DIR[s.race] || 'human/hd'}/general.png`, 'ric')} Генерал ${s.general} ур.: ${s.generalDied ? '<span class="rbad">пал в бою</span>' : s.generalSaved ? 'чудом уцелел (умения и снаряжение)' : s.genExp ? `+${fmtFull(s.genExp)} опыта` : 'в строю'}</div>` : '');
+  const armyBox = (icon, title, sub, body) => `<details class="rarmy"><summary class="rbar"><img src="${REPG}${icon}.png" alt=""> ${title}</summary>${ribbon(sub)}${body}</details>`;
+  const attBox = armyBox('swords', 'Армия атаки', `Армия атаки${d.att.army ? `: ${esc(d.att.army)}` : ''}`,
+    `<div class="rp">${ic('skull')} Потери: ${fmtFull(aL)} из ${fmtFull(aW)} ( ${pct(aL, aW)}% )<br>Потери в ресурсах:${resRow(d.att.lossRes)}${unitRows(d.att.units, d.att.race)}${genRow(d.att)}</div>`);
+  const defBox = armyBox('shield', 'Армия защиты', 'Армия защиты', d.def.npc
+    ? `<div class="rp">${ic('skull')} Охрана потеряла ${d.def.lossPct}%${(d.def.garrison || []).map((g) => { const u = g.id && unitById(g.id); return `<div class="rul">${u ? `<img class="ric" src="${unitSrc(u)}" alt=""> ` : ''}${esc(g.name)}: ${fmtFull(g.lost || 0)} из ${fmtFull(g.n)}</div>`; }).join('')}</div>`
+    : dW || d.def.general ? `<div class="rp">${ic('skull')} Потери: ${fmtFull(dL)} из ${fmtFull(dW)} ( ${pct(dL, dW)}% )<br>Потери в ресурсах:${resRow(d.def.lossRes)}${unitRows(d.def.units, d.def.race)}${genRow(d.def)}${d.def.wall ? `<div class="rul">${gimg('fence/hd/fence1.png', 'ric')} Забор ${d.def.wall} ур.</div>` : ''}</div>`
+    : '<div class="rp">В замке не было защитников.</div>');
+  return `${head}${top}
+    ${band('kingatt', 'Нападение')}${sideBlock(d.att, d.att.rating, d.att.cx ?? '-', d.att.cy ?? '-', lossLine(aL, aW) + aWhy + healWhy)}
+    ${band('kingdef', 'Защита')}
+    ${d.def.npc ? `<div class="rp">Игрок: Неизвестный игрок<br>Объект: ${esc(d.def.npc)}<br>(Рейтинг: -, X: ${d.x}, Y: ${d.y})<br>${ic('skull')} Охрана потеряла ${d.def.lossPct}%</div>`
+      : sideBlock(d.def, d.def.rating, d.x, d.y, dW ? lossLine(dL, dW) + dWhy + dHealWhy : `${ic('skull')} В замке не было защитников!`)}
+    ${attBox}${defBox}
+    ${foot}`;
+}
+
+// ---------- админ — web/admin.js ----------
+
+// ---------- мир: действия с объектом ----------
+function worldActions(o, x, y) {
+  const b = (m, t) => `<button class="btn ${m === 'attack' ? 'primary' : ''}" data-armyopen="${m}" data-ax="${x}" data-ay="${y}">${t}</button>`;
+  if (o.kind === 'castle') {
+    if (o.ownerId === S.st.user.id) { // свой замок: если не текущий — отправить ресурсы или подкрепление
+      const here = S.st.castle && S.st.castle.x === x && S.st.castle.y === y;
+      return here ? '' : `<div class="btns" style="margin-top:8px">${b('trade', 'Отправить ресурсы')}${b('reinforce', 'Подкрепление')}</div>`;
+    }
+    return `<div class="btns" style="margin-top:8px">${b('attack', 'Атака')}${b('raid', 'Набег')}</div><div class="btns" style="margin-top:8px">${b('scout', 'Разведка')}${b('trade', 'Торговля')}</div>`;
+  }
+  const npc = M().npc[o.img];
+  if (!npc) return '<p class="muted small">Здесь пусто.</p>';
+  return `<dl class="kv">${npc.level ? `<dt>Сложность</dt><dd><b>${esc(npc.level)}</b></dd>` : ''}<dt>Охрана</dt><dd>~${fmtFull(npc.def.inf)}</dd><dt>Запас</dt><dd>${RES4.map((r) => fmtN(npc.loot[r])).join(' / ')}</dd></dl>
+    <div class="btns" style="margin-top:8px">${b('attack', 'Атака')}${b('raid', 'Набег')}${b('scout', 'Разведка')}</div>
+    ${npc.ruins ? `<p class="small">Бунт в руинах: <b>${100 - (o.loyalty ?? 100)}%</b>. Захват — <b>нападение с Бунтарями</b>: каждая победа добавляет 15% бунта (с Бунтарями руины не грабят), при 100% руины станут вашим замком. Нападение без Бунтарей грабит руины, и они исчезают с карты.</p>` : ''}`;
+}
+
+// ---------- справочник войск (Ещё → Войска) ----------
+function armyBookHtml() {
+  const races = ['humans', 'elves', 'dwarves', 'orcs', 'all'];
+  S.bookRace = S.bookRace || S.st.user.race;
+  // по зданиям (Казарма, Конюшня, Академия магов, Центр разведки) и уровню; старые воины не показываются; награды заданий — в конце
+  const BORD = [3, 12, 20, 45], bo = (u) => (u.quest ? 99 : BORD.includes(u.building) ? BORD.indexOf(u.building) : 50);
+  const list = M().units.filter((u) => u.race === S.bookRace && !u.retired).sort((a, b) => bo(a) - bo(b) || a.level - b.level);
+  return `<div class="vhead"><button class="iconbtn" data-back>‹</button><h2>Войска</h2></div>
+    <div class="pad" style="padding-top:8px"><div class="pills">${races.map((r) => `<button data-brace="${r}" class="${r === S.bookRace ? 'on' : ''}">${r === 'all' ? 'Общие' : esc(S.cat.races[r])}</button>`).join('')}</div>
+    <div class="list" style="margin-top:8px">${list.map((u0) => raceUnit(u0, S.bookRace === 'all' ? S.st.user.race : S.bookRace)).map((u) => `<div class="card unit"><div class="top">${`<img class="ui" src="${unitSrc(u, S.bookRace === 'all' ? S.st.user.race : S.bookRace)}" alt="">`}<div class="grow"><b>${esc(u.name)}</b>
+      <span class="muted small">${TYPE_NAME[u.type] || ''} · ${u.quest ? 'только награда заданий и походов' : u.retired ? 'больше не тренируется' : `${esc(S.by[u.building].name)} ${u.level} ур.${Object.entries(u.req).map(([id, l]) => `, ${esc(S.by[id].name)} ${l} ур.`).join('')}`}</span></div></div>${unitStatsHtml(u)}</div>`).join('')}</div></div>`;
+}
+
+// ---------- события ----------
+function milMsg(m) {
+  if (m.t === 'alliances') { S.alliances = m.list; S.alFound = m.list; refreshSheet(); }
+  if (m.t === 'reports') { S.reports = m; S.repPage = m.page; refreshSheet(); }
+  if (m.t === 'report') { const it = S.reports && S.reports.list.find((x) => x.id === m.report.id); if (it) it.read = true; S.mailMenu = null; openSheet(() => reportHtml(m.report)); } // ◀ — к списку: отчёт уже прочитан
+}
+function hqCell() { const i = S.st.castle.grid[0].indexOf(HQ); return i; }
+
+$('#sheetBody').addEventListener('click', (e) => {
+  const t = e.target.closest('button'); if (!t) return;
+  const d = t.dataset;
+  if (d.cnt) { const [id, k] = d.cnt.split(':').map(Number); S.cnt[id] = Math.max(1, (S.cnt[id] || 1) + k); const i = $(`[data-cnt-input="${id}"]`); if (i) i.value = S.cnt[id]; return; }
+  if (d.max) { const u = unitById(d.max); S.cnt[u.id] = Math.max(1, unitMax(u)); const i = $(`[data-cnt-input="${u.id}"]`); if (i) i.value = S.cnt[u.id]; return; }
+  if (d.trainopen) { const bid = Number(d.trainopen); S.cnt = {}; return openSheet(() => trainWin(bid)); }
+  if (d.train) { const c = S.cnt[d.train] ?? 1; if (!(c > 0)) return toast('Выберите количество ползунком.', 'err'); return send({ t: 'train', unit: Number(d.train), count: c }); }
+  if (d.revive !== undefined) return send({ t: 'general', op: 'revive' });
+  if (d.armyopen === 'trade') { S.mkt = { x: d.ax ?? '', y: d.ay ?? '', res: {} }; return openSheet(mktGiveWin); }
+  if (d.armyopen !== undefined) return openArmySheet({ mission: d.armyopen || 'raid', x: d.ax !== undefined ? Number(d.ax) : '', y: d.ay !== undefined ? Number(d.ay) : '' });
+  if (d.reports !== undefined) return openReports();
+  if (d.report) return send({ t: 'report', id: Number(d.report) });
+  if (d.reppg !== undefined) { S.repPage = Math.max(0, Number(d.reppg)); return send({ t: 'reports', page: S.repPage }); }
+  if (d.repdel) { send({ t: 'repdel', ids: [Number(d.repdel)], page: S.repPage }); return closeSheet(); }
+  if (d.repfwd) { const to = prompt('Кому переслать отчёт? Ник игрока:'); if (to) send({ t: 'repfwd', id: Number(d.repfwd), to }); return; }
+  if (d.sci) return send({ t: 'research', sci: d.sci });
+  if (d.religion) return send({ t: 'religion', id: d.religion });
+  if (d.art) { if (!confirm(d.coin ? 'Пробудить «Монету Древних Королей»? Вы получите 1 монету, артефакт исчезнет.' : `Пробудить артефакт? Он будет действовать ${d.hours} ч, а затем рассыплется.`)) return; return send({ t: 'artifact', id: Number(d.art), on: true }); }
+  if (d.artbreak) {
+    const a = MY().artifacts.find((x) => x.id === Number(d.artbreak)); if (!a) return;
+    if (!confirm(`Разбить «${M().artifacts[a.type].name}» (${M().rarity[a.rarity].name})? Он исчезнет навсегда, взамен — по ${fmtFull(M().artBreak[a.rarity])} каждого ресурса. Что не влезет в Склады — в Кладовую.`)) return;
+    return send({ t: 'artbreak', id: a.id });
+  }
+  if (d.exgo) { const n = Number(($('[data-exn]') || {}).value) || 0; if (!(n > 0)) return toast('Сколько археологов отправить?', 'err'); return send({ t: 'exped', kind: d.exgo, n }); }
+  if (d.alleave !== undefined) return send({ t: 'alliance', op: 'leave' });
+});
+$('#sheetBody').addEventListener('input', (e) => {
+  const d = e.target.dataset, v = e.target.value;
+  if (d.exn !== undefined) { S.exN = Math.max(0, Math.floor(Number(v)) || 0); return; }
+  if (d.cntInput || d.cntRange) { // поле и ползунок связаны
+    const id = d.cntInput || d.cntRange, u = unitById(id), max = unitMax(u), c = Math.max(0, Math.min(max, Math.floor(Number(v)) || 0)); S.cnt[id] = c;
+    const r = $(`[data-cnt-range="${id}"]`), i = $(`[data-cnt-input="${id}"]`);
+    if (r) { if (d.cntInput) r.value = c; r.style.setProperty('--p', `${max ? c / max * 100 : 0}%`); }
+    if (i && d.cntRange) i.value = c;
+  }
+});
+$('#sheetBody').addEventListener('submit', (e) => {
+  const f = e.target, k = f.dataset.form;
+  if (k === 'exchange') send({ t: 'exchange', from: f.from.value, to: f.to.value, amount: Number(f.amount.value) });
+  if (k === 'aljoin') send({ t: 'alliance', op: 'join', tag: f.tag.value });
+  if (k === 'alcreate') send({ t: 'alliance', op: 'create', name: f.name.value, tag: f.tag.value });
+  if (['aljoin', 'alcreate'].includes(k)) S.alliances = null;
+});
+$('#sheetBody').addEventListener('click', (e) => { const b = e.target.closest('[data-brace]'); if (b) { S.bookRace = b.dataset.brace; refreshSheet(); } });
+
+$('#sheetBody').addEventListener('click', (e) => { if (e.target.closest('[data-repinvgo]')) openInvites(); });
+$('#sheetBody').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-repinv]'); if (!b) return;
+  send({ t: 'alliance', op: b.dataset.repinv, id: Number(b.dataset.id) });
+  b.closest('.two').innerHTML = `<p class="parch-note">${b.dataset.repinv === 'accept' ? 'Вступаете в альянс…' : 'Приглашение отклонено.'}</p>`;
+});
+// бартер: сколько получите при курсе 2 : 1
+$('#sheetBody').addEventListener('input', (e) => { const i = e.target.closest('[data-bxamt]'); if (!i) return; const g = $('[data-bxgot] b'); if (g) g.textContent = fmtFull(Math.floor((Number(i.value) || 0) * (MY().bonus.marketRate || 0.5))); });

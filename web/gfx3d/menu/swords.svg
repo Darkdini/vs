@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+<defs>
+<linearGradient id="bl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".5" stop-color="#b8c4cc"/><stop offset="1" stop-color="#5a6670"/></linearGradient>
+<linearGradient id="gd" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe7a0"/><stop offset=".5" stop-color="#d8962a"/><stop offset="1" stop-color="#7a4a08"/></linearGradient>
+</defs>
+<g stroke="#c0302a" stroke-width="2.2" stroke-linejoin="round">
+<path d="M88 8 L94 6 L92 12 L34 70 L30 66 Z" fill="url(#bl)"/>
+<path d="M12 8 L6 6 L8 12 L66 70 L70 66 Z" fill="url(#bl)"/>
+</g>
+<g stroke="#5a3004" stroke-width="1.2">
+<path d="M22 60 L40 78 L36 82 L18 64 Z" fill="url(#gd)"/><path d="M78 60 L60 78 L64 82 L82 64 Z" fill="url(#gd)"/>
+<path d="M34 74 L20 88 L14 86 L12 80 L26 66 Z" fill="#a8581c"/><path d="M66 74 L80 88 L86 86 L88 80 L74 66 Z" fill="#a8581c"/>
+<circle cx="13" cy="88" r="5" fill="url(#gd)"/><circle cx="87" cy="88" r="5" fill="url(#gd)"/>
+</g>
+</svg>
