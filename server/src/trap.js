@@ -84,7 +84,7 @@ function install(Game) {
     const all = total(p.units);
     castle.recruit = { pool: { ...p.units }, from: p.login, end: now + ms(T.recruitSec) }; // сколько согласится (10–15%) — решится в конце
     castle.prison = null; this.store.save();
-    return { ok: true, msg: `Вербовка ${all} пленных началась: через ${Math.round(T.recruitSec / SPEED / 3600 * 10) / 10} ч станет известно, сколько согласятся служить вам (от ${Math.round(T.recruitMin * 100)}% до ${Math.round(T.recruitMax * 100)}%). Остальные пропадут.` };
+    return { ok: true, msg: `Вербовка началась. Через ${Math.round(T.recruitSec / SPEED / 3600 * 10) / 10} ч узнаете, сколько пленных согласились служить вам.` };
   };
   // перезарядить сразу — за ресурсы замка
   P.trapCharge = function trapCharge(castle, now = Date.now()) {
@@ -99,8 +99,8 @@ function install(Game) {
   P.trapView = function trapView(user, castle, now = Date.now()) {
     const tr = castle.trap || {}, p = castle.prison && total(castle.prison.units) ? castle.prison : null;
     return { ready: (tr.readyAt || 0) <= now, readyAt: tr.readyAt || 0, caught: tr.caught || 0, charge: T.charge, catchN: T.catch,
-      recruitSec: Math.round(T.recruitSec / SPEED), loyDay: T.loyDay, pctMin: Math.round(T.recruitMin * 100), pctMax: Math.round(T.recruitMax * 100),
-      prison: p ? { units: p.units, n: total(p.units), login: p.login, at: p.at, until: p.until, noLoy: !!p.noLoy, loy: this.trapLoyalty(user, castle, now), rMin: Math.floor(total(p.units) * T.recruitMin), rMax: Math.floor(total(p.units) * T.recruitMax) } : null,
+      recruitSec: Math.round(T.recruitSec / SPEED), loyDay: T.loyDay,
+      prison: p ? { units: p.units, n: total(p.units), login: p.login, at: p.at, until: p.until, noLoy: !!p.noLoy, loy: this.trapLoyalty(user, castle, now) } : null,
       recruit: castle.recruit ? { units: castle.recruit.pool, n: total(castle.recruit.pool), end: castle.recruit.end, from: castle.recruit.from } : null };
   };
   // раз в секунду (army.js tickWorld): вербовка закончилась, пленные сбежали

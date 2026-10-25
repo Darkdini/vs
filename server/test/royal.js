@@ -3124,7 +3124,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.ok(cd.prison && cd.prison.units[200] === 1000 && !cd.prison.units[202] && cd.prison.login === 'trapAtt1', 'поймано 1000, разведчики — нет');
     const rp = (u, re) => g.db.reports.some((r) => r.owner === u.id && r.lines.some((l) => re.test(l)));
     assert.ok(rp(Au, /Капкан замка .* поймал до боя 1000/) && rp(Du, /Ваш Капкан поймал до боя 1000/), 'в отчётах обеих сторон');
-    const v = g.trapView(Du, cd); assert.ok(!v.ready && v.prison.n === 1000 && v.prison.rMin === 100 && v.prison.rMax === 150, 'Капкан перезаряжается, согласятся от 100 до 150');
+    const v = g.trapView(Du, cd); assert.ok(!v.ready && v.prison.n === 1000 && v.prison.rMin === undefined, 'Капкан перезаряжается; сколько согласится служить — игроку не показывается');
     const want = g.trapLoyalty(Du, cd), ex = g.trapExecute(Du, cd);
     assert.ok(ex.ok && want > 0 && want <= 100 && Du.trapLoyToday === want && !cd.prison && g.mstats(Du).execute === 1000, `казнь: +${want} лояльности, зал «Казни»`);
     for (const r of ['wood', 'stone', 'iron', 'food']) cd.res[r] = 30000;
