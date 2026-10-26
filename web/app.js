@@ -1045,11 +1045,13 @@ function isoZoom(k, mx, my) {
   const cv = Iso.cv, rel = (e) => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
   // подгрузился новый участок мира — камера сдвинута; сдвигаем и начало жеста, иначе карту отбросит
   Iso.gestShift = (sx, sy, z) => { if (!g) return; if (g.mode === 'pan') { g.cx += sx * z; g.cy += sy * z; } else if (g.mode === 'pinch') { g.wx -= sx; g.wy -= sy; } };
-  // инерция: отпустил палец — карта плавно докатывается и останавливается
+  // инерция: отпустил палец — карта плавно докатывается и останавливается; недалеко (не больше экрана): карта не «уносится»
+  const GLIDE_MAX = 2.5, GLIDE_K = 0.993; // скорость, пикс/мс; затухание за мс (было 0.996 без предела — быстрый взмах уносил на 2–3 экрана)
   const glide = (vx, vy) => {
     cancelAnimationFrame(fling); let last = performance.now();
+    const sp = Math.hypot(vx, vy); if (sp > GLIDE_MAX) { vx *= GLIDE_MAX / sp; vy *= GLIDE_MAX / sp; }
     const step = (now) => { const dt = Math.min(50, now - last); last = now; const c = cam(); c.x += vx * dt; c.y += vy * dt; clampCam(c); isoDrawNow();
-      const k = Math.pow(0.996, dt); vx *= k; vy *= k; if (Math.hypot(vx, vy) > 0.02) fling = requestAnimationFrame(step); };
+      const k = Math.pow(GLIDE_K, dt); vx *= k; vy *= k; if (Math.hypot(vx, vy) > 0.02) fling = requestAnimationFrame(step); };
     fling = requestAnimationFrame(step);
   };
   cv.addEventListener('pointerdown', (e) => {
@@ -1082,7 +1084,7 @@ function isoZoom(k, mx, my) {
     if (!P.has(e.pointerId)) return;
     const p = rel(e); P.delete(e.pointerId);
     // нажатие обрабатываем по событию click: иначе этот же click попадёт в фон открытой шторки и закроет её
-    if (g && g.mode === 'pan' && g.moved && P.size === 0) { // скорость пальца за последние ~100 мс
+    if (e.type === 'pointerup' && g && g.mode === 'pan' && g.moved && P.size === 0) { // скорость пальца за последние ~100 мс; касание прервано (pointercancel) — без инерции
       const now = performance.now(), a = g.tr.find((q) => now - q.t < 120);
       if (a && now - a.t > 8) { const vx = (p.x - a.x) / (now - a.t), vy = (p.y - a.y) / (now - a.t); if (Math.hypot(vx, vy) > 0.25) glide(vx, vy); }
     }
