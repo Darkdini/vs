@@ -555,13 +555,13 @@ function admSecHtml(d) {
       <small class="muted">${x.samples.map(esc).join('<br>')}</small>
       <span>первый раз ${fmtDate(x.first)} · последний ${fmtDate(x.last)}</span>
       ${x.ip === d.me ? '' : x.banned ? `<button class="btn small" data-ipunban="${esc(x.ip)}">Разблокировать</button>` : `<button class="btn small danger" data-ipban="${esc(x.ip)}" data-why="${esc(x.kinds.map((k) => k.t).join(', '))}">Заблокировать IP</button>`}</div></div>`;
-  return `${aSec('🔒 Безопасность', `${intro}<p class="small">Ваш адрес сейчас: <b>${esc(d.me || '?')}</b> — его заблокировать нельзя. Осторожно: у мобильного интернета один адрес бывает у многих людей — блокировка закроет игру им всем.</p>
+  return `${aSec('⛔ Заблокированные адреса', `<input class="ipq" data-ipq placeholder="🔍 Поиск по IP, например 80.47.13" value="${esc(S.adm.ipq || '')}" inputmode="decimal" autocomplete="off"><div id="ipbanlist">${ipBanListHtml(d.bans)}</div>
+      <p class="small" style="margin:10px 0 2px">Заблокировать адрес вручную:</p><form class="chatform" data-aform="ipban"><input name="ip" placeholder="IP вручную, например 1.2.3.4" autocomplete="off" required><button class="btn small danger">Заблокировать</button></form>`)}
+    ${aSec('🔒 Безопасность', `${intro}<p class="small">Ваш адрес сейчас: <b>${esc(d.me || '?')}</b> — его заблокировать нельзя. Осторожно: у мобильного интернета один адрес бывает у многих людей — блокировка закроет игру им всем.</p>
       ${d.list.length ? `<div class="alist">${d.list.map(row).join('')}</div>` : '<p class="parch-note">Пока ничего подозрительного.</p>'}
       <button class="btn small" data-asec>↻ Обновить</button> ${aBtn2('secclear', 'Очистить журнал', 'data-confirm="Очистить журнал адресов? Блокировки останутся."', 'danger')}`)}
     ${admTgHtml(d.tg)}
-    ${admMailHtml(d.mail)}
-    ${aSec('⛔ Заблокированные адреса', `<input class="ipq" data-ipq placeholder="🔍 Поиск по IP, например 80.47.13" value="${esc(S.adm.ipq || '')}" inputmode="decimal" autocomplete="off"><div id="ipbanlist">${ipBanListHtml(d.bans)}</div>
-      <form class="chatform" data-aform="ipban"><input name="ip" placeholder="IP вручную, например 1.2.3.4" autocomplete="off" required><button class="btn small danger">Заблокировать</button></form>`)}`;
+    ${admMailHtml(d.mail)}`;
 }
 $('#sheetBody').addEventListener('click', (e) => {
   const b = e.target.closest('[data-ipban],[data-ipunban],[data-asec]'); if (!b) return;
