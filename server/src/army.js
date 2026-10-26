@@ -2240,7 +2240,7 @@ function install(Game, helpers) {
     if (a.active) return { error: 'Артефакт уже пробуждён.' };
     const T = ART_TYPES[a.type] || {}, now = Date.now();
     if (T.coin) { // «Монета Древних Королей»: пробудили — монета у игрока, артефакт исчез
-      const u = this.ownerOf(castle); castle.artifacts.splice(castle.artifacts.indexOf(a), 1); u.gold = (u.gold || 0) + 1; this.addStat(castle.owner, 'boost', 1); this.store.save();
+      const u = this.ownerOf(castle); castle.artifacts.splice(castle.artifacts.indexOf(a), 1); this.goldChange(u, 1, 'Подземелье: «Монета Древних Королей» пробуждена'); this.addStat(castle.owner, 'boost', 1); this.store.save();
       return { ok: true, msg: '«Монета Древних Королей» пробуждена: +1 монета.' };
     }
     if (T.special) { // артефакты Подземелья: перезарядка вида и защитные — не во время чужого похода на замок

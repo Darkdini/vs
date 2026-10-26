@@ -1076,8 +1076,9 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     const hit = () => { const D = structuredClone(cb); g.clash(structuredClone(ca), { units: { 243: 40, 200: 10 }, mission: 'attack', general: false }, D, null, Date.now()); return wall0 - g.buildingLevel(D, AR.B.FENCE); };
     const plain = hit(); g.activateArtifact(cb, art(cb, 'seal').id, true); const sealed = hit();
     assert.ok(plain > 0 && sealed < plain, `«Печать Нерушимости»: тараны ломают Забор слабее (${plain} → ${sealed} ур.)`); cb.artifacts = []; }
-  const coin = art(cb, 'coin'), gold0 = ub.gold || 0;
+  const coin = art(cb, 'coin'), gold0 = ub.gold || 0, in0 = g.mstats(ub).goldIn || 0;
   assert.ok(g.activateArtifact(cb, coin.id, true).ok && ub.gold === gold0 + 1 && !cb.artifacts.includes(coin), '«Монета Древних Королей»: +1 монета');
+  { const gl = (ub.goldLog || []).slice(-1)[0]; assert.ok(gl && gl.delta === 1 && /Монета Древних Королей/.test(gl.reason) && g.mstats(ub).goldIn === in0 + 1, '«Монета Древних Королей» — в истории Казны и в Зале славы «Богатство»'); }
   assert.ok(!DG.DUNG.some((d) => d && d.finds.some(([k]) => ['art:atk', 'art:def', 'art:prod', 'art:speed', 'art:train'].includes(k))) && AR.ART_BASIC.length === 5, 'старые артефакты в Подземелье не выпадают, сундуки и задания — только обычные');
   console.log('✓ Подземелье: Стражи глубин, 250 лагерей, лимиты, находки по уровням, «Забрать», налёт, защита от мультов, монета раз в сутки; артефакты Покров, Око, Сердце, Монета, перезарядка и запрет при атаке');
 }
@@ -2563,14 +2564,17 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     const u = g.register({ login: 'full2200', password: '12345', race: 1 }).user, c = g.castleOf(u); g.mil(c);
     const p0 = g.ratingParts(c);
     g.maxOut(c);
-    const p = g.ratingParts(c);
-    assert.deepStrictEqual([p.castle, p.store, p.lands, p.total, p.storeLv], [935, 265, 1000, 2200, 100], `полный замок: ${JSON.stringify(p)}`);
+    const p = g.ratingParts(c); // полная прокачка ставит и Алтарь 20 ур.: сверх полного замка +22
+    assert.deepStrictEqual([p.castle, p.altar, p.store, p.lands, p.total, p.storeLv], [935, 22, 265, 1000, 2222, 100], `полный замок с Алтарём 20 ур.: ${JSON.stringify(p)}`);
+    c.levels[0][c.grid[0].indexOf(47)] = 10; assert.strictEqual(g.rating(c), 2211, 'Алтарь 10 ур. — 2211');
+    g.setBuildingLevel(c, 47, 0); const p2 = g.ratingParts(c);
+    assert.deepStrictEqual([p2.castle, p2.altar, p2.total], [935, 0, 2200], `полный замок без Алтаря: ${JSON.stringify(p2)}`);
     assert.strictEqual(g.rating(c), 2200);
     assert.strictEqual(g.capacity(c).wood, 95000, 'вместимость 5 Складов 20 ур. — 95 000');
     c.levels[0][c.grid[0].indexOf(1)] = 10; // один Склад — 10 ур.
     const q = g.ratingParts(c);
     assert.ok(q.storeLv === 90 && q.store === 239 && q.total === q.castle + q.store + q.lands && q.total < 2200, `Склад 10 ур.: ${JSON.stringify(q)}`);
-    console.log(`✓ Рейтинг: новый замок ${p0.total}, полный — ${p.total} (постройки ${p.castle} + Склады ${p.store} + земли ${p.lands}); вместимость 5 Складов 20 ур. — 95 000`);
+    console.log(`✓ Рейтинг: новый замок ${p0.total}, полный — ${p2.total} (постройки ${p2.castle} + Склады ${p2.store} + земли ${p2.lands}), с Алтарём 20 ур. — ${p.total}; вместимость 5 Складов 20 ур. — 95 000`);
   }
   { // баланс боя: командование генерала с убывающей отдачей, одинаковые артефакты с убыванием, защита от кавалерии в бою
     const u = g.register({ login: 'balance1', password: '12345', race: 0 }).user, c = g.castleOf(u); g.mil(c);
@@ -3170,9 +3174,12 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   { // Капкан: до боя ловит до 1000 воинов (разведчиков не трогает) → Темница; казнь — лояльность не больше 100 в сутки, вербовка 15% за 4 ч
     const mk = (login) => { const u = g.register({ login, password: '12345', race: 0 }).user, c = g.castleOf(u); g.mil(c); g.maxOut(c); return [u, c]; };
     const [Au, ca] = mk('trapAtt1'), [Du, cd] = mk('trapDef1'), [Pu, cp] = mk('trapPl1');
+    const altared = structuredClone(cd); g.setBuildingLevel(cd, 47, 0); // без Алтаря (он тоже поднимает рейтинг до 2222)
     const rt0 = g.rating(cd); assert.ok(!g.buildingLevel(cd, 48), 'полная прокачка игрока Капкан не ставит');
     { const fc = require('../src/catalog').CASTLE_OK.find((k) => k !== 24 && cd.grid[0][k] === -1); cd.grid[0][fc] = 48; cd.levels[0][fc] = 1; }
     assert.ok(rt0 === 2200 && g.buildingLevel(cd, 48) === 1 && g.rating(cd) === 2222 && g.ratingParts(cd).trap === 22, 'полный замок 2200, с Капканом — 2222');
+    { const fc = require('../src/catalog').CASTLE_OK.find((k) => k !== 24 && altared.grid[0][k] === -1); altared.grid[0][fc] = 48; altared.levels[0][fc] = 1; }
+    assert.ok(g.buildingLevel(altared, 47) === 20 && g.rating(altared) === 2222, 'Капкан и Алтарь 20 ур. вместе — тоже 2222');
     g.setBuildingLevel(cp, 48, 0); assert.ok(/администрац/.test(g.startBuild(cp, 0, cp.grid[0].indexOf(-1), 48).error || ''), 'игрок Капкан пока не строит');
     const hit = (units) => { ca.armies = []; ca.units = { ...units }; const go = g.sendArmy(ca, { units, x: cd.x, y: cd.y, mission: 'attack' }); assert.ok(go.army, go.error); g.arrive(ca, go.army, Date.now()); };
     hit({ 200: 1500, 202: 10 });

@@ -559,20 +559,22 @@ class Game {
     return { ok: true };
   }
 
-  // рейтинг замка: постройки замка + развитие Складов + земли; полный замок — 2200, с Капканом — 2222 (C.RATING)
+  // рейтинг замка: постройки замка + развитие Складов + земли; полный замок — 2200, с Капканом или Алтарём 20 ур. — 2222 (C.RATING)
   ratingParts(castle) {
     const sum = (a) => a.reduce((x, y) => x + y, 0);
     const R = C.RATING, extra = castle.storeExtraLv || 0; // уровни Складов, объединённых при переходе на 5 Складов
-    let storeLv = extra, trapLv = 0;
-    castle.grid[0].forEach((b, i) => { if (b === 1) storeLv += castle.levels[0][i]; else if (b === R.trapId) trapLv += castle.levels[0][i]; });
+    let storeLv = extra, trapLv = 0, altarLv = 0;
+    castle.grid[0].forEach((b, i) => { if (b === 1) storeLv += castle.levels[0][i]; else if (b === R.trapId) trapLv += castle.levels[0][i]; else if (b === R.altarId) altarLv += castle.levels[0][i]; });
+    const built = Math.round((sum(castle.levels[0]) - trapLv + (castle.wall || 0) + extra) * R.castle); // постройки замка (с Алтарём)
     const p = {
-      castle: Math.min(R.castleMax, Math.round((sum(castle.levels[0]) - trapLv + (castle.wall || 0) + extra) * R.castle)),
+      castle: Math.min(R.castleMax, built),
+      altar: Math.min(R.altarMax, Math.round(altarLv * R.altar), Math.max(0, built - R.castleMax)), // Алтарь — сверх полного замка (до 2222)
       trap: Math.min(R.trapMax, Math.round(trapLv * R.trap)), // Капкан — сверх 2200 (до 2222)
       store: Math.min(R.storeMax, Math.round(storeLv * R.store)),
       lands: Math.min(R.landsMax, Math.round(castle.levels[1].reduce((x, y) => x + C.landEff(y), 0) * R.lands)),
       storeLv,
     };
-    p.total = Math.min(R.max, p.castle + p.store + p.lands + p.trap);
+    p.total = Math.min(R.max, p.castle + p.altar + p.store + p.lands + p.trap);
     return p;
   }
 
