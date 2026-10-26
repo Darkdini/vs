@@ -578,7 +578,7 @@ const SUBPAGES = {
       <div class="section">Стройка</div>
       <div class="formula">Цена и время каждого уровня — в окне здания («Развить» и «О здании»).<br>Ратуша ускоряет все стройки на 5% за свой уровень, наука Инженерия — ещё на 1% за уровень (на 10 и 20 ур. — ещё по 2,5%).<br>Одновременно строится до ${S.cat.maxQueue} зданий (с премиумом — до 5). Люди заняты только на время стройки.</div>
       <div class="section">Рейтинг</div>
-      <div class="formula">Полностью отстроенный замок — ★ ${R().rating.max - (R().rating.trapMax || 0)}: постройки замка до ${R().rating.castleMax}, развитие Складов до ${R().rating.storeMax}, земли до ${R().rating.landsMax}${R().rating.altarMax ? `; с Алтарём ${(S.by[R().rating.altarId] || {}).max || 20} ур. или Капканом — ★ ${R().rating.max}` : R().rating.trapMax ? `; с Капканом — ★ ${R().rating.max}` : ''}.<br>Уровень здания в замке: ★ ${fr(R().rating.castle)}<br>Уровень Склада: ещё ★ ${fr(R().rating.store)}</div>
+      <div class="formula">Полностью отстроенный замок — ★ ${R().rating.castleMax + R().rating.storeMax + R().rating.landsMax}: постройки замка до ${R().rating.castleMax}, развитие Складов до ${R().rating.storeMax}, земли до ${R().rating.landsMax}${R().rating.altarMax ? `; Алтарь ${(S.by[R().rating.altarId] || {}).max || 20} ур. — ещё ★ ${R().rating.altarMax}` : ''}${R().rating.trapMax ? `; Капкан — ещё ★ ${R().rating.trapMax}` : ''} (всего до ★ ${R().rating.max}).<br>Уровень здания в замке: ★ ${fr(R().rating.castle)}<br>Уровень Склада: ещё ★ ${fr(R().rating.store)}</div>
       <div class="section">Добыча в час</div>
       <div class="formula">Сам замок: ${f(br.wood)} дерева, камня, железа и еды, ${f(br.people)} людей.<br>Здания Земель (каждое, без бонусов):<br>${[5, 37, 7, 8, 9].map(prodRow).filter(Boolean).join('<br>')}<br>${prodRow(6).replace('</b>:', '</b> (людей):')}<br>Добычу увеличивают наука Экономика, религия Природа, артефакты и боевой ранг.</div>
       <div class="section">Склад и люди</div>
@@ -806,10 +806,11 @@ function ratingInfoSheet() {
   const tl = c.grid[0].reduce((s, b, i) => s + (b === RT.trapId ? c.levels[0][i] : 0), 0), lc = sum(c.levels[0]) - tl + (c.wall || 0), ll = sum(c.levels[1]), le = c.levels[1].reduce((x, y) => x + ((S.cat.lands && S.cat.lands.eff) ? S.cat.lands.eff[y] || 0 : y), 0), rc = RT.castle, rl = RT.lands;
   const sl = P.storeLv ?? c.grid[0].reduce((s, b, i) => s + (b === 1 ? c.levels[0][i] : 0), 0); // уровни Складов
   const al = c.grid[0].reduce((s, b, i) => s + (b === RT.altarId ? c.levels[0][i] : 0), 0), alTop = (S.by[RT.altarId] || {}).max || 20; // Алтарь: уровень и максимум
+  const full = RT.castleMax + RT.storeMax + RT.landsMax; // полностью отстроенный замок (2200)
   const pc = P.castle ?? Math.min(RT.castleMax, Math.round(lc * rc)), ps = P.store ?? Math.min(RT.storeMax, Math.round(sl * RT.store)), pl = P.lands ?? Math.min(RT.landsMax, Math.round(le * rl));
   return `${ribbon(`Рейтинг замка: ${fmtFull(c.rating)}`)}
     <dl class="kv"><dt>Постройки замка: ${lc} ур.</dt><dd>★ ${pc} из ${RT.castleMax}</dd><dt>Развитие Складов: ${sl} ур.</dt><dd>★ ${ps} из ${RT.storeMax}</dd><dt>Земли: ${ll} ур.</dt><dd>★ ${pl} из ${RT.landsMax}</dd>${P.altar ? `<dt>Алтарь сверх полного замка: ${al} ур.</dt><dd>★ ${P.altar} из ${RT.altarMax}</dd>` : ''}${tl || P.trap ? `<dt>Капкан: ${tl} ур.</dt><dd>★ ${P.trap || 0} из ${RT.trapMax}</dd>` : ''}<dt><b>Итого</b></dt><dd><b>★ ${c.rating} из ${RT.max}</b></dd></dl>
-    <p class="muted small">Полностью отстроенный замок даёт ${RT.max - (RT.trapMax || 0)}${RT.altarMax ? `, с Алтарём ${alTop} ур. или Капканом — ${RT.max}` : RT.trapMax ? `, с Капканом — ${RT.max}` : ''}. Уровень здания в замке: +${fr(rc)}, уровень Склада — ещё +${fr(RT.store)}, на землях: 1-й ур. +${fr(rl)}, каждый следующий — как 5 прежних (+${fr(rl * 5)}).</p>`;
+    <p class="muted small">Полностью отстроенный замок даёт ${full}${RT.altarMax ? `, Алтарь ${alTop} ур. — ещё +${RT.altarMax}` : ''}${RT.trapMax ? `, Капкан — ещё +${RT.trapMax}` : ''} (всего до ${RT.max}). Уровень здания в замке: +${fr(rc)}, уровень Склада — ещё +${fr(RT.store)}, на землях: 1-й ур. +${fr(rl)}, каждый следующий — как 5 прежних (+${fr(rl * 5)}).</p>`;
 }
 
 function profileSheet(p) {

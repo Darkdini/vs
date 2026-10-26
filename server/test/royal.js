@@ -3174,12 +3174,12 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   { // Капкан: до боя ловит до 1000 воинов (разведчиков не трогает) → Темница; казнь — лояльность не больше 100 в сутки, вербовка 15% за 4 ч
     const mk = (login) => { const u = g.register({ login, password: '12345', race: 0 }).user, c = g.castleOf(u); g.mil(c); g.maxOut(c); return [u, c]; };
     const [Au, ca] = mk('trapAtt1'), [Du, cd] = mk('trapDef1'), [Pu, cp] = mk('trapPl1');
-    const altared = structuredClone(cd); g.setBuildingLevel(cd, 47, 0); // без Алтаря (он тоже поднимает рейтинг до 2222)
+    const altared = structuredClone(cd); g.setBuildingLevel(cd, 47, 0); // без Алтаря (он даёт свои +22)
     const rt0 = g.rating(cd); assert.ok(!g.buildingLevel(cd, 48), 'полная прокачка игрока Капкан не ставит');
     { const fc = require('../src/catalog').CASTLE_OK.find((k) => k !== 24 && cd.grid[0][k] === -1); cd.grid[0][fc] = 48; cd.levels[0][fc] = 1; }
     assert.ok(rt0 === 2200 && g.buildingLevel(cd, 48) === 1 && g.rating(cd) === 2222 && g.ratingParts(cd).trap === 22, 'полный замок 2200, с Капканом — 2222');
     { const fc = require('../src/catalog').CASTLE_OK.find((k) => k !== 24 && altared.grid[0][k] === -1); altared.grid[0][fc] = 48; altared.levels[0][fc] = 1; }
-    assert.ok(g.buildingLevel(altared, 47) === 20 && g.rating(altared) === 2222, 'Капкан и Алтарь 20 ур. вместе — тоже 2222');
+    { const pa = g.ratingParts(altared); assert.ok(g.buildingLevel(altared, 47) === 20 && pa.altar === 22 && pa.trap === 22 && pa.total === 2244, `Алтарь 20 ур. и Капкан — каждый по +22: 2244 (${JSON.stringify(pa)})`); }
     g.setBuildingLevel(cp, 48, 0); assert.ok(/администрац/.test(g.startBuild(cp, 0, cp.grid[0].indexOf(-1), 48).error || ''), 'игрок Капкан пока не строит');
     const hit = (units) => { ca.armies = []; ca.units = { ...units }; const go = g.sendArmy(ca, { units, x: cd.x, y: cd.y, mission: 'attack' }); assert.ok(go.army, go.error); g.arrive(ca, go.army, Date.now()); };
     hit({ 200: 1500, 202: 10 });

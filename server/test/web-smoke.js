@@ -336,7 +336,7 @@ function client() {
     adm.send({ t: 'demolish', view: 0, cell: ds.grid[0].indexOf(0) });
     await adm.expect('error', (m) => /Ратушу снести нельзя/.test(m.msg));
     adm.send({ t: 'admin', op: 'max' });
-    await adm.expect('state', (m) => m.castle.cap.wood === 95000 && m.castle.rating === 2222 && m.castle.ratingParts.store === 265 && m.castle.ratingParts.trap === 22);
+    await adm.expect('state', (m) => m.castle.cap.wood === 95000 && m.castle.rating === 2244 && m.castle.ratingParts.store === 265 && m.castle.ratingParts.trap === 22 && m.castle.ratingParts.altar === 22); // полный замок 2200 + Алтарь 20 ур. + Капкан
     adm.send({ t: 'demolish', view: 0, cell: 3 });
     await adm.expect('error', (m) => /Здесь нет здания/.test(m.msg));
     adm.send({ t: 'build', view: 0, cell: 3, building: 1 });
