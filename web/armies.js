@@ -67,7 +67,8 @@ function armSectionWin(k) {
       <div class="aname">${M().missions[a.mission]} от ${esc(a.from)}</div><div class="acount">из «${esc(a.castle)}» · прибудет через <span class="cd" data-e="${a.arrive}"></span></div></div></div>`).join('')
       || (MY().watch ? '<p class="parch-note">Никто не идёт на ваш замок.</p>' : '<p class="parch-note">Постройте Караульную башню — она покажет армии, идущие на ваш замок.</p>');
   else if (k === 'guests') body = n.guests.map((g) => `<div class="arow2"><div class="aicon"><img class="aswords" src="${TOP}guest.png" alt=""></div><div class="ainfo">
-      <div class="aname">${esc(g.from)} (${esc(g.castle)})</div><div class="acount"><img src="${ICO('helmet')}" alt=""> ${fmtFull(armyTotal(g.units))} — защищает ваш замок</div></div></div>`).join('') || '<p class="parch-note">Чужих подкреплений в замке нет.</p>';
+      <div class="aname">${esc(g.from)} (${esc(g.castle)})</div><div class="acount"><img src="${ICO('helmet')}" alt=""> ${fmtFull(armyTotal(g.units))} — защищает ваш замок</div>
+      <button class="pbar amanage" data-sendhome="${g.id}" data-sfrom="${esc(g.from)}">Отправить домой</button></div></div>`).join('') || '<p class="parch-note">Чужих подкреплений в замке нет.</p>';
   else if (k === 'outpost') body = '<p class="parch-note">Форпостов нет. Форпост — укреплённая стоянка армии на карте мира (скоро).</p>';
   else body = n[k].map(own).join('') || `<p class="parch-note">${{ mine: 'Все армии дома.', reinf: 'Ваших подкреплений у союзников нет.', portal: 'Через портал сейчас никто не идёт.' }[k]}</p>`;
   return `${ribbon(T)}${body}`;
@@ -203,7 +204,7 @@ function campaignWin() {
 
 // ---------- события ----------
 $('#sheetBody').addEventListener('click', (e) => {
-  const t = e.target.closest('[data-asec],[data-army],[data-apage],[data-campaign],[data-regroup],[data-genhere],[data-rename],[data-disband],[data-recall],[data-rgall],[data-rgdo],[data-cmpgo],[data-armies],[data-warpick],[data-warkind]');
+  const t = e.target.closest('[data-asec],[data-army],[data-apage],[data-campaign],[data-regroup],[data-genhere],[data-rename],[data-disband],[data-recall],[data-sendhome],[data-rgall],[data-rgdo],[data-cmpgo],[data-armies],[data-warpick],[data-warkind]');
   if (!t) return;
   const d = t.dataset;
   if (d.armies !== undefined) return openSheet(armiesWin);
@@ -218,6 +219,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.rename !== undefined) { const nm = prompt('Название армии:'); if (nm) send({ t: 'squad', op: 'rename', id: Number(d.rename), name: nm }); return; }
   if (d.disband !== undefined) { if (confirm('Распустить армию в Замковую армию?')) { send({ t: 'squad', op: 'disband', id: Number(d.disband) }); closeSheet(); } return; }
   if (d.recall) return send({ t: 'squad', op: 'recall', id: Number(d.recall) });
+  if (d.sendhome) { if (confirm(`Отправить подкрепление игрока ${d.sfrom} домой?`)) send({ t: 'squad', op: 'sendhome', id: Number(d.sendhome) }); return; } // хозяин замка — чужое подкрепление
   if (d.rgall) { S.rg.units[d.rgall] = Number(d.rgmax); const i = $(`[data-rgu="${d.rgall}"]`); if (i) i.value = d.rgmax; return; }
   if (d.rgdo !== undefined) { send({ t: 'squad', op: 'regroup', from: S.rg.from, to: S.rg.to, units: S.rg.units, general: !!S.rg.gen, name: S.rg.to === 'new' ? S.rg.name : undefined }); return; }
   if (d.cmpgo !== undefined) {

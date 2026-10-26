@@ -2640,6 +2640,14 @@ function install(Game, helpers) {
       const a = castle.armies.find((x) => x.id === Number(id) && x.state === 'stay'); if (!a) return { error: 'Армия не найдена.' };
       this.goBack(castle, a, Date.now()); a.back = Date.now() + (a.sec || 60) * 1000; this.store.save(); return { ok: true };
     }
+    // хозяин замка отправляет чужое подкрепление домой: уходит своим ходом, как при отзыве владельцем; владельцу — отчёт
+    if (op === 'sendhome') {
+      const g = this.guestsOf(castle).find((x) => x.a.id === Number(id)); if (!g) return { error: 'Подкрепление не найдено.' };
+      const now = Date.now(), host = this.ownerOf(castle), own = this.ownerOf(g.c), units = { ...g.a.units };
+      this.goBack(g.c, g.a, now); if (g.a.state === 'back') g.a.back = now + (g.a.sec || 60) * 1000;
+      if (own) this.report(own.id, `Подкрепление возвращается из ${castle.name}`, [`${host ? host.login : 'Хозяин замка'} отправил ваше подкрепление из замка ${castle.name} домой.`, `Войска: ${unitsLine(units)}`], 'reinforce');
+      this.store.save(); return { ok: true, msg: `Подкрепление ${own ? `игрока ${own.login} ` : ''}отправлено домой.` };
+    }
     return { error: 'Неизвестное действие.' };
   };
 

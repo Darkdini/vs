@@ -2139,6 +2139,21 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(g.deleteGift(A, Bq.id, 1, 'treasure').error, 'подарок из казны альянса так не удаляется');
   console.log('✓ Подарки: даритель удаляет свой подарок за его цену; чужой, из казны альянса и без монет — нельзя');
 }
+{ // чужое подкрепление: хозяин замка отправляет его домой — уходит своим ходом, владельцу — отчёт; посторонний — не может
+  const mk = (l) => g.register({ login: l, password: '12345', race: 0 }).user;
+  const H = mk('shHost1'), Gq = mk('shGuest1'), Xq = mk('shOther1'), ch = g.castleOf(H), cg = g.castleOf(Gq), cx = g.castleOf(Xq);
+  const now = Date.now(), a = { id: g.db.nextId++, units: { 200: 10 }, general: false, mission: 'reinforce', x: ch.x, y: ch.y, depart: now - 600000, arrive: now - 1000, sec: 600, state: 'stay', stayAt: ch.id };
+  for (const c of [ch, cg, cx]) g.mil(c);
+  cg.armies.push(a);
+  assert.ok(g.guestsOf(ch).some((x) => x.a === a), 'подкрепление стоит в замке хозяина');
+  assert.ok(g.squadOp(cx, { op: 'sendhome', id: a.id }).error && a.state === 'stay', 'посторонний отправить домой не может');
+  const r = g.squadOp(ch, { op: 'sendhome', id: a.id });
+  assert.ok(r.ok && /отправлено домой/.test(r.msg) && a.state === 'back' && a.back > Date.now() + 590000 && !g.guestsOf(ch).length, `ушло домой своим ходом: ${r.msg}`);
+  const rep = g.db.reports.filter((x) => x.owner === Gq.id).pop();
+  assert.ok(rep && /Подкрепление возвращается/.test(rep.title) && rep.lines.some((l) => /shHost1 отправил ваше подкрепление/.test(l)), `владельцу — отчёт: ${rep && rep.title}`);
+  assert.ok(g.squadOp(ch, { op: 'sendhome', id: a.id }).error, 'второй раз — уже не в замке');
+  console.log('✓ Подкрепления: хозяин замка отправляет чужое подкрепление домой (своим ходом, владельцу — отчёт); посторонний — нет');
+}
 { // новые правила боя — проба (админка): по умолчанию выключены; Кузница — до половины базы, тараны — только при победе,
   // подкрепления — со своими бонусами, магия ¾; «Сравнить бой» — по прежним и новым правилам, в игре ничего не меняется
   const adm = g.adminUser(), mk = (login) => g.register({ login, password: '12345', race: 0 }).user;

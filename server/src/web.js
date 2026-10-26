@@ -830,7 +830,7 @@ const API = {
     this.result(r);
     if (!r.error && r.army.rally) rallyShow(this); // всем в альянсе — новый состав созыва в окне босса
   },
-  squad(m) { const r = this.game.squadOp(this.castle, m); if (m.op === 'regroup' && r && r.ok) this.toast('Армия переформирована!'); if (m.op === 'recall' && r && r.ok) this.toast('Армия развернулась и идёт домой.'); this.result(r); },
+  squad(m) { const r = this.game.squadOp(this.castle, m); if (m.op === 'regroup' && r && r.ok) this.toast('Армия переформирована!'); if (m.op === 'recall' && r && r.ok) this.toast('Армия развернулась и идёт домой.'); if (m.op === 'sendhome' && r && r.ok) this.toast(r.msg); this.result(r); },
   boss() { this.send({ t: 'boss', data: this.game.bossView(this.user) }); },
   // созыв альянса на мирового босса (boss.js): объявить — у всех в альянсе обновляется окно босса
   rally() {
