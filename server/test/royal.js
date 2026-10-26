@@ -922,11 +922,9 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(g.train(c, 309, 1).error, 'уникальных не тренируют');
   g.mil(c); const n0 = c.units[309] || 0; assert.ok(g.stashTake(u, c, 'unit', 309, 3).ok && c.units[309] === n0 + 3 && u.stash.units[309] === 2, 'воины в замок');
   assert.ok(g.stashTake(u, c, 'exp', 'exp', 50).error, 'опыт — только живому генералу');
-  c.general = g.newGeneral(c, 1); u.stash.exp = 1000; // опыт из Кладовой — в дневной лимит генерала (с 24.10): за день — около уровня, остальное ждёт
-  { const t = g.stashTake(u, c, 'exp', 'exp', 1000); assert.ok(t.ok && /завтра/.test(t.msg) && c.general.level === 2 && u.stash.exp < 1000 && u.stash.exp > 0, `опыт генералу: уровень вырос, сверх дневного лимита — остался в Кладовой (${u.stash.exp})`); }
-  for (let i = 0; i < 5 && !g.stashTake(u, c, 'exp', 'exp', 1000).error;) i++;
-  { const v = g.stashView(u, c).find((x) => x.kind === 'exp'), rest = u.stash.exp; assert.ok(c.general.level === 2 && rest > 0 && v.max === 0 && v.tired && /завтра/.test(g.stashTake(u, c, 'exp', 'exp', 70).error) && u.stash.exp === rest, `лимит на сегодня набран — передать нельзя, опыт ждёт в Кладовой (${rest})`);
-    c.general.day.d = '2000-01-01'; assert.ok(g.stashTake(u, c, 'exp', 'exp', 1000).ok && u.stash.exp < rest, 'на другой день — передаётся'); u.stash.exp = 0; }
+  c.general = g.newGeneral(c, 1); u.stash.exp = 100000; // опыт из Кладовой — весь сразу, без дневного лимита генерала (с 26.10)
+  { const d0 = c.general.day ? c.general.day.exp : 0, v = g.stashView(u, c).find((x) => x.kind === 'exp'); assert.ok(v.max === 100000 && !v.tired, 'в окне можно забрать весь опыт');
+    const t = g.stashTake(u, c, 'exp', 'exp', 100000); assert.ok(t.ok && !u.stash.exp && c.general.level > 2 && !/завтра/.test(t.msg) && (c.general.day ? c.general.day.exp : 0) === d0, `опыт генералу: весь сразу, ${c.general.level} ур., дневной лимит боёв не тронут`); }
   assert.ok(g.stashTake(u, c, 'unit', '__proto__', 1).error && g.stashTake(u, c, 'res', 'gold', 1).error, 'чужие ключи отвергаются');
   { // Кладовая одна на игрока: награда, полученная в первом замке, извлекается во втором
     const c2 = g.createCastle(u); u.castleIds = [...(u.castleIds || [c.id]), c2.id];

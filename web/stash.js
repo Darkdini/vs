@@ -19,7 +19,7 @@ function stashWin() {
   const id = (x) => `${x.kind}:${x.key}`;
   return `${ribbon('Кладовая')}<p class="small muted center">Кладовая одна на все Ваши замки: награды ждут здесь и не пропадают. Извлечённое попадёт в замок, где Вы сейчас${S.stashCastle ? ` — <b>«${esc(S.stashCastle)}»</b>` : ''}; ресурсы — пока есть место на Складе.</p>
     <div class="stl">${L.map((x) => { const open = S.stashOpen === id(x);
-      const why = x.kind === 'res' && !x.max ? 'В замке хранится максимальное количество ресурса этого типа.' : x.kind === 'exp' && !x.max ? (x.tired ? 'Генерал сегодня уже набрал много опыта — передайте остальное завтра.' : 'Нужен живой генерал в этом замке — перейдите в замок с генералом.') : '';
+      const why = x.kind === 'res' && !x.max ? 'В замке хранится максимальное количество ресурса этого типа.' : x.kind === 'exp' && !x.max ? 'Нужен живой генерал в этом замке — перейдите в замок с генералом.' : '';
       return `<div class="str ${open ? 'open' : ''} ${x.quest ? 'uniq' : ''}" data-stid="${id(x)}"><div class="stic">${stashIcon(x)}</div>
         <div class="stm"><b>${esc(x.name)}${x.quest ? ' <i>★</i>' : ''}</b><span class="stn">${fmtFull(x.n)}</span></div>
         ${open ? (why ? `<div class="stwhy">${why}</div>` : `<div class="sttake"><div class="stq">Сколько: <input class="stnum" type="number" inputmode="numeric" min="1" max="${x.max}" step="1" placeholder="0" value="${esc(S.stashN)}" data-stnum><button class="stall" data-stall="${id(x)}">Всё</button></div>

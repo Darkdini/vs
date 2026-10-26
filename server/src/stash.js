@@ -60,9 +60,8 @@ function install(Game) {
     const s = this.stashOf(u), cap = this.capacity(c), g = c.general && !c.general.dead;
     const res = RES4.filter((r) => s.res[r] > 0).map((r) => ({ kind: 'res', key: r, name: RES_NAME[r], n: s.res[r], max: Math.max(0, Math.min(s.res[r], Math.floor(cap[r] - c.res[r]))) }));
     const units = Object.entries(s.units).filter(([, n]) => n > 0).map(([id, n]) => ({ kind: 'unit', key: Number(id), name: ARMY().UNIT[id].name, n, max: n, quest: !!ARMY().UNIT[id].quest }));
-    // опыт — не больше дневного лимита генерала (army.js genDayLeft; сам лимит игроку не показывается — только «завтра»)
-    const left = g ? this.genDayLeft(this.normGeneral(c.general, c)) : 0;
-    const exp = s.exp > 0 ? [{ kind: 'exp', key: 'exp', name: 'Опыт генерала', n: s.exp, max: Math.min(s.exp, left), ...(g && !left ? { tired: 1 } : {}) }] : [];
+    // опыт — весь сразу, без дневного лимита генерала (с 26.10; нужен живой генерал в замке)
+    const exp = s.exp > 0 ? [{ kind: 'exp', key: 'exp', name: 'Опыт генерала', n: s.exp, max: g ? s.exp : 0 }] : [];
     const royal = s.royal > 0 ? [{ kind: 'royal', key: 'royal', name: 'Лояльность населения', n: s.royal, max: s.royal }] : [];
     return [...res, ...units, ...royal, ...exp];
   };
@@ -101,12 +100,10 @@ function install(Game) {
       if (!g || g.dead) return { error: 'Нет живого генерала в этом замке.' };
       if (!(s.exp > 0)) return { error: 'Опыта в Кладовой нет.' };
       this.normGeneral(g, c);
-      const left = this.genDayLeft(g);
-      if (!left) return { error: 'Генерал сегодня уже набрал много опыта — передайте остальное завтра.' };
-      const k = Math.min(n, s.exp, left); s.exp -= k; g.day.exp += k;
+      const k = Math.min(n, s.exp); s.exp -= k; // из Кладовой — без дневного лимита (с 26.10) и в дневной лимит боёв не идёт
       const { GEN } = ARMY(), from = g.level; g.exp += k;
       while (g.level < GEN.maxLevel && g.exp >= this.generalNeed(g.level)) { g.level++; g.free += GEN.perLevel; }
-      return { ok: true, msg: `Генерал «${g.name}»: +${k} опыта${g.level > from ? `, теперь ${g.level} уровень (+${(g.level - from) * GEN.perLevel} очк.)` : ''}.${k < n && s.exp > 0 ? ' Остальное — завтра: за день генерал больше не усвоит.' : ''}` };
+      return { ok: true, msg: `Генерал «${g.name}»: +${k} опыта${g.level > from ? `, теперь ${g.level} уровень (+${(g.level - from) * GEN.perLevel} очк.)` : ''}.` };
     }
     return { error: 'Неверный запрос.' };
   };
