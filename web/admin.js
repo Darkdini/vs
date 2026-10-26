@@ -374,6 +374,9 @@ $('#sheetBody').addEventListener('click', (e) => {
   admSend(op, extra);
   if (S.adm.login) setTimeout(() => send({ t: 'admin', op: 'player', login: S.adm.login }), 150);
 });
+$('#sheetBody').addEventListener('input', (e) => { // поиск по заблокированным IP — перерисовываем только список
+  const q = e.target.closest('[data-ipq]'); if (!q) return; S.adm.ipq = q.value; const box = $('#ipbanlist'); if (box && S.adm.sec) box.innerHTML = ipBanListHtml(S.adm.sec.bans);
+});
 $('#sheetBody').addEventListener('input', (e) => { // «Премиум всем»: срок числом — запомнить и подсветить такую же кнопку
   const i = e.target.closest('[data-aform="premall"] [name="days"]'); if (!i) return; const n = Math.floor(Number(i.value));
   if (n >= 1 && n <= 30) S.adm.premDays = n; i.form.querySelectorAll('[data-apdays]').forEach((x) => x.classList.toggle('on', Number(x.dataset.apdays) === n));
@@ -535,6 +538,12 @@ function admTgHtml(t) {
       ${t.err ? `<p class="small bad">Ошибка ${fmtDate(t.lastTry)}: ${esc(t.err)}</p>` : ''}
       ${aBtn2('tgbackup', t.busy ? 'Отправляется…' : '📤 Отправить копию сейчас', '', '')}`);
 }
+// «Заблокированные адреса»: поиск по части IP (их бывает около тысячи) — показываем не больше 100 строк
+function ipBanListHtml(bans) {
+  const q = String(S.adm.ipq || '').trim(), list = q ? bans.filter((b) => b.ip.includes(q)) : bans, shown = list.slice(0, 100);
+  const head = `<p class="small">${q ? `Найдено: <b>${list.length}</b> из ${bans.length}` : `Всего: <b>${bans.length}</b>`}${list.length > shown.length ? ` · показаны первые ${shown.length} — уточните поиск` : ''}</p>`;
+  return bans.length ? `${head}${shown.map((b) => `<div class="srow"><span><b>${esc(b.ip)}</b> · ${fmtDate(b.at)}${b.until ? ` · до ${fmtDate(b.until)}` : ''}${b.why ? ` · ${esc(b.why)}` : ''}</span><button class="btn small" data-ipunban="${esc(b.ip)}">Снять</button></div>`).join('')}${q && !list.length ? '<p class="parch-note">Такого адреса среди заблокированных нет.</p>' : ''}` : '<p class="small">Нет.</p>';
+}
 // ---------- 🔒 Безопасность (server/src/secwatch.js): подозрительные IP — подбор паролей, поиск дыр, флуд ----------
 function admSecHtml(d) {
   const intro = '<p class="small">Адреса, с которых было подозрительное: подбор паролей (особенно к Вашему аккаунту), поиск уязвимостей на сайте (.php, .env, wp-admin, обход папок), попытки отправить файл, флуд, подделанные запросы. Красные — свежие с прошлого просмотра. Вход на сам сервер (SSH) сюда не попадает — его смотрят командой <code>lastb</code>.</p><p class="small"><b>Автоблок:</b> 3 запроса «поиск дыр» или «отправка файла» с одного адреса — IP закрывается сам на 30 дней. Адреса, с которых уже заходили игроки, автоблок не трогает.</p>';
@@ -551,7 +560,7 @@ function admSecHtml(d) {
       <button class="btn small" data-asec>↻ Обновить</button> ${aBtn2('secclear', 'Очистить журнал', 'data-confirm="Очистить журнал адресов? Блокировки останутся."', 'danger')}`)}
     ${admTgHtml(d.tg)}
     ${admMailHtml(d.mail)}
-    ${aSec('⛔ Заблокированные адреса', `${d.bans.length ? d.bans.map((b) => `<div class="srow"><span><b>${esc(b.ip)}</b> · ${fmtDate(b.at)}${b.until ? ` · до ${fmtDate(b.until)}` : ''}${b.why ? ` · ${esc(b.why)}` : ''}</span><button class="btn small" data-ipunban="${esc(b.ip)}">Снять</button></div>`).join('') : '<p class="small">Нет.</p>'}
+    ${aSec('⛔ Заблокированные адреса', `<input class="ipq" data-ipq placeholder="🔍 Поиск по IP, например 80.47.13" value="${esc(S.adm.ipq || '')}" inputmode="decimal" autocomplete="off"><div id="ipbanlist">${ipBanListHtml(d.bans)}</div>
       <form class="chatform" data-aform="ipban"><input name="ip" placeholder="IP вручную, например 1.2.3.4" autocomplete="off" required><button class="btn small danger">Заблокировать</button></form>`)}`;
 }
 $('#sheetBody').addEventListener('click', (e) => {
