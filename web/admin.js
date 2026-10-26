@@ -200,7 +200,12 @@ function devCard(p) {
   const full = d.devices.filter((x) => !x.old), old = d.devices.filter((x) => x.old);
   const oldRow = (x) => `<div class="doldrow ${x.banned ? 'ban' : ''}"><span>id ${esc(x.dev.slice(0, 10))} · ${fmtDate(x.last)}${x.sameDev.length ? ` · <span class="dwarn">⚠ ${who(x.sameDev)}</span>` : ''}</span>${p.admin ? '' : `<button class="btn small ${x.banned ? '' : 'danger'}" data-mdev="${esc(x.dev)}" data-on="${x.banned ? 0 : 1}">${x.banned ? 'Разбан' : 'Бан'}</button>`}</div>`;
   // «Вход в игру»: что мешает игроку войти — и кнопки, чтобы снять (server security.js accessCheck)
-  const accRow = (x) => `<div class="accrow"><span>⛔ ${esc(x.t)}${x.k === 'ip' ? `${x.until ? ` · до ${fmtDate(x.until)}` : ''}${x.why ? `<br><small>${esc(x.why)}</small>` : ''}` : ''}</span>${
+  // подробно: кто, когда и за что; для IP — что делали с этого адреса (журнал «Защиты»: нарушения и примеры запросов)
+  const accInfo = (x) => { const L = x.log, rows = [x.at ? `Когда: <b>${fmtDate(x.at)}</b>` : '', x.by ? `Кто: <b>${esc(x.by)}</b>` : '', x.until ? `До: <b>${fmtDate(x.until)}</b>` : '',
+    x.why ? `За что: <b>${esc(x.why)}</b>` : x.k === 'acc' || x.k === 'dev' ? 'За что: <i>причина не записана (бан был до 26.10)</i>' : ''].filter(Boolean);
+    if (L) { rows.push(`Что делали с адреса (${fmtDate(L.first)} — ${fmtDate(L.last)}, всего ${L.n}): <b>${L.kinds.map((k) => `${esc(k.t)} ×${k.v}`).join(', ')}</b>`); if (L.samples.length) rows.push(`Примеры: ${L.samples.map((s) => `<code>${esc(s)}</code>`).join('<br>')}`); }
+    return rows.length ? `<div class="accinfo">${rows.join('<br>')}</div>` : ''; };
+  const accRow = (x) => `<div class="accrow"><span>⛔ ${esc(x.t)}${accInfo(x)}</span>${
     x.k === 'acc' ? `<button class="btn small" data-mban="${esc(p.login)}" data-on="0">Разблокировать</button>` : x.k === 'dev' ? `<button class="btn small" data-mdev="${esc(x.dev)}" data-on="0">Разблокировать</button>` : x.k === 'ip' ? `<button class="btn small" data-ipunban="${esc(x.ip)}">Разблокировать</button>` : ''}</div>`;
   const acc = d.access ? `<div class="mhead">Вход в игру</div>${d.access.length ? `<div class="dcard ban">${d.access.map(accRow).join('')}</div>` : '<div class="dcard accok">✅ Ничего не мешает войти: аккаунт, телефоны и IP-адреса не заблокированы.</div>'}` : '';
   return `${acc}<div class="mhead">Устройства (${d.devices.length})</div>${full.map(dev).join('') || '<p class="small">Подробностей пока нет — появятся при следующем входе игрока.</p>'}
@@ -230,7 +235,7 @@ function playerCard(p) {
     ${(p.goldLog || []).length ? `<div class="aplog">${p.goldLog.map((x) => `<div><b>${fmtDate(x.at)}</b> · <span class="${x.delta > 0 ? 'ok' : 'bad'}">${x.delta > 0 ? '+' : ''}${fmtFull(x.delta)}</span> · ${esc(x.reason || '')} · осталось ${fmtFull(x.left)}</div>`).join('')}</div>` : '<p class="small">Золото не менялось.</p>'}
     ${(p.alerts || []).length ? `<div class="mhead">🚨 Подозрительное у игрока</div><div class="aplog">${p.alerts.map((x) => `<div><b>${fmtDate(x.at)}</b> · ${ALERT_IC[x.kind] || '⚠'} ${esc(x.text)}<br><small>${esc(x.why)}</small></div>`).join('')}</div>` : ''}</div>
   <div class="acard"><div class="cwname">⚖ Наказания и права</div>
-    ${aAct(p.banned ? 'Разблокировать' : 'Заблокировать', p.banned ? 'Снова пустить игрока в игру.' : 'Игрок не сможет войти, текущий вход прервётся.', p.banned ? aBtn2('unban', 'Разблокировать') : aBtn2('ban', 'Заблокировать', 'data-confirm="Заблокировать игрока?"', 'danger'))}
+    ${aAct(p.banned ? 'Разблокировать' : 'Заблокировать', p.banned ? 'Снова пустить игрока в игру.' : 'Игрок не сможет войти, текущий вход прервётся.', p.banned ? aBtn2('unban', 'Разблокировать') : aBtn2('ban', 'Заблокировать', '', 'danger'))}
     ${aAct('Старший модератор', p.smod ? 'Сейчас старший модератор — можно снять.' : 'Модераторы, блокировка на 1–7 дней, сброс ника/аватара/замков, альянсы, мульты. Вас не видит и не тронет.', aBtn2('smod', p.smod ? 'Снять' : 'Назначить', `data-confirm="${p.smod ? 'Снять старшего модератора?' : 'Назначить старшим модератором?'}"`))}
     ${aAct('Модератор форума', p.mod ? 'Сейчас модератор — можно снять права.' : 'Удаление сообщений и бан в чате и на форуме.', aBtn2('mod', p.mod ? 'Снять' : 'Назначить', `data-confirm="${p.mod ? 'Снять права модератора?' : 'Назначить модератором форума?'}"`))}
     ${aAct('Аватар', 'Удалить картинку игрока (вместо неё — портрет расы).', aBtn2('noavatar', 'Удалить', 'data-confirm="Удалить аватар игрока?"'))}
@@ -326,9 +331,9 @@ $('#sheetBody').addEventListener('click', (e) => {
   const mb = e.target.closest('[data-mban],[data-mall],[data-mdev],[data-mok],[data-munok]');
   if (mb) { // решения по мультам — только вручную и с подтверждением
     const d = mb.dataset, on = d.on === '1';
-    if (d.mban !== undefined) { if (on && !confirm(`Заблокировать ${d.mban}?`)) return; send({ t: 'admin', op: on ? 'ban' : 'unban', login: d.mban }); }
+    if (d.mban !== undefined) { let why = ''; if (on) { why = prompt(`Заблокировать ${d.mban}? За что (увидите в карточке игрока):`, ''); if (why === null) return; } send({ t: 'admin', op: on ? 'ban' : 'unban', login: d.mban, why }); }
     if (d.mall !== undefined) { if (!confirm(`Заблокировать аккаунты: ${d.mall.split(',').join(', ')}?`)) return; send({ t: 'admin', op: 'banmany', logins: d.mall.split(',') }); }
-    if (d.mdev !== undefined) { if (on && !confirm('Заблокировать этот телефон? С него нельзя будет войти и зарегистрироваться.')) return; send({ t: 'admin', op: on ? 'devban' : 'devunban', dev: d.mdev }); }
+    if (d.mdev !== undefined) { let why = ''; if (on) { why = prompt('Заблокировать этот телефон? С него нельзя будет войти и зарегистрироваться. За что (увидите в карточке игрока):', ''); if (why === null) return; } send({ t: 'admin', op: on ? 'devban' : 'devunban', dev: d.mdev, why }); }
     if (d.mok !== undefined) { if (!confirm('Отметить «Не мульт»? Группа скроется, пока в ней не появится новый аккаунт.')) return; send({ t: 'admin', op: 'multiok', key: d.mok }); }
     if (d.munok !== undefined) send({ t: 'admin', op: 'multiunok', key: d.munok });
     return setTimeout(() => (S.adm.tab === 'player' && S.adm.login ? send({ t: 'admin', op: 'player', login: S.adm.login }) : send({ t: 'admin', op: 'multis' })), 200);
@@ -355,6 +360,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   const op = b.dataset.adm;
   if (b.dataset.confirm && !confirm(b.dataset.confirm)) return;
   const extra = {};
+  if (op === 'ban') { const why = prompt('За что блокируете? (увидите в карточке игрока)', ''); if (why === null) return; extra.why = why; }
   if (b.dataset.cid) extra.cid = Number(b.dataset.cid);
   if (b.dataset.arg) { // "op:key,key2" — значения берутся из полей data-an
     const [field, keys] = b.dataset.arg.split(':');

@@ -28,6 +28,8 @@ function install(Game) {
     const ips = Object.keys(s); if (ips.length > MAX_IPS) { ips.sort((a, b) => s[a].last - s[b].last); for (const k of ips.slice(0, ips.length - MAX_IPS)) delete s[k]; }
   };
   P.secProbe = (url) => PROBE.test(url);
+  // что делали с адреса (для карточки игрока): когда, сколько раз, какие нарушения, примеры запросов
+  P.secLog = function secLog(ip) { const x = ip && this.db.sec && this.db.sec[ip]; return x ? { first: x.first, last: x.last, n: x.n, kinds: Object.entries(x.kinds).map(([k, v]) => ({ t: KIND[k] || k, v })), samples: x.samples.slice() } : null; };
   P.playerIp = function playerIp(ip) { return Object.values(this.db.users).some((u) => !u.bot && (u.regIp === ip || (u.ips || []).some((y) => y.ip === ip))); };
   P.autoBan = function autoBan(ip, x) {
     const B = this.db.ipBans = this.db.ipBans || {};

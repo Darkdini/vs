@@ -293,7 +293,7 @@ function install(Game) {
       }
       case 'alertsclear': this.db.alerts = []; msg = 'Список подозрительного очищен.'; break;
       case 'sec': data = { ...this.secView(arg.ip), tg: this.tgBackupInfo(), mail: this.mailStatus() }; break; // «Безопасность» (secwatch.js); arg.ip — адрес самого админа (от web.js)
-      case 'ipban': { const r = this.ipBan(arg.target, arg.why, arg.ip); if (r.error) return r; msg = r.msg; break; }
+      case 'ipban': { const r = this.ipBan(arg.target, arg.why, arg.ip); if (r.error) return r; this.db.ipBans[String(arg.target).trim()].by = user.login; msg = r.msg; break; }
       case 'ipunban': msg = this.ipUnban(arg.target).msg; break;
       case 'tgbackup': { if (!this.tgBackupInfo().on) return { error: 'Копия в Telegram не настроена: на сервере sh /opt/war/game/tgbackup.sh' }; this.tgBackupSend('manual').then((r) => { if (this.event) this.event(user.id, r.error || r.msg); }); msg = 'Отправляю копию в Telegram…'; break; } // tgbackup.js
       case 'secclear': this.db.sec = {}; msg = 'Журнал адресов очищен (блокировки остались).'; break; // статистика (metrics.js); онлайн сейчас — от web.js
@@ -334,8 +334,8 @@ function install(Game) {
       case 'player': data = { ...this.playerInfo(target), goldLog: (target.goldLog || []).slice(-30).reverse(), alerts: (this.db.alerts || []).filter((x) => x.uid === target.id).slice(-10).reverse(), passLog: (target.passLog || []).map((x, i, l) => ({ at: x.at, by: x.by, ip: x.ip || '', current: i === l.length - 1 })).reverse(), dev: this.devReport(target), nickLog: (target.nickLog || []).slice(-10).reverse(), ips: (target.ips || []).slice().reverse(), devs: (target.devs || []).map((d) => d.dev.slice(0, 8) + (this.db.devBans && this.db.devBans[d.dev] ? ' [бан]' : '')), regIp: target.regIp || '', castlesList: this.castlesOf(target).map((c) => ({ id: c.id, name: c.name, x: c.x, y: c.y, rating: this.rating(c), loyalty: Math.round(c.loyalty ?? 100) })) }; break;
       case 'royal': this.royalTick(target); target.royal = Math.max(0, target.royal + num(arg.n, 10000)); msg = `Лояльность населения: ${Math.floor(target.royal)}.`; break;
       case 'rep': target.reputation = Math.max(0, (target.reputation ?? START_REP) + num(arg.n, 10)); msg = `Репутация: ${target.reputation}.`; break;
-      case 'ban': if (target.admin) return { error: 'Админа заблокировать нельзя.' }; target.banned = true; target.online = false; msg = `${target.login} заблокирован.`; break;
-      case 'unban': target.banned = false; msg = `${target.login} разблокирован.`; break;
+      case 'ban': if (target.admin) return { error: 'Админа заблокировать нельзя.' }; target.banned = true; target.online = false; Object.assign(target, { banAt: now, banBy: user.login, banWhy: String(arg.why || '').trim().slice(0, 200) }); delete target.banUntil; /* за что — видно в карточке («Вход в игру») */ msg = `${target.login} заблокирован.`; break;
+      case 'unban': target.banned = false; delete target.banUntil; msg = `${target.login} разблокирован.`; break;
       case 'pass': {
         const p = String(arg.password || '').toLowerCase();
         if (p.length < 5) return { error: 'Пароль минимум 5 символов.' };
@@ -461,7 +461,7 @@ function install(Game) {
         const dev = String(arg.dev || ''); if (!/^[a-f0-9]{16,40}$/.test(dev)) return { error: 'Нет такого устройства.' };
         this.db.devBans = this.db.devBans || {};
         if (op === 'devban') {
-          this.db.devBans[dev] = { at: now, by: user.login };
+          this.db.devBans[dev] = { at: now, by: user.login, why: String(arg.why || '').trim().slice(0, 200) };
           for (const u of Object.values(this.db.users)) if (!u.admin && (u.devs || []).some((x) => x.dev === dev)) u.online = false;
           msg = `Телефон ${dev.slice(0, 8)} заблокирован.`;
         } else { delete this.db.devBans[dev]; msg = `Телефон ${dev.slice(0, 8)} разблокирован.`; }
@@ -478,7 +478,7 @@ function install(Game) {
       }
       case 'banmany': {
         let n = 0;
-        for (const l of [].concat(arg.logins || []).slice(0, 100)) { const u = findUser(this, l); if (u && !u.admin && !u.banned) { u.banned = true; u.online = false; n++; } }
+        for (const l of [].concat(arg.logins || []).slice(0, 100)) { const u = findUser(this, l); if (u && !u.admin && !u.banned) { Object.assign(u, { banned: true, online: false, banAt: now, banBy: user.login, banWhy: String(arg.why || 'мульты: несколько аккаунтов с одного телефона').slice(0, 200) }); n++; } }
         msg = `Заблокировано аккаунтов: ${n}.`; break;
       }
       case 'npc': this.db.npc = {}; this.db.pnpc = {}; msg = 'Лагеря и руины восстановлены.'; break;

@@ -131,13 +131,13 @@ function install(Game) {
   // почему игрок может не войти (для админки): бан аккаунта, бан телефона, блок IP (и автоблок), замок после неверных паролей, техработы
   P.accessCheck = function accessCheck(user, now = Date.now()) {
     const out = [], bans = this.db.devBans || {};
-    if (user.banned) out.push({ k: 'acc', t: 'Аккаунт заблокирован' });
+    if (user.banned) out.push({ k: 'acc', t: 'Аккаунт заблокирован', at: user.banAt || 0, by: user.banBy || '', why: user.banWhy || '', until: user.banUntil || 0 });
     const devs = new Map(); for (const d of [...(user.devInfo || []), ...(user.devs || [])]) if (d.dev && !devs.has(d.dev)) devs.set(d.dev, d.model || '');
-    for (const [dev, model] of devs) if (bans[dev]) out.push({ k: 'dev', dev, t: `Телефон в бане${model ? `: ${model}` : ''} (id ${dev.slice(0, 10)})` });
+    for (const [dev, model] of devs) if (bans[dev]) out.push({ k: 'dev', dev, t: `Телефон в бане${model ? `: ${model}` : ''} (id ${dev.slice(0, 10)})`, at: bans[dev].at || 0, by: bans[dev].by || '', why: bans[dev].why || '' });
     const ips = [...new Set([user.regIp, ...(user.ips || []).map((x) => x.ip), ...(user.devInfo || []).flatMap((d) => d.ips || [])].filter(Boolean))];
-    for (const ip of ips) if (this.ipBanned && this.ipBanned(ip)) { const b = this.db.ipBans[ip]; out.push({ k: 'ip', ip, auto: !!b.auto, until: b.until || 0, why: b.why || '', t: `${b.auto ? 'Автоблок' : 'Блок'} IP ${ip}` }); }
+    for (const ip of ips) if (this.ipBanned && this.ipBanned(ip)) { const b = this.db.ipBans[ip]; out.push({ k: 'ip', ip, auto: !!b.auto, until: b.until || 0, at: b.at || 0, by: b.auto ? 'сервер (автоблок)' : b.by || '', why: b.why || '', log: this.secLog ? this.secLog(ip) : null, t: `${b.auto ? 'Автоблок' : 'Блок'} IP ${ip}` }); }
     const lg = String(user.acct || user.login || '').toLowerCase(), lock = Math.max(P.loginBlocked('', lg, now), ...ips.map((ip) => P.loginBlocked(ip, lg, now)));
-    if (lock > 0) out.push({ k: 'lock', sec: lock, t: `Вход временно закрыт после неверных паролей — откроется через ${Math.ceil(lock / 60)} мин.` });
+    if (lock > 0) out.push({ k: 'lock', sec: lock, t: `Вход временно закрыт после неверных паролей — откроется через ${Math.ceil(lock / 60)} мин.`, log: this.secLog ? ips.map((ip) => this.secLog(ip)).find((l) => l && l.kinds.some((x) => /пароль/.test(x.t))) || null : null });
     if (!user.admin && this.maintOn && this.maintOn()) out.push({ k: 'maint', t: 'Идут технические работы — входит только администратор' });
     return out;
   };

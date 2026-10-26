@@ -669,8 +669,11 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
     const who = Object.values(g.db.users).find((u) => (u.devInfo || []).some((d) => d.dev === 'a'.repeat(32)) || (u.devs || []).some((d) => d.dev === 'a'.repeat(32)));
     const ac = () => g.devReport(who).access.map((x) => x.k);
     assert.ok(ac().includes('dev'), 'бан телефона виден: ' + JSON.stringify(ac()));
-    const ip = '9.9.9.9'; who.ips = [...(who.ips || []), { ip, at: Date.now() }]; assert.ok(g.ipBan(ip, 'тест', '1.1.1.1').ok);
+    const ip = '9.9.9.9'; who.ips = [...(who.ips || []), { ip, at: Date.now() }]; g.secEvent(ip, 'probe', '/wp-login.php'); assert.ok(g.adminOp(adm, 'ipban', { target: ip, why: 'тест', ip: '1.1.1.1' }).ok);
+    { const r = g.devReport(who).access.find((x) => x.k === 'ip'); assert.ok(r.by === adm.login && r.why === 'тест' && r.log && r.log.samples.some((s) => /wp-login/.test(s)) && r.log.kinds.some((k) => /дыр/.test(k.t)), 'по IP видно, кто, за что и что делали: ' + JSON.stringify(r)); }
     assert.ok(ac().includes('ip') && g.devReport(who).ips.some((x) => x.ip === ip && x.banned), 'блок IP виден, IP помечен');
+    g.adminOp(adm, 'ban', { login: who.login, why: 'оскорбления в чате' }); { const r = g.devReport(who).access.find((x) => x.k === 'acc'); assert.ok(r && r.why === 'оскорбления в чате' && r.by === adm.login && r.at > 0, 'бан аккаунта: кто, когда, за что'); }
+    g.adminOp(adm, 'unban', { login: who.login });
     g.ipUnban(ip); g.adminOp(adm, 'devunban', { dev: 'a'.repeat(32) }); assert.ok(!ac().length, 'сняли — «ничего не мешает»: ' + JSON.stringify(ac()));
     who.ips = who.ips.filter((x) => x.ip !== ip); g.adminOp(adm, 'devban', { dev: 'a'.repeat(32), fp: info.fp }); // как было — для проверок ниже
     console.log('✓ Админка: «Вход в игру» — бан аккаунта, телефона, блок IP, замок после паролей'); }
@@ -706,11 +709,11 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   { // ник: только английские буквы и цифры; мат, оскорбления (и с цифрами вместо букв) и «админские» ники — нельзя
     // (свой отдельный мир — лишние игроки не сдвигают замки следующих проверок)
     const NDB = path.join(os.tmpdir(), `royal-nick-${process.pid}.json`), gn = new Game(new Store(NDB));
-    const reg = (nick) => gn.register({ login: `nk_${nick.toLowerCase().replace(/[^a-z0-9]/g, '')}${Math.random().toString(36).slice(2, 6)}`, password: '12345', nick, race: 0 });
+    let nkN = 0; const reg = (nick) => gn.register({ login: `nk_${nick.toLowerCase().replace(/[^a-z0-9]/g, '')}x${1000 + ++nkN}` /* номер, а не случайные буквы: из них могло сложиться запрещённое слово */, password: '12345', nick, race: 0 });
     assert.ok(/английские буквы/.test(reg('Иван').error), 'русские буквы в нике — нельзя');
     for (const n of ['Admin', 'Adm1n', 'Moderator', 'Sovetnik', 'Support']) assert.ok(/администрации/.test(reg(n).error), `«${n}» — похоже на администрацию`);
     for (const n of ['Suka', 'B1yat', 'Bl9t', 'Pi3da', 'Fuuuck', 'Id10t', 'Mudak', 'Loh']) assert.ok(/мат или оскорбление/.test(reg(n).error), `«${n}» — мат/оскорбление`);
-    for (const n of ['Kozlov', 'Ivan1999', 'Modern', 'Sukhoi', 'Den4ik']) assert.ok(reg(n).user, `обычный ник «${n}» разрешён`);
+    for (const n of ['Kozlov', 'Ivan1999', 'Modern', 'Sukhoi', 'Den4ik']) { const rr = reg(n); assert.ok(rr.user, `обычный ник «${n}» разрешён: ${rr.error}`); }
     const ch = gn.register({ login: 'nickchange1', password: '12345', nick: 'Rodion', race: 0 }).user; ch.gold = 500;
     assert.ok(/мат/.test(gn.changeNick(ch, 'Pidor1').error) && /администрации/.test(gn.changeNick(ch, 'Moder').error) && ch.gold === 500, 'смена на плохой ник — отказ, монеты целы');
     for (const f of [NDB, `${NDB}.tmp`]) try { fs.unlinkSync(f); } catch { /* нет файла */ }
@@ -2881,7 +2884,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     const H = require('../src/hero').heroCatalog(); assert.ok(H.gearRarity.length === 5 && H.enhanceCost.length === 5 && H.forge.runes.length === 5 && H.runeNames.path === 'Руна Пути', 'справочник: 5 редкостей и рецепты ковки');
     // замок захватили во время ковки: ковка отменяется, руны — тому, кто платил; продать замок, пока Кузнец работает, нельзя
     const R2 = g.register({ login: 'runeLost1', password: '12345', race: 1 }).user, cap2 = g.castleOf(R2); g.mil(cap2);
-    let spot2 = null; for (let r = 4; r < 20 && !spot2; r++) for (let dx = -r; dx <= r && !spot2; dx++) for (const dy of [-r, r]) if (!spot2 && !g.placeError(cap2.x + dx, cap2.y + dy)) spot2 = { x: cap2.x + dx, y: cap2.y + dy };
+    let spot2 = null; for (let r = 4; r < 80 && !spot2; r++) for (let dx = -r; dx <= r && !spot2; dx++) for (const dy of [-r, r]) if (!spot2 && !g.placeError(cap2.x + dx, cap2.y + dy)) spot2 = { x: cap2.x + dx, y: cap2.y + dy };
     g.foundCaptured(R2, spot2.x, spot2.y); const c2 = g.castlesOf(R2)[1]; g.mil(c2); g.maxOut(c2); cap2.general = null; cap2.deadGenerals = [];
     c2.general = g.newGeneral(c2, 30); const eqIt = { id: g.db.nextId++, slot: 'weapon', r: 4, plus: 2 }; c2.general.eq = { weapon: eqIt };
     const old = g.newGeneral(c2, 5); old.dead = true; c2.deadGenerals = [old];

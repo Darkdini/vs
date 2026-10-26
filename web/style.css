@@ -2793,3 +2793,5 @@ img.artsp { filter: drop-shadow(0 0 4px #c89aff) drop-shadow(0 0 8px #6a3aff); }
 .accrow + .accrow { border-top: 1px solid #b08a5a55; }
 .dcard.accok { color: #2f5a12; font: 15px var(--serif); }
 .accwarn { margin: 6px 0; padding: 6px 8px; border: 1px solid #a8200c; border-radius: 6px; background: #a8200c18; color: #8a1a0a; font: 15px var(--serif); }
+.accinfo { margin: 4px 0 2px 22px; font: 13px var(--serif); color: var(--ink2); line-height: 1.35; }
+.accinfo code { font: italic 13px var(--serif); word-break: break-word; }
