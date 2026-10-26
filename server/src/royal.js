@@ -49,13 +49,21 @@ function install(Game) {
   P.royalTick = function royalTick(user, now = Date.now()) {
     if (user.royal === undefined) { user.royal = 0; user.royalAt = now; }
     const days = Math.min(400, Math.floor((now - (user.royalAt || now)) / DAY));
+    const sStart = days > 0 && this.season ? this.season().start : 0;
+    let gotAll = 0, gotMonth = 0; // прирост за сутки (Храмы, ритуалы) — для Зала Славы «Лояльность»
     for (let k = 1; k <= days; k++) {
       const t = user.royalAt + k * DAY, away = (t - seenAt(user)) / DAY;
-      if (away < ROYAL.stopDays) user.royal += Math.round((ROYAL.passive + this.templeRoyal(user)) * (1 + this.ritualBonus(user, t)));
+      if (away < ROYAL.stopDays) { const add = Math.round((ROYAL.passive + this.templeRoyal(user)) * (1 + this.ritualBonus(user, t))); user.royal += add; gotAll += add; if (t >= sStart) gotMonth += add; }
       else if (away > ROYAL.decayDays) user.royal = Math.max(0, user.royal - ROYAL.decayPerDay);
       if (away > ROYAL.riotDays) for (const c of this.castlesOf(user)) { this.mil(c); c.loyalty = Math.max(ROYAL.riotMin, Math.min(c.loyalty, 100) - ROYAL.riotPerDay); c.loyAt = t; }
     }
     if (days > 0) user.royalAt += days * DAY;
+    // Зал Славы «Лояльность» — весь прирост, кроме праздников: и за действия, и суточный (Храмы, ритуалы);
+    // сутки прошлого соревновательного месяца — только в общий счёт, не в месяц
+    if (gotAll > 0 && this.addStat) {
+      if (gotMonth > 0) this.addStat(user.id, 'loyal', gotMonth);
+      if (gotAll > gotMonth) { const a = this.stats(user); a.loyal = (a.loyal || 0) + gotAll - gotMonth; }
+    }
     return user.royal;
   };
   // правитель давно не заходил — лояльность замков сама не восстанавливается (army.js tickTraining)
@@ -92,6 +100,7 @@ function install(Game) {
       rituals: Object.entries(RITUALS).map(([id, r]) => { const act = (user.rituals || []).find((x) => x.id === id && x.until > now); return { id, ...r, until: act ? act.until : 0 }; }),
       calmPer: this.calmPer(castle), calmSec: this.calmSec(castle), calmJob: castle.calmJob ? { left: Math.max(0, Math.round((castle.calmJob.n - castle.calmJob.done) * 10) / 10), end: castle.calmJob.end, n: castle.calmJob.n } : null,
       today: user.royalDay === dayKey(now) ? user.royalToday : 0, dayCap: ROYAL.dayCap, rules: ROYAL,
+      month: this.mstats ? Math.floor(this.mstats(user).loyal || 0) : 0, // прирост за соревновательный месяц — то же число, что в Зале Славы «Лояльность»
       festivals: Object.entries(FESTIVALS).map(([id, f]) => ({ id, ...f, ready: !((user.festAt || {})[id] > now - DAY), readyAt: ((user.festAt || {})[id] || 0) + DAY })),
     };
   };

@@ -41,6 +41,9 @@ assert.equal(noTemple, 50); assert.equal(v.royal - noTemple, 62);
 v.rituals = [{ id: 'prayer', pct: 0.05, until: T + 10 * 86400000 }];
 const b = v.royal; g.royalTick(v, T + 3 * 86400000);
 assert.equal(v.royal - b, Math.round(62 * 1.05));
+// Зал Славы «Лояльность»: суточный прирост (Храмы, ритуалы) — тоже в зачёт месяца; праздники — нет
+assert.equal(g.mstats(v).loyal, 50 + 62 + Math.round(62 * 1.05), 'суточный прирост — в Зале Славы');
+assert.equal(g.royalView(v, g.castlesOf(v)[0]).month, g.mstats(v).loyal, 'Резиденция показывает то же число, что Зал Славы');
 // строгий баланс: даже с лояльностью первый захват — не раньше 30-го дня игры
 v.royal = 1e6; v.created = T;
 assert.ok(!g.royalCanCapture(v) && g.royalWaitDays(v, T) === 30);

@@ -9,6 +9,7 @@ function residenceHtml() {
     + line(`Недостроев: ${r.unfinished} ед.`) + line(`Осталось до следующего захвата/недостроя: ${CROWN()} ${r.left} ед.`)
     + line(`Сегодня за действия: ${r.today} из ${r.dayCap} ед.`)
     + line(`Каждые сутки: ${CROWN()} +${r.perDay} ед.${r.temples ? ` (из них Храмы: +${r.temples})` : ' (Храм даёт +12 в сутки)'}${r.bonus ? `, бонус ритуалов +${Math.round(r.bonus * 100)}%` : ''}`)
+    + line(`Прирост за этот месяц (Зал славы, без праздников): ${CROWN()} +${r.month || 0} ед.`)
     + (r.wait ? line(`Первый захват станет возможен через ${r.wait} дн. игры.`) : '')
     + (r.capital ? line('Этот замок является столицей') : '')
     + '<button class="rbar" data-res="fest">Праздники</button><button class="rbar" data-res="help">Лояльность</button>';
