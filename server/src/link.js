@@ -54,10 +54,13 @@ function install(Game) {
   };
   // лимит игрока: не больше 10 сообщений (и 5 скринов) в сутки
   const dayLeft = (u, key, max, now) => { u[key] = (u[key] || []).filter((x) => x > now - DAY); return u[key].length < max; };
+  // порог рейтинга (social.js talkLow) — кроме ответа мастеру, который уже написал игроку
+  P.linkLow = function linkLow(u) { const th = this.linkDb().th[u.id]; return !!(this.talkLow && this.talkLow(u)) && !(th && th.msgs.some((x) => x.m)); };
   P.linkPost = function linkPost(u, text) {
     if (!u || u.bot) return { error: 'Нельзя.' };
     text = clean(text, TEXT_MAX); if (!text) return { error: 'Напишите, что случилось.' };
     const now = Date.now(); this.linkDb();
+    if (this.linkLow(u)) return { error: this.talkLowMsg(u, 'Писать мастерам и сообщать об ошибках') };
     if (!dayLeft(u, 'linkLog', DAY_MSGS, now)) return { error: `В «СВЯЗЬ» — не больше ${DAY_MSGS} сообщений в сутки. Мастера ответят на уже присланное.` };
     u.linkLog.push(now);
     const th = push(this, u.id, { id: this.db.link.next++, by: u.id, at: now, text }); th.wait = true;
@@ -65,6 +68,7 @@ function install(Game) {
   };
   P.linkPicBegin = function linkPicBegin(u, w, h, n, text) {
     if (!u || u.bot) return { error: 'Нельзя.' };
+    if (this.linkLow(u)) return { error: this.talkLowMsg(u, 'Писать мастерам и сообщать об ошибках') };
     w = Math.floor(Number(w)); h = Math.floor(Number(h)); n = Math.floor(Number(n));
     if (!(w >= 8 && h >= 8 && w <= PIC_SIDE && h <= PIC_SIDE) || !(n >= 1 && n <= PIC_PARTS)) return { error: 'Неверная картинка.' };
     const now = Date.now();

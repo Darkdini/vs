@@ -39,6 +39,7 @@ $('#sheetBody').addEventListener('submit', (e) => {
   if (e.target.dataset.form !== 'newscmt') return;
   e.preventDefault(); e.stopImmediatePropagation();
   const f = e.target, text = f.text.value.trim(); if (!text || !S.news.item) return;
+  if (S.st.user.talkLow) return talkLowToast('Комментировать новости');
   send({ t: 'news', op: 'comment', id: S.news.item.id, text }); f.text.value = '';
 }, true);
 

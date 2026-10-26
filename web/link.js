@@ -3,7 +3,10 @@
 // Строка «📮 СВЯЗЬ» всегда первая в «Сообщениях» (dialogs.js); к сообщению можно приложить скрин — он живёт 8 часов.
 // Ответы приходят от «Мастер игры». lkMsgHtml рисует сообщения и у мастеров (staff.js → «СВЯЗЬ»).
 S.lk = { data: null, busy: null };
-function openLink() { S.lk = { data: null, busy: null }; send({ t: 'link', op: 'view' }); openSheet(linkWin); }
+// порог рейтинга (server social.js talkLow): не показываем табличку всем — только сообщение, когда игрок сам нажал
+const talkLowToast = (what) => { const t = S.st && S.st.user.talkLow; toast(`${what} можно с рейтингом ${t.need}. У вас — ${t.have}. Развивайте замок — и сможете.`, 'err'); };
+function openLink() { if (S.st.user.talkLow && S.st.user.talkLow.link) return talkLowToast('Писать мастерам и сообщать об ошибках');
+  S.lk = { data: null, busy: null }; send({ t: 'link', op: 'view' }); openSheet(linkWin); }
 const lkOpen = () => S.sheets.length && S.sheets[S.sheets.length - 1] === linkWin;
 const lkPicUrl = (id) => `linkpic/${id}.png?k=${S.mkey || ''}`; // ключ соединения, не токен входа (server/src/web.js, MEDIA)
 // сообщение переписки; who — ник игрока для мастеров (staff), у игрока — null

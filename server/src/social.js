@@ -116,6 +116,7 @@ const REP_PER_GOLD = 2; // 1 монета = 2 репутации // скольк
 
 const CHAT_KEEP = 100; // сколько последних сообщений хранит общий чат (листать вверх — история)
 const CHAT_MIN_RATING = Number(process.env.CHAT_MIN_RATING ?? 100); // порог входа в общий чат (chatLow); в тестах веба — 0
+const TALK_MIN_RATING = Number(process.env.TALK_MIN_RATING ?? 300); // комментарии к новостям и «Сообщить об ошибке» / жалобы (talkLow)
 function install(Game) {
   const P = Game.prototype;
 
@@ -378,6 +379,10 @@ function install(Game) {
   // { wheel, wph } — Колесо Фортуны (wheel.js); opt.sys — сообщение ставит сам сервер (колесо): без бана и без «не чаще»
   // порог входа в общий чат: писать можно с рейтингом CHAT_MIN_RATING (админ, модераторы и боты — всегда); читать — всем
   P.chatLow = function chatLow(user) { return !user.admin && !user.mod && !user.smod && !user.bot && this.userRating(user) < CHAT_MIN_RATING; };
+  // комментировать новости и писать мастерам — с рейтингом TALK_MIN_RATING (админ, модераторы, тестеры — всегда);
+  // ответить мастеру, который уже написал игроку в «СВЯЗЬ», можно при любом рейтинге (link.js linkPost)
+  P.talkLow = function talkLow(user) { return !user.admin && !user.mod && !user.smod && !user.bot && !user.tester && this.userRating(user) < TALK_MIN_RATING; };
+  P.talkLowMsg = function talkLowMsg(user, what) { return `${what} можно с рейтингом ${TALK_MIN_RATING}. У вас — ${this.userRating(user)}. Развивайте замок — и сможете.`; };
   P.chatPost = function chatPost(user, text, extra, opt = {}) {
     if (!opt.sys && user.chatBan === -1) return { error: 'Вам запрещено писать в чат навсегда.' };
     if (!opt.sys && user.chatBan > Date.now()) return { error: `Вам запрещено писать в чат ещё ${Math.ceil((user.chatBan - Date.now()) / 60000)} мин.` };
@@ -432,4 +437,4 @@ function install(Game) {
   };
 }
 
-module.exports = { REP_PER_GOLD, GIFTS, GIFT_CATS, install, HALLS, HALL_PAGES, CHAT_KEEP, CHAT_MIN_RATING };
+module.exports = { REP_PER_GOLD, GIFTS, GIFT_CATS, install, HALLS, HALL_PAGES, CHAT_KEEP, CHAT_MIN_RATING, TALK_MIN_RATING };

@@ -10,6 +10,7 @@ const DB = path.join(os.tmpdir(), `royal-${process.pid}.json`);
 const { Game, Store } = require('../src/game');
 const g = new Game(new Store(DB));
 const chatLow0 = g.chatLow; g.chatLow = () => false; // порог входа в чат (рейтинг 100) проверяется отдельно — ниже, «Порог чата»
+const talkLow0 = g.talkLow; g.talkLow = () => false; // порог 300 для новостей и «СВЯЗИ» — отдельно, «Порог 300»
 const u = g.register({ login: 'royaltest', password: '12345', race: 0 }).user;
 const fmt = (n) => n.toLocaleString('ru-RU');
 const DAY = 86400000, t0 = Date.now();
@@ -466,6 +467,15 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
     g.mil(lc); g.maxOut(lc); lowU.chatAt = 0; lowU.rate = {}; const okp = g.chatPost(lowU, 'привет всем'); assert.ok(g.userRating(lowU) >= 100 && !/рейтингом/.test(okp.error || ''), 'набрал 100 рейтинга — пишет: ' + JSON.stringify(okp.error || 'ok'));
     const m2 = g.register({ login: 'chatLowMod', password: '12345', race: 0 }).user; m2.mod = true; assert.ok(!g.chatLow(m2), 'модератор — без порога');
     g.chatLow = () => false; console.log('✓ Порог чата: писать в общий чат — с рейтингом 100, модераторы и админ — всегда'); }
+  { // Порог 300: комментарии к новостям и «Сообщить об ошибке» / жалобы — с рейтингом 300; ответить мастеру, который написал, — можно всегда
+    g.talkLow = talkLow0; const lo = g.register({ login: 'talkLow1', password: '12345', race: 0 }).user, lc = g.castleOf(lo);
+    assert.ok(g.userRating(lo) < 300 && /рейтингом 300/.test(g.linkPost(lo, 'ошибка').error || ''), 'новичок мастерам не пишет');
+    const nid = (g.db.news || []).find((n) => !n.deleted && !n.noCmt); if (nid) assert.ok(/рейтингом 300/.test(g.newsOp(lo, { op: 'comment', id: nid.id, text: 'привет' }).error || ''), 'новичок новость не комментирует');
+    const th = g.linkDb().th; th[lo.id] = { msgs: [{ id: 1, m: 1, by: 0, at: Date.now(), text: 'Здравствуйте, это мастер' }], wait: false, at: Date.now() };
+    assert.ok(!g.linkLow(lo) && g.linkPost(lo, 'отвечаю мастеру').ok, 'мастер написал первым — ответить можно');
+    g.mil(lc); g.maxOut(lc); delete th[lo.id]; assert.ok(g.userRating(lo) >= 300 && !g.talkLow(lo) && g.linkPost(lo, 'теперь могу').ok, 'с рейтингом 300 — можно');
+    delete th[lo.id]; /* за собой — чтобы не мешать счётчикам «СВЯЗИ» ниже */
+    g.talkLow = () => false; console.log('✓ Порог 300: новости и «СВЯЗЬ» — с рейтингом 300, ответ мастеру — всегда'); }
   p1.chatAt = 0; p1.rate = {}; assert.ok(/Чат закрыт модератором/.test(g.chatPost(p1, 'привет').error || ''), 'игрок не пишет');
   assert.ok(!g.chatPost(md, 'Модератор на связи').error, 'модератор пишет');
   assert.ok(!g.chatCloseCheck(t0 + 599000), 'время не вышло — закрыт');

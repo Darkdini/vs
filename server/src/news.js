@@ -119,6 +119,7 @@ function install(Game) {
       case 'comment': {
         const n = db.find((x) => x.id === Number(m.id) && !x.deleted); if (!n) return { error: 'Новость не найдена.' };
         if (n.noCmt) return { error: 'Комментарии к этой новости закрыты.' };
+        if (this.talkLow && this.talkLow(u)) return { error: this.talkLowMsg(u, 'Комментировать новости') };
         const text = clean(m.text, COMMENT_MAX); if (!text) return { error: 'Пустой комментарий.' };
         const ban = this.forumBanned ? this.forumBanned(u) : null; if (ban) return { error: ban };
         if (!this.canModerate(u) && u.newsCmtAt && now - u.newsCmtAt < COMMENT_GAP_MS) return { error: 'Не так часто — подождите несколько секунд.' };

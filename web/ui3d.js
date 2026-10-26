@@ -141,7 +141,7 @@ $('#btnGear').addEventListener('click', () => openSheet(settingsWin));
 S.chat = [];
 function chatLine() {
   const vis = S.chat.filter((x) => !isBlack(x.fromId)), m = vis[vis.length - 1];
-  $('#chatmsg').innerHTML = m ? `<b>${esc(m.from)}</b> ${repIcons(m.rep)} ${chatText(m)}` : '<span class="muted">Чат пуст — напишите первым</span>';
+  $('#chatmsg').innerHTML = m ? `<b>${esc(m.from)}</b> ${repIcons(m.rep)} ${chatText(m)}` : `<span class="muted">Чат пуст${S.st && S.st.user.chatLow ? '' : ' — напишите первым'}</span>`;
 }
 // «Главный чат» как в оригинале: Выход / Игроки (N), сообщения «ЧЧ:ММ [ник] текст», смайлы, поле ввода внизу.
 // Нажатие на ник — обращение «ник, » в поле ввода; сообщения, где упомянут я, подсвечены.
@@ -366,6 +366,7 @@ $('#sheetBody').addEventListener('click', (e) => {
     if (d.cpop === 'profile') { refreshSheet(); return send({ t: 'profile', id: pp.id }); }
     if (d.cpop === 'private') { refreshSheet(); return openDialog(pp.nick); }
     if (d.cpop === 'report') {
+      if (S.st.user.talkLow && S.st.user.talkLow.link) { talkLowToast('Жаловаться'); return refreshSheet(); }
       const msg = S.chat.find((x) => x.id === pp.mid);
       if (confirm(`Пожаловаться администрации на ${pp.nick}?`)) send({ t: 'bug', text: `Жалоба на ${pp.nick} (чат): «${msg ? msg.text : ''}»` });
       return refreshSheet();
