@@ -665,6 +665,15 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(!grp().hidden && grp().users.length === 3, 'новый аккаунт на том же телефоне — группа снова в списке');
   assert.ok(g.adminOp(adm, 'multiok', { key }).ok && grp().hidden); g.adminOp(adm, 'multiunok', { key }); assert.ok(!grp().hidden, '«Вернуть»');
   assert.ok(!g.adminOp(adm, 'devban', { dev: 'a'.repeat(32), fp: info.fp }).error);
+  { // «Вход в игру» в карточке: видно, что мешает войти — бан телефона, блок IP, бан аккаунта
+    const who = Object.values(g.db.users).find((u) => (u.devInfo || []).some((d) => d.dev === 'a'.repeat(32)) || (u.devs || []).some((d) => d.dev === 'a'.repeat(32)));
+    const ac = () => g.devReport(who).access.map((x) => x.k);
+    assert.ok(ac().includes('dev'), 'бан телефона виден: ' + JSON.stringify(ac()));
+    const ip = '9.9.9.9'; who.ips = [...(who.ips || []), { ip, at: Date.now() }]; assert.ok(g.ipBan(ip, 'тест', '1.1.1.1').ok);
+    assert.ok(ac().includes('ip') && g.devReport(who).ips.some((x) => x.ip === ip && x.banned), 'блок IP виден, IP помечен');
+    g.ipUnban(ip); g.adminOp(adm, 'devunban', { dev: 'a'.repeat(32) }); assert.ok(!ac().length, 'сняли — «ничего не мешает»: ' + JSON.stringify(ac()));
+    who.ips = who.ips.filter((x) => x.ip !== ip); g.adminOp(adm, 'devban', { dev: 'a'.repeat(32), fp: info.fp }); // как было — для проверок ниже
+    console.log('✓ Админка: «Вход в игру» — бан аккаунта, телефона, блок IP, замок после паролей'); }
   { // «Убрать ботов»: все боты и их замки исчезают с карты, живые игроки остаются
     const users0 = Object.values(g.db.users).filter((u) => !u.bot).length;
     assert.ok(/Создано ботов: 5/.test(g.adminOp(adm, 'bots', { n: 5 }).msg || ''));

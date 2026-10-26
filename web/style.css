@@ -2788,3 +2788,8 @@ img.artsp { filter: drop-shadow(0 0 4px #c89aff) drop-shadow(0 0 8px #6a3aff); }
 /* порог входа в общий чат (рейтинг) */
 .chatbar.chatlow { justify-content: center; color: #ffe9b0; font: 15px var(--serif); text-align: center; }
 .chatbar.chatlow img { width: 26px; height: 26px; flex: none; }
+/* админка: «Вход в игру» — что мешает игроку войти */
+.accrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0; font: 15px var(--serif); }
+.accrow + .accrow { border-top: 1px solid #b08a5a55; }
+.dcard.accok { color: #2f5a12; font: 15px var(--serif); }
+.accwarn { margin: 6px 0; padding: 6px 8px; border: 1px solid #a8200c; border-radius: 6px; background: #a8200c18; color: #8a1a0a; font: 15px var(--serif); }

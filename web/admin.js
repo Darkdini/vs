@@ -199,15 +199,20 @@ function devCard(p) {
     ${p.admin ? '' : `<button class="btn small ${x.banned ? '' : 'danger'}" data-mdev="${esc(x.dev)}" data-on="${x.banned ? 0 : 1}">${x.banned ? 'Разблокировать телефон' : '⛔ Бан телефона'}</button>`}</div>`;
   const full = d.devices.filter((x) => !x.old), old = d.devices.filter((x) => x.old);
   const oldRow = (x) => `<div class="doldrow ${x.banned ? 'ban' : ''}"><span>id ${esc(x.dev.slice(0, 10))} · ${fmtDate(x.last)}${x.sameDev.length ? ` · <span class="dwarn">⚠ ${who(x.sameDev)}</span>` : ''}</span>${p.admin ? '' : `<button class="btn small ${x.banned ? '' : 'danger'}" data-mdev="${esc(x.dev)}" data-on="${x.banned ? 0 : 1}">${x.banned ? 'Разбан' : 'Бан'}</button>`}</div>`;
-  return `<div class="mhead">Устройства (${d.devices.length})</div>${full.map(dev).join('') || '<p class="small">Подробностей пока нет — появятся при следующем входе игрока.</p>'}
+  // «Вход в игру»: что мешает игроку войти — и кнопки, чтобы снять (server security.js accessCheck)
+  const accRow = (x) => `<div class="accrow"><span>⛔ ${esc(x.t)}${x.k === 'ip' ? `${x.until ? ` · до ${fmtDate(x.until)}` : ''}${x.why ? `<br><small>${esc(x.why)}</small>` : ''}` : ''}</span>${
+    x.k === 'acc' ? `<button class="btn small" data-mban="${esc(p.login)}" data-on="0">Разблокировать</button>` : x.k === 'dev' ? `<button class="btn small" data-mdev="${esc(x.dev)}" data-on="0">Разблокировать</button>` : x.k === 'ip' ? `<button class="btn small" data-ipunban="${esc(x.ip)}">Разблокировать</button>` : ''}</div>`;
+  const acc = d.access ? `<div class="mhead">Вход в игру</div>${d.access.length ? `<div class="dcard ban">${d.access.map(accRow).join('')}</div>` : '<div class="dcard accok">✅ Ничего не мешает войти: аккаунт, телефоны и IP-адреса не заблокированы.</div>'}` : '';
+  return `${acc}<div class="mhead">Устройства (${d.devices.length})</div>${full.map(dev).join('') || '<p class="small">Подробностей пока нет — появятся при следующем входе игрока.</p>'}
     ${old.length ? `<div class="dcard"><div class="dhead">Старые входы (без подробностей)</div>${old.map(oldRow).join('')}</div>` : ''}
-    <div class="mhead">IP-адреса</div><div class="small">Регистрация: <b>${esc(d.regIp || p.regIp || '—')}</b><br>${(d.ips || []).slice(0, 10).map((x) => `${esc(x.ip)} <small>${fmtDate(x.at)}</small>`).join('<br>') || '—'}</div>
+    <div class="mhead">IP-адреса</div><div class="small">Регистрация: <b>${esc(d.regIp || p.regIp || '—')}</b>${d.regIpBanned ? ' <span class="bad">[заблокирован]</span>' : ''}<br>${(d.ips || []).slice(0, 10).map((x) => `${esc(x.ip)}${x.banned ? ' <span class="bad">[заблокирован]</span>' : ''} <small>${fmtDate(x.at)}</small>`).join('<br>') || '—'}</div>
     ${d.sameIp && d.sameIp.length ? `<div class="small">🌐 Та же сеть (IP): ${who(d.sameIp)} — не доказательство: так бывает у семьи на одном Wi‑Fi и у абонентов одного оператора.</div>` : ''}`;
 }
 const PASS_BY = (b) => (b === 'reg' ? 'регистрация' : b === 'self' ? 'сменил сам' : b === 'server' ? 'сброс на сервере' : b === 'telegram' ? 'по коду из Telegram' : b === 'mail' ? 'по коду из письма' : String(b || '').startsWith('admin') ? `админ (${esc(String(b).slice(6))})` : 'до журнала');
 function playerCard(p) {
   const pc = S.adm.passcheck && S.adm.passcheck.login === p.login ? S.adm.passcheck : null;
   return `<div class="acard"><div class="cwname">${esc(p.login)}${p.admin ? ` <img class="admbadge s" src="${GFX}admin_badge_s.png" alt="">` : ''}${p.banned ? ' <span class="bad">[заблокирован]</span>' : ''}</div>
+    ${p.dev && p.dev.access && p.dev.access.length ? `<div class="accwarn">⛔ Вход закрыт: ${p.dev.access.map((x) => esc(x.t)).join('; ')}. Снять — ниже, в «Вход в игру».</div>` : ''}
     <div class="akv"><span>Ник в игре</span><b>${esc(p.login)}</b><span>Логин для входа</span><b>${esc(p.acct || '—')}</b><span>Email</span><b>${esc(p.email || '—')}${p.email ? (p.emailOk ? ' <span class="ok">✔ подтверждена</span>' : ' <small>(не подтверждена)</small>') : ''}</b>
       <span>Раса</span><b>${esc(p.race)}</b><span>Рейтинг</span><b>${fmtFull(p.rating)}</b><span>Монеты</span><b>${fmtFull(p.gold)}</b>
       <span>Регистрация</span><b>${fmtDate(p.created)}</b><span>Был в игре</span><b>${p.online ? 'сейчас' : fmtDate(p.lastSeen)}</b></div>
@@ -548,7 +553,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (b.dataset.asec !== undefined) return send({ t: 'admin', op: 'sec' });
   if (b.dataset.ipban) { if (!confirm(`Заблокировать ${b.dataset.ipban}? Сайт и игра для этого адреса закроются.`)) return; send({ t: 'admin', op: 'ipban', target: b.dataset.ipban, why: b.dataset.why }); }
   if (b.dataset.ipunban) send({ t: 'admin', op: 'ipunban', target: b.dataset.ipunban });
-  setTimeout(() => send({ t: 'admin', op: 'sec' }), 200);
+  setTimeout(() => (S.adm.tab === 'player' && S.adm.login ? send({ t: 'admin', op: 'player', login: S.adm.login }) : send({ t: 'admin', op: 'sec' })), 200); // из карточки игрока — обновить карточку
 });
 $('#sheetBody').addEventListener('submit', (e) => {
   const f = e.target.closest('[data-aform="ipban"]'); if (!f) return; e.preventDefault(); e.stopImmediatePropagation();

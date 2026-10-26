@@ -125,7 +125,21 @@ function install(Game) {
     const known = new Set((user.devInfo || []).map((x) => x.dev));
     const devices = [...(user.devInfo || []).slice().reverse().map((d) => { const sameDev = byDev(d.dev); return { ...d, banned: !!(this.db.devBans && this.db.devBans[d.dev]), sameDev, sameFp: byFp(d, sameDev) }; }),
       ...(user.devs || []).filter((x) => !known.has(x.dev)).map((x) => ({ dev: x.dev, last: x.at, old: true, banned: !!(this.db.devBans && this.db.devBans[x.dev]), sameDev: byDev(x.dev), sameFp: [] }))];
-    return { devices, ips: (user.ips || []).slice().reverse(), regIp: user.regIp || '', sameIp: byIp.slice(0, 50) };
+    const ipBan = (ip) => !!(this.ipBanned && this.ipBanned(ip));
+    return { devices, ips: (user.ips || []).slice().reverse().map((x) => ({ ...x, banned: ipBan(x.ip) })), regIp: user.regIp || '', regIpBanned: ipBan(user.regIp), sameIp: byIp.slice(0, 50), access: this.accessCheck(user) };
+  };
+  // почему игрок может не войти (для админки): бан аккаунта, бан телефона, блок IP (и автоблок), замок после неверных паролей, техработы
+  P.accessCheck = function accessCheck(user, now = Date.now()) {
+    const out = [], bans = this.db.devBans || {};
+    if (user.banned) out.push({ k: 'acc', t: 'Аккаунт заблокирован' });
+    const devs = new Map(); for (const d of [...(user.devInfo || []), ...(user.devs || [])]) if (d.dev && !devs.has(d.dev)) devs.set(d.dev, d.model || '');
+    for (const [dev, model] of devs) if (bans[dev]) out.push({ k: 'dev', dev, t: `Телефон в бане${model ? `: ${model}` : ''} (id ${dev.slice(0, 10)})` });
+    const ips = [...new Set([user.regIp, ...(user.ips || []).map((x) => x.ip), ...(user.devInfo || []).flatMap((d) => d.ips || [])].filter(Boolean))];
+    for (const ip of ips) if (this.ipBanned && this.ipBanned(ip)) { const b = this.db.ipBans[ip]; out.push({ k: 'ip', ip, auto: !!b.auto, until: b.until || 0, why: b.why || '', t: `${b.auto ? 'Автоблок' : 'Блок'} IP ${ip}` }); }
+    const lg = String(user.acct || user.login || '').toLowerCase(), lock = Math.max(P.loginBlocked('', lg, now), ...ips.map((ip) => P.loginBlocked(ip, lg, now)));
+    if (lock > 0) out.push({ k: 'lock', sec: lock, t: `Вход временно закрыт после неверных паролей — откроется через ${Math.ceil(lock / 60)} мин.` });
+    if (!user.admin && this.maintOn && this.maintOn()) out.push({ k: 'maint', t: 'Идут технические работы — входит только администратор' });
+    return out;
   };
   P.tooOften = function tooOftenP(user, kind) { return tooOften(user, kind, RATE[kind]); };
   P.devBanned = function devBanned(dev) { dev = cleanDev(dev); return !!(dev && this.db.devBans && this.db.devBans[dev]); };
