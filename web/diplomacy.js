@@ -38,6 +38,8 @@ function alliancesWin() {
 }
 
 function createWin() {
+  const lv = buildingLevel(13); // создать альянс — с Дипломатическим центром 10 ур. (server army.js ALLY_CREATE_LVL)
+  if (lv < 10 && !S.st.user.admin) return `${ribbon('Создать Альянс')}<p class="parch-note">Создать альянс можно, когда Дипломатический центр 10 уровня. У вас — ${lv} ур.<br>Вступить в чужой альянс можно и сейчас: «Альянсы» → «Вступить» или по приглашению.</p>`;
   return `${ribbon('Создать Альянс')}
     <form class="stack" data-alform="create"><input name="name" placeholder="Название альянса (от 3 букв)" required maxlength="24">
       <input name="tag" placeholder="Тег (2–5 букв, например WOLF)" autocapitalize="characters" required maxlength="5">

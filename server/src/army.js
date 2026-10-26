@@ -2389,6 +2389,7 @@ function install(Game, helpers) {
   P.sameAlliance = function sameAlliance(aId, bId) { if (aId === bId) return false; const a = this.userById(aId), b = this.userById(bId); return !!(a && b && a.alliance && a.alliance === b.alliance); };
   P.allianceOf = function allianceOf(user) { return user && user.alliance && (this.db.alliances || {})[user.alliance]; };
   const ALLY_MAX = 50; // не больше 50 игроков в альянсе
+  const ALLY_CREATE_LVL = 10; // создать альянс — только с Дипломатическим центром 10 ур. (вступить можно с любым)
   P.allianceSlots = function allianceSlots(al) {
     const leader = this.userById(al.leader), lc = leader && this.castleOf(leader);
     return Math.min(ALLY_MAX, 5 * Math.max(1, lc ? this.buildingLevel(lc, B.EMBASSY) : 1)); // 5 мест за уровень центра главы, максимум 50 (10 ур.)
@@ -2481,6 +2482,7 @@ function install(Game, helpers) {
     if (cur) return { error: 'Сначала выйдите из текущего альянса.' };
     tag = String(tag || '').trim().toUpperCase().slice(0, 5);
     if (op === 'create') {
+      if (emb < ALLY_CREATE_LVL && !user.admin) return { error: `Создать альянс можно, когда Дипломатический центр ${ALLY_CREATE_LVL} уровня (у вас — ${emb}).` };
       name = String(name || '').trim().slice(0, 24);
       if (name.length < 3 || tag.length < 2) return { error: 'Название от 3 символов, тег 2–5.' };
       if (Object.values(this.db.alliances).some((x) => x.tag === tag)) return { error: 'Такой тег уже занят.' };

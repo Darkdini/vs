@@ -1633,6 +1633,10 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     const rp = (g.db.reports || []).filter((r) => r.owner === nw.id && r.kind === 'invite').pop(); assert.ok(rp && !rp.read && rp.data.ally.id === aid && rp.from === 'allyLeadP', 'отчёт-приглашение');
     assert.ok(g.alliance(nw, nc, { op: 'accept', id: aid }).ok && nw.alliance === aid, 'по приглашению вступил без Дипцентра');
     g.db.alliances[aid].members = g.db.alliances[aid].members.filter((x) => x !== nw.id); nw.alliance = null; }
+  { const cu = g.register({ login: 'allyMaker9', password: '12345', race: 0 }).user, cc = g.castleOf(cu); g.mil(cc); g.maxOut(cc);
+    g.setBuildingLevel(cc, 13, 9); assert.ok(/10 уровня/.test(g.alliance(cu, cc, { op: 'create', name: 'Девятка', tag: 'NIN' }).error || '') && !cu.alliance, 'Дипцентр 9 ур. — создать альянс нельзя');
+    g.setBuildingLevel(cc, 13, 10); assert.ok(g.alliance(cu, cc, { op: 'create', name: 'Десятка', tag: 'TEN' }).ok && cu.alliance, 'Дипцентр 10 ур. — можно');
+    console.log('✓ Альянс создаётся только с Дипломатическим центром 10 уровня'); }
   const al = g.db.alliances[aid]; al.members.push(free.id); free.alliance = aid; free.invites = [];
   assert.strictEqual(g.allyTitle(al, lead.id).ep, 8, 'создатель — корона (8)');
   al.ranks = { [free.id]: { title: 'Старый', ep: 2 } }; assert.strictEqual(g.allyTitle(al, free.id).ep, 4, 'старые серебряные → 4');
