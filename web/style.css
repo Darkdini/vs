@@ -1958,6 +1958,9 @@ img.artr2 { filter: drop-shadow(0 0 3px #ffd34a) drop-shadow(0 0 7px #ff8a1a); }
 .qw2 .qw-chest { width: 112px; height: 112px; margin: 4px auto 2px; display: block; }
 .qw2 .qw-ribbon { margin-top: 2px; }
 .qw-sec { padding: 0 4px 4px; } .qw-sec small { margin-bottom: 2px; }
+/* наград много (войска, опыт, трофеи) — список прокручивается внутри окна, кнопка «Забрать» всегда на экране (маленькие телефоны) */
+.qwin { overflow-y: auto; align-items: safe center; }
+.qw2 .qw-body { max-height: max(140px, calc(100vh - 380px)); max-height: max(140px, calc(100dvh - 380px)); overflow-y: auto; overscroll-behavior: contain; }
 .noally { color: #8a2a1a; }
 .allyinv { display: block; width: 100%; margin: 6px 0 8px; padding: 10px; border: 2px solid #c8f5a0; border-radius: 12px; background: linear-gradient(#5fd35f, #1f8f1f); color: #fff;
   font: 700 18px var(--serif); text-shadow: 0 1px 2px #0008; box-shadow: 0 0 10px #4fd14f99; animation: qglow 1.6s ease-in-out infinite; }

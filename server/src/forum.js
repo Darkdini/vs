@@ -1,7 +1,8 @@
 'use strict';
 // Общий форум всех игроков (Почта → Форум), как в оригинале:
 // разделы → темы → сообщения. Темы создают только модераторы (админ, модераторы форума, модераторы раздела),
-// отвечают все игроки. Модераторы закрепляют/закрывают/удаляют темы, удаляют сообщения и запрещают писать на форуме.
+// отвечают игроки с рейтингом от 300 (social.js talkLow; модераторы — всегда). Модераторы закрепляют/закрывают/удаляют темы,
+// удаляют сообщения и запрещают писать на форуме.
 // Опрос в теме (как в Telegram): создаёт модератор — вопрос, 2–10 вариантов, «несколько ответов», «показывать, кто как
 // голосовал», срок. Игрок голосует один раз (голос можно отменить, пока опрос открыт); итоги видны после голоса или
 // завершения, модераторам — сразу; кто за что голосовал — в открытом опросе всем, в анонимном — только администратору.
@@ -97,12 +98,13 @@ function install(Game) {
     const f = this.forumTopic(topicId); if (!f) return { error: 'Тема не найдена.' };
     const { s, t } = f, mod = this.forumCanMod(user, s);
     if (t.deleted && !mod) return { error: 'Тема удалена.' };
+    const low = !mod && this.talkLow && this.talkLow(user) ? this.talkLowMsg(user, 'Писать на форуме') : null; // рейтинг ниже 300 — вместо формы ответа табличка
     const list = t.posts.filter((p) => !p.deleted || mod);
     const pages = Math.max(1, Math.ceil(list.length / POSTS_PAGE));
     const pg = page === undefined || page === null || page === -1 ? pages - 1 : Math.max(0, Math.min(pages - 1, Math.floor(Number(page)) || 0));
     return { id: t.id, title: t.title, section: { id: s.id, name: s.name }, closed: !!t.closed, pinned: !!t.pinned, deleted: !!t.deleted, canMod: mod,
       poll: t.poll ? this.forumPollView(t.poll, user, mod) : null,
-      fav: (user.forumFav || []).includes(t.id), canPost: !t.closed && !t.deleted && !this.forumBanned(user), ban: this.forumBanned(user), page: pg, pages,
+      fav: (user.forumFav || []).includes(t.id), canPost: !t.closed && !t.deleted && !this.forumBanned(user) && !low, ban: this.forumBanned(user) || low, page: pg, pages,
       posts: list.slice(pg * POSTS_PAGE, pg * POSTS_PAGE + POSTS_PAGE).map((p) => { const u = this.userById(p.byId);
         return { id: p.id, by: p.by, byId: p.byId, at: p.at, text: p.text, color: p.color || '', deleted: !!p.deleted, reply: p.reply || null, role: u ? (u.admin ? 'admin' : u.mod || s.mods.includes(u.id) ? 'mod' : '') : '',
           race: u ? u.race : '', ava: (u && u.avatar) || 0 }; }) }; // аватарка автора (своя или портрет расы) — как в переписке
@@ -125,6 +127,7 @@ function install(Game) {
         const f = this.forumTopic(m.topic); if (!f || f.t.deleted) return { error: 'Тема не найдена.' };
         if (f.t.closed) return { error: 'Тема закрыта.' };
         const ban = this.forumBanned(user); if (ban) return { error: ban };
+        if (!this.forumCanMod(user, f.s) && this.talkLow && this.talkLow(user)) return { error: this.talkLowMsg(user, 'Писать на форуме') }; // рейтинг от 300
         if (!this.forumCanMod(user, f.s) && user.forumLast && now - user.forumLast < POST_GAP_MS) return { error: 'Не так часто — подождите несколько секунд.' };
         const text = clean(m.text, TEXT_MAX); if (!text) return { error: 'Пустое сообщение.' };
         // «Ответить» у сообщения: ответ помнит, кому (ник и начало его сообщения), автору — уведомление

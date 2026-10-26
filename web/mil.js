@@ -525,7 +525,8 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.art) { if (!confirm(d.coin ? 'Пробудить «Монету Древних Королей»? Вы получите 1 монету, артефакт исчезнет.' : `Пробудить артефакт? Он будет действовать ${d.hours} ч, а затем рассыплется.`)) return; return send({ t: 'artifact', id: Number(d.art), on: true }); }
   if (d.artbreak) {
     const a = MY().artifacts.find((x) => x.id === Number(d.artbreak)); if (!a) return;
-    if (!confirm(`Разбить «${M().artifacts[a.type].name}» (${M().rarity[a.rarity].name})? Он исчезнет навсегда, взамен — по ${fmtFull(M().artBreak[a.rarity])} каждого ресурса. Что не влезет в Склады — в Кладовую.`)) return;
+    const rar = M().rarity[a.rarity]; /* у артефактов Подземелья редкости нет — разбиваются как обычные (artBreak[0]) */
+    if (!confirm(`Разбить «${M().artifacts[a.type].name}»${rar ? ` (${rar.name})` : ''}? Он исчезнет навсегда, взамен — по ${fmtFull(M().artBreak[a.rarity] || M().artBreak[0])} каждого ресурса. Что не влезет в Склады — в Кладовую.`)) return;
     return send({ t: 'artbreak', id: a.id });
   }
   if (d.exgo) { const n = Number(($('[data-exn]') || {}).value) || 0; if (!(n > 0)) return toast('Сколько археологов отправить?', 'err'); return send({ t: 'exped', kind: d.exgo, n }); }

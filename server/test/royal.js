@@ -474,11 +474,16 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
     g.talkLow = talkLow0; const lo = g.register({ login: 'talkLow1', password: '12345', race: 0 }).user, lc = g.castleOf(lo);
     assert.ok(g.userRating(lo) < 300 && /рейтингом 300/.test(g.linkPost(lo, 'ошибка').error || ''), 'новичок мастерам не пишет');
     const nid = (g.db.news || []).find((n) => !n.deleted && !n.noCmt); if (nid) assert.ok(/рейтингом 300/.test(g.newsOp(lo, { op: 'comment', id: nid.id, text: 'привет' }).error || ''), 'новичок новость не комментирует');
+    const fm = g.register({ login: 'talkMod1', password: '12345', race: 0 }).user; fm.mod = true; // общий форум: отвечать — тоже с рейтингом 300
+    const ft = g.forumOp(fm, { op: 'topic', section: 1, title: 'Порог форума', text: 'Пишите' }).topic;
+    assert.ok(/Писать на форуме можно с рейтингом 300/.test(g.forumOp(lo, { op: 'post', topic: ft, text: 'привет' }).error || '') && !g.forumPosts(lo, ft).canPost && /рейтингом 300/.test(g.forumPosts(lo, ft).ban || ''), 'новичок на форуме не пишет — вместо формы табличка');
+    assert.ok(g.forumOp(fm, { op: 'post', topic: ft, text: 'модератор пишет' }).msg && g.forumPosts(fm, ft).canPost, 'модератор — без порога');
     const th = g.linkDb().th; th[lo.id] = { msgs: [{ id: 1, m: 1, by: 0, at: Date.now(), text: 'Здравствуйте, это мастер' }], wait: false, at: Date.now() };
     assert.ok(!g.linkLow(lo) && g.linkPost(lo, 'отвечаю мастеру').ok, 'мастер написал первым — ответить можно');
     g.mil(lc); g.maxOut(lc); delete th[lo.id]; assert.ok(g.userRating(lo) >= 300 && !g.talkLow(lo) && g.linkPost(lo, 'теперь могу').ok, 'с рейтингом 300 — можно');
+    assert.ok(g.forumOp(lo, { op: 'post', topic: ft, text: 'теперь и на форуме' }).msg && g.forumPosts(lo, ft).canPost, 'с рейтингом 300 — и на форуме');
     delete th[lo.id]; /* за собой — чтобы не мешать счётчикам «СВЯЗИ» ниже */
-    g.talkLow = () => false; console.log('✓ Порог 300: новости и «СВЯЗЬ» — с рейтингом 300, ответ мастеру — всегда'); }
+    g.talkLow = () => false; console.log('✓ Порог 300: новости, «СВЯЗЬ» и общий форум — с рейтингом 300, модераторы и ответ мастеру — всегда'); }
   p1.chatAt = 0; p1.rate = {}; assert.ok(/Чат закрыт модератором/.test(g.chatPost(p1, 'привет').error || ''), 'игрок не пишет');
   assert.ok(!g.chatPost(md, 'Модератор на связи').error, 'модератор пишет');
   assert.ok(!g.chatCloseCheck(t0 + 599000), 'время не вышло — закрыт');
