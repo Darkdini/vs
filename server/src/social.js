@@ -115,6 +115,7 @@ const GIFT_PAGE = 10; // подарков на странице окна «По�
 const REP_PER_GOLD = 2; // 1 монета = 2 репутации // сколько подарков игрок может отправить за сутки
 
 const CHAT_KEEP = 100; // сколько последних сообщений хранит общий чат (листать вверх — история)
+const CHAT_MIN_RATING = Number(process.env.CHAT_MIN_RATING ?? 100); // порог входа в общий чат (chatLow); в тестах веба — 0
 function install(Game) {
   const P = Game.prototype;
 
@@ -375,9 +376,12 @@ function install(Game) {
   };
   // extra — только от сервера: { pic, picExp } — фото администратора (pics.js), { poll } — опрос администратора (chatpoll.js),
   // { wheel, wph } — Колесо Фортуны (wheel.js); opt.sys — сообщение ставит сам сервер (колесо): без бана и без «не чаще»
+  // порог входа в общий чат: писать можно с рейтингом CHAT_MIN_RATING (админ, модераторы и боты — всегда); читать — всем
+  P.chatLow = function chatLow(user) { return !user.admin && !user.mod && !user.smod && !user.bot && this.userRating(user) < CHAT_MIN_RATING; };
   P.chatPost = function chatPost(user, text, extra, opt = {}) {
     if (!opt.sys && user.chatBan === -1) return { error: 'Вам запрещено писать в чат навсегда.' };
     if (!opt.sys && user.chatBan > Date.now()) return { error: `Вам запрещено писать в чат ещё ${Math.ceil((user.chatBan - Date.now()) / 60000)} мин.` };
+    if (!opt.sys && this.chatLow(user)) return { error: `Писать в общий чат можно с рейтингом ${CHAT_MIN_RATING}. У вас — ${this.userRating(user)}.` };
     text = String(text || '').trim().slice(0, 300);
     if (!text) return { error: 'Пустое сообщение.' };
     if (!opt.sys) text = require('./matfilter').censorMat(text); // мат — звёздочками «***», у всех (matfilter.js)
@@ -428,4 +432,4 @@ function install(Game) {
   };
 }
 
-module.exports = { REP_PER_GOLD, GIFTS, GIFT_CATS, install, HALLS, HALL_PAGES, CHAT_KEEP };
+module.exports = { REP_PER_GOLD, GIFTS, GIFT_CATS, install, HALLS, HALL_PAGES, CHAT_KEEP, CHAT_MIN_RATING };

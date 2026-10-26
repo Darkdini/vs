@@ -9,6 +9,7 @@ const os = require('os'), path = require('path'), fs = require('fs');
 const DB = path.join(os.tmpdir(), `royal-${process.pid}.json`);
 const { Game, Store } = require('../src/game');
 const g = new Game(new Store(DB));
+const chatLow0 = g.chatLow; g.chatLow = () => false; // порог входа в чат (рейтинг 100) проверяется отдельно — ниже, «Порог чата»
 const u = g.register({ login: 'royaltest', password: '12345', race: 0 }).user;
 const fmt = (n) => n.toLocaleString('ru-RU');
 const DAY = 86400000, t0 = Date.now();
@@ -458,6 +459,13 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(g.chatClose(p1, 10).error && g.chatClose(md, 7).error, 'закрывает только модератор, на 5/10/15/30 минут');
   const c = g.chatClose(md, 10, t0);
   assert.ok(c.ok && c.until === t0 + 600000 && c.chat && /Чат закрыт на 10 мин/.test(c.chat.text), JSON.stringify(c));
+  { // Порог чата: писать в общий чат можно с рейтингом 100 (админ и модераторы — всегда), читать — всем
+    const lowU = g.register({ login: 'chatLow1', password: '12345', race: 0 }).user, lc = g.castleOf(lowU), C = require('../src/catalog');
+    g.chatLow = chatLow0;
+    const e = g.chatPost(lowU, 'привет').error || ''; assert.ok(g.userRating(lowU) < 100 && /рейтингом 100/.test(e), 'новичок с рейтингом ниже 100 в чат не пишет: ' + e);
+    g.mil(lc); g.maxOut(lc); lowU.chatAt = 0; lowU.rate = {}; const okp = g.chatPost(lowU, 'привет всем'); assert.ok(g.userRating(lowU) >= 100 && !/рейтингом/.test(okp.error || ''), 'набрал 100 рейтинга — пишет: ' + JSON.stringify(okp.error || 'ok'));
+    const m2 = g.register({ login: 'chatLowMod', password: '12345', race: 0 }).user; m2.mod = true; assert.ok(!g.chatLow(m2), 'модератор — без порога');
+    g.chatLow = () => false; console.log('✓ Порог чата: писать в общий чат — с рейтингом 100, модераторы и админ — всегда'); }
   p1.chatAt = 0; p1.rate = {}; assert.ok(/Чат закрыт модератором/.test(g.chatPost(p1, 'привет').error || ''), 'игрок не пишет');
   assert.ok(!g.chatPost(md, 'Модератор на связи').error, 'модератор пишет');
   assert.ok(!g.chatCloseCheck(t0 + 599000), 'время не вышло — закрыт');

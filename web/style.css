@@ -2785,3 +2785,6 @@ img.artsp { filter: drop-shadow(0 0 4px #c89aff) drop-shadow(0 0 8px #6a3aff); }
 .trunit b { font-size: 14px; }
 .trimg { width: 52px; height: 52px; object-fit: contain; }
 .trnote { text-align: center; margin: 2px 0 8px; color: var(--ink2); }
+/* порог входа в общий чат (рейтинг) */
+.chatbar.chatlow { justify-content: center; color: #ffe9b0; font: 15px var(--serif); text-align: center; }
+.chatbar.chatlow img { width: 26px; height: 26px; flex: none; }
