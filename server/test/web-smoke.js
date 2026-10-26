@@ -157,6 +157,7 @@ function client() {
     assert.ok(!/admin\.js/.test(html), 'admin.js не подключён в странице');
     console.log('✓ admin.js — только админу по ключу соединения (и в обход по пути — нет)');
     let as = await adm.expect('state');
+    assert.ok(as.user.staff === true && Array.isArray(as.user.black) && 'multiNew' in as.user && 'brNew' in as.user && 'chatLow' in as.user, 'в состоянии игрока все поля: мастер, чёрный список, мульты, сундуки ранга, порог чата');
     assert.ok(as.castle.mil.admin && as.castle.mil.general.level === 100 && as.castle.mil.units[200] >= 1000);
     assert.equal(as.castle.levels[0][24], 20);
     console.log('✓ админ: полная прокачка, генерал 100 ур., войска', Object.keys(as.castle.mil.units).length, 'видов');
