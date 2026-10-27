@@ -68,7 +68,7 @@ function smodWin() {
   } else if (S.smodTab === 'news') {
     body = `<p class="coinhint">Новость увидят все игроки: фиолетовый конверт в верхней панели, потом — в «Инфо → Новости». До 4 скриншотов. Публикация записывается в журнал модерации.</p>${newsPubForm()}`;
   } else {
-    const OP = { news: 'Новость', mod: 'Модератор', modreq: 'Заявка в модераторы', ban: 'Блокировка', unban: 'Разблокировка', chat: 'Чат', viol: 'Нарушения', nick: 'Ник', castles: 'Замки', avatar: 'Аватар', allyname: 'Альянс', allydesc: 'Альянс', warn: 'Предупреждение', chatclose: 'Закрытие чата' };
+    const OP = { news: 'Новость', mod: 'Модератор', modreq: 'Заявка в модераторы', ban: 'Блокировка', unban: 'Разблокировка', chat: 'Чат', viol: 'Нарушения', nick: 'Ник', castles: 'Замки', avatar: 'Аватар', allyname: 'Альянс', allydesc: 'Альянс', warn: 'Предупреждение', chatclose: 'Закрытие чата', forumdel: 'Форум: удалено' };
     body = d.log.map((x) => `<div class="smlog"><small>${smDate(x.at)} · <b>${esc(x.by)}</b></small><div>${OP[x.op] || esc(x.op)}: <b>${esc(x.target)}</b> — ${esc(x.text)}</div></div>`).join('') || '<p class="parch-note">Журнал пуст.</p>';
   }
   const n = S.smodNote && Date.now() - S.smodNote.at < 6000 ? `<div class="smnote ${S.smodNote.ok ? 'ok' : ''}">${S.smodNote.ok ? '✔' : '⛔'} ${esc(S.smodNote.msg)}</div>` : '';

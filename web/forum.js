@@ -72,7 +72,7 @@ function forumPostsWin() {
     ${d.posts.map((p) => `<div class="fpost ${p.deleted ? 'fdel' : ''}"><div class="fph">${fAva(p)}${fWho(p.by, p.byId, p.role)}<small>${repDate(p.at)}</small></div>
       ${p.reply ? `<div class="fquote">↪ <b>${esc(p.reply.by)}</b>: «${esc(p.reply.text)}»</div>` : ''}
       <div class="fpt"${/^#[0-9a-f]{6}$/i.test(p.color || '') ? ` style="color:${p.color}"` : ''}>${esc(p.text)}</div>
-      ${(d.canPost && !p.deleted) || mod ? `<div class="fpm">${d.canPost && !p.deleted ? `<button data-freply="${p.id}">Ответить</button>` : ''}${mod ? `<button data-fpdel="${p.id}">${p.deleted ? 'Восстановить' : 'Удалить'}</button>${p.role ? '' : `<button data-fban="${p.byId}" data-fbanname="${esc(p.by)}">Запрет</button>`}` : ''}</div>` : ''}</div>`).join('')}
+      ${(d.canPost && !p.deleted) || mod ? `<div class="fpm">${d.canPost && !p.deleted ? `<button data-freply="${p.id}">Ответить</button>` : ''}${mod ? `${p.deleted ? `<button data-fpdel="${p.id}">Восстановить</button>` : ''}${d.page === 0 && p === d.posts[0] ? '' : `<button data-fpdel="${p.id}" data-fforever="1">${p.deleted ? 'Удалить навсегда' : 'Удалить'}</button>`}${p.role ? '' : `<button data-fban="${p.byId}" data-fbanname="${esc(p.by)}">Запрет</button>`}` : ''}</div>` : ''}</div>`).join('')}
     ${fPager(d.page, d.pages, 'data-fppg')}
     ${d.canPost ? `<form class="fform" data-form="freply">${rt ? `<div class="fquote fto"><span>↪ Ответ для <b>${esc(rt.by)}</b>: «${esc(rt.text)}»</span><button type="button" class="fxto" data-freplyx title="Не отвечать на это сообщение">✕</button></div>` : ''}<textarea name="text" maxlength="1500" rows="3" placeholder="Ваш ответ…" required></textarea><button class="lbar">Ответить</button></form>`
       : `<div class="bwline center small">${d.closed ? 'Тема закрыта — отвечать нельзя.' : esc(d.ban || '')}</div>`}`;
@@ -167,7 +167,10 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.ftpg !== undefined) return fsend({ op: 'topics', section: S.fr.sec, page: Number(d.ftpg) });
   if (d.fppg !== undefined) return fsend({ op: 'posts', topic: S.fr.topic, page: Number(d.fppg) });
   if (d.ftop) { if (d.ftop === 'delete' && !confirm('Удалить тему?')) return; return fsend({ op: 'topicop', topic: S.fr.topic, act: d.ftop, page: S.fr.posts && S.fr.posts.page }); }
-  if (d.fpdel) return fsend({ op: 'postdel', topic: S.fr.topic, post: Number(d.fpdel), page: S.fr.posts && S.fr.posts.page });
+  if (d.fpdel) { // «Удалить» — сразу и навсегда (с подтверждением); «Восстановить» — у скрытых раньше
+    if (d.fforever && !confirm('Удалить сообщение навсегда? Вернуть его будет нельзя.')) return;
+    return fsend({ op: 'postdel', topic: S.fr.topic, post: Number(d.fpdel), forever: !!d.fforever, page: S.fr.posts && S.fr.posts.page });
+  }
   if (d.fban) { const h = prompt(`Запретить ${d.fbanname} писать на форуме. Часов (0 — снять, -1 — навсегда):`, '24'); if (h === null) return; return fsend({ op: 'ban', topic: S.fr.topic, id: Number(d.fban), hours: Number(h) }); }
   if (d.frrule !== undefined) { S.frRule = Number(d.frrule); return refreshSheet(); }
   if (d.fsecmod) return fsend({ op: 'secmod', section: Number(d.fsecmod), login: d.login });

@@ -157,10 +157,18 @@ function install(Game) {
         this.store.save();
         return { msg: { pin: t.pinned ? 'Тема закреплена.' : 'Тема откреплена.', close: t.closed ? 'Тема закрыта.' : 'Тема открыта.', delete: 'Тема удалена.', restore: 'Тема восстановлена.', rename: 'Тема переименована.' }[a], topic: t.id, section: f.s.id };
       }
-      case 'postdel': { // удалить / восстановить сообщение
+      case 'postdel': { // forever — удалить сообщение сразу и навсегда (с 27.10, по просьбе владельца); без него — скрыть / восстановить (как раньше)
         const f = this.forumTopic(m.topic); if (!f) return { error: 'Тема не найдена.' };
         if (!this.forumCanMod(user, f.s)) return { error: 'Нет прав модератора.' };
-        const p = f.t.posts.find((x) => x.id === Number(m.post)); if (!p) return { error: 'Сообщение не найдено.' };
+        const i = f.t.posts.findIndex((x) => x.id === Number(m.post)), p = f.t.posts[i]; if (!p) return { error: 'Сообщение не найдено.' };
+        if (m.forever) {
+          if (i === 0) return { error: 'Это начало темы — удалите тему целиком.' };
+          f.t.posts.splice(i, 1);
+          for (const q of f.t.posts) if (q.reply && q.reply.id === p.id) q.reply.text = 'сообщение удалено'; // и из цитат в ответах
+          if (this.modLog) this.modLog(user, 'forumdel', p.by, `тема «${f.t.title}»: ${p.text.length > 100 ? `${p.text.slice(0, 100)}…` : p.text}`); // в журнал модерации — кто и что удалил
+          this.store.save();
+          return { msg: 'Сообщение удалено навсегда.', topic: f.t.id };
+        }
         p.deleted = !p.deleted; this.store.save();
         return { msg: p.deleted ? 'Сообщение удалено.' : 'Сообщение восстановлено.', topic: f.t.id };
       }

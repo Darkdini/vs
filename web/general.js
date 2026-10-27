@@ -104,7 +104,7 @@ const GH = {
     <p><b>В: Почему генерал не получил опыт после боя?</b><br>О: Потери вашей армии были больше, чем потери противника. Считается не только число погибших воинов, но и их сила. Или генерал уже достиг наивысшего, 500-го уровня.</p>
     <p><b>В: Какой эффект будет, если я вложу очки в характеристику?</b><br>О: Итог зависит от воина генерала. Личную атаку и командование атакой и защитой вы увидите в окне генерала сразу после распределения очков. Действие скорости восстановления и карьеры скрыто и числом не показывается.</p>
     <p><b>В: Я распределил очки в командование, но значение не изменилось. Почему?</b><br>О: Значение изменилось. Просто в окне не показываются совсем маленькие доли.</p>
-    <p><b>В: Можно ли сменить воина генерала?</b><br>О: Да, кнопкой «Сменить воина». Уровень, опыт, очки и снаряжение останутся.</p>
+    <p><b>В: Можно ли сменить воина генерала?</b><br>О: Да, кнопкой «Сменить воина» — за ${coinsZa(((MY().general || {}).rekindGold) || 50).replace('монету', 'монета')}. Уровень, опыт, очки и снаряжение останутся.</p>
     <p><b>В: Можно ли сделать генералом уникального воина или воина другой расы?</b><br>О: Нет. Генерал — только из воинов той расы, за которую вы играете.</p>`],
 };
 function genHelpWin() {
@@ -158,14 +158,16 @@ function genRekindWin() {
   const g = MY().general; if (!g) return generalWin();
   const list = (MY().genUnits || []).filter((x) => x.id !== g.kindId);
   return `${ribbon('Сменить воина')}<div class="upbody center">Сейчас: ${gico(g.kindId)} Генерал (${esc(g.kind || '')}), ${fmtFull(g.level)} ур.</div>
-    <p class="coinhint">Уровень, опыт, очки и снаряжение останутся. Если у нового воина пределы ниже, лишние очки станут свободными. Переобучение — ${Math.max(1, Math.round(g.rekindSec / S.cat.speed / 60))} мин, цена — как найм нового генерала.</p>
+    <p class="coinhint">Уровень, опыт, очки и снаряжение останутся. Если у нового воина пределы ниже, лишние очки станут свободными. Переобучение — ${Math.max(1, Math.round(g.rekindSec / S.cat.speed / 60))} мин, цена — ${coinsZa(g.rekindGold || 50).replace('монету', 'монета')}.</p>
     <div class="upbody center">Выберите юнита из замковой армии:</div>
     ${list.map((x) => { const u = unitById(x.id); return `<button class="pbar gpick" data-genrk="${x.id}"><img class="fi" src="${unitSrc(u)}" alt=""> ${esc(u.name)}${genProf(x.prof)}</button>`; }).join('') || '<p class="parch-note">В замковой армии нет подходящих юнитов.</p>'}`;
 }
 S.grk = null;
 function genRekindDoWin() {
   const g = MY().general, x = (MY().genUnits || []).find((y) => y.id === S.grk); if (!g || !x) return genRekindWin();
-  return `${ribbon('Сменить воина')}<div class="upbody center">Переобучить генерала в ${gico(x.id)} ${esc(unitById(x.id).name)}:</div>${genProf(x.prof)}${genCost({ ...x, sec: g.rekindSec })}
+  // цена — монеты (с 27.10), время — полчаса
+  return `${ribbon('Сменить воина')}<div class="upbody center">Переобучить генерала в ${gico(x.id)} ${esc(unitById(x.id).name)}:</div>${genProf(x.prof)}
+    <div class="upcost"><span>${gimg('coins_s.png', 'ri')}<b>${fmtFull(g.rekindGold || 50)}</b></span><span>${TIME_IC}<b>${fmtT(g.rekindSec / S.cat.speed)}</b></span></div>
     <div class="upbody center small">Уровень ${fmtFull(g.level)}, опыт, очки и снаряжение останутся.</div><button class="pbar" data-genrkdo>Сменить воина</button>`;
 }
 function openGeneral() { openSheet(generalWin); }
@@ -181,7 +183,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.gentdo !== undefined) return send({ t: 'general', op: 'train', unit: S.gtu });
   if (d.genrkopen !== undefined) return openSheet(genRekindWin);
   if (d.genrk) { S.grk = Number(d.genrk); return openSheet(genRekindDoWin); }
-  if (d.genrkdo !== undefined) { send({ t: 'general', op: 'rekind', unit: S.grk }); closeSheet(); return closeSheet(); } // назад — в окно генерала
+  if (d.genrkdo !== undefined) { const g = MY().general; if (!confirm(`Сменить воина генерала за ${coinsZa((g && g.rekindGold) || 50)}?`)) return; send({ t: 'general', op: 'rekind', unit: S.grk }); closeSheet(); return closeSheet(); } // назад — в окно генерала
 });
 
 $('#sheetBody').addEventListener('click', (e) => {

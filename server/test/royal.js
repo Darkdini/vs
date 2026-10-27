@@ -424,6 +424,18 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(last.reply && last.reply.by === pl.login && last.reply.text === 'Как строить?' && last.reply.id === q.id, 'в ответе — кому и цитата');
   assert.ok((g.events || []).some((e) => e.userId === pl.id && /ответил\(а\) вам на форуме/.test(e.msg)), 'уведомление автору');
   md.forumLast = 0; assert.ok(g.forumOp(md, { op: 'post', topic: t, text: 'просто так', reply: '__proto__' }).msg && !g.forumPosts(md, t, -1).posts.slice(-1)[0].reply, 'неверный ответ — обычное сообщение');
+  // «Удалить» у модератора — сразу и навсегда (с 27.10): сообщения нет ни у кого, цитата в ответе стёрта, запись в журнале модерации;
+  // начало темы так не удалить (только тему целиком); игрок удалять не может; прежнее «скрыть / восстановить» работает
+  const hp = g.forumPosts(md, t, -1).posts.find((p) => p.text === 'Как строить?');
+  assert.ok(g.forumOp(pl, { op: 'postdel', topic: t, post: hp.id, forever: true }).error, 'игрок не удаляет');
+  const first = g.forumPosts(md, t, 0).posts[0];
+  assert.ok(/удалите тему/.test(g.forumOp(md, { op: 'postdel', topic: t, post: first.id, forever: true }).error || ''), 'начало темы — только вместе с темой');
+  assert.ok(/навсегда/.test(g.forumOp(md, { op: 'postdel', topic: t, post: hp.id, forever: true }).msg || ''), 'удалено навсегда');
+  assert.ok(!g.forumTopic(t).t.posts.some((p) => p.id === hp.id) && !g.forumPosts(md, t, -1).posts.some((p) => p.text === 'Как строить?'), 'сообщения нет даже у модератора');
+  assert.strictEqual(g.forumTopic(t).t.posts.find((p) => p.reply && p.reply.id === hp.id).reply.text, 'сообщение удалено', 'цитата в ответе стёрта');
+  const ml = (g.db.modLog || []).slice(-1)[0]; assert.ok(ml && ml.op === 'forumdel' && ml.target === pl.login && /Как строить/.test(ml.text) && ml.by === md.login, `в журнале модерации: ${JSON.stringify(ml)}`);
+  const sp = g.forumTopic(t).t.posts.slice(-1)[0]; g.forumOp(md, { op: 'postdel', topic: t, post: sp.id });
+  assert.ok(sp.deleted && g.forumOp(md, { op: 'postdel', topic: t, post: sp.id }).msg === 'Сообщение восстановлено.' && !sp.deleted, 'скрыть / восстановить — как раньше');
   // убранные разделы (Пресс-служба союзов, Hi-Tech, Музыка, Клуб по интересам): исчезают из старой базы, их темы — в «Общение»
   g.db.forum.sections.push({ id: 7, name: 'Музыка', mods: [md.id], topics: [{ id: 99901, title: 'Песни', by: md.login, byId: md.id, at: Date.now(), pinned: false, closed: false, deleted: false, posts: [] }] });
   const secs = g.forumSections(ad).map((s) => s.name), talk = g.db.forum.sections.find((s) => s.name === 'Общение');
@@ -852,21 +864,23 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(g.reviveGeneral(c, u, 0, true).ok && !c.general.dead && u.gold === 10 - lv, `воскрешение ${lv} ур. — за ${lv} монет`);
   c.general.dead = true; c.units[245] = 2; assert.ok(g.trainGeneral(c, 245).ok); assert.strictEqual(c.deadGenerals.length, 1, 'павший остаётся в списке');
   assert.ok(g.deleteDeadGeneral(c, 0).ok && !c.deadGenerals.length);
-  // сменить воина: уровень, опыт, очки и снаряжение остаются; цена — как найм; полчаса переобучения
+  // сменить воина: уровень, опыт, очки и снаряжение остаются; цена — 50 монет (с 27.10; было — как найм); полчаса переобучения
   { c.training = c.training.filter((t) => t.unit !== 236); c.deadGenerals = [];
     c.general = g.newGeneral(c, 30); Object.assign(c.general, { kind: 'Мародер', kindId: 245 }); c.general.pts.atk = 10; c.general.free -= 10;
     const g0 = JSON.parse(JSON.stringify(c.general)); c.units = { 245: 2, 247: 1 }; Object.assign(c.res, { wood: 5e4, stone: 5e4, iron: 5e4, food: 5e4, people: 5000 });
     assert.ok(/уже из этого/.test(g.generalOp(c, u, { op: 'rekind', unit: 245 }).error || ''), 'тот же воин — нельзя');
     assert.ok(/замковой армии/.test(g.generalOp(c, u, { op: 'rekind', unit: 246 }).error || ''), 'воина нет в Замковой армии — нельзя');
     c.general.away = 99; assert.ok(/в походе/.test(g.generalOp(c, u, { op: 'rekind', unit: 247 }).error || ''), 'генерал в походе — нельзя'); delete c.general.away;
-    g.tick(c); const w0 = c.res.wood, rk = g.generalOp(c, u, { op: 'rekind', unit: 247 }), tc7 = g.genTrainCost(UNIT[247]);
-    assert.ok(rk.ok && !c.units[247] && Math.abs((w0 - c.res.wood) - tc7.cost.wood) < 5 && c.general.kindId === 245 && c.general.rekind, `смена начата, цена — как найм: ${JSON.stringify(rk)}`);
+    g.tick(c); u.gold = 40; assert.ok(/Нужно монет: 50/.test(g.generalOp(c, u, { op: 'rekind', unit: 247 }).error || '') && c.units[247] === 1 && !c.general.rekind, 'без 50 монет — нельзя');
+    u.gold = 60; const w0 = c.res.wood, rk = g.generalOp(c, u, { op: 'rekind', unit: 247 });
+    assert.ok(rk.ok && !c.units[247] && c.res.wood >= w0 && u.gold === 10 && c.general.kindId === 245 && c.general.rekind, `смена начата за 50 монет, ресурсы не тратятся: ${JSON.stringify(rk)}`);
+    assert.ok((u.goldLog || []).some((x) => /Смена воина генерала/.test(JSON.stringify(x))), 'списание — в истории Казны');
     assert.ok(/уже переобучается/.test(g.generalOp(c, u, { op: 'rekind', unit: 245 }).error || ''), 'вторая смена сразу — нельзя');
     assert.strictEqual(c.general.rekind.end - Date.now() <= 1800 * 1000 && c.general.rekind.end - Date.now() > 1790 * 1000, true, 'переобучение — полчаса');
     g.tickTraining(c, c.general.rekind.end + 1);
     const g1 = c.general;
     assert.ok(g1.kindId === 247 && g1.kind === 'Бугай' && !g1.rekind && g1.level === g0.level && g1.exp === g0.exp && g1.pts.atk === 10 && g1.free === g0.free && JSON.stringify(g1.eq) === JSON.stringify(g0.eq), 'через полчаса — новый воин; уровень, опыт, очки, снаряжение прежние');
-    assert.ok(g.generalView(c).rekindSec === 1800, 'окно знает время смены');
+    assert.ok(g.generalView(c).rekindSec === 1800 && g.generalView(c).rekindGold === 50, 'окно знает время и цену смены');
     c.general.dead = true; assert.ok(/погиб/.test(g.generalOp(c, u, { op: 'rekind', unit: 245 }).error || ''), 'павшего — сначала воскресить'); c.general = null; }
   console.log('✓ Генерал: найм — Мечник 1 ч, Мародер 1,5 ч; воскрешение — (уровень + 10) мин; «Сменить воина» без потери уровня; павшие списком, удаление');
 }

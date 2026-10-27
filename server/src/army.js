@@ -367,6 +367,7 @@ const REVIVE_GOLD = 1, REVIVE_RES_MAX = 100;
 // время воскрешения за ресурсы — (уровень + 10) × 3 минуты: 10 ур. — 1 ч, 100 ур. — 5,5 ч (с 21.10 втрое дольше)
 const REVIVE_MIN = 10, REVIVE_TIME_K = 3;
 const GEN_HIRE_SEC = 1800, GEN_HIRE_K = 2.5, REKIND_SEC = 1800; // найм генерала: полчаса + время воина ×2,5 (Мечник — 1 ч, Мародер — 1,5 ч); смена воина — полчаса
+const REKIND_GOLD = 50; // смена воина генерала — 50 монет (с 27.10, по решению владельца; было — ресурсами, как найм)
 // командование генерала (атакой/защитой): первые очки — около +0,17%, дальше отдача убывает: 100 очков — +12,5%, 300 — +25%,
 // 1000 (500 ур.) — +38%, не больше +50% (с 21.10 вдвое меньше — по решению владельца: вместе с наукой, рангом, артефактами и
 // снаряжением генерал давал армии ×2,8). Ещё раньше росло без предела (+299% на 500 ур.) и решало любой бой.
@@ -998,7 +999,7 @@ function install(Game, helpers) {
     if (op === 'delete') return this.deleteDeadGeneral(castle, idx);
     if (op === 'train') return this.trainGeneral(castle, Number(unit));
     if (!g) return { error: 'Генерала нет.' };
-    if (op === 'rekind') return this.rekindGeneral(castle, Number(unit));
+    if (op === 'rekind') return this.rekindGeneral(castle, Number(unit), user);
     if (op === 'rename') {
       name = String(name || '').trim().slice(0, 20); if (!name) return { error: 'Введите имя.' };
       g.name = name;
@@ -1136,7 +1137,7 @@ function install(Game, helpers) {
   };
   // сменить воина: уровень, опыт, очки и снаряжение остаются; цена — как найм нового генерала (воин из армии уходит), переобучение — полчаса.
   // Сила генерала от воина не зависит — только облик и цена воскрешения ресурсами
-  P.rekindGeneral = function rekindGeneral(castle, unitId) {
+  P.rekindGeneral = function rekindGeneral(castle, unitId, user) {
     const g = castle.general;
     if (!g) return { error: 'Генерала нет.' };
     if (g.dead) return { error: 'Генерал погиб — сначала воскресите его.' };
@@ -1144,11 +1145,9 @@ function install(Game, helpers) {
     if (g.rekind) return { error: 'Генерал уже переобучается.' };
     const u = UNIT[unitId]; if (!u || !this.genTrainUnits(castle).includes(u)) return { error: 'Выберите юнита из замковой армии.' };
     if (u.id === g.kindId) return { error: 'Генерал уже из этого воина.' };
-    const c = this.genTrainCost(u);
-    for (const r of RES4) if (castle.res[r] < c.cost[r]) return { error: 'Недостаточно ресурсов.' };
-    if (castle.res.people < c.people) return { error: 'Не хватает людей.' };
-    for (const r of RES4) castle.res[r] -= c.cost[r];
-    castle.res.people -= c.people;
+    const owner = user || this.ownerOf(castle);
+    if (!owner || (owner.gold || 0) < REKIND_GOLD) return { error: `Нужно монет: ${REKIND_GOLD}.` };
+    this.goldChange(owner, -REKIND_GOLD, `Смена воина генерала: «${u.name}»`);
     castle.units[u.id] -= 1; if (!castle.units[u.id]) delete castle.units[u.id];
     g.rekind = { kindId: u.id, end: Date.now() + Math.max(1, Math.round(REKIND_SEC / SPEED)) * 1000 };
     this.store.save();
@@ -2747,7 +2746,7 @@ function install(Game, helpers) {
     const health = g.dead ? (g.reviveAt && g.reviveStart ? Math.min(99, Math.floor((Date.now() - g.reviveStart) / (g.reviveAt - g.reviveStart) * 100)) : 0) : 100;
     // лимиты опыта игроку не отправляются (их нет и в окне): day и foes — служебные
     return { ...g, foes: undefined, day: undefined, stats: gs, need: this.generalNeed(g.level), prevNeed: g.level > 1 ? this.generalNeed(g.level - 1) : 0, where, place: castle.name, health,
-      reviveCost: Object.fromEntries(RES4.map((r) => [r, Math.round(UNIT[GENERAL_ID].cost[r] * GEN.revive * g.level)])), resetGold: GEN.resetGold, perLevel: GEN.perLevel, rekindSec: REKIND_SEC,
+      reviveCost: Object.fromEntries(RES4.map((r) => [r, Math.round(UNIT[GENERAL_ID].cost[r] * GEN.revive * g.level)])), resetGold: GEN.resetGold, perLevel: GEN.perLevel, rekindSec: REKIND_SEC, rekindGold: REKIND_GOLD,
       healMax: gs.healMax, careerMax: gs.careerMax, cmdMax: gs.cmdMax, atkPt: GEN.atkPt, healPt: GEN.heal, careerPt: GEN.career }; // потолки — от воина генерала
   };
 
