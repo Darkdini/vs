@@ -133,7 +133,7 @@ function client() {
     a.send({ t: 'profile', id: 0 });
     assert.equal((await a.expect('profile')).profile.login, 'Webby');
     a.send({ t: 'replog' }); const rl = await a.expect('replog'); // Кабинет → «Репутация»: своя история, не общий рейтинг
-    assert.ok(rl.rep === 10 && Array.isArray(rl.log), `своя репутация и история: ${JSON.stringify(rl)}`);
+    assert.ok(rl.rep === 10 && Array.isArray(rl.log) && Array.isArray(rl.by), `своя репутация, «Кто поднимал» и история: ${JSON.stringify(rl)}`);
     console.log('✓ рейтинг и кабинет');
 
     // ---- админ, армия, бой, функции зданий ----

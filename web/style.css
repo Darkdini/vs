@@ -864,6 +864,9 @@ textarea.ainput { resize: vertical; }
 .rlog { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: center; padding: 8px 4px; border-bottom: 1px solid #c8a46a55; }
 .rlog > b:first-child { grid-row: span 2; min-width: 48px; text-align: center; font-size: 18px; }
 .rlog small { color: #6a4a2a; font-size: 13px; }
+.repby { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center; padding: 8px 4px; border-bottom: 1px solid #c8a46a55; font-size: 17px; }
+.repby > span { font-weight: bold; font-size: 18px; }
+.repby small { grid-column: 1 / -1; color: #6a4a2a; font-size: 13px; }
 .cpop.rulespop { width: min(92vw, 520px); max-height: 82dvh; display: flex; flex-direction: column; }
 .rulesscroll { overflow: auto; text-align: left; margin-top: 6px; } .rulesscroll .grlist { font-size: 16px; }
 .warnrules { margin-top: 8px; border: 0; background: none; color: #2f5a8a; font: 16px var(--serif); text-decoration: underline; cursor: pointer; }

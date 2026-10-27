@@ -710,27 +710,33 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   console.log('✓ звание «Авторитет»: у №1 по репутации, переходит к обогнавшему, админ не в счёт');
 }
 // Кабинет → «Репутация»: своя история — кто поднял (игрок) или за что (задание, босс, Зал славы, Лавка, Подземелье, администрация);
-// новые записи сверху; прошлые поднятия игроками — разово из истории монет дарителей (repSeedOnce), второй раз не добавляются
+// новые записи сверху; «Кто поднимал» — ник и сколько всего (больше всех сверху); прошлые поднятия — разово из истории монет дарителей
 {
-  const [ra, rb] = ['repla', 'replb'].map((l) => g.register({ login: `${l}_acc`, nick: l, password: '12345', race: 0 }).user);
-  ra.gold = 10; rb.gold = 10;
+  const [ra, rb, rc] = ['repla', 'replb', 'replc'].map((l) => g.register({ login: `${l}_acc`, nick: l, password: '12345', race: 0 }).user);
+  ra.gold = 10; rb.gold = 10; rc.gold = 10;
   assert.ok(g.giveReputation(ra, rb.id, 2).ok, 'игрок поднял другому');
   assert.ok(g.giveReputation(rb, rb.id, 1).ok, 'поднял себе');
   g.repAdd(rb, 5, 'Награда за задание');
+  assert.ok(g.giveReputation(ra, rb.id, 1).ok && g.giveReputation(rc, rb.id, 4).ok, 'ещё поднимали');
   const v = g.repView(rb);
   assert.strictEqual(v.rep, rb.reputation, 'текущая репутация');
-  assert.deepStrictEqual(v.log.map((x) => [x.n, x.who || x.why]), [[5, 'Награда за задание'], [2 + (g.isPremium(rb) ? 1 : 0), 'Вы подняли себе репутацию'], [4, 'repla']], `история сверху вниз: ${JSON.stringify(v.log)}`);
-  assert.ok(!(ra.repLog || []).length, 'у дарителя своя история не меняется');
+  assert.deepStrictEqual(v.log.map((x) => [x.n, x.who || x.why]), [[8, 'replc'], [2, 'repla'], [5, 'Награда за задание'], [2 + (g.isPremium(rb) ? 1 : 0), 'Вы подняли себе репутацию'], [4, 'repla']], `история сверху вниз: ${JSON.stringify(v.log)}`);
+  assert.deepStrictEqual(v.by.map((x) => [x.who, x.n, x.k]), [['replc', 8, 1], ['repla', 6, 2]], `«Кто поднимал»: ник и сколько всего, себя нет: ${JSON.stringify(v.by)}`);
+  assert.ok(!(ra.repLog || []).length && !ra.repBy, 'у дарителя своя история не меняется');
   const r0 = rb.reputation; g.repAdd(rb, -1000, 'Администрация'); assert.strictEqual(rb.reputation, 0, 'ниже нуля не опускается'); rb.reputation = r0;
-  // разово из Казны: прошлые поднятия (до истории) — у получателя; второй запуск ничего не добавляет
-  const [sa, sb] = ['repsa', 'repsb'].map((l) => g.register({ login: `${l}_acc`, nick: l, password: '12345', race: 0 }).user);
-  sa.goldLog = [{ at: 1000, delta: -3, reason: 'Репутация +6 игроку repsb', left: 0 }, { at: 2000, delta: -1, reason: 'Репутация +2 игроку repsa', left: 0 }, { at: 3000, delta: -1, reason: 'Ритуал «Молебен»', left: 0 }];
-  const seeded0 = g.db.repSeeded; g.db.repSeeded = 0; g.repSeedOnce();
-  assert.ok(g.db.repSeeded > 0, 'отметка «сделано»');
-  assert.deepStrictEqual((sb.repLog || []).map((x) => [x.at, x.n, x.who]), [[1000, 6, 'repsa']], 'получатель видит, кто поднял');
-  assert.deepStrictEqual((sa.repLog || []).map((x) => [x.n, x.why]), [[2, 'Вы подняли себе репутацию']], 'себе — «Вы подняли себе»');
-  g.repSeedOnce(); assert.strictEqual(sb.repLog.length, 1, 'второй раз не добавляет'); g.db.repSeeded = seeded0 || g.db.repSeeded;
-  console.log('✓ «Репутация» в Кабинете: своя история — кто поднял и за что, сверху новые; прошлые поднятия — из Казны, один раз');
+  // разово из Казны: прошлые поднятия — у получателя (история и «Кто поднимал»); ник, занятый позже другим игроком, не путается
+  const T = Date.now() + 1000, [sa, sb] = ['repsa', 'repsb'].map((l) => g.register({ login: `${l}_acc`, nick: l, password: '12345', race: 0 }).user);
+  sa.goldLog = [{ at: T, delta: -3, reason: 'Репутация +6 игроку repsb', left: 0 }, { at: T + 1000, delta: -1, reason: 'Репутация +2 игроку repsa', left: 0 },
+    { at: T + 2000, delta: -2, reason: 'Репутация +4 игроку repsb', left: 0 }, { at: sb.created - 86400000, delta: -5, reason: 'Репутация +10 игроку repsb', left: 0 }, { at: T + 3000, delta: -1, reason: 'Ритуал «Молебен»', left: 0 }];
+  const s0 = [g.db.repSeeded, g.db.repBySeeded]; g.db.repSeeded = 0; g.db.repBySeeded = 0; g.repSeedOnce(); g.repBySeedOnce();
+  assert.ok(g.db.repSeeded > 0 && g.db.repBySeeded > 0, 'отметки «сделано»');
+  assert.deepStrictEqual((sb.repLog || []).map((x) => [x.n, x.who]), [[6, 'repsa'], [4, 'repsa']], 'история: кто поднял; до регистрации получателя — не его');
+  assert.deepStrictEqual(g.repView(sb).by.map((x) => [x.who, x.n, x.k]), [['repsa', 10, 2]], '«Кто поднимал»: всего 10 за 2 раза');
+  assert.deepStrictEqual((sa.repLog || []).map((x) => [x.n, x.why]), [[2, 'Вы подняли себе репутацию']], 'себе — в истории, не в «Кто поднимал»');
+  assert.ok(!sa.repBy, 'себя в «Кто поднимал» нет');
+  g.repSeedOnce(); g.repBySeedOnce(); assert.ok(sb.repLog.length === 2 && g.repView(sb).by[0].n === 10, 'второй раз не добавляет');
+  [g.db.repSeeded, g.db.repBySeeded] = [s0[0] || g.db.repSeeded, s0[1] || g.db.repBySeeded];
+  console.log('✓ «Репутация» в Кабинете: «Кто поднимал» — ник и сколько всего; история — кто и за что, сверху новые; прошлое — из Казны, один раз');
 }
 // подарок приходит получателю и сообщением от дарителя
 {

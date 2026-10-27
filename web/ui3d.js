@@ -930,18 +930,22 @@ function repTableWin() {
 }
 $('#sheetBody').addEventListener('click', (e) => { if (e.target.closest('[data-reptable]')) openSheet(repTableWin); });
 
-// ---------- Кабинет → «Репутация»: своя репутация и история — кто поднял или за что (сервер: social.js repAdd / repView) ----------
+// ---------- Кабинет → «Репутация»: своя репутация, «Кто поднимал» (ник и сколько всего) и история — кто поднял или за что (сервер: social.js repAdd / repView) ----------
 function openRepLog() { S.repLog = null; send({ t: 'replog' }); openSheet(repLogWin); }
 function repLogWin() {
   const v = S.repLog;
   if (!v) return `${ribbon('Репутация')}<div class="bwline center muted">Загрузка…</div>`;
   const row = (x) => `<div class="rlog"><b class="${x.n > 0 ? 'rgood' : 'rbad'}">${x.n > 0 ? '+' : '−'}${fmtFull(Math.abs(x.n))}</b>
     <span>${x.who ? `<b>${esc(x.who)}</b> поднял(а) вам репутацию` : esc(x.why || 'Репутация')}</span><small>${fmtDate(x.at)}</small></div>`;
+  const by = (x) => `<div class="repby"><b>${esc(x.who)}</b><span class="rgood">+${fmtFull(x.n)}</span>
+    <small>поднял(а) ${x.k} ${plural(x.k, 'раз', 'раза', 'раз')}, последний — ${fmtDate(x.at)}</small></div>`;
   return `${ribbon('Репутация')}
     <div class="shtrhead"><img src="${GFX}shop/reputation.png" alt=""><div><b>Ваша репутация: ${fmtFull(v.rep)}</b><div>${repIcons(v.rep)}</div></div></div>
     <button class="pbar" data-reptable>Таблица репутации</button>
+    ${ribbon('Кто поднимал')}
+    ${(v.by || []).length ? v.by.map(by).join('') : '<div class="bwline center muted">Пока никто из игроков не поднимал вам репутацию.</div>'}
     ${ribbon('История')}
-    ${v.log.length ? v.log.map(row).join('') : '<div class="bwline center muted">Пока никто не поднимал вам репутацию.</div>'}
+    ${v.log.length ? v.log.map(row).join('') : '<div class="bwline center muted">Пока записей нет.</div>'}
     <p class="parch-note small">Рейтинг всех игроков по репутации — в меню «Рейтинг» → «Авторитет».</p>`;
 }
 // ---------- Поднять Репутацию: за золото, 1 монета = 2 репутации ----------

@@ -316,27 +316,49 @@ function install(Game) {
     };
   };
 
-  // история репутации (Кабинет → «Репутация»): все изменения — через repAdd; запись — кто поднял (who) или за что (why), последние REP_LOG
+  // история репутации (Кабинет → «Репутация»): все изменения — через repAdd; запись — кто поднял (who) или за что (why), последние REP_LOG;
+  // «Кто поднимал» — u.repBy { id дарителя: { login, n — всего поднял, k — сколько раз, at — последний раз } } (за всё время, не только 100 записей)
+  const repByAdd = (u, id, login, n, at) => { const b = (u.repBy = u.repBy || {}), x = b[id] || (b[id] = { login, n: 0, k: 0, at: 0 }); x.login = login; x.n += n; x.k++; x.at = Math.max(x.at, at); };
   P.repAdd = function repAdd(u, n, why, from = null, now = Date.now()) {
     n = Math.round(Number(n) || 0); if (!n || !u) return;
     u.reputation = Math.max(0, (u.reputation ?? START_REP) + n);
     (u.repLog = u.repLog || []).push(from ? { at: now, n, who: from.login } : { at: now, n, why: String(why || '') });
     if (u.repLog.length > REP_LOG) u.repLog.splice(0, u.repLog.length - REP_LOG);
+    if (from) repByAdd(u, from.id, from.login, n, now);
   };
-  P.repView = function repView(u) { return { rep: u.reputation ?? START_REP, log: (u.repLog || []).slice().reverse() }; };
-  // разово при запуске (game.js): прошлые поднятия репутации — из истории монет дарителей («Репутация +N игроку Ник» — giveReputation);
-  // сделано — db.repSeeded (второй раз не срабатывает). Награды заданий, босса и Зала славы до этого не записывались — их в истории нет
+  // окно: репутация, «Кто поднимал» (ник — нынешний, больше всех — сверху) и история (новые сверху)
+  P.repView = function repView(u) {
+    const by = Object.entries(u.repBy || {}).map(([id, x]) => ({ who: (this.userById(Number(id)) || {}).login || x.login, n: x.n, k: x.k, at: x.at }))
+      .sort((a, b) => b.n - a.n || b.at - a.at).slice(0, 100);
+    return { rep: u.reputation ?? START_REP, by, log: (u.repLog || []).slice().reverse() };
+  };
+  // прошлые поднятия — из истории монет дарителей («Репутация +N игроку Ник» — giveReputation); ник мог позже достаться другому —
+  // такого получателя (зарегистрирован после поднятия) пропускаем
+  const repPast = (g, fn) => {
+    const re = /^Репутация \+(\d+) игроку (.+)$/;
+    for (const giver of Object.values(g.db.users)) for (const x of giver.goldLog || []) {
+      const m = re.exec(String(x.reason || '')); if (!m) continue;
+      const to = Object.prototype.hasOwnProperty.call(g.db.users, m[2]) ? g.db.users[m[2]] : null;
+      if (to && (to.created || 0) <= (x.at || 0)) fn(giver, to, Number(m[1]), x.at || 0);
+    }
+  };
+  // разово при запуске (game.js): история — прошлые поднятия; сделано — db.repSeeded (второй раз не срабатывает).
+  // Награды заданий, босса и Зала славы до этого не записывались — их в истории нет
   P.repSeedOnce = function repSeedOnce() {
     if (this.db.repSeeded) return 0;
-    const re = /^Репутация \+(\d+) игроку (.+)$/, touched = new Set();
-    for (const g of Object.values(this.db.users)) for (const x of g.goldLog || []) {
-      const m = re.exec(String(x.reason || '')); if (!m) continue;
-      const to = Object.prototype.hasOwnProperty.call(this.db.users, m[2]) ? this.db.users[m[2]] : null; if (!to) continue;
-      (to.repLog = to.repLog || []).push(to === g ? { at: x.at, n: Number(m[1]), why: 'Вы подняли себе репутацию' } : { at: x.at, n: Number(m[1]), who: g.login });
-      touched.add(to);
-    }
+    const touched = new Set();
+    repPast(this, (giver, to, n, at) => { (to.repLog = to.repLog || []).push(to === giver ? { at, n, why: 'Вы подняли себе репутацию' } : { at, n, who: giver.login }); touched.add(to); });
     for (const u of touched) { u.repLog.sort((a, b) => a.at - b.at); if (u.repLog.length > REP_LOG) u.repLog.splice(0, u.repLog.length - REP_LOG); }
     this.db.repSeeded = Date.now(); this.store.save();
+    return touched.size;
+  };
+  // разово при запуске: «Кто поднимал» — заново из истории монет (там все поднятия игроками, и до этой записи, и после); db.repBySeeded
+  P.repBySeedOnce = function repBySeedOnce() {
+    if (this.db.repBySeeded) return 0;
+    for (const u of Object.values(this.db.users)) delete u.repBy;
+    const touched = new Set();
+    repPast(this, (giver, to, n, at) => { if (to !== giver) { repByAdd(to, giver.id, giver.login, n, at); touched.add(to); } });
+    this.db.repBySeeded = Date.now(); this.store.save();
     return touched.size;
   };
 

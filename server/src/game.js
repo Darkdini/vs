@@ -281,6 +281,7 @@ class Game {
     if (this.multiCleanup) this.multiCleanup(); // баны «железа» больше не действуют (security.js)
     if (this.stashCutOnce) this.stashCutOnce(); // разовый сброс излишков Кладовой (stash.js)
     if (this.repSeedOnce) this.repSeedOnce(); // история репутации: прошлые поднятия игроками — из Казны (social.js)
+    if (this.repBySeedOnce) this.repBySeedOnce(); // «Кто поднимал» репутацию: ник и сколько всего — из Казны (social.js)
   }
   castleAt(x, y) { return this.byXY.get(x * WORLD + y); }
   // ----- руины и лагеря провинций -----
