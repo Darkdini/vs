@@ -165,7 +165,6 @@ function connect() {
   ws.onopen = () => {
     $('#offline').classList.remove('show');
     send({ t: 'hello' });
-    if (REF && !S.refAsked) { S.refAsked = true; send({ t: 'refwho', code: REF }); } // чья ссылка — на форму регистрации
     // сам входит только после обрыва связи, когда игрок уже в игре; при открытии игры — экран входа, игрок жмёт «Войти» сам
     if (S.creds && S.entered) { S.auto = true; send({ t: 'login', ...S.creds, dev: DEV }); }
   };
@@ -234,14 +233,8 @@ function onMsg(m) {
         .catch(() => toast('Не удалось загрузить игру — проверьте связь')).finally(() => { S.catWait = null; });
       break;
     case 'captcha': $('#capImg').src = m.img; break;
-    case 'refwho': // «Вас пригласил …»: новичку сразу открывается регистрация; неверный код забывается
-      S.refNick = m.nick || ''; if (!m.nick) store.set('tw.ref', null);
-      $('#refNote').innerHTML = m.nick ? `🎁 Вас пригласил <b>${esc(m.nick)}</b>${m.need ? `<small>Развейте замок до рейтинга ${fmtFull(m.need)} — и получите ${m.gold} ${plural(m.gold, 'монету', 'монеты', 'монет')} в подарок</small>` : ''}` : '';
-      if (m.nick && !S.creds && S.mode !== 'reg') setMode('reg'); else $('#refNote').classList.toggle('hidden', !(m.nick && S.mode === 'reg'));
-      break;
     case 'registered':
       toast('Аккаунт создан!');
-      store.set('tw.ref', null);
       send({ t: 'login', login: S.pendingCreds.login, password: S.pendingCreds.password, dev: DEV });
       break;
     case 'renamed': // сменили ник — сохранённый вход теперь по новому нику
@@ -401,7 +394,6 @@ function setMode(mode) {
   $('#raceBox').classList.toggle('hidden', mode !== 'reg'); $('#nickBox').classList.toggle('hidden', mode !== 'reg'); $('#authForm').nick.required = mode === 'reg';
   $('#capBox').classList.toggle('hidden', mode !== 'reg'); if (mode === 'reg') send({ t: 'captcha' });
   $('#rulesNote').classList.toggle('hidden', mode !== 'reg'); // «Регистрируясь, вы принимаете Правила игры» (rules.js)
-  $('#refNote').classList.toggle('hidden', !(mode === 'reg' && S.refNick)); // «Вас пригласил …» (по ссылке друга)
   $('#authBtn').textContent = mode === 'reg' ? 'Создать аккаунт' : 'Войти';
   $('#authForm').password.autocomplete = mode === 'reg' ? 'new-password' : 'current-password';
   $('#authForm').password.placeholder = mode === 'reg' ? 'от 5 символов' : ''; $('#authForm').password.minLength = mode === 'reg' ? 5 : 0;
@@ -409,13 +401,6 @@ function setMode(mode) {
   const locked = mode === 'login' && S.lockUntil > Date.now(); // табличка блокировки — только на вкладке «Вход»
   $('#lockBox').classList.toggle('hidden', !locked); $('#authBtn').disabled = locked;
 }
-// «Пригласить друга» (invite.js): ссылка …/?ref=<код> — код запоминается в браузере до регистрации и уходит вместе с ней;
-// на форме регистрации — «Вас пригласил …» (сервер подтверждает код: t:'refwho')
-const REF = (() => {
-  const q = String(new URLSearchParams(location.search).get('ref') || '').toLowerCase();
-  if (/^[a-z0-9]{8}$/.test(q)) { store.set('tw.ref', q); const u = new URL(location.href); u.searchParams.delete('ref'); history.replaceState(null, '', u.pathname + u.search + u.hash); }
-  const r = store.get('tw.ref'); return /^[a-z0-9]{8}$/.test(r || '') ? r : '';
-})();
 // id устройства (для поиска мультов админом): случайный, хранится в браузере
 const DEV = (() => { let d = store.get('tw.dev'); if (!/^[a-f0-9]{16,40}$/.test(d || '')) { d = [...crypto.getRandomValues(new Uint8Array(12))].map((x) => x.toString(16).padStart(2, '0')).join(''); store.set('tw.dev', d); } return d; })();
 // данные устройства для админки (поиск мультов): модель, система, браузер, экран, железо; «отпечаток» — хэш железа,
@@ -446,7 +431,7 @@ $('#authForm').addEventListener('submit', (e) => {
   if (S.mode !== 'reg' && (!password || password === SAVED_PASS) && S.creds && S.creds.token && login === (S.creds.show || S.creds.login)) { S.pendingCreds = { login, password: '' }; S.auto = true; $('#authForm').password.value = ''; return send({ t: 'login', ...S.creds, dev: DEV }); }
   if (S.mode !== 'reg' && !password) { $('#authErr').textContent = 'Введите пароль.'; return; }
   if (S.mode === 'reg' && login.length < 5) { $('#authErr').textContent = 'Логин слишком короткий (минимум 5 символов).'; return; }
-  if (S.mode === 'reg') { send({ t: 'register', login, password, nick: f.nick.value.trim(), race: String(S.race), captcha: f.captcha.value, dev: DEV, ref: S.refNick ? REF : '' }); f.captcha.value = ''; }
+  if (S.mode === 'reg') { send({ t: 'register', login, password, nick: f.nick.value.trim(), race: String(S.race), captcha: f.captcha.value, dev: DEV }); f.captcha.value = ''; }
   else send({ t: 'login', login, password, dev: DEV });
 });
 

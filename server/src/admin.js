@@ -90,7 +90,6 @@ function install(Game) {
     for (const sec of (this.db.forum && this.db.forum.sections) || []) if (sec.mods && sec.mods.includes(id)) sec.mods = sec.mods.filter((x) => x !== id);
     const b = this.db.boss && this.db.boss.cur; if (b) { if (b.dmg) delete b.dmg[id]; if (b.hits) delete b.hits[id]; }
     delete this.db.users[t.login]; if (t.acct) delete this.db.accts[t.acct]; this.byId.delete(id);
-    if (t.invCode && this.db.invCodes) delete this.db.invCodes[t.invCode]; // его ссылка «Пригласить друга» больше не работает (invite.js)
     if (al) this.allyRemoveMember(al, id);
     this.cache = {}; // рейтинги, «Семейные пары» и т. п. пересчитаются без него
   };

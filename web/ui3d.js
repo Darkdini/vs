@@ -30,7 +30,6 @@ const MENUS = {
     ['Репутация', M3('reputation'), () => openRating('reputation')],
     ['События', M3('events'), () => openReports()],
     [S.st.user.friendsNew ? `Друзья (${S.st.user.friendsNew})` : 'Друзья', M3('friends'), () => openFriends()],
-    ['Пригласить друга', 'gfx3d/prof/friend.png', () => openFriendInvite()], // подарок за развитие друга (invite.js)
     ['Поиск', M3('search'), () => openPlayers('search')],
     ['Земляки', 'ground/castle_small.png', () => openPlayers('nearby')],
     ['Биржа', M3('exchange'), () => openMarket()],
