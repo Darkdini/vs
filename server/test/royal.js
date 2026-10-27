@@ -709,6 +709,29 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   adm.reputation = keep; a.reputation = b.reputation = 10; g.cache = {};
   console.log('✓ звание «Авторитет»: у №1 по репутации, переходит к обогнавшему, админ не в счёт');
 }
+// Кабинет → «Репутация»: своя история — кто поднял (игрок) или за что (задание, босс, Зал славы, Лавка, Подземелье, администрация);
+// новые записи сверху; прошлые поднятия игроками — разово из истории монет дарителей (repSeedOnce), второй раз не добавляются
+{
+  const [ra, rb] = ['repla', 'replb'].map((l) => g.register({ login: `${l}_acc`, nick: l, password: '12345', race: 0 }).user);
+  ra.gold = 10; rb.gold = 10;
+  assert.ok(g.giveReputation(ra, rb.id, 2).ok, 'игрок поднял другому');
+  assert.ok(g.giveReputation(rb, rb.id, 1).ok, 'поднял себе');
+  g.repAdd(rb, 5, 'Награда за задание');
+  const v = g.repView(rb);
+  assert.strictEqual(v.rep, rb.reputation, 'текущая репутация');
+  assert.deepStrictEqual(v.log.map((x) => [x.n, x.who || x.why]), [[5, 'Награда за задание'], [2 + (g.isPremium(rb) ? 1 : 0), 'Вы подняли себе репутацию'], [4, 'repla']], `история сверху вниз: ${JSON.stringify(v.log)}`);
+  assert.ok(!(ra.repLog || []).length, 'у дарителя своя история не меняется');
+  const r0 = rb.reputation; g.repAdd(rb, -1000, 'Администрация'); assert.strictEqual(rb.reputation, 0, 'ниже нуля не опускается'); rb.reputation = r0;
+  // разово из Казны: прошлые поднятия (до истории) — у получателя; второй запуск ничего не добавляет
+  const [sa, sb] = ['repsa', 'repsb'].map((l) => g.register({ login: `${l}_acc`, nick: l, password: '12345', race: 0 }).user);
+  sa.goldLog = [{ at: 1000, delta: -3, reason: 'Репутация +6 игроку repsb', left: 0 }, { at: 2000, delta: -1, reason: 'Репутация +2 игроку repsa', left: 0 }, { at: 3000, delta: -1, reason: 'Ритуал «Молебен»', left: 0 }];
+  const seeded0 = g.db.repSeeded; g.db.repSeeded = 0; g.repSeedOnce();
+  assert.ok(g.db.repSeeded > 0, 'отметка «сделано»');
+  assert.deepStrictEqual((sb.repLog || []).map((x) => [x.at, x.n, x.who]), [[1000, 6, 'repsa']], 'получатель видит, кто поднял');
+  assert.deepStrictEqual((sa.repLog || []).map((x) => [x.n, x.why]), [[2, 'Вы подняли себе репутацию']], 'себе — «Вы подняли себе»');
+  g.repSeedOnce(); assert.strictEqual(sb.repLog.length, 1, 'второй раз не добавляет'); g.db.repSeeded = seeded0 || g.db.repSeeded;
+  console.log('✓ «Репутация» в Кабинете: своя история — кто поднял и за что, сверху новые; прошлые поднятия — из Казны, один раз');
+}
 // подарок приходит получателю и сообщением от дарителя
 {
   const [a, b] = ['gfa', 'gfb'].map((l) => g.register({ login: `${l}_acc`, nick: l, password: '12345', race: 0 }).user); a.gold = 100; a.premium = Date.now() + 86400000; // Шлем Легиона — уникальный (премиум) подарок

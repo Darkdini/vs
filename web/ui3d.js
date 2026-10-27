@@ -27,7 +27,7 @@ const MENUS = {
     ['Ресурсы', M3('resources'), () => openRes()],
     ['Подарки', M3('gifts'), () => send({ t: 'profile', id: S.st.user.id })], // свои подарки — в профиле
     [S.st.user.zagsNew ? `ЗАГС (${S.st.user.zagsNew})` : 'ЗАГС', 'zags/rings.png', () => openZags()],
-    ['Репутация', M3('reputation'), () => openRating('reputation')],
+    ['Репутация', M3('reputation'), () => openRepLog()], // своя история; общий рейтинг — «Рейтинг» → «Авторитет»
     ['События', M3('events'), () => openReports()],
     [S.st.user.friendsNew ? `Друзья (${S.st.user.friendsNew})` : 'Друзья', M3('friends'), () => openFriends()],
     ['Поиск', M3('search'), () => openPlayers('search')],
@@ -700,6 +700,7 @@ const settingsWin = () => `${ribbon('Настройки')}<div class="pstats">И
 const prevMilMsg = milMsg;
 milMsg = function (m) { // eslint-disable-line no-global-assign
   if (m.t === 'profile') return; // обрабатывается в app.js
+  if (m.t === 'replog') { S.repLog = m; if (S.sheets[S.sheets.length - 1] === repLogWin) refreshSheet(); return; }
   if (m.t === 'chatvote') { const x = S.chat.find((q) => q.id === m.id); if (x) { x.up = m.up; x.dn = m.dn; chatListUpdate(); } return; }
   if (m.t === 'chatdel') { S.chat = S.chat.filter((x) => x.id !== m.id); chatLine(); chatListUpdate(); return; }
   if (m.t === 'chatusers') { S.chatUsers = m.list; const b = $('[data-chatusers]'); if (b) b.innerHTML = `<img src="${GFX}chat/players.png" alt=""> Игроки (${m.list.length})`; return refreshSheet(); }
@@ -929,6 +930,20 @@ function repTableWin() {
 }
 $('#sheetBody').addEventListener('click', (e) => { if (e.target.closest('[data-reptable]')) openSheet(repTableWin); });
 
+// ---------- Кабинет → «Репутация»: своя репутация и история — кто поднял или за что (сервер: social.js repAdd / repView) ----------
+function openRepLog() { S.repLog = null; send({ t: 'replog' }); openSheet(repLogWin); }
+function repLogWin() {
+  const v = S.repLog;
+  if (!v) return `${ribbon('Репутация')}<div class="bwline center muted">Загрузка…</div>`;
+  const row = (x) => `<div class="rlog"><b class="${x.n > 0 ? 'rgood' : 'rbad'}">${x.n > 0 ? '+' : '−'}${fmtFull(Math.abs(x.n))}</b>
+    <span>${x.who ? `<b>${esc(x.who)}</b> поднял(а) вам репутацию` : esc(x.why || 'Репутация')}</span><small>${fmtDate(x.at)}</small></div>`;
+  return `${ribbon('Репутация')}
+    <div class="shtrhead"><img src="${GFX}shop/reputation.png" alt=""><div><b>Ваша репутация: ${fmtFull(v.rep)}</b><div>${repIcons(v.rep)}</div></div></div>
+    <button class="pbar" data-reptable>Таблица репутации</button>
+    ${ribbon('История')}
+    ${v.log.length ? v.log.map(row).join('') : '<div class="bwline center muted">Пока никто не поднимал вам репутацию.</div>'}
+    <p class="parch-note small">Рейтинг всех игроков по репутации — в меню «Рейтинг» → «Авторитет».</p>`;
+}
 // ---------- Поднять Репутацию: за золото, 1 монета = 2 репутации ----------
 function repWin() {
   const p = S.repTo, k = S.cat.repPerGold || 2, c = S.repCoins || 1, gold = S.st.user.gold || 0;

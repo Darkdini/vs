@@ -132,6 +132,8 @@ function client() {
     assert.equal(rows[0].login, 'Советник'); // админ на полной прокачке — первый
     a.send({ t: 'profile', id: 0 });
     assert.equal((await a.expect('profile')).profile.login, 'Webby');
+    a.send({ t: 'replog' }); const rl = await a.expect('replog'); // Кабинет → «Репутация»: своя история, не общий рейтинг
+    assert.ok(rl.rep === 10 && Array.isArray(rl.log), `своя репутация и история: ${JSON.stringify(rl)}`);
     console.log('✓ рейтинг и кабинет');
 
     // ---- админ, армия, бой, функции зданий ----

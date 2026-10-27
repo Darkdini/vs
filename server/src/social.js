@@ -112,6 +112,7 @@ const GIFTS = {
 const GIFT_CATS = [['premium', 'Премиум'], ['girls', 'Девушкам'], ['boys', 'Парням'], ['war', 'Военные'], ['party', 'К празднику'], ['enemy', 'Врагам'], ['misc', 'Разное']];
 const GIFTS_DAY = 20;
 const GIFT_PAGE = 10; // подарков на странице окна «Подарки»
+const REP_LOG = 100; // история репутации (Кабинет → «Репутация»): сколько последних записей хранится
 const REP_PER_GOLD = 2; // 1 монета = 2 репутации // сколько подарков игрок может отправить за сутки
 
 const CHAT_KEEP = 100; // сколько последних сообщений хранит общий чат (листать вверх — история)
@@ -172,7 +173,7 @@ function install(Game) {
       const bonus = HALLS[h.id].bonus[i];
       if (!got.has(u)) got.set(u, { before: u.reputation ?? START_REP, lines: [] });
       got.get(u).lines.push(`${h.name} — ${['I', 'II', 'III'][i]} место: +${bonus} репутации`);
-      u.reputation = (u.reputation ?? START_REP) + bonus; u.hallRep = (u.hallRep || 0) + bonus; // бонус — репутация
+      this.repAdd(u, bonus, `Зал славы «${h.name}»: ${['I', 'II', 'III'][i]} место`, null, now); u.hallRep = (u.hallRep || 0) + bonus; // бонус — репутация
       (u.awards = u.awards || []).push({ hall: h.id, name: h.name, place: i + 1, value: x.value, month: s.key, at: now, icon: hallIcon(h, i), bonus });
       this.event(u.id, `Зал Славы «${h.name}»: ${i + 1} место по итогам месяца! Бонус +${bonus} репутации, медаль — в Вашем профиле.`);
       if (this.friendFeed) this.friendFeed(u.id, `${u.login} получил(а) медаль Зала славы «${h.name}» — ${['I', 'II', 'III'][i]} место`, now);
@@ -315,6 +316,30 @@ function install(Game) {
     };
   };
 
+  // история репутации (Кабинет → «Репутация»): все изменения — через repAdd; запись — кто поднял (who) или за что (why), последние REP_LOG
+  P.repAdd = function repAdd(u, n, why, from = null, now = Date.now()) {
+    n = Math.round(Number(n) || 0); if (!n || !u) return;
+    u.reputation = Math.max(0, (u.reputation ?? START_REP) + n);
+    (u.repLog = u.repLog || []).push(from ? { at: now, n, who: from.login } : { at: now, n, why: String(why || '') });
+    if (u.repLog.length > REP_LOG) u.repLog.splice(0, u.repLog.length - REP_LOG);
+  };
+  P.repView = function repView(u) { return { rep: u.reputation ?? START_REP, log: (u.repLog || []).slice().reverse() }; };
+  // разово при запуске (game.js): прошлые поднятия репутации — из истории монет дарителей («Репутация +N игроку Ник» — giveReputation);
+  // сделано — db.repSeeded (второй раз не срабатывает). Награды заданий, босса и Зала славы до этого не записывались — их в истории нет
+  P.repSeedOnce = function repSeedOnce() {
+    if (this.db.repSeeded) return 0;
+    const re = /^Репутация \+(\d+) игроку (.+)$/, touched = new Set();
+    for (const g of Object.values(this.db.users)) for (const x of g.goldLog || []) {
+      const m = re.exec(String(x.reason || '')); if (!m) continue;
+      const to = Object.prototype.hasOwnProperty.call(this.db.users, m[2]) ? this.db.users[m[2]] : null; if (!to) continue;
+      (to.repLog = to.repLog || []).push(to === g ? { at: x.at, n: Number(m[1]), why: 'Вы подняли себе репутацию' } : { at: x.at, n: Number(m[1]), who: g.login });
+      touched.add(to);
+    }
+    for (const u of touched) { u.repLog.sort((a, b) => a.at - b.at); if (u.repLog.length > REP_LOG) u.repLog.splice(0, u.repLog.length - REP_LOG); }
+    this.db.repSeeded = Date.now(); this.store.save();
+    return touched.size;
+  };
+
   // «Поднять Репутацию»: за золото, 1 монета = REP_PER_GOLD репутации
   P.giveReputation = function giveReputation(from, toId, coins) {
     const to = this.userById(Number(toId));
@@ -324,7 +349,7 @@ function install(Game) {
     if ((from.gold || 0) < coins) return { error: `Не хватает монет (у вас ${from.gold || 0}).` };
     this.goldChange(from, -coins, `Репутация +${coins * REP_PER_GOLD} игроку ${to.login}`);
     const add = coins * REP_PER_GOLD + (to.id === from.id && this.isPremium(from) ? 1 : 0); // премиум: +1 себе
-    to.reputation = (to.reputation ?? START_REP) + add; this.addStat(to.id, 'repGold', coins);
+    this.repAdd(to, add, 'Вы подняли себе репутацию', to.id === from.id ? null : from); this.addStat(to.id, 'repGold', coins);
     this.cache = {};
     this.store.save();
     if (to.id !== from.id) this.event(to.id, `${from.login} поднял вам репутацию на ${add}!`);

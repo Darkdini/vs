@@ -333,7 +333,7 @@ function install(Game) {
       }
       case 'player': data = { ...this.playerInfo(target), goldLog: (target.goldLog || []).slice(-30).reverse(), alerts: (this.db.alerts || []).filter((x) => x.uid === target.id).slice(-10).reverse(), passLog: (target.passLog || []).map((x, i, l) => ({ at: x.at, by: x.by, ip: x.ip || '', current: i === l.length - 1 })).reverse(), dev: this.devReport(target), nickLog: (target.nickLog || []).slice(-10).reverse(), ips: (target.ips || []).slice().reverse(), devs: (target.devs || []).map((d) => d.dev.slice(0, 8) + (this.db.devBans && this.db.devBans[d.dev] ? ' [бан]' : '')), regIp: target.regIp || '', castlesList: this.castlesOf(target).map((c) => ({ id: c.id, name: c.name, x: c.x, y: c.y, rating: this.rating(c), loyalty: Math.round(c.loyalty ?? 100) })) }; break;
       case 'royal': this.royalTick(target); target.royal = Math.max(0, target.royal + num(arg.n, 10000)); msg = `Лояльность населения: ${Math.floor(target.royal)}.`; break;
-      case 'rep': target.reputation = Math.max(0, (target.reputation ?? START_REP) + num(arg.n, 10)); msg = `Репутация: ${target.reputation}.`; break;
+      case 'rep': this.repAdd(target, num(arg.n, 10), 'Администрация'); msg = `Репутация: ${target.reputation ?? START_REP}.`; break;
       case 'ban': if (target.admin) return { error: 'Админа заблокировать нельзя.' }; target.banned = true; target.online = false; Object.assign(target, { banAt: now, banBy: user.login, banWhy: String(arg.why || '').trim().slice(0, 200) }); delete target.banUntil; /* за что — видно в карточке («Вход в игру») */ msg = `${target.login} заблокирован.`; break;
       case 'unban': target.banned = false; delete target.banUntil; msg = `${target.login} разблокирован.`; break;
       case 'pass': {

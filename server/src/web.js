@@ -549,6 +549,7 @@ const API = {
   zgift(m) { const r = this.game.pairGift(this.user, m.id, m.gift); if (r.error) return this.error(r.error); this.toast(r.msg); this.pushState(); API.zpair.call(this, m); },
   zcomment(m) { const r = m.del ? this.game.pairCommentDel(this.user, m.id, m.del) : this.game.pairComment(this.user, m.id, m.text); if (r.error) return this.error(r.error); API.zpair.call(this, m); },
   // ---- кабинет (server/src/social.js) ----
+  replog() { this.send({ t: 'replog', ...this.game.repView(this.user) }); }, // Кабинет → «Репутация»: своя история
   rep(m) {
     const r = this.game.giveReputation(this.user, m.id, m.coins); if (r.error) return this.error(r.error);
     this.toast(`Репутация +${r.add} (теперь ${r.rep}).`); this.pushState();

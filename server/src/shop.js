@@ -123,7 +123,7 @@ function install(Game) {
       }
       else if (k === 'royal') { stash.royal = n; lines.push(`Лояльность населения +${fmt(n)} — в Кладовой.`); }
       else if (k === 'exp') { stash.exp = n; lines.push(`Опыт генерала +${fmt(n)} — в Кладовой.`); }
-      else if (k === 'rep') { u.reputation = (u.reputation ?? 10) + n; lines.push(`Репутация +${fmt(n)}.`); }
+      else if (k === 'rep') { this.repAdd(u, n, 'Лавка Короля: сундук «Сокровища»'); lines.push(`Репутация +${fmt(n)}.`); }
       else { // артефакты: в Сокровищницу столицы; полна — разбит на осколки (ресурсы в Кладовую)
         const rarity = Number(k.slice(3));
         for (let j = 0; j < n; j++) {

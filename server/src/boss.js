@@ -96,7 +96,7 @@ function install(Game) {
       const u = this.userById(r.id); if (!u) return;
       const place = i + 1, pr = rewardFor(r.d / first, killed);
       const lines = [`${b.name} ${killed ? 'повержен!' : 'ушёл непобеждённым.'}`, `Ваше место: ${place} из ${rows.length}. Урон: ${fmt(r.d)} (${pctTxt(r.d / total)}).`];
-      this.stashAdd(u, pr); u.reputation = (u.reputation ?? 10) + pr.rep;
+      this.stashAdd(u, pr); this.repAdd(u, pr.rep, `Мировой босс «${b.name}»: ${place} место`, null, now);
       lines.push(`Награда — в Кладовой: ${fmt(pr.wood)} каждого ресурса, ${pr.royal} лояльности населения; репутация +${pr.rep}.${place > 1 ? ` (${Math.round(r.d / first * 100)}% от награды 1-го места — по урону.)` : ''}`);
       if (killed && place <= 3) { (u.bossBadges = u.bossBadges || []).push({ kind: b.kind, name: b.name, at: now, place, killed: true }); lines.push(`Медаль «${['Золото', 'Серебро', 'Бронза'][place - 1]}: ${b.name}» — в Вашем профиле.`); }
       this.report(r.id, `Мировой босс: ${place}-е место`, lines, 'battle');

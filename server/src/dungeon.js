@@ -196,7 +196,7 @@ function install(Game) {
     }
     if (f.k === 'exp') { if (u) this.stashAdd(u, { exp: f.n }); return [`Хроники Ветерана: +${f.n} опыта генерала — в Кладовой, передайте генералу.`]; }
     if (f.k === 'res') { if (u) this.stashAdd(u, f.res); return [`Клад: ${RES4.map((r) => f.res[r]).join(' / ')} (дерево, камень, железо, еда) — в Кладовой.`]; }
-    if (f.k === 'rep') { if (u) u.reputation = (u.reputation ?? 10) + f.n; return [`Лавры древних: репутация +${f.n}.`]; }
+    if (f.k === 'rep') { if (u) this.repAdd(u, f.n, 'Подземелье: «Лавры древних»'); return [`Лавры древних: репутация +${f.n}.`]; }
     return ['Находка рассыпалась в пыль.'];
   };
 

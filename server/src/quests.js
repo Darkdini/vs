@@ -232,7 +232,7 @@ function install(Game) {
   const give = (g, u, c, rw) => {
     note(u, rw, rw);
     const got = g.stashAdd(u, rw);
-    if (rw.rep > 0) { u.reputation = (u.reputation ?? 10) + rw.rep; got.push(`репутация +${rw.rep}`); } // репутация — сразу, не в Кладовую
+    if (rw.rep > 0) { g.repAdd(u, rw.rep, 'Награда за задание'); got.push(`репутация +${rw.rep}`); } // репутация — сразу, не в Кладовую
     if (rw.art !== undefined) { g.mil(c); const types = require('./army').ART_BASIC; const type = types[Math.floor(Math.random() * types.length)]; c.artifacts.push({ id: g.db.nextId++, type, rarity: rw.art, active: false, found: Date.now() }); got.push('артефакт'); }
     return got;
   };
