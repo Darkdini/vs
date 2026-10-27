@@ -986,14 +986,14 @@ function install(Game, helpers) {
     return { got, from, level: g.level, name: g.name, capped };
   };
   // опыт за бой (до карьеры, премиума и лимитов):
-  //  • основа — перевес в потерях (как в оригинале, с 27.10): население павших врагов минус население своих павших, / 10;
-  //    свои потери не меньше вражеских — опыта нет (до 27.10 — просто население убитых врагов / 10);
+  //  • основа — население одолённых врагов / 10: тяжёлый бой тоже даёт опыт, свои потери его не отнимают (по решению владельца;
+  //    27.10 ненадолго было «за перевес в потерях», как в оригинале, — генерал в тяжёлом бою оставался без опыта);
   //  • победа ×1.5, поражение ×0.5; набег ×0.75;
   //  • лагеря и руины — по силе охраны;
   //  • слабый противник (рейтинг меньше 30% от вашего) — ×0.25;
   //  • повторные бои с тем же игроком за сутки — каждый следующий вдвое меньше (против ферм и мультов).
-  P.battleExp = function battleExp({ killedPop, lostPop = 0, win, mission, npc, dLoss, mine, enemy }) {
-    let exp = npc ? (npc.def.inf + npc.def.cav) / 40 * dLoss : Math.max(0, killedPop - lostPop) / 10;
+  P.battleExp = function battleExp({ killedPop, win, mission, npc, dLoss, mine, enemy }) {
+    let exp = npc ? (npc.def.inf + npc.def.cav) / 40 * dLoss : killedPop / 10;
     exp *= win ? 1.5 : 0.5;
     if (mission === 'raid') exp *= 0.75;
     let weak = false, repeat = 0;
@@ -1812,7 +1812,7 @@ function install(Game, helpers) {
     // снаряжение генерала в боях не выпадает — его куёт Кузнец за руны (hero.js runeForge)
     // генералы
     // уровень генерала защитника, если он был в бою: жив и дома (воскрешающийся павший не сражается — до 24.10 отчёт всё равно показывал его «в строю»)
-    const genInD = target && target.general && !target.general.dead && !target.general.away ? target.general.level : 0;
+    const genInD = target && target.general && !target.general.dead && !target.general.away ? target.general.level : 0, genNameD = genInD ? target.general.name : '';
     const genA = [], genD = []; let genExpA = 0, genExpD = 0, genDiedA = false, genDiedD = false, genSavedA = false, genSavedD = false; // опыт генералов — в отчёт числом
     // что генерал дал в этом бою — в отчёт (с 27.10): командование, умения и снаряжение, потеря здоровья
     const genInfo = (g, hb, w, attack) => { const gs = this.genStats(g), r1 = (v) => Math.round(v * 1000) / 10;
@@ -1827,7 +1827,7 @@ function install(Game, helpers) {
       if (w.fatal && Math.random() < hb.survive) { genSavedA = true; c.general.hp = 1; genA.push(wipedA ? 'Армия разбита, но генерал чудом уцелел и вернулся домой (умения и снаряжение). Здоровье — 1%.' : `Армия потеряла ${hpTxt(w.lost)}% — у генерала кончилось здоровье, но он чудом уцелел (умения и снаряжение). Здоровье — 1%.`); }
       else if (w.fatal) { genDie(c.general); genDiedA = true; delete c.general.away; a.general = false; this.heroStrip(c, c.general); genA.push(wipedA ? 'Генерал пал в бою — опыт не получен. Его снаряжение вернулось в Оружейную.' : `Генерал пал: армия потеряла ${hpTxt(w.lost)}%, а здоровья у него было ${w.was}%. Опыт не получен, снаряжение вернулось в Оружейную.`); }
       else {
-        const e = this.battleExp({ killedPop: popOf(dLost), lostPop: popOf(aLost), win, mission: a.mission, npc: target ? null : npc, dLoss, mine: c, enemy: target });
+        const e = this.battleExp({ killedPop: popOf(dLost), win, mission: a.mission, npc: target ? null : npc, dLoss, mine: c, enemy: target });
         const ge = this.addGeneralExp(c, e.exp); genExpA = ge ? ge.got : 0; const l = genLine('Генерал', ge, e); if (l) genA.push(l);
         if (w.lost > 0) genA.push(`Здоровье генерала: −${hpTxt(w.lost)}%, осталось ${hpTxt(w.left)}% (восстанавливается на ${GEN_HP_REGEN}% в час).`);
       }
@@ -1842,7 +1842,7 @@ function install(Game, helpers) {
       // уцелел по шансу «Несокрушимого» и снаряжения — как у нападающего: без опыта и с пояснением в отчёте (раньше — молча «в строю»)
       else if (w.fatal) { genSavedD = true; target.general.hp = 1; genD.push(wipedD ? 'Оборона разбита, но ваш генерал чудом уцелел (умения и снаряжение) — опыт не получен. Здоровье — 1%.' : `Защитники потеряли ${hpTxt(w.lost)}% — у генерала кончилось здоровье, но он чудом уцелел (умения и снаряжение). Опыт не получен, здоровье — 1%.`); }
       else {
-        const e = this.battleExp({ killedPop: popOf(aLost), lostPop: popOf(dLost), win: !win, mission: 'attack', mine: target, enemy: c });
+        const e = this.battleExp({ killedPop: popOf(aLost), win: !win, mission: 'attack', mine: target, enemy: c });
         const ge = this.addGeneralExp(target, e.exp); genExpD = ge ? ge.got : 0; const l = genLine('Ваш генерал', ge, e); if (l) genD.push(l);
         if (w.lost > 0) genD.push(`Здоровье генерала: −${hpTxt(w.lost)}%, осталось ${hpTxt(w.left)}% (восстанавливается на ${GEN_HP_REGEN}% в час).`);
       }
@@ -1963,8 +1963,8 @@ function install(Game, helpers) {
     const genDied = genDiedA; // пал в этом бою: армия разбита или кончилось здоровье (с 27.10)
     const data = {
       type: 'battle', mission: a.mission, win, x: a.x, y: a.y, luck, calc,
-      att: { id: att.id, login: att.login, race: att.race, castle: c.name, army: a.squad ? a.squad.name : 'Замковая армия', cx: c.x, cy: c.y, rating: this.rating(c), lossRes: lossRes(aLost), units: side(a.units, aLost), general: a.general || genDied ? (c.general ? c.general.level : 0) : 0, generalDied: genDied, generalSaved: genSavedA, genExp: genExpA, gen: genInfoA },
-      def: target ? { id: captured ? captured.prevOwner : defUser.id, login: captured ? captured.prevLogin : defUser.login, race: captured ? captured.prevRace : defUser.race, castle: took ? took.prevName : target.name, rating: this.rating(target), lossRes: lossRes(dLost), units: side(dAll, dLost), wall: this.bonus(target).wall, general: genInD, generalDied: genDiedD, generalSaved: genSavedD, genExp: genExpD, gen: genInfoD }
+      att: { id: att.id, login: att.login, race: att.race, castle: c.name, army: a.squad ? a.squad.name : 'Замковая армия', cx: c.x, cy: c.y, rating: this.rating(c), lossRes: lossRes(aLost), units: side(a.units, aLost), general: a.general || genDied ? (c.general ? c.general.level : 0) : 0, genName: (a.general || genDied) && c.general ? c.general.name : '', generalDied: genDied, generalSaved: genSavedA, genExp: genExpA, gen: genInfoA },
+      def: target ? { id: captured ? captured.prevOwner : defUser.id, login: captured ? captured.prevLogin : defUser.login, race: captured ? captured.prevRace : defUser.race, castle: took ? took.prevName : target.name, rating: this.rating(target), lossRes: lossRes(dLost), units: side(dAll, dLost), wall: this.bonus(target).wall, general: genInD, genName: genNameD, generalDied: genDiedD, generalSaved: genSavedD, genExp: genExpD, gen: genInfoD }
         : { npc: npc.name, img: obj.img, lossPct: Math.round(dLoss * 100), garrison: R.garrison },
       site: target && target.site ? { end: target.site.end } : null, siteTaken: siteTaken ? (took ? { x: a.x, y: a.y } : { blocked: siteTaken.blocked }) : null,
       loot, siege, loyalty, capitalBlocked, royalBlocked, captured: captured ? { name: captured.name, x: a.x, y: a.y, rebel: captured.rebel || 0 } : null,
@@ -1996,9 +1996,10 @@ function install(Game, helpers) {
     if (calc.wounded) lines.push(`В Лазарет отправлено раненых: ${calc.wounded} (ранеными становится половина павших) — вылечите их там за четверть цены.`);
     if (calc.saved) lines.push(`Полевой лекарь спас ${Wd.ofWarriors(calc.saved)}.`);
     const title = `Атака на ${target ? (captured ? captured.prevLogin : defUser.login) : npc.name}`; // как в оригинале: «Атака на <игрок>» / «Оборона от <игрок>»
-    // здоровье генерала видит только его хозяин (с 27.10, по решению владельца): в отчёте противника — без здоровья
-    const noHp = (sd) => (sd && sd.gen ? { ...sd, gen: { ...sd.gen, hpLost: undefined, hpLeft: undefined } } : sd);
-    this.report(c.owner, title, lines, 'battle', { ...data, def: noHp(data.def), side: 'att' });
+    // чужой генерал в отчёте (с 27.10, по решению владельца): противник видит только, что генерал был, и его имя;
+    // уровень, что с ним стало, опыт, командование, снаряжение и здоровье — только хозяину генерала
+    const foe = (sd) => (sd && sd.general ? { ...sd, general: 1, genHidden: true, generalDied: undefined, generalSaved: undefined, genExp: undefined, gen: undefined } : sd);
+    this.report(c.owner, title, lines, 'battle', { ...data, def: foe(data.def), side: 'att' });
     if (target) {
       this.report(captured ? captured.prevOwner : took ? took.prevOwner : target.owner, `Оборона от ${att.login}`, [
         `${MISSIONS[a.mission]} от ${att.login} (${c.name}).`,
@@ -2008,7 +2009,7 @@ function install(Game, helpers) {
         loot ? `Унесено: дерево ${loot.wood}, камень ${loot.stone}, железо ${loot.iron}, еда ${loot.food}` : 'Враг разбит, ничего не унесено.',
         ...siege, ...(loyalty ? [`Бунт в замке: ${100 - loyalty.from}% → ${100 - loyalty.to}%`] : []), ...(took ? [`Ваш недострой ${a.x}:${a.y} захвачен игроком ${att.login}.`] : []), ...genD,
         ...(calc.dWounded && !captured ? [`В Лазарет отправлено раненых: ${calc.dWounded} (ранеными становится половина павших) — вылечите их там за четверть цены.`] : []),
-      ], 'battle', { ...data, att: noHp(data.att), side: 'def' });
+      ], 'battle', { ...data, att: foe(data.att), side: 'def' });
     }
     if (took) { a.units[TRAVELER_ID] -= SETTLE_TAKE; if (!a.units[TRAVELER_ID]) delete a.units[TRAVELER_ID]; } // путешественники остаются строить
     if (rebelStay) { a.units[233]--; if (!a.units[233]) delete a.units[233]; rebelStay.units[233] = (rebelStay.units[233] || 0) + 1; } // один бунтарь остаётся в захваченном замке
@@ -2358,10 +2359,11 @@ function install(Game, helpers) {
   // без башни видны только торговцы и подкрепления союзников
   P.hasWatch = function hasWatch(user) { return !!user && this.castlesOf(user).some((c) => this.buildingLevel(c, B.WATCHTOWER) > 0); };
   // уровень башни (лучшая в королевстве) решает, что видно о вражеской армии:
-  // 1+ — кто, куда и когда; 3+ — примерная численность; 6+ — точная численность; 10+ — состав войск и генерал
+  // 1+ — кто, куда и когда; 3+ — примерная численность; 6+ — точная численность; 10+ — идёт ли с армией генерал.
+  // Состав войск чужой армии не виден никогда (с 27.10, по решению владельца; раньше — с 10 ур.)
   P.watchLevel = function watchLevel(user) { return user ? Math.max(0, ...this.castlesOf(user).map((c) => this.buildingLevel(c, B.WATCHTOWER))) : 0; };
   // сведения о вражеской армии: Караульная башня (у неё 1 уровень) замечает армию, а подробности даёт лучший Центр разведки
-  // королевства: 3 ур. — примерная численность, 6 — точная, 10 — состав войск и генерал
+  // королевства: 3 ур. — примерная численность, 6 — точная, 10 — идёт ли генерал (состав войск — никогда)
   P.watchIntel = function watchIntel(user) { return this.hasWatch(user) ? Math.max(0, ...this.castlesOf(user).map((c) => this.buildingLevel(c, B.SPY))) : 0; };
   const roughly = (n) => { if (n < 10) return n; const p = 10 ** (Math.floor(Math.log10(n)) - 1); return Math.round(n / p) * p; };
   P.incoming = function incoming(castle) {
@@ -2373,7 +2375,7 @@ function install(Game, helpers) {
         const friendly = a.mission === 'trade' || a.mission === 'reinforce';
         if (!friendly && !watch) continue;
         const n = Object.values(a.units).reduce((q, k) => q + k, 0);
-        out.push({ id: a.id, from: this.ownerOf(c).login, castle: c.name, to: castle.name, tx: castle.x, ty: castle.y, fx: c.x, fy: c.y, mission: a.mission, depart: a.depart, arrive: a.arrive, units: friendly || wl >= 10 ? a.units : null,
+        out.push({ id: a.id, from: this.ownerOf(c).login, castle: c.name, to: castle.name, tx: castle.x, ty: castle.y, fx: c.x, fy: c.y, mission: a.mission, depart: a.depart, arrive: a.arrive, units: friendly ? a.units : null,
           size: friendly || wl >= 6 ? n : wl >= 3 ? roughly(n) : null, exact: friendly || wl >= 6, general: friendly || wl >= 10 ? !!a.general : null });
       }
     }

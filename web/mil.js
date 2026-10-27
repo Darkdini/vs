@@ -453,7 +453,9 @@ function reportHtml(r) {
   const genInfo = (x) => (x ? `<div class="rul rgen">Командование: атака +${nf(x.catk)}%, защита ×${nf(x.cdef.toFixed(2))}</div>
     ${x.atk || x.def || x.mag ? `<div class="rul rgen">Умения и снаряжение: ${[x.atk && `атака +${nf(x.atk)}%`, x.def && `защита +${nf(x.def)}%`, x.mag && `магия +${nf(x.mag)}%`].filter(Boolean).join(', ')}</div>` : ''}
     ${x.hpLost ? `<div class="rul rgen">Здоровье: −${nf(x.hpLost)}%${x.hpLeft ? `, осталось ${x.hpLeft}%` : ' — кончилось'}</div>` : ''}` : '');
-  const genRow = (s) => (s.general ? `<div class="rul">${gimg(`units/${HD_DIR[s.race] || 'human/hd'}/general.png`, 'ric')} Генерал ${s.general} ур.: ${s.generalDied ? '<span class="rbad">пал в бою</span>' : s.generalSaved ? 'чудом уцелел (умения и снаряжение)' : s.genExp ? `+${fmtFull(s.genExp)} опыта` : 'в строю'}</div>${genInfo(s.gen)}` : '');
+  // чужой генерал (genHidden) — только имя: уровень, исход, командование и здоровье видит его хозяин
+  const genRow = (s) => (!s.general ? '' : `<div class="rul">${gimg(`units/${HD_DIR[s.race] || 'human/hd'}/general.png`, 'ric')} Генерал${s.genName ? ` «${esc(s.genName)}»` : ''}${s.genHidden ? ''
+    : ` ${s.general} ур.: ${s.generalDied ? '<span class="rbad">пал в бою</span>' : s.generalSaved ? 'чудом уцелел (умения и снаряжение)' : s.genExp ? `+${fmtFull(s.genExp)} опыта` : 'в строю'}`}</div>${s.genHidden ? '' : genInfo(s.gen)}`);
   const armyBox = (icon, title, sub, body) => `<details class="rarmy"><summary class="rbar"><img src="${REPG}${icon}.png" alt=""> ${title}</summary>${ribbon(sub)}${body}</details>`;
   const attBox = armyBox('swords', 'Армия атаки', `Армия атаки${d.att.army ? `: ${esc(d.att.army)}` : ''}`,
     `<div class="rp">${ic('skull')} Потери: ${fmtFull(aL)} из ${fmtFull(aW)} ( ${pct(aL, aW)}% )<br>Потери в ресурсах:${resRow(d.att.lossRes)}${unitRows(d.att.units, d.att.race)}${genRow(d.att)}</div>`);

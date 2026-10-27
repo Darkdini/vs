@@ -230,11 +230,11 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   const G = cm.general;
   assert.ok(G.genV === 2 && G.free === 58 && G.pts.def === undefined && Object.values(G.pts).every((v) => v === 0) && G.level === 30 && G.exp === g.generalNeed(29) + 5 && UNIT[G.kindId], `очки вернулись: ${JSON.stringify(G)}`);
   G.pts.atk = 2; G.free = 56; g.mil(cm); assert.ok(G.free === 56 && G.pts.atk === 2, 'возврат — один раз');
-  // опыт — за перевес в потерях (как в оригинале): враг потерял больше — опыт; свои потери больше — опыта нет
+  // опыт — за одолённых врагов: тяжёлый бой тоже даёт опыт, свои потери его не отнимают (по решению владельца)
   const Ue = g.register({ login: 'genloss', password: '12345', race: 0 }).user, ce = g.castleOf(Ue); g.mil(ce); ce.general = null;
   const ex = (o) => g.battleExp({ mine: ce, enemy: cm, npc: null, dLoss: 1, win: true, mission: 'attack', ...o }).exp;
-  assert.ok(ex({ killedPop: 10000, lostPop: 4000 }) === 900 && ex({ killedPop: 10000, lostPop: 0 }) === 1500 && ex({ killedPop: 4000, lostPop: 10000 }) === 0, 'опыт за перевес в потерях');
-  console.log(`✓ генерал из воина: удары, здоровье, род войск и специализация — его (Мечник 4/0/18); слабейший воин расы — командование до +30%, опыт ×1,5, сильнейший — до +50%, ×1; старым генералам очки вернулись; опыт — за перевес в потерях`);
+  assert.ok(ex({ killedPop: 10000, lostPop: 4000 }) === 1500 && ex({ killedPop: 10000, lostPop: 30000 }) === 1500 && ex({ killedPop: 4000 }) === 600, 'опыт за одолённых врагов, свои потери не в счёт');
+  console.log(`✓ генерал из воина: удары, здоровье, род войск и специализация — его (Мечник 4/0/18); слабейший воин расы — командование до +30%, опыт ×1,5, сильнейший — до +50%, ×1; старым генералам очки вернулись; опыт — за одолённых врагов`);
 }
 { // командование — армии, где генерал: в походе — его армии, дома — защитникам замка; общий бонус замка от генерала не растёт
   const mk = (l) => { const u = g.register({ login: l, password: '12345', race: 0 }).user, c = g.castleOf(u); u.newbieOff = true; g.mil(c); c.armies = []; c.squads = []; c.general = null; c.shieldUntil = 0; return c; };
@@ -271,8 +271,10 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(left1 > 0 && loss1 > 50 && !A.general.dead && Math.abs(g.genHp(A.general) - (100 - loss1)) < 0.2, `первый бой: армия потеряла ${loss1}% — у генерала ${g.genHp(A.general)}%`);
   assert.ok(rep1.lines.some((l) => /Здоровье генерала: −/.test(l)), `в отчёте — здоровье генерала: ${rep1.lines.join(' | ')}`);
   const defRep1 = g.db.reports.filter((r) => r.owner === D1.owner).slice(-1)[0];
-  assert.ok(rep1.data.att.gen && rep1.data.att.gen.hpLost > 0 && defRep1.data.att.gen && defRep1.data.att.gen.hpLost === undefined && defRep1.data.att.gen.hpLeft === undefined && defRep1.data.att.gen.catk > 0,
-    'здоровье генерала видит только хозяин: в отчёте защитника — командование есть, здоровья нет');
+  const foeA = defRep1.data.att;
+  assert.ok(rep1.data.att.gen && rep1.data.att.gen.hpLost > 0 && rep1.data.att.genName === A.general.name && rep1.data.att.general === 100, 'хозяину — всё: уровень, командование, здоровье');
+  assert.ok(foeA.general && foeA.genHidden && foeA.genName === A.general.name && foeA.gen === undefined && foeA.genExp === undefined && foeA.generalDied === undefined && foeA.general !== 100,
+    `противнику — только «с генералом» и имя: ${JSON.stringify(foeA)}`);
   g.tickWorld(Date.now() + 1e9); A.general.hpAt = Date.now(); // армия вернулась (а здоровье не успело восстановиться)
   go(D2); const rep2 = g.db.reports.filter((r) => r.owner === A.owner && /Атака/.test(r.title)).slice(-1)[0];
   assert.ok(A.general.dead && rep2.lines.some((l) => /Генерал пал/.test(l)) && rep2.data && rep2.data.att.generalDied, `второй бой с ${Math.round(100 - loss1)}% здоровья — генерал пал: ${rep2.lines.join(' | ')}`);
@@ -1273,7 +1275,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   console.log('✓ Герой-генерал: ветки умений, снаряжение (надеть, усилить, разобрать), бонусы в бою');
   if (luck0 === undefined) delete process.env.LUCK; else process.env.LUCK = luck0;
 }
-{ // Караульная башня (1 ур.) замечает вражескую армию, подробности — по Центру разведки: 3 — примерно, 6 — точно, 10 — состав и генерал
+{ // Караульная башня (1 ур.) замечает вражескую армию, подробности — по Центру разведки: 3 — примерно, 6 — точно, 10 — генерал; состав — никогда (с 27.10)
   const A = g.register({ login: 'watchA', password: '12345', race: 3 }).user, Dd = g.register({ login: 'watchD', password: '12345', race: 3 }).user;
   const ca = g.castleOf(A), cd = g.castleOf(Dd); g.mil(ca); g.mil(cd); g.maxOut(ca); g.maxOut(cd); ca.units = { 247: 1234 };
   const r = g.sendArmy(ca, { units: { 247: 1234 }, x: cd.x, y: cd.y, mission: 'attack' }); assert.ok(r.army, JSON.stringify(r));
@@ -1285,9 +1287,10 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   let x = tw(1, 1); assert.ok(x && x.size === null && x.units === null, 'башня и Центр разведки 1 ур.: кто и когда');
   x = tw(1, 3); assert.ok(x.size === 1200 && !x.exact, `Центр разведки 3 ур.: примерно (${x.size})`);
   x = tw(1, 6); assert.ok(x.size === 1234 && x.exact && x.units === null, 'Центр разведки 6 ур.: точно');
-  x = tw(1, 10); assert.ok(x.units[247] === 1234 && x.general === false, 'Центр разведки 10 ур.: состав и генерал');
+  x = tw(1, 10); assert.ok(x.units === null && x.size === 1234 && x.general === false, 'Центр разведки 10 ур.: генерал есть или нет; состав войск врага не виден');
+  x = tw(1, 20); assert.ok(x.units === null, 'и с 20 ур. состав не виден'); tw(1, 10);
   assert.ok(g.milState(cd, Dd).threats.length === 1 && g.milState(cd, Dd).watchLevel === 10, 'значок видит нападение');
-  console.log('✓ Караульная башня (1 ур.) замечает армию; Центр разведки: 3 ур. — примерно, 6 — точно, 10 — состав и генерал');
+  console.log('✓ Караульная башня (1 ур.) замечает армию; Центр разведки: 3 ур. — примерно, 6 — точно, 10 — генерал; состав войск врага не виден');
 }
 
 { // мировой босс: созыв альянса — армии складываются и бьют одним ударом; награды всем по урону (1-е место — 20 000 / 10 / 100, повержен — ×4)
