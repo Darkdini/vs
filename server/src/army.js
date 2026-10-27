@@ -1996,7 +1996,9 @@ function install(Game, helpers) {
     if (calc.wounded) lines.push(`В Лазарет отправлено раненых: ${calc.wounded} (ранеными становится половина павших) — вылечите их там за четверть цены.`);
     if (calc.saved) lines.push(`Полевой лекарь спас ${Wd.ofWarriors(calc.saved)}.`);
     const title = `Атака на ${target ? (captured ? captured.prevLogin : defUser.login) : npc.name}`; // как в оригинале: «Атака на <игрок>» / «Оборона от <игрок>»
-    this.report(c.owner, title, lines, 'battle', { ...data, side: 'att' });
+    // здоровье генерала видит только его хозяин (с 27.10, по решению владельца): в отчёте противника — без здоровья
+    const noHp = (sd) => (sd && sd.gen ? { ...sd, gen: { ...sd.gen, hpLost: undefined, hpLeft: undefined } } : sd);
+    this.report(c.owner, title, lines, 'battle', { ...data, def: noHp(data.def), side: 'att' });
     if (target) {
       this.report(captured ? captured.prevOwner : took ? took.prevOwner : target.owner, `Оборона от ${att.login}`, [
         `${MISSIONS[a.mission]} от ${att.login} (${c.name}).`,
@@ -2006,7 +2008,7 @@ function install(Game, helpers) {
         loot ? `Унесено: дерево ${loot.wood}, камень ${loot.stone}, железо ${loot.iron}, еда ${loot.food}` : 'Враг разбит, ничего не унесено.',
         ...siege, ...(loyalty ? [`Бунт в замке: ${100 - loyalty.from}% → ${100 - loyalty.to}%`] : []), ...(took ? [`Ваш недострой ${a.x}:${a.y} захвачен игроком ${att.login}.`] : []), ...genD,
         ...(calc.dWounded && !captured ? [`В Лазарет отправлено раненых: ${calc.dWounded} (ранеными становится половина павших) — вылечите их там за четверть цены.`] : []),
-      ], 'battle', { ...data, side: 'def' });
+      ], 'battle', { ...data, att: noHp(data.att), side: 'def' });
     }
     if (took) { a.units[TRAVELER_ID] -= SETTLE_TAKE; if (!a.units[TRAVELER_ID]) delete a.units[TRAVELER_ID]; } // путешественники остаются строить
     if (rebelStay) { a.units[233]--; if (!a.units[233]) delete a.units[233]; rebelStay.units[233] = (rebelStay.units[233] || 0) + 1; } // один бунтарь остаётся в захваченном замке

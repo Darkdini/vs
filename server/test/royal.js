@@ -270,6 +270,9 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   const a1 = go(D1), left1 = Object.values(a1.units).reduce((q, v) => q + v, 0), loss1 = Math.round((1 - left1 / 760) * 1000) / 10, rep1 = g.db.reports.filter((r) => r.owner === A.owner).slice(-1)[0];
   assert.ok(left1 > 0 && loss1 > 50 && !A.general.dead && Math.abs(g.genHp(A.general) - (100 - loss1)) < 0.2, `первый бой: армия потеряла ${loss1}% — у генерала ${g.genHp(A.general)}%`);
   assert.ok(rep1.lines.some((l) => /Здоровье генерала: −/.test(l)), `в отчёте — здоровье генерала: ${rep1.lines.join(' | ')}`);
+  const defRep1 = g.db.reports.filter((r) => r.owner === D1.owner).slice(-1)[0];
+  assert.ok(rep1.data.att.gen && rep1.data.att.gen.hpLost > 0 && defRep1.data.att.gen && defRep1.data.att.gen.hpLost === undefined && defRep1.data.att.gen.hpLeft === undefined && defRep1.data.att.gen.catk > 0,
+    'здоровье генерала видит только хозяин: в отчёте защитника — командование есть, здоровья нет');
   g.tickWorld(Date.now() + 1e9); A.general.hpAt = Date.now(); // армия вернулась (а здоровье не успело восстановиться)
   go(D2); const rep2 = g.db.reports.filter((r) => r.owner === A.owner && /Атака/.test(r.title)).slice(-1)[0];
   assert.ok(A.general.dead && rep2.lines.some((l) => /Генерал пал/.test(l)) && rep2.data && rep2.data.att.generalDied, `второй бой с ${Math.round(100 - loss1)}% здоровья — генерал пал: ${rep2.lines.join(' | ')}`);
@@ -2929,7 +2932,9 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     const nos = Array.from({ length: PROV_N * PROV_N }, (_, i) => provNo(i + 1));
     assert.ok([780, 781, 821, 820].map(provNo).join() === '1,2,3,4' && new Set(nos).size === nos.length && Math.min(...nos) === 1 && Math.max(...nos) === nos.length, 'номера провинций — по порядку заселения');
     const first = Object.values(g.db.castles).sort((p, q) => p.id - q.id)[0]; assert.ok(provNo(provinceOf(first.x, first.y).n) <= 4, 'первые замки — в провинциях №1–4');
-    for (const n of [1, 777, 1600]) {
+    // провинция без замков (замки других проверок у центра карты теснят лагеря: те переезжают, а места может не найтись — проверка была нестабильной)
+    const emptyProv = (from) => { for (let n = from; n <= PROV_N * PROV_N; n++) if (![...g.byXY.values()].some((k) => provinceOf(k.x, k.y).n === n)) return n; return from; };
+    for (const n of [emptyProv(1), emptyProv(777), 1600]) {
       const L = g.provNpc(n); assert.deepStrictEqual(L.map((o) => o.img).sort(), [24, 30, 31, 32, 40, 41, 42], `провинция ${n}: руины, 3 лагеря и 3 рунных камня — ${L.map((o) => o.img)}`);
       assert.ok(L.every((o) => provinceOf(o.x, o.y).n === n && !onProvEdge(o.x, o.y)), 'объекты внутри своей провинции, не у границы');
       assert.ok(L.every((o) => L.every((q) => q === o || Math.max(Math.abs(q.x - o.x), Math.abs(q.y - o.y)) > 1)), 'объекты не вплотную друг к другу');
