@@ -39,7 +39,7 @@ setInterval(() => { try { game.newsPicSweep(); } catch (e) { console.error(e); }
 try { game.newsPicSweep(); } catch (e) { console.error(e); }
 // «Орёл-решка»: вызовы, которые никто не принял за сутки, — ставка обратно в Кладовую
 setInterval(() => { try { game.coinSweep(); game.marketSweep(); } catch (e) { console.error(e); } }, 300000); // и лоты Биржи Замков старше 7 дней
-// раз в 5 минут: друзья, приглашённые по ссылке и дошедшие до рейтинга 1000, — подарок пригласившему (invite.js)
+// раз в 5 минут: подарки за приглашённых по ссылке — другу за рейтинг 1000, пригласившему за рейтинг друга 1500 (invite.js)
 setInterval(() => { try { game.inviteScan(); } catch (e) { console.error(e); } }, 300000);
 
 // раз в 10 минут: копия базы в Telegram, если пора (tgbackup.js; раз в сутки в TG_BACKUP_HOUR)

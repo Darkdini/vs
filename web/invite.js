@@ -1,7 +1,8 @@
 'use strict';
 // «Пригласить друга» (Кабинет → «Пригласить друга» и кнопка в Профиле; сервер — server/src/invite.js): своя ссылка на игру,
 // условия подарка и приглашённые — их рейтинг и что с подарком. Ссылка — …/?ref=<код>: app.js запоминает код до регистрации
-// и показывает на форме, кто пригласил.
+// и показывает на форме, кто пригласил. Подарки: другу — монеты за рейтинг friendRating, пригласившему — за рейтинг друга rating;
+// если самого игрока пригласили (me), вверху — кто и что с его подарком.
 S.inv = null;
 function openFriendInvite() { S.inv = null; send({ t: 'invite' }); openSheet(inviteWin); }
 const inviteLink = (code) => `${location.origin}/?ref=${code}`;
@@ -14,9 +15,14 @@ const INV_ST = {
 function inviteWin() {
   const v = S.inv;
   if (!v) return `${ribbon('Пригласить друга')}<div class="bwline center muted">Загрузка…</div>`;
-  const gift = `Премиум на ${v.days} ${plural(v.days, 'день', 'дня', 'дней')} и ${v.gold} ${plural(v.gold, 'монету', 'монеты', 'монет')}`;
+  const coins = (n) => `${n} ${plural(n, 'монету', 'монеты', 'монет')}`, me = v.me;
+  const gift = `Премиум на ${v.days} ${plural(v.days, 'день', 'дня', 'дней')} и ${coins(v.gold)}`;
+  const mine = !me ? '' : `<div class="invme">Вас пригласил <b>${esc(me.by)}</b>. ${me.same ? '<span class="rbad">Вы играете с его телефона — подарка нет.</span>'
+    : me.got ? `<span class="rgood">🎁 Ваш подарок — ${coins(v.friendGold)} — получен ${fmtDate(me.got)}.</span>`
+    : `Когда ваш рейтинг дойдёт до <b>${fmtFull(v.friendRating)}</b>, вы получите <b>${coins(v.friendGold)}</b>. Сейчас: ${fmtFull(me.rating)}.`}</div>`;
   return `${ribbon('Пригласить друга')}
-    <div class="invhead"><img src="gfx3d/prof/friend.png" alt=""><div>Пригласите друга в Средневековье по своей ссылке. Когда его рейтинг дойдёт до <b>${fmtFull(v.rating)}</b>, вы получите подарок: <b>${gift}</b>.</div></div>
+    ${mine}<div class="invhead"><img src="gfx3d/prof/friend.png" alt=""><div>Пригласите друга в Средневековье по своей ссылке. Когда его рейтинг дойдёт до <b>${fmtFull(v.rating)}</b>, вы получите подарок: <b>${gift}</b>.</div></div>
+    <div class="bwline small">Друг тоже получит подарок — <b>${coins(v.friendGold)}</b>, когда его рейтинг дойдёт до <b>${fmtFull(v.friendRating)}</b>.</div>
     <div class="invlink"><input readonly value="${esc(inviteLink(v.code))}" data-invlink aria-label="Ваша ссылка"><button class="pbtn" data-invcopy>Копировать</button></div>
     ${navigator.share ? '<button class="pbar" data-invshare>Отправить другу</button>' : ''}
     <div class="bwline small">Подарков за этот месяц: <b>${v.month} из ${v.perMonth}</b>. Если друзей больше — подарок за них придёт в следующем месяце.</div>

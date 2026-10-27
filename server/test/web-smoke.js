@@ -718,9 +718,9 @@ function client() {
       // (в конце сценария: новый игрок не сбивает подсчёты игроков в проверках выше)
       const iw = client(); await iw.open(); iw.send({ t: 'login', login: 'Webby', password: 'pass1' }); await iw.expect('auth');
       iw.send({ t: 'invite' }); const iv = await iw.expect('invite');
-      assert.ok(/^[a-z0-9]{8}$/.test(iv.code) && iv.rating === 1000 && iv.days === 3 && iv.gold === 5 && iv.perMonth === 10 && !iv.list.length, `окно приглашений: ${JSON.stringify(iv)}`);
+      assert.ok(/^[a-z0-9]{8}$/.test(iv.code) && iv.rating === 1500 && iv.days === 3 && iv.gold === 5 && iv.perMonth === 10 && iv.friendRating === 1000 && iv.friendGold === 5 && !iv.list.length && iv.me === null, `окно приглашений: ${JSON.stringify(iv)}`);
       const nf = client(); await nf.open();
-      nf.send({ t: 'refwho', code: iv.code }); assert.strictEqual((await nf.expect('refwho')).nick, 'Webby', 'до входа — кто пригласил');
+      nf.send({ t: 'refwho', code: iv.code }); const rw = await nf.expect('refwho'); assert.ok(rw.nick === 'Webby' && rw.need === 1000 && rw.gold === 5, `до входа — кто пригласил и подарок новичку: ${JSON.stringify(rw)}`);
       nf.send({ t: 'refwho', code: 'zzzzzzzz' }); assert.strictEqual((await nf.expect('refwho')).nick, '', 'чужой код — никто');
       nf.send({ t: 'register', login: 'Friend1', password: 'pass3', race: '0', ref: iv.code, dev: 'cccccccccccccccc' }); await nf.expect('registered');
       iw.send({ t: 'invite' }); const iv2 = await iw.expect('invite');

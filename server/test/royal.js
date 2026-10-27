@@ -709,49 +709,58 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   adm.reputation = keep; a.reputation = b.reputation = 10; g.cache = {};
   console.log('✓ звание «Авторитет»: у №1 по репутации, переходит к обогнавшему, админ не в счёт');
 }
-// «Пригласить друга» (invite.js): у игрока постоянный код ссылки; друг регистрируется по ней; когда рейтинг друга дойдёт до 1000 —
-// пригласившему Премиум на 3 дня и 5 монет (Казна, письмо Советника), один раз; друг с телефона пригласившего — без подарка;
-// не больше 10 подарков за месяц — остальные ждут следующего месяца; удалённый пригласивший — подарка нет
+// «Пригласить друга» (invite.js): у игрока постоянный код ссылки; друг регистрируется по ней. Рейтинг друга 1000 — другу 5 монет,
+// 1500 — пригласившему Премиум на 3 дня и 5 монет (Казна, письма Советника), каждый подарок один раз; друг с телефона пригласившего —
+// подарков нет ни ему, ни за него; пригласившему не больше 10 подарков за месяц — остальные ждут следующего месяца; удалённый — подарков нет
 {
   const { INV } = require('../src/invite');
+  assert.ok(INV.friendRating === 1000 && INV.friendGold === 5 && INV.rating === 1500 && INV.days === 3 && INV.gold === 5 && INV.perMonth === 10, 'условия');
   const host = g.register({ login: 'invhost1', password: '12345', race: 0 }).user; host.devs = [{ dev: 'a1a1a1a1a1a1a1a1', at: Date.now() }];
   const code = g.inviteCode(host);
   assert.ok(/^[a-z0-9]{8}$/.test(code) && g.inviteCode(host) === code, 'код ссылки постоянный');
   assert.strictEqual(g.inviteWho(code.toUpperCase()), host, 'по коду — пригласивший');
+  assert.deepStrictEqual(g.inviteRef(code), { nick: 'invhost1', need: 1000, gold: 5 }, 'форма регистрации: кто пригласил и подарок новичку');
   for (const bad of ['zzzzzzzz', '__proto__', 'constructor', '', null, 12345678]) assert.strictEqual(g.inviteWho(bad), null, `чужой код ${bad}`);
   const mk = (n, dev) => { const x = g.register({ login: n, password: '12345', race: 0 }).user; x.devs = [{ dev, at: Date.now() }]; return x; };
   const fr = mk('invfrnd1', 'b1b1b1b1b1b1b1b1'), mu = mk('invmult1', 'a1a1a1a1a1a1a1a1');
   assert.strictEqual(g.inviteBind(fr, code), host, 'привязка при регистрации');
   assert.strictEqual(g.inviteBind(fr, code), null, 'второй раз не привязать');
-  g.inviteBind(mu, code); assert.ok(mu.invSame, 'с телефона пригласившего — сразу без подарка');
-  const hi = new Set(), rate0 = g.userRating; g.userRating = (x) => (hi.has(x.id) ? INV.rating : rate0.call(g, x));
-  const gold0 = host.gold || 0, now = Date.UTC(2026, 9, 10, 12); // 10 октября: до конца месяца далеко
-  g.inviteScan(now); assert.strictEqual(host.gold || 0, gold0, 'рейтинг друга мал — подарка нет');
-  hi.add(fr.id); hi.add(mu.id); const prem0 = host.premium || 0;
+  g.inviteBind(mu, code); assert.ok(mu.invSame, 'с телефона пригласившего — сразу без подарков');
+  const R = new Map(), rate0 = g.userRating; g.userRating = (x) => (R.has(x.id) ? R.get(x.id) : rate0.call(g, x));
+  const hostGold = () => host.gold || 0, gold0 = hostGold(), fg0 = fr.gold || 0, mg0 = mu.gold || 0, now = Date.UTC(2026, 9, 10, 12); // 10 октября: до конца месяца далеко
+  g.inviteScan(now); assert.ok(hostGold() === gold0 && (fr.gold || 0) === fg0, 'рейтинг друга мал — подарков нет');
+  R.set(fr.id, 1000); R.set(mu.id, 1500); const prem0 = host.premium || 0;
   g.inviteScan(now);
-  assert.strictEqual(host.gold, gold0 + INV.gold, `+${INV.gold} монет`);
-  assert.strictEqual(host.premium, Math.max(prem0, now) + INV.days * DAY, `премиум +${INV.days} дня`);
-  assert.ok(fr.invGift === now && !mu.invGift, 'за мульта подарка нет');
+  assert.ok(fr.gold === fg0 + INV.friendGold && fr.invSelf === now && !fr.invGift, 'рейтинг 1000 — другу 5 монет, пригласившему пока ничего');
+  assert.ok(/invhost1/.test((fr.goldLog || []).slice(-1)[0].reason) && (g.db.messages || []).some((m) => m.to === fr.id && /Подарок за развитие: 5 монет/.test(m.subject)), 'другу — Казна и письмо');
+  assert.ok(hostGold() === gold0 && (host.premium || 0) === prem0, 'пригласившему — только с 1500');
+  assert.ok((mu.gold || 0) === mg0 && !mu.invSelf && !mu.invGift, 'мульту и за мульта — ничего');
+  R.set(fr.id, 1500); g.inviteScan(now + 1000);
+  assert.strictEqual(hostGold(), gold0 + INV.gold, `рейтинг друга 1500 — пригласившему +${INV.gold} монет`);
+  assert.strictEqual(host.premium, Math.max(prem0, now + 1000) + INV.days * DAY, `премиум +${INV.days} дня`);
+  assert.ok(fr.invGift === now + 1000 && fr.gold === fg0 + INV.friendGold, 'другу второй раз не дают');
   assert.ok(/invfrnd1/.test((host.goldLog || []).slice(-1)[0].reason), 'в Казне — за какого друга');
   assert.ok((g.db.messages || []).some((m) => m.to === host.id && /Подарок за друга: Премиум на 3 дня и 5 монет/.test(m.subject)), 'письмо от Советника');
-  g.inviteScan(now + 60000); assert.strictEqual(host.gold, gold0 + INV.gold, 'подарок за друга — один раз');
-  // лимит: в этом месяце уже 1 подарок — ещё 9; 11 друзей с рейтингом 1000 → 9 подарков, двое ждут следующего месяца
-  const more = Array.from({ length: 11 }, (_, i) => { const x = mk(`invfr${String(i).padStart(3, '0')}`, `c${String(i).padStart(15, '0')}`); g.inviteBind(x, code); hi.add(x.id); return x; });
+  g.inviteScan(now + 60000); assert.strictEqual(hostGold(), gold0 + INV.gold, 'подарок за друга — один раз');
+  // лимит: в этом месяце уже 1 подарок — ещё 9; 11 друзей с рейтингом 1500 → каждому свои 5 монет, пригласившему 9 подарков, двое ждут месяца
+  const more = Array.from({ length: 11 }, (_, i) => { const x = mk(`invfr${String(i).padStart(3, '0')}`, `c${String(i).padStart(15, '0')}`); g.inviteBind(x, code); R.set(x.id, 1500); return x; });
   g.inviteScan(now + 120000);
-  assert.strictEqual(more.filter((x) => x.invGift).length, INV.perMonth - 1, 'не больше 10 подарков в месяц');
-  assert.strictEqual(host.gold, gold0 + INV.gold * INV.perMonth, 'монеты — за 10 друзей');
+  assert.ok(more.every((x) => x.invSelf && x.gold === INV.friendGold), 'каждому другу — свои 5 монет');
+  assert.strictEqual(more.filter((x) => x.invGift).length, INV.perMonth - 1, 'пригласившему не больше 10 подарков в месяц');
+  assert.strictEqual(hostGold(), gold0 + INV.gold * INV.perMonth, 'монеты — за 10 друзей');
   const view = g.inviteView(host, now + 120000);
-  assert.ok(view.code === code && view.month === INV.perMonth && view.list.length === 13, `окно: ${view.month} подарков, ${view.list.length} друзей`);
+  assert.ok(view.code === code && view.month === INV.perMonth && view.list.length === 13 && view.me === null, `окно: ${view.month} подарков, ${view.list.length} друзей`);
   assert.deepStrictEqual([...new Set(view.list.map((x) => x.st))].sort(), ['cap', 'gift', 'same'], 'в окне — получен / ждёт месяца / один телефон');
+  const fv = g.inviteView(fr, now + 120000).me; assert.ok(fv && fv.by === 'invhost1' && fv.got === now && !fv.same, 'у друга в окне — кто пригласил и его подарок');
   g.inviteScan(Date.UTC(2026, 10, 2, 12)); // 2 ноября — новый месяц
   assert.ok(more.every((x) => x.invGift) && !more.some((x) => x.invCap), 'в новом месяце — подарки за ждавших');
-  // удалённый пригласивший: ссылка не работает, подарка нет
-  const h2 = mk('invhost2', 'd1d1d1d1d1d1d1d1'), c2 = g.inviteCode(h2), f2 = mk('invfrnd2', 'e1e1e1e1e1e1e1e1'); g.inviteBind(f2, c2); hi.add(f2.id);
+  // удалённый пригласивший: ссылка не работает, подарков нет
+  const h2 = mk('invhost2', 'd1d1d1d1d1d1d1d1'), c2 = g.inviteCode(h2), f2 = mk('invfrnd2', 'e1e1e1e1e1e1e1e1'); g.inviteBind(f2, c2); R.set(f2.id, 1500);
   g.purgeUser(h2);
   assert.strictEqual(g.inviteWho(c2), null, 'ссылка удалённого не работает');
-  g.inviteScan(Date.UTC(2026, 10, 3, 12)); assert.ok(f2.invGone && !f2.invGift, 'удалённому — подарка нет');
+  g.inviteScan(Date.UTC(2026, 10, 3, 12)); assert.ok(f2.invGone && !f2.invGift && !f2.invSelf, 'пригласивший удалён — подарков нет');
   g.userRating = rate0;
-  console.log('✓ «Пригласить друга»: код ссылки, привязка, подарок за рейтинг друга 1000 — Премиум 3 дня и 5 монет, один телефон — нет, 10 в месяц');
+  console.log('✓ «Пригласить друга»: код ссылки, привязка; рейтинг друга 1000 — ему 5 монет, 1500 — пригласившему Премиум 3 дня и 5 монет; один телефон — нет; 10 в месяц');
 }
 // подарок приходит получателю и сообщением от дарителя
 {

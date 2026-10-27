@@ -236,7 +236,7 @@ function onMsg(m) {
     case 'captcha': $('#capImg').src = m.img; break;
     case 'refwho': // «Вас пригласил …»: новичку сразу открывается регистрация; неверный код забывается
       S.refNick = m.nick || ''; if (!m.nick) store.set('tw.ref', null);
-      $('#refNote').innerHTML = m.nick ? `🎁 Вас пригласил <b>${esc(m.nick)}</b>` : '';
+      $('#refNote').innerHTML = m.nick ? `🎁 Вас пригласил <b>${esc(m.nick)}</b>${m.need ? `<small>Развейте замок до рейтинга ${fmtFull(m.need)} — и получите ${m.gold} ${plural(m.gold, 'монету', 'монеты', 'монет')} в подарок</small>` : ''}` : '';
       if (m.nick && !S.creds && S.mode !== 'reg') setMode('reg'); else $('#refNote').classList.toggle('hidden', !(m.nick && S.mode === 'reg'));
       break;
     case 'registered':

@@ -565,7 +565,7 @@ const API = {
   bday(m) { const r = this.game.setBirthday(this.user, m.day, m.month); if (r.error) return this.error(r.error); this.toast(r.msg); this.send({ t: 'bday', bday: this.user.bday || '' }); },
   friends() { this.send({ t: 'players', kind: 'friends', list: this.game.friendsOf(this.user) }); },
   // «Пригласить друга» (invite.js): чья ссылка — на форме регистрации, ещё до входа; окно со ссылкой и приглашёнными
-  refwho(m) { const u = this.game.inviteWho(m.code); this.send({ t: 'refwho', nick: u ? u.login : '' }); },
+  refwho(m) { this.send({ t: 'refwho', ...this.game.inviteRef(m.code) }); },
   invite() { this.send({ t: 'invite', ...this.game.inviteView(this.user) }); },
   search(m) { this.send({ t: 'players', kind: 'search', q: m.q || '', list: this.game.searchPlayers(m.q) }); },
   nearby() { this.send({ t: 'players', kind: 'nearby', list: this.game.nearby(this.user) }); },
