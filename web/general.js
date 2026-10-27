@@ -1,73 +1,70 @@
 'use strict';
 // Окно «Генерал» — как в оригинальном клиенте (сервер: generalOp / generalView в server/src/army.js).
-// Очки опыта за уровень распределяются по шести характеристикам; сброс, переименование, «Убить», «Сменить воина».
+// С 27.10 генерал бьётся как его воин (новая боевая система): род войск, удары по пехоте/коннице/магам, специализация.
+// Очки опыта за уровень — по пяти характеристикам (Личной защиты нет); сброс, переименование, «Убить», «Сменить воина», «Справка».
 
 const GS = (n) => `${GFX}smallicon/${n}.png`;
 const GEN_ROWS = [
   ['atk', 'phiattack', 'Личная атака'],
-  ['def', 'phidef', 'Личная защита'],
   ['catk', 'magattack', 'Командование атакой'],
   ['cdef', 'magdef', 'Командование защитой'],
   ['heal', 'plus', 'Скорость восстановления'],
   ['career', 'maxupgrade', 'Карьера'],
 ];
-const pct = (v) => `${(v * 100).toFixed(1)}%`;
+const kx = (v) => String(Math.round(v * 100) / 100).replace('.', ',');
+const GEN_CLS = { inf: 'пехота', cav: 'конница', mag: 'маги' };
+// специализация и род войск генерала (как у его воина)
+const genSpec = (p) => { const t = SPEC_TXT[p.spec] || SPEC_TXT.U; return `<span class="uspec" title="${t[2]}"><img src="${GS(`spec_${t[0]}`)}" alt=""> ${t[1]} · ${GEN_CLS[p.cls] || GEN_CLS.inf}</span>`; };
+// три удара (по пехоте, коннице, магам) с иконками
+const genHits = (a3) => ['inf', 'cav', 'mag'].map((k) => `<span title="${A3_NAME[k]}"><img src="${GS(A3_IC[k])}" alt="">${fmtFull(Math.round(a3[k]))}</span>`).join('');
+// что воин даст генералу — в списках найма и смены воина
+const genProf = (p) => (p ? `<div class="gprof">${genSpec(p)}<div class="ghits"><span title="Здоровье"><img src="${GS('health')}" alt="">${fmtFull(p.hp)}</span>${genHits(p.a3)}</div>
+  <small>Командование до +${Math.round(p.cmdMax * 100)}% · опыт ×${kx(p.xp)}</small></div>` : '');
 
 function generalWin() {
   const g = MY().general, gu = unitById(M().generalId);
   if (!g) return noGeneralWin();
   // полоса и числа — одно и то же: опыт внутри текущего уровня (100 ур.: от 490 050 до 500 000 — это 9 950 опыта)
-  const s = g.stats, span = Math.max(1, g.need - g.prevNeed), inLvl = Math.max(0, Math.min(span, g.exp - g.prevNeed)), done = inLvl / span;
-  const line = (icon, label, value) => `<div class="gline"><img src="${GS(icon)}" alt=""><span>${label}:</span><b>${value}</b></div>`;
+  const s = g.stats, wu = unitById(s.kindId) || gu, span = Math.max(1, g.need - g.prevNeed), inLvl = Math.max(0, Math.min(span, g.exp - g.prevNeed)), done = inLvl / span;
+  const line = (icon, label, value) => `<div class="gline"><img src="${icon.includes('/') ? icon : GS(icon)}" alt=""><span>${label}:</span><b>${value}</b></div>`;
   const tile = (attr, icon, text, badge) => `<button class="ptile" ${attr}><img src="${icon}" alt="">${badge !== undefined ? `<em class="gbadge">${badge}</em>` : ''}<span>${text}</span></button>`;
   const revive = g.dead ? (g.reviveAt
     ? `<p class="cinfo">Генерал воскресает: <span class="cd" data-e="${g.reviveAt}"></span></p>`
     : `<p class="cinfo">Генерал погиб в бою.</p><div class="chips">${RES4.map((r) => `<span>${RES_IC[r]} ${fmtFull(g.reviveCost[r])}</span>`).join('')}</div>
       <button class="pbar" data-revive>Воскресить</button>`) : '';
+  // как в оригинале: здоровье, удары по пехоте/коннице/магам, командование атакой (%) и защитой (во сколько раз меньше урон по армии)
   return `${ribbon('Генерал')}
     <div class="gname">${esc(g.name)}</div>
     <div class="ghead"><img class="gimg" src="${unitSrc(gu)}" alt="">
-      <div class="gright"><div>(${esc(g.kind || gu.name)})</div><div><img src="${GS('status/f_gold')}" alt=""> ${fmtFull(g.level)} ур.</div></div></div>
+      <div class="gright"><div>${esc(g.kind || wu.name)}</div><div>${genSpec(s)}</div><div><img src="${GS('status/f_gold')}" alt=""> ${fmtFull(g.level)} ур.</div></div></div>
     <div class="gnext">До след. уровня:<div class="gbar"><i style="width:${(done * 100).toFixed(1)}%"></i><b>${Math.floor(done * 100)}%</b></div><small>${fmtFull(inLvl)} / ${fmtFull(span)} опыта · ещё ${fmtFull(Math.max(0, g.need - g.exp))} до ${fmtFull(g.level + 1)} ур.</small></div>
-    <div class="gtop">
-      <div><img src="${GS('health')}" alt=""><b>${g.health}%</b></div>
-      <div><img src="${GS('phiattack')}" alt=""><b>${s.atk.toFixed(1)}</b></div>
-      <div><img src="${GS('phidef')}" alt=""><b>${s.def.toFixed(1)}</b></div>
-      <div><img src="${GS('magattack')}" alt=""><b>${pct(s.catk)}</b></div>
-      <div><img src="${GS('magdef')}" alt=""><b>${pct(s.cdef)}</b></div>
+    <div class="gtop g6">
+      <div title="Здоровье"><img src="${GS('health')}" alt=""><b>${g.health}%</b></div>
+      ${['inf', 'cav', 'mag'].map((k) => `<div title="${A3_NAME[k]}"><img src="${GS(A3_IC[k])}" alt=""><b>${fmtFull(Math.round(s.a3[k]))}</b></div>`).join('')}
+      <div title="Командование атакой"><img src="${GS('magattack')}" alt=""><b>${(s.catk * 100).toFixed(1).replace('.', ',')}%</b></div>
+      <div title="Командование защитой"><img src="${GS('magdef')}" alt=""><b>${(1 + s.cdef).toFixed(2).replace('.', ',')}</b></div>
     </div>
-    ${line('phiattack', 'Личная атака', `${s.atk.toFixed(1)}+0`)}
-    ${line('phidef', 'Личная защита', `${s.def.toFixed(1)}+0`)}
+    ${line('phiattack', 'Личная атака', fmtFull(g.pts.atk))}
     ${line('magattack', 'Командование атакой', fmtFull(g.pts.catk))}
     ${line('magdef', 'Командование защитой', fmtFull(g.pts.cdef))}
-    ${line('plus', 'Скорость восстановления', `${fmtFull(g.pts.heal)}${s.heal ? ` (−${Math.round(s.heal * 100)}%)` : ''}`)}
-    <div class="gline"><img src="${G3}menu/locations.svg" alt=""><span>Находится в армии:</span><b>${g.dead ? 'погиб' : esc(g.where)}</b></div>
+    ${line('plus', 'Скорость восстановления', fmtFull(g.pts.heal))}
+    ${line(`${G3}menu/locations.svg`, 'Находится в армии', g.dead ? 'погиб' : esc(g.where))}
+    ${line('wall_icon', 'Размещение', esc(g.place || ''))}
     ${line('maxupgrade', 'Карьера', fmtFull(g.pts.career))}
     ${line('greenball', 'Свободные очки опыта', fmtFull(g.free))}
     ${revive}
+    ${g.rekind ? `<p class="cinfo">Переобучается в воина «${esc((unitById(g.rekind.kindId) || {}).name || '')}»: <span class="cd" data-e="${g.rekind.end}"></span></p>` : ''}
     <div class="ptiles g2">
       ${tile('data-herotal', `${GFX}hero/icon_talents.png" data-fb="${GS('maxupgrade')}`, 'Умения', MY().hero && MY().hero.talFree ? MY().hero.talFree : undefined)}
       ${tile('data-herogear', `${GFX}hero/icon_gear.png" data-fb="${GS('swordred')}`, 'Снаряжение', MY().hero && MY().hero.gear.length ? MY().hero.gear.length : undefined)}
     </div>
-    <div class="ptiles g4">
+    <div class="ptiles g3">
       ${tile('data-genreset', `${G3}Gears/a1.png`, 'Сбросить очки', g.resets)}
       ${tile('data-gendist', GS('upgrade'), 'Распределить')}
       ${tile('data-genname', GS('softedit'), 'Переименовать')}
+      ${tile('data-genhelp', GS('soft_help'), 'Справка')}
       ${tile('data-genkill', GS('l7day'), 'Убить')}
-    </div>
-    ${g.dead ? '' : g.rekind ? `<p class="cinfo">Переобучается в воина «${esc((unitById(g.rekind.kindId) || {}).name || '')}»: <span class="cd" data-e="${g.rekind.end}"></span></p>`
-    : '<button class="pbar" data-genrkopen>Сменить воина</button>'}
-    <p class="small muted">За уровень — ${g.perLevel} очка опыта. Командование: первые очки — около +0,17% к атаке (защите) армии за очко, дальше прибавка убывает: 100 очков — +12,5%, 300 — +25%, предел — +50%. Личная защита генерала прикрывает войско в бою. Скорость восстановления — воскрешение быстрее на 1% за очко (не больше ${fmtFull(g.healMax)} очков — вдвое быстрее), карьера — получение опыта (+0,5% за очко).</p>
-    ${ribbon('Как получить опыт')}
-    <div class="gexp">
-      <div><b>⚔ Нападение и набег с генералом</b> — 1 опыт за каждые 10 единиц населения убитых врагов. Победа ×1,5, поражение ×0,5, набег ×0,75.</div>
-      <div><b>🛡 Оборона замка</b> — генерал в замке (не в походе) получает опыт за убитых нападавших.</div>
-      <div><b>🏕 Лагеря и руины</b> — немного опыта по силе охраны.</div>
-      <div><b>⚠ Слабый противник</b> (рейтинг меньше 30% вашего) — опыт ×0,25.</div>
-      <div><b>🔁 Повторные бои</b> с тем же игроком за сутки — каждый следующий даёт вдвое меньше.</div>
-      <div><b>☠ Нападение проиграно</b> — генерал погибает и опыта не получает (даже если «Полевой лекарь» спас часть воинов). <b>Оборона проиграна</b> — генерал в замке тоже погибает. Шанс уцелеть — «Несокрушимый» и щит, не больше 30%. Воскрешение — 1 монета за уровень или ресурсы.</div>
-      <div><b>👑 Премиум «Завоеватель»</b> и <b>карьера</b> увеличивают получаемый опыт.</div>
-      <div>Всего опыта: <b>${fmtFull(g.exp)}</b>. Для ${fmtFull(g.level + 1)} ур. нужно всего ${fmtFull(g.need)} — ещё <b>${fmtFull(Math.max(0, g.need - g.exp))}</b> опыта.</div>
+      ${g.dead || g.rekind ? '' : tile('data-genrkopen', unitSrc(wu), 'Сменить воина')}
     </div>`;
 }
 
@@ -75,11 +72,44 @@ S.gd = {};
 function genDistWin() {
   const g = MY().general; if (!g) return generalWin();
   const used = GEN_ROWS.reduce((s, [k]) => s + (Number(S.gd[k]) || 0), 0);
+  const cap = (k) => (k === 'heal' ? g.healMax : k === 'career' ? g.careerMax : 0); // потолки — от воина генерала
   return `${ribbon('Генерал')}
     <div class="gname small2"><img src="${GS('greenball')}" alt=""> Свободные очки опыта: <b data-gdleft>${fmtFull(g.free - used)}</b></div>
-    ${GEN_ROWS.map(([k, icon, label]) => `<div class="gdrow"><span><img src="${GS(icon)}" alt=""> ${label}:</span>
+    ${GEN_ROWS.map(([k, icon, label]) => `<div class="gdrow"><span><img src="${GS(icon)}" alt=""> ${label}:${cap(k) ? `<small class="gcap">${fmtFull(g.pts[k] || 0)} из ${fmtFull(cap(k))}</small>` : ''}</span>
       <input class="gdin" type="number" inputmode="numeric" min="0" placeholder="0" value="${S.gd[k] || ''}" data-gd="${k}"></div>`).join('')}
     <button class="pbar" data-gddo>Распределить</button>`;
+}
+
+// «Справка → Генерал» — как в оригинале: вкладки «Описание», «Характеристики», «Особенности», «F.A.Q.»
+// (правила — server/src/army.js: genProfile, genStats, battleExp)
+S.ghTab = 'about';
+const GH_IC = (f) => `<img class="bhic" src="${GS(f)}" alt="">`;
+const GH = {
+  about: ['Описание', () => `<p><img class="bhic" src="${unitSrc(unitById(M().generalId))}" alt=""> <b>Генерал</b> — главнокомандующий ваших армий. Его присутствие в армии может переломить ход битвы.</p>
+    <p>Сила генерала определяется воином, из которого он создан. От воина зависят:</p>
+    <p>1. Скорость набора опыта. Чем слабее воин, тем быстрее генерал набирает опыт.</p>
+    <p>2. Базовые удары ${GH_IC('phiattack')} Личной атаки — по пехоте, коннице и магам, как у воина. Чем они выше, тем больше урона наносит генерал.</p>
+    <p>3. Предел ${GH_IC('magattack')} Командования атакой, ${GH_IC('magdef')} Командования защитой, ${GH_IC('plus')} Скорости восстановления и ${GH_IC('maxupgrade')} Карьеры. Чем сильнее воин, тем выше предел.</p>
+    <p>4. Стоимость ${GH_IC('health')} воскрешения. Чем дороже воин, тем дороже воскресить генерала.</p>
+    <p>5. Время воскрешения. Чем сильнее воин, тем дольше генерал воскресает.</p>`],
+  stats: ['Характеристики', () => `<p>${GH_IC('phiattack')} <b>Личная атака</b> — какой урон наносит генерал, участвуя в бою.</p>
+    <p>${GH_IC('magattack')} <b>Командование атакой</b> — на сколько процентов увеличен урон армии, в которой находится генерал.</p>
+    <p>${GH_IC('magdef')} <b>Командование защитой</b> — во сколько раз уменьшен урон по армии, в которой находится генерал.</p>
+    <p>${GH_IC('plus')} <b>Скорость восстановления</b> — уменьшает время воскрешения генерала.</p>
+    <p>${GH_IC('maxupgrade')} <b>Карьера</b> — увеличивает опыт, который генерал получает в бою.</p>`],
+  feat: ['Особенности', () => `<p>Сила и польза генерала зависят от воина, которого выбрали для его создания. Чем воин сильнее, тем лучше работают умения генерала. Но такой генерал растёт дольше, чем генерал из более слабого воина.</p>
+    <p>Сильнее всего генералы из воинов старших уровней. Из ${GH_IC('atk_mag')} мага получится генерал сильнее, чем из ${GH_IC('atk_cav')} всадника, а генерал-${GH_IC('atk_inf')} пехотинец уступает генералу из конного воина.</p>
+    <p>Опыт генерал получает только в бою, в котором участвует сам. Чем больше потери врага превышают потери вашей армии — и числом, и силой воинов, — тем больше опыта получит генерал.</p>`],
+  faq: ['F.A.Q.', () => `<p><b>В: Как перевести генерала из одного замка в другой?</b><br>О: Отправьте генерала с армией подкреплением в этот замок.</p>
+    <p><b>В: Почему генерал не получил опыт после боя?</b><br>О: Потери вашей армии были больше, чем потери противника. Считается не только число погибших воинов, но и их сила. Или генерал уже достиг наивысшего, 500-го уровня.</p>
+    <p><b>В: Какой эффект будет, если я вложу очки в характеристику?</b><br>О: Итог зависит от воина генерала. Личную атаку и командование атакой и защитой вы увидите в окне генерала сразу после распределения очков. Действие скорости восстановления и карьеры скрыто и числом не показывается.</p>
+    <p><b>В: Я распределил очки в командование, но значение не изменилось. Почему?</b><br>О: Значение изменилось. Просто в окне не показываются совсем маленькие доли.</p>
+    <p><b>В: Можно ли сменить воина генерала?</b><br>О: Да, кнопкой «Сменить воина». Уровень, опыт, очки и снаряжение останутся.</p>
+    <p><b>В: Можно ли сделать генералом уникального воина или воина другой расы?</b><br>О: Нет. Генерал — только из воинов той расы, за которую вы играете.</p>`],
+};
+function genHelpWin() {
+  const tabs = `<div class="coin-tabs bh4">${Object.entries(GH).map(([k, [t]]) => `<button class="${S.ghTab === k ? 'on' : ''}" data-ghtab="${k}">${t}</button>`).join('')}</div>`;
+  return `${ribbon('Генерал')}${tabs}<div class="pstats bhelp">${(GH[S.ghTab] || GH.about)[1]()}</div>`;
 }
 
 // генерала нет (погиб или не нанят) — как в оригинале: павшие генералы (воскресить / за золото / удалить),
@@ -114,33 +144,36 @@ function noGeneralWin() {
     <div class="upbody">Удалить генерала ${esc(d.kind || '')}.</div><button class="pbar" data-gendel="${i}">Удалить</button><hr class="cwhr">`).join('');
   const train = tr ? `<div class="upbody center">Тренировка ${gico(tr.kindId)} Генерала (${esc(tr.kind)})<br>Осталось: <span class="cd" data-e="${tr.end}"></span></div>`
     : `${ribbon('Тренировка')}<div class="upbody center">Выберите юнита из замковой армии для тренировки:</div>
-      ${(my.genUnits || []).map((x) => { const u = unitById(x.id); return `<button class="pbar" data-gentu="${x.id}"><img class="fi" src="${unitSrc(u)}" alt=""> ${esc(u.name)}</button>`; }).join('') || '<p class="parch-note">В замковой армии нет подходящих юнитов.</p>'}`;
+      ${(my.genUnits || []).map((x) => { const u = unitById(x.id); return `<button class="pbar gpick" data-gentu="${x.id}"><img class="fi" src="${unitSrc(u)}" alt=""> ${esc(u.name)}${genProf(x.prof)}</button>`; }).join('') || '<p class="parch-note">В замковой армии нет подходящих юнитов.</p>'}`;
   return `${ribbon('Генерал')}${tr ? '' : deadHtml}${train}`;
 }
 S.gtu = null;
 function genTrainWin() {
   const x = (MY().genUnits || []).find((y) => y.id === S.gtu); if (!x) return noGeneralWin();
-  return `${ribbon('Генерал')}<div class="upbody center">Стоимость тренировки ${gico(x.id)} генерала:</div>${genCost(x)}<button class="pbar" data-gentdo>Тренировать</button>`;
+  return `${ribbon('Генерал')}<div class="upbody center">Генерал из воина ${gico(x.id)} ${esc(unitById(x.id).name)}:</div>${genProf(x.prof)}
+    <div class="upbody center">Стоимость тренировки:</div>${genCost(x)}<button class="pbar" data-gentdo>Тренировать</button>`;
 }
 // сменить воина: уровень, опыт, очки и снаряжение остаются; цена — как найм, переобучение — полчаса (сервер: rekindGeneral)
 function genRekindWin() {
   const g = MY().general; if (!g) return generalWin();
   const list = (MY().genUnits || []).filter((x) => x.id !== g.kindId);
   return `${ribbon('Сменить воина')}<div class="upbody center">Сейчас: ${gico(g.kindId)} Генерал (${esc(g.kind || '')}), ${fmtFull(g.level)} ур.</div>
-    <p class="coinhint">Уровень, опыт, очки и снаряжение останутся. Воин меняет облик генерала и цену воскрешения ресурсами, сила зависит от уровня и очков. Переобучение — ${Math.max(1, Math.round(g.rekindSec / S.cat.speed / 60))} мин, цена — как найм нового генерала.</p>
+    <p class="coinhint">Уровень, опыт, очки и снаряжение останутся. Если у нового воина пределы ниже, лишние очки станут свободными. Переобучение — ${Math.max(1, Math.round(g.rekindSec / S.cat.speed / 60))} мин, цена — как найм нового генерала.</p>
     <div class="upbody center">Выберите юнита из замковой армии:</div>
-    ${list.map((x) => { const u = unitById(x.id); return `<button class="pbar" data-genrk="${x.id}"><img class="fi" src="${unitSrc(u)}" alt=""> ${esc(u.name)}</button>`; }).join('') || '<p class="parch-note">В замковой армии нет подходящих юнитов.</p>'}`;
+    ${list.map((x) => { const u = unitById(x.id); return `<button class="pbar gpick" data-genrk="${x.id}"><img class="fi" src="${unitSrc(u)}" alt=""> ${esc(u.name)}${genProf(x.prof)}</button>`; }).join('') || '<p class="parch-note">В замковой армии нет подходящих юнитов.</p>'}`;
 }
 S.grk = null;
 function genRekindDoWin() {
   const g = MY().general, x = (MY().genUnits || []).find((y) => y.id === S.grk); if (!g || !x) return genRekindWin();
-  return `${ribbon('Сменить воина')}<div class="upbody center">Переобучить генерала в ${gico(x.id)} ${esc(unitById(x.id).name)}:</div>${genCost({ ...x, sec: g.rekindSec })}
+  return `${ribbon('Сменить воина')}<div class="upbody center">Переобучить генерала в ${gico(x.id)} ${esc(unitById(x.id).name)}:</div>${genProf(x.prof)}${genCost({ ...x, sec: g.rekindSec })}
     <div class="upbody center small">Уровень ${fmtFull(g.level)}, опыт, очки и снаряжение останутся.</div><button class="pbar" data-genrkdo>Сменить воина</button>`;
 }
 function openGeneral() { openSheet(generalWin); }
 $('#sheetBody').addEventListener('click', (e) => {
-  const t = e.target.closest('[data-genrev],[data-genrevg],[data-gendel],[data-gentu],[data-gentdo],[data-genrkopen],[data-genrk],[data-genrkdo]'); if (!t) return;
+  const t = e.target.closest('[data-genrev],[data-genrevg],[data-gendel],[data-gentu],[data-gentdo],[data-genrkopen],[data-genrk],[data-genrkdo],[data-genhelp],[data-ghtab]'); if (!t) return;
   const d = t.dataset;
+  if (d.genhelp !== undefined) { S.ghTab = 'about'; return openSheet(genHelpWin); }
+  if (d.ghtab) { S.ghTab = d.ghtab; return refreshSheet(); }
   if (d.genrev) return send({ t: 'general', op: 'revive', idx: Number(d.genrev) });
   if (d.genrevg) return send({ t: 'general', op: 'revive', idx: Number(d.genrevg), gold: true });
   if (d.gendel) { if (confirm('Удалить генерала навсегда?')) send({ t: 'general', op: 'delete', idx: Number(d.gendel) }); return; }

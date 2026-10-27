@@ -188,23 +188,67 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   const r1 = g.battleExp({ killedPop: 10000, win: true, mission: 'attack', mine: c1, enemy: c2 }), r2 = g.battleExp({ killedPop: 10000, win: true, mission: 'attack', mine: c1, enemy: c2 });
   assert.ok(r1.repeat === 0 && r2.repeat === 1 && r2.exp === r1.exp / 2, JSON.stringify([r1, r2]));
   // огромный бой: генерал 100 ур. (с 25 ур. — «тяжёлые» уровни) получает за бой не больше 10% уровня, за сутки — не больше полуровня
-  const span = g.generalNeed(100) - g.generalNeed(99);
+  const span = g.generalNeed(100) - g.generalNeed(99), xp = g.genStats(c1.general).xp; // воин генерала: слабый растёт быстрее (и лимиты — тоже)
   const a = g.addGeneralExp(c1, 10000000);
-  assert.ok(a.got === Math.ceil(span * 0.10) && a.capped === 'battle' && a.level === 100, JSON.stringify(a));
+  assert.ok(a.got === Math.ceil(span * 0.10 * xp) && a.capped === 'battle' && a.level === 100, JSON.stringify(a));
   let lv = 100; for (let i = 0; i < 50; i++) lv = g.addGeneralExp(c1, 10000000).level;
-  assert.ok(lv === 100 && c1.general.day.exp === Math.ceil(span * 0.5), `за сутки не больше полуровня: ${lv} ур., ${c1.general.day.exp} опыта`);
+  assert.ok(lv === 100 && c1.general.day.exp === Math.ceil(span * 0.5 * xp), `за сутки не больше полуровня: ${lv} ур., ${c1.general.day.exp} опыта`);
   // до 25 ур. — как раньше: 15% уровня за бой и целый уровень за сутки
   c1.general = g.newGeneral(c1, 10); const s10 = g.generalNeed(10) - g.generalNeed(9);
-  assert.ok(g.addGeneralExp(c1, 10000000).got === Math.ceil(s10 * 0.15), 'до 25 ур. — 15% уровня за бой');
+  assert.ok(g.addGeneralExp(c1, 10000000).got === Math.ceil(s10 * 0.15 * xp), 'до 25 ур. — 15% уровня за бой');
   let l10 = 10; for (let i = 0; i < 50; i++) l10 = g.addGeneralExp(c1, 10000000).level;
   assert.strictEqual(l10, 11, 'до 25 ур. — уровень за сутки');
   // лимит за сутки твёрдый (с 24.10): премиум ×2 ускоряет набор, но лимит не поднимает
   { const pu = g.userById(c1.owner), p0 = pu.premium; pu.premium = Date.now() + 864e5; c1.general = g.newGeneral(c1, 10);
     let l = 10; for (let i = 0; i < 50; i++) l = g.addGeneralExp(c1, 10000000).level; pu.premium = p0;
-    assert.ok(l === 11 && c1.general.day.exp <= g.generalNeed(11) - g.generalNeed(10), `с премиумом — тоже не больше уровня за сутки (${l} ур., ${c1.general.day.exp})`); }
+    assert.ok(l === 11 && c1.general.day.exp <= Math.ceil((g.generalNeed(11) - g.generalNeed(10)) * xp), `с премиумом — тоже не больше уровня за сутки (${l} ур., ${c1.general.day.exp})`); }
   // лимиты игроку не показываются: ни в окне «Генерал», ни в отчёте о бое
   const gv = g.generalView(c1); assert.ok(gv.lim === undefined && gv.day === undefined, 'в окно генерала лимиты не уходят');
   console.log(`✓ генерал: 1 опыт за 10 населения, повторный бой ×0,5; с 25 ур. за бой ≤10% уровня (${fmt(Math.ceil(span * 0.1))} на 100 ур.), за сутки ≤ полуровня; лимиты скрыты`);
+}
+// генерал из воина (с 27.10, новая боевая система): бьётся как его воин — род войск, удары по пехоте/коннице/магам, специализация;
+// от силы воина среди своей расы — потолки командования, восстановления и карьеры, скорость опыта и время воскрешения
+{
+  const { UNIT } = require('../src/army');
+  const s200 = g.genStats({ kindId: 200 }), u200 = UNIT[200];
+  assert.ok(s200.kindId === 200 && s200.cls === 'inf' && !s200.mage && s200.spec === u200.spec && ['inf', 'cav', 'mag'].every((k) => s200.a3[k] === u200.a3[k]) && s200.hp === u200.hp
+    && [s200.a3.inf, s200.a3.cav, s200.a3.mag].join('/') === '4/0/18', `Мечник: удары и здоровье — как у Мечника (в оригинале 4/0/18): ${JSON.stringify(s200)}`);
+  for (const race of ['humans', 'elves', 'dwarves', 'orcs']) {
+    const l = Object.values(UNIT).filter((u) => u.race === race).map((u) => [u, g.genStats({ kindId: u.id })]).filter(([u, x]) => x.kindId === u.id);
+    const lo = l.reduce((p, q) => (q[1].pow < p[1].pow ? q : p)), hi = l.reduce((p, q) => (q[1].pow > p[1].pow ? q : p));
+    assert.ok(lo[1].pow === 0 && hi[1].pow === 1 && lo[1].cmdMax === 0.3 && hi[1].cmdMax === 0.5 && lo[1].xp === 1.5 && hi[1].xp === 1 && lo[1].healMax === 30 && hi[1].healMax === 50
+      && lo[1].careerMax === 60 && hi[1].careerMax === 100 && lo[1].revive === 0.75 && hi[1].revive === 1.25, `${race}: слабейший ${lo[0].name}, сильнейший ${hi[0].name}`);
+    assert.ok(l.every(([u, x]) => x.cls === { infantry: 'inf', cavalry: 'cav', magic: 'mag' }[u.type] || (x.cls === 'inf' && !['cavalry', 'magic'].includes(u.type))), `${race}: род войск генерала — как у воина`);
+    assert.ok(l.some(([, x]) => x.mage) && l.some(([, x]) => x.cls === 'cav'), `${race}: генералы-маги и всадники есть`);
+  }
+  assert.ok(Object.values(UNIT).filter((u) => ['scout', 'rebel', 'ram', 'catapult', 'merchant', 'settler'].includes(u.role)).every((u) => g.genStats({ kindId: u.id }).kindId !== u.id), 'разведчики, бунтари, осадные и мирные — не генералы');
+  // Личная атака: +2,5% к ударам за очко (40 очков — вдвое сильнее)
+  const s40 = g.genStats({ kindId: 200, pts: { atk: 40 } }); assert.ok(['inf', 'cav', 'mag'].every((k) => Math.abs(s40.a3[k] - 2 * s200.a3[k]) < 1e-9), 'Личная атака: 40 очков — удары ×2');
+  // старые генералы: уровень и опыт те же, все распределённые очки (и Личная защита) снова свободные; второй раз не возвращаются
+  const Um = g.register({ login: 'genmigr', password: '12345', race: 0 }).user, cm = g.castleOf(Um); g.mil(cm);
+  cm.general = { name: 'Ветеран', level: 30, exp: g.generalNeed(29) + 5, expV: 3, dead: false, free: 4, resets: 0, pts: { atk: 10, def: 20, catk: 15, cdef: 5, heal: 3, career: 1 } }; g.mil(cm);
+  const G = cm.general;
+  assert.ok(G.genV === 2 && G.free === 58 && G.pts.def === undefined && Object.values(G.pts).every((v) => v === 0) && G.level === 30 && G.exp === g.generalNeed(29) + 5 && UNIT[G.kindId], `очки вернулись: ${JSON.stringify(G)}`);
+  G.pts.atk = 2; G.free = 56; g.mil(cm); assert.ok(G.free === 56 && G.pts.atk === 2, 'возврат — один раз');
+  // опыт — за перевес в потерях (как в оригинале): враг потерял больше — опыт; свои потери больше — опыта нет
+  const Ue = g.register({ login: 'genloss', password: '12345', race: 0 }).user, ce = g.castleOf(Ue); g.mil(ce); ce.general = null;
+  const ex = (o) => g.battleExp({ mine: ce, enemy: cm, npc: null, dLoss: 1, win: true, mission: 'attack', ...o }).exp;
+  assert.ok(ex({ killedPop: 10000, lostPop: 4000 }) === 900 && ex({ killedPop: 10000, lostPop: 0 }) === 1500 && ex({ killedPop: 4000, lostPop: 10000 }) === 0, 'опыт за перевес в потерях');
+  console.log(`✓ генерал из воина: удары, здоровье, род войск и специализация — его (Мечник 4/0/18); слабейший воин расы — командование до +30%, опыт ×1,5, сильнейший — до +50%, ×1; старым генералам очки вернулись; опыт — за перевес в потерях`);
+}
+{ // командование — армии, где генерал: в походе — его армии, дома — защитникам замка; общий бонус замка от генерала не растёт
+  const mk = (l) => { const u = g.register({ login: l, password: '12345', race: 0 }).user, c = g.castleOf(u); u.newbieOff = true; g.mil(c); c.armies = []; c.squads = []; c.general = null; c.shieldUntil = 0; return c; };
+  const ca = mk('gencmdA'), cd = mk('gencmdD'); cd.units = { 200: 200 };
+  ca.general = g.newGeneral(ca, 100); Object.assign(ca.general.pts, { catk: 300, cdef: 300 }); ca.general.free = 0;
+  const run = (gen, D = cd) => g.clash(structuredClone(ca), { units: { 200: 100 }, general: gen, mission: 'attack' }, structuredClone(D), null, Date.now());
+  const r0 = run(false), r1 = run(true), gs = g.genStats(ca.general);
+  assert.ok(r0.calc.att.gen === 0 && r1.calc.att.gen > 0, 'генерал бьётся в строю своей армии');
+  assert.ok(Math.abs((r1.calc.att.bonusPct - r0.calc.att.bonusPct) - Math.round(g.bonus(ca).atk * gs.catk * 100)) <= 1 && r1.calc.att.str > r0.calc.att.str, `командование атакой — его армии: ${r0.calc.att.bonusPct}% → ${r1.calc.att.bonusPct}%`);
+  const b0 = g.bonus(cd).def; cd.general = g.newGeneral(cd, 100); Object.assign(cd.general.pts, { catk: 300, cdef: 300 }); cd.general.free = 0;
+  assert.ok(g.bonus(cd).def === b0, 'командование защитой — не в общем бонусе замка');
+  const dHome = run(false); cd.general.away = 1; const dAway = run(false); delete cd.general.away; cd.general = null; const dNone = run(false);
+  assert.ok(dHome.calc.def.str > dNone.calc.def.str && dAway.calc.def.str === dNone.calc.def.str, `генерал дома усиливает защитников, в походе — нет: ${dNone.calc.def.str} / ${dHome.calc.def.str} / ${dAway.calc.def.str}`);
+  console.log(`✓ генерал: командование — армии, где он (атака +${Math.round(gs.catk * 100)}%, здоровье +${Math.round(gs.cdef * 100)}%); дома — защитникам замка, в походе замку — ничего`);
 }
 // с 25 уровня каждый уровень дороже: 25-й — ×1,25, 30-й — ×2,5, 40-й — ×5; до 24 — прежняя шкала; старые генералы — с той же долей полоски
 {
@@ -777,18 +821,26 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   const u = g.register({ login: 'gentest', password: '12345', nick: 'GenTest', race: 3 }).user, c = g.castleOf(u); g.mil(c);
   const tc = g.genTrainCost(UNIT[245]); assert.deepStrictEqual([tc.cost.wood, tc.cost.stone, tc.cost.iron, tc.cost.food, tc.people, tc.sec], [1700, 1600, 1800, 3600, 120, 5400], 'Мародер → генерал: цена как на скрине, найм — полтора часа');
   assert.strictEqual(g.genTrainCost(UNIT[200]).sec, 3600, 'Мечник → генерал: час');
-  const rc = g.reviveCostOf({ kindId: 247, level: 716, exp: g.generalNeed(715) + 1 });
-  assert.deepStrictEqual([rc.cost.wood, rc.cost.stone, rc.cost.iron, rc.cost.food, rc.people, rc.sec, rc.gold], [537000, 572800, 608600, 1181400, 8592, 726 * 60 * 3, 716].map((v, i) => (i < 4 ? rc.cost[['wood', 'stone', 'iron', 'food'][i]] : v)), 'Бугай 716');
-  assert.ok(Math.abs(rc.cost.wood - 537060) / 537060 < 0.002 && rc.people === 8592 && rc.sec === 726 * 60 * 3 && rc.gold === 716 && rc.coinsOnly, `Бугай 716 (выше 100 ур. — только за монеты, монета за уровень): ${JSON.stringify(rc)}`);
-  // воскрешение: (уровень + 10) × 3 минуты — 10 ур. — час, каждый уровень — ещё 3 минуты; от воина не зависит (с 21.10; было втрое быстрее)
-  assert.ok(g.reviveCostOf({ kindId: 200, level: 10, exp: 0 }).sec === 3600 && g.reviveCostOf({ kindId: 249, level: 10, exp: 0 }).sec === 3600 && g.reviveCostOf({ kindId: 245, level: 11, exp: 0 }).sec === 3780, 'воскрешение: 10 ур. — 1 ч, 11 ур. — 1 ч 3 мин');
+  const rk = (id) => g.genStats({ kindId: id }).revive; // время воскрешения — от воина генерала (с 27.10): слабейший воин расы ×0,75, сильнейший ×1,25
+  const rc = g.reviveCostOf({ kindId: 247, level: 716, exp: g.generalNeed(715) + 1 }), rs = Math.round(726 * 60 * 3 * rk(247));
+  assert.deepStrictEqual([rc.cost.wood, rc.cost.stone, rc.cost.iron, rc.cost.food, rc.people, rc.sec, rc.gold], [537000, 572800, 608600, 1181400, 8592, rs, 716].map((v, i) => (i < 4 ? rc.cost[['wood', 'stone', 'iron', 'food'][i]] : v)), 'Бугай 716');
+  assert.ok(Math.abs(rc.cost.wood - 537060) / 537060 < 0.002 && rc.people === 8592 && rc.sec === rs && rc.gold === 716 && rc.coinsOnly, `Бугай 716 (выше 100 ур. — только за монеты, монета за уровень): ${JSON.stringify(rc)}`);
+  // воскрешение: (уровень + 10) × 3 минуты × воин — 10 ур. — час у среднего воина, каждый уровень — ещё 3 минуты (с 21.10 втрое дольше)
+  assert.ok(rk(200) === 0.75 && rk(245) === 0.75 && rk(264) > 1.2 && rk(249) > rk(245), `слабый воин воскресает быстрее, сильный — дольше: ${[200, 245, 249, 264].map(rk)}`);
+  assert.ok(g.reviveCostOf({ kindId: 200, level: 10, exp: 0 }).sec === 2700 && g.reviveCostOf({ kindId: 249, level: 10, exp: 0 }).sec === Math.round(3600 * rk(249)) && g.reviveCostOf({ kindId: 245, level: 11, exp: 0 }).sec === Math.round(3780 * 0.75), 'воскрешение: 10 ур. — 1 ч × воин, 11 ур. — 1 ч 3 мин × воин');
   assert.strictEqual(g.reviveCostOf({ kindId: 200, level: 100, exp: 0 }).gold, 100, 'за монеты — монета за уровень: 100 ур. — 100 (было 12)');
-  // Скорость восстановления: воскрешение быстрее на 1% за очко, не больше 50 очков (вдвое быстрее)
+  // Скорость восстановления: воскрешение быстрее на 1% за очко; потолок — от воина: у слабейшего 30 очков, у сильнейшего 50 (вдвое быстрее)
   const rv = (heal) => g.reviveCostOf({ kindId: 200, level: 10, exp: 0, pts: { heal } }).sec;
-  assert.ok(rv(10) === 3240 && rv(50) === 1800 && rv(80) === 1800, `восстановление: 10 очков — 54 мин, 50 и больше — 30 мин (${rv(10)}, ${rv(50)}, ${rv(80)})`);
-  { const gh = g.newGeneral(c, 40); gh.free = 78; c.general = gh;
-    assert.ok(g.generalOp(c, u, { op: 'dist', pts: { heal: 40 } }).ok && /не больше 50/.test(g.generalOp(c, u, { op: 'dist', pts: { heal: 11 } }).error || '') && gh.pts.heal === 40, 'больше 50 очков в восстановление не вложить');
-    assert.ok(g.generalOp(c, u, { op: 'dist', pts: { heal: 10 } }).ok && gh.pts.heal === 50 && g.genStats(gh).heal === 0.5, '50 очков — вдвое быстрее'); c.general = null; }
+  assert.ok(rv(10) === 2430 && rv(30) === 1890 && rv(80) === 1890, `восстановление Мечника: 10 очков — 40,5 мин, 30 и больше — 31,5 мин (${rv(10)}, ${rv(30)}, ${rv(80)})`);
+  { const gh = g.newGeneral(c, 40); gh.free = 200; c.general = gh; const hm = g.genStats(gh).healMax, cm = g.genStats(gh).careerMax;
+    assert.ok(hm > 30 && hm <= 50 && cm > 60 && cm <= 100, `потолки сильного воина: ${hm} и ${cm}`);
+    assert.ok(g.generalOp(c, u, { op: 'dist', pts: { heal: hm - 10 } }).ok && new RegExp(`не больше ${hm}`).test(g.generalOp(c, u, { op: 'dist', pts: { heal: 11 } }).error || '') && gh.pts.heal === hm - 10, `больше ${hm} очков в восстановление не вложить`);
+    assert.ok(g.generalOp(c, u, { op: 'dist', pts: { heal: 10 } }).ok && gh.pts.heal === hm && Math.abs(g.genStats(gh).heal - hm / 100) < 1e-12, `${hm} очков — быстрее на ${hm}%`);
+    assert.ok(new RegExp(`не больше ${cm}`).test(g.generalOp(c, u, { op: 'dist', pts: { career: cm + 1 } }).error || '') && g.generalOp(c, u, { op: 'dist', pts: { career: cm } }).ok, `карьера — не больше ${cm} очков`);
+    // смена воина на слабого: очки сверх его потолков снова свободные, уровень и опыт — прежние
+    const free0 = gh.free, lv0 = gh.level; gh.rekind = { kindId: 245, end: Date.now() - 1 }; g.tick(c);
+    assert.ok(gh.kindId === 245 && gh.pts.heal === 30 && gh.pts.career === 60 && gh.free === free0 + (hm - 30) + (cm - 60) && gh.level === lv0, `смена на Мародёра: ${JSON.stringify(gh.pts)}, свободных ${gh.free}`);
+    c.general = null; }
   g.maxOut(c); c.units = { 245: 5 }; c.general = null; Object.assign(c.res, { wood: 5e4, stone: 5e4, iron: 5e4, food: 5e4, people: 5000 });
   c.units[252] = 3; c.units[233] = 3; c.units[243] = 3;
   for (const id of [252, 233, 243]) assert.ok(g.trainGeneral(c, id).error, `${UNIT[id].name} — не генерал`);
@@ -1071,7 +1123,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   ca.armies = []; ca.units = { 200: 50 }; const go = g.sendArmy(ca, { units: { 200: 50 }, x: cb.x, y: cb.y, mission: 'attack' });
   assert.ok(go.army && /вражеская армия/.test(g.activateArtifact(cb, art(cb, 'hand').id, true).error || ''), 'защитный артефакт не пробудить, когда на замок уже идут');
   ca.armies = []; ca.units = {};
-  { const p0 = g.armyPower(ca, {}, true).raw.gen; g.activateArtifact(ca, art(ca, 'claw').id, true); assert.ok(p0 > 0 && g.armyPower(ca, {}, true).raw.gen === 2 * p0, '«Коготь Полководца»: атака генерала ×2'); }
+  { const p0 = g.armyPower(ca, {}, true).raw.gen; g.activateArtifact(ca, art(ca, 'claw').id, true); assert.ok(p0 > 0 && Math.abs(g.armyPower(ca, {}, true).raw.gen - 2 * p0) <= 1, '«Коготь Полководца»: атака генерала ×2'); }
   { cb.artCd = {}; ca.armies = []; cb.artifacts = []; const wall0 = g.buildingLevel(cb, AR.B.FENCE);
     const hit = () => { const D = structuredClone(cb); g.clash(structuredClone(ca), { units: { 243: 40, 200: 10 }, mission: 'attack', general: false }, D, null, Date.now()); return wall0 - g.buildingLevel(D, AR.B.FENCE); };
     const plain = hit(); g.activateArtifact(cb, art(cb, 'seal').id, true); const sealed = hit();
@@ -2579,8 +2631,9 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   { // баланс боя: командование генерала с убывающей отдачей, одинаковые артефакты с убыванием, защита от кавалерии в бою
     const u = g.register({ login: 'balance1', password: '12345', race: 0 }).user, c = g.castleOf(u); g.mil(c);
     c.general = g.newGeneral(c, 500); c.general.pts.catk = 998;
-    const k = g.genStats(c.general).catk; assert.ok(k > 0.35 && k < 0.5, `командование 500 ур. не больше +50% (${k})`);
-    c.general.pts.catk = 10; assert.ok(Math.abs(g.genStats(c.general).catk - 0.5 * 10 / 310) < 1e-9, 'первые очки — около +0,17%');
+    const k = g.genStats(c.general).catk, cm = g.genStats(c.general).cmdMax; // потолок — от воина генерала: +30%…+50%
+    assert.ok(cm >= 0.3 && cm <= 0.5 && k > 0.75 * cm && k < cm, `командование 500 ур. не больше +50% (${k} из ${cm})`);
+    c.general.pts.catk = 10; assert.ok(Math.abs(g.genStats(c.general).catk - cm * 10 / 310) < 1e-9, 'первые очки — около +0,17%');
     const b0 = g.bonus(c).train; c.artifacts = [0, 1, 2, 3, 4, 5, 6].map((i) => ({ id: 70000 + i, type: 'train', rarity: 2, active: true }));
     const tr = g.bonus(c).train; assert.ok(tr > 0.25 && tr < b0, `обучение ускоряется, но время не уходит в ноль (${tr})`);
     c.artifacts = [0, 1].map((i) => ({ id: 70100 + i, type: 'atk', rarity: 2, active: true })); const at = g.bonus(c).atk / g.bonus(Object.assign({}, c, { artifacts: [] })).atk;

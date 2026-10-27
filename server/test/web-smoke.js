@@ -598,9 +598,12 @@ function client() {
     adm.send({ t: 'admin', op: 'general', level: 50 });
     let gs = (await adm.expect('state', (m) => m.castle.mil.general && m.castle.mil.general.level === 50)).castle.mil.general;
     assert.equal(gs.free, 98); assert.ok(gs.stats && gs.where.includes('Замковая армия'));
-    adm.send({ t: 'general', op: 'dist', pts: { catk: 60, def: 10 } });
+    // генерал бьётся как его воин: три удара (по пехоте, коннице, магам), здоровье, род войск; Личной защиты нет (с 27.10 — очки в неё не принимаются)
+    assert.ok(gs.stats.a3 && ['inf', 'cav', 'mag'].every((k) => gs.stats.a3[k] >= 0) && gs.stats.hp > 0 && ['inf', 'cav', 'mag'].includes(gs.stats.cls), JSON.stringify(gs.stats));
+    assert.ok(gs.cmdMax >= 0.3 && gs.cmdMax <= 0.5 && gs.healMax >= 30 && gs.careerMax >= 60, 'потолки — от воина');
+    adm.send({ t: 'general', op: 'dist', pts: { catk: 60, cdef: 10, def: 5 } });
     gs = (await adm.expect('state', (m) => m.castle.mil.general.free === 28)).castle.mil.general;
-    assert.ok(Math.abs(gs.stats.catk - 0.5 * 60 / 360) < 1e-9 && gs.pts.def === 10); // командование — до +50% (с 21.10; было до +100%)
+    assert.ok(Math.abs(gs.stats.catk - gs.cmdMax * 60 / 360) < 1e-9 && gs.pts.cdef === 10 && gs.pts.def === undefined); // командование — до +30…+50% (от воина, с 27.10)
     adm.send({ t: 'general', op: 'dist', pts: { atk: 999 } });
     await adm.expect('error', (m) => /Свободных очков только 28/.test(m.msg));
     adm.send({ t: 'general', op: 'reset' });

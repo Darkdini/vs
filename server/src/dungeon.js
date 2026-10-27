@@ -236,7 +236,7 @@ function install(Game) {
     const bD = this.bonus(dc);
     const D = { id: -1, owner: dc.owner, name: 'Лагерь', site: true, dung: true, units: d.units, squads: [], general: null, armies: [], forge: dc.forge || {},
       grid: [new Int8Array(49).fill(-1), new Int8Array(225).fill(-1)], levels: [new Int8Array(49), new Int8Array(225)],
-      sim: { bonus: { def: bD.def, magic: bD.magic, wall: 0, wallPer: 0 }, genDef: 0, hero: null } };
+      sim: { bonus: { def: bD.def, magic: bD.magic, wall: 0, wallPer: 0 }, gen: null, hero: null } };
     const aWas = { ...a.units }, dWas = { ...d.units };
     const R = this.clash(c, a, D, null, t);
     const dWnd = this.toInfirmary(dc, R.dLost); // павшие защитники — ранеными в Лазарет своего замка

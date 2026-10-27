@@ -348,9 +348,15 @@ const ORDER_MAX = { 224: 3, 233: 3 }; // Путешественник, Бунт�
 const raceUnit = (u, race) => (u && u.raceOvr && u.raceOvr[race] ? { ...u, ...u.raceOvr[race] } : u);
 const unitsForRace = (race) => UNITS.filter((u) => u.race === race || u.race === 'all');
 // генерал как в оригинале: за уровень — очки опыта, игрок распределяет их в окне «Генерал».
-// Личная атака/защита — +1 за очко; командование атакой/защитой — к армии, с убывающей отдачей (cmdBonus); восстановление — воскрешение быстрее на 1% за очко
-// (не больше 50 очков — вдвое быстрее); карьера — больше опыта.
-const GEN = { battleCap: 0.15, dayLevels: 1, perLevel: 2, maxLevel: 500, revive: 0.5, cmd: 0.003, cmdMax: 0.5, cmdK: 300, heal: 0.01, healMax: 50, career: 0.005, resetGold: 100 };
+// С 27.10 генерал — из воина и бьётся как этот воин (новая боевая система, «Справка → Генерал» оригинала): род войск, удары по пехоте,
+// коннице и магам, специализация и здоровье — воина (как на скринах оригинала: генерал из Мечника бьёт 4/0/18, как Мечник).
+// Личная атака — +2,5% к ударам за очко; Личной защиты нет. Командование атакой/защитой — армии, где генерал (cmdBonus, с убывающей
+// отдачей); восстановление — воскрешение быстрее на 1% за очко; карьера — +0,5% опыта за очко. Как в оригинале: чем сильнее воин
+// (среди воинов своей расы, genPow), тем выше потолки командования, восстановления и карьеры, но тем медленнее опыт и дольше воскрешение (GEN_RANGE)
+const GEN = { battleCap: 0.15, dayLevels: 1, perLevel: 2, maxLevel: 500, revive: 0.5, cmdK: 300, heal: 0.01, career: 0.005, resetGold: 100, atkPt: 0.025, a3K: 1, hpK: 1 }; // a3K, hpK — удары и здоровье генерала к воину
+// от слабейшего воина расы к сильнейшему: потолок командования, очков восстановления и карьеры; множитель опыта; время воскрешения
+const GEN_RANGE = { cmd: [0.3, 0.5], heal: [30, 50], career: [60, 100], xp: [1.5, 1], revive: [0.75, 1.25] };
+const genLerp = ([a, b], s) => a + (b - a) * s;
 // с 25 уровня прокачка тяжелее и дороже: каждый уровень требует больше опыта (+25% за каждый уровень сверх 24-го:
 // 25-й — ×1,25, 30-й — ×2,5, 40-й — ×5 к прежней шкале), за бой — не больше 10% уровня, за сутки — не больше полуровня.
 // Игрокам лимиты не показываются (ни в окне «Генерал», ни в отчётах)
@@ -364,16 +370,39 @@ const GEN_HIRE_SEC = 1800, GEN_HIRE_K = 2.5, REKIND_SEC = 1800; // найм ге
 // командование генерала (атакой/защитой): первые очки — около +0,17%, дальше отдача убывает: 100 очков — +12,5%, 300 — +25%,
 // 1000 (500 ур.) — +38%, не больше +50% (с 21.10 вдвое меньше — по решению владельца: вместе с наукой, рангом, артефактами и
 // снаряжением генерал давал армии ×2,8). Ещё раньше росло без предела (+299% на 500 ур.) и решало любой бой.
-const cmdBonus = (pts) => (pts > 0 ? GEN.cmdMax * pts / (pts + GEN.cmdK) : 0);
+// С 27.10 потолок — от воина генерала: +30% у слабейшего воина расы, +50% у сильнейшего (max); числа выше — для сильнейшего
+const cmdBonus = (pts, max) => (pts > 0 ? max * pts / (pts + GEN.cmdK) : 0);
 // артефакты одного вида: действует только самый сильный (с 21.10 — по решению владельца; до этого второй — наполовину, третий —
 // на четверть…: 4 легендарных давали +66%; ещё раньше 7 легендарных — +245%, а «ускорение обучения» уводило время ниже нуля)
 const artEffects = (arts) => { const eff = new Map(), by = {};
   for (const a of arts || []) if (a.active && RARITY[a.rarity]) (by[a.type] = by[a.type] || []).push(a);
   for (const list of Object.values(by)) list.sort((x, y) => RARITY[y.rarity].bonus - RARITY[x.rarity].bonus).forEach((a, i) => eff.set(a.id, i ? 0 : RARITY[a.rarity].bonus));
   return eff; };
-const GEN_STATS = ['atk', 'def', 'catk', 'cdef', 'heal', 'career'];
-// звание генерала в скобках — сильнейший боевой юнит расы (у орков «Бугай» и т. п.)
-const genKind = (race) => { const l = UNITS.filter((u) => u.race === race && !u.quest && !u.notrain && ['infantry', 'cavalry'].includes(u.type)).sort((a, b) => b.attack - a.attack); return l[0] ? l[0].name : 'Генерал'; };
+const GEN_STATS = ['atk', 'catk', 'cdef', 'heal', 'career']; // Личной защиты (def) с 27.10 нет
+// генералом может стать воин своей расы, кроме уникальных, воинов Портала, разведчиков, бунтарей, осадных и мирных
+const GEN_SKIP = ['scout', 'eye', 'rebel', 'ram', 'catapult', 'merchant', 'settler', 'sage', 'archaeologist'];
+const genEligible = (u) => !!u && ['humans', 'elves', 'dwarves', 'orcs'].includes(u.race) && !u.quest && u.building !== B.PORTAL && !GEN_SKIP.includes(u.role);
+// сила воина для генерала: 0 — слабейший воин своей расы, 1 — сильнейший (средний удар × здоровье, по логарифму)
+const GEN_POW = (() => {
+  const v = (u) => Math.max(1, (u.a3.inf + u.a3.cav + u.a3.mag) / 3 * (u.hp || 1)), out = {};
+  for (const race of ['humans', 'elves', 'dwarves', 'orcs']) {
+    const l = UNITS.filter((u) => u.race === race && genEligible(u)); if (!l.length) continue;
+    const lo = Math.log(Math.min(...l.map(v))), hi = Math.log(Math.max(...l.map(v)));
+    for (const u of l) out[u.id] = hi > lo ? Math.round((Math.log(v(u)) - lo) / (hi - lo) * 100) / 100 : 0.5;
+  }
+  return out;
+})();
+const genPow = (u) => (u && GEN_POW[u.id] !== undefined ? GEN_POW[u.id] : 0.5);
+// что воин даёт генералу (без очков): удары, здоровье, род войск, специализация, потолки, множитель опыта, время воскрешения
+const genProfile = (u) => {
+  const s = genPow(u), A = a3Of(u);
+  return { pow: s, a3: { inf: Math.round(A.inf * GEN.a3K), cav: Math.round(A.cav * GEN.a3K), mag: Math.round(A.mag * GEN.a3K) }, hp: Math.round((u.hp || 50) * GEN.hpK),
+    cls: CLS(u.type), mage: u.type === 'magic', spec: u.spec || 'U', cmdMax: Math.round(genLerp(GEN_RANGE.cmd, s) * 1000) / 1000, healMax: Math.round(genLerp(GEN_RANGE.heal, s)),
+    careerMax: Math.round(genLerp(GEN_RANGE.career, s)), xp: Math.round(genLerp(GEN_RANGE.xp, s) * 100) / 100, revive: Math.round(genLerp(GEN_RANGE.revive, s) * 100) / 100 };
+};
+// звание генерала в скобках — сильнейший боевой юнит расы (у орков «Бугай» и т. п.); этот же воин — у старых генералов без воина
+const genKindUnit = (race) => UNITS.filter((u) => u.race === race && !u.quest && !u.notrain && ['infantry', 'cavalry'].includes(u.type)).sort((a, b) => b.attack - a.attack)[0] || null;
+const genKind = (race) => { const u = genKindUnit(race); return u ? u.name : 'Генерал'; };
 const unitImg = (u, race) => `units/${u.race === 'all' && !u.img.includes('/') ? `${RACE_DIR[race]}/${u.img}` : u.img}.png`;
 
 // ---------- науки (Университет; иконки smallicon/*science.png) ----------
@@ -632,14 +661,13 @@ function install(Game, helpers) {
     const sci = this.sciOf(castle), templeL = L(B.TEMPLE), rel = castle.religion;
     const art = { atk: 0, def: 0, prod: 0, speed: 0, train: 0 };
     const eff = artEffects(castle.artifacts); for (const a of castle.artifacts) if (a.active && eff.has(a.id)) art[a.type] += eff.get(a.id);
-    const gen = castle.general && !castle.general.dead && !castle.general.away && castle.general.pts ? castle.general.pts.cdef : 0;
-    const race = this.raceOf(castle);
+    const race = this.raceOf(castle); // командование генерала здесь не считается (с 27.10): оно — армии, где генерал (clash, defensePower)
     const wallPer = WALL_PER[race] || WALL_PER.humans;
     const ms = scienceMiles(sci);
     const br = this.brBonus ? this.brBonus(this.ownerOf(castle)) : { atk: 0, prod: 0 }; // боевой ранг
     return {
       atk: (1 + SCIENCES.war.per * sci.war) * (1 + (rel === 'war' ? 0.01 * templeL : 0)) * (1 + art.atk) * (1 + ms.atk) * (1 + br.atk),
-      def: (1 + SCIENCES.war.per * sci.war) * (1 + (rel === 'light' ? 0.01 * templeL : 0)) * (1 + art.def) * (1 + cmdBonus(gen)) * (1 + ms.def) * (1 + br.atk),
+      def: (1 + SCIENCES.war.per * sci.war) * (1 + (rel === 'light' ? 0.01 * templeL : 0)) * (1 + art.def) * (1 + ms.def) * (1 + br.atk),
       magic: 1 + 0.02 * L(B.MAGIC_SCHOOL),
       prod: (1 + SCIENCES.eco.per * sci.eco) * (1 + (rel === 'nature' ? 0.01 * templeL : 0)) * (1 + art.prod) * (1 + ms.prod) * (1 + br.prod),
       speed: (1 + SCIENCES.fhi.per * sci.fhi) * (1 + art.speed) * (1 + ms.speed),
@@ -805,6 +833,7 @@ function install(Game, helpers) {
     for (const x of [castle.general, ...(castle.deadGenerals || [])]) if (x && x.rekind && x.rekind.end <= now) {
       const ku = UNIT[x.rekind.kindId]; delete x.rekind; if (!ku) continue;
       x.kindId = ku.id; x.kind = ku.name; this.event(owner, `Генерал «${x.name}» переобучен: теперь он из воина «${ku.name}».`);
+      if (x.pts) { const p = genProfile(ku); for (const [k, cap] of [['heal', p.healMax], ['career', p.careerMax]]) if (x.pts[k] > cap) { x.free = (x.free || 0) + x.pts[k] - cap; x.pts[k] = cap; } } // у нового воина потолок ниже — лишние очки снова свободные
     }
     // экспедиции из здания вернулись
     if (castle.expeds && castle.expeds.some((x) => x.end <= now)) { const done = castle.expeds.filter((x) => x.end <= now); castle.expeds = castle.expeds.filter((x) => x.end > now); for (const x of done) this.expedBack(castle, x); }
@@ -890,29 +919,40 @@ function install(Game, helpers) {
     if (!g.name) g.name = 'Генерал';
     if (g.level > GEN.maxLevel) g.level = GEN.maxLevel;
     if (g.resets === undefined) g.resets = 1;
+    if (!(g.kindId && UNIT[g.kindId]) && castle) { const ku = genKindUnit(this.raceOf(castle)); if (ku) { g.kindId = ku.id; g.kind = ku.name; } } // старые записи — воин по умолчанию
     if (!g.kind && castle) g.kind = genKind(this.raceOf(castle));
+    if ((g.genV || 0) < 2) { // 27.10: генерал — по своему воину, Личной защиты нет: все распределённые очки снова свободные (распределить заново)
+      const spent = Object.values(g.pts).reduce((q, v) => q + (Number(v) || 0), 0);
+      g.pts = Object.fromEntries(GEN_STATS.map((k) => [k, 0])); g.free += spent; g.genV = 2;
+    }
     return g;
   };
+  // воин генерала (у записи без воина — общий «Генерал»)
+  const genWarrior = (g) => (g && UNIT[g.kindId] && genEligible(UNIT[g.kindId]) ? UNIT[g.kindId] : UNIT[GENERAL_ID]);
+  // характеристики генерала: от воина (genProfile) и очков. a3 — удары по пехоте/коннице/магам, atk — средний удар, def/mdef — защита
+  // от воинов и магов (для боя с боссом и силы обороны), catk/cdef — командование армией, где генерал; heal, career — доли
   P.genStats = function genStats(g) {
-    const base = UNIT[GENERAL_ID];
-    return { atk: base.attack + g.pts.atk, def: base.def.inf + g.pts.def, catk: cmdBonus(g.pts.catk), cdef: cmdBonus(g.pts.cdef),
-      heal: GEN.heal * Math.min(GEN.healMax, g.pts.heal), career: GEN.career * g.pts.career };
+    const u = genWarrior(g), p = genProfile(u), pts = g.pts || {}, k = 1 + GEN.atkPt * (pts.atk || 0), D = u.def || { inf: 0, cav: 0, mag: 0 };
+    const a3 = { inf: p.a3.inf * k, cav: p.a3.cav * k, mag: p.a3.mag * k };
+    return { ...p, kindId: u.id, a3, atk: (a3.inf + a3.cav + a3.mag) / 3, def: (D.inf + D.cav) / 2 * GEN.a3K, mdef: D.mag * GEN.a3K,
+      catk: cmdBonus(pts.catk || 0, p.cmdMax), cdef: cmdBonus(pts.cdef || 0, p.cmdMax), heal: GEN.heal * Math.min(p.healMax, pts.heal || 0), career: GEN.career * Math.min(p.careerMax, pts.career || 0) };
   };
   // опыт генерала за бой. Чтобы генерал не качался «за пару секунд», действуют ограничения (игрокам не показываются):
   //  • за один бой — не больше 15% опыта текущего уровня (минимум 7 боёв на уровень), с 25 ур. — 10%;
   //  • за сутки — не больше опыта на 1 уровень, с 25 ур. — на полуровня (и сами уровни там дороже — GEN_HARD); лимит твёрдый
   //    (с 24.10): карьера, премиум и Шлем ускоряют набор, но лимит не поднимают; опыт из Кладовой — в тот же лимит (genDayLeft);
-  //  • карьера (+0,5% за очко), премиум (×2) и Шлем увеличивают опыт за бой и лимит за бой.
+  //  • карьера (+0,5% за очко), премиум (×2) и Шлем увеличивают опыт за бой и лимит за бой;
+  //  • воин генерала (с 27.10): генерал из слабого воина набирает опыт быстрее (до ×1,5) — и за бой, и за сутки.
   // сколько опыта генерал ещё может получить сегодня (бои и Кладовая вместе)
   P.genDayLeft = function genDayLeft(g) {
     const span = this.generalNeed(g.level) - (g.level > 1 ? this.generalNeed(g.level - 1) : 0), day = new Date().toISOString().slice(0, 10);
     if (!g.day || g.day.d !== day) g.day = { d: day, exp: 0 };
-    return Math.max(0, Math.ceil(span * (g.level >= GEN_HARD.from ? GEN_HARD.day : GEN.dayLevels)) - g.day.exp);
+    return Math.max(0, Math.ceil(span * (g.level >= GEN_HARD.from ? GEN_HARD.day : GEN.dayLevels) * genProfile(genWarrior(g)).xp) - g.day.exp);
   };
   P.addGeneralExp = function addGeneralExp(castle, exp) {
     const g = castle.general; if (!g || g.dead || !(exp > 0)) return null;
     this.normGeneral(g, castle);
-    const mult = (1 + GEN.career * g.pts.career) * (this.isPremium(this.userById(castle.owner)) ? 2 : 1) * (1 + this.heroBonus(g).exp);
+    const gs = this.genStats(g), mult = (1 + gs.career) * (this.isPremium(this.userById(castle.owner)) ? 2 : 1) * (1 + this.heroBonus(g).exp) * gs.xp;
     const span = this.generalNeed(g.level) - (g.level > 1 ? this.generalNeed(g.level - 1) : 0);
     const left = this.genDayLeft(g), hard = g.level >= GEN_HARD.from;
     const battleCap = Math.max(20, Math.ceil(span * (hard ? GEN_HARD.battle : GEN.battleCap) * mult));
@@ -925,13 +965,14 @@ function install(Game, helpers) {
     return { got, from, level: g.level, name: g.name, capped };
   };
   // опыт за бой (до карьеры, премиума и лимитов):
-  //  • основа — население убитых врагов / 10;
+  //  • основа — перевес в потерях (как в оригинале, с 27.10): население павших врагов минус население своих павших, / 10;
+  //    свои потери не меньше вражеских — опыта нет (до 27.10 — просто население убитых врагов / 10);
   //  • победа ×1.5, поражение ×0.5; набег ×0.75;
   //  • лагеря и руины — по силе охраны;
   //  • слабый противник (рейтинг меньше 30% от вашего) — ×0.25;
   //  • повторные бои с тем же игроком за сутки — каждый следующий вдвое меньше (против ферм и мультов).
-  P.battleExp = function battleExp({ killedPop, win, mission, npc, dLoss, mine, enemy }) {
-    let exp = npc ? (npc.def.inf + npc.def.cav) / 40 * dLoss : killedPop / 10;
+  P.battleExp = function battleExp({ killedPop, lostPop = 0, win, mission, npc, dLoss, mine, enemy }) {
+    let exp = npc ? (npc.def.inf + npc.def.cav) / 40 * dLoss : Math.max(0, killedPop - lostPop) / 10;
     exp *= win ? 1.5 : 0.5;
     if (mission === 'raid') exp *= 0.75;
     let weak = false, repeat = 0;
@@ -966,7 +1007,9 @@ function install(Game, helpers) {
       const sum = GEN_STATS.reduce((s, k) => s + add[k], 0);
       if (!sum) return { error: 'Укажите, сколько очков куда распределить.' };
       if (sum > g.free) return { error: `Свободных очков только ${g.free}.` };
-      if (add.heal && g.pts.heal + add.heal > GEN.healMax) return { error: `Скорость восстановления — не больше ${GEN.healMax} очков (воскрешение вдвое быстрее). Можно добавить ещё ${Math.max(0, GEN.healMax - g.pts.heal)}.` };
+      const gp = genProfile(genWarrior(g)); // потолки — от воина генерала
+      if (add.heal && g.pts.heal + add.heal > gp.healMax) return { error: `Скорость восстановления у этого генерала — не больше ${gp.healMax} очков (воскрешение быстрее на ${gp.healMax}%). Можно добавить ещё ${Math.max(0, gp.healMax - g.pts.heal)}.` };
+      if (add.career && g.pts.career + add.career > gp.careerMax) return { error: `Карьера у этого генерала — не больше ${gp.careerMax} очков (опыт +${Math.round(gp.careerMax * GEN.career * 100)}%). Можно добавить ещё ${Math.max(0, gp.careerMax - g.pts.career)}.` };
       for (const k of GEN_STATS) g.pts[k] += add[k];
       g.free -= sum;
     } else if (op === 'reset') {
@@ -994,8 +1037,8 @@ function install(Game, helpers) {
   };
   // воскрешение: до REVIVE_RES_MAX уровня — за ресурсы (не больше вместимости Склада замка) или монеты, выше — только за монеты; монеты — по REVIVE_GOLD за каждые 25 уровней
   P.reviveCostOf = function reviveCostOf(g, castle) {
-    const u = genUnit(g), L = this.genLevelF(g), cap = castle ? this.capacity(castle) : null, lim = (k, v) => (cap ? Math.min(v, cap[k]) : v);
-    return { cost: Object.fromEntries(RES4.map((r) => [r, lim(r, Math.round((u.refCost || u.cost)[r] * 10 * L))])), people: lim('people', Math.round(u.pop * L)), sec: Math.round((g.level + REVIVE_MIN) * 60 * REVIVE_TIME_K * (1 - GEN.heal * Math.min(GEN.healMax, (g.pts && g.pts.heal) || 0))),
+    const u = genUnit(g), L = this.genLevelF(g), cap = castle ? this.capacity(castle) : null, lim = (k, v) => (cap ? Math.min(v, cap[k]) : v), gp = genProfile(genWarrior(g)); // сильный воин воскресает дольше (×0,75…×1,25)
+    return { cost: Object.fromEntries(RES4.map((r) => [r, lim(r, Math.round((u.refCost || u.cost)[r] * 10 * L))])), people: lim('people', Math.round(u.pop * L)), sec: Math.round((g.level + REVIVE_MIN) * 60 * REVIVE_TIME_K * gp.revive * (1 - GEN.heal * Math.min(gp.healMax, (g.pts && g.pts.heal) || 0))),
       gold: REVIVE_GOLD * Math.max(1, g.level), coinsOnly: g.level > REVIVE_RES_MAX };
   };
   // ресурсы, внесённые частями до новых правил, возвращаются в замок
@@ -1340,10 +1383,10 @@ function install(Game, helpers) {
       mag += (u.magic ? u.magic + this.forgeLvl(c, id, 'm') : 0) * n; // Школа магии: +1 к магической атаке за уровень
     }
     let gl = 0, cmd = 0, genAtk = 0;
-    if (withGeneral && c.general && !c.general.dead) { const gs = this.genStats(c.general), ga = gs.atk * (this.artOn(c, 'claw') ? 2 : 1); gl = c.general.level; cmd = gs.catk; genAtk = ga; inf += ga; mag += UNIT[GENERAL_ID].magic; }
-    const k = b.atk * (1 + cmd);
-    return { inf: inf * k, cav: cav * k, mag: mag * b.magic * b.atk, gl,
-      raw: { inf: Math.round(inf), cav: Math.round(cav), mag: Math.round(mag), gen: Math.round(genAtk) }, bonusPct: Math.round((k - 1) * 100), magicPct: Math.round((b.magic * b.atk - 1) * 100) };
+    if (withGeneral && c.general && !c.general.dead) { const gs = this.genStats(c.general), ga = gs.atk * (this.artOn(c, 'claw') ? 2 : 1); gl = c.general.level; cmd = gs.catk; genAtk = ga; if (gs.mage) mag += ga; else if (gs.cls === 'cav') cav += ga; else inf += ga; } // генерал — как его воин: маг, всадник или пехотинец
+    const k = b.atk * (1 + cmd), km = b.magic * b.atk * (1 + cmd); // командование — и магам (как в бою, с 27.10)
+    return { inf: inf * k, cav: cav * k, mag: mag * km, gl,
+      raw: { inf: Math.round(inf), cav: Math.round(cav), mag: Math.round(mag), gen: Math.round(genAtk) }, bonusPct: Math.round((k - 1) * 100), magicPct: Math.round((km - 1) * 100) };
   };
   // сила обороны замка против атаки с долями пехоты/кавалерии
   // армии, стоящие в замке d подкреплением (из других замков)
@@ -1360,10 +1403,11 @@ function install(Game, helpers) {
     let phys = 0, mag = 0;
     const add = (id, n) => { const u = UNIT[id]; if (!u || !n) return; const fd = this.forgeLvl(d, id, 'd'); phys += ((u.def.inf + fd) * pInf + (u.def.cav + fd) * pCav) * n; mag += (u.def.mag + this.forgeLvl(d, id, 'md')) * n; }; // Школа магии: +1 к маг. защите
     for (const m of this.defenders(d)) for (const [id, n] of Object.entries(m)) if (!(UNIT[id] && UNIT[id].dungOnly)) add(id, n);
-    if (d.general && !d.general.dead && !d.general.away) { add(GENERAL_ID, 1); phys += d.general.pts.def * (pInf + pCav); }
+    let gk = 1; // генерал дома: его защита (от воина) и командование защитой — всем защитникам замка
+    if (d.general && !d.general.dead && !d.general.away) { const gs = this.genStats(d.general); phys += gs.def * (pInf + pCav); mag += gs.mdef; gk = 1 + gs.cdef; }
     const rawPhys = phys, rawMag = mag, wallK = 1 + b.wallPer * b.wall;
-    phys = (phys * b.def + 10 * b.wall) * wallK;
-    return { phys, mag: mag * b.def * b.magic, raw: { phys: Math.round(rawPhys), mag: Math.round(rawMag) }, bonusPct: Math.round((b.def - 1) * 100), magicPct: Math.round((b.def * b.magic - 1) * 100),
+    phys = (phys * b.def * gk + 10 * b.wall) * wallK;
+    return { phys, mag: mag * b.def * gk * b.magic, raw: { phys: Math.round(rawPhys), mag: Math.round(rawMag) }, bonusPct: Math.round((b.def * gk - 1) * 100), magicPct: Math.round((b.def * gk * b.magic - 1) * 100),
       wall: b.wall, wallPct: Math.round((wallK - 1) * 100), wallFlat: 10 * b.wall };
   };
   // потери: доля frac от каждого вида войск; дробная часть — с соответствующей вероятностью
@@ -1424,17 +1468,20 @@ function install(Game, helpers) {
       const sp = side === 'att' ? (u.spec === 'D' ? SPEC_K : 1) : (u.spec === 'A' ? SPEC_K : 1), dm = (1 + FORGE_K * (f('a') + f('m'))) * sp, A3 = a3Of(u);
       return { m, id, n, own, cls: CLS(u.type), mage: u.type === 'magic', hp: u.hp || 10, a: { inf: A3.inf * dm, cav: A3.cav * dm, mag: A3.mag * dm },
         hpP: 1 + FORGE_K * f('d'), hpM: 1 + FORGE_K * f('md'), shield: !u.oneUse, ...extra }; };
-    // генерал в строю: бьёт своей атакой по всем родам поровну, принимает часть ударов (его гибель решается после боя)
-    const genStack = (atk, def) => ({ m: null, gen: true, id: GENERAL_ID, n: 1, own: false, cls: 'inf', mage: false, hp: UNIT[GENERAL_ID].hp + 5 * def, a: { inf: atk, cav: atk, mag: atk }, hpP: 1, hpM: 1, shield: true });
+    // генерал в строю — как его воин (с 27.10): род войск, удары по пехоте/коннице/магам, здоровье и специализация воина (удары — с Личной
+    // атакой); принимает часть ударов (его гибель решается после боя). claw — «Коготь Полководца»: удары генерала ×2
+    const genStack = (gs, side, claw) => { const k = (claw ? 2 : 1) * (side === 'att' ? (gs.spec === 'D' ? SPEC_K : 1) : (gs.spec === 'A' ? SPEC_K : 1));
+      return { m: null, gen: true, id: GENERAL_ID, n: 1, own: false, cls: gs.cls || 'inf', mage: !!gs.mage, hp: gs.hp || UNIT[GENERAL_ID].hp, a: { inf: gs.a3.inf * k, cav: gs.a3.cav * k, mag: gs.a3.mag * k }, hpP: 1, hpM: 1, shield: true }; };
     // нападающие
     const A = Object.entries(a.units).map(([id, n]) => stack(a.units, id, n, false, c, 'att')).filter(Boolean);
-    let genA = 0, cmd = 0; if (a.general && c.general && !c.general.dead) { const gs = this.genStats(c.general); genA = gs.atk * (this.artOn(c, 'claw') ? 2 : 1); cmd = gs.catk; A.push(genStack(genA, gs.def)); } // «Коготь Полководца» — атака генерала ×2
+    // командование генерала — армии, где он (с 27.10): урон всей армии (и магов) и её защита; раньше защита шла от генерала, сидящего дома
+    let genA = 0, cmd = 0, cmdD = 0; if (a.general && c.general && !c.general.dead) { const gs = this.genStats(c.general), st = genStack(gs, 'att', this.artOn(c, 'claw')); genA = (st.a.inf + st.a.cav + st.a.mag) / 3; cmd = gs.catk; cmdD = gs.cdef; A.push(st); }
     // умения и снаряжение генерала (hero.js): у нападающего — если генерал в этой армии, у защитника — если генерал дома
     const hA = a.general && c.general && !c.general.dead ? this.heroBonus(c.general) : null;
     const hD = target && target.sim ? target.sim.hero : target && target.general && !target.general.dead && !target.general.away ? this.heroBonus(target.general) : null; // target.sim — замок симулятора (simBattle)
     const hAtk = hA ? 1 + hA.atk + (a.mission === 'attack' ? hA.fury : 0) : 1, raidK = raid && hA ? 1 + hA.raid : 1;
-    const kA = bA.atk * (1 + cmd) * hAtk * morale * (1 + luck / 100) * raidK, kmA = bA.magic * bA.atk * (hA ? 1 + hA.mag : 1) * morale * (1 + luck / 100) * raidK;
-    const aHp = bA.def * (hA ? 1 + hA.def : 1), aMHp = aHp * bA.magic;
+    const kA = bA.atk * (1 + cmd) * hAtk * morale * (1 + luck / 100) * raidK, kmA = bA.magic * bA.atk * (1 + cmd) * (hA ? 1 + hA.mag : 1) * morale * (1 + luck / 100) * raidK;
+    const aHp = bA.def * (hA ? 1 + hA.def : 1) * (1 + cmdD), aMHp = aHp * bA.magic;
     for (const s of A) { const k = s.mage ? kmA : kA; s.a = { inf: s.a.inf * k, cav: s.a.cav * k, mag: s.a.mag * k }; s.hpP *= aHp; s.hpM *= aMHp; }
     // защитники: Замковая армия и отряды (свои), подкрепления (со своими бонусами; от замка — Забор и сам замок), генерал; у NPC — охрана
     const D = []; let bD = null, wallL = 0, wall0 = 0;
@@ -1450,12 +1497,13 @@ function install(Game, helpers) {
       const wallK = 1 + bD.wallPer * (hD ? 1 + hD.wall : 1) * wallL, hDd = hD ? 1 + hD.def : 1;
       const home = !target.site ? DEF_HOME * (this.artOn(target, 'hand') ? 1.15 : 1) : 1; // недострой — ещё не крепость; «Длань Хранителя» — +15% к защите войск в замке
       // у «замка-симуляции» (симулятор, лагерь Подземелья) бонуса атаки нет — 1
-      const put = (s, b) => { if (!s) return; const ba = b.atk ?? 1, bm = b.magic ?? 1, k = s.mage ? bm * ba : ba, hk = (b.def ?? 1) * wallK * hDd * home; s.a = { inf: s.a.inf * k, cav: s.a.cav * k, mag: s.a.mag * k }; s.hpP *= hk; s.hpM *= hk * bm; D.push(s); };
+      // генерал защитника — дома: бьётся в строю как его воин, его командование атакой и защитой — всем защитникам замка (с 27.10)
+      const gD = target.sim ? target.sim.gen || null : target.general && !target.general.dead && !target.general.away ? this.genStats(target.general) : null;
+      const cA = 1 + ((gD && gD.catk) || 0), cH = 1 + ((gD && gD.cdef) || 0);
+      const put = (s, b) => { if (!s) return; const ba = b.atk ?? 1, bm = b.magic ?? 1, k = (s.mage ? bm * ba : ba) * cA, hk = (b.def ?? 1) * wallK * hDd * home * cH; s.a = { inf: s.a.inf * k, cav: s.a.cav * k, mag: s.a.mag * k }; s.hpP *= hk; s.hpM *= hk * bm; D.push(s); };
       for (const m of [target.units, ...target.squads.map((q) => q.units)]) for (const [id, n] of Object.entries(m)) { if (UNIT[id] && UNIT[id].dungOnly && !target.dung) continue; put(stack(m, id, n, true, target, 'def'), bD); } // Страж глубин замок не защищает
       for (const g of this.guestsOf(target)) { const gb = this.bonus(g.c); for (const [id, n] of Object.entries(g.a.units)) put(stack(g.a.units, id, n, false, g.c, 'def', { guest: g }), gb); }
-      if (target.sim ? target.sim.genDef : target.general && !target.general.dead && !target.general.away) {
-        const gs = target.sim ? { atk: target.sim.genAtk || 0, def: target.sim.genDef } : this.genStats(target.general); put(genStack(gs.atk, gs.def), bD);
-      }
+      if (gD && gD.a3) put(genStack(gD, 'def', false), bD);
     } else for (const g of npcGarrison(npc)) {
       if (g.unitId) { const s = stack(null, g.unitId, g.n, false, null, 'def', { npc: g }); s.hpP *= npc.hpK || 1; s.hpM *= npc.hpK || 1; D.push(s); continue; } // воины из тренировок (лагеря, руины, Подземелье)
       const v = (g.atk || 0) + (g.mag || 0); D.push({ m: null, id: g.key, n: g.n, own: false, npc: g, cls: CLS(g.type), mage: g.type === 'magic', hp: g.hp, a: { inf: v * NPC_DMG, cav: v * NPC_DMG, mag: v * NPC_DMG }, hpP: (1 + (g.def || 0) / NPC_ARM) * (npc.hpK || 1), hpM: (1 + (g.mdef || 0) / NPC_ARM) * (npc.hpK || 1), shield: true }); }
@@ -1591,18 +1639,18 @@ function install(Game, helpers) {
     const stack = (m, id, n, own, castle, extra) => { const u = UNIT[id]; if (!u || !n) return null; const cap = nb ? forgeCaps(u) : null;
       const f = (k) => { const v = castle && u.race !== 'all' ? this.forgeLvl(castle, id, k) : 0; return cap ? Math.min(v, cap[k]) : v; }; // новые правила: Кузница — не больше половины базы; общие воины (Бунтарь, Путешественник, Катапульта, Таран) — без улучшений
       return { m, id, n, own, hp: u.hp || 50, atk: (u.attack || 0) + f('a'), cav: u.type === 'cavalry', mag: (u.magic || 0) + f('m'), def: (u.def ? u.def.inf : 0) + f('d'), defC: (u.def ? u.def.cav : 0) + f('d'), mdef: (u.def ? u.def.mag : 0) + f('md'), row: ROW[u.type] || 1, ...extra }; };
-    // генерал в строю: принимает часть удара своей личной защитой и здоровьем (гибель генерала решается отдельно — после боя)
-    const genStack = (g) => { const gs = this.genStats(g), u = UNIT[GENERAL_ID]; return { m: null, gen: true, id: GENERAL_ID, n: 1, own: false, hp: u.hp, atk: 0, mag: 0, def: gs.def, defC: gs.def, mdef: u.def.mag, row: 1 }; };
+    // генерал в строю: принимает часть удара защитой и здоровьем своего воина (гибель генерала решается отдельно — после боя)
+    const genStack = (gs) => ({ m: null, gen: true, id: GENERAL_ID, n: 1, own: false, hp: gs.hp, atk: 0, mag: 0, def: gs.def, defC: gs.def, mdef: gs.mdef, row: ROW[{ inf: 'infantry', cav: 'cavalry', mag: 'magic' }[gs.cls]] || 1 });
     // нападающие
     let A = Object.entries(a.units).map(([id, n]) => stack(a.units, id, n, false, c)).filter(Boolean);
-    let genA = 0, cmd = 0; if (a.general && c.general && !c.general.dead) { const gs = this.genStats(c.general); genA = gs.atk * (this.artOn(c, 'claw') ? 2 : 1); cmd = gs.catk; A.push(genStack(c.general)); }
+    let genA = 0, cmd = 0, cmdD = 0; if (a.general && c.general && !c.general.dead) { const gs = this.genStats(c.general); genA = gs.atk * (this.artOn(c, 'claw') ? 2 : 1); cmd = gs.catk; cmdD = gs.cdef; A.push(genStack(gs)); } // командование — армии, где генерал
     // умения и снаряжение генерала (hero.js): у нападающего — если генерал в этой армии, у защитника — если генерал дома
     const hA = a.general && c.general && !c.general.dead ? this.heroBonus(c.general) : null;
     const hD = target && target.general && !target.general.dead && !target.general.away ? this.heroBonus(target.general) : null;
     const hAtk = hA ? 1 + hA.atk + (a.mission === 'attack' ? hA.fury : 0) : 1;
-    const kA = bA.atk * (1 + cmd) * hAtk * morale * (1 + luck / 100), kmA = bA.magic * bA.atk * (hA ? 1 + hA.mag : 1) * morale * (1 + luck / 100);
+    const kA = bA.atk * (1 + cmd) * hAtk * morale * (1 + luck / 100), kmA = bA.magic * bA.atk * (1 + cmd) * (hA ? 1 + hA.mag : 1) * morale * (1 + luck / 100);
     // защитники: Замковая армия и отряды (свои), подкрепления (со своей Кузницей), генерал; у NPC — охрана лагеря
-    let D = [], bD = null, wallL = 0, wall0 = 0, genD = 0;
+    let D = [], bD = null, wallL = 0, wall0 = 0, genD = 0, gsD = null;
     const siege = []; let siegeN = 0;
     if (target) {
       bD = this.bonus(target); wall0 = wallL = bD.wall;
@@ -1614,11 +1662,12 @@ function install(Game, helpers) {
       if (wallL < wall0) { this.setBuildingLevel(target, B.FENCE, wallL); siege.push(`Забор: ${wall0} → ${wallL} ур. (тараны)`); siegeN += wall0 - wallL; }
       for (const m of [target.units, ...target.squads.map((q) => q.units)]) for (const [id, n] of Object.entries(m)) { if (UNIT[id] && UNIT[id].dungOnly && !target.dung) continue; const s = stack(m, id, n, true, target); if (s) D.push(s); } // Страж глубин замок не защищает
       for (const g of this.guestsOf(target)) for (const [id, n] of Object.entries(g.a.units)) { const s = stack(g.a.units, id, n, false, g.c); if (s) D.push(s); }
-      if (target.general && !target.general.dead && !target.general.away) { genD = this.genStats(target.general).atk; D.push(genStack(target.general)); } // личная защита генерала — защита, а не урон (раньше прибавлялась к атаке)
+      if (target.general && !target.general.dead && !target.general.away) { gsD = this.genStats(target.general); genD = gsD.atk; D.push(genStack(gsD)); } // генерал дома: в строю и командует защитниками
     } else for (const g of npcGarrison(npc)) D.push({ m: null, id: g.key, n: g.n, own: false, npc: g, hp: g.hp, atk: g.atk, mag: g.mag, def: g.def, mdef: g.mdef, row: ROW[g.type] || 1 });
     const wallK = bD ? 1 + bD.wallPer * (hD ? 1 + hD.wall : 1) * wallL : 1, hDd = hD ? 1 + hD.def : 1;
-    const kD = bD ? bD.atk : 1, kmD = bD ? bD.magic * bD.atk : 1, dK = bD ? bD.def * wallK * hDd : 1, mdK = bD ? bD.def * bD.magic * hDd : 1;
-    const aDK = bA.def * (hA ? 1 + hA.def : 1), aMdK = bA.def * bA.magic * (hA ? 1 + hA.def : 1);
+    const cA = 1 + (gsD ? gsD.catk : 0), cH = 1 + (gsD ? gsD.cdef : 0); // командование генерала защитника
+    const kD = bD ? bD.atk * cA : 1, kmD = bD ? bD.magic * bD.atk * cA : 1, dK = bD ? bD.def * wallK * hDd * cH : 1, mdK = bD ? bD.def * bD.magic * hDd * cH : 1;
+    const aDK = bA.def * (hA ? 1 + hA.def : 1) * (1 + cmdD), aMdK = bA.def * bA.magic * (hA ? 1 + hA.def : 1) * (1 + cmdD);
     // урон сторон
     const sum = (L, f) => L.reduce((q, s) => q + f(s), 0);
     const RK = a.mission === 'raid' ? 0.5 * (hA ? 1 + hA.raid : 1) : 1; // набег — короткая стычка: урон вдвое меньше
@@ -1754,7 +1803,7 @@ function install(Game, helpers) {
       if (wipedA && Math.random() < hb.survive) { genSavedA = true; genA.push('Армия разбита, но генерал чудом уцелел и вернулся домой (умения и снаряжение).'); }
       else if (wipedA) { c.general.dead = true; delete c.general.away; a.general = false; this.heroStrip(c, c.general); genA.push('Генерал пал в бою — опыт не получен. Его снаряжение вернулось в Оружейную.'); }
       else {
-        const e = this.battleExp({ killedPop: popOf(dLost), win, mission: a.mission, npc: target ? null : npc, dLoss, mine: c, enemy: target });
+        const e = this.battleExp({ killedPop: popOf(dLost), lostPop: popOf(aLost), win, mission: a.mission, npc: target ? null : npc, dLoss, mine: c, enemy: target });
         const ge = this.addGeneralExp(c, e.exp); genExpA = ge ? ge.got : 0; const l = genLine('Генерал', ge, e); if (l) genA.push(l);
       }
     }
@@ -1766,7 +1815,7 @@ function install(Game, helpers) {
       // уцелел по шансу «Несокрушимого» и снаряжения — как у нападающего: без опыта и с пояснением в отчёте (раньше — молча «в строю»)
       else if (wipedD) { genSavedD = true; genD.push('Оборона разбита, но ваш генерал чудом уцелел (умения и снаряжение) — опыт не получен.'); }
       else {
-        const e = this.battleExp({ killedPop: popOf(aLost), win: !win, mission: 'attack', mine: target, enemy: c });
+        const e = this.battleExp({ killedPop: popOf(aLost), lostPop: popOf(dLost), win: !win, mission: 'attack', mine: target, enemy: c });
         const ge = this.addGeneralExp(target, e.exp); genExpD = ge ? ge.got : 0; const l = genLine('Ваш генерал', ge, e); if (l) genD.push(l);
       }
     }
@@ -2086,7 +2135,7 @@ function install(Game, helpers) {
       if (this.brBonus) { const ru = this.ownerOf(target), i = this.brRank(ru); if (i >= 0) sim.rank = { idx: i, title: require('./battlerank').rankInfo(i).title, def: this.brBonus(ru).atk }; } // боевой ранг виден всем (профиль) — учитывается всегда
       if (can('armies')) {
         sim.units = mergeUnits([target.units, ...target.squads.map((q) => q.units)]); for (const id of Object.keys(sim.units)) if (UNIT[id] && UNIT[id].dungOnly) delete sim.units[id]; // Стражи глубин замок не защищают
-        const g = target.general; if (g && !g.dead && !g.away) { const hb = this.heroBonus(g); const gs = this.genStats(g); sim.gen = { level: g.level, atk: gs.atk, def: gs.def, hdef: hb.def, hwall: hb.wall }; }
+        const g = target.general; if (g && !g.dead && !g.away) { const hb = this.heroBonus(g); sim.gen = { level: g.level, kindId: genWarrior(g).id, pts: { atk: g.pts.atk || 0, catk: g.pts.catk || 0, cdef: g.pts.cdef || 0 }, hdef: hb.def, hwall: hb.wall }; } // симулятор пересчитает генерала по воину и очкам
         lines.push(`Армии в замке: ${unitsLine(mergeUnits([target.units, ...target.squads.map((q) => q.units)]))}`);
         if (target.general && !target.general.dead) lines.push(`Генерал ${target.general.level} ур.`);
       }
@@ -2143,7 +2192,8 @@ function install(Game, helpers) {
       mkD = () => ({ id: -1, owner: uid, name: 'Симулятор', units: mergeUnits([clean(d.units), clean(d.reinf)]), squads: [], general: null, wall, armies: [], forge,
         grid: [new Int8Array(49).fill(-1), new Int8Array(225).fill(-1)], levels: [new Int8Array(49), new Int8Array(225)],
         sim: { bonus: { def: num(d.defK, 1, 5, 1), atk: num(d.atkK, 1, 5, 1), magic: num(d.magK, 1, 3, 1), wall, wallPer: num(d.wallPer, 0, 0.2, WALL_PER[race]) },
-          genDef: g ? num(g.def, 0, 1e5, 0) : 0, genAtk: g ? num(g.atk, 0, 1e5, 0) : 0, hero: g ? { def: num(g.hdef, 0, 2, 0), wall: num(g.hwall, 0, 2, 0) } : null } });
+          gen: g ? this.genStats({ kindId: Number(g.kindId) || 0, pts: Object.fromEntries(['atk', 'catk', 'cdef'].map((k) => [k, Math.round(num(g.pts && g.pts[k], 0, 2 * GEN.maxLevel, 0))])) }) : null, // генерал противника — по воину и очкам из разведки
+          hero: g ? { def: num(g.hdef, 0, 2, 0), wall: num(g.hwall, 0, 2, 0) } : null } });
       D = mkD();
     }
     const luck0 = process.env.LUCK; process.env.LUCK = '0';
@@ -2565,7 +2615,7 @@ function install(Game, helpers) {
     for (const u of unitsForRace(race)) if (u.id !== GENERAL_ID && !u.undead) castle.units[u.id] = Math.max(castle.units[u.id] || 0, u.role === 'merchant' ? 200 : u.race === 'all' && !['giant', 'valkyrie', 'ram', 'catapult', 'eye', 'shadow'].includes(u.role) ? 20 : 1000);
     if (!this.generalHome(castle.owner, castle)) { // генерал один на королевство: если он в другом замке — здесь не появляется
       castle.general = this.newGeneral(castle, 100); // полная прокачка: очки уже распределены
-      Object.assign(castle.general.pts, { atk: 20, def: 20, catk: 80, cdef: 60, heal: 10, career: 8 }); castle.general.free = 0;
+      Object.assign(castle.general.pts, { atk: 20, catk: 90, cdef: 70, heal: 10, career: 8 }); castle.general.free = 0;
     }
     castle.sciences = Object.assign(this.sciOf(castle), { eco: 20, eng: 20, fhi: 20, war: 20 });
     for (const u of this.forgeUnits(castle)) castle.forge[u.id] = { a: 19, d: 19, m: 19, md: 19 }; // Кузница и Школа магии — 20 ур. (уровень показывается с 1)
@@ -2663,7 +2713,7 @@ function install(Game, helpers) {
       deadGenerals: this.deadList(castle).map((g) => ({ name: g.name, kind: g.kind, kindId: g.kindId, level: g.level, reviveAt: g.reviveAt || 0, ...this.reviveCostOf(g, castle), fund: g.fund || null })),
       genElse: castle.general && !castle.general.dead ? null : (() => { const h = this.generalHome(castle.owner, castle); return h ? { id: h.castle.id, castle: h.castle.name, what: h.what, name: h.g ? h.g.name : '', level: h.g ? h.g.level : 0 } : null; })(),
       genTrain: (() => { const t = castle.training.find((x) => x.unit === GENERAL_ID); return t ? { kind: (UNIT[t.kindId] || {}).name || 'Генерал', kindId: t.kindId, end: t.start + t.each } : null; })(),
-      genUnits: this.genTrainUnits(castle).map((u) => ({ id: u.id, ...this.genTrainCost(u) })), armies: castle.armies.map((a) => ({ id: a.id, units: a.units, general: a.general, mission: a.mission, x: a.x, y: a.y, depart: a.depart, arrive: a.arrive, back: a.back, state: a.state, loot: a.loot, cargo: a.cargo, squad: a.squad, portal: a.portal, dung: a.dung || 0, digEnd: a.digEnd || 0, art: !!(a.find || a.art),
+      genUnits: this.genTrainUnits(castle).map((u) => ({ id: u.id, ...this.genTrainCost(u), prof: genProfile(u) })), armies: castle.armies.map((a) => ({ id: a.id, units: a.units, general: a.general, mission: a.mission, x: a.x, y: a.y, depart: a.depart, arrive: a.arrive, back: a.back, state: a.state, loot: a.loot, cargo: a.cargo, squad: a.squad, portal: a.portal, dung: a.dung || 0, digEnd: a.digEnd || 0, art: !!(a.find || a.art),
         stayName: a.state === 'stay' && this.db.castles[a.stayAt] ? this.db.castles[a.stayAt].name : null })),
       squads: castle.squads, reserve: { units: castle.reserve, max: RESERVE_MAX, closed: castle.loyalty <= RESERVE_LOY }, merchants: this.merchants(castle),
       infirm: this.buildingLevel(castle, B.INFIRMARY) ? { cap: this.infirmCap(castle), used: this.infirmUsed(castle), // Лазарет: раненые и цена лечения
@@ -2693,11 +2743,12 @@ function install(Game, helpers) {
 
   P.generalView = function generalView(castle) {
     const g = castle.general, gs = this.genStats(g), q = g.squad && castle.squads.find((x) => x.id === g.squad), a = g.away && castle.armies.find((x) => x.id === g.away);
-    const where = a ? `армия в походе (${MISSIONS[a.mission]} ${a.x}:${a.y})` : q ? `Армия: ${q.name}` : 'Замковая армия';
+    const where = a ? `в походе (${MISSIONS[a.mission]} ${a.x}:${a.y})` : q ? q.name : 'Замковая армия'; // «Находится в армии» и «Размещение» — отдельными строками, как в оригинале
     const health = g.dead ? (g.reviveAt && g.reviveStart ? Math.min(99, Math.floor((Date.now() - g.reviveStart) / (g.reviveAt - g.reviveStart) * 100)) : 0) : 100;
     // лимиты опыта игроку не отправляются (их нет и в окне): day и foes — служебные
-    return { ...g, foes: undefined, day: undefined, stats: gs, need: this.generalNeed(g.level), prevNeed: g.level > 1 ? this.generalNeed(g.level - 1) : 0, where: `${where}, замок ${castle.name}`, health,
-      reviveCost: Object.fromEntries(RES4.map((r) => [r, Math.round(UNIT[GENERAL_ID].cost[r] * GEN.revive * g.level)])), resetGold: GEN.resetGold, perLevel: GEN.perLevel, rekindSec: REKIND_SEC, healMax: GEN.healMax };
+    return { ...g, foes: undefined, day: undefined, stats: gs, need: this.generalNeed(g.level), prevNeed: g.level > 1 ? this.generalNeed(g.level - 1) : 0, where, place: castle.name, health,
+      reviveCost: Object.fromEntries(RES4.map((r) => [r, Math.round(UNIT[GENERAL_ID].cost[r] * GEN.revive * g.level)])), resetGold: GEN.resetGold, perLevel: GEN.perLevel, rekindSec: REKIND_SEC,
+      healMax: gs.healMax, careerMax: gs.careerMax, cmdMax: gs.cmdMax, atkPt: GEN.atkPt, healPt: GEN.heal, careerPt: GEN.career }; // потолки — от воина генерала
   };
 
   // цвет строки в списке отчётов: зелёный — успех, красный — неудача, коричневый — прочее
