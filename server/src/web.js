@@ -568,7 +568,9 @@ const API = {
   nearby() { this.send({ t: 'players', kind: 'nearby', list: this.game.nearby(this.user) }); },
   notes(m) { if (typeof m.text === 'string') { this.game.setNotes(this.user, m.text); this.toast('Блокнот сохранён.'); } this.send({ t: 'notes', text: this.user.notes || '' }); },
   about(m) { this.game.setAbout(this.user, m.text); this.toast('Сохранено.'); },
-  place(m) { const r = this.game.setPlace(this.user, m.country, m.city); if (r.error) return this.error(r.error); this.send({ t: 'place', country: r.country, city: r.city, msg: r.msg }); }, // страна и город (social.js)
+  // страна и населённый пункт (social.js, places.js): поиск по началу названия — список; сохранить можно только найденный пункт
+  placefind(m) { this.send({ t: 'placefind', country: String(m.country || ''), q: String(m.q || '').slice(0, 40), list: this.game.placeFind(m.country, String(m.q || '').slice(0, 40)) }); },
+  place(m) { const r = this.game.setPlace(this.user, m.country, m.i); if (r.error) return this.error(r.error); this.send({ t: 'place', country: r.country, city: r.city, area: r.area, msg: r.msg }); },
   chat(m) {
     const r = this.game.chatPost(this.user, m.text); if (r.error) return this.error(r.error);
     for (const s of WebSession.all || []) if (s.user && s.sendChat) s.sendChat(r.msg);

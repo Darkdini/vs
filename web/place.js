@@ -1,63 +1,57 @@
 'use strict';
-// «Личная информация»: страна (Россия, Украина, Беларусь) и город проживания (сервер: social.js setPlace, t:'place').
-// Город — из подсказок своей страны (крупные города) или свой: если города нет в списке, игрок впишет его сам.
-// В подсказки не входят города территорий, о которых спорят страны: их пишут вручную — игра ничью сторону не занимает.
+// «Личная информация»: страна (Россия, Украина, Беларусь) и населённый пункт — только из списка (сервер: social.js setPlace,
+// places.js — города, посёлки и сёла из открытых данных Wikidata). Игрок вводит начало названия — сервер присылает найденные
+// (t:'placefind'), игрок нажимает свой — сохраняется (t:'place'). Пока игрок печатает, обновляется только список, не всё окно.
 const COUNTRY = { ru: 'Россия', ua: 'Украина', by: 'Беларусь' };
-const CITIES = {
-  ru: ['Москва', 'Санкт-Петербург', 'Новосибирск', 'Екатеринбург', 'Казань', 'Красноярск', 'Нижний Новгород', 'Челябинск', 'Уфа', 'Самара',
-    'Ростов-на-Дону', 'Краснодар', 'Омск', 'Воронеж', 'Пермь', 'Волгоград', 'Саратов', 'Тюмень', 'Тольятти', 'Барнаул', 'Махачкала', 'Ижевск',
-    'Хабаровск', 'Ульяновск', 'Иркутск', 'Владивосток', 'Ярославль', 'Томск', 'Ставрополь', 'Оренбург', 'Кемерово', 'Набережные Челны', 'Рязань',
-    'Новокузнецк', 'Балашиха', 'Астрахань', 'Пенза', 'Киров', 'Липецк', 'Чебоксары', 'Калининград', 'Тула', 'Курск', 'Сочи', 'Улан-Удэ', 'Тверь',
-    'Магнитогорск', 'Иваново', 'Брянск', 'Белгород', 'Сургут', 'Владимир', 'Якутск', 'Чита', 'Нижний Тагил', 'Архангельск', 'Калуга', 'Смоленск',
-    'Волжский', 'Курган', 'Череповец', 'Грозный', 'Орёл', 'Подольск', 'Вологда', 'Саранск', 'Владикавказ', 'Мурманск', 'Тамбов', 'Стерлитамак',
-    'Кострома', 'Петрозаводск', 'Нижневартовск', 'Йошкар-Ола', 'Новороссийск', 'Химки', 'Таганрог', 'Комсомольск-на-Амуре', 'Сыктывкар', 'Нальчик',
-    'Шахты', 'Дзержинск', 'Братск', 'Энгельс', 'Ангарск', 'Благовещенск', 'Королёв', 'Великий Новгород', 'Старый Оскол', 'Мытищи', 'Псков',
-    'Люберцы', 'Бийск', 'Южно-Сахалинск', 'Армавир', 'Балаково', 'Абакан', 'Норильск', 'Сызрань', 'Северодвинск', 'Петропавловск-Камчатский',
-    'Уссурийск', 'Волгодонск', 'Каменск-Уральский', 'Пятигорск', 'Златоуст', 'Электросталь', 'Альметьевск', 'Рыбинск', 'Салават', 'Миасс',
-    'Копейск', 'Находка', 'Хасавюрт', 'Коломна', 'Майкоп', 'Ковров', 'Одинцово', 'Красногорск', 'Нефтекамск', 'Дербент', 'Серпухов',
-    'Новочеркасск', 'Каспийск', 'Обнинск', 'Новый Уренгой', 'Ноябрьск', 'Кисловодск', 'Ессентуки', 'Невинномысск', 'Березники', 'Димитровград',
-    'Камышин', 'Муром', 'Ачинск', 'Новочебоксарск', 'Батайск', 'Елец', 'Жуковский', 'Сергиев Посад', 'Щёлково', 'Раменское', 'Долгопрудный',
-    'Реутов', 'Ногинск', 'Домодедово', 'Орехово-Зуево', 'Артём', 'Новошахтинск', 'Бердск', 'Междуреченск', 'Прокопьевск', 'Ленинск-Кузнецкий',
-    'Северск', 'Нижнекамск', 'Новоуральск', 'Первоуральск', 'Ухта', 'Воткинск', 'Глазов', 'Сарапул', 'Тобольск', 'Нефтеюганск', 'Когалым',
-    'Назрань', 'Черкесск', 'Элиста', 'Кызыл', 'Горно-Алтайск', 'Магадан', 'Нарьян-Мар', 'Салехард', 'Ханты-Мансийск', 'Анадырь', 'Биробиджан', 'Магас'],
-  ua: ['Киев', 'Харьков', 'Одесса', 'Днепр', 'Львов', 'Кривой Рог', 'Николаев', 'Винница', 'Полтава', 'Чернигов', 'Черкассы', 'Хмельницкий',
-    'Черновцы', 'Житомир', 'Сумы', 'Ровно', 'Ивано-Франковск', 'Кропивницкий', 'Тернополь', 'Каменское', 'Луцк', 'Белая Церковь', 'Кременчуг',
-    'Ужгород', 'Никополь', 'Павлоград', 'Каменец-Подольский', 'Бровары', 'Александрия', 'Умань', 'Мукачево', 'Конотоп', 'Ирпень', 'Шостка',
-    'Измаил', 'Ковель', 'Бердичев', 'Нежин', 'Дрогобыч', 'Белгород-Днестровский', 'Борисполь', 'Фастов', 'Стрый', 'Коростень', 'Лозовая',
-    'Ахтырка', 'Смела', 'Прилуки', 'Ромны', 'Калуш'],
-  by: ['Минск', 'Гомель', 'Могилёв', 'Витебск', 'Гродно', 'Брест', 'Бобруйск', 'Барановичи', 'Борисов', 'Пинск', 'Орша', 'Мозырь', 'Солигорск',
-    'Новополоцк', 'Лида', 'Молодечно', 'Полоцк', 'Жлобин', 'Светлогорск', 'Речица', 'Жодино', 'Слуцк', 'Кобрин', 'Слоним', 'Волковыск',
-    'Калинковичи', 'Сморгонь', 'Рогачёв', 'Осиповичи', 'Горки', 'Новогрудок', 'Берёза', 'Вилейка', 'Лунинец', 'Кричев', 'Дзержинск',
-    'Марьина Горка', 'Пружаны', 'Ивацевичи', 'Глубокое', 'Поставы', 'Несвиж'],
-};
-const cityOptions = (c) => (CITIES[c] || []).map((x) => `<option value="${x}">`).join('');
-// строки «Страна» и «Город» — в «Личной информации» у всех
-const placeLines = (p) => `${p.country && COUNTRY[p.country] ? `<br>Страна: ${COUNTRY[p.country]}` : ''}${p.city ? `<br>Город: ${esc(p.city)}` : ''}`;
-// у себя — выбор страны и города
-function placeForm(p) {
-  const c = COUNTRY[p.country] ? p.country : '';
-  return `<form class="placeform" data-form="place"><span>Где вы живёте:</span>
-    <select name="country" data-placec aria-label="Страна">${['', 'ru', 'ua', 'by'].map((k) => `<option value="${k}"${c === k ? ' selected' : ''}>${k ? COUNTRY[k] : '— страна —'}</option>`).join('')}</select>
-    <input name="city" maxlength="40" list="placeCities" autocomplete="off" value="${esc(c ? p.city || '' : '')}" placeholder="Город" aria-label="Город"${c ? '' : ' disabled'}>
-    <datalist id="placeCities">${cityOptions(c)}</datalist>
-    <button class="btn primary small">OK</button></form>
-    <p class="small muted">Начните вводить город — появятся подсказки. Если вашего города в них нет, впишите его сами.</p>`;
+S.placeQ = { country: '', q: '', list: null, timer: 0 };
+const placeText = (p) => (p.city ? `${p.city}${p.cityArea ? ` (${p.cityArea})` : ''}` : '');
+// строки «Страна» и «Населённый пункт» — в «Личной информации» у всех
+const placeLines = (p) => `${p.country && COUNTRY[p.country] ? `<br>Страна: ${COUNTRY[p.country]}` : ''}${p.city ? `<br>Населённый пункт: ${esc(placeText(p))}` : ''}`;
+function placeResults() {
+  const { q, list } = S.placeQ;
+  if (!list || q.trim().length < 2) return '';
+  return list.length ? list.map((x) => `<button type="button" class="placeitem" data-placei="${x.i}"><b>${esc(x.n)}</b>${x.r ? `<small>${esc(x.r)}</small>` : ''}</button>`).join('')
+    : '<div class="small muted center">Ничего не найдено — проверьте название или выберите ближайший пункт.</div>';
 }
-$('#sheetBody').addEventListener('change', (e) => {
-  const s = e.target.closest('[data-placec]'); if (!s) return;
-  const f = s.form, dl = $('#placeCities'); if (dl) dl.innerHTML = cityOptions(s.value);
-  f.city.disabled = !s.value; f.city.value = '';
-  if (s.value) f.city.focus();
+// у себя — выбор страны и поиск пункта
+function placeForm(p) {
+  const pq = S.placeQ; if (!pq.country && COUNTRY[p.country]) pq.country = p.country;
+  const c = pq.country;
+  return `<div class="placeform"><span>Где вы живёте:</span>
+    <select data-placec aria-label="Страна">${['', 'ru', 'ua', 'by'].map((k) => `<option value="${k}"${c === k ? ' selected' : ''}>${k ? COUNTRY[k] : '— страна —'}</option>`).join('')}</select>
+    <input data-placeq maxlength="40" autocomplete="off" value="${esc(pq.q)}" aria-label="Город или село" placeholder="${c ? 'Город или село' : 'Сначала страна'}"${c ? '' : ' disabled'}></div>
+    <div class="placelist">${placeResults()}</div>
+    ${p.city ? `<p class="small">Сейчас: <b>${esc(COUNTRY[p.country] || '')}, ${esc(placeText(p))}</b> · <a class="placedel" data-placedel>Убрать</a></p>` : ''}
+    <p class="small muted">Введите первые буквы и нажмите на свой город, посёлок или село. Если его нет в списке — выберите ближайший.</p>`;
+}
+const placeAsk = () => { const pq = S.placeQ; if (pq.country && pq.q.trim().length >= 2) send({ t: 'placefind', country: pq.country, q: pq.q.trim() }); };
+const placeListShow = () => { const el = $('.placelist'); if (el) el.innerHTML = placeResults(); };
+$('#sheetBody').addEventListener('input', (e) => {
+  if (e.target.dataset.placeq === undefined) return;
+  const pq = S.placeQ; pq.q = e.target.value; clearTimeout(pq.timer);
+  if (pq.q.trim().length < 2) { pq.list = null; return placeListShow(); }
+  pq.timer = setTimeout(placeAsk, 250);
 });
-$('#sheetBody').addEventListener('submit', (e) => {
-  const f = e.target; if (f.dataset.form !== 'place') return;
-  e.preventDefault(); document.activeElement && document.activeElement.blur();
-  send({ t: 'place', country: f.country.value, city: f.country.value ? f.city.value.trim() : '' });
+$('#sheetBody').addEventListener('change', (e) => {
+  if (e.target.dataset.placec === undefined) return;
+  const pq = S.placeQ; pq.country = e.target.value; pq.q = ''; pq.list = null;
+  const inp = $('[data-placeq]'); if (inp) { inp.value = ''; inp.disabled = !pq.country; inp.placeholder = pq.country ? 'Город или село' : 'Сначала страна'; if (pq.country) inp.focus(); }
+  placeListShow();
+});
+$('#sheetBody').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-placei],[data-placedel]'); if (!b) return;
+  if (b.dataset.placedel !== undefined) return send({ t: 'place', country: '' });
+  send({ t: 'place', country: S.placeQ.country, i: Number(b.dataset.placei) });
 });
 const prevMilPlace = milMsg;
 milMsg = function (m) { // eslint-disable-line no-global-assign
-  if (m.t === 'place') { // сохранено: в открытой «Личной информации» — сразу новые страна и город
-    for (const p of new Set([S.lastAcct, S.lastProfile])) if (p && p.self) { p.country = m.country; p.city = m.city; }
+  if (m.t === 'placefind') { // ответ на последний запрос — список; устаревший (игрок уже напечатал дальше) — мимо
+    const pq = S.placeQ; if (m.country === pq.country && m.q === pq.q.trim()) { pq.list = m.list; placeListShow(); }
+    return;
+  }
+  if (m.t === 'place') { // сохранено: в открытой «Личной информации» — сразу новые страна и пункт
+    for (const p of new Set([S.lastAcct, S.lastProfile])) if (p && p.self) { p.country = m.country; p.city = m.city; p.cityArea = m.area; }
+    S.placeQ = { country: m.country, q: '', list: null, timer: 0 };
     toast(m.msg); return refreshSheet();
   }
   return prevMilPlace(m);

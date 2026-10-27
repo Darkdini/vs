@@ -135,10 +135,12 @@ function client() {
     a.send({ t: 'replog' }); const rl = await a.expect('replog'); // Кабинет → «Репутация»: своя история, не общий рейтинг
     assert.ok(rl.rep === 10 && Array.isArray(rl.log) && Array.isArray(rl.by), `своя репутация, «Кто поднимал» и история: ${JSON.stringify(rl)}`);
     console.log('✓ рейтинг и кабинет');
-    a.send({ t: 'place', country: 'by', city: 'Минск' }); const pl = await a.expect('place'); // «Личная информация»: страна и город
-    assert.ok(pl.country === 'by' && pl.city === 'Минск' && /Беларусь, Минск/.test(pl.msg), `страна и город: ${JSON.stringify(pl)}`);
-    a.send({ t: 'profile', id: 0 }); const pf = (await a.expect('profile')).profile; assert.ok(pf.country === 'by' && pf.city === 'Минск', 'в профиле');
-    console.log('✓ страна и город в «Личной информации»');
+    a.send({ t: 'placefind', country: 'by', q: 'гомел' }); const pf0 = await a.expect('placefind'); // «Личная информация»: найти и выбрать пункт
+    const gml = pf0.list.find((x) => x.n === 'Гомель'); assert.ok(gml && gml.r === 'Гомельская область', `найден Гомель: ${JSON.stringify(pf0.list.slice(0, 3))}`);
+    a.send({ t: 'place', country: 'by', i: gml.i }); const pl = await a.expect('place');
+    assert.ok(pl.country === 'by' && pl.city === 'Гомель' && pl.area === 'Гомельская область' && /Беларусь, Гомель/.test(pl.msg), `сохранён: ${JSON.stringify(pl)}`);
+    a.send({ t: 'profile', id: 0 }); const pf = (await a.expect('profile')).profile; assert.ok(pf.country === 'by' && pf.city === 'Гомель' && pf.cityArea === 'Гомельская область', 'в профиле');
+    console.log('✓ страна и населённый пункт в «Личной информации» — поиск и выбор из списка');
 
     // ---- админ, армия, бой, функции зданий ----
     const adm = client(); await adm.open();

@@ -310,7 +310,7 @@ function install(Game) {
       // кнопка в профиле серая, под кнопками — note
       deny: this.canReach ? ((dm, dg) => ({ msg: dm, gift: dg, note: u.admin && dm && dg ? 'Писать в личку и дарить подарки администратору могут только его друзья.' : [...new Set([dm, dg].filter(Boolean))].join(' ') }))(this.canReach(viewer, u, 'msg') || '', this.canReach(viewer, u, 'gift') || '') : {}, bday: u.bday ? this.bdayText(u.bday) : '', bdayRaw: u.id === viewer.id ? u.bday || '' : undefined,
       repToday: ((viewer.repGiven || {})[u.id] || 0) > Date.now() - 86400000,
-      about: u.about || '', country: u.country || '', city: u.city || '', avatar: u.avatar || 0, frame: u.frame || '', gold: u.id === viewer.id ? u.gold || 0 : undefined,
+      about: u.about || '', country: u.country || '', city: u.city || '', cityArea: u.cityArea || '', avatar: u.avatar || 0, frame: u.frame || '', gold: u.id === viewer.id ? u.gold || 0 : undefined,
       // в профиле — три последних подарка и сколько всего (как в оригинале); весь список — страницами (giftPage)
       gifts: (u.gifts || []).slice(-3).reverse().map((g) => this.giftView(g)), giftsN: (u.gifts || []).length,
       online: u.id === viewer.id || viewer.admin ? !!u.online : false,
@@ -465,19 +465,19 @@ function install(Game) {
 
   P.setNotes = function setNotes(user, text) { user.notes = String(text || '').slice(0, 5000); this.store.save(); return { ok: true }; };
   P.setAbout = function setAbout(user, text) { user.about = String(text || '').slice(0, 500); this.store.save(); return { ok: true }; };
-  // «Личная информация»: страна (Россия, Украина, Беларусь) и город проживания — видны всем в профиле. Город — из подсказок
-  // клиента (web/place.js) или свой: только буквы, пробел, точка, дефис, апостроф и скобки, до 40 знаков, без мата; пустая страна — убрать оба
-  P.setPlace = function setPlace(user, country, city) {
+  // «Личная информация»: страна (Россия, Украина, Беларусь) и населённый пункт — видны всем в профиле. Пункт — только из списка
+  // (places.js: города, посёлки, сёла): игрок ищет и выбирает, сервер сохраняет название и область найденного по номеру i;
+  // пустая страна — убрать оба
+  P.placeFind = function placeFind(country, q) { return Object.prototype.hasOwnProperty.call(COUNTRIES, String(country || '')) ? require('./places').find(String(country), q) : []; };
+  P.setPlace = function setPlace(user, country, i) {
     country = String(country || '');
-    if (!country) { delete user.country; delete user.city; this.store.save(); return { ok: true, country: '', city: '', msg: 'Страна и город убраны.' }; }
+    if (!country) { delete user.country; delete user.city; delete user.cityArea; this.store.save(); return { ok: true, country: '', city: '', area: '', msg: 'Страна и населённый пункт убраны.' }; }
     if (!Object.prototype.hasOwnProperty.call(COUNTRIES, country)) return { error: 'Выберите страну из списка.' };
-    city = String(city || '').replace(/\s+/g, ' ').trim();
-    if ([...city].length > 40) return { error: 'Название города — не длиннее 40 букв.' };
-    if (city && !/^\p{L}[\p{L} .'’()-]*$/u.test(city)) return { error: 'В названии города — только буквы, пробел, точка и дефис.' };
-    if (city && require('./matfilter').censorMat(city) !== city) return { error: 'Недопустимое название города.' };
-    user.country = country; if (city) user.city = city; else delete user.city;
+    const pl = require('./places').get(country, Number(i));
+    if (!pl) return { error: 'Выберите населённый пункт из списка.' };
+    user.country = country; user.city = pl.n; if (pl.r) user.cityArea = pl.r; else delete user.cityArea;
     this.store.save();
-    return { ok: true, country, city, msg: `Сохранено: ${COUNTRIES[country]}${city ? `, ${city}` : ''}.` };
+    return { ok: true, country, city: pl.n, area: pl.r, msg: `Сохранено: ${COUNTRIES[country]}, ${pl.n}${pl.r ? ` (${pl.r})` : ''}.` };
   };
 
   // рейтинги по разделам «Рейтинг»
