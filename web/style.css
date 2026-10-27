@@ -2483,6 +2483,11 @@ body.menuopen #advbar, body.menuopen #advhand { display: none; } /* открыт
 .frbd.today { border-color: #e0a020; background: linear-gradient(#fff3b0, #ffe07a); }
 .frbd > span { display: flex; flex-direction: column; } .frbd small { color: #7a5a2a; font-size: 13px; }
 .bdform { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0 2px; font: 16px var(--serif); }
+/* «Личная информация»: страна и город (place.js) — как форма дня рождения */
+.placeform { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0 2px; font: 16px var(--serif); }
+.placeform > span { flex-basis: 100%; }
+.placeform select { flex: 0 0 120px; width: auto; min-width: 0; font: 16px var(--serif); padding: 8px; }
+.placeform input { flex: 1; min-width: 0; font: 16px var(--serif); padding: 8px; }
 .bdform > span { flex-basis: 100%; }
 .bdform select { flex: 1; width: auto; min-width: 0; font: 16px var(--serif); padding: 8px; }
 .bdform select[name=day] { flex: 0 0 76px; }

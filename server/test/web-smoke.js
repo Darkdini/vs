@@ -135,6 +135,10 @@ function client() {
     a.send({ t: 'replog' }); const rl = await a.expect('replog'); // Кабинет → «Репутация»: своя история, не общий рейтинг
     assert.ok(rl.rep === 10 && Array.isArray(rl.log) && Array.isArray(rl.by), `своя репутация, «Кто поднимал» и история: ${JSON.stringify(rl)}`);
     console.log('✓ рейтинг и кабинет');
+    a.send({ t: 'place', country: 'by', city: 'Минск' }); const pl = await a.expect('place'); // «Личная информация»: страна и город
+    assert.ok(pl.country === 'by' && pl.city === 'Минск' && /Беларусь, Минск/.test(pl.msg), `страна и город: ${JSON.stringify(pl)}`);
+    a.send({ t: 'profile', id: 0 }); const pf = (await a.expect('profile')).profile; assert.ok(pf.country === 'by' && pf.city === 'Минск', 'в профиле');
+    console.log('✓ страна и город в «Личной информации»');
 
     // ---- админ, армия, бой, функции зданий ----
     const adm = client(); await adm.open();

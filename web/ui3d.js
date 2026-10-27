@@ -484,7 +484,8 @@ function nicksWin(p) {
 }
 $('#sheetBody').addEventListener('click', (e) => { if (e.target.closest('[data-nicks]') && S.lastProfile) openSheet(() => nicksWin(S.lastProfile)); });
 function profileInfoWin(p) {
-  return `${ribbon('Личная информация')}<div class="pstats">Игрок: <b>${esc(p.login)}</b><br>Раса: ${esc(p.raceName)}<br>В игре с: ${fmtDate(p.created)}${p.lastSeen ? `<br>Последний вход: ${fmtDate(p.lastSeen)}` : ''}</div>
+  return `${ribbon('Личная информация')}<div class="pstats">Игрок: <b>${esc(p.login)}</b><br>Раса: ${esc(p.raceName)}${placeLines(p)}<br>В игре с: ${fmtDate(p.created)}${p.lastSeen ? `<br>Последний вход: ${fmtDate(p.lastSeen)}` : ''}</div>
+    ${p.self ? placeForm(p) : ''}
     ${p.self ? bdayForm(p.bdayRaw) : p.bday ? `<div class="pstats">🎂 День рождения: <b>${esc(p.bday)}</b></div>` : ''}
     ${p.self ? `<form class="stack" data-form="about"><textarea name="text" rows="4" placeholder="О себе">${esc(p.about)}</textarea><button class="btn primary">Сохранить</button></form>` : `<div class="pstats">${esc(p.about) || '<span class="muted">Игрок ничего о себе не написал.</span>'}</div>`}`;
 }
