@@ -25,7 +25,7 @@ const MENUS = {
     ['Премиум', M3('premium'), () => openPremium()],
     ['Королевство', M3('loyalty'), () => openKingdom()],
     ['Ресурсы', M3('resources'), () => openRes()],
-    ['Подарки', M3('gifts'), () => send({ t: 'profile', id: S.st.user.id })], // свои подарки — в профиле
+    ['Подарки', M3('gifts'), () => { S.gl = null; openSheet(giftListWin); send({ t: 'giftlist', id: S.st.user.id, page: 0 }); }], // подаренные мне — сразу списком (у каждого — свои)
     [S.st.user.zagsNew ? `ЗАГС (${S.st.user.zagsNew})` : 'ЗАГС', 'zags/rings.png', () => openZags()],
     ['Репутация', M3('reputation'), () => openRepLog()], // своя история; общий рейтинг — «Рейтинг» → «Авторитет»
     ['События', M3('events'), () => openReports()],
