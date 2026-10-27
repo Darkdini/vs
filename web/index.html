@@ -26,6 +26,7 @@
       <button data-mode="reg">Регистрация</button>
     </div>
     <form id="authForm" autocomplete="on">
+      <p id="refNote" class="refnote hidden"></p>
       <label>Email / Логин<input name="login" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="40" required></label>
       <label>Пароль<input name="password" type="password" autocomplete="current-password" required></label>
       <label id="nickBox" class="hidden">Придумайте ник <small>(имя в игре: 3–10 английских букв и цифр)</small><input name="nick" autocomplete="nickname" autocapitalize="none" spellcheck="false" maxlength="10"></label>
@@ -139,6 +140,7 @@
 <script src="forge.js"></script>
 <script src="battlehelp.js"></script>
 <script src="castlehelp.js"></script>
+<script src="invite.js"></script>
 <script src="runes.js"></script>
 <script src="magic.js"></script>
 <script src="science.js"></script>

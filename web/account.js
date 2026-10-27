@@ -45,6 +45,7 @@ function accountWin(p) {
         Репутация (${fmtFull(p.reputation)}): ${repIcons(p.reputation)}<br>Альянс: ${p.alliance ? `<b>${esc(p.alliance.name)} [${esc(p.alliance.tag)}]</b>` : '—'}</div></div>
     <div class="acctype">Тип аккаунта: ${a.premium ? 'Премиум «Завоеватель»' : 'Базовый'}</div>
     ${bar('data-acct="premium"', `${GFX}premium_crown.png`, 'Премиум пакеты')}
+    ${bar('data-frinv', 'gfx3d/prof/friend.png', 'Пригласить друга')}
     ${bar('data-acct="viol"', '', `⚠ Нарушения (${a.violations || 0})`)}
     ${ribbon('Безопасность')}
     <div class="acuid">Ваш уникальный номер в игре:<br><b>${a.uid}</b>${a.acctLogin ? `<br>Логин для входа: <b>${esc(a.acctLogin)}</b>` : ''}</div>

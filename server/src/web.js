@@ -184,7 +184,7 @@ class WebSession {
     }
     const fn = Object.prototype.hasOwnProperty.call(API, msg.t) ? API[msg.t] : null;
     if (!fn) { this.game.secEvent(this.ip, 'bad', `неизвестная команда «${String(msg.t).slice(0, 30)}»`); return this.error(`Неизвестная команда ${msg.t}`); }
-    if (!['register', 'login', 'hello', 'captcha', 'ping', 'reset'].includes(msg.t) && !this.user) return this.error('Сначала войдите.');
+    if (!['register', 'login', 'hello', 'captcha', 'ping', 'reset', 'refwho'].includes(msg.t) && !this.user) return this.error('Сначала войдите.');
     this.failed = false;
     const ret = fn.call(this, msg); if (ret && ret.catch) ret.catch((e) => { this.log(`handler error: ${e.stack}`); this.error('Ошибка сервера.'); });
     // лояльность населения (Резиденция) растёт за действия, а не за онлайн
@@ -269,6 +269,7 @@ const API = {
     if (res.error) { API.captcha.call(this); return this.error(res.error); }
     this.game.regDone(this.ip);
     res.user.regIp = this.ip; this.game.trackLogin(res.user, this.ip, m.dev); res.user.regDev = String(m.dev || '').slice(0, 40);
+    if (m.ref) this.game.inviteBind(res.user, m.ref); // по ссылке друга (invite.js): после trackLogin — проверка «один телефон»
     res.user.passLog = [{ at: Date.now(), by: 'reg', ip: this.ip, dev: String(m.dev || '').slice(0, 12), h: res.user.pass }]; // журнал паролей (game.js passLogPush)
     this.log(`web registered ${res.user.login}`);
     this.send({ t: 'registered', login: res.user.login });
@@ -563,6 +564,9 @@ const API = {
   myfriends() { this.send({ t: 'myfriends', data: this.game.friendsView(this.user) }); },
   bday(m) { const r = this.game.setBirthday(this.user, m.day, m.month); if (r.error) return this.error(r.error); this.toast(r.msg); this.send({ t: 'bday', bday: this.user.bday || '' }); },
   friends() { this.send({ t: 'players', kind: 'friends', list: this.game.friendsOf(this.user) }); },
+  // «Пригласить друга» (invite.js): чья ссылка — на форме регистрации, ещё до входа; окно со ссылкой и приглашёнными
+  refwho(m) { const u = this.game.inviteWho(m.code); this.send({ t: 'refwho', nick: u ? u.login : '' }); },
+  invite() { this.send({ t: 'invite', ...this.game.inviteView(this.user) }); },
   search(m) { this.send({ t: 'players', kind: 'search', q: m.q || '', list: this.game.searchPlayers(m.q) }); },
   nearby() { this.send({ t: 'players', kind: 'nearby', list: this.game.nearby(this.user) }); },
   notes(m) { if (typeof m.text === 'string') { this.game.setNotes(this.user, m.text); this.toast('Блокнот сохранён.'); } this.send({ t: 'notes', text: this.user.notes || '' }); },

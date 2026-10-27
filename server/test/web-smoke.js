@@ -714,6 +714,18 @@ function client() {
       [pw, lw, nw].forEach((x) => x.close());
       console.log('✓ Технические работы: игроков выбрасывает, заглушка на экране входа, регистрация закрыта, входит только администратор');
     }
+    { // «Пригласить друга» (invite.js): ссылка Webby; ещё до входа видно, кто пригласил; друг, зарегистрированный по ссылке, — в списке у Webby
+      // (в конце сценария: новый игрок не сбивает подсчёты игроков в проверках выше)
+      const iw = client(); await iw.open(); iw.send({ t: 'login', login: 'Webby', password: 'pass1' }); await iw.expect('auth');
+      iw.send({ t: 'invite' }); const iv = await iw.expect('invite');
+      assert.ok(/^[a-z0-9]{8}$/.test(iv.code) && iv.rating === 1000 && iv.days === 3 && iv.gold === 5 && iv.perMonth === 10 && !iv.list.length, `окно приглашений: ${JSON.stringify(iv)}`);
+      const nf = client(); await nf.open();
+      nf.send({ t: 'refwho', code: iv.code }); assert.strictEqual((await nf.expect('refwho')).nick, 'Webby', 'до входа — кто пригласил');
+      nf.send({ t: 'refwho', code: 'zzzzzzzz' }); assert.strictEqual((await nf.expect('refwho')).nick, '', 'чужой код — никто');
+      nf.send({ t: 'register', login: 'Friend1', password: 'pass3', race: '0', ref: iv.code, dev: 'cccccccccccccccc' }); await nf.expect('registered');
+      iw.send({ t: 'invite' }); const iv2 = await iw.expect('invite');
+      assert.ok(iv2.list.length === 1 && iv2.list[0].nick === 'Friend1' && iv2.list[0].st === 'wait', `друг в списке: ${JSON.stringify(iv2.list)}`);
+      [iw, nf].forEach((x) => x.close()); console.log('✓ «Пригласить друга»: ссылка, кто пригласил — до входа, регистрация по ссылке'); }
     adm.close();
     // 3 неверных входа → табличка «попробуйте через 3 минуты», даже правильный пароль не пускает
     const bf = client(); await bf.open();
