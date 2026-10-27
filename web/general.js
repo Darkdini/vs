@@ -11,15 +11,12 @@ const GEN_ROWS = [
   ['heal', 'plus', 'Скорость восстановления'],
   ['career', 'maxupgrade', 'Карьера'],
 ];
-const kx = (v) => String(Math.round(v * 100) / 100).replace('.', ',');
 const GEN_CLS = { inf: 'пехота', cav: 'конница', mag: 'маги' };
 // специализация и род войск генерала (как у его воина)
 const genSpec = (p) => { const t = SPEC_TXT[p.spec] || SPEC_TXT.U; return `<span class="uspec" title="${t[2]}"><img src="${GS(`spec_${t[0]}`)}" alt=""> ${t[1]} · ${GEN_CLS[p.cls] || GEN_CLS.inf}</span>`; };
-// три удара (по пехоте, коннице, магам) с иконками
-const genHits = (a3) => ['inf', 'cav', 'mag'].map((k) => `<span title="${A3_NAME[k]}"><img src="${GS(A3_IC[k])}" alt="">${fmtFull(Math.round(a3[k]))}</span>`).join('');
-// что воин даст генералу — в списках найма и смены воина
-const genProf = (p) => (p ? `<div class="gprof">${genSpec(p)}<div class="ghits"><span title="Здоровье"><img src="${GS('health')}" alt="">${fmtFull(p.hp)}</span>${genHits(p.a3)}</div>
-  <small>Командование до +${Math.round(p.cmdMax * 100)}% · опыт ×${kx(p.xp)}</small></div>` : '');
+// в найме и смене воина — только род войск и специализация воина: его удары, пределы и скорость опыта не показываются
+// (по решению владельца — иначе все выбирали бы одного и того же)
+const genProf = (id) => { const u = unitById(id); return u ? `<div class="gprof">${specHtml(u)}</div>` : ''; };
 
 function generalWin() {
   const g = MY().general, gu = unitById(M().generalId);
@@ -146,13 +143,13 @@ function noGeneralWin() {
     <div class="upbody">Удалить генерала ${esc(d.kind || '')}.</div><button class="pbar" data-gendel="${i}">Удалить</button><hr class="cwhr">`).join('');
   const train = tr ? `<div class="upbody center">Тренировка ${gico(tr.kindId)} Генерала (${esc(tr.kind)})<br>Осталось: <span class="cd" data-e="${tr.end}"></span></div>`
     : `${ribbon('Тренировка')}<div class="upbody center">Выберите юнита из замковой армии для тренировки:</div>
-      ${(my.genUnits || []).map((x) => { const u = unitById(x.id); return `<button class="pbar gpick" data-gentu="${x.id}"><img class="fi" src="${unitSrc(u)}" alt=""> ${esc(u.name)}${genProf(x.prof)}</button>`; }).join('') || '<p class="parch-note">В замковой армии нет подходящих юнитов.</p>'}`;
+      ${(my.genUnits || []).map((x) => { const u = unitById(x.id); return `<button class="pbar gpick" data-gentu="${x.id}"><img class="fi" src="${unitSrc(u)}" alt=""> ${esc(u.name)}${genProf(x.id)}</button>`; }).join('') || '<p class="parch-note">В замковой армии нет подходящих юнитов.</p>'}`;
   return `${ribbon('Генерал')}${tr ? '' : deadHtml}${train}`;
 }
 S.gtu = null;
 function genTrainWin() {
   const x = (MY().genUnits || []).find((y) => y.id === S.gtu); if (!x) return noGeneralWin();
-  return `${ribbon('Генерал')}<div class="upbody center">Генерал из воина ${gico(x.id)} ${esc(unitById(x.id).name)}:</div>${genProf(x.prof)}
+  return `${ribbon('Генерал')}<div class="upbody center">Генерал из воина ${gico(x.id)} ${esc(unitById(x.id).name)}:</div>${genProf(x.id)}
     <div class="upbody center">Стоимость тренировки:</div>${genCost(x)}<button class="pbar" data-gentdo>Тренировать</button>`;
 }
 // сменить воина: уровень, опыт, очки и снаряжение остаются; цена — как найм, переобучение — полчаса (сервер: rekindGeneral)
@@ -162,13 +159,13 @@ function genRekindWin() {
   return `${ribbon('Сменить воина')}<div class="upbody center">Сейчас: ${gico(g.kindId)} Генерал (${esc(g.kind || '')}), ${fmtFull(g.level)} ур.</div>
     <p class="coinhint">Уровень, опыт, очки и снаряжение останутся. Если у нового воина пределы ниже, лишние очки станут свободными. Переобучение — ${Math.max(1, Math.round(g.rekindSec / S.cat.speed / 60))} мин, цена — ${coinsZa(g.rekindGold || 50).replace('монету', 'монета')}.</p>
     <div class="upbody center">Выберите юнита из замковой армии:</div>
-    ${list.map((x) => { const u = unitById(x.id); return `<button class="pbar gpick" data-genrk="${x.id}"><img class="fi" src="${unitSrc(u)}" alt=""> ${esc(u.name)}${genProf(x.prof)}</button>`; }).join('') || '<p class="parch-note">В замковой армии нет подходящих юнитов.</p>'}`;
+    ${list.map((x) => { const u = unitById(x.id); return `<button class="pbar gpick" data-genrk="${x.id}"><img class="fi" src="${unitSrc(u)}" alt=""> ${esc(u.name)}${genProf(x.id)}</button>`; }).join('') || '<p class="parch-note">В замковой армии нет подходящих юнитов.</p>'}`;
 }
 S.grk = null;
 function genRekindDoWin() {
   const g = MY().general, x = (MY().genUnits || []).find((y) => y.id === S.grk); if (!g || !x) return genRekindWin();
   // цена — монеты (с 27.10), время — полчаса
-  return `${ribbon('Сменить воина')}<div class="upbody center">Переобучить генерала в ${gico(x.id)} ${esc(unitById(x.id).name)}:</div>${genProf(x.prof)}
+  return `${ribbon('Сменить воина')}<div class="upbody center">Переобучить генерала в ${gico(x.id)} ${esc(unitById(x.id).name)}:</div>${genProf(x.id)}
     <div class="upcost"><span>${gimg('coins_s.png', 'ri')}<b>${fmtFull(g.rekindGold || 50)}</b></span><span>${TIME_IC}<b>${fmtT(g.rekindSec / S.cat.speed)}</b></span></div>
     <div class="upbody center small">Уровень ${fmtFull(g.level)}, опыт, очки и снаряжение останутся.</div><button class="pbar" data-genrkdo>Сменить воина</button>`;
 }
@@ -194,7 +191,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.general !== undefined) return openGeneral();
   if (d.gendist !== undefined) { S.gd = {}; return openSheet(genDistWin); }
   if (d.genreset !== undefined) {
-    if (!confirm(g && g.resets > 0 ? 'Сбросить все очки опыта генерала? (бесплатный сброс)' : `Сбросить все очки за ${coinsZa(g ? g.resetGold : 100)}?`)) return;
+    if (!confirm(g && g.resets > 0 ? 'Сбросить все очки опыта генерала? (бесплатный сброс)' : `Сбросить все очки за ${coinsZa(g ? g.resetGold : 5)}?`)) return;
     return send({ t: 'general', op: 'reset' });
   }
   if (d.genname !== undefined) { const n = prompt('Новое имя генерала:', g ? g.name : ''); if (n) send({ t: 'general', op: 'rename', name: n }); return; }

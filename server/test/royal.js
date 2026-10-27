@@ -280,6 +280,18 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(A.general.dead && rep2.lines.some((l) => /Генерал пал/.test(l)) && rep2.data && rep2.data.att.generalDied, `второй бой с ${Math.round(100 - loss1)}% здоровья — генерал пал: ${rep2.lines.join(' | ')}`);
   console.log(`✓ генерал: здоровье — минус потери армии (первый бой −${loss1}%), +8% в час; кончилось — гибнет; защитник в набеге — не ниже 1%`);
 }
+// сброс очков генерала: первый — бесплатно, дальше — 5 монет (с 27.10; было 100), списание — в истории Казны
+{
+  const U = g.register({ login: 'genreset', password: '12345', race: 0 }).user, c = g.castleOf(U); g.mil(c);
+  c.general = g.newGeneral(c, 10); const G = c.general, put = () => { G.pts.catk += 4; G.free -= 4; }; put(); U.gold = 7;
+  assert.ok(g.generalOp(c, U, { op: 'reset' }).ok && U.gold === 7 && G.resets === 0 && G.pts.catk === 0, 'первый сброс — бесплатно');
+  put(); assert.ok(g.generalOp(c, U, { op: 'reset' }).ok && U.gold === 2 && G.pts.catk === 0, 'второй — 5 монет');
+  put(); assert.ok(/Нужно монет: 5/.test(g.generalOp(c, U, { op: 'reset' }).error || '') && G.pts.catk === 4 && U.gold === 2, 'без 5 монет — нельзя');
+  assert.ok(g.generalView(c).resetGold === 5 && (U.goldLog || []).some((x) => /Сброс очков генерала/.test(x.reason)), 'цена в окне, списание — в Казне');
+  c.units = { 200: 5, 201: 5 }; const gu = g.milState(c, U).genUnits;
+  assert.ok(gu.length && gu.every((x) => x.prof === undefined && x.cmdMax === undefined && x.xp === undefined), 'в найме и смене воина сила воина для генерала не приходит');
+  console.log('✓ генерал: сброс очков — первый бесплатно, дальше 5 монет; сила воина для генерала в найме не показывается');
+}
 // «Стройка века» (с 27.10): в полностью отстроенном королевстве задание не выдаётся, а уже выданное меняется на другое (выполненное — остаётся)
 {
   const U = g.register({ login: 'qbuilt1', password: '12345', race: 0 }).user, c = g.castleOf(U);

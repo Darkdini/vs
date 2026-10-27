@@ -353,7 +353,7 @@ const unitsForRace = (race) => UNITS.filter((u) => u.race === race || u.race ===
 // Личная атака — +2,5% к ударам за очко; Личной защиты нет. Командование атакой/защитой — армии, где генерал (cmdBonus, с убывающей
 // отдачей); восстановление — воскрешение быстрее на 1% за очко; карьера — +0,5% опыта за очко. Как в оригинале: чем сильнее воин
 // (среди воинов своей расы, genPow), тем выше потолки командования, восстановления и карьеры, но тем медленнее опыт и дольше воскрешение (GEN_RANGE)
-const GEN = { battleCap: 0.15, dayLevels: 1, perLevel: 2, maxLevel: 500, revive: 0.5, cmdK: 300, heal: 0.01, career: 0.005, resetGold: 100, atkPt: 0.025, a3K: 1, hpK: 1 }; // a3K, hpK — удары и здоровье генерала к воину
+const GEN = { battleCap: 0.15, dayLevels: 1, perLevel: 2, maxLevel: 500, revive: 0.5, cmdK: 300, heal: 0.01, career: 0.005, resetGold: 5, atkPt: 0.025, a3K: 1, hpK: 1 }; // a3K, hpK — удары и здоровье генерала к воину
 // от слабейшего воина расы к сильнейшему: потолок командования, очков восстановления и карьеры; множитель опыта; время воскрешения
 const GEN_RANGE = { cmd: [0.3, 0.5], heal: [30, 50], career: [60, 100], xp: [1.5, 1], revive: [0.75, 1.25] };
 const genLerp = ([a, b], s) => a + (b - a) * s;
@@ -1033,7 +1033,7 @@ function install(Game, helpers) {
       if (add.career && g.pts.career + add.career > gp.careerMax) return { error: `Карьера у этого генерала — не больше ${gp.careerMax} очков (опыт +${Math.round(gp.careerMax * GEN.career * 100)}%). Можно добавить ещё ${Math.max(0, gp.careerMax - g.pts.career)}.` };
       for (const k of GEN_STATS) g.pts[k] += add[k];
       g.free -= sum;
-    } else if (op === 'reset') {
+    } else if (op === 'reset') { // первый сброс — бесплатно, дальше — GEN.resetGold монет (5 — с 27.10, по решению владельца; было 100)
       const spent = GEN_STATS.reduce((s, k) => s + g.pts[k], 0);
       if (!spent) return { error: 'Очки ещё не распределены.' };
       if (g.resets > 0) g.resets--;
@@ -2746,7 +2746,7 @@ function install(Game, helpers) {
       deadGenerals: this.deadList(castle).map((g) => ({ name: g.name, kind: g.kind, kindId: g.kindId, level: g.level, reviveAt: g.reviveAt || 0, ...this.reviveCostOf(g, castle), fund: g.fund || null })),
       genElse: castle.general && !castle.general.dead ? null : (() => { const h = this.generalHome(castle.owner, castle); return h ? { id: h.castle.id, castle: h.castle.name, what: h.what, name: h.g ? h.g.name : '', level: h.g ? h.g.level : 0 } : null; })(),
       genTrain: (() => { const t = castle.training.find((x) => x.unit === GENERAL_ID); return t ? { kind: (UNIT[t.kindId] || {}).name || 'Генерал', kindId: t.kindId, end: t.start + t.each } : null; })(),
-      genUnits: this.genTrainUnits(castle).map((u) => ({ id: u.id, ...this.genTrainCost(u), prof: genProfile(u) })), armies: castle.armies.map((a) => ({ id: a.id, units: a.units, general: a.general, mission: a.mission, x: a.x, y: a.y, depart: a.depart, arrive: a.arrive, back: a.back, state: a.state, loot: a.loot, cargo: a.cargo, squad: a.squad, portal: a.portal, dung: a.dung || 0, digEnd: a.digEnd || 0, art: !!(a.find || a.art),
+      genUnits: this.genTrainUnits(castle).map((u) => ({ id: u.id, ...this.genTrainCost(u) })), /* что воин даст генералу, игроку не показывается (по решению владельца) */ armies: castle.armies.map((a) => ({ id: a.id, units: a.units, general: a.general, mission: a.mission, x: a.x, y: a.y, depart: a.depart, arrive: a.arrive, back: a.back, state: a.state, loot: a.loot, cargo: a.cargo, squad: a.squad, portal: a.portal, dung: a.dung || 0, digEnd: a.digEnd || 0, art: !!(a.find || a.art),
         stayName: a.state === 'stay' && this.db.castles[a.stayAt] ? this.db.castles[a.stayAt].name : null })),
       squads: castle.squads, reserve: { units: castle.reserve, max: RESERVE_MAX, closed: castle.loyalty <= RESERVE_LOY }, merchants: this.merchants(castle),
       infirm: this.buildingLevel(castle, B.INFIRMARY) ? { cap: this.infirmCap(castle), used: this.infirmUsed(castle), // Лазарет: раненые и цена лечения
