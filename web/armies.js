@@ -111,7 +111,7 @@ function regroupWin(k) {
       <div class="rgline"><input class="rgin" type="number" inputmode="numeric" min="0" max="${n}" value="${S.rg.units[id] || ''}" data-rgu="${id}">
       <button class="rghave" data-rgall="${id}" data-rgmax="${n}"><img src="${G3}hq/helmet.png" alt=""> ${fmtFull(n)}</button></div></div>` : ''; }).join('');
   return `${ribbon(a.reserve ? 'Достать из резерва' : 'Переформирование')}
-    ${genHere(a) ? `<label class="cchk"><input type="checkbox" data-rggen ${S.rg.gen ? 'checked' : ''}><i></i><img src="${unitSrc(unitById(M().generalId))}" alt=""> ${esc(MY().general.name)} (${fmtFull(MY().general.level)} ур.)</label>` : ''}
+    ${genHere(a) ? `<label class="cchk"><input type="checkbox" data-rggen ${S.rg.gen ? 'checked' : ''}><i></i><img src="${unitSrc(unitById(M().generalId))}" alt=""> ${esc(MY().general.name)} (${fmtFull(MY().general.level)} ур., здоровье ${MY().general.health}%)</label>` : ''}
     ${rows || (genHere(a) ? '' : '<p class="parch-note">В армии нет войск.</p>')}
     <div class="rgto"><select data-rgto>${targets.map(([v, t]) => `<option value="${v}" ${String(S.rg.to) === String(v) ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></div>
     ${S.rg.to === 'new' ? `<div class="rgnh">Название новой армии:</div><input class="rgin wide" maxlength="20" value="${esc(S.rg.name || '')}" data-rgname>` : ''}
@@ -197,6 +197,7 @@ function campaignWin() {
     ${c.mission === 'rally' ? '' : `${chk('portal', c.portal, `${GFX}build/hd3/portal.png`, 'Через портал', !portal)}
     ${chk('sched', c.sched && isPrem(), `${GFX}res/time.png`, isPrem() ? 'Расписание отправки' : 'Расписание отправки 🔒 премиум', !isPrem())}
     ${c.sched && isPrem() ? `<input type="datetime-local" data-cmp="at" value="${esc(c.at)}">` : ''}`}
+    ${a && genGoes(a, c) && MY().general && MY().general.health < 100 ? `<div class="cinfo small">Генерал идёт с армией, здоровье — ${MY().general.health}%. Если армия потеряет ${MY().general.health}% и больше, генерал погибнет.</div>` : ''}
     ${!a ? '<div class="cinfo">Армию собирают заранее: Военный штаб → «Армии в замке» → «Переформировать».</div>'
       : `<div class="cinfo ctime">${gimg('res/time.png', 'ric')} ${c.mission === 'rally' ? 'Удар созыва через' : 'Время в пути'}: <b id="cmpTime">${(() => { const t = campaignSec(); return t ? fmtT(t) : '—'; })()}</b></div>`}
     <button class="pbar" data-cmpgo>Отправить</button>`;

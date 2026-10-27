@@ -368,6 +368,10 @@ const REVIVE_GOLD = 1, REVIVE_RES_MAX = 100;
 const REVIVE_MIN = 10, REVIVE_TIME_K = 3;
 const GEN_HIRE_SEC = 1800, GEN_HIRE_K = 2.5, REKIND_SEC = 1800; // найм генерала: полчаса + время воина ×2,5 (Мечник — 1 ч, Мародер — 1,5 ч); смена воина — полчаса
 const REKIND_GOLD = 50; // смена воина генерала — 50 монет (с 27.10, по решению владельца; было — ресурсами, как найм)
+// здоровье генерала (с 27.10, по решению владельца): в бою он теряет столько процентов здоровья, сколько потеряла его армия (в нападении,
+// набеге, обороне, созыве на босса), и восстанавливает GEN_HP_REGEN% в час — всем одинаково. Здоровье кончилось — генерал гибнет
+// (шанс уцелеть — «Несокрушимый» и щит, как раньше: тогда остаётся 1%). Генерал защитника в набеге не гибнет — здоровье не ниже 1%
+const GEN_HP_REGEN = 8;
 // командование генерала (атакой/защитой): первые очки — около +0,17%, дальше отдача убывает: 100 очков — +12,5%, 300 — +25%,
 // 1000 (500 ур.) — +38%, не больше +50% (с 21.10 вдвое меньше — по решению владельца: вместе с наукой, рангом, артефактами и
 // снаряжением генерал давал армии ×2,8). Ещё раньше росло без предела (+299% на 500 ур.) и решало любой бой.
@@ -932,6 +936,22 @@ function install(Game, helpers) {
   const genWarrior = (g) => (g && UNIT[g.kindId] && genEligible(UNIT[g.kindId]) ? UNIT[g.kindId] : UNIT[GENERAL_ID]);
   // характеристики генерала: от воина (genProfile) и очков. a3 — удары по пехоте/коннице/магам, atk — средний удар, def/mdef — защита
   // от воинов и магов (для боя с боссом и силы обороны), catk/cdef — командование армией, где генерал; heal, career — доли
+  // здоровье генерала сейчас, 0–100 (GEN_HP_REGEN): у павшего — 0, у записи без здоровья (новый, воскрешённый, до 27.10) — 100
+  P.genHp = function genHp(g, now = Date.now()) {
+    if (!g || g.dead) return 0;
+    if (!(g.hp >= 0)) return 100;
+    return Math.min(100, g.hp + GEN_HP_REGEN * SPEED * Math.max(0, now - (g.hpAt || now)) / 3600000);
+  };
+  // рана в бою: share — доля потерь армии генерала (0–1). fatal — здоровье кончилось (гибель решает вызывающий: шанс уцелеть);
+  // noKill — генерал защитника в набеге: не ниже 1%
+  P.genWound = function genWound(g, share, noKill = false, now = Date.now()) {
+    const was = this.genHp(g, now), lost = Math.round(Math.max(0, Math.min(1, Number(share) || 0)) * 1000) / 10;
+    const left = Math.round((was - lost) * 10) / 10, fatal = left <= 0 && !noKill;
+    g.hp = left > 0 ? left : noKill ? 1 : 0; g.hpAt = now;
+    return { was: Math.floor(was), lost, left: g.hp, fatal };
+  };
+  const hpTxt = (v) => String(Math.round(v * 10) / 10).replace('.', ',');
+  const genDie = (g) => { g.dead = true; delete g.hp; delete g.hpAt; }; // павший воскресает с полным здоровьем
   P.genStats = function genStats(g) {
     const u = genWarrior(g), p = genProfile(u), pts = g.pts || {}, k = 1 + GEN.atkPt * (pts.atk || 0), D = u.def || { inf: 0, cav: 0, mag: 0 };
     const a3 = { inf: p.a3.inf * k, cav: p.a3.cav * k, mag: p.a3.mag * k };
@@ -1793,30 +1813,40 @@ function install(Game, helpers) {
     // генералы
     // уровень генерала защитника, если он был в бою: жив и дома (воскрешающийся павший не сражается — до 24.10 отчёт всё равно показывал его «в строю»)
     const genInD = target && target.general && !target.general.dead && !target.general.away ? target.general.level : 0;
-    const genA = [], genD = []; let genExpA = 0, genExpD = 0, genDiedD = false, genSavedA = false, genSavedD = false; // опыт генералов — в отчёт числом
+    const genA = [], genD = []; let genExpA = 0, genExpD = 0, genDiedA = false, genDiedD = false, genSavedA = false, genSavedD = false; // опыт генералов — в отчёт числом
+    // что генерал дал в этом бою — в отчёт (с 27.10): командование, умения и снаряжение, потеря здоровья
+    const genInfo = (g, hb, w, attack) => { const gs = this.genStats(g), r1 = (v) => Math.round(v * 1000) / 10;
+      return { catk: r1(gs.catk), cdef: Math.round((1 + gs.cdef) * 100) / 100, atk: r1(hb.atk + (attack ? hb.fury : 0)), def: r1(hb.def), mag: r1(hb.mag), hpLost: w.lost, hpLeft: g.dead ? 0 : Math.floor(g.hp) }; };
+    let genInfoA = null, genInfoD = null;
     // генерал гибнет, когда армия разбита в бою: нападение проиграно (или не уцелел никто) — даже если «Полевой лекарь» кого-то спас
     // (до 21.10 спасённые воины спасали и генерала — он не погибал почти никогда); шанс уцелеть — умения и снаряжение (не больше 30%)
     const wipedA = aLoss >= 1 && (!win || !aliveAfter);
+    // здоровье (с 27.10): генерал теряет столько процентов здоровья, сколько потеряла его армия; кончилось — гибнет (армия разбита — всегда)
     if (a.general && c.general) {
-      const hb = this.heroBonus(c.general);
-      if (wipedA && Math.random() < hb.survive) { genSavedA = true; genA.push('Армия разбита, но генерал чудом уцелел и вернулся домой (умения и снаряжение).'); }
-      else if (wipedA) { c.general.dead = true; delete c.general.away; a.general = false; this.heroStrip(c, c.general); genA.push('Генерал пал в бою — опыт не получен. Его снаряжение вернулось в Оружейную.'); }
+      const hb = this.heroBonus(c.general), w = this.genWound(c.general, wipedA ? 1 : aLoss);
+      if (w.fatal && Math.random() < hb.survive) { genSavedA = true; c.general.hp = 1; genA.push(wipedA ? 'Армия разбита, но генерал чудом уцелел и вернулся домой (умения и снаряжение). Здоровье — 1%.' : `Армия потеряла ${hpTxt(w.lost)}% — у генерала кончилось здоровье, но он чудом уцелел (умения и снаряжение). Здоровье — 1%.`); }
+      else if (w.fatal) { genDie(c.general); genDiedA = true; delete c.general.away; a.general = false; this.heroStrip(c, c.general); genA.push(wipedA ? 'Генерал пал в бою — опыт не получен. Его снаряжение вернулось в Оружейную.' : `Генерал пал: армия потеряла ${hpTxt(w.lost)}%, а здоровья у него было ${w.was}%. Опыт не получен, снаряжение вернулось в Оружейную.`); }
       else {
         const e = this.battleExp({ killedPop: popOf(dLost), lostPop: popOf(aLost), win, mission: a.mission, npc: target ? null : npc, dLoss, mine: c, enemy: target });
         const ge = this.addGeneralExp(c, e.exp); genExpA = ge ? ge.got : 0; const l = genLine('Генерал', ge, e); if (l) genA.push(l);
+        if (w.lost > 0) genA.push(`Здоровье генерала: −${hpTxt(w.lost)}%, осталось ${hpTxt(w.left)}% (восстанавливается на ${GEN_HP_REGEN}% в час).`);
       }
+      genInfoA = genInfo(c.general, hb, w, a.mission === 'attack');
     }
     // генерал защитника гибнет, когда оборона проиграла нападение — даже если часть защитников потом выздоровела дома (HEAL_HOME;
     // до 21.10 выздоровевшие спасали и генерала). Набег — короткая стычка: генерал не гибнет, как и войска целиком
+    // здоровье генерала защитника — так же, по потерям защитников (с 27.10); в набеге он не гибнет — не ниже 1%
     if (target && target.general && !target.general.dead && !target.general.away) {
-      const wipedD = win && a.mission === 'attack' && dLoss >= 1;
-      if (wipedD && Math.random() >= this.heroBonus(target.general).survive) { target.general.dead = true; this.heroStrip(target, target.general); genD.push('Ваш генерал пал, защищая замок.'); genDiedD = true; }
+      const wipedD = win && a.mission === 'attack' && dLoss >= 1, w = this.genWound(target.general, wipedD ? 1 : dLoss, a.mission !== 'attack'), hbD = this.heroBonus(target.general);
+      if (w.fatal && Math.random() >= hbD.survive) { genDie(target.general); this.heroStrip(target, target.general); genD.push(wipedD ? 'Ваш генерал пал, защищая замок.' : `Ваш генерал пал, защищая замок: защитники потеряли ${hpTxt(w.lost)}%, а здоровья у него было ${w.was}%.`); genDiedD = true; }
       // уцелел по шансу «Несокрушимого» и снаряжения — как у нападающего: без опыта и с пояснением в отчёте (раньше — молча «в строю»)
-      else if (wipedD) { genSavedD = true; genD.push('Оборона разбита, но ваш генерал чудом уцелел (умения и снаряжение) — опыт не получен.'); }
+      else if (w.fatal) { genSavedD = true; target.general.hp = 1; genD.push(wipedD ? 'Оборона разбита, но ваш генерал чудом уцелел (умения и снаряжение) — опыт не получен. Здоровье — 1%.' : `Защитники потеряли ${hpTxt(w.lost)}% — у генерала кончилось здоровье, но он чудом уцелел (умения и снаряжение). Опыт не получен, здоровье — 1%.`); }
       else {
         const e = this.battleExp({ killedPop: popOf(aLost), lostPop: popOf(dLost), win: !win, mission: 'attack', mine: target, enemy: c });
         const ge = this.addGeneralExp(target, e.exp); genExpD = ge ? ge.got : 0; const l = genLine('Ваш генерал', ge, e); if (l) genD.push(l);
+        if (w.lost > 0) genD.push(`Здоровье генерала: −${hpTxt(w.lost)}%, осталось ${hpTxt(w.left)}% (восстанавливается на ${GEN_HP_REGEN}% в час).`);
       }
+      genInfoD = genInfo(target.general, hbD, w, false);
     }
     // добыча
     let loot = null;
@@ -1930,11 +1960,11 @@ function install(Game, helpers) {
     const defUser = target && (took ? this.userById(took.prevOwner) : this.ownerOf(target));
     const tname = target ? `${took ? took.prevName : target.name} (${captured ? captured.prevLogin : defUser.login})` : `${npc.name} ${where}`;
     const side = (units, lost) => Object.fromEntries([...new Set([...Object.keys(units), ...Object.keys(lost)])].map((id) => [id, { was: (units[id] || 0) + (lost[id] || 0), lost: lost[id] || 0 }]).filter(([, v]) => v.was > 0)); // и погибшие целиком (тараны одноразовые)
-    const genDied = !!(c.general && c.general.dead && a.general === false && aLoss >= 1);
+    const genDied = genDiedA; // пал в этом бою: армия разбита или кончилось здоровье (с 27.10)
     const data = {
       type: 'battle', mission: a.mission, win, x: a.x, y: a.y, luck, calc,
-      att: { id: att.id, login: att.login, race: att.race, castle: c.name, army: a.squad ? a.squad.name : 'Замковая армия', cx: c.x, cy: c.y, rating: this.rating(c), lossRes: lossRes(aLost), units: side(a.units, aLost), general: a.general || genDied ? (c.general ? c.general.level : 0) : 0, generalDied: genDied, generalSaved: genSavedA, genExp: genExpA },
-      def: target ? { id: captured ? captured.prevOwner : defUser.id, login: captured ? captured.prevLogin : defUser.login, race: captured ? captured.prevRace : defUser.race, castle: took ? took.prevName : target.name, rating: this.rating(target), lossRes: lossRes(dLost), units: side(dAll, dLost), wall: this.bonus(target).wall, general: genInD, generalDied: genDiedD, generalSaved: genSavedD, genExp: genExpD }
+      att: { id: att.id, login: att.login, race: att.race, castle: c.name, army: a.squad ? a.squad.name : 'Замковая армия', cx: c.x, cy: c.y, rating: this.rating(c), lossRes: lossRes(aLost), units: side(a.units, aLost), general: a.general || genDied ? (c.general ? c.general.level : 0) : 0, generalDied: genDied, generalSaved: genSavedA, genExp: genExpA, gen: genInfoA },
+      def: target ? { id: captured ? captured.prevOwner : defUser.id, login: captured ? captured.prevLogin : defUser.login, race: captured ? captured.prevRace : defUser.race, castle: took ? took.prevName : target.name, rating: this.rating(target), lossRes: lossRes(dLost), units: side(dAll, dLost), wall: this.bonus(target).wall, general: genInD, generalDied: genDiedD, generalSaved: genSavedD, genExp: genExpD, gen: genInfoD }
         : { npc: npc.name, img: obj.img, lossPct: Math.round(dLoss * 100), garrison: R.garrison },
       site: target && target.site ? { end: target.site.end } : null, siteTaken: siteTaken ? (took ? { x: a.x, y: a.y } : { blocked: siteTaken.blocked }) : null,
       loot, siege, loyalty, capitalBlocked, royalBlocked, captured: captured ? { name: captured.name, x: a.x, y: a.y, rebel: captured.rebel || 0 } : null,
@@ -2743,9 +2773,11 @@ function install(Game, helpers) {
   P.generalView = function generalView(castle) {
     const g = castle.general, gs = this.genStats(g), q = g.squad && castle.squads.find((x) => x.id === g.squad), a = g.away && castle.armies.find((x) => x.id === g.away);
     const where = a ? `в походе (${MISSIONS[a.mission]} ${a.x}:${a.y})` : q ? q.name : 'Замковая армия'; // «Находится в армии» и «Размещение» — отдельными строками, как в оригинале
-    const health = g.dead ? (g.reviveAt && g.reviveStart ? Math.min(99, Math.floor((Date.now() - g.reviveStart) / (g.reviveAt - g.reviveStart) * 100)) : 0) : 100;
+    // здоровье: у павшего — как идёт воскрешение, у живого — после боёв (genHp), полностью восстановится к hpFull
+    const hp = this.genHp(g), health = g.dead ? (g.reviveAt && g.reviveStart ? Math.min(99, Math.floor((Date.now() - g.reviveStart) / (g.reviveAt - g.reviveStart) * 100)) : 0) : Math.floor(hp);
+    const hpFull = !g.dead && hp < 100 ? Date.now() + Math.ceil((100 - hp) / (GEN_HP_REGEN * SPEED) * 3600000) : 0;
     // лимиты опыта игроку не отправляются (их нет и в окне): day и foes — служебные
-    return { ...g, foes: undefined, day: undefined, stats: gs, need: this.generalNeed(g.level), prevNeed: g.level > 1 ? this.generalNeed(g.level - 1) : 0, where, place: castle.name, health,
+    return { ...g, foes: undefined, day: undefined, stats: gs, need: this.generalNeed(g.level), prevNeed: g.level > 1 ? this.generalNeed(g.level - 1) : 0, where, place: castle.name, health, hpFull, hpRegen: GEN_HP_REGEN,
       reviveCost: Object.fromEntries(RES4.map((r) => [r, Math.round(UNIT[GENERAL_ID].cost[r] * GEN.revive * g.level)])), resetGold: GEN.resetGold, perLevel: GEN.perLevel, rekindSec: REKIND_SEC, rekindGold: REKIND_GOLD,
       healMax: gs.healMax, careerMax: gs.careerMax, cmdMax: gs.cmdMax, atkPt: GEN.atkPt, healPt: GEN.heal, careerPt: GEN.career }; // потолки — от воина генерала
   };

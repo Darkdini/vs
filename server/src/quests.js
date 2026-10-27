@@ -77,7 +77,7 @@ const DAILY = [
   { id: 'd_train', title: 'Пополнение', text: (n) => `Обучите ${n} воинов.`, icon: b(3), stat: 'trained', n: (g, c) => 10 + 5 * Math.min(10, th(g, c)) },
   { id: 'd_npc', title: 'Гроза разбойников', text: (n) => `Победите в ${n} боях с лагерями.`, icon: 'ground/dikari.png', stat: 'npcWins', n: () => 2 },
   { id: 'd_loot', title: 'Богатая добыча', text: (n) => `Унесите из походов ${n} ресурсов.`, icon: 'res/wood.png', stat: 'loot', n: (g, c) => 1500 * th(g, c) },
-  { id: 'd_built', title: 'Стройка века', text: (n) => `Завершите ${n} ${Wd.plural(n, 'постройку', 'постройки', 'построек')} или ${Wd.plural(n, 'улучшение', 'улучшения', 'улучшений')}.`, icon: b(10), stat: 'built', n: () => 3 },
+  { id: 'd_built', title: 'Стройка века', text: (n) => `Завершите ${n} ${Wd.plural(n, 'постройку', 'постройки', 'построек')} или ${Wd.plural(n, 'улучшение', 'улучшения', 'улучшений')}.`, icon: b(10), stat: 'built', n: () => 3, ok: (g, c) => g.canBuildMore(g.userById(c.owner)) }, // всё отстроено — не выдаётся (с 27.10)
   { id: 'd_trade', title: 'Караван', text: () => 'Отправьте торговцев с ресурсами.', icon: b(4), stat: 'trades', n: () => 1, ok: (g, c) => g.buildingLevel(c, 4) > 0 },
   { id: 'd_exped', title: 'Раскопки', text: () => 'Отправьте археологов в экспедицию (здание «Экспедиция»).', icon: b(17), stat: 'expeds', n: () => 1, ok: (g, c) => g.buildingLevel(c, 17) > 0 },
   { id: 'd_up', title: 'Мастерство', text: () => 'Начните улучшение в Кузнице или Школе магии.', icon: b(39), stat: 'upgrades', n: () => 1, ok: (g, c) => g.buildingLevel(c, 11) > 0 || g.buildingLevel(c, 39) > 0 },
@@ -92,7 +92,7 @@ const WEEKLY = [
   { id: 'w_train', title: 'Набор в войско', text: (n) => `Обучите за неделю ${n} воинов.`, icon: b(3), stat: 'trained', n: (g, c) => 150 + 50 * Math.min(10, th(g, c)) },
   { id: 'w_npc', title: 'Очистка дорог', text: (n) => `Победите в ${n} боях с лагерями.`, icon: 'ground/dikari.png', stat: 'npcWins', n: () => 15 },
   { id: 'w_loot', title: 'Казна полна', text: (n) => `Унесите из походов ${n} ресурсов.`, icon: 'res/wood.png', stat: 'loot', n: (g, c) => 10000 * th(g, c) },
-  { id: 'w_built', title: 'Великая стройка', text: (n) => `Завершите ${n} ${Wd.plural(n, 'постройку', 'постройки', 'построек')} или ${Wd.plural(n, 'улучшение', 'улучшения', 'улучшений')}.`, icon: b(10), stat: 'built', n: () => 15 },
+  { id: 'w_built', title: 'Великая стройка', text: (n) => `Завершите ${n} ${Wd.plural(n, 'постройку', 'постройки', 'построек')} или ${Wd.plural(n, 'улучшение', 'улучшения', 'улучшений')}.`, icon: b(10), stat: 'built', n: () => 15, ok: (g, c) => g.canBuildMore(g.userById(c.owner)) },
   { id: 'w_kills', title: 'Гроза королевств', text: (n) => `Уничтожьте в боях ${n} вражеских воинов.`, icon: 'gfx3d/rep/swords.png', stat: 'kills', n: (g, c) => 300 + 60 * Math.min(10, th(g, c)) },
   { id: 'w_wins', title: 'Полководец недели', text: (n) => `Одержите ${n} ${Wd.plural(n, 'победу', 'победы', 'побед')} в боях.`, icon: 'gfx3d/rep/swords.png', stat: 'wins', n: () => 20 },
   { id: 'w_exped', title: 'Охотник за древностями', text: (n) => `Отправьте ${n} экспедиций.`, icon: b(17), stat: 'expeds', n: () => 5, ok: (g, c) => g.buildingLevel(c, 17) > 0 },
@@ -154,7 +154,21 @@ function install(Game) {
       const pick = []; while (pick.length < 3 && pool.length) pick.push(pool.splice(Math.floor(rnd() * pool.length), 1)[0]);
       q.daily = { day, base: snap(this, u), list: pick.map((d) => ({ id: d.id, need: d.n(this, c), claimed: false })), chest: false };
     }
+    swapBuilt(this, u, c, q.daily, DAILY);
     return q.daily;
+  };
+  // «Стройка века» в королевстве, где строить уже нечего (выдана до 27.10 или всё достроено за день), меняется на другое задание
+  // (выполненная — остаётся: награду можно забрать)
+  const swapBuilt = (g, u, c, set, defs) => {
+    if (!set || !set.list.some((it) => /_built$/.test(it.id) && !it.claimed) || g.canBuildMore(u)) return;
+    for (const it of set.list) {
+      const def = defs.find((d) => d.id === it.id);
+      if (!def || !/_built$/.test(it.id) || it.claimed || g.qstat(u, def.stat, set.base) >= it.need) continue;
+      const pool = defs.filter((d) => !set.list.some((x) => x.id === d.id) && (!d.ok || d.ok(g, c)));
+      if (!pool.length) continue;
+      const nd = pool[Math.floor(Math.random() * pool.length)];
+      Object.assign(it, { id: nd.id, need: nd.n(g, c), claimed: false }); g.store.save();
+    }
   };
   const dailyReward = (g, c) => R(300 + 150 * th(g, c), { exp: 20 * th(g, c) });
 
@@ -167,6 +181,7 @@ function install(Game) {
       const pick = []; while (pick.length < 3 && pool.length) pick.push(pool.splice(Math.floor(rnd() * pool.length), 1)[0]);
       q.weekly = { week, base: snap(this, u), list: pick.map((d) => ({ id: d.id, need: d.n(this, c), claimed: false })), chest: false };
     }
+    swapBuilt(this, u, c, q.weekly, WEEKLY);
     return q.weekly;
   };
   // род воинов в награде — по заданию (что показано в окне, то и выдаётся)

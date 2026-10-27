@@ -698,6 +698,27 @@ class Game {
   }
 
   // проверка и постановка в очередь: стройка нового здания или улучшение существующего
+  // есть ли в королевстве игрока что строить или улучшать (для заданий «Стройка века»): идёт стройка, здание или Забор ниже предела,
+  // свободная клетка, куда что-то можно поставить. У полностью отстроенного королевства — нет (такое задание не выдаётся, с 27.10)
+  canBuildMore(user) {
+    const adm = !!(user && user.admin);
+    for (const c of this.castlesOf(user)) {
+      if (c.queue.length || (c.wall || 0) < (C.BY_ID[WALL_ID].max || 20)) return true;
+      const g0 = c.grid[VIEW.CASTLE], l0 = c.levels[VIEW.CASTLE], g1 = c.grid[VIEW.LANDS], l1 = c.levels[VIEW.LANDS];
+      for (let i = 0; i < g0.length; i++) {
+        if (g0[i] >= 0) { const d = C.BY_ID[g0[i]]; if (d && d.layer === 'castle' && l0[i] < (d.max || 20)) return true; continue; }
+        if (C.CASTLE_PATH.includes(i)) continue;
+        const stores = g0.filter((b) => b === 1).length; // свободная клетка замка: ещё не построенное здание или Склад сверх имеющихся
+        if (stores < C.STORE_MAX || C.BUILDINGS.some((d) => d.layer === 'castle' && d.unique && d.id !== WALL_ID && (adm || !d.adminOnly) && !g0.includes(d.id))) return true;
+      }
+      for (let i = 0; i < g1.length; i++) {
+        if (g1[i] >= 0) { const d = C.BY_ID[g1[i]]; if (d && d.layer === 'lands' && l1[i] < (d.max || 20)) return true; continue; }
+        if (landOptions(i % LANDS_N, Math.floor(i / LANDS_N)).length) return true;
+      }
+    }
+    return false;
+  }
+
   startBuild(castle, view, cell, buildingId) {
     this.tick(castle);
     const size = GRID[view];

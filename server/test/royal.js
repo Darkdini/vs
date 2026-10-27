@@ -250,6 +250,43 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(dHome.calc.def.str > dNone.calc.def.str && dAway.calc.def.str === dNone.calc.def.str, `генерал дома усиливает защитников, в походе — нет: ${dNone.calc.def.str} / ${dHome.calc.def.str} / ${dAway.calc.def.str}`);
   console.log(`✓ генерал: командование — армии, где он (атака +${Math.round(gs.catk * 100)}%, здоровье +${Math.round(gs.cdef * 100)}%); дома — защитникам замка, в походе замку — ничего`);
 }
+// здоровье генерала (с 27.10): в бою — минус доля потерь его армии, +8% в час; кончилось — гибнет (и в обороне); защитник в набеге — не ниже 1%
+{
+  const mk = (l) => { const u = g.register({ login: l, password: '12345', race: 0 }).user, c = g.castleOf(u); u.newbieOff = true; g.mil(c); c.armies = []; c.squads = []; c.general = null; c.shieldUntil = 0; return c; };
+  const c0 = mk('genhp0'); c0.general = g.newGeneral(c0, 20); const G = c0.general, t0 = Date.now();
+  assert.strictEqual(g.genHp(G, t0), 100, 'новый генерал — 100%');
+  let w = g.genWound(G, 0.5, false, t0); assert.ok(w.lost === 50 && w.left === 50 && !w.fatal && g.genHp(G, t0) === 50, `армия потеряла 50% — у генерала 50%: ${JSON.stringify(w)}`);
+  assert.ok(Math.abs(g.genHp(G, t0 + 3600000) - 58) < 1e-9 && g.genHp(G, t0 + 7 * 3600000) === 100, '+8% в час, не больше 100%');
+  w = g.genWound(G, 0.6, false, t0 + 3600000); assert.ok(w.fatal && w.left === 0 && w.was === 58, 'ещё −60% при 58% — здоровье кончилось');
+  G.hp = 30; G.hpAt = t0; w = g.genWound(G, 0.5, true, t0); assert.ok(!w.fatal && w.left === 1, 'защитник в набеге — не ниже 1%');
+  G.dead = true; assert.strictEqual(g.genHp(G), 0, 'у павшего — 0'); delete G.hp; G.dead = false; assert.strictEqual(g.genHp(G), 100, 'воскрешённый — 100%');
+  const gv = g.generalView(c0); assert.ok(gv.health === 100 && gv.hpFull === 0 && gv.hpRegen === 8, 'окно: здоровье и восстановление');
+  G.hp = 50; G.hpAt = Date.now(); const gv2 = g.generalView(c0); assert.ok(gv2.health === 50 && Math.abs(gv2.hpFull - Date.now() - 6.25 * 3600000) < 5000, 'с 50% — полностью через 6 ч 15 мин');
+  // настоящие бои: Рыцари с генералом берут замок Копейщиков, теряя больше половины, — у генерала минус столько же; второй такой бой — гибель
+  const A = mk('genhpA'), D1 = mk('genhpD1'), D2 = mk('genhpD2'); D1.units = { 201: 1000 }; D2.units = { 201: 1000 };
+  { const PATH = require('../src/catalog').CASTLE_PATH, i = [...A.grid[0]].findIndex((b, k) => b < 0 && !PATH.includes(k)); A.grid[0][i] = 2; A.levels[0][i] = 1; } // Военный штаб — для похода
+  A.general = g.newGeneral(A, 100); Object.assign(A.general.pts, { catk: 100, cdef: 98 }); A.general.free = 0;
+  const go = (D) => { A.units = { 204: 760 }; const r = g.sendArmy(A, { units: { 204: 760 }, general: true, x: D.x, y: D.y, mission: 'attack' }); assert.ok(!r.error && r.army.general, r.error); r.army.arrive = Date.now() - 1; g.tickWorld(); return r.army; };
+  const a1 = go(D1), left1 = Object.values(a1.units).reduce((q, v) => q + v, 0), loss1 = Math.round((1 - left1 / 760) * 1000) / 10, rep1 = g.db.reports.filter((r) => r.owner === A.owner).slice(-1)[0];
+  assert.ok(left1 > 0 && loss1 > 50 && !A.general.dead && Math.abs(g.genHp(A.general) - (100 - loss1)) < 0.2, `первый бой: армия потеряла ${loss1}% — у генерала ${g.genHp(A.general)}%`);
+  assert.ok(rep1.lines.some((l) => /Здоровье генерала: −/.test(l)), `в отчёте — здоровье генерала: ${rep1.lines.join(' | ')}`);
+  g.tickWorld(Date.now() + 1e9); A.general.hpAt = Date.now(); // армия вернулась (а здоровье не успело восстановиться)
+  go(D2); const rep2 = g.db.reports.filter((r) => r.owner === A.owner && /Атака/.test(r.title)).slice(-1)[0];
+  assert.ok(A.general.dead && rep2.lines.some((l) => /Генерал пал/.test(l)) && rep2.data && rep2.data.att.generalDied, `второй бой с ${Math.round(100 - loss1)}% здоровья — генерал пал: ${rep2.lines.join(' | ')}`);
+  console.log(`✓ генерал: здоровье — минус потери армии (первый бой −${loss1}%), +8% в час; кончилось — гибнет; защитник в набеге — не ниже 1%`);
+}
+// «Стройка века» (с 27.10): в полностью отстроенном королевстве задание не выдаётся, а уже выданное меняется на другое (выполненное — остаётся)
+{
+  const U = g.register({ login: 'qbuilt1', password: '12345', race: 0 }).user, c = g.castleOf(U);
+  assert.ok(g.canBuildMore(U), 'в новом замке есть что строить');
+  g.maxOut(c); assert.ok(!g.canBuildMore(U), 'в отстроенном — нечего');
+  const d0 = g.qdaily(U, c); d0.list[0] = { id: 'd_built', need: 3, claimed: false };
+  const d1 = g.qdaily(U, c); assert.ok(!d1.list.some((x) => x.id === 'd_built') && new Set(d1.list.map((x) => x.id)).size === 3, `дневное заменено: ${d1.list.map((x) => x.id)}`);
+  const w0 = g.qweekly(U, c); w0.list[0] = { id: 'w_built', need: 15, claimed: false };
+  const w1 = g.qweekly(U, c); assert.ok(!w1.list.some((x) => x.id === 'w_built'), `недельное заменено: ${w1.list.map((x) => x.id)}`);
+  d1.list[1] = { id: 'd_built', need: 0, claimed: false }; assert.ok(g.qdaily(U, c).list[1].id === 'd_built', 'выполненное — остаётся, награду можно забрать');
+  console.log('✓ задания: «Стройка века» не выдаётся, когда всё отстроено; выданная раньше — заменяется');
+}
 // с 25 уровня каждый уровень дороже: 25-й — ×1,25, 30-й — ×2,5, 40-й — ×5; до 24 — прежняя шкала; старые генералы — с той же долей полоски
 {
   const old = (l) => 50 * l * l, sp = (l) => g.generalNeed(l) - g.generalNeed(l - 1), so = (l) => old(l) - old(l - 1);

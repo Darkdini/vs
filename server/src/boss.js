@@ -194,11 +194,16 @@ function install(Game) {
         `Ваш вклад: ${fmt(h.dmg)} (${total ? Math.round(h.dmg / total * 100) : 0}% урона созыва — по силе Ваших войск).`,
         b.hp > 0 ? `У босса осталось ${fmt(b.hp)} из ${fmt(b.maxHp)}. Следующий созыв альянса — через ${Math.round(gapMs / 60000)} мин.` : `${b.name} повержен!`,
         `Ваши потери: ${fmt(h.lostN)} из ${Wd.ofWarriors(h.before)}.${h.rage ? ` ${b.name} в ярости — бьёт в полтора раза сильнее!` : ''}`, `Ваш урон за всё время: ${fmt(b.dmg[c.owner])}.`];
+      // здоровье генерала (с 27.10): минус доля потерь армии; кончилось (или армия разбита) — гибнет, шанс уцелеть — умения и снаряжение
       if (a.general && c.general && !c.general.dead) {
-        if (!Object.values(a.units).some((n) => n > 0)) {
-          if (Math.random() < this.heroBonus(c.general).survive) lines.push('Армия разбита, но генерал уцелел.');
-          else { c.general.dead = true; delete c.general.away; a.general = false; this.heroStrip(c, c.general); lines.push('Генерал пал в бою — снаряжение вернулось в Оружейную.'); }
-        } else { const ge = this.addGeneralExp(c, Math.round(h.dmg / 40)); if (ge && ge.got) lines.push(`Генерал получил ${fmt(ge.got)} опыта.`); }
+        const wiped = !Object.values(a.units).some((n) => n > 0), w = this.genWound(c.general, wiped ? 1 : h.before ? h.lostN / h.before : 0);
+        if (w.fatal) {
+          if (Math.random() < this.heroBonus(c.general).survive) { c.general.hp = 1; lines.push(wiped ? 'Армия разбита, но генерал уцелел. Здоровье — 1%.' : 'У генерала кончилось здоровье, но он уцелел. Здоровье — 1%.'); }
+          else { c.general.dead = true; delete c.general.hp; delete c.general.hpAt; delete c.general.away; a.general = false; this.heroStrip(c, c.general); lines.push(wiped ? 'Генерал пал в бою — снаряжение вернулось в Оружейную.' : 'Генерал пал: у него кончилось здоровье — снаряжение вернулось в Оружейную.'); }
+        } else {
+          const ge = this.addGeneralExp(c, Math.round(h.dmg / 40)); if (ge && ge.got) lines.push(`Генерал получил ${fmt(ge.got)} опыта.`);
+          if (w.lost > 0) lines.push(`Здоровье генерала: −${String(w.lost).replace('.', ',')}%, осталось ${String(w.left).replace('.', ',')}%.`);
+        }
       }
       this.addStat(c.owner, 'kills', Math.round(h.dmg / 100)); this.addStat(c.owner, 'bossDmg', h.dmg); // задание «Удар по чудовищу» — сразу после удара созыва
       this.report(c.owner, `Созыв на мирового босса: урон ${fmt(total)}`, lines, 'battle');
