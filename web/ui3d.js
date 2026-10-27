@@ -688,6 +688,7 @@ const helpWin = () => `${ribbon('Справка')}<div class="mitems light">
   <button class="mitem" data-act="army"><img src="${GFX}units/human/hd/knight.png" alt=""><span>Войска</span></button>
   <button class="mitem" data-bhelp><img src="${GFX}smallicon/atk_inf.png" alt=""><span>Боевая система</span></button>
   <button class="mitem" data-rsvhelp><img src="${G3}top/guest.png" alt=""><span>Резерв</span></button>
+  <button class="mitem" data-chelp="build"><img src="${GFX}world/castle1.png" alt=""><span>Новые замки</span></button>
   <button class="mitem" data-act="rules"><img src="${GFX}smallicon/Ekoscience.png" alt=""><span>Формулы</span></button>
   <button class="mitem" data-gamerules><img src="${GFX}menu/news.png" alt=""><span>Правила игры</span></button></div>`;
 const settingsWin = () => `${ribbon('Настройки')}<div class="pstats">Игрок: <b>${esc(S.st.user.login)}</b> · ${esc(S.st.user.raceName)}<br>Скорость мира ×${S.cat.speed}</div>

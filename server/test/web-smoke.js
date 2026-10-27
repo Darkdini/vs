@@ -55,7 +55,11 @@ function client() {
     const html = await (await fetch(`http://127.0.0.1:${WEB_PORT}/`)).text();
     assert.match(html, /Средневековье/);
     assert.ok((await fetch(`http://127.0.0.1:${WEB_PORT}/app.js`)).ok);
-    console.log('✓ страница и скрипт отдаются');
+    // все скрипты страницы на месте (новый файл не забыт и не переименован — например, справка «Новые замки», castlehelp.js)
+    const scripts = (html.match(/<script src="[a-z0-9]+\.js"><\/script>/g) || []).map((s) => s.slice(13, -11));
+    assert.ok(scripts.includes('castlehelp.js'), 'справка «Новые замки» подключена');
+    for (const src of scripts) assert.ok((await fetch(`http://127.0.0.1:${WEB_PORT}/${src}`)).ok, `скрипт ${src} отдаётся`);
+    console.log('✓ страница и скрипты отдаются');
 
     await a.open();
     a.send({ t: 'hello' });

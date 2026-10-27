@@ -12,7 +12,7 @@ function residenceHtml() {
     + line(`Прирост за этот месяц (Зал славы, без праздников): ${CROWN()} +${r.month || 0} ед.`)
     + (r.wait ? line(`Первый захват станет возможен через ${r.wait} дн. игры.`) : '')
     + (r.capital ? line('Этот замок является столицей') : '')
-    + '<button class="rbar" data-res="fest">Праздники</button><button class="rbar" data-res="help">Лояльность</button>';
+    + '<button class="rbar" data-res="fest">Праздники</button><button class="rbar" data-res="help">Лояльность</button><button class="rbar" data-chelp="build">Новые замки</button>';
 }
 function festivalsWin() {
   const r = MY().royal;

@@ -148,7 +148,8 @@ function emptyWin(x, y) {
     <div class="cwin"><img class="cwimg" src="${unitSrc(tv)}" alt=""><div><div class="cwname">X: ${x} Y: ${y}</div><div>Здесь можно основать новый замок.</div></div></div>
     <div class="bwline"><b>Освоение:</b> армия, в которой ${M().settleN || 10} путешественников, идёт сюда и строит замок ${M().settleDays || 3} дня. Стройку видно на карте — её можно атаковать и подкреплять; победное нападение, в котором выживут 3 путешественника, заберёт её.</div>
     <div class="bwline">Лояльность населения (Резиденция) должна позволять новый замок: нужно ${fmtFull(r.need || 0)}, у вас ${fmtFull(r.royal || 0)}. Списывается она, когда замок достроен.</div>
-    <div class="bwline">Путешественников в Замковой армии: <b>${fmtFull(have)}</b> (тренируются в здании «Путешественник»).</div>
+    <div class="bwline">Путешественников в Замковой армии: <b>${fmtFull(have)}</b> (тренируются в «Доме путешественника»).</div>
+    <div class="center"><a class="plink" data-chelp="build">Справка: стройка замка</a></div>
     <button class="pbar" data-armyopen="settle" data-ax="${x}" data-ay="${y}">Основать замок</button>`;
 }
 function campaignFit(mission, units) {

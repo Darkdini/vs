@@ -9,6 +9,7 @@ function riotWin() {
     <div class="bwline center">Бунт в замке: <b>${bunt}%</b></div><div class="tbar red"><i style="width:${bunt}%"></i></div>
     <div class="bwline">${c.capital ? 'Столицу захватить нельзя.' : 'Каждое победное нападение врага с Бунтарями поднимает бунт на 15%. Бунт 100% — замок переходит к нападающему.'}</div>
     <div class="bwline">Сам бунт не утихает — снизить его можно только здесь, за ресурсы; он падает постепенно. После захвата в замке бунт 95%.</div>
+    <div class="center"><a class="plink" data-chelp="capture">Справка: захват замков</a></div>
     ${ribbon('Снизить бунт')}<div class="bwline">За 1% бунта: ${RES4.map((k) => `${RES_IC[k]} ${fmtFull(per[k] || 0)}`).join(' ')} · ${TIME_IC} ${fmtT(sec1)}${L ? ` (Храм ${L} ур.: дешевле и быстрее на ${Math.round(L * 2.5)}%)` : ''}</div>
     ${job ? `<div class="fest calmjob"><b>Бунт снижается</b><div>Осталось снять: ≈ ${Math.ceil(job.left)}% из ${job.n}%</div><div>${TIME_IC} Закончится через <span class="cd" data-e="${job.end}"></span></div></div>`
       : bunt ? `${opt(5, 'На 5%')}${opt(15, 'На 15%')}${bunt !== 5 && bunt !== 15 ? opt(bunt, `Весь бунт (${bunt}%)`) : ''}` : '<div class="bwline center muted">Бунта нет — замок спокоен.</div>'}`;
