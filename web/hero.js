@@ -3,7 +3,7 @@
 // Сервер: server/src/hero.js (t:'hero', op: talent / talreset / equip / unequip / enhance / sell). Справочник — M().hero, состояние — MY().hero.
 // Картинки — gfx/hero/*.png; пока их нет, показываются запасные значки (onerror).
 
-const HERO_FB = { weapon: 'swordred', helm: 'shieldblue', armor: 'phidef', shield: 'shieldgreen', amulet: 'magattack', horse: 'speed', atk: 'phiattack', def: 'phidef', loot: 'carry' };
+const HERO_FB = { weapon: 'hd/attack', helm: 'hd/defence', armor: 'phidef', shield: 'hd/defence', amulet: 'magattack', horse: 'speed', atk: 'phiattack', def: 'phidef', loot: 'carry' };
 const himg = (src, fb, cls = '') => `<img class="${cls}" src="${GFX}hero/${src}.png" data-fb="${GFX}smallicon/${fb}.png" alt="">`;
 // запасная картинка: <img data-fb="..."> — если основной нет (встроенные onerror запрещены политикой безопасности)
 document.addEventListener('error', (e) => { const im = e.target; if (im && im.tagName === 'IMG' && im.dataset.fb && im.src.indexOf(im.dataset.fb) < 0) { im.src = im.dataset.fb; delete im.dataset.fb; } }, true);

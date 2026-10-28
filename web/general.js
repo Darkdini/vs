@@ -8,8 +8,8 @@ const GEN_ROWS = [
   ['atk', 'phiattack', 'Личная атака'],
   ['catk', 'magattack', 'Командование атакой'],
   ['cdef', 'magdef', 'Командование защитой'],
-  ['heal', 'plus', 'Скорость восстановления'],
-  ['career', 'maxupgrade', 'Карьера'],
+  ['heal', 'hd/heal', 'Скорость восстановления'],
+  ['career', 'hd/career', 'Карьера'],
 ];
 const GEN_CLS = { inf: 'пехота', cav: 'конница', mag: 'маги' };
 // специализация и род войск генерала (как у его воина)
@@ -33,7 +33,7 @@ function generalWin() {
   return `${ribbon('Генерал')}
     <div class="gname">${esc(g.name)}</div>
     <div class="ghead"><img class="gimg" src="${unitSrc(gu)}" alt="">
-      <div class="gright"><div>${esc(g.kind || wu.name)}</div><div>${genSpec(s)}</div><div><img src="${GS('status/f_gold')}" alt=""> ${fmtFull(g.level)} ур.</div></div></div>
+      <div class="gright"><div>${esc(g.kind || wu.name)}</div><div>${genSpec(s)}</div><div><img src="${GS('hd/rank')}" alt=""> ${fmtFull(g.level)} ур.</div></div></div>
     <div class="gnext">До след. уровня:<div class="gbar"><i style="width:${(done * 100).toFixed(1)}%"></i><b>${Math.floor(done * 100)}%</b></div><small>${fmtFull(inLvl)} / ${fmtFull(span)} опыта · ещё ${fmtFull(Math.max(0, g.need - g.exp))} до ${fmtFull(g.level + 1)} ур.</small></div>
     <div class="gtop g6">
       <div title="Здоровье"><img src="${GS('health')}" alt=""><b>${g.health}%</b></div>
@@ -44,17 +44,17 @@ function generalWin() {
     ${line('phiattack', 'Личная атака', fmtFull(g.pts.atk))}
     ${line('magattack', 'Командование атакой', fmtFull(g.pts.catk))}
     ${line('magdef', 'Командование защитой', fmtFull(g.pts.cdef))}
-    ${line('plus', 'Скорость восстановления', fmtFull(g.pts.heal))}
+    ${line(GS('hd/heal'), 'Скорость восстановления', fmtFull(g.pts.heal))}
     ${line(`${G3}menu/locations.svg`, 'Находится в армии', g.dead ? 'погиб' : esc(g.where))}
-    ${line('wall_icon', 'Размещение', esc(g.place || ''))}
-    ${line('maxupgrade', 'Карьера', fmtFull(g.pts.career))}
-    ${line('greenball', 'Свободные очки опыта', fmtFull(g.free))}
+    ${line(GS('hd/wall'), 'Размещение', esc(g.place || ''))}
+    ${line(GS('hd/career'), 'Карьера', fmtFull(g.pts.career))}
+    ${line(GS('hd/xp'), 'Свободные очки опыта', fmtFull(g.free))}
     ${revive}
     ${!g.dead && g.hpFull > Date.now() ? `<p class="cinfo">Здоровье ${g.health}% — полностью восстановится через <span class="cd" data-e="${g.hpFull}"></span></p>` : ''}
     ${g.rekind ? `<p class="cinfo">Переобучается в воина «${esc((unitById(g.rekind.kindId) || {}).name || '')}»: <span class="cd" data-e="${g.rekind.end}"></span></p>` : ''}
     <div class="ptiles g2">
-      ${tile('data-herotal', `${GFX}hero/icon_talents.png" data-fb="${GS('maxupgrade')}`, 'Умения', MY().hero && MY().hero.talFree ? MY().hero.talFree : undefined)}
-      ${tile('data-herogear', `${GFX}hero/icon_gear.png" data-fb="${GS('swordred')}`, 'Снаряжение', MY().hero && MY().hero.gear.length ? MY().hero.gear.length : undefined)}
+      ${tile('data-herotal', `${GFX}hero/icon_talents.png" data-fb="${GS('hd/career')}`, 'Умения', MY().hero && MY().hero.talFree ? MY().hero.talFree : undefined)}
+      ${tile('data-herogear', `${GFX}hero/icon_gear.png" data-fb="${GS('hd/attack')}`, 'Снаряжение', MY().hero && MY().hero.gear.length ? MY().hero.gear.length : undefined)}
     </div>
     <div class="ptiles g3">
       ${tile('data-genreset', GS('hd/reset'), 'Сбросить очки', g.resets)}
@@ -72,7 +72,7 @@ function genDistWin() {
   const used = GEN_ROWS.reduce((s, [k]) => s + (Number(S.gd[k]) || 0), 0);
   const cap = (k) => (k === 'heal' ? g.healMax : k === 'career' ? g.careerMax : 0); // потолки — от воина генерала
   return `${ribbon('Генерал')}
-    <div class="gname small2"><img src="${GS('greenball')}" alt=""> Свободные очки опыта: <b data-gdleft>${fmtFull(g.free - used)}</b></div>
+    <div class="gname small2"><img src="${GS('hd/xp')}" alt=""> Свободные очки опыта: <b data-gdleft>${fmtFull(g.free - used)}</b></div>
     ${GEN_ROWS.map(([k, icon, label]) => `<div class="gdrow"><span><img src="${GS(icon)}" alt=""> ${label}:${cap(k) ? `<small class="gcap">${fmtFull(g.pts[k] || 0)} из ${fmtFull(cap(k))}</small>` : ''}</span>
       <input class="gdin" type="number" inputmode="numeric" min="0" placeholder="0" value="${S.gd[k] || ''}" data-gd="${k}"></div>`).join('')}
     <button class="pbar" data-gddo>Распределить</button>`;
@@ -87,14 +87,14 @@ const GH = {
     <p>Сила генерала определяется воином, из которого он создан. От воина зависят:</p>
     <p>1. Скорость набора опыта. Чем слабее воин, тем быстрее генерал набирает опыт.</p>
     <p>2. Базовые удары ${GH_IC('phiattack')} Личной атаки — по пехоте, коннице и магам, как у воина. Чем они выше, тем больше урона наносит генерал.</p>
-    <p>3. Предел ${GH_IC('magattack')} Командования атакой, ${GH_IC('magdef')} Командования защитой, ${GH_IC('plus')} Скорости восстановления и ${GH_IC('maxupgrade')} Карьеры. Чем сильнее воин, тем выше предел.</p>
+    <p>3. Предел ${GH_IC('magattack')} Командования атакой, ${GH_IC('magdef')} Командования защитой, ${GH_IC('hd/heal')} Скорости восстановления и ${GH_IC('hd/career')} Карьеры. Чем сильнее воин, тем выше предел.</p>
     <p>4. Стоимость ${GH_IC('health')} воскрешения. Чем дороже воин, тем дороже воскресить генерала.</p>
     <p>5. Время воскрешения. Чем сильнее воин, тем дольше генерал воскресает.</p>`],
   stats: ['Характеристики', () => `<p>${GH_IC('phiattack')} <b>Личная атака</b> — какой урон наносит генерал, участвуя в бою.</p>
     <p>${GH_IC('magattack')} <b>Командование атакой</b> — на сколько процентов увеличен урон армии, в которой находится генерал.</p>
     <p>${GH_IC('magdef')} <b>Командование защитой</b> — во сколько раз уменьшен урон по армии, в которой находится генерал.</p>
-    <p>${GH_IC('plus')} <b>Скорость восстановления</b> — уменьшает время воскрешения генерала.</p>
-    <p>${GH_IC('maxupgrade')} <b>Карьера</b> — увеличивает опыт, который генерал получает в бою.</p>`],
+    <p>${GH_IC('hd/heal')} <b>Скорость восстановления</b> — уменьшает время воскрешения генерала.</p>
+    <p>${GH_IC('hd/career')} <b>Карьера</b> — увеличивает опыт, который генерал получает в бою.</p>`],
   feat: ['Особенности', () => `<p>Сила и польза генерала зависят от воина, которого выбрали для его создания. Чем воин сильнее, тем лучше работают умения генерала. Но такой генерал растёт дольше, чем генерал из более слабого воина.</p>
     <p>Сильнее всего генералы из воинов старших уровней. Из ${GH_IC('atk_mag')} мага получится генерал сильнее, чем из ${GH_IC('atk_cav')} всадника, а генерал-${GH_IC('atk_inf')} пехотинец уступает генералу из конного воина.</p>
     <p>Опыт генерал получает только в бою, в котором участвует сам. Чем больше врагов одолеет его армия — и числом, и силой воинов, — тем больше опыта получит генерал. Тяжёлый бой тоже даёт опыт, даже если ваша армия понесла большие потери.</p>`],

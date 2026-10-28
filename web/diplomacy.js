@@ -5,9 +5,9 @@
 const alBar = (attr, icon, text) => `<button class="rbar" ${attr}>${icon ? `<img src="${GFX}${icon}" alt="">` : ''} ${text}</button>`;
 function diplomacyButtons() {
   const my = MY(), n = (my.invites || []).length, al = my.alliance;
-  return alBar('data-dip="invites"', 'smallicon/unmes.png', `Приглашения${n ? ` (${n})` : ''}`)
-    + alBar('data-dip="list"', 'smallicon/shieldblue.png', 'Альянсы')
-    + (al ? alBar('data-dip="my"', 'smallicon/status/f_gold.png', `Мой альянс [${esc(al.tag)}]${al.lead && al.requests.length ? ` (${al.requests.length})` : ''}`) : alBar('data-dip="create"', '', 'Создать Альянс'));
+  return alBar('data-dip="invites"', 'smallicon/hd/letter.png', `Приглашения${n ? ` (${n})` : ''}`)
+    + alBar('data-dip="list"', 'smallicon/hd/defence.png', 'Альянсы')
+    + (al ? alBar('data-dip="my"', 'smallicon/hd/rank.png', `Мой альянс [${esc(al.tag)}]${al.lead && al.requests.length ? ` (${al.requests.length})` : ''}`) : alBar('data-dip="create"', '', 'Создать Альянс'));
 }
 
 function invitesWin() {

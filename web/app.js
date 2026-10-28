@@ -552,7 +552,7 @@ const SUBPAGES = {
     return `<div class="vhead"><button class="iconbtn" data-back>‹</button><h2>Почта</h2><button class="btn small primary" data-act="compose">Написать</button></div>
       <div class="pad"><div class="pills">${['Входящие', 'Отправленные'].map((t, i) => `<button data-folder="${i}" class="${S.mailFolder === i ? 'on' : ''}">${t}</button>`).join('')}</div>
       <div class="list" style="margin-top:8px">${!m ? '<p class="muted">Загрузка…</p>' : !m.list.length ? '<p class="muted">Писем нет.</p>' : m.list.map((x) => `
-        <button class="row" data-letter="${x.id}"><span class="ic">${gimg(x.read || m.folder === 1 ? 'smallicon/unrep.png' : 'smallicon/unmes.png')}</span>
+        <button class="row" data-letter="${x.id}"><span class="ic">${gimg(x.read || m.folder === 1 ? 'smallicon/hd/letter_open.png' : 'smallicon/hd/letter.png')}</span>
         <div class="grow"><b>${esc(x.subject || '(без темы)')}</b><span>${m.folder === 1 ? 'кому' : 'от'} ${esc(x.other)} · ${fmtDate(x.at)}</span></div></button>`).join('')}
       </div></div>`;
   },
@@ -748,7 +748,7 @@ function buildingSheet(def, lvl, ctx) {
       <button class="btn primary" data-build="${ctx.view},${ctx.cell},${def.id}" ${blk.length ? 'disabled' : ''}>${lvl ? 'Развить' : 'Построить'}</button>` : ''}</div>`;
   }
   if (ctx && lvl > 0) h += buildingFunctions(def, lvl); // функции здания (mil.js) — как в оригинале, над «Разрушить»
-  if (ctx) h += `${lvl > 0 && def.id !== 0 && !q && !z ? `<button class="rbar" data-demolish="${ctx.view},${ctx.cell}"><img src="${GFX}smallicon/upgrade.png" alt=""> Снести</button>` : ''}
+  if (ctx) h += `${lvl > 0 && def.id !== 0 && !q && !z ? `<button class="rbar" data-demolish="${ctx.view},${ctx.cell}"><img src="${GFX}smallicon/hd/demolish.png" alt=""> Снести</button>` : ''}
     <button class="rbar" data-about="${def.id}"><img src="${GFX}smallicon/hd/help.png" alt=""> О здании</button>`;
   return h;
 }
@@ -760,7 +760,7 @@ function aboutSheet(def) {
   const table = def.id === 1 ? R().store.levels.slice(1).map((c, i) => `${i + 1} уровень - ${c}.`)
     : def.produces ? Array.from({ length: def.max }, (_, i) => `${i + 1} уровень - ${effect(def, i + 1).text}.`) : [];
   const reqs = Object.entries(def.req);
-  return `${bwinHead(def, def.max, `<b>${esc(def.name)}</b><div>Рейтинг ★: ${def.layer === 'lands' ? `до +${fr(landEff(def, def.max) * ratingPer(def))} на ${def.max} ур.` : `+${fr(ratingPer(def))} за уровень`}</div><div>Максимальный уровень: <img class="upar" src="${GFX}smallicon/maxupgrade.png" alt=""> ${def.max}</div>`, 'Справка')}
+  return `${bwinHead(def, def.max, `<b>${esc(def.name)}</b><div>Рейтинг ★: ${def.layer === 'lands' ? `до +${fr(landEff(def, def.max) * ratingPer(def))} на ${def.max} ур.` : `+${fr(ratingPer(def))} за уровень`}</div><div>Максимальный уровень: <img class="upar" src="${GFX}smallicon/hd/career.png" alt=""> ${def.max}</div>`, 'Справка')}
     <div class="bwline">Прочность на первом уровне: ${fmtFull(def.hp)}</div>
     <div class="costbox"><div class="cbt">Стоимость постройки:</div><div class="cbg">${RES.map((r) => `<div>${RES_IC[r]}<b>${fmtFull(cost[r])}</b></div>`).join('')}<div>${TIME_IC}<b>${clock}</b></div></div></div>
     ${ribbon('Описание:')}<div class="bwline">${esc(def.about || def.desc)}${table.length ? `<br>${table.map(esc).join('<br>')}` : ''}</div>
@@ -826,7 +826,7 @@ function profileSheet(p) {
 
 function letterSheet(l) {
   const mine = l.from === S.st.user.login;
-  return `<div class="sh-head"><div class="big">${gimg('smallicon/unmes.png')}</div><div><h3>${esc(l.subject || '(без темы)')}</h3>
+  return `<div class="sh-head"><div class="big">${gimg('smallicon/hd/letter.png')}</div><div><h3>${esc(l.subject || '(без темы)')}</h3>
     <div class="muted small">${mine ? `кому: ${esc(l.to)}` : `от: ${esc(l.from)}`} · ${fmtDate(l.at)}</div></div></div>
     <div class="letter">${esc(l.text)}</div>
     ${mine ? '' : `<button class="btn primary" data-write="${esc(l.from)}" data-subj="${esc(`Re: ${l.subject || ''}`)}">Ответить</button>`}`;

@@ -269,7 +269,7 @@ input:focus, textarea:focus { border-color: var(--gold); box-shadow: 0 0 0 1px v
 #sheet { background: url(gfx/border/border_top.png) 0 0 repeat-x, var(--wood); border-top: 0; border-radius: 0; padding-top: 7px;
   box-shadow: 0 -2px 0 #000, 0 -6px 18px #000a; }
 #sheetClose { position: absolute; right: 8px; top: 12px; width: 34px; height: 34px; border: 0; z-index: 2;
-  background: url(gfx/smallicon/softclose.png) center / 22px no-repeat; }
+  background: url(gfx/smallicon/hd/exit.png) center / 22px no-repeat; }
 .sh-head { background: var(--red) 0 0 / 100% 100%; border: 1px solid var(--gold); padding: 6px 44px 6px 6px; margin-top: 2px; }
 .sh-head h3 { color: #fff; font-size: 16px; text-shadow: 0 1px 0 #000; }
 .sh-head .muted { color: var(--gold); }

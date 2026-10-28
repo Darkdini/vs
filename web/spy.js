@@ -2,7 +2,7 @@
 // Центр разведки — как в оригинале: «Возможности», «Тренировать», «Разведка».
 // Что узнаёт разведка, открывается уровнем здания (S.cat.mil.spyOpen, сервер: SPY_OPEN в army.js).
 
-const SPY_ICON = { armies: `${G3}menu/helmet.svg`, res: `${G3}menu/basket.svg`, build: `${GFX}smallicon/upgrade.png`, riot: '', reinf: `${G3}menu/swords.svg` };
+const SPY_ICON = { armies: `${G3}menu/helmet.svg`, res: `${G3}menu/basket.svg`, build: `${GFX}smallicon/hd/wall.png`, riot: '', reinf: `${G3}menu/swords.svg` };
 function spyButtons() {
   return '<button class="rbar" data-spy="info">Возможности</button><button class="rbar" data-spy="train">Тренировать</button><button class="rbar" data-spy="go">Разведка</button>';
 }
@@ -10,7 +10,7 @@ function spyInfoWin() {
   const L = buildingLevel(45), open = M().spyOpen;
   const riot = unitSrc(unitById(233)); // Бунтарь — значок «Бунта»
   return `${ribbon('Центр разведки')}
-    <div class="bwline center">Текущий уровень здания: <img class="upar" src="${GFX}smallicon/maxupgrade.png" alt=""> ${L}</div>
+    <div class="bwline center">Текущий уровень здания: <img class="upar" src="${GFX}smallicon/hd/career.png" alt=""> ${L}</div>
     <div class="center"><a class="plink" data-about="45">Справка</a></div>
     <div class="bwline" style="margin-top:14px">Доступна разведка:</div>
     ${Object.entries(open).map(([k, o]) => { const ok = L >= o.level; return `<div class="spyrow ${ok ? '' : 'off'}">

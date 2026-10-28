@@ -1,7 +1,7 @@
 'use strict';
 // Резиденция — лояльность населения королевства (сервер: server/src/royal.js), «Праздники» и справка «Лояльность».
 
-const CROWN = () => `<img class="crown" src="${GFX}smallicon/bonus_status/coronalgold.png" alt="">`;
+const CROWN = () => `<img class="crown" src="${GFX}smallicon/hd/loyalty.png" alt="">`;
 function residenceHtml() {
   const r = MY().royal; if (!r) return '';
   const line = (t) => `<div class="resline">${t}</div>`;

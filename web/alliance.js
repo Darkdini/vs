@@ -83,14 +83,14 @@ function allyManageWin() {
     ${aTile('data-aw="gold"', `${GFX}coins_s.png`, 'Казна Альянса')}
     ${aTile('data-aw="store"', AI('basket'), 'Кладовая')}
     ${aTile('data-aw="titles"', `${GFX}ep/ep6.png`, 'Звания и погоны')}
-    ${aTile('data-aw="mail"', `${GFX}smallicon/unmes.png`, 'Рассылки', !can('mail'))}
+    ${aTile('data-aw="mail"', `${GFX}smallicon/hd/letter.png`, 'Рассылки', !can('mail'))}
     ${aTile('data-aw="req"', AI('mail'), `Заявки и приглашения${a.requests.length ? ` (${a.requests.length})` : ''}`, !can('invite'))}
     ${aTile('data-aw="kick"', `${GFX}smallicon/destroy.png`, 'Исключить', !can('kick'))}
-    ${aTile('data-aw="rights"', `${GFX}smallicon/status/f_gold.png`, 'Назначить права', !can('rights'))}
+    ${aTile('data-aw="rights"', `${GFX}smallicon/hd/rank.png`, 'Назначить права', !can('rights'))}
     ${aTile('data-aw="descedit"', `${GFX}smallicon/hd/pen.png`, 'Изменить описание', !can('desc'))}
     ${aTile('data-aw="diplo"', AI('swords'), 'Дипломатия')}
     ${aTile('data-aleave', `${GFX}smallicon/destroy.png`, 'Покинуть Альянс')}
-    ${aTile('data-aw="transfer"', `${GFX}smallicon/bonus_status/coronalgold.png`, 'Сместить Создателя')}
+    ${aTile('data-aw="transfer"', `${GFX}smallicon/hd/loyalty.png`, 'Сместить Создателя')}
   </div>`;
 }
 
@@ -200,7 +200,7 @@ function allyForumWin() {
     ${list.map((t) => `<div class="ftopic ${t.deleted ? 'del' : ''}"><button class="fmain" data-atopic="${t.id}"><b>${t.pinned ? '📌 ' : ''}${t.closed ? '🔒 ' : ''}${esc(t.title)}</b>
       <span class="fline">${repCrown((a.members.find((m) => m.login === t.by) || {}).rep || 0)} <span style="color:${nameColor((a.members.find((m) => m.login === t.by) || {}).rep || 0)}">${esc(t.by)}</span> <span>Ответов: ${t.replies}</span></span>
       <small>${dt(t.last ? t.last.at : t.at)} от ${esc(t.last ? t.last.by : t.by)}</small></button>
-      ${canMod() ? `<span class="fops"><button data-atopicop="${t.id}" title="Действия"><img src="${G3}Gears/a1.png" alt=""></button><button data-atopicdel="${t.id}" title="${t.deleted ? 'Восстановить' : 'Удалить'}">${t.deleted ? '↺' : '✕'}</button></span>` : ''}</div>`).join('') || '<p class="parch-note">Тем пока нет.</p>'}`;
+      ${canMod() ? `<span class="fops"><button data-atopicop="${t.id}" title="Действия"><img src="${GFX}smallicon/hd/gear.png" alt=""></button><button data-atopicdel="${t.id}" title="${t.deleted ? 'Восстановить' : 'Удалить'}">${t.deleted ? '↺' : '✕'}</button></span>` : ''}</div>`).join('') || '<p class="parch-note">Тем пока нет.</p>'}`;
 }
 function allyTopicWin() {
   const t = S.allyTopic; if (!t) return loading('Тема');
@@ -230,8 +230,8 @@ function allyNewsAddWin() { return formWin('Новость', '<div class="clabel
 // ----- логи -----
 S.allyLogTab = 'def';
 // категории военного лога: подпись, иконка, отдел журнала
-const WAR_CAT = { att: ['Нападение', 'smallicon/swordred.png', 'att'], def: ['Оборона', 'smallicon/shieldblue.png', 'def'], scout: ['Разведка', 'units/human/hd/scout.png', 'scout'],
-  sdef: ['Вражеская разведка', 'smallicon/shieldgreen.png', 'scout'], rout: ['Подкрепление союзнику', 'smallicon/swordgreen.png', 'reinf'], rin: ['Подкрепление получено', 'smallicon/shieldgreen.png', 'reinf'] };
+const WAR_CAT = { att: ['Нападение', 'smallicon/hd/attack.png', 'att'], def: ['Оборона', 'smallicon/hd/defence.png', 'def'], scout: ['Разведка', 'units/human/hd/scout.png', 'scout'],
+  sdef: ['Вражеская разведка', 'smallicon/hd/scout.png', 'scout'], rout: ['Подкрепление союзнику', 'smallicon/hd/reinf.png', 'reinf'], rin: ['Подкрепление получено', 'smallicon/hd/reinf.png', 'reinf'] };
 // журнал по отделам: военные отчёты участников (оборона, нападения, разведка, подкрепления), состав и дипломатия, кладовая и казна
 const LOG_TABS = [['def', 'Оборона', `${G3}smiles2/shield.png`], ['att', 'Нападения', `${G3}smiles2/swords.png`], ['scout', 'Разведка', `${GFX}shop/spy.png`],
   ['reinf', 'Подкрепления', `${G3}rep/kingdef.png`], ['log', 'Состав', `${AL}diplo.png`], ['moves', 'Кладовая', `${GFX}quest/chest.png`]];

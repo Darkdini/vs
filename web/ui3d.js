@@ -44,7 +44,7 @@ const MENUS = {
     ['Штаб', 'build/hd3/mbases.png', () => ACTS.hq()],
     ['Генерал', `units/${HD_DIR[S.st.user.race] || 'human/hd'}/general.png`, () => openGeneral()],
     ['Армии', 'build/hd3/baraks.png', () => openSheet(armiesWin)],
-    ['Поход', 'smallicon/swordred.png', () => openArmySheet({})],
+    ['Поход', 'smallicon/hd/attack.png', () => openArmySheet({})],
     ['Ресурсы', 'gfx3d/locs2/res.png', () => openRes()],
     ['Здания', 'build/hd3/build.png', () => openSheet(() => ribbon('Здания замка') + summaryHtml(VIEW.CASTLE))],
     ['Постройки', 'build/lands/farm5.png', () => openSheet(() => ribbon('Постройки на землях') + summaryHtml(VIEW.LANDS))],
@@ -469,7 +469,7 @@ function profileMoreWin(p) {
   const tile = (key, icon, text, off) => `<button class="ptile ${off ? 'off' : ''}" data-ptile="${key}" data-pid="${p.id}"><img src="${GFX}${icon}" alt=""><span>${text}</span></button>`;
   return `${ribbon(p.login)}<div class="ptiles">
     ${tile('map', 'ground/castle_small.png', 'На карте')}
-    ${tile('attack', 'smallicon/swordred.png', 'Атаковать', p.self)}
+    ${tile('attack', 'smallicon/hd/attack.png', 'Атаковать', p.self)}
     ${p.self ? '' : `<button class="ptile" data-blackop="${p.id}" data-nick="${esc(p.login)}"><img src="${M3('privacy')}" alt=""><span>${isBlack(p.id) ? 'Убрать из чёрного списка' : 'В чёрный список'}</span></button>`}
     <button class="ptile" data-nicks><img src="${M3('files')}" alt=""><span>История ников${(p.nicks || []).length ? ` (${p.nicks.length})` : ''}</span></button>
     ${p.self ? '' : `<button class="ptile" data-coinvs="${esc(p.login)}"><img src="${GFX}coin/stack.png" alt=""><span>Орёл-решка</span></button>`}
@@ -605,9 +605,9 @@ function castleWin(o, x, y) {
     ${o.nobody ? '<p class="parch-note">Хозяин забросил замок — теперь он ничей. Захватить его может любой: победные нападения с Бунтарями, бунт +15% за каждое. Столицы у ничейных замков нет.</p>' : ''}
     <hr class="cwhr">
     <div class="ptiles">
-      ${mine ? tile(`data-switchxy="${x},${y}"`, 'build/hd3/castle.png', 'Войти в замок') : o.nobody ? '' : tile(`data-write="${esc(o.owner)}"`, 'smallicon/unmes.png', 'Сообщение')}
+      ${mine ? tile(`data-switchxy="${x},${y}"`, 'build/hd3/castle.png', 'Войти в замок') : o.nobody ? '' : tile(`data-write="${esc(o.owner)}"`, 'smallicon/hd/letter.png', 'Сообщение')}
       ${o.nobody ? '' : tile(`data-armyopen="trade" data-ax="${x}" data-ay="${y}"`, 'build/hd3/storage.png', 'Торговля')}
-      ${!mine ? tile(`data-warpick data-ax="${x}" data-ay="${y}"`, 'smallicon/swordred.png', 'Война')
+      ${!mine ? tile(`data-warpick data-ax="${x}" data-ay="${y}"`, 'smallicon/hd/attack.png', 'Война')
     : S.st.castle.x === x && S.st.castle.y === y ? '' : `<button class="ptile" data-armyopen="reinforce" data-ax="${x}" data-ay="${y}"><img src="${G3}top/reinf.png" alt=""><span>Подкрепление</span></button>`}
     </div>
     <button class="pbar cwsave" data-saveplace="${x},${y}">${saved ? 'Место запомнено' : 'Запомнить место'}</button>
@@ -627,8 +627,8 @@ function siteWin(o, x, y) {
     <div class="bwline">Замок будет готов через <span class="cd" data-e="${o.site.end}"></span>. ${mine ? 'Охраняйте стройку: её можно атаковать, а победное нападение, в котором выживут 3 путешественника, заберёт её себе.' : 'Победное нападение, в котором выживут 3 путешественника, заберёт стройку вам (если лояльности населения хватает на новый замок).'}</div>
     <hr class="cwhr">
     <div class="ptiles">
-      ${mine ? '' : tile(`data-write="${esc(o.owner)}"`, `${GFX}smallicon/unmes.png`, 'Сообщение')}
-      ${mine || ally ? tile(`data-armyopen="reinforce" data-ax="${x}" data-ay="${y}"`, `${G3}top/reinf.png`, 'Подкрепление') : tile(`data-warpick data-ax="${x}" data-ay="${y}"`, `${GFX}smallicon/swordred.png`, 'Война')}
+      ${mine ? '' : tile(`data-write="${esc(o.owner)}"`, `${GFX}smallicon/hd/letter.png`, 'Сообщение')}
+      ${mine || ally ? tile(`data-armyopen="reinforce" data-ax="${x}" data-ay="${y}"`, `${G3}top/reinf.png`, 'Подкрепление') : tile(`data-warpick data-ax="${x}" data-ay="${y}"`, `${GFX}smallicon/hd/attack.png`, 'Война')}
     </div>`;
 }
 
@@ -690,12 +690,12 @@ const helpWin = () => `${ribbon('Справка')}<div class="mitems light">
   <button class="mitem" data-bhelp><img src="${GFX}smallicon/atk_inf.png" alt=""><span>Боевая система</span></button>
   <button class="mitem" data-rsvhelp><img src="${G3}top/guest.png" alt=""><span>Резерв</span></button>
   <button class="mitem" data-chelp="build"><img src="${GFX}world/castle1.png" alt=""><span>Новые замки</span></button>
-  <button class="mitem" data-act="rules"><img src="${GFX}smallicon/Ekoscience.png" alt=""><span>Формулы</span></button>
+  <button class="mitem" data-act="rules"><img src="${GFX}smallicon/hd/formulas.png" alt=""><span>Формулы</span></button>
   <button class="mitem" data-gamerules><img src="${GFX}menu/news.png" alt=""><span>Правила игры</span></button></div>`;
 const settingsWin = () => `${ribbon('Настройки')}<div class="pstats">Игрок: <b>${esc(S.st.user.login)}</b> · ${esc(S.st.user.raceName)}<br>Скорость мира ×${S.cat.speed}</div>
   <label class="cchk setchk"><input type="checkbox" data-showlvl ${S.showLvl ? 'checked' : ''}><i></i><img src="gfx3d/top/btn_lvl.png" alt=""> Показывать уровни зданий (замок и земли)</label>
   <div class="mitems light"><button class="mitem" data-act="bug"><img src="${GFX}smallicon/hd/help.png" alt=""><span>Сообщить об ошибке</span></button>
-  <button class="mitem" data-act="logout"><img src="${GFX}smallicon/softclose.png" alt=""><span>Выйти из игры</span></button></div>`;
+  <button class="mitem" data-act="logout"><img src="${GFX}smallicon/hd/exit.png" alt=""><span>Выйти из игры</span></button></div>`;
 
 // ---------- сообщения сервера ----------
 const prevMilMsg = milMsg;

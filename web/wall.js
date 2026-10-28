@@ -10,7 +10,7 @@ function wallWin() {
   const cost = next <= max ? def.costs[next] : null;
   const costHtml = cost ? `<div class="upcost">${RES.filter((r) => cost[r]).map((r) => `<span data-need="${r}:${cost[r]}">${RES_IC[r]}<b>${fmtFull(cost[r])}</b></span>`).join('')}<span>${TIME_IC}<b>${fmtT(buildSec(def, next, c.townhall))}</b></span></div>` : '';
   return `${ribbon('Стена')}
-    <div class="wl-head"><img src="${GFX}fence/hd/fence1.png" data-fb="${GFX}smallicon/wall_icon.png" alt=""><div>
+    <div class="wl-head"><img src="${GFX}fence/hd/fence1.png" data-fb="${GFX}smallicon/hd/wall.png" alt=""><div>
       <div>Уровень: <b>${L}</b> из ${max}</div>
       <div>Бонус при защите: <img class="ri" src="${GFX}smallicon/phidef.png" alt=""> <b>${Math.round(per * L * 100)} %</b></div>
       <div>Прочность: <b>${fmtFull(hp)}</b></div>

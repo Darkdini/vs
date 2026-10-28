@@ -306,7 +306,7 @@ function universityHtml(id) {
 // Храм как в оригинале: «Бонус лояльности +N%» с полоской, кнопки «Бунт» и «Ритуалы» (temple.js)
 function templeHtml() {
   const r = MY().royal, pct = r ? Math.round(r.bonus * 100) : 0, cap = r ? Math.round(r.bonusCap * 100) : 0;
-  return `<div class="bwline">Бонус <img class="crown" src="${GFX}smallicon/bonus_status/coronalgold.png" alt=""> лояльности + ${pct}%</div>
+  return `<div class="bwline">Бонус <img class="crown" src="${GFX}smallicon/hd/loyalty.png" alt=""> лояльности + ${pct}%</div>
     <div class="tbar"><i style="width:${cap ? Math.min(100, pct / cap * 100) : 0}%"></i></div>
     <button class="rbar" data-temple="riot">Бунт</button><button class="rbar" data-temple="rituals">Ритуалы</button>`;
 }
