@@ -2352,12 +2352,13 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(UNIT[200].time === 240 && UNIT[200].hp === 36 && UNIT[200].speed === 17 && UNIT[200].carry === 30, 'Мечник: время ×4, жизнь, скорость — по «Справке», груз ×10 (3 → 30)');
   for (const [id, n, b, l] of [[262, 'Ведьмак', B.MAGE_ACADEMY, 3], [263, 'Варлок', B.MAGE_ACADEMY, 10], [264, 'Рейтар', B.STABLE, 7], [265, 'Страж границ', B.BARRACKS, 10], [266, 'Эльфийский всадник', B.STABLE, 1], [267, 'Повелитель стихий', B.MAGE_ACADEMY, 3], [268, 'Дух леса', B.MAGE_ACADEMY, 10], [269, 'Грифоний наездник', B.STABLE, 3], [270, 'Топтун', B.STABLE, 7], [271, 'Громовержец', B.MAGE_ACADEMY, 3], [272, 'Варг', B.STABLE, 1], [273, 'Загонщик', B.STABLE, 3], [274, 'Потрошитель', B.STABLE, 7], [275, 'Заклинатель', B.MAGE_ACADEMY, 3]])
     assert.ok(UNIT[id].name === n && UNIT[id].building === b && UNIT[id].level === l && UNIT[id].def && UNIT[id].cost.wood === SPR[id][5][0] * 4, `новый юнит: ${n}`);
-  { // Торговая палата: груз торговцев +1/45 за уровень (Рынок 20 + Палата 20 — 1300 вместо 900) и скорость; Таверны больше нет (с 22.10)
+  { // Торговая палата: груз торговцев +1,5% за уровень (Рынок 20 + Палата 20 — 650 вместо 500; с наукой — 750, все 20 — 15 000) и скорость; Таверны больше нет (с 22.10)
     const C = require('../src/catalog'), tp = g.register({ login: 'tavernTst', password: '12345', race: 0 }).user, tc = g.castleOf(tp); g.mil(tc);
     g.maxOut(tc); assert.ok(!C.BY_ID[42] && !g.buildingLevel(tc, 42), 'Таверны нет: не строится и в полном замке её нет');
     g.setBuildingLevel(tc, B.TRADE_HALL, 1); const L = g.buildingLevel(tc, B.MARKET), m1 = g.merchants(tc); g.setBuildingLevel(tc, B.TRADE_HALL, 20); const m20 = g.merchants(tc);
-    assert.ok(L === 20 && Math.abs(m20.carry - m1.carry - 380) <= 1 && m20.speed > m1.speed, `Торговая палата 1 → 20 ур.: +380 к грузу (${m1.carry} → ${m20.carry}), быстрее (${m1.speed} → ${m20.speed})`);
-    const sv = tp.sciences; tp.sciences = { eco: 0, eng: 0, fhi: 0, war: 0 }; assert.strictEqual(g.merchants(tc).carry, 1300, 'Рынок 20 + Палата 20 без наук — 1300'); tp.sciences = sv;
+    assert.ok(L === 20 && Math.abs(m20.carry - m1.carry - 142) <= 1 && m20.speed > m1.speed, `Торговая палата 1 → 20 ур.: +142 к грузу (${m1.carry} → ${m20.carry}), быстрее (${m1.speed} → ${m20.speed})`);
+    assert.ok(m20.carry === 750 && m20.total * m20.carry === 15000, `полное развитие — 750 на торговца, все 20 — 15 000 за раз (${m20.carry})`);
+    const sv = tp.sciences; tp.sciences = { eco: 0, eng: 0, fhi: 0, war: 0 }; assert.strictEqual(g.merchants(tc).carry, 650, 'Рынок 20 + Палата 20 без наук — 650'); tp.sciences = sv;
     // Таверна в старом замке: клетка освобождается, уровни и стройка — ресурсами в Кладовую
     let cell = tc.grid[0].indexOf(B.TEMPLE); tc.grid[0][cell] = 42; tc.levels[0][cell] = 3; // вместо Храма (свободных мест в полном замке нет)
     const qc = { wood: 7, stone: 7, iron: 7, food: 7, people: 1 }; tc.queue.push({ view: 0, cell, building: 42, level: 4, start: Date.now(), end: Date.now() + 1e9, cost: qc });
