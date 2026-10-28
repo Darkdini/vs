@@ -2861,12 +2861,12 @@ img.artsp { filter: drop-shadow(0 0 4px #c89aff) drop-shadow(0 0 8px #6a3aff); }
 .acard .ascroll { position: relative; flex: none; display: block; }
 .acard .ascroll i { position: absolute; left: 0; right: 0; top: 22%; text-align: center; font: 700 min(15px, 3.6vw) var(--serif); font-style: normal; color: #e01010; text-shadow: 0 0 2px #fff8; transform: rotate(-4deg); }
 .acard > span:last-child { min-width: 0; overflow-wrap: anywhere; }
-/* бегущая строка (как в оригинале): оранжевая полоса с золотыми завитками (gfx3d/ally/curl.png — из оригинала), текст проходит под завитками */
+/* бегущая строка (как в оригинале): оранжевая полоса с золотыми завитками (gfx3d/ally/hd/ornament.png — картинка хозяина, справа — зеркально), текст проходит под завитками */
 .aticker { position: fixed; left: 0; right: 0; top: env(safe-area-inset-top, 0px); z-index: 40; display: block; width: 100%; height: 44px; padding: 0; border: 0; overflow: hidden; cursor: pointer;
   background: linear-gradient(#57281a 0, #8b4a2c 3%, #924322 6%, #a55b28 12%, #b7692b 15%, #b7692b 86%, #a05e22 91%, #c69260 93%, #c09570 95%, #4f2c19 97%, #321509 100%);
   box-shadow: 0 2px 6px #0009; }
-.aticker::before, .aticker::after { content: ''; position: absolute; top: 0; bottom: 0; width: 51px; z-index: 1; background: url(gfx3d/ally/curl.png) left center / auto 100% no-repeat; pointer-events: none; }
-.aticker::before { left: 0; } .aticker::after { right: 0; transform: scaleX(-1); }
+.aticker::before, .aticker::after { content: ''; position: absolute; top: 5px; bottom: 5px; width: 72px; z-index: 1; background: url(gfx3d/ally/hd/ornament.png) left center / contain no-repeat; pointer-events: none; }
+.aticker::before { left: 2px; } .aticker::after { right: 2px; transform: scaleX(-1); }
 .aticker span { position: absolute; top: 0; bottom: 0; left: 0; display: flex; align-items: center; white-space: nowrap; padding-left: 100%;
   font: 400 min(26px, 6vw) var(--serif); color: #fff6e0; text-shadow: 0 1px 2px #000b; animation: atick 10s linear 2 both; }
 @keyframes atick { from { transform: translateX(0); } to { transform: translateX(-100%); } }
