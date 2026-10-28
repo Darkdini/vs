@@ -728,7 +728,7 @@ class Game {
     const def = C.BY_ID[buildingId];
     if (!def) return { error: 'Неизвестное здание.' };
     if (buildingId === WALL_ID) return { error: 'Стена развивается в Ратуше.' };
-    if (def.adminOnly && !(this.userById(castle.owner) || {}).admin) return { error: 'Это здание пока проверяет администрация — скоро откроется.' }; // Капкан (trap.js)
+    if (def.adminOnly && !(this.userById(castle.owner) || {}).admin) return { error: 'Это здание пока проверяет администрация — скоро откроется.' }; // здание на проверке (catalog adminOnly; Капкан — до 28.10)
     if (castle.queue.some((q) => q.view === view && q.cell === cell)) return { error: 'Здесь уже идёт строительство.', state: 1 };
     if ((castle.razing || []).some((z) => z.view === view && z.cell === cell)) return { error: 'Здание сносится — сначала отмените снос.', state: 1 };
     const maxQ = this.isPremium(this.userById(castle.owner)) ? 5 : MAX_QUEUE; // премиум — 5 строек

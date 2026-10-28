@@ -2480,7 +2480,7 @@ function install(Game, helpers) {
   P.joinAlliance = function joinAlliance(user, al) {
     if (al.members.length >= this.allianceSlots(al)) return { error: `В альянсе нет мест (${this.allianceSlots(al)}).` };
     al.members.push(user.id); user.alliance = al.id;
-    user.allySeen = { mail: Date.now(), news: Date.now() }; // прежние рассылки и новости альянса новичку — не «новые» (ally.js allyFresh)
+    user.allyRead = { mail: this.db.nextId - 1, news: this.db.nextId - 1 }; // прежние рассылки и новости альянса новичку — не «новые» (ally.js allyFresh)
     this.allyLog(al, `${user.login} вступил в альянс`);
     user.invites = []; // вступил — остальные приглашения больше не нужны
     for (const a of Object.values(this.db.alliances)) if (a.requests) a.requests = a.requests.filter((id) => id !== user.id);
@@ -2572,7 +2572,7 @@ function install(Game, helpers) {
       if (Object.values(this.db.alliances).some((x) => x.tag === tag)) return { error: 'Такой тег уже занят.' };
       const id = this.db.nextId++;
       this.db.alliances[id] = { id, name, tag, leader: user.id, members: [user.id], created: Date.now() };
-      user.alliance = id; user.invites = []; user.allySeen = { mail: Date.now(), news: Date.now() }; this.store.save(); return { ok: true };
+      user.alliance = id; user.invites = []; user.allyRead = { mail: id, news: id }; this.store.save(); return { ok: true };
     }
     if (op === 'join') { // по тегу — тоже только заявка: вступает тот, кого одобрит глава (раньше по тегу вступали сразу, без одобрения)
       const al = Object.values(this.db.alliances).find((x) => x.tag === String(tag || '').trim().toUpperCase());
@@ -2629,7 +2629,8 @@ function install(Game, helpers) {
   P.maxOut = function maxOut(castle) {
     this.mil(castle);
     const race = this.raceOf(castle);
-    const own = this.ownerOf(castle), castleBuildings = C.BUILDINGS.filter((b) => b.layer === 'castle' && b.id !== 0 && b.id !== 1 && b.id !== B.FENCE && (!b.adminOnly || (own && own.admin))); // Капкан (пока проверяет админ) — только админу
+    const own = this.ownerOf(castle), castleBuildings = C.BUILDINGS.filter((b) => b.layer === 'castle' && b.id !== 0 && b.id !== 1 && b.id !== B.FENCE && (!b.adminOnly || (own && own.admin))
+      && (b.id !== C.RATING.trapId || (own && own.admin))); // здания на проверке (catalog adminOnly) — только админу; Капкан (с 28.10 его строят все) полная прокачка ставит только админу, игроки строят сами
     castle.wall = (C.BY_ID[B.FENCE] || {}).max || 20; // стена — без клетки
     const cells = C.CASTLE_OK.filter((i) => i !== 24); castle.layoutV = 2; castle.storeExtra = 0; castle.storeExtraLv = 0;
     castle.grid[0] = new Int8Array(49).fill(-1); castle.levels[0] = new Int8Array(49);

@@ -225,12 +225,12 @@ function allyPostWin() {
 }
 
 // ----- новости и рассылки: список свитков (новые — с меткой NEW), запись целиком; новость — с комментариями -----
-// NEW — вышло после того, что игрок уже видел (сервер: ally.js allyFresh, u.allySeen); свои — без метки.
+// NEW — вышло после того, что игрок уже видел (сервер: ally.js allyFresh, u.allyRead — номер последней просмотренной); свои — без метки.
 // S.allyNewFrom — что было прочитано, когда раздел открыли: метки держатся, пока окно открыто (allySeenCheck)
 S.allyNewFrom = { mail: null, news: null }; S.allyMailId = 0; S.allyNews = null;
 const allyNewN = (k) => (S.ally && S.ally.unread && S.ally.unread[k] ? ` (${S.ally.unread[k]})` : '');
 const allyMine = (x) => (x.byId ? x.byId === S.st.user.id : x.by === S.st.user.login);
-const allyIsNew = (k, x) => { const a = S.ally, from = S.allyNewFrom[k] ?? (a && a.seen ? a.seen[k] : Infinity); return x.at > from && !allyMine(x); };
+const allyIsNew = (k, x) => { const a = S.ally, from = S.allyNewFrom[k] ?? (a && a.seen ? a.seen[k] : Infinity); return x.id > from && !allyMine(x); };
 const allyCard = (k, x) => `<button class="ncard acard" data-aitem="${k}:${x.id}"><span class="ascroll"><img src="gfx3d/news/scroll.png" alt="">${allyIsNew(k, x) ? '<i>NEW</i>' : ''}</span>
   <span><b>${esc(x.title)}</b><small>${dt(x.at)}${x.cmts ? ` · 💬 ${x.cmts}` : ''}</small></span></button>`;
 const allyHead = (x) => `<div class="nitem"><h3>${esc(x.title)}</h3><div class="ndate">Автор: ${esc(x.by)}<br>${dt(x.at)}</div><div class="ntext">${smiles(esc(x.text))}</div></div>`;
@@ -276,7 +276,7 @@ function allySeenCheck() {
     if (!S.sheets.some((w) => ALLY_SEEN_WINS[k].includes(w))) { S.allyNewFrom[k] = null; continue; }
     if (S.allyNewFrom[k] == null) S.allyNewFrom[k] = a.seen[k];
     const list = k === 'mail' ? a.mails : a.news;
-    if (a.unread[k] && list.length) asend({ t: 'ally', op: 'seen', kind: k, upto: list[0].at });
+    if (a.unread[k] && list.length) asend({ t: 'ally', op: 'seen', kind: k, upto: list[0].id });
   }
 }
 // сразу в раздел альянса (советник при входе, бегущая строка): «Альянс» → раздел → запись

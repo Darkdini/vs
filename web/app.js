@@ -786,7 +786,7 @@ function emptySheet(view, cell) {
     title = ['Лес', 'Валуны', 'Горы'][L.decor[y][x]] || { 0: 'Луг', 7: 'Пашня', 8: 'Каменистая земля', 9: 'Вода' }[L.base[y][x]] || 'Земля';
     sub = `Земли: строительство · клетка ${x + 1}:${y + 1}`;
   } else {
-    opts = S.cat.buildings.filter((b) => b.layer === 'castle' && b.id !== 22 && (!b.adminOnly || S.st.user.admin)).map((b) => b.id); // Капкан — пока только админу // стена — из Ратуши (wall.js)
+    opts = S.cat.buildings.filter((b) => b.layer === 'castle' && b.id !== 22 && (!b.adminOnly || S.st.user.admin)).map((b) => b.id); // здание на проверке (adminOnly) — только админу; Капкан с 28.10 — всем // стена — из Ратуши (wall.js)
     title = 'Замок: строительство'; sub = 'Свободное место — выберите здание';
   }
   const items = opts.map((id) => S.by[id]).map((def) => ({ def, blk: blockers(def, 1, view, cell) }))

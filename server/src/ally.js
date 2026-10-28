@@ -67,14 +67,15 @@ function install(Game) {
       else if (!al.members.includes(al.leader)) this.allyRemoveMember(al, al.leader);
     }
     // рассылки и новости альянса, вышедшие до 28.10, — у всех участников уже прочитаны (allyFresh)
-    const now = Date.now();
-    for (const u of Object.values(this.db.users)) if (u.alliance && !u.allySeen) u.allySeen = { mail: now, news: now };
+    const top = (this.db.nextId || 1) - 1;
+    for (const u of Object.values(this.db.users)) if (u.alliance && !u.allyRead) u.allyRead = { mail: top, news: top };
   };
   // рассылки (kind 'mail') или новости ('news') альянса, которых игрок ещё не видел; свои не считаются.
-  // u.allySeen — до какого времени просмотрено: ставится при вступлении в альянс и когда игрок открывает «Рассылки» или «Новости»
+  // u.allyRead — номер (id) последней просмотренной: номера только растут (db.nextId). Ставится при вступлении в альянс
+  // (всё прежнее — прочитано) и когда игрок открывает «Рассылки» или «Новости»
   P.allyFresh = function allyFresh(u, al, kind) {
-    const seen = (u.allySeen || {})[kind] || 0;
-    return (al[kind === 'mail' ? 'mails' : 'news'] || []).filter((x) => x.at > seen && (x.byId ? x.byId !== u.id : x.by !== u.login));
+    const seen = (u.allyRead || {})[kind] || 0;
+    return (al[kind === 'mail' ? 'mails' : 'news'] || []).filter((x) => x.id > seen && (x.byId ? x.byId !== u.id : x.by !== u.login));
   };
   // новость альянса целиком — с комментариями (окно «Новость»)
   P.allyNewsGet = function allyNewsGet(user, al, id) {
@@ -161,9 +162,9 @@ function install(Game) {
       treasury: al.treasury || 0, medalCost: MEDAL_COST, storage: al.storage || { wood: 0, stone: 0, iron: 0, food: 0 },
       diplo: Object.entries(al.diplo || {}).map(([id, st]) => (A[id] ? { id: Number(id), tag: A[id].tag, name: A[id].name, status: st, statusName: DIPLO[st] } : null)).filter(Boolean),
       news: (al.news || []).slice().reverse().map((n) => ({ id: n.id, title: n.title, text: n.text, by: n.by, at: n.at, cmts: (n.comments || []).length })),
-      // рассылки — только своим; seen — до какого времени игрок их видел (метка NEW), unread — сколько новых
+      // рассылки — только своим; seen — номер последней просмотренной (метка NEW), unread — сколько новых
       mails: own ? (al.mails || []).slice().reverse() : [],
-      seen: own ? { mail: (user.allySeen || {}).mail || 0, news: (user.allySeen || {}).news || 0 } : null,
+      seen: own ? { mail: (user.allyRead || {}).mail || 0, news: (user.allyRead || {}).news || 0 } : null,
       unread: own ? { mail: this.allyFresh(user, al, 'mail').length, news: this.allyFresh(user, al, 'news').length } : { mail: 0, news: 0 },
       forum: (al.forum || []).filter((t) => !t.deleted || can('news') || this.canModerate(user)).map((t) => ({ id: t.id, title: t.title, by: t.by, at: t.at, pinned: !!t.pinned, closed: !!t.closed, deleted: !!t.deleted,
         replies: t.posts.length, last: t.posts[t.posts.length - 1] })).sort((a, b) => (b.pinned - a.pinned) || ((b.last ? b.last.at : b.at) - (a.last ? a.last.at : a.at))),
@@ -226,10 +227,10 @@ function install(Game) {
         (al.mails = al.mails || []).push({ id, title, text, by: user.login, byId: user.id, at: now }); if (al.mails.length > 100) al.mails.shift();
         return { ...done('Рассылка отправлена всем участникам альянса.'), cast: { kind: 'mail', id, title } };
       }
-      // открыл «Рассылки» или «Новости» альянса — всё, что вышло до upto (время самой свежей, что он увидел), прочитано
+      // открыл «Рассылки» или «Новости» альянса — всё до upto (номер самой свежей, что он увидел) прочитано
       case 'seen': {
-        const kind = m.kind === 'news' ? 'news' : 'mail', upto = Math.min(now, Math.floor(Number(m.upto)) || 0);
-        const s = user.allySeen = user.allySeen || {}; if (upto > (s[kind] || 0)) { s[kind] = upto; this.store.save(); }
+        const kind = m.kind === 'news' ? 'news' : 'mail', upto = Math.min(this.db.nextId - 1, Math.floor(Number(m.upto)) || 0);
+        const s = user.allyRead = user.allyRead || {}; if (upto > (s[kind] || 0)) { s[kind] = upto; this.store.save(); }
         return { ok: true };
       }
       // казна: до 21.10 — взнос своих монет любым участником и выдача монет участникам (запасные аккаунты перегоняли монеты

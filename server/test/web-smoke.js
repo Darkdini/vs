@@ -250,7 +250,7 @@ function client() {
       a.send({ t: 'ally', op: 'get' });
       const v = (await a.expect('ally', (m) => m.data.mails.length === 1)).data;
       assert.ok(v.unread.mail === 1 && v.mails[0].text === 'Все к замку' && v.mails[0].by === admAuth.login, 'в «Рассылках» альянса — новая');
-      a.send({ t: 'ally', op: 'seen', kind: 'mail', upto: v.mails[0].at });
+      a.send({ t: 'ally', op: 'seen', kind: 'mail', upto: v.mails[0].id });
       await a.expect('ally', (m) => m.data.unread.mail === 0); }
     adm.send({ t: 'ally', op: 'news', title: 'Война', text: 'С понедельника' });
     { const tk = await a.expect('allytick', (m) => m.kind === 'news'); assert.equal(tk.title, 'Война');

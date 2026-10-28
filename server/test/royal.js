@@ -156,7 +156,7 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   g.db.alliances = g.db.alliances || {}; const aid = g.db.nextId++;
   const al = g.db.alliances[aid] = { id: aid, name: 'Mailers', tag: 'ML', leader: A.id, members: [A.id, B.id], created: Date.now(), news: [{ id: g.db.nextId++, title: 'Старая', text: 'до 28.10', by: 'mlead', at: Date.now() - 5000 }] };
   A.alliance = B.alliance = aid; g.allyCleanup();
-  assert.ok(A.allySeen && B.allySeen && g.allyView(B, al).unread.news === 0, 'участникам прежние новости — уже прочитаны');
+  assert.ok(A.allyRead && B.allyRead && g.allyView(B, al).unread.news === 0, 'участникам прежние новости — уже прочитаны');
   const before = (g.db.messages || []).length; g.drainEvents();
   assert.ok(/Нет права/.test(g.allyOp(B, g.castleOf(B), { op: 'mail', title: 'т', text: 'т' }).error || ''), 'без права «Рассылка уведомлений» — не разослать');
   assert.ok(/тему рассылки/.test(g.allyOp(A, g.castleOf(A), { op: 'mail', text: 'без темы' }).error || ''), 'нужна тема рассылки');
@@ -171,10 +171,10 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   const rn = g.allyOp(A, g.castleOf(A), { op: 'news', title: 'Война с [XX]', text: 'С понедельника' });
   assert.ok(rn.ok && rn.cast.kind === 'news' && !g.drainEvents().length, 'новость — тоже бегущей строкой, без всплывающих уведомлений');
   { const wi = g.welcomeInfo(B, 0).ally; assert.ok(wi.news === 1 && wi.newsTitle === 'Война с [XX]', 'советник — и о новости альянса'); }
-  g.allyOp(B, g.castleOf(B), { op: 'seen', kind: 'mail', upto: wB.mails[0].at });
+  g.allyOp(B, g.castleOf(B), { op: 'seen', kind: 'mail', upto: wB.mails[0].id });
   assert.ok(g.allyView(B, al).unread.mail === 0 && g.welcomeInfo(B, 0).ally.mail === 0, 'открыл «Рассылки» — прочитано');
-  g.allyOp(B, g.castleOf(B), { op: 'seen', kind: 'news', upto: Date.now() + 1e9 });
-  assert.ok(B.allySeen.news <= Date.now() && !g.welcomeInfo(B, 0).ally, 'всё прочитано — советник молчит (время «из будущего» не принимается)');
+  g.allyOp(B, g.castleOf(B), { op: 'seen', kind: 'news', upto: 1e15 });
+  assert.ok(B.allyRead.news < g.db.nextId && !g.welcomeInfo(B, 0).ally, 'всё прочитано — советник молчит (номер «из будущего» не принимается)');
   { const pj = g.joinAlliance(C, al), w = g.allyView(C, al); assert.ok(pj.ok && w.mails.length === 1 && !w.unread.mail && !w.unread.news && !g.welcomeInfo(C, 0).ally, 'новичку прежние видны, но не «новые»'); }
   assert.ok(!('mails' in g.allyPublic(al)), 'в карточке альянса для всех рассылок нет');
   const nid = rn.cast.id;
@@ -342,7 +342,9 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
 {
   const U = g.register({ login: 'qbuilt1', password: '12345', race: 0 }).user, c = g.castleOf(U);
   assert.ok(g.canBuildMore(U), 'в новом замке есть что строить');
-  g.maxOut(c); assert.ok(!g.canBuildMore(U), 'в отстроенном — нечего');
+  g.maxOut(c); assert.ok(g.canBuildMore(U), 'полная прокачка без Капкана (с 28.10 его строят все) — есть что строить');
+  { const fc = require('../src/catalog').CASTLE_OK.find((k) => k !== 24 && c.grid[0][k] === -1); c.grid[0][fc] = 48; c.levels[0][fc] = 1; }
+  assert.ok(!g.canBuildMore(U), 'в отстроенном (и с Капканом) — нечего');
   const d0 = g.qdaily(U, c); d0.list[0] = { id: 'd_built', need: 3, claimed: false };
   const d1 = g.qdaily(U, c); assert.ok(!d1.list.some((x) => x.id === 'd_built') && new Set(d1.list.map((x) => x.id)).size === 3, `дневное заменено: ${d1.list.map((x) => x.id)}`);
   const w0 = g.qweekly(U, c); w0.list[0] = { id: 'w_built', need: 15, claimed: false };
@@ -3399,12 +3401,13 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     const mk = (login) => { const u = g.register({ login, password: '12345', race: 0 }).user, c = g.castleOf(u); g.mil(c); g.maxOut(c); return [u, c]; };
     const [Au, ca] = mk('trapAtt1'), [Du, cd] = mk('trapDef1'), [Pu, cp] = mk('trapPl1');
     const altared = structuredClone(cd); g.setBuildingLevel(cd, 47, 0); // без Алтаря (он даёт свои +22)
-    const rt0 = g.rating(cd); assert.ok(!g.buildingLevel(cd, 48), 'полная прокачка игрока Капкан не ставит');
+    const rt0 = g.rating(cd); assert.ok(!g.buildingLevel(cd, 48), 'полная прокачка игрока Капкан не ставит — строит сам');
     { const fc = require('../src/catalog').CASTLE_OK.find((k) => k !== 24 && cd.grid[0][k] === -1); cd.grid[0][fc] = 48; cd.levels[0][fc] = 1; }
     assert.ok(rt0 === 2200 && g.buildingLevel(cd, 48) === 1 && g.rating(cd) === 2222 && g.ratingParts(cd).trap === 22, 'полный замок 2200, с Капканом — 2222');
     { const fc = require('../src/catalog').CASTLE_OK.find((k) => k !== 24 && altared.grid[0][k] === -1); altared.grid[0][fc] = 48; altared.levels[0][fc] = 1; }
     { const pa = g.ratingParts(altared); assert.ok(g.buildingLevel(altared, 47) === 20 && pa.altar === 22 && pa.trap === 22 && pa.total === 2244, `Алтарь 20 ур. и Капкан — каждый по +22: 2244 (${JSON.stringify(pa)})`); }
-    g.setBuildingLevel(cp, 48, 0); assert.ok(/администрац/.test(g.startBuild(cp, 0, cp.grid[0].indexOf(-1), 48).error || ''), 'игрок Капкан пока не строит');
+    g.setBuildingLevel(cp, 48, 0); assert.ok(g.canBuildMore(Pu), 'нет Капкана — есть что строить («Стройка века»)');
+    { const fc = require('../src/catalog').CASTLE_OK.find((k) => k !== 24 && cp.grid[0][k] === -1), r = g.startBuild(cp, 0, fc, 48); assert.ok(!r.error, `игрок строит Капкан (с 28.10 — все): ${r.error}`); }
     const hit = (units) => { ca.armies = []; ca.units = { ...units }; const go = g.sendArmy(ca, { units, x: cd.x, y: cd.y, mission: 'attack' }); assert.ok(go.army, go.error); g.arrive(ca, go.army, Date.now()); };
     hit({ 200: 1500, 202: 10 });
     assert.ok(cd.prison && cd.prison.units[200] === 1000 && !cd.prison.units[202] && cd.prison.login === 'trapAtt1', 'поймано 1000, разведчики — нет');
