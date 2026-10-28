@@ -240,6 +240,21 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
     assert.ok(near(cm.res.iron, i0) && al.storage.iron === 0 && g.db.reports.some((x) => x.owner === M.id && /не доставлен/.test(x.title)), 'вышел из альянса, пока торговцы в пути, — груз вернулся на Склад'); }
   console.log('✓ кладовая альянса: взнос везут торговцы Рынка (груз по свободным торговцам, дорога к столице создателя), в кладовую — по прибытии; вышел из альянса — груз обратно');
 }
+// люди на тренировку (с 28.10): выровнены между расами — половина обычного для ступени, по силе воина, не больше прежнего;
+// прежнее число людей (pop) остаётся у содержания армии, очков ранга, Кузницы и генерала
+{
+  const A = require('../src/army'), UN = A.UNIT;
+  const army = Object.values(UN).filter((u) => !u.notrain && u.type !== 'special' && !u.dungOnly && !u.quest && !u.undead && u.building);
+  assert.ok(army.every((u) => u.tpop >= 1 && u.tpop <= u.pop), 'у всех воинов людей на тренировку не больше прежнего');
+  assert.ok(UN[200].tpop === 2 && UN[218].tpop === 4 && UN[205].tpop === 18 && UN[212].tpop === 14 && UN[269].tpop === 15 && UN[240].tpop === 8, 'Мечник 2, Защитник гор 4, Паладин 18, Единорог 14, Грифоний наездник 15, Катапульта 8');
+  assert.ok(UN[200].pop === 3 && UN[200].upkeep === 1 && UN[205].pop === 45, 'прежнее число людей и содержание армии не менялись');
+  const u = g.register({ login: 'tpopTst', password: '12345', race: 0 }).user, c = g.castleOf(u); g.mil(c); g.maxOut(c); g.tick(c);
+  for (const r of ['wood', 'stone', 'iron', 'food']) c.res[r] = 50000; c.res.people = 100;
+  const p0 = c.res.people, t = g.train(c, 200, 10);
+  assert.ok(!t.error && Math.round(p0 - c.res.people) === 20, `10 Мечников — 20 людей (было бы 30): ${t.error || Math.round(p0 - c.res.people)}`);
+  c.res.people = 40; assert.ok(/Не хватает людей/.test(g.train(c, 205, 3).error || '') && !g.train(c, 205, 2).error, 'Паладины: 3 × 18 = 54 > 40 — нельзя, 2 × 18 = 36 — можно');
+  console.log('✓ люди на тренировку: выровнены между расами (половина ступени, по силе воина), не больше прежнего; содержание армии и очки — по-прежнему');
+}
 // альянс: 5 мест за уровень Дипломатического центра главы, не больше 50
 {
   const L = g.register({ login: 'slotlead', password: '12345', race: 0 }).user, c = g.castleOf(L);

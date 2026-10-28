@@ -34,7 +34,7 @@ function unitLock(u) {
 function unitMax(u) {
   let n = Infinity;
   for (const r of RES4) if (u.cost[r]) n = Math.min(n, Math.floor(resNow(r) / u.cost[r]));
-  if (u.pop) n = Math.min(n, Math.floor(S.st.castle.res.people / u.pop));
+  const tpop = u.tpop ?? u.pop; if (tpop) n = Math.min(n, Math.floor(S.st.castle.res.people / tpop)); // люди на тренировку (army.js TRAIN_POP)
   if (u.id === M().generalId) n = Math.min(n, 1);
   if (u.id === 224 || u.id === 233) n = Math.min(n, 3); // за один заказ — не больше 3
   else if (MY().trainDay) n = Math.min(n, MY().trainDay.max - MY().trainDay.used);
@@ -60,7 +60,7 @@ function unitStatsHtml(u) {
     <div><small>${A3_NAME.mag}</small>${STAT_IC(A3_IC.mag)} ${a.mag}</div><div><small>Скорость</small>${u.speed} кл/ч</div><div><small>Груз</small>${u.carry}</div></div>
     ${u.wallDmg ? `<div class="small">Ущерб стене: <b>${u.wallDmg} ед.</b>${u.oneUse ? ' · исчезает после боя' : ''}</div>` : ''}${u.bldDmg ? `<div class="small">Ущерб зданиям: <b>${u.bldDmg} ед.</b></div>` : ''}
     <div class="chips">${RES4.map((r) => `<span data-need="${r}:${u.cost[r]}">${RES_IC[r]} ${fmtFull(u.cost[r])}</span>`).join('')}
-    <span>${RES_IC.people} ${u.pop}</span><span>${TIME_IC} ${fmtT(unitTrainSec(u))}</span></div>`;
+    <span>${RES_IC.people} ${u.tpop ?? u.pop}</span><span>${TIME_IC} ${fmtT(unitTrainSec(u))}</span></div>`;
 }
 
 // ---------- эффекты зданий (что даёт уровень) ----------
@@ -204,7 +204,7 @@ function trainCard(u) {
     <div class="tparams-h">Параметры юнита:</div>
     <div class="tparams"><div>${STAT_IC('health')}<b>${Math.round(u.hp * (1 + 0.05 * (fg.d || 0)))}</b></div>${['inf', 'cav', 'mag'].map((k) => `<div title="${A3_NAME[k]}">${STAT_IC(A3_IC[k])}<b>${v(a[k])}</b></div>`).join('')}<div>${STAT_IC('speed')}<b>${u.speed}</b></div><div>${STAT_IC('carry')}<b>${u.carry}</b></div></div>
     <div class="tcost"><div class="tcost-h">Стоимость тренировки:</div><div class="tcost-r">${RES4.map((r) => `<span data-need="${r}:${u.cost[r]}">${RES_IC[r]}<b>${fmtFull(u.cost[r])}</b></span>`).join('')}
-      <span>${RES_IC.people}<b>${u.pop}</b></span><span>${TIME_IC}<b>${fmtT(unitTrainSec(u))}</b></span></div></div>
+      <span>${RES_IC.people}<b>${u.tpop ?? u.pop}</b></span><span>${TIME_IC}<b>${fmtT(unitTrainSec(u))}</b></span></div></div>
     ${lock ? `<div class="needlist"><div class="needhead">Необходимо:</div>${unitNeeds(u).map((x) => `<div class="need ${x.ok ? 'ok' : ''}">${x.ok ? '✔' : '✖'} ${esc(x.name)} ${x.lvl} ур.</div>`).join('')}${unitNeeds(u).every((x) => x.ok) ? `<p class="reasons">${esc(lock)}</p>` : ''}</div>`
     : `<div class="tqty">Количество: <input type="number" inputmode="numeric" min="0" max="${max}" value="${n}" data-cnt-input="${u.id}"> /${max}</div>
     <input type="range" class="tslider" min="0" max="${Math.max(1, max)}" value="${n}" data-cnt-range="${u.id}" style="--p:${max ? n / max * 100 : 0}%" ${max ? '' : 'disabled'}>
