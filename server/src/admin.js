@@ -4,7 +4,10 @@ const W = require('./words');
 // Подключается к Game после army.js и social.js — см. install().
 
 const C = require('./catalog');
-const { UNIT, GENERAL_ID, GEN, unitsForRace } = require('./army');
+const { UNIT, GENERAL_ID, GEN, unitsForRace, MERCHANT_ID } = require('./army');
+// выдача войск админом: юниты расы игрока и общие, кроме генерала (у него своя кнопка) и торговцев (их всегда 20 при Рынке).
+// Среди них и особые, кто не тренируется: уникальные воины заданий, нежить из сундуков, воины, снятые с найма
+const giveable = (race) => unitsForRace(race).filter((u) => u.id !== GENERAL_ID && u.id !== MERCHANT_ID);
 
 const ADMIN_NICK = 'Советник';
 const ADMIN_CASTLES = Number(process.env.ADMIN_CASTLES || 20);
@@ -238,10 +241,11 @@ function install(Game) {
         for (const c of castles) { this.mil(c); for (const u of list) { c.units[u.id] = Math.max(0, (c.units[u.id] || 0) + n); if (!c.units[u.id]) delete c.units[u.id]; } }
         msg = `Войска ${n >= 0 ? '+' : ''}${n} (${list.length} видов).`; break;
       }
-      // выдать армию игроку по нику: только юниты его расы (без генерала и торговцев), в выбранный замок (по умолчанию — столица)
+      // выдать армию игроку по нику: юниты его расы и общие, и особые тоже (без генерала и торговцев — giveable), в выбранный замок (по умолчанию — столица)
       case 'armyinfo': {
-        const list = unitsForRace(target.race).filter((u) => u.id !== GENERAL_ID && !u.notrain);
-        data = { login: target.login, race: target.race, raceName: C.RACE_NAMES[target.race] || target.race, units: list.map((u) => u.id),
+        const list = giveable(target.race);
+        data = { login: target.login, race: target.race, raceName: C.RACE_NAMES[target.race] || target.race,
+          units: list.filter((u) => !u.notrain).map((u) => u.id), special: list.filter((u) => u.notrain).map((u) => u.id),
           castles: this.castlesOf(target).map((c, i) => ({ id: c.id, name: c.name, x: c.x, y: c.y, capital: i === 0 })) };
         break;
       }
@@ -255,7 +259,7 @@ function install(Game) {
         data = this.adminInspect(who, focus); break;
       }
       case 'givearmy': {
-        const allowed = new Set(unitsForRace(target.race).filter((u) => u.id !== GENERAL_ID && !u.notrain).map((u) => u.id));
+        const allowed = new Set(giveable(target.race).map((u) => u.id));
         const c = this.castlesOf(target).find((k) => k.id === Number(arg.castle)) || this.castlesOf(target)[0];
         if (!c) return { error: 'У игрока нет замков.' };
         this.mil(c);

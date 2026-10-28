@@ -114,7 +114,7 @@ function adminHtml() {
         ${aAct('Новые замки', 'Полностью прокачанные замки рядом со столицей.', `${aNum('castles', 1, 'сколько')}${aBtn2('castles', 'Выдать', 'data-arg="castles:n" data-confirm="Выдать полные замки?"')}`)}
         ${aAct('Бунт в замке', 'Бунт в активном замке, 0–100% (100% — замок можно захватить).', `${aNum('loyalty', 0, '0–100')}${aBtn2('loyalty', 'Задать', 'data-arg="loyalty:value"')}`)}`)}
       ${aSec('⚔ Армия и генерал', `
-        ${aAct('Войска', 'Выбрать замок и сколько каких юнитов (только юниты расы игрока).', `<form class="chatform" data-aform="armyinfo"><input type="hidden" name="login" value="${esc(a.login || S.st.user.login)}"><button class="btn small primary">Открыть список</button></form>`)}
+        ${aAct('Войска', 'Выбрать замок и сколько каких юнитов: юниты расы игрока и особые — уникальные, нежить, снятые с найма.', `<form class="chatform" data-aform="armyinfo"><input type="hidden" name="login" value="${esc(a.login || S.st.user.login)}"><button class="btn small primary">Открыть список</button></form>`)}
         ${a.ga ? armyForm(a.ga) : ''}
         ${aAct('Убрать войска', 'Все войска в замках игрока исчезнут.', aBtn2('noarmy', 'Убрать', 'data-confirm="Убрать все войска?"', 'danger'))}
         ${aAct('Генерал', 'Генерал нужного уровня (1–500) в активном замке.', `${aNum('general', 100, 'уровень')}${aBtn2('general', 'Выдать', 'data-arg="general:level"')}`)}
@@ -153,11 +153,14 @@ function adminHtml() {
   };
   return head + T[tab]();
 }
+const gaUnit = (g) => (id) => { const u = unitById(id); return u ? `<label class="gaunit"><img src="${unitSrc(u, g.race)}" alt=""><span>${esc(u.name)}</span><input type="number" min="0" inputmode="numeric" name="u${id}" placeholder="0"></label>` : ''; };
 function armyForm(g) {
   return `<form data-aform="givearmy" class="acard2"><p class="small">${esc(g.login)} · раса <b>${esc(g.raceName)}</b>. Пустое поле — не выдавать.</p>
     <div class="arow"><span>Замок:</span><select name="castle">${g.castles.map((c) => `<option value="${c.id}">${esc(c.name)} (${c.x}:${c.y})${c.capital ? ' — столица' : ''}</option>`).join('')}</select></div>
-    <div class="gaunits">${g.units.map((id) => { const u = unitById(id); return u ? `<label class="gaunit"><img src="${unitSrc(u, g.race)}" alt=""><span>${esc(u.name)}</span><input type="number" min="0" inputmode="numeric" name="u${id}" placeholder="0"></label>` : ''; }).join('')}</div>
-    <div class="gabtns"><button type="button" class="btn small" data-gafill="100">всем по 100</button><button type="button" class="btn small" data-gafill="1000">всем по 1000</button><button type="button" class="btn small" data-gafill="">очистить</button></div>
+    <div class="gaunits gamain">${g.units.map(gaUnit(g)).join('')}</div>
+    ${(g.special || []).length ? `<p class="small gasub">Особые — не тренируются: уникальные воины заданий, нежить из сундуков, снятые с найма.</p>
+    <div class="gaunits">${g.special.map(gaUnit(g)).join('')}</div>` : ''}
+    <div class="gabtns"><button type="button" class="btn small" data-gafill="100">обычным по 100</button><button type="button" class="btn small" data-gafill="1000">обычным по 1000</button><button type="button" class="btn small" data-gafill="">очистить</button></div>
     <button class="btn primary" style="width:100%;margin-top:8px">Выдать войска</button></form>`;
 }
 // «Мульты»: только «один телефон — несколько аккаунтов» (у каждого телефона в игре свой номер) и подсказки «то же железо и та же сеть»;
@@ -322,7 +325,7 @@ $('#sheetBody').addEventListener('change', (e) => {
   if (n === 'login') { S.adm.player = null; refreshSheet(); }
 });
 $('#sheetBody').addEventListener('click', (e) => {
-  const gf = e.target.closest('[data-gafill]'); if (gf) { $$('.gaunit input').forEach((i) => { i.value = gf.dataset.gafill; }); return; }
+  const gf = e.target.closest('[data-gafill]'); if (gf) { $$(gf.dataset.gafill ? '.gamain .gaunit input' : '.gaunit input').forEach((i) => { i.value = gf.dataset.gafill; }); return; } // «обычным по N» — особым вручную
   const pd = e.target.closest('[data-apdays]'); if (pd) { S.adm.premDays = Number(pd.dataset.apdays); const f = pd.closest('form'); f.days.value = S.adm.premDays; f.querySelectorAll('[data-apdays]').forEach((x) => x.classList.toggle('on', x === pd)); return; } // «Премиум всем»: срок кнопкой
   const sm = e.target.closest('[data-asmod]'); if (sm) { if (!confirm(`Снять ${sm.dataset.asmod} со старших модераторов? Обычным модератором он останется.`)) return; send({ t: 'admin', op: 'smod', login: sm.dataset.asmod, on: 0 }); return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
   const mq = e.target.closest('[data-amodreq]'); if (mq) { const ok = mq.dataset.ok === '1'; if (!confirm(ok ? 'Принять заявку — назначить игрока модератором?' : 'Отклонить заявку?')) return; send({ t: 'admin', op: 'modreq', id: Number(mq.dataset.amodreq), ok: ok ? 1 : 0 }); return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
@@ -387,7 +390,7 @@ $('#sheetBody').addEventListener('submit', (e) => {
   if (k === 'armyinfo') { const l = f.login.value.trim(); if (!l) return; S.adm.ga = null; return send({ t: 'admin', op: 'armyinfo', login: l }); }
   if (k === 'givearmy') {
     const g = S.adm.ga; if (!g) return;
-    const units = {}; for (const id of g.units) { const v = Number(f[`u${id}`].value); if (v > 0) units[id] = v; }
+    const units = {}; for (const id of [...g.units, ...(g.special || [])]) { const v = Number(f[`u${id}`].value); if (v > 0) units[id] = v; }
     if (!Object.keys(units).length) return toast('Укажите количество хотя бы для одного юнита.', 'err');
     if (!confirm(`Выдать войска игроку ${g.login}?`)) return;
     return send({ t: 'admin', op: 'givearmy', login: g.login, castle: Number(f.castle.value), units });

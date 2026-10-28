@@ -3381,6 +3381,17 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.ok(g.halls().some((h) => h.id === 'recruit') && g.halls().some((h) => h.id === 'execute'), 'залы «Казни» и «Вербовка»');
     console.log('✓ Капкан: ловит до 1000 до боя, Темница — казнь (лояльность ≤ 100 в сутки, без мультов) или вербовка 10–15% за 4 ч, перезарядка 12 ч, побег через сутки');
   }
+  { // админка → Войска: и особые воины — уникальные заданий, нежить из сундуков, снятые с найма; генерала и торговцев — нет
+    const A = require('../src/army'), adm = Object.values(g.db.users).find((x) => x.admin) || g.ensureAdmin('secretpass');
+    const tu = g.register({ login: 'uniqgive', password: '12345', race: 0 }).user, tc = g.castleOf(tu);
+    const uq = A.uniqueFor(tu.race, 'inf'), info = g.adminOp(adm, 'armyinfo', { login: tu.login }).data;
+    assert.ok(info.special.includes(uq.id) && info.special.includes(320) && info.special.includes(241) && !info.units.includes(uq.id), 'особые — отдельным списком: уникальный, нежить, Око');
+    assert.ok(![...info.units, ...info.special].some((id) => id === A.GENERAL_ID || id === A.MERCHANT_ID), 'генерала и торговцев в списке нет');
+    const n0 = { ...tc.units }, r = g.adminOp(adm, 'givearmy', { login: tu.login, castle: tc.id, units: { [uq.id]: 5, 320: 2, [A.MERCHANT_ID]: 7, [A.GENERAL_ID]: 1 } });
+    assert.ok(r.ok && tc.units[uq.id] === 5 && tc.units[320] === 2, 'выданы уникальный и нежить: ' + JSON.stringify(r));
+    assert.ok((tc.units[A.MERCHANT_ID] || 0) === (n0[A.MERCHANT_ID] || 0) && (tc.units[A.GENERAL_ID] || 0) === (n0[A.GENERAL_ID] || 0), 'торговцы и генерал не выдаются');
+    console.log('✓ Админка → Войска: выдаются и особые воины (уникальные, нежить, снятые с найма), генерал и торговцы — нет');
+  }
   try { fs.unlinkSync(DB); } catch {}
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });
