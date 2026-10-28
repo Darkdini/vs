@@ -27,7 +27,7 @@ const loading = (t) => `${ribbon(t)}<p class="parch-note">Загрузка…</p
 // Меняется сразу (сообщение allyon). В чужом альянсе (модератор) статуса нет
 // в составе — кто в сети (зелёный), не в сети (красный), давно не заходил (серый, сервер: ally.js allyAway); видят только свои
 const ALLY_ST = { on: 'В сети', off: 'Не в сети', away: 'Давно не заходил' };
-const allyOn = (m) => { if (m.on === undefined) return ''; const k = m.on ? 'on' : m.away ? 'away' : 'off'; return `<i class="aon ${k}" title="${ALLY_ST[k]}"></i>`; };
+const allyOn = (m) => { if (m.on === undefined) return ''; const k = m.on ? 'on' : m.away ? 'away' : 'off'; return `<img class="aking" src="${GFX}smallicon/hd/king_${k}.png" alt="" title="${ALLY_ST[k]}">`; }; // фигурка короля (картинка хозяина)
 const allyName = (m) => `${allyOn(m)}<a data-cprof="${m.id}" style="color:${nameColor(m.rep)}">${esc(m.login)}</a><br>`;
 
 function openAlly() { S.allyForeign = null; S.ally = null; asend({ t: 'ally', op: 'get' }); openSheet(allyMainWin); }
