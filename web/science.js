@@ -1,7 +1,7 @@
 'use strict';
 // Университет → «Науки»: список наук с колбами и окно науки — описание, изучение следующего уровня
 // и таблица всех 20 уровней (что даёт каждый; вехи 5/10/15/20 — отдельные бонусы). Сервер: SCIENCES, research в army.js.
-const FLASK = (s) => `gfx3d/sci/flask_${s.flask}.png`;
+const FLASK = (s) => `${GFX}smallicon/${s.icon}.png`; // колбы хозяина (gfx/smallicon/hd/sci_*), цвет — по науке
 S.sciK = null;
 function sciSec(n) { const sages = MY().units[227] || 0; return Math.max(3, Math.round(M().scienceTime[Math.min(20, n)] * Math.max(0.5, 1 - 0.02 * sages) / S.cat.speed)); }
 function sciJob() {

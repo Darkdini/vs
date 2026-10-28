@@ -978,7 +978,7 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .mhid { margin: 8px 0; } .mhid summary { cursor: pointer; font: 700 min(16px, 3.8vw) var(--serif); padding: 4px 0; color: #6a4a2a; }
 .mlog small { color: #7a5a3a; } .newtag, .abadge { background: #c0392b; color: #fff; border-radius: 8px; padding: 0 6px; font: 700 12px system-ui, sans-serif; }
 /* ---------- Университет: науки ---------- */
-.sbar > img { width: 40px; height: 48px; }
+.sbar > img { width: 48px; height: 48px; } /* круглые колбы наук (gfx/smallicon/hd/sci_*) */
 .sbar .grow { flex: 1; min-width: 0; } .sbar .grow small { font-size: .7em; opacity: .85; }
 .slvl { font: 700 26px var(--serif); color: #ffe39a; flex: none; } .slvl small { font-size: 15px; opacity: .8; }
 .shead { display: flex; gap: 12px; align-items: center; margin: 4px 0 8px; }
