@@ -66,6 +66,21 @@ function install(Game) {
       if (!al.members.length) this.allyDissolve(al);
       else if (!al.members.includes(al.leader)) this.allyRemoveMember(al, al.leader);
     }
+    // рассылки и новости альянса, вышедшие до 28.10, — у всех участников уже прочитаны (allyFresh)
+    const now = Date.now();
+    for (const u of Object.values(this.db.users)) if (u.alliance && !u.allySeen) u.allySeen = { mail: now, news: now };
+  };
+  // рассылки (kind 'mail') или новости ('news') альянса, которых игрок ещё не видел; свои не считаются.
+  // u.allySeen — до какого времени просмотрено: ставится при вступлении в альянс и когда игрок открывает «Рассылки» или «Новости»
+  P.allyFresh = function allyFresh(u, al, kind) {
+    const seen = (u.allySeen || {})[kind] || 0;
+    return (al[kind === 'mail' ? 'mails' : 'news'] || []).filter((x) => x.at > seen && (x.byId ? x.byId !== u.id : x.by !== u.login));
+  };
+  // новость альянса целиком — с комментариями (окно «Новость»)
+  P.allyNewsGet = function allyNewsGet(user, al, id) {
+    const n = (al.news || []).find((x) => x.id === Number(id)); if (!n) return null;
+    return { id: n.id, title: n.title, text: n.text, by: n.by, byId: n.byId || 0, at: n.at, edited: n.edited || 0,
+      comments: (n.comments || []).map((c) => { const u = this.userById(c.byId); return { ...c, rep: u ? u.reputation ?? START_REP : START_REP }; }) };
   };
   // медали Зала славы участника за последний месяц (по лучшему месту в каждом зале) — для «Состава» альянса
   P.allyMedals = function allyMedals(u, now = Date.now()) {
@@ -145,7 +160,11 @@ function install(Game) {
       invited: can('invite') ? Object.values(this.db.users).filter((u) => (u.invites || []).includes(al.id)).map((u) => u.login) : [],
       treasury: al.treasury || 0, medalCost: MEDAL_COST, storage: al.storage || { wood: 0, stone: 0, iron: 0, food: 0 },
       diplo: Object.entries(al.diplo || {}).map(([id, st]) => (A[id] ? { id: Number(id), tag: A[id].tag, name: A[id].name, status: st, statusName: DIPLO[st] } : null)).filter(Boolean),
-      news: (al.news || []).slice().reverse(),
+      news: (al.news || []).slice().reverse().map((n) => ({ id: n.id, title: n.title, text: n.text, by: n.by, at: n.at, cmts: (n.comments || []).length })),
+      // рассылки — только своим; seen — до какого времени игрок их видел (метка NEW), unread — сколько новых
+      mails: own ? (al.mails || []).slice().reverse() : [],
+      seen: own ? { mail: (user.allySeen || {}).mail || 0, news: (user.allySeen || {}).news || 0 } : null,
+      unread: own ? { mail: this.allyFresh(user, al, 'mail').length, news: this.allyFresh(user, al, 'news').length } : { mail: 0, news: 0 },
       forum: (al.forum || []).filter((t) => !t.deleted || can('news') || this.canModerate(user)).map((t) => ({ id: t.id, title: t.title, by: t.by, at: t.at, pinned: !!t.pinned, closed: !!t.closed, deleted: !!t.deleted,
         replies: t.posts.length, last: t.posts[t.posts.length - 1] })).sort((a, b) => (b.pinned - a.pinned) || ((b.last ? b.last.at : b.at) - (a.last ? a.last.at : a.at))),
       log: can('logs') ? (al.log || []).slice(-100).reverse() : [], moves: own ? this.allyMoves(al).slice(0, 150) : [], reports, // moves — история кладовой и казны: видна всем участникам
@@ -196,12 +215,22 @@ function install(Game) {
       }
       case 'charter': { const e = need('desc'); if (e) return e; al.charter = clean(m.text, 3000); return done('Устав сохранён.'); }
       case 'ad': { const e = need('invite'); if (e) return e; al.ad = clean(m.text, 300); return done(al.ad ? 'Реклама размещена.' : 'Реклама снята.'); }
+      // рассылка (с 28.10, как в оригинале): не личными письмами, а в окно «Рассылки» альянса; участникам в игре — бегущая строка
+      // (web.js allyTickCast), остальным при входе докладывает советник (news.js welcomeInfo)
       case 'mail': {
         const e = need('mail'); if (e) return e;
-        const lim = this.tooOften(user, 'allymail'); if (lim) return { error: lim }; // письмо каждому участнику — не чаще раза в минуту
-        const text = clean(m.text, 2000); if (!text) return { error: 'Введите текст.' };
-        for (const id of al.members) { const u = this.userById(id); if (u && u.id !== user.id) { this.sendMail(user, u.login, `Рассылка альянса [${al.tag}]`, text); this.event(u.id, `Рассылка альянса [${al.tag}] от ${user.login}.`); } }
-        return done('Рассылка отправлена всем участникам.');
+        if (m.del) { al.mails = (al.mails || []).filter((x) => x.id !== Number(m.del)); return done('Рассылка удалена.'); }
+        const title = clean(m.title, 80), text = clean(m.text, 2000); if (!title || !text) return { error: 'Введите тему рассылки и сообщение.' };
+        const lim = this.tooOften(user, 'allymail'); if (lim) return { error: lim }; // не чаще раза в минуту
+        const id = this.db.nextId++;
+        (al.mails = al.mails || []).push({ id, title, text, by: user.login, byId: user.id, at: now }); if (al.mails.length > 100) al.mails.shift();
+        return { ...done('Рассылка отправлена всем участникам альянса.'), cast: { kind: 'mail', id, title } };
+      }
+      // открыл «Рассылки» или «Новости» альянса — всё, что вышло до upto (время самой свежей, что он увидел), прочитано
+      case 'seen': {
+        const kind = m.kind === 'news' ? 'news' : 'mail', upto = Math.min(now, Math.floor(Number(m.upto)) || 0);
+        const s = user.allySeen = user.allySeen || {}; if (upto > (s[kind] || 0)) { s[kind] = upto; this.store.save(); }
+        return { ok: true };
       }
       // казна: до 21.10 — взнос своих монет любым участником и выдача монет участникам (запасные аккаунты перегоняли монеты
       // основному). Теперь ни того ни другого (MEDAL_COST выше)
@@ -289,14 +318,36 @@ function install(Game) {
         else if (m.act === 'delete') t.deleted = true; else if (m.act === 'restore') t.deleted = false; else return { error: 'Неизвестное действие.' };
         return done('Готово.');
       }
-      case 'news': {
+      case 'news': { // участникам в игре — бегущая строка «Свежие новости Альянса» (web.js allyTickCast), остальным — советник при входе
         const e = need('news'); if (e) return e;
         if (m.del) { al.news = (al.news || []).filter((x) => x.id !== Number(m.del)); return done('Новость удалена.'); }
         const title = clean(m.title, 80), text = clean(m.text, 2000); if (!title || !text) return { error: 'Введите тему и текст новости.' };
         const lim = this.tooOften(user, 'allypost'); if (lim) return { error: lim };
-        (al.news = al.news || []).push({ id: this.db.nextId++, title, text, by: user.login, at: now }); if (al.news.length > 100) al.news.shift();
-        for (const id of al.members) if (id !== user.id) this.event(id, `Новость альянса [${al.tag}]: ${title}`);
-        return done('Новость добавлена.');
+        const id = this.db.nextId++;
+        (al.news = al.news || []).push({ id, title, text, by: user.login, byId: user.id, at: now }); if (al.news.length > 100) al.news.shift();
+        return { ...done('Новость добавлена.'), cast: { kind: 'news', id, title } };
+      }
+      case 'newsedit': {
+        const e = need('news'); if (e) return e;
+        const n = (al.news || []).find((x) => x.id === Number(m.id)); if (!n) return { error: 'Новость не найдена.' };
+        const title = clean(m.title, 80), text = clean(m.text, 2000); if (!title || !text) return { error: 'Введите тему и текст новости.' };
+        n.title = title; n.text = text; n.edited = now;
+        return done('Новость изменена.');
+      }
+      // комментарии к новости альянса — пишет любой участник, удаляет автор комментария или руководство с правом «Новости и форум»
+      case 'newscmt': {
+        const n = (al.news || []).find((x) => x.id === Number(m.id)); if (!n) return { error: 'Новость не найдена.' };
+        const text = clean(m.text, 300); if (!text) return { error: 'Введите комментарий.' };
+        const lim = this.tooOften(user, 'allypost'); if (lim) return { error: lim };
+        (n.comments = n.comments || []).push({ id: this.db.nextId++, by: user.login, byId: user.id, text, at: now }); if (n.comments.length > 100) n.comments.shift();
+        return done('Комментарий добавлен.');
+      }
+      case 'newscmtdel': {
+        const n = (al.news || []).find((x) => x.id === Number(m.id)); if (!n) return { error: 'Новость не найдена.' };
+        const c = (n.comments || []).find((x) => x.id === Number(m.cmt)); if (!c) return { error: 'Комментарий не найден.' };
+        if (c.byId !== user.id) { const e = need('news'); if (e) return e; }
+        n.comments = n.comments.filter((x) => x !== c);
+        return done('Комментарий удалён.');
       }
       default: return { error: 'Неизвестное действие.' };
     }

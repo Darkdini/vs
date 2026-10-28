@@ -1,6 +1,7 @@
 'use strict';
 // Окно «Альянс» как в оригинале: карточка, Верховенство, Состав, Управление (права, звания и погоны, описание,
-// исключение, казна, кладовая, дипломатия, рассылки, реклама, заявки), Форум, Новости, Логи.
+// исключение, казна, кладовая, дипломатия, рассылки, реклама, заявки), Форум, Новости, Рассылки, Логи.
+// Новая рассылка или новость — бегущая строка вверху экрана у участников в игре (allyTicker), при входе — доклад советника (welcome.js).
 // Сервер: server/src/ally.js (allyView/allyOp/allyTopic) и P.alliance в army.js.
 
 S.ally = null; S.allyTopic = null; S.allyShowDel = false; S.allyRankFor = null; S.allyReplyTo = null;
@@ -57,9 +58,9 @@ function allyMainWin() {
     <div class="ptiles pbig">
       ${aTile('data-aw="manage"', `${AL}manage.png`, 'Управление')}
       ${aTile('data-aw="forum"', `${AL}forum.png`, 'Форум')}
-      ${aTile('data-aw="mail"', `${AL}mail.png`, 'Рассылки', !can('mail'))}
+      ${aTile('data-aw="mails"', `${AL}mail.png`, `Рассылки${allyNewN('mail')}`)}
       ${aTile('data-aw="ad"', `${AL}ad.png`, 'Реклама', !can('invite'))}
-      ${aTile('data-aw="news"', `${AL}news.png`, 'Новости')}
+      ${aTile('data-aw="news"', `${AL}news.png`, `Новости${allyNewN('news')}`)}
       ${aTile('data-aw="logs"', `${AL}logs.png`, 'Журнал', !can('logs'))}
     </div>`;
 }
@@ -122,7 +123,11 @@ function allyCharterWin() {
     : `${ribbon('Устав')}<div class="bwline" style="white-space:pre-wrap">${esc(a.charter) || '<span class="muted">Устав не написан.</span>'}</div>`;
 }
 function allyAdWin() { const a = S.ally; return a ? formWin('Реклама', `<div class="bwline">Объявление о наборе — видно всем в Дипломатическом центре → «Альянсы».</div><textarea class="ainput" name="text" rows="4" maxlength="300">${esc(a.ad)}</textarea><div class="center"><button class="pbtn">Разместить</button></div>`) : loading('Реклама'); }
-function allyMailWin() { return formWin('Рассылки', '<div class="bwline">Письмо получат все участники альянса.</div><textarea class="ainput" name="text" rows="5" maxlength="2000" required></textarea><div class="center"><button class="pbtn">Разослать</button></div>'); }
+// рассылка, как в оригинале: тема и сообщение; приходит не личным письмом, а в «Рассылки» альянса (сервер: ally.js op 'mail')
+function allyMailWin() {
+  return formWin('Рассылка', `<div class="clabel center">Тема рассылки:</div><input class="ainput" name="title" maxlength="80" required>
+    <div class="clabel center">Сообщение:</div><textarea class="ainput" name="text" rows="5" maxlength="2000" required></textarea>${smileBar()}<div class="center"><button class="pbtn">Разослать</button></div>`);
+}
 
 function allyKickWin() {
   const a = S.ally; if (!a) return loading('Удалить игрока');
@@ -219,13 +224,84 @@ function allyPostWin() {
     <textarea class="ainput" name="text" rows="6" maxlength="2000" required></textarea>${smileBar()}<div class="center"><button class="pbtn">Отправить</button></div>`);
 }
 
-// ----- новости -----
+// ----- новости и рассылки: список свитков (новые — с меткой NEW), запись целиком; новость — с комментариями -----
+// NEW — вышло после того, что игрок уже видел (сервер: ally.js allyFresh, u.allySeen); свои — без метки.
+// S.allyNewFrom — что было прочитано, когда раздел открыли: метки держатся, пока окно открыто (allySeenCheck)
+S.allyNewFrom = { mail: null, news: null }; S.allyMailId = 0; S.allyNews = null;
+const allyNewN = (k) => (S.ally && S.ally.unread && S.ally.unread[k] ? ` (${S.ally.unread[k]})` : '');
+const allyMine = (x) => (x.byId ? x.byId === S.st.user.id : x.by === S.st.user.login);
+const allyIsNew = (k, x) => { const a = S.ally, from = S.allyNewFrom[k] ?? (a && a.seen ? a.seen[k] : Infinity); return x.at > from && !allyMine(x); };
+const allyCard = (k, x) => `<button class="ncard acard" data-aitem="${k}:${x.id}"><span class="ascroll"><img src="gfx3d/news/scroll.png" alt="">${allyIsNew(k, x) ? '<i>NEW</i>' : ''}</span>
+  <span><b>${esc(x.title)}</b><small>${dt(x.at)}${x.cmts ? ` · 💬 ${x.cmts}` : ''}</small></span></button>`;
+const allyHead = (x) => `<div class="nitem"><h3>${esc(x.title)}</h3><div class="ndate">Автор: ${esc(x.by)}<br>${dt(x.at)}</div><div class="ntext">${smiles(esc(x.text))}</div></div>`;
 function allyNewsWin() {
   const a = S.ally; if (!a) return loading('Новости');
   return `${ribbon('Новости')}${can('news') ? '<button class="pbar" data-aw="newsadd">Добавить</button>' : ''}
-    ${a.news.map((n) => `<div class="fpost"><b>${esc(n.title)}</b><div class="ftext">${esc(n.text)}</div><small>${dt(n.at)} · ${esc(n.by)}${can('news') ? ` · <a data-anewsdel="${n.id}">удалить</a>` : ''}</small></div>`).join('') || '<p class="parch-note">Новостей нет.</p>'}`;
+    <div class="nlist">${a.news.map((n) => allyCard('news', n)).join('') || '<p class="parch-note">Новостей нет.</p>'}</div>`;
 }
-function allyNewsAddWin() { return formWin('Новость', '<div class="clabel">Тема:</div><input class="ainput" name="title" maxlength="80" required><div class="clabel">Текст новости:</div><textarea class="ainput" name="text" rows="5" maxlength="2000" required></textarea><button class="pbar">Добавить</button>'); }
+function allyNewsItemWin() {
+  const n = S.allyNews; if (!n) return loading('Новость');
+  return `${ribbon('Новость')}${allyHead(n)}
+    ${can('news') ? `<button class="pbar" data-aw="newsedit">Редактировать</button><button class="pbar" data-anewsdel="${n.id}">Удалить</button>` : ''}
+    ${S.allyForeign ? '' : '<button class="pbar" data-aw="newscmt">Добавить комментарий</button>'}${ribbon('Комментарии')}
+    ${n.comments.slice().reverse().map((c) => `<div class="fpost"><div class="fauthor">${repCrown(c.rep)} <a data-cprof="${c.byId}" style="color:${nameColor(c.rep)}">${esc(c.by)}</a></div>
+      <div class="ftext">${smiles(esc(c.text))}</div><div class="afoot"><small>${dt(c.at)}</small>${c.byId === S.st.user.id || can('news') ? `<button class="areply" data-acmtdel="${c.id}">Удалить</button>` : ''}</div></div>`).join('') || '<p class="parch-note">Комментариев пока нет.</p>'}`;
+}
+function allyNewsAddWin() { return formWin('Новость', `<div class="clabel">Тема:</div><input class="ainput" name="title" maxlength="80" required><div class="clabel">Текст новости:</div><textarea class="ainput" name="text" rows="5" maxlength="2000" required></textarea>${smileBar()}<button class="pbar">Добавить</button>`); }
+function allyNewsEditWin() {
+  const n = S.allyNews; if (!n) return loading('Изменить новость');
+  return formWin('Изменить новость', `<div class="clabel">Тема:</div><input class="ainput" name="title" maxlength="80" required value="${esc(n.title)}"><div class="clabel">Текст новости:</div><textarea class="ainput" name="text" rows="6" maxlength="2000" required>${esc(n.text)}</textarea>${smileBar()}<button class="pbar">Сохранить</button>`);
+}
+function allyNewsCmtWin() { return formWin('Комментарий', `<textarea class="ainput" name="text" rows="4" maxlength="300" required></textarea>${smileBar()}<div class="center"><button class="pbtn">Отправить</button></div>`); }
+// «Рассылки» — читают все участники; «Разослать» — у кого право «Рассылка уведомлений»
+function allyMailsWin() {
+  const a = S.ally; if (!a) return loading('Рассылки');
+  return `${ribbon('Рассылки')}${can('mail') ? '<button class="pbar" data-aw="mail">Разослать</button>' : ''}
+    <div class="nlist">${a.mails.map((x) => allyCard('mail', x)).join('') || '<p class="parch-note">Рассылок пока нет.</p>'}</div>`;
+}
+function allyMailItemWin() {
+  const a = S.ally; if (!a) return loading('Рассылка');
+  const x = a.mails.find((y) => y.id === S.allyMailId); if (!x) return `${ribbon('Рассылка')}<p class="parch-note">Рассылка удалена.</p>`;
+  return `${ribbon('Рассылка')}${allyHead(x)}${can('mail') ? `<button class="pbar" data-amaildel="${x.id}">Удалить</button>` : ''}`;
+}
+function allyOpenItem(k, id) {
+  if (k === 'news') { S.allyNews = null; asend({ t: 'ally', op: 'newsget', id }); openSheet(allyNewsItemWin); } else { S.allyMailId = id; openSheet(allyMailItemWin); }
+  allySeenCheck();
+}
+// открыт раздел (список или запись) — всё вышедшее до самой свежей записи прочитано (сервер: op 'seen')
+const ALLY_SEEN_WINS = { mail: [allyMailsWin, allyMailItemWin], news: [allyNewsWin, allyNewsItemWin] };
+function allySeenCheck() {
+  const a = S.ally; if (!a || S.allyForeign || !a.seen) return;
+  for (const k of ['mail', 'news']) {
+    if (!S.sheets.some((w) => ALLY_SEEN_WINS[k].includes(w))) { S.allyNewFrom[k] = null; continue; }
+    if (S.allyNewFrom[k] == null) S.allyNewFrom[k] = a.seen[k];
+    const list = k === 'mail' ? a.mails : a.news;
+    if (a.unread[k] && list.length) asend({ t: 'ally', op: 'seen', kind: k, upto: list[0].at });
+  }
+}
+// сразу в раздел альянса (советник при входе, бегущая строка): «Альянс» → раздел → запись
+function openAllyWin(w, k, id) {
+  S.allyForeign = null; S.ally = null; S.allyNewFrom = { mail: null, news: null };
+  asend({ t: 'ally', op: 'get' }); openSheet(allyMainWin); openSheet(AW[w]);
+  if (id) allyOpenItem(k, id);
+}
+
+// ----- бегущая строка (как в оригинале): новая рассылка или новость альянса у игроков в игре — оранжевая полоса
+// с завитками вверху экрана, текст дважды проходит справа налево; нажатие — открыть её. Сервер: web.js allyTickCast
+S.tickQ = [];
+function allyTicker(m) {
+  S.tickQ.push(m); if (S.tickQ.length > 5) S.tickQ.shift();
+  if (!document.querySelector('.aticker')) allyTickNext();
+}
+function allyTickNext() {
+  const m = S.tickQ.shift(); if (!m) return;
+  const d = document.createElement('button'); d.type = 'button'; d.className = 'aticker';
+  d.innerHTML = `<span>${m.kind === 'mail' ? 'Рассылка от альянса' : 'Свежие новости Альянса'}: «${esc(m.title)}»</span>`;
+  document.body.appendChild(d);
+  const sp = d.firstChild; sp.style.animationDuration = `${Math.max(6, sp.offsetWidth / 90)}s`; // ~90 точек в секунду при любой длине текста
+  sp.addEventListener('animationend', () => { d.remove(); allyTickNext(); });
+  d.addEventListener('click', () => { d.remove(); S.tickQ = []; openAllyWin(m.kind === 'mail' ? 'mails' : 'news', m.kind, m.id); });
+}
 
 // ----- логи -----
 S.allyLogTab = 'def';
@@ -251,16 +327,25 @@ function allyLogsWin() {
 
 const AW = { members: allyMembersWin, titles: allyTitlesWin, manage: allyManageWin, rights: allyRightsWin, descedit: allyDescEditWin, desc: allyDescWin, charter: allyCharterWin,
   ad: allyAdWin, mail: allyMailWin, kick: allyKickWin, transfer: allyTransferWin, req: allyReqWin, gold: allyGoldWin, store: allyStoreWin, diplo: allyDiploWin,
-  forum: allyForumWin, newtopic: allyNewTopicWin, post: allyPostWin, news: allyNewsWin, newsadd: allyNewsAddWin, logs: allyLogsWin };
-const ALLY_FORMS = { 'Изменить описание': 'desc', Устав: 'charter', Реклама: 'ad', Рассылки: 'mail', 'Изменить отношения': 'diplo', 'Создать тему': 'topic', Написать: 'post', Новость: 'news' };
+  forum: allyForumWin, newtopic: allyNewTopicWin, post: allyPostWin, news: allyNewsWin, newsadd: allyNewsAddWin, logs: allyLogsWin,
+  mails: allyMailsWin, newsedit: allyNewsEditWin, newscmt: allyNewsCmtWin };
+const ALLY_FORMS = { 'Изменить описание': 'desc', Устав: 'charter', Реклама: 'ad', Рассылка: 'mail', 'Изменить отношения': 'diplo', 'Создать тему': 'topic', Написать: 'post', Новость: 'news',
+  'Изменить новость': 'newsedit', Комментарий: 'newscmt' };
 
 $('#sheetBody').addEventListener('click', (e) => {
   const lt = e.target.closest('[data-alogtab],[data-amovef]'); // вкладка журнала, фильтр истории кладовой/казны
   if (lt) { if (lt.dataset.alogtab) S.allyLogTab = lt.dataset.alogtab; else S.allyMoveF = lt.dataset.amovef; return refreshSheet(); }
-  const t = e.target.closest('[data-apostdel],[data-aw],[data-aleave],[data-akick],[data-atransfer],[data-arankgo],[data-atopic],[data-atopicop],[data-atopicdel],[data-adel],[data-anewsdel],[data-areply],[data-areplyx]'); if (!t) return;
+  const t = e.target.closest('[data-apostdel],[data-aw],[data-aleave],[data-akick],[data-atransfer],[data-arankgo],[data-atopic],[data-atopicop],[data-atopicdel],[data-adel],[data-anewsdel],[data-areply],[data-areplyx],[data-aitem],[data-amaildel],[data-acmtdel]'); if (!t) return;
   const d = t.dataset;
   if (d.apostdel !== undefined) { if (confirm('Удалить сообщение?')) asend({ t: 'ally', op: 'postdel', topic: S.allyTopicId, idx: Number(d.apostdel) }); return; }
-  if (d.aw) { if (t.classList.contains('off')) return toast('Нет прав на это действие.', 'err'); if (d.aw === 'post') S.allyReplyTo = null; if (d.aw === 'forum' && S.sheets.length && S.allyTopic) closeSheet(); return openSheet(AW[d.aw]); }
+  if (d.aw) {
+    if (t.classList.contains('off')) return toast('Нет прав на это действие.', 'err'); if (d.aw === 'post') S.allyReplyTo = null; if (d.aw === 'forum' && S.sheets.length && S.allyTopic) closeSheet();
+    if (d.aw === 'mails') S.allyNewFrom.mail = null; if (d.aw === 'news') S.allyNewFrom.news = null; // раздел открыт заново — метки NEW по свежему «прочитано»
+    openSheet(AW[d.aw]); return allySeenCheck();
+  }
+  if (d.aitem) { const [k, id] = d.aitem.split(':'); return allyOpenItem(k, Number(id)); }
+  if (d.amaildel) { if (confirm('Удалить рассылку?')) { asend({ t: 'ally', op: 'mail', del: d.amaildel }); closeSheet(); } return; }
+  if (d.acmtdel) { if (confirm('Удалить комментарий?')) asend({ t: 'ally', op: 'newscmtdel', id: S.allyNews.id, cmt: d.acmtdel }); return; }
   if (d.aleave !== undefined) { if (confirm('Покинуть альянс?')) { send({ t: 'alliance', op: 'leave' }); closeAllSheets(); } return; }
   if (d.akick) { if (confirm(`Исключить ${d.akick} из альянса?`)) send({ t: 'alliance', op: 'kick', login: d.akick }); return setTimeout(() => asend({ t: 'ally', op: 'get' }), 200); }
   if (d.atransfer) { if (confirm(`Сделать ${d.atransfer} создателем альянса?`)) asend({ t: 'ally', op: 'transfer', login: d.atransfer }); return; }
@@ -275,7 +360,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   }
   if (d.atopicdel) { const tp = S.ally.forum.find((x) => x.id === Number(d.atopicdel)); if (tp && !tp.deleted && !confirm('Удалить тему?')) return; return asend({ t: 'ally', op: 'topicop', topic: d.atopicdel, act: tp && tp.deleted ? 'restore' : 'delete' }); }
   if (d.adel !== undefined) { S.allyShowDel = !S.allyShowDel; return refreshSheet(); }
-  if (d.anewsdel) { if (confirm('Удалить новость?')) asend({ t: 'ally', op: 'news', del: d.anewsdel }); return; }
+  if (d.anewsdel) { if (confirm('Удалить новость?')) { asend({ t: 'ally', op: 'news', del: d.anewsdel }); closeSheet(); } return; }
   if (d.areply !== undefined) { // «Ответить»: окно «Написать» с адресатом, текст начинается с его ника
     const p = S.allyTopic && S.allyTopic.posts[Number(d.areply)]; if (!p) return;
     S.allyReplyTo = { at: p.at, by: p.by, text: p.text.length > 90 ? `${p.text.slice(0, 90)}…` : p.text };
@@ -296,14 +381,23 @@ $('#sheetBody').addEventListener('submit', (e) => {
   if (k === 'storeto') return asend({ t: 'ally', op: 'store', res: res(), to: v('to') });
   const op = ALLY_FORMS[k]; if (!op) return;
   asend({ t: 'ally', op, tag: v('tag'), name: v('name'), desc: v('desc'), text: v('text'), title: v('title'), status: v('status'), topic: S.allyTopicId,
-    reply: op === 'post' && S.allyReplyTo ? S.allyReplyTo.at : undefined });
+    reply: op === 'post' && S.allyReplyTo ? S.allyReplyTo.at : undefined, id: ['newsedit', 'newscmt'].includes(op) && S.allyNews ? S.allyNews.id : undefined });
   if (op === 'post') S.allyReplyTo = null;
-  if (['topic', 'post', 'news', 'mail'].includes(op)) closeSheet();
+  if (['topic', 'post', 'news', 'mail', 'newsedit', 'newscmt'].includes(op)) closeSheet();
 });
 const prevMilA = milMsg;
 const ALLY_ON_WINS = [allyMainWin, allyMembersWin, allyKickWin]; // окна со статусом «в игре»
 milMsg = function (m) { // eslint-disable-line no-global-assign
-  if (m.t === 'ally') { S.ally = m.data; return refreshSheet(); }
+  if (m.t === 'ally') { S.ally = m.data; refreshSheet(); return allySeenCheck(); }
+  if (m.t === 'allynews') { // новость с комментариями; удалили, пока была открыта, — назад к списку
+    S.allyNews = m.data; if (!m.data && S.sheets[S.sheets.length - 1] === allyNewsItemWin) { closeSheet(); return toast('Новость удалена.', 'err'); }
+    return refreshSheet();
+  }
+  if (m.t === 'allytick') { // новая рассылка или новость альянса: бегущая строка; открыто окно альянса — обновить
+    allyTicker(m);
+    if (!S.allyForeign && S.sheets.some((w) => w === allyMainWin || Object.values(AW).includes(w) || w === allyMailItemWin || w === allyNewsItemWin)) asend({ t: 'ally', op: 'get' });
+    return;
+  }
   if (m.t === 'allytopic') { S.allyTopic = m.data; if (m.data) S.allyTopicId = m.data.id; return refreshSheet(); }
   if (m.t === 'allyon') { // соальянсник вошёл в игру или вышел — точка в составе меняется сразу
     const x = S.ally && S.ally.members.find((y) => y.id === m.id && y.on !== undefined); if (!x) return;

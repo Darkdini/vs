@@ -2480,6 +2480,7 @@ function install(Game, helpers) {
   P.joinAlliance = function joinAlliance(user, al) {
     if (al.members.length >= this.allianceSlots(al)) return { error: `В альянсе нет мест (${this.allianceSlots(al)}).` };
     al.members.push(user.id); user.alliance = al.id;
+    user.allySeen = { mail: Date.now(), news: Date.now() }; // прежние рассылки и новости альянса новичку — не «новые» (ally.js allyFresh)
     this.allyLog(al, `${user.login} вступил в альянс`);
     user.invites = []; // вступил — остальные приглашения больше не нужны
     for (const a of Object.values(this.db.alliances)) if (a.requests) a.requests = a.requests.filter((id) => id !== user.id);
@@ -2571,7 +2572,7 @@ function install(Game, helpers) {
       if (Object.values(this.db.alliances).some((x) => x.tag === tag)) return { error: 'Такой тег уже занят.' };
       const id = this.db.nextId++;
       this.db.alliances[id] = { id, name, tag, leader: user.id, members: [user.id], created: Date.now() };
-      user.alliance = id; user.invites = []; this.store.save(); return { ok: true };
+      user.alliance = id; user.invites = []; user.allySeen = { mail: Date.now(), news: Date.now() }; this.store.save(); return { ok: true };
     }
     if (op === 'join') { // по тегу — тоже только заявка: вступает тот, кого одобрит глава (раньше по тегу вступали сразу, без одобрения)
       const al = Object.values(this.db.alliances).find((x) => x.tag === String(tag || '').trim().toUpperCase());

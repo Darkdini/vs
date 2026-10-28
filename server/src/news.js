@@ -62,7 +62,10 @@ function install(Game) {
     // подарок новичку — Премиум до (game.js register); продлили покупкой или «Премиум всем» — до конца премиума
     const premGift = (u.premiumGift || 0) > Date.now() ? Math.max(u.premiumGift, u.premium || 0) : 0;
     const pa = u.premAllGot, premAll = pa && pa.at > since && this.isPremium(u) ? { days: pa.days, why: pa.why, until: u.premium } : null; // «Премиум всем» (admin.js) — пока был не в игре
-    return { reports: mine.length, attacks, mail, gifts, news: this.newsUnread(u), boss, premGift, premAll };
+    // рассылки и новости своего альянса, которых игрок ещё не видел (ally.js allyFresh): сколько и тема самой свежей
+    const al = this.allianceOf(u), am = al ? this.allyFresh(u, al, 'mail') : [], an = al ? this.allyFresh(u, al, 'news') : [];
+    const ally = am.length || an.length ? { tag: al.tag, mail: am.length, mailTitle: am.length ? am[am.length - 1].title : '', news: an.length, newsTitle: an.length ? an[an.length - 1].title : '' } : null;
+    return { reports: mine.length, attacks, mail, gifts, news: this.newsUnread(u), boss, premGift, premAll, ally };
   };
   P.newsUnread = function newsUnread(u) {
     const seen = new Set(u.newsRead || []);

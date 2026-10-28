@@ -243,6 +243,23 @@ function client() {
     { const rp = (await adm.expect('allytopic', (m) => m.data && m.data.posts.some((p) => p.reply))).data.posts.find((p) => p.reply);
       assert.ok(rp.reply.by === 'Webby' && rp.reply.text === 'Все на штурм' && rp.text === 'Webby, иду с вами', 'ответ с цитатой'); }
     await a.expect('toast', (m) => /ответил\(а\) вам на форуме альянса в теме «Сбор»/.test(m.msg));
+    // рассылка и новость альянса: не личным письмом — в «Рассылки» альянса; участнику в игре — бегущая строка (allytick)
+    adm.send({ t: 'ally', op: 'mail', title: 'Сбор', text: 'Все к замку' });
+    { const tk = await a.expect('allytick', (m) => m.kind === 'mail');
+      assert.ok(tk.title === 'Сбор' && tk.tag === 'KRL' && tk.id, 'рассылка — бегущей строкой');
+      a.send({ t: 'ally', op: 'get' });
+      const v = (await a.expect('ally', (m) => m.data.mails.length === 1)).data;
+      assert.ok(v.unread.mail === 1 && v.mails[0].text === 'Все к замку' && v.mails[0].by === admAuth.login, 'в «Рассылках» альянса — новая');
+      a.send({ t: 'ally', op: 'seen', kind: 'mail', upto: v.mails[0].at });
+      await a.expect('ally', (m) => m.data.unread.mail === 0); }
+    adm.send({ t: 'ally', op: 'news', title: 'Война', text: 'С понедельника' });
+    { const tk = await a.expect('allytick', (m) => m.kind === 'news'); assert.equal(tk.title, 'Война');
+      adm.send({ t: 'ally', op: 'newscmt', id: tk.id, text: 'Все готовы?' });
+      const nn = (await adm.expect('allynews', (m) => m.data && m.data.comments.length === 1)).data;
+      assert.ok(nn.title === 'Война' && nn.comments[0].text === 'Все готовы?', 'комментарий к новости альянса');
+      a.send({ t: 'ally', op: 'newsget', id: tk.id });
+      assert.equal((await a.expect('allynews', (m) => m.data && m.data.id === tk.id)).data.comments.length, 1); }
+    console.log('✓ рассылки и новости альянса: в альянсе, бегущая строка, прочитано, комментарии');
     adm.send({ t: 'ally', op: 'gold', n: 100 }); // свои монеты в казну альянса не переводятся
     await adm.expect('error', (m) => /не переводятся/.test(m.msg));
     a.send({ t: 'ally', op: 'gold', n: 40, to: 'Webby' }); // и игрокам казна не выдаётся

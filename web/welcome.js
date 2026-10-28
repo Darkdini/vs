@@ -1,7 +1,8 @@
 'use strict';
 // Советник встречает при входе (как в оригинале): у каждой расы свой, держит папирус с докладом.
 // Докладывает, сколько игроков в игре и что случилось за время отсутствия; тап по строке — сразу в отчёты, письма, подарки или новости.
-// Сервер: t:'welcome' { players, reports, attacks, mail, gifts, news } (server/src/news.js welcomeInfo).
+// Сервер: t:'welcome' { players, reports, attacks, mail, gifts, news, ally } (server/src/news.js welcomeInfo);
+// ally — новые рассылки и новости своего альянса { mail, mailTitle, news, newsTitle }: строка ведёт в «Альянс» → «Рассылки» / «Новости».
 // Картинка gfx/advisor/<раса>.webp: середина папируса растягивается под длину доклада (border-image),
 // top/bot — где на картинке начинается и кончается растягиваемая часть, w/h — размер картинки.
 
@@ -21,6 +22,9 @@ function welcomeShow(m) {
   if (m.reports) items.push(['reports', '📜', `Новых отчётов: ${m.reports}`]);
   if (m.gifts) items.push(['gifts', '🎁', `${plural(m.gifts, 'Новый подарок', 'Новых подарка', 'Новых подарков')}: ${m.gifts}`]);
   if (m.mail) items.push(['mail', '✉', `${plural(m.mail, 'Новое письмо', 'Новых письма', 'Новых писем')}: ${m.mail}`]);
+  const al = m.ally;
+  if (al && al.mail) items.push(['allymail', '<img src="gfx3d/ally/mail.png" alt="">', al.mail === 1 ? `Рассылка в альянсе: «${esc(al.mailTitle)}»` : `${plural(al.mail, 'Новая рассылка', 'Новые рассылки', 'Новых рассылок')} в альянсе: ${al.mail}`]);
+  if (al && al.news) items.push(['allynews', '<img src="gfx3d/ally/news.png" alt="">', al.news === 1 ? `Новость альянса: «${esc(al.newsTitle)}»` : `${plural(al.news, 'Свежая новость', 'Свежие новости', 'Свежих новостей')} альянса: ${al.news}`]);
   if (m.news) items.push(['news', '📰', `${plural(m.news, 'Свежая новость', 'Свежие новости', 'Свежих новостей')}: ${m.news}`]);
   const bossRow = m.boss && m.boss.on ? `<div class="wlc-boss"><img src="${GFX}boss/m_${m.boss.kind}.png" alt=""><span>${esc(m.boss.name)}</span><button type="button" data-wgo="boss">Перейти</button></div>` : '';
   const d = document.createElement('div'); d.className = 'wlc';
@@ -36,7 +40,7 @@ function welcomeShow(m) {
     <button type="button" class="wlc-close">Закрыть</button></div>`;
   d.addEventListener('click', (e) => {
     const r = e.target.closest('[data-wgo]');
-    if (r) { d.remove(); const go = r.dataset.wgo; if (go === 'boss') { S.wGoto = { x: m.boss.x, y: m.boss.y }; setTab('world'); return; } if (go === 'reports') openReports(); else if (go === 'premium') openPremium(); else if (go === 'mail') openDialogs(); else if (go === 'gifts') send({ t: 'profile', id: S.st.user.id }); else openNews(); return; }
+    if (r) { d.remove(); const go = r.dataset.wgo; if (go === 'boss') { S.wGoto = { x: m.boss.x, y: m.boss.y }; setTab('world'); return; } if (go === 'reports') openReports(); else if (go === 'premium') openPremium(); else if (go === 'mail') openDialogs(); else if (go === 'allymail') openAllyWin('mails'); else if (go === 'allynews') openAllyWin('news'); else if (go === 'gifts') send({ t: 'profile', id: S.st.user.id }); else openNews(); return; }
     if (e.target.closest('.wlc-close') || e.target === d) { d.remove(); if (S.st && S.st.quests && S.st.quests.cal && !S.calShown) { S.calShown = true; openQuests('cal'); } } // награда за вход ждёт — сразу календарь
   });
   document.body.appendChild(d);

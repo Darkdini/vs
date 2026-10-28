@@ -149,6 +149,46 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(!g.allyTopic(A, al, tid).posts[2].reply && !g.drainEvents().length, 'несуществующее сообщение — обычный ответ, без уведомления');
   console.log('✓ форум альянса: «Ответить» — цитата над ответом и уведомление автору');
 }
+// рассылки и новости альянса (с 28.10): не личными письмами, а в альянсе; новые — советник при входе и бегущая строка (cast)
+{
+  const mk = (login) => g.register({ login, password: '12345', race: 0 }).user;
+  const A = mk('mlead'), B = mk('mmemb'), C = mk('mmnew');
+  g.db.alliances = g.db.alliances || {}; const aid = g.db.nextId++;
+  const al = g.db.alliances[aid] = { id: aid, name: 'Mailers', tag: 'ML', leader: A.id, members: [A.id, B.id], created: Date.now(), news: [{ id: g.db.nextId++, title: 'Старая', text: 'до 28.10', by: 'mlead', at: Date.now() - 5000 }] };
+  A.alliance = B.alliance = aid; g.allyCleanup();
+  assert.ok(A.allySeen && B.allySeen && g.allyView(B, al).unread.news === 0, 'участникам прежние новости — уже прочитаны');
+  const before = (g.db.messages || []).length; g.drainEvents();
+  assert.ok(/Нет права/.test(g.allyOp(B, g.castleOf(B), { op: 'mail', title: 'т', text: 'т' }).error || ''), 'без права «Рассылка уведомлений» — не разослать');
+  assert.ok(/тему рассылки/.test(g.allyOp(A, g.castleOf(A), { op: 'mail', text: 'без темы' }).error || ''), 'нужна тема рассылки');
+  const r = g.allyOp(A, g.castleOf(A), { op: 'mail', title: 'Сбор в 20:00', text: 'Все на босса' });
+  assert.ok(r.ok && r.cast && r.cast.kind === 'mail' && r.cast.title === 'Сбор в 20:00' && r.cast.id, 'рассылка — бегущей строкой участникам в игре');
+  assert.strictEqual((g.db.messages || []).length, before, 'личных писем нет');
+  assert.strictEqual(g.drainEvents().length, 0, 'всплывающих уведомлений тоже');
+  const wB = g.allyView(B, al);
+  assert.ok(wB.mails.length === 1 && wB.mails[0].title === 'Сбор в 20:00' && wB.mails[0].by === 'mlead' && wB.unread.mail === 1, 'рассылка — в «Рассылках» альянса, новая');
+  assert.strictEqual(g.allyView(A, al).unread.mail, 0, 'своя — не новая');
+  { const wi = g.welcomeInfo(B, 0).ally; assert.ok(wi && wi.mail === 1 && wi.mailTitle === 'Сбор в 20:00' && wi.news === 0 && wi.tag === 'ML', 'советник при входе — о рассылке'); }
+  const rn = g.allyOp(A, g.castleOf(A), { op: 'news', title: 'Война с [XX]', text: 'С понедельника' });
+  assert.ok(rn.ok && rn.cast.kind === 'news' && !g.drainEvents().length, 'новость — тоже бегущей строкой, без всплывающих уведомлений');
+  { const wi = g.welcomeInfo(B, 0).ally; assert.ok(wi.news === 1 && wi.newsTitle === 'Война с [XX]', 'советник — и о новости альянса'); }
+  g.allyOp(B, g.castleOf(B), { op: 'seen', kind: 'mail', upto: wB.mails[0].at });
+  assert.ok(g.allyView(B, al).unread.mail === 0 && g.welcomeInfo(B, 0).ally.mail === 0, 'открыл «Рассылки» — прочитано');
+  g.allyOp(B, g.castleOf(B), { op: 'seen', kind: 'news', upto: Date.now() + 1e9 });
+  assert.ok(B.allySeen.news <= Date.now() && !g.welcomeInfo(B, 0).ally, 'всё прочитано — советник молчит (время «из будущего» не принимается)');
+  { const pj = g.joinAlliance(C, al), w = g.allyView(C, al); assert.ok(pj.ok && w.mails.length === 1 && !w.unread.mail && !w.unread.news && !g.welcomeInfo(C, 0).ally, 'новичку прежние видны, но не «новые»'); }
+  assert.ok(!('mails' in g.allyPublic(al)), 'в карточке альянса для всех рассылок нет');
+  const nid = rn.cast.id;
+  assert.ok(g.allyOp(C, g.castleOf(C), { op: 'newscmt', id: nid, text: 'Я в деле' }).ok, 'комментарий пишет любой участник');
+  assert.ok(/Нет права/.test(g.allyOp(C, g.castleOf(C), { op: 'newsedit', id: nid, title: 'x', text: 'y' }).error || ''), 'править новость — только с правом «Новости и форум»');
+  assert.ok(g.allyOp(A, g.castleOf(A), { op: 'newsedit', id: nid, title: 'Война с [XY]', text: 'Со вторника' }).ok);
+  const ng = g.allyNewsGet(B, al, nid);
+  assert.ok(ng.title === 'Война с [XY]' && ng.text === 'Со вторника' && ng.edited && ng.comments.length === 1 && ng.comments[0].by === 'mmnew' && g.allyView(B, al).news[0].cmts === 1, 'новость изменена, комментарий на месте');
+  assert.ok(/Нет права/.test(g.allyOp(B, g.castleOf(B), { op: 'newscmtdel', id: nid, cmt: ng.comments[0].id }).error || ''), 'чужой комментарий без права не удалить');
+  assert.ok(g.allyOp(C, g.castleOf(C), { op: 'newscmtdel', id: nid, cmt: ng.comments[0].id }).ok && !g.allyNewsGet(B, al, nid).comments.length, 'свой комментарий удаляет автор');
+  assert.ok(g.allyOp(A, g.castleOf(A), { op: 'mail', del: wB.mails[0].id }).ok && !g.allyView(B, al).mails.length, 'рассылку удаляет тот, у кого право');
+  assert.strictEqual(g.allyNewsGet(B, al, 999999999), null);
+  console.log('✓ рассылки и новости альянса: не личными письмами — в альянсе; новые — советнику при входе и бегущей строкой; прочитано — по открытию; правка и комментарии новостей');
+}
 // кладовая и казна: история пополнений и списаний — всем участникам; старые записи (только текст) тоже разбираются
 {
   const mk = (login) => g.register({ login, password: '12345', race: 0 }).user;

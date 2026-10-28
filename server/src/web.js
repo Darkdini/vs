@@ -120,6 +120,10 @@ function allyPresenceCast(u, on) {
   if (!u || u.admin || u.bot || !u.alliance) return;
   for (const s of WebSession.all || []) if (s.user && s.user.id !== u.id && s.user.alliance === u.alliance) s.send({ t: 'allyon', id: u.id, on });
 }
+// новая рассылка или новость альянса — участникам в игре (кроме автора) бегущая строка вверху экрана (alliance.js allyTicker)
+function allyTickCast(al, from, cast) {
+  for (const s of WebSession.all || []) if (s.user && s.user.id !== from.id && s.user.alliance === al.id) s.send({ t: 'allytick', ...cast, tag: al.tag });
+}
 
 // ---------- сессия браузера ----------
 class WebSession {
@@ -403,11 +407,14 @@ const API = {
     if (foreign && !['get', 'topicget', 'topicop', 'postdel'].includes(m.op)) return this.error('В чужом альянсе модератор может только удалять.');
     if (m.op === 'get') return this.send({ t: 'ally', data: this.game.allyView(this.user, al) });
     if (m.op === 'topicget') return this.send({ t: 'allytopic', data: this.game.allyTopic(this.user, al, m.topic) });
+    if (m.op === 'newsget') return this.send({ t: 'allynews', data: this.game.allyNewsGet(this.user, al, m.id) });
     const r = this.game.allyOp(this.user, this.castle, m, al);
     if (r.error) return this.error(r.error);
     if (r.msg) this.toast(r.msg);
     const al2 = foreign ? al : this.game.allianceOf(this.user);
+    if (al2 && r.cast) allyTickCast(al2, this.user, r.cast);
     if (al2 && m.op === 'postdel') this.send({ t: 'allytopic', data: this.game.allyTopic(this.user, al2, m.topic) });
+    if (al2 && ['newsedit', 'newscmt', 'newscmtdel'].includes(m.op)) this.send({ t: 'allynews', data: this.game.allyNewsGet(this.user, al2, m.id) });
     if (al2) this.send({ t: 'ally', data: this.game.allyView(this.user, al2) });
     if (al2 && (m.op === 'post' || m.op === 'topic')) this.send({ t: 'allytopic', data: this.game.allyTopic(this.user, al2, m.topic || r.topic) });
     this.pushState();
