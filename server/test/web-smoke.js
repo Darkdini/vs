@@ -247,6 +247,7 @@ function client() {
     adm.send({ t: 'ally', op: 'mail', title: 'Сбор', text: 'Все к замку' });
     { const tk = await a.expect('allytick', (m) => m.kind === 'mail');
       assert.ok(tk.title === 'Сбор' && tk.tag === 'KRL' && tk.id, 'рассылка — бегущей строкой');
+      assert.strictEqual((await adm.expect('allytick', (m) => m.kind === 'mail')).id, tk.id, 'и у автора — как в оригинале');
       a.send({ t: 'ally', op: 'get' });
       const v = (await a.expect('ally', (m) => m.data.mails.length === 1)).data;
       assert.ok(v.unread.mail === 1 && v.mails[0].text === 'Все к замку' && v.mails[0].by === admAuth.login, 'в «Рассылках» альянса — новая');
