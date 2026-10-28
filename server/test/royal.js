@@ -1969,7 +1969,13 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   assert.ok(g.profileOf(Q, X).marriage.role === 'queen', 'Замужем за Королем');
   const gold = X.gold; assert.ok(g.pairVote(X, m.id, 7).ok && m.votes === 7 && X.gold === gold - 7, 'голоса за золото: 1 = 1');
   assert.ok(g.pairVote(X, m.id, 100000).error, 'без золота — нельзя');
-  assert.ok(g.pairGift(X, m.id, 'gift_box').ok && m.gifts.length === 1, 'подарок паре');
+  assert.ok(g.pairGift(X, m.id, 'gift_box').ok && m.gifts.length === 1 && !m.gifts[0].text, 'подарок паре');
+  X.gold = (X.gold || 0) + 100; g.drainEvents();
+  assert.ok(g.pairGift(X, m.id, 'gift_box', '  Совет да любовь!  ').ok && m.gifts[1].text === 'Совет да любовь!', 'подарок паре с пожеланием');
+  assert.ok(g.drainEvents().some((e) => e.userId === K.id && /Совет да любовь!/.test(e.msg)), 'пара видит пожелание в уведомлении');
+  assert.strictEqual(g.pairPage(X, m.id).gifts[0].text, 'Совет да любовь!', 'пожелание — в «Подарках пары»');
+  X.chatBan = Date.now() + 60000; assert.ok(g.pairGift(X, m.id, 'gift_box', 'запрет').ok && !m.gifts[2].text, 'кому запрещено писать — подарок без пожелания'); X.chatBan = 0;
+  m.gifts.splice(1); // дальше по тесту — как было
   assert.ok(g.pairComment(X, m.id, 'Поздравляю!').ok && g.pairComment(X, m.id, 'ещё').error, 'комментарий, не чаще 15 с');
   const pg = g.pairPage(X, m.id); assert.ok(pg.votes === 7 && pg.comments.length === 1 && pg.comments[0].del && !pg.mine, 'страница пары');
   assert.ok(g.pairPage(Q, m.id).mine && g.pairCommentDel(Q, m.id, pg.comments[0].id).ok, 'супруги удаляют комментарии');

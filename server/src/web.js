@@ -553,7 +553,7 @@ const API = {
   },
   zdivorce() { const m = this.game.marriageOf(this.user), other = m && this.game.userById(m.king === this.user.id ? m.queen : m.king); const r = this.game.divorce(this.user); if (r.error) return this.error(r.error); this.send({ t: 'zdone', msg: r.msg, go: 'home' }); pushTo(other); },
   zvote(m) { const r = this.game.pairVote(this.user, m.id, m.coins); if (r.error) return this.error(r.error); this.toast(r.msg); this.pushState(); API.zpair.call(this, m); },
-  zgift(m) { const r = this.game.pairGift(this.user, m.id, m.gift); if (r.error) return this.error(r.error); this.toast(r.msg); this.pushState(); API.zpair.call(this, m); },
+  zgift(m) { const r = this.game.pairGift(this.user, m.id, m.gift, m.text); if (r.error) return this.error(r.error); this.toast(r.msg); this.pushState(); API.zpair.call(this, m); },
   zcomment(m) { const r = m.del ? this.game.pairCommentDel(this.user, m.id, m.del) : this.game.pairComment(this.user, m.id, m.text); if (r.error) return this.error(r.error); API.zpair.call(this, m); },
   // ---- кабинет (server/src/social.js) ----
   replog() { this.send({ t: 'replog', ...this.game.repView(this.user) }); }, // Кабинет → «Репутация»: своя история

@@ -2871,3 +2871,6 @@ img.artsp { filter: drop-shadow(0 0 4px #c89aff) drop-shadow(0 0 8px #6a3aff); }
   font: 400 min(26px, 6vw) var(--serif); color: #fff6e0; text-shadow: 0 1px 2px #000b; animation: atick 10s linear 2 both; }
 @keyframes atick { from { transform: translateX(0); } to { transform: translateX(-100%); } }
 @media (min-width: 700px) { .aticker { max-width: 640px; margin: 0 auto; } } /* на компьютере — над колонкой игры */
+
+/* пожелание к подарку паре (zags.js zgiftListWin) */
+.zgwish { margin-top: 2px; font: italic min(15px, 3.8vw)/1.3 var(--serif); color: #5a2a10; overflow-wrap: anywhere; }

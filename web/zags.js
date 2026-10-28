@@ -72,7 +72,7 @@ function zpairWin() {
     <button class="zbar" data-zvote="${p.id}">${ZTHUMB} Проголосовать</button>
     ${p.mine ? `<button class="zbar zdiv" data-zdivorce>${ZI('broken')} Развестись</button>` : ''}
     ${ribbon(`Подарки пары - ${gifts.length}`)}
-    ${gifts.length ? `<div class="prow zgifts">${gifts.slice(0, 12).map((g) => `<img class="pgi" src="${GFX}${(S.cat.gifts[g.gift] || {}).img}" alt="" title="от ${esc(g.from)}">`).join('')}${gifts.length > 12 ? `<b>+${gifts.length - 12}</b>` : ''}</div>` : ''}
+    ${gifts.length ? `<div class="prow zgifts">${gifts.slice(0, 12).map((g) => `<img class="pgi" src="${GFX}${(S.cat.gifts[g.gift] || {}).img}" alt="" title="от ${esc(g.from)}${g.text ? `: «${esc(g.text)}»` : ''}">`).join('')}${gifts.length > 12 ? `<b>+${gifts.length - 12}</b>` : ''}</div>` : ''}
     <div class="zrow2"><button class="zbar" data-zcongr="${p.id}">Подарить</button><button class="zbar" data-zgiftlist>Посмотреть</button></div>
     ${ribbon('Комментарии')}
     <form class="stack" data-form="zcomment"><textarea name="text" rows="2" maxlength="300"></textarea><button class="pbar">Добавить</button></form>
@@ -80,7 +80,7 @@ function zpairWin() {
 }
 function zgiftListWin() {
   const p = S.zpair, gifts = (p && p.gifts) || [];
-  return `${ribbon('Подарки пары')}${gifts.length ? gifts.map((g) => { const x = S.cat.gifts[g.gift] || {}; return `<div class="award"><img src="${GFX}${x.img}" alt=""><div><b>${esc(x.name || '')}</b><small>от ${esc(g.from)} · ${fmtDate(g.at)}</small></div></div>`; }).join('')
+  return `${ribbon('Подарки пары')}${gifts.length ? gifts.map((g) => { const x = S.cat.gifts[g.gift] || {}; return `<div class="award"><img src="${GFX}${x.img}" alt=""><div><b>${esc(x.name || '')}</b><small>от ${esc(g.from)} · ${fmtDate(g.at)}</small>${g.text ? `<div class="zgwish">«${smiles(esc(g.text))}»</div>` : ''}</div></div>`; }).join('')
     : '<p class="parch-note">Подарков пока нет — поздравьте пару первым!</p>'}`;
 }
 function zgiftsWin() {
@@ -134,7 +134,10 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.zpg !== undefined) { S.zpage = Math.max(0, Number(d.zpg)); return refreshSheet(); }
   if (d.zvote || d.zprofvote) { S.zvoteId = Number(d.zvote || d.zprofvote); S.zcoins = 1; return openSheet(zvoteWin); }
   if (d.zvotego !== undefined) { document.activeElement && document.activeElement.blur(); closeSheet(); if (S.sheets[S.sheets.length - 1] !== zpairWin) openPair(S.zvoteId); return send({ t: 'zvote', id: S.zvoteId, coins: S.zcoins || 1 }); }
-  if (d.zgift) { const g = S.cat.gifts[d.zgift]; if (!confirm(`Подарить паре «${g.name}» за ${coinsZa(g.gold)}?`)) return; closeSheet(); if (S.sheets[S.sheets.length - 1] !== zpairWin) openPair(S.zgiftTo); return send({ t: 'zgift', id: S.zgiftTo, gift: d.zgift }); }
+  if (d.zgift) { // как подарок игроку: подпись-пожелание (необязательно), паре и всем — в «Подарках пары»
+    const g = S.cat.gifts[d.zgift], text = prompt(`Подарок паре «${g.name}» за ${coinsZa(g.gold)}. Пожелание (необязательно):`, ''); if (text === null) return;
+    closeSheet(); if (S.sheets[S.sheets.length - 1] !== zpairWin) openPair(S.zgiftTo); return send({ t: 'zgift', id: S.zgiftTo, gift: d.zgift, text });
+  }
   if (d.zgiftlist !== undefined) return openSheet(zgiftListWin);
   if (d.zcdel) { if (confirm('Удалить комментарий?')) send({ t: 'zcomment', id: S.zpair.id, del: Number(d.zcdel) }); return; }
   if (d.zdivorce !== undefined) { if (confirm('Развестись? Голоса и подарки пары пропадут.')) send({ t: 'zdivorce' }); }

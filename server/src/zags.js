@@ -99,7 +99,7 @@ function install(Game) {
     if (!m || !this.userById(m.king) || !this.userById(m.queen)) return { error: 'Пара не найдена — возможно, брак расторгнут.' };
     const one = (uid) => { const u = this.userById(uid); return { id: u.id, login: u.login, race: u.race, avatar: u.avatar || 0, frame: u.frame || '' }; };
     return { id: m.id, king: one(m.king), queen: one(m.queen), at: m.at, votes: m.votes || 0, place: this.pairPlace(m), mine: m.king === viewer.id || m.queen === viewer.id,
-      gifts: (m.gifts || []).slice(-60).reverse().map((g) => ({ gift: g.gift, from: (this.userById(g.from) || { login: '—' }).login, fromId: g.from, at: g.at })),
+      gifts: (m.gifts || []).slice(-60).reverse().map((g) => ({ gift: g.gift, from: (this.userById(g.from) || { login: '—' }).login, fromId: g.from, at: g.at, text: g.text || '' })),
       comments: (m.comments || []).slice().reverse().map((c) => { const u = this.userById(c.from); return { id: c.id, from: u ? u.login : '—', fromId: c.from, text: c.text, at: c.at,
         del: c.from === viewer.id || m.king === viewer.id || m.queen === viewer.id || !!viewer.admin || !!viewer.mod }; }) };
   };
@@ -116,16 +116,19 @@ function install(Game) {
     this.store.save();
     return { ok: true, msg: `Рейтинг пары +${coins} (теперь ${m.votes}).` };
   };
-  // подарок паре («Поздравить пару!») — подарки из того же набора, что и в профиле
-  P.pairGift = function pairGift(user, id, giftId) {
+  // подарок паре («Поздравить пару!») — подарки из того же набора, что и в профиле; text — пожелание (с 28.10, как подпись
+  // к подарку игроку): до 100 знаков, видно всем в «Подарках пары», мат — звёздочками; кому запрещено писать — подарок без пожелания
+  P.pairGift = function pairGift(user, id, giftId, text = '') {
     const m = MAR(this)[Number(id)]; if (!m) return { error: 'Пара не найдена.' };
     const { GIFTS } = require('./social'), g = GIFTS[giftId]; if (!g) return { error: 'Нет такого подарка.' };
     if (g.premium && !this.isPremium(user)) return { error: 'Это уникальный подарок — дарить его можно только с премиумом.' };
     if ((user.gold || 0) < g.gold) return { error: `Нужно монет: ${g.gold} (у вас ${user.gold || 0}).` };
     const k = this.userById(m.king), q = this.userById(m.queen);
     this.goldChange(user, -g.gold, `ЗАГС: подарок «${g.name}» паре ${k.login} и ${q.login}`);
-    (m.gifts = m.gifts || []).push({ gift: giftId, from: user.id, at: Date.now() }); if (m.gifts.length > 200) m.gifts.splice(0, m.gifts.length - 200);
-    for (const u of [k, q]) if (u.id !== user.id) this.event(u.id, `🎁 ${user.login} поздравил(а) Вашу пару: ${g.name}!`);
+    const muted = user.chatBan === -1 || user.chatBan > Date.now();
+    const wish = muted ? '' : require('./matfilter').censorMat(String(text || '').replace(/\s+/g, ' ').trim().slice(0, 100));
+    (m.gifts = m.gifts || []).push({ gift: giftId, from: user.id, at: Date.now(), ...(wish ? { text: wish } : {}) }); if (m.gifts.length > 200) m.gifts.splice(0, m.gifts.length - 200);
+    for (const u of [k, q]) if (u.id !== user.id) this.event(u.id, `🎁 ${user.login} поздравил(а) Вашу пару: ${g.name}!${wish ? ` «${wish}»` : ''}`);
     this.store.save();
     return { ok: true, msg: `Подарок «${g.name}» вручён паре ${k.login} и ${q.login}.` };
   };
