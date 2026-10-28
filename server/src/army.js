@@ -345,18 +345,6 @@ for (const u of UNITS) if (u.id !== GENERAL_ID && !u.undead) {
   Object.assign(u, { refCost: u.cost, refTime: u.time, cost: halfCost(u.cost), time: Math.round(u.time / 2) });
   for (const o of Object.values(u.raceOvr || {})) if (o.cost) Object.assign(o, { refCost: o.cost, cost: halfCost(o.cost) });
 }
-// люди на тренировку (с 28.10, по жалобе игроков и решению владельца): цену и время тренировки раньше снизили, а людей — нет,
-// и между расами был разнобой (Кирасир 5 — Защитник гор 33). Теперь в каждой ступени войск — половина обычного для неё числа людей,
-// внутри ступени — по силе воина (√(атака × жизнь)): кто сильнее, тому чуть больше; ни у кого не больше прежнего.
-// u.pop — прежнее: от него по-прежнему содержание армии (еда), очки ранга, Зал славы, Кузница, наём и воскрешение генерала
-const TRAIN_POP = {
-  200: 2, 201: 6, 204: 20, 261: 4, 205: 18, 264: 26, 203: 7, 262: 11, 263: 25, 259: 41, 202: 7, // люди
-  207: 2, 208: 6, 265: 22, 266: 3, 212: 14, 211: 21, 210: 8, 267: 12, 268: 28, 213: 44, 209: 6, // эльфы
-  214: 3, 215: 7, 219: 24, 218: 4, 269: 15, 270: 24, 216: 6, 271: 10, 256: 23, 220: 41, 217: 9, // гномы
-  245: 2, 247: 5, 246: 18, 272: 3, 273: 12, 274: 19, 253: 6, 275: 9, 248: 20, 249: 43, 252: 8, // орки
-  240: 8, 243: 7, // Катапульта, Таран (у всех рас)
-};
-for (const [id, n] of Object.entries(TRAIN_POP)) if (UNIT[id]) UNIT[id].tpop = Math.min(UNIT[id].pop, n);
 const ORDER_MAX = { 224: 3, 233: 3 }; // Путешественник, Бунтарь: не больше 3 за один заказ (оригинал: «Количество: … /3»)
 const raceUnit = (u, race) => (u && u.raceOvr && u.raceOvr[race] ? { ...u, ...u.raceOvr[race] } : u);
 const unitsForRace = (race) => UNITS.filter((u) => u.race === race || u.race === 'all');
@@ -811,10 +799,9 @@ function install(Game, helpers) {
     const used = this.trainedToday(castle);
     if (unit.id !== GENERAL_ID && used + count > TRAIN_DAY) return { error: `За сутки можно обучить не больше ${TRAIN_DAY} воинов в замке. Осталось: ${Math.max(0, TRAIN_DAY - used)}.` };
     for (const r of RES4) if (castle.res[r] < unit.cost[r] * count) return { error: 'Недостаточно ресурсов.' };
-    const tpop = unit.tpop ?? unit.pop; // люди на тренировку (TRAIN_POP)
-    if (castle.res.people < tpop * count) return { error: 'Не хватает людей (растут с Хибарами).' };
+    if (castle.res.people < unit.pop * count) return { error: 'Не хватает людей (растут с Хибарами).' };
     for (const r of RES4) castle.res[r] -= unit.cost[r] * count;
-    castle.res.people -= tpop * count;
+    castle.res.people -= unit.pop * count;
     const each = this.trainTime(castle, unit) * 1000, now = Date.now();
     const last = castle.training.filter((t) => t.building === unit.building).reduce((m, t) => Math.max(m, t.start + t.each * t.count), now);
     const job = { id: this.db.nextId++, unit: unit.id, building: unit.building, count, done: 0, each, start: last };
