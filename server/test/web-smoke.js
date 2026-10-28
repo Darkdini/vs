@@ -268,7 +268,8 @@ function client() {
       const pid = M('Pres1').id, lead = v.members.find((x) => x.id === v.leader);
       assert.ok(M('Pres1').on === true && M('Webby').on === true, 'вошедшие в игру — в игре');
       assert.ok(lead.on === false, 'админ в составе — «не в игре»');
-      assert.ok(v.members.every((x) => !('lastSeen' in x) && !('online' in x) && !('away' in x)), 'время входа не раскрывается');
+      assert.ok(v.members.every((x) => !('lastSeen' in x) && !('online' in x) && typeof x.away === 'boolean'), 'время входа не раскрывается — только «давно не заходил» да/нет');
+      assert.ok(!M('Pres1').away && !M('Webby').away && !lead.away, 'только что входившие и админ — не «давно не заходил»');
       p1.close();
       assert.strictEqual((await a.expect('allyon', (m) => m.id === pid)).on, false, 'вышел — соальянсникам сразу');
       const p2 = client(); await p2.open(); p2.send({ t: 'login', login: 'Pres1', password: 'pass1' });
