@@ -708,12 +708,12 @@ input.num { width: 76px; padding: 7px; text-align: center; }
 .atr4 { grid-template-columns: .4fr 1.6fr .6fr 1fr; text-align: center; }
 .atable a { color: #7a1a0a; text-decoration: underline; text-decoration-color: #7a1a0a55; }
 .atable small { font-size: 13px; opacity: .8; }
-/* статус в составе (alliance.js allyDot): зелёная точка — в игре, серая — нет */
+/* статус в составе (alliance.js allyOn): зелёный — в сети, красный — не в сети, серый — давно не заходил */
 .aon { display: inline-block; width: 10px; height: 10px; margin: 0 6px 0 0; border-radius: 50%; vertical-align: middle; position: relative; top: -1px;
   background: radial-gradient(circle at 35% 35%, #e2dad2, #988e84 55%, #6a6158); box-shadow: 0 0 0 1px #0002; }
 .aon.on { background: radial-gradient(circle at 35% 35%, #c4ffbc, #2fb52f 55%, #147414); box-shadow: 0 0 0 1px #0a4a0a66, 0 0 6px #3cdc3c; }
+.aon.off { background: radial-gradient(circle at 35% 35%, #ffc9bf, #d8402c 55%, #84180c); box-shadow: 0 0 0 1px #5a0a0466; } /* не в сети; серый (по умолчанию) — давно не заходил */
 .atr4 .aon { margin-left: -16px; } /* имя по-прежнему по центру, точка — слева от него */
-.aonline { text-align: center; margin: 4px 0 6px; font: min(20px, 4.6vw) var(--serif); color: #2a1408; }
 .epaul { width: 30px; height: 30px; object-fit: contain; }
 .crown2 { height: 22px; vertical-align: middle; }
 .ainput { width: 100%; box-sizing: border-box; margin: 4px 0 8px; padding: 10px 12px; border: 3px solid #d8a850; border-radius: 6px; background: #6e7e5a; color: #f0e0a0; font: min(22px, 5vw) var(--serif); box-shadow: inset 0 2px 4px #0006; }
@@ -1241,6 +1241,11 @@ button.fpopt { cursor: pointer; } button.fpopt:active { filter: brightness(.94);
 .fform { display: grid; gap: 8px; margin: 8px 0; }
 .fform input, .fform textarea { width: 100%; box-sizing: border-box; border: 2px solid #d8a070; border-radius: 6px; background: #fff6e4; font: 19px var(--serif); padding: 8px; color: #2a1408; }
 .fform.frow { grid-template-columns: 1fr auto; }
+/* форумы: смайлики под полем текста (набор — как в чате) */
+.fsmiles { display: grid; gap: 4px; justify-items: start; margin: 4px 0; }
+.fsmbtn { width: 46px; height: 42px; padding: 3px; border: 2px solid #d8a070; border-radius: 6px; background: #fff6e4; }
+.fsmbtn img { width: 100%; height: 100%; object-fit: contain; }
+.fsmiles .smilebox { width: 100%; box-sizing: border-box; margin: 0; }
 .fmod { font-size: 22px; } .fmod b { flex: 1; font-weight: 400; }
 .frtabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 2px 0 10px; }
 .frtabs button { min-width: 0; min-height: 54px; padding: 0 6px; border: 5px solid #d8a070; border-radius: 10px; background: #f6e2c0; color: #2a1408; font: min(21px, 5vw) var(--serif); }

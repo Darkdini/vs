@@ -14,6 +14,7 @@ const DIPLO = { ally: 'Союз', nap: 'Пакт о ненападении', war
 // (army.js, op award) и подарки участникам (social.js sendGift с ally). Цена медали из казны:
 const MEDAL_COST = { gold: 20, silver: 10, bronze: 5 };
 const RES4 = ['wood', 'stone', 'iron', 'food'];
+const ALLY_AWAY_DAYS = 7; // в составе: не заходил дольше — «давно не заходил» (серая фигурка)
 const clean = (s, n) => String(s || '').trim().slice(0, n);
 
 function install(Game) {
@@ -124,12 +125,14 @@ function install(Game) {
   // в составе — в игре ли участник сейчас (u.online ведёт web.js); видят только участники альянса.
   // Админ для игроков всегда «не в игре», как в друзьях и чате
   P.allyOnline = (m, viewer) => m.id === viewer.id || (!!m.online && !m.admin);
+  // «давно не заходил» (серая фигурка): не в игре дольше ALLY_AWAY_DAYS; само время входа не раскрывается. Админ — просто «не в игре»
+  P.allyAway = (m, viewer, now = Date.now()) => m.id !== viewer.id && !m.admin && !m.online && now - (m.lastSeen || m.created || now) > ALLY_AWAY_DAYS * 86400000;
   // полная карточка альянса для окна «Альянс»
   P.allyView = function allyView(user, al) {
     const me = user.id, can = (r) => this.allyCan(al, me, r), now = Date.now(), own = user.alliance === al.id;
     const members = al.members.map((id) => { const m = this.userById(id); if (!m) return null;
       const t = this.allyTitle(al, id); return { id, login: m.login, rating: this.userRating(m), rep: m.reputation ?? START_REP, score: this.userRating(m) + (m.reputation ?? START_REP), medals: this.allyMedals(m), ...t,
-        rights: id === al.leader ? Object.keys(RIGHTS) : ((al.ranks || {})[id] || {}).rights || [], ...(own ? { on: this.allyOnline(m, user) } : {}) }; }).filter(Boolean).sort((a, b) => b.score - a.score);
+        rights: id === al.leader ? Object.keys(RIGHTS) : ((al.ranks || {})[id] || {}).rights || [], ...(own ? { on: this.allyOnline(m, user), away: this.allyAway(m, user, now) } : {}) }; }).filter(Boolean).sort((a, b) => b.score - a.score);
     const A = this.db.alliances || {};
     // военные логи: каждое военное действие участников — нападение, оборона, разведка (своя и вражеская), подкрепления
     const reports = can('logs') ? (this.db.reports || []).filter((r) => !r.fwd && al.members.includes(r.owner) && ['battle', 'scout', 'reinforce'].includes(r.kind)).slice(-200).sort((x, y) => y.at - x.at) // новые сверху

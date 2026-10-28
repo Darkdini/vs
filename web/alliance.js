@@ -25,10 +25,9 @@ const dt = (t) => { const d = new Date(t), today = new Date(); const hm = d.toLo
 const loading = (t) => `${ribbon(t)}<p class="parch-note">Загрузка…</p>`;
 // статус в составе (сервер: ally.js allyOnline, web.js allyPresenceCast): зелёная точка — в сети, серая — нет.
 // Меняется сразу (сообщение allyon). В чужом альянсе (модератор) статуса нет
-const allyDot = (on) => `<i class="aon${on ? ' on' : ''}" title="${on ? 'В сети' : 'Не в сети'}"></i>`;
-const allyOn = (m) => (m.on === undefined ? '' : allyDot(m.on));
-const allyHasOn = (a) => a.members.some((m) => m.on !== undefined);
-const allyOnN = (a) => a.members.filter((m) => m.on).length;
+// в составе — кто в сети (зелёный), не в сети (красный), давно не заходил (серый, сервер: ally.js allyAway); видят только свои
+const ALLY_ST = { on: 'В сети', off: 'Не в сети', away: 'Давно не заходил' };
+const allyOn = (m) => { if (m.on === undefined) return ''; const k = m.on ? 'on' : m.away ? 'away' : 'off'; return `<i class="aon ${k}" title="${ALLY_ST[k]}"></i>`; };
 const allyName = (m) => `${allyOn(m)}<a data-cprof="${m.id}" style="color:${nameColor(m.rep)}">${esc(m.login)}</a><br>`;
 
 function openAlly() { S.allyForeign = null; S.ally = null; asend({ t: 'ally', op: 'get' }); openSheet(allyMainWin); }
@@ -40,7 +39,6 @@ function allyMainWin() {
   return `${ribbon('Альянс')}
     <div class="atable"><div class="atr head"><img src="${AI('alliance')}" alt=""> ${esc(a.name)}</div>
       ${row('Название', esc(a.tag))}${row('Ранг', a.rank)}${row('Рейтинг', fmtFull(a.score))}${row('Участников', `${a.members.length} из ${a.slots}`)}
-      ${allyHasOn(a) ? row('В сети', `${allyDot(true)}${allyOnN(a)}`) : ''}
       ${row('Создатель', `<a data-cprof="${a.leader}">${esc(a.leaderLogin || '—')}</a>`)}</div>
     ${ribbon('Верховенство')}
     <div class="atable"><div class="atr3 head"><span>Звание</span><span>Имя</span><span>Погоны</span></div>
@@ -67,7 +65,7 @@ function allyMainWin() {
 function allyMembersWin() {
   const a = S.ally; if (!a) return loading('Весь состав');
   // справа — рейтинг с учётом репутации; вверху — сколько сейчас в сети
-  return `${ribbon('Весь состав')}${allyHasOn(a) ? `<div class="aonline">${allyDot(true)}В сети: <b>${allyOnN(a)}</b></div>` : ''}
+  return `${ribbon('Весь состав')}
     <div class="atable">${a.members.map((m, i) => `<div class="atr4"><span>${i + 1}</span><span>${allyName(m)}${repIcons(m.rep)}${allyMedalsRow(m)}</span><span>${epImg(m.ep)}</span><span>${fmtFull(m.score)}</span></div>`).join('')}</div>`;
 }
 function allyTitlesWin() {
@@ -208,15 +206,15 @@ function allyTopicWin() {
   return `${ribbon('Тема')}<div class="bwline center"><b>${esc(t.title)}</b>${t.closed ? ' 🔒' : ''}</div>
     <div class="two2">${S.allyForeign ? '' : '<button class="lbar" data-aw="post">Написать</button>'}<button class="lbar" data-aw="forum">Темы</button></div>
     ${t.posts.map((p, i) => `<div class="fpost">${canMod() && !p.deleted ? `<button class="apdel" data-apostdel="${i}" title="Удалить">✕</button>` : ''}<div class="fauthor">${repCrown(p.rep)} <a data-cprof="${p.byId}" style="color:${nameColor(p.rep)}">${esc(p.by)}</a></div>${repIcons(p.rep)}
-      ${p.reply ? `<div class="fquote">↪ <b>${esc(p.reply.by)}</b>: «${esc(p.reply.text)}»</div>` : ''}<div class="ftext">${esc(p.text)}</div>
+      ${p.reply ? `<div class="fquote">↪ <b>${esc(p.reply.by)}</b>: «${smiles(esc(p.reply.text))}»</div>` : ''}<div class="ftext">${smiles(esc(p.text))}</div>
       <div class="afoot"><small>${dt(p.at)}</small>${canReply && !p.deleted ? `<button class="areply" data-areply="${i}">Ответить</button>` : ''}</div></div>`).join('')}`;
 }
-function allyNewTopicWin() { return formWin('Создать тему', '<div class="clabel">Тема:</div><input class="ainput" name="title" maxlength="60" required><div class="clabel">Текст:</div><textarea class="ainput" name="text" rows="5" maxlength="2000" required></textarea><div class="center"><button class="pbtn">Создать</button></div>'); }
+function allyNewTopicWin() { return formWin('Создать тему', '<div class="clabel">Тема:</div><input class="ainput" name="title" maxlength="60" required><div class="clabel">Текст:</div><textarea class="ainput" name="text" rows="5" maxlength="2000" required></textarea>' + smileBar() + '<div class="center"><button class="pbtn">Создать</button></div>'); }
 // «Ответить»: над полем — кому отвечаем (ник и начало его сообщения), ✕ — написать просто в тему
 function allyPostWin() {
   const rt = S.allyReplyTo;
-  return formWin('Написать', `${rt ? `<div class="fquote fto"><span>↪ Ответ для <b>${esc(rt.by)}</b>: «${esc(rt.text)}»</span><button type="button" class="fxto" data-areplyx title="Не отвечать на это сообщение">✕</button></div>` : ''}
-    <textarea class="ainput" name="text" rows="6" maxlength="2000" required></textarea><div class="center"><button class="pbtn">Отправить</button></div>`);
+  return formWin('Написать', `${rt ? `<div class="fquote fto"><span>↪ Ответ для <b>${esc(rt.by)}</b>: «${smiles(esc(rt.text))}»</span><button type="button" class="fxto" data-areplyx title="Не отвечать на это сообщение">✕</button></div>` : ''}
+    <textarea class="ainput" name="text" rows="6" maxlength="2000" required></textarea>${smileBar()}<div class="center"><button class="pbtn">Отправить</button></div>`);
 }
 
 // ----- новости -----
@@ -307,7 +305,7 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
   if (m.t === 'allytopic') { S.allyTopic = m.data; if (m.data) S.allyTopicId = m.data.id; return refreshSheet(); }
   if (m.t === 'allyon') { // соальянсник вошёл в игру или вышел — точка в составе меняется сразу
     const x = S.ally && S.ally.members.find((y) => y.id === m.id && y.on !== undefined); if (!x) return;
-    x.on = !!m.on;
+    x.on = !!m.on; x.away = false; // вошёл или только что вышел — не «давно»
     if (ALLY_ON_WINS.includes(S.sheets[S.sheets.length - 1])) refreshSheet();
     return;
   }

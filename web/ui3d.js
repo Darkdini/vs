@@ -156,6 +156,19 @@ const chatVotes = (m) => { const up = (m.up || []).length, dn = (m.dn || []).len
   return `<span class="cvotes">${up ? `<span class="cvote up">👍 ${up}</span>` : ''}${dn ? `<span class="cvote dn">👎 ${dn}</span>` : ''}</span>`; };
 const chatText = (m) => (/^#[0-9a-f]{6}$/i.test(m.color || '') ? `<span class="ccol" style="color:${m.color}">${smiles(esc(m.text))}</span>` : smiles(esc(m.text)));
 const smiles = (html) => html.replace(/:([A-Za-z]{2,12}):/g, (m, k) => (SMILE_SET.has(k) || OLD_SMILES.includes(k) ? `<img class="csm" src="${smileSrc(k)}" alt="">` : m));
+// смайлики под полем текста на форумах (общем и альянса): кнопка открывает набор чата, нажатый вставляется в текст кодом :имя:
+const smileBar = () => `<div class="fsmiles"><button type="button" class="fsmbtn" data-fsmtoggle aria-label="Смайлики"><img src="${smileSrc('smile')}" alt=""></button>
+  <div class="smilebox hidden">${SMILES.map((k) => `<button type="button" data-fsm="${k}"><img src="${smileSrc(k)}" alt=""></button>`).join('')}</div></div>`;
+// где стоял курсор, когда поле потеряло фокус (нажали смайлик); поле не трогали — смайлик в конец текста
+$('#sheetBody').addEventListener('focusout', (e) => { const t = e.target; if (t.tagName === 'TEXTAREA') { t.dataset.c0 = t.selectionStart; t.dataset.c1 = t.selectionEnd; } });
+$('#sheetBody').addEventListener('click', (e) => {
+  const tg = e.target.closest('[data-fsmtoggle]'); if (tg) return tg.nextElementSibling.classList.toggle('hidden');
+  const b = e.target.closest('[data-fsm]'), ta = b && b.closest('form') && b.closest('form').querySelector('textarea'); if (!ta) return;
+  const live = document.activeElement === ta, n = ta.value.length, code = `:${b.dataset.fsm}:`;
+  const s = live ? ta.selectionStart : ta.dataset.c0 !== undefined ? Math.min(Number(ta.dataset.c0), n) : n, en = live ? ta.selectionEnd : ta.dataset.c1 !== undefined ? Math.min(Number(ta.dataset.c1), n) : s;
+  if (ta.maxLength > 0 && n - (en - s) + code.length > ta.maxLength) return toast('Сообщение уже слишком длинное.', 'err');
+  ta.value = ta.value.slice(0, s) + code + ta.value.slice(en); ta.dataset.c0 = ta.dataset.c1 = s + code.length; if (live) ta.setSelectionRange(s + code.length, s + code.length);
+});
 S.chatUsers = null; S.smileOpen = false;
 function openChat() { send({ t: 'chatlog' }); send({ t: 'chatusers' }); S.smileOpen = false; S.chatAdm = false; S.chatLock = false; S.chatNew = 0; S.chatSaved = null; openSheet(chatWin); setTimeout(() => { const l = $('#chatList'); if (l) l.scrollTop = l.scrollHeight; }, 50); }
 // одно сообщение ленты; лента перевёрнута — новое первым в разметке, внизу на экране

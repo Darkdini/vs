@@ -70,11 +70,11 @@ function forumPostsWin() {
     ${d.poll ? fPollCard(d.poll, mod) : ''}
     ${fPager(d.page, d.pages, 'data-fppg')}
     ${d.posts.map((p) => `<div class="fpost ${p.deleted ? 'fdel' : ''}"><div class="fph">${fAva(p)}${fWho(p.by, p.byId, p.role)}<small>${repDate(p.at)}</small></div>
-      ${p.reply ? `<div class="fquote">↪ <b>${esc(p.reply.by)}</b>: «${esc(p.reply.text)}»</div>` : ''}
-      <div class="fpt"${/^#[0-9a-f]{6}$/i.test(p.color || '') ? ` style="color:${p.color}"` : ''}>${esc(p.text)}</div>
+      ${p.reply ? `<div class="fquote">↪ <b>${esc(p.reply.by)}</b>: «${smiles(esc(p.reply.text))}»</div>` : ''}
+      <div class="fpt"${/^#[0-9a-f]{6}$/i.test(p.color || '') ? ` style="color:${p.color}"` : ''}>${smiles(esc(p.text))}</div>
       ${(d.canPost && !p.deleted) || mod ? `<div class="fpm">${d.canPost && !p.deleted ? `<button data-freply="${p.id}">Ответить</button>` : ''}${mod ? `${p.deleted ? `<button data-fpdel="${p.id}">Восстановить</button>` : ''}${d.page === 0 && p === d.posts[0] ? '' : `<button data-fpdel="${p.id}" data-fforever="1">${p.deleted ? 'Удалить навсегда' : 'Удалить'}</button>`}${p.role ? '' : `<button data-fban="${p.byId}" data-fbanname="${esc(p.by)}">Запрет</button>`}` : ''}</div>` : ''}</div>`).join('')}
     ${fPager(d.page, d.pages, 'data-fppg')}
-    ${d.canPost ? `<form class="fform" data-form="freply">${rt ? `<div class="fquote fto"><span>↪ Ответ для <b>${esc(rt.by)}</b>: «${esc(rt.text)}»</span><button type="button" class="fxto" data-freplyx title="Не отвечать на это сообщение">✕</button></div>` : ''}<textarea name="text" maxlength="1500" rows="3" placeholder="Ваш ответ…" required></textarea><button class="lbar">Ответить</button></form>`
+    ${d.canPost ? `<form class="fform" data-form="freply">${rt ? `<div class="fquote fto"><span>↪ Ответ для <b>${esc(rt.by)}</b>: «${smiles(esc(rt.text))}»</span><button type="button" class="fxto" data-freplyx title="Не отвечать на это сообщение">✕</button></div>` : ''}<textarea name="text" maxlength="1500" rows="3" placeholder="Ваш ответ…" required></textarea>${smileBar()}<button class="lbar">Ответить</button></form>`
       : `<div class="bwline center small">${d.closed ? 'Тема закрыта — отвечать нельзя.' : esc(d.ban || '')}</div>`}`;
 }
 // опрос: пока игрок не голосовал — варианты-кнопки (один вариант — голос сразу, несколько — галочки и «Голосовать»);
@@ -109,7 +109,7 @@ function pollFormHtml(form) {
 function forumNewTopicWin() {
   const d = S.fr.topics;
   return `${ribbon('Новая тема')}<div class="bwline center small">Раздел: <b>${esc(d ? d.name : '')}</b></div>
-    <form class="fform" data-form="ftopic"><input name="title" maxlength="80" placeholder="Название темы" required><textarea name="text" maxlength="1500" rows="6" placeholder="Первое сообщение" required></textarea>
+    <form class="fform" data-form="ftopic"><input name="title" maxlength="80" placeholder="Название темы" required><textarea name="text" maxlength="1500" rows="6" placeholder="Первое сообщение" required></textarea>${smileBar()}
     <button class="lbar">Создать тему</button></form>`;
 }
 function forumRulesWin() {

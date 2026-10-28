@@ -119,12 +119,18 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   for (const id of al.members) g.userById(id).alliance = aid;
   const v = g.allyView(L, al), on = (u) => v.members.find((x) => x.id === u.id).on;
   assert.deepStrictEqual([L, U.on, U.off, U.adm].map(on), [true, true, false, false], 'себя и вошедших — в игре, админ — не в игре');
-  assert.ok(v.members.every((m) => !('lastSeen' in m) && !('online' in m) && !('away' in m)), 'время входа не раскрывается');
+  assert.ok(v.members.every((m) => !('lastSeen' in m) && !('online' in m) && typeof m.away === 'boolean'), 'время входа не раскрывается — только «давно не заходил» да/нет');
+  { // давно не заходил (больше 7 дней) — серая фигурка; недавно — красная; в игре, сам смотрящий и админ — никогда не «давно»
+    const D = 86400000; U.off.lastSeen = Date.now() - 10 * D; U.adm.lastSeen = Date.now() - 30 * D; L.lastSeen = Date.now() - 30 * D;
+    const w = g.allyView(L, al), aw = (u) => w.members.find((x) => x.id === u.id).away;
+    assert.deepStrictEqual([L, U.on, U.off, U.adm].map(aw), [false, false, true, false], 'давно не заходил — только не в игре дольше 7 дней');
+    U.off.lastSeen = Date.now() - 2 * D; assert.strictEqual(g.allyView(L, al).members.find((x) => x.id === U.off.id).away, false, '2 дня назад — просто не в сети');
+  }
   const out = mk('onoutsider');
   assert.ok(g.allyView(out, al).members.every((m) => !('on' in m)), 'не участнику (модератор форума) — без статуса');
   assert.ok(g.allyPublic(al).members.every((m) => !('on' in m)), 'в карточке альянса для всех — без статуса');
   U.adm.admin = U.adm.online = U.on.online = false; // дальше по тестам — обычные игроки не в игре
-  console.log('✓ состав альянса: кто в игре — видно только своим, админ всегда «не в игре»');
+  console.log('✓ состав альянса: в сети / не в сети / давно не заходил (больше 7 дней) — видно только своим, время входа не раскрывается, админ всегда «не в игре»');
 }
 // форум альянса: «Ответить» — ответ помнит, кому (ник и начало сообщения), автору — уведомление
 {
