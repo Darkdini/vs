@@ -28,7 +28,9 @@ const loading = (t) => `${ribbon(t)}<p class="parch-note">Загрузка…</p
 // в составе — кто в сети (зелёный), не в сети (красный), давно не заходил (серый, сервер: ally.js allyAway); видят только свои
 const ALLY_ST = { on: 'В сети', off: 'Не в сети', away: 'Давно не заходил' };
 const allyOn = (m) => { if (m.on === undefined) return ''; const k = m.on ? 'on' : m.away ? 'away' : 'off'; return `<img class="aking" src="${GFX}smallicon/hd/king_${k}.png" alt="" title="${ALLY_ST[k]}">`; }; // фигурка короля (картинка хозяина)
-const allyName = (m) => `${allyOn(m)}<a data-cprof="${m.id}" style="color:${nameColor(m.rep)}">${esc(m.login)}</a><br>`;
+const allyName = (m) => `<a data-cprof="${m.id}" style="color:${nameColor(m.rep)}">${esc(m.login)}</a><br>`;
+// номер места и рядом фигурка короля (статус) — в первой колонке
+const allyNum = (m, i) => `<span class="aplace">${i + 1}${allyOn(m)}</span>`;
 
 function openAlly() { S.allyForeign = null; S.ally = null; asend({ t: 'ally', op: 'get' }); openSheet(allyMainWin); }
 
@@ -50,7 +52,7 @@ function allyMainWin() {
       ${aTile('data-aw="desc"', `${AL}desc.png`, 'Описание')}
     </div>
     ${ribbon('Состав')}
-    <div class="atable">${a.members.slice(0, 5).map((m, i) => `<div class="atr4"><span>${i + 1}</span><span>${allyName(m)}${repIcons(m.rep)}${allyMedalsRow(m)}</span><span>${epImg(m.ep)}</span><span>${fmtFull(m.score)}</span></div>`).join('')}</div>
+    <div class="atable">${a.members.slice(0, 5).map((m, i) => `<div class="atr4${m.on !== undefined ? ' ast' : ''}">${allyNum(m, i)}<span>${allyName(m)}${repIcons(m.rep)}${allyMedalsRow(m)}</span><span>${epImg(m.ep)}</span><span>${fmtFull(m.score)}</span></div>`).join('')}</div>
     <button class="pbar" data-aw="members">Весь состав</button>
     <div class="ptiles pbig">
       ${aTile('data-aw="manage"', `${AL}manage.png`, 'Управление')}
@@ -66,7 +68,7 @@ function allyMembersWin() {
   const a = S.ally; if (!a) return loading('Весь состав');
   // справа — рейтинг с учётом репутации; вверху — сколько сейчас в сети
   return `${ribbon('Весь состав')}
-    <div class="atable">${a.members.map((m, i) => `<div class="atr4"><span>${i + 1}</span><span>${allyName(m)}${repIcons(m.rep)}${allyMedalsRow(m)}</span><span>${epImg(m.ep)}</span><span>${fmtFull(m.score)}</span></div>`).join('')}</div>`;
+    <div class="atable">${a.members.map((m, i) => `<div class="atr4${m.on !== undefined ? ' ast' : ''}">${allyNum(m, i)}<span>${allyName(m)}${repIcons(m.rep)}${allyMedalsRow(m)}</span><span>${epImg(m.ep)}</span><span>${fmtFull(m.score)}</span></div>`).join('')}</div>`;
 }
 function allyTitlesWin() {
   const a = S.ally; if (!a) return loading('Звания и погоны');

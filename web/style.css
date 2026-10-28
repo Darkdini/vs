@@ -709,8 +709,9 @@ input.num { width: 76px; padding: 7px; text-align: center; }
 .atable a { color: #7a1a0a; text-decoration: underline; text-decoration-color: #7a1a0a55; }
 .atable small { font-size: 13px; opacity: .8; }
 /* статус в составе (alliance.js allyOn): фигурка короля — зелёная в сети, красная не в сети, серая давно не заходил */
-.aking { width: 32px; height: 32px; object-fit: contain; margin: 0 4px 0 0; vertical-align: middle; position: relative; top: -2px; }
-.atr4 .aking { margin-left: -36px; } /* имя по-прежнему по центру, фигурка — слева от него */
+.aking { width: 32px; height: 32px; object-fit: contain; flex: none; }
+.atr4.ast { grid-template-columns: .8fr 1.5fr .6fr .8fr; } /* у своих: номер и фигурка рядом — первая колонка шире */
+.aplace { display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
 .epaul { width: 30px; height: 30px; object-fit: contain; }
 .crown2 { height: 22px; vertical-align: middle; }
 .ainput { width: 100%; box-sizing: border-box; margin: 4px 0 8px; padding: 10px 12px; border: 3px solid #d8a850; border-radius: 6px; background: #6e7e5a; color: #f0e0a0; font: min(22px, 5vw) var(--serif); box-shadow: inset 0 2px 4px #0006; }
