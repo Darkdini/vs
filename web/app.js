@@ -104,11 +104,11 @@ const R = () => S.cat.rules;
 // время стройки, сек (как на сервере: catalog.js levelTimeSec / game.js buildTime)
 function buildSecRaw(def, level, townhall) {
   const T = R().time, t = def.time ? { base: def.time, growth: T.castle.growth } : def.layer === 'lands' ? T.lands : T.castle;
-  return Math.max(T.min, Math.round(t.base * t.growth ** (Math.min(level, 20) - 1) * 1.03 ** Math.max(0, level - 20) * T.townhallFactor ** townhall));
+  return Math.max(T.min, Math.round(t.base * t.growth ** (Math.min(level, 20) - 1) * 1.03 ** Math.max(0, level - 20) * T.townhallFactor ** townhall * (T.k || 1))); // k — стройки в 1,5 раза дольше (с 28.10)
 }
 function buildSec(def, level, townhall) {
   const L = S.cat.lands, T = R().time; // здания земель: своё время уровней 1–5 при Ратуше 1, Ратуша ускоряет на 5% за уровень
-  const raw = def.layer === 'lands' && !def.time && L && L.time ? Math.max(T.min, Math.round(L.time[Math.max(1, Math.min(5, level))] * T.townhallFactor ** Math.max(0, townhall - 1))) : buildSecRaw(def, level, townhall);
+  const raw = def.layer === 'lands' && !def.time && L && L.time ? Math.max(T.min, Math.round(L.time[Math.max(1, Math.min(5, level))] * T.townhallFactor ** Math.max(0, townhall - 1) * (T.k || 1))) : buildSecRaw(def, level, townhall);
   const eng = (MY() && MY().bonus && MY().bonus.build) || 1; // наука Инженерия (как на сервере: game.js build)
   return Math.max(R().minBuildSec, Math.round(Math.round(raw / S.cat.speed) * eng));
 }

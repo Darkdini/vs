@@ -135,17 +135,18 @@ function levelCost0(b, level) {
   return cost;
 }
 
-// время: база × рост^(ур-1) × 0.95^ур.Ратуши (Ратуша ускоряет стройки на 5% за уровень)
-const TIME = { lands: { base: 60, growth: 1.45 }, castle: { base: 180, growth: 1.25 }, townhallFactor: 0.95, min: 5 };
-// здания земель: своё время уровней 1–5 (при Ратуше 1: 2, 5, 9, 15, 30 мин); Ратуша ускоряет так же — на 5% за уровень
+// время: база × рост^(ур-1) × 0.95^ур.Ратуши (Ратуша ускоряет стройки на 5% за уровень) × k
+// k — с 28.10, по решению владельца: все стройки и улучшения зданий замка (и стены) и земель в 1,5 раза дольше
+const TIME = { lands: { base: 60, growth: 1.45 }, castle: { base: 180, growth: 1.25 }, townhallFactor: 0.95, min: 5, k: 1.5 };
+// здания земель: своё время уровней 1–5 (при Ратуше 1: 2, 5, 9, 15, 30 мин, с k = 1,5 — 3; 7,5; 13,5; 22,5; 45 мин); Ратуша ускоряет так же — на 5% за уровень
 const LAND_TIME = [0, 120, 300, 540, 900, 1800];
 function levelTimeSec(b, level, townhallLevel) {
-  if (b.layer === 'lands' && !b.time) return Math.max(TIME.min, Math.round(LAND_TIME[Math.max(1, Math.min(LANDS_MAX, level))] * TIME.townhallFactor ** Math.max(0, townhallLevel - 1)));
+  if (b.layer === 'lands' && !b.time) return Math.max(TIME.min, Math.round(LAND_TIME[Math.max(1, Math.min(LANDS_MAX, level))] * TIME.townhallFactor ** Math.max(0, townhallLevel - 1) * TIME.k));
   return levelTimeSec0(b, level, townhallLevel);
 }
 function levelTimeSec0(b, level, townhallLevel) {
   const t = b.time ? { base: b.time, growth: TIME.castle.growth } : b.layer === 'lands' ? TIME.lands : TIME.castle;
-  return Math.max(TIME.min, Math.round(t.base * t.growth ** (Math.min(level, 20) - 1) * 1.03 ** Math.max(0, level - 20) * TIME.townhallFactor ** townhallLevel));
+  return Math.max(TIME.min, Math.round(t.base * t.growth ** (Math.min(level, 20) - 1) * 1.03 ** Math.max(0, level - 20) * TIME.townhallFactor ** townhallLevel * TIME.k));
 }
 
 // рейтинг: полностью отстроенный замок = 2200 — постройки замка 971 + развитие Складов 229 + земли 1000.
