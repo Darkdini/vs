@@ -1032,6 +1032,7 @@ img[src$="coins.png"], img[src$="coins_s.png"] { image-rendering: auto !importan
 .ptiles.pbig .ptile img { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); width: 58%; height: 45%; object-fit: contain; image-rendering: auto; filter: drop-shadow(0 2px 2px #0007); }
 .ptiles.pbig .ptile span { position: absolute; left: 9%; right: 9%; bottom: 11%; height: 2.3em; display: flex; align-items: center; justify-content: center; font-size: min(13px, 3.4vw); line-height: 1.05; }
 .ptiles.pbig .ptile span:empty { display: none; }
+.ptiles.pbig.aico .ptile img { top: 12%; width: 68%; height: 48%; } /* значки альянса (gfx3d/ally/hd) — крупнее, как в оригинале */
 .ptiles.pbig .ptile:has(> span:empty) img { top: 50%; transform: translate(-50%, -50%); height: 52%; }
 /* нажатие кнопки: вдавливается, темнеет, тень уходит внутрь */
 .ptile, .mitem, #menubar button, .pbar, .rbar, .fbar, #btnMenu, #btnGear, #locs .lbtns button { transition: transform .08s ease-out, filter .08s ease-out; -webkit-tap-highlight-color: transparent; }

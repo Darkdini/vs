@@ -6,7 +6,7 @@
 
 S.ally = null; S.allyTopic = null; S.allyShowDel = false; S.allyRankFor = null; S.allyReplyTo = null;
 const AI = (n) => `${G3}menu/${n}.svg`;
-const AL = 'gfx3d/ally/'; // родные иконки альянса (вырезаны из оригинала)
+const AL = 'gfx3d/ally/hd/'; // значки альянса — картинка хозяина (28.10; прежние были вырезаны из оригинала), hd — сглаживание
 const aTile = (attr, icon, text, off) => `<button class="ptile ${off ? 'off' : ''}" ${attr}><img src="${icon}" alt=""><span>${text}</span></button>`;
 // погоны по старшинству (gfx/ep/ep1…ep8): шевроны → звёзды → звезда в венке → корона (только создатель)
 const EP_NAMES = ['нет', '1 — один шеврон', '2 — два шеврона', '3 — три шеврона', '4 — одна звезда', '5 — две звезды', '6 — три звезды', '7 — звезда в лавровом венке'];
@@ -47,7 +47,7 @@ function allyMainWin() {
     <div class="atable"><div class="atr3 head"><span>Звание</span><span>Имя</span><span>Погоны</span></div>
       ${lead.map((m) => `<div class="atr3"><span>${esc(m.title)}</span><span><a data-cprof="${m.id}">${esc(m.login)}</a></span><span>${epImg(m.ep)}</span></div>`).join('')}</div>
     <button class="pbar" data-aw="titles">Весь список</button>
-    <div class="ptiles pbig">
+    <div class="ptiles pbig aico">
       ${aTile('data-aw="charter"', `${AL}charter.png`, 'Устав')}
       ${aTile('data-aw="diplo"', `${AL}diplo.png`, 'Дипломатия')}
       ${aTile('data-aw="desc"', `${AL}desc.png`, 'Описание')}
@@ -55,7 +55,7 @@ function allyMainWin() {
     ${ribbon('Состав')}
     <div class="atable">${a.members.slice(0, 5).map((m, i) => `<div class="atr4${m.on !== undefined ? ' ast' : ''}">${allyNum(m, i)}<span>${allyName(m)}${repIcons(m.rep)}${allyMedalsRow(m)}</span><span>${epImg(m.ep)}</span><span>${fmtFull(m.score)}</span></div>`).join('')}</div>
     <button class="pbar" data-aw="members">Весь состав</button>
-    <div class="ptiles pbig">
+    <div class="ptiles pbig aico">
       ${aTile('data-aw="manage"', `${AL}manage.png`, 'Управление')}
       ${aTile('data-aw="forum"', `${AL}forum.png`, 'Форум')}
       ${aTile('data-aw="mails"', `${AL}mail.png`, `Рассылки${allyNewN('mail')}`)}
@@ -427,7 +427,7 @@ function allyInfoWin() {
     <div class="atable"><div class="atr3 head"><span>Звание</span><span>Имя</span><span>Погоны</span></div>
       ${lead.map((m) => `<div class="atr3"><span>${esc(m.title)}</span><span><a data-cprof="${m.id}">${esc(m.login)}</a></span><span>${epImg(m.ep)}</span></div>`).join('')}</div>
     <button class="pbar" data-ai="titles">Весь список</button>
-    <div class="ptiles pbig">
+    <div class="ptiles pbig aico">
       ${aTile('data-ai="charter"', `${AL}charter.png`, 'Устав')}
       ${aTile('data-ai="diplo"', `${AL}diplo.png`, 'Дипломатия')}
       ${aTile('data-ai="desc"', `${AL}desc.png`, 'Описание')}

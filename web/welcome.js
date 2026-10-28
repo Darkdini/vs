@@ -23,8 +23,8 @@ function welcomeShow(m) {
   if (m.gifts) items.push(['gifts', '🎁', `${plural(m.gifts, 'Новый подарок', 'Новых подарка', 'Новых подарков')}: ${m.gifts}`]);
   if (m.mail) items.push(['mail', '✉', `${plural(m.mail, 'Новое письмо', 'Новых письма', 'Новых писем')}: ${m.mail}`]);
   const al = m.ally;
-  if (al && al.mail) items.push(['allymail', '<img src="gfx3d/ally/mail.png" alt="">', al.mail === 1 ? `Рассылка в альянсе: «${esc(al.mailTitle)}»` : `${plural(al.mail, 'Новая рассылка', 'Новые рассылки', 'Новых рассылок')} в альянсе: ${al.mail}`]);
-  if (al && al.news) items.push(['allynews', '<img src="gfx3d/ally/news.png" alt="">', al.news === 1 ? `Новость альянса: «${esc(al.newsTitle)}»` : `${plural(al.news, 'Свежая новость', 'Свежие новости', 'Свежих новостей')} альянса: ${al.news}`]);
+  if (al && al.mail) items.push(['allymail', '<img src="gfx3d/ally/hd/mail.png" alt="">', al.mail === 1 ? `Рассылка в альянсе: «${esc(al.mailTitle)}»` : `${plural(al.mail, 'Новая рассылка', 'Новые рассылки', 'Новых рассылок')} в альянсе: ${al.mail}`]);
+  if (al && al.news) items.push(['allynews', '<img src="gfx3d/ally/hd/news.png" alt="">', al.news === 1 ? `Новость альянса: «${esc(al.newsTitle)}»` : `${plural(al.news, 'Свежая новость', 'Свежие новости', 'Свежих новостей')} альянса: ${al.news}`]);
   if (m.news) items.push(['news', '📰', `${plural(m.news, 'Свежая новость', 'Свежие новости', 'Свежих новостей')}: ${m.news}`]);
   const bossRow = m.boss && m.boss.on ? `<div class="wlc-boss"><img src="${GFX}boss/m_${m.boss.kind}.png" alt=""><span>${esc(m.boss.name)}</span><button type="button" data-wgo="boss">Перейти</button></div>` : '';
   const d = document.createElement('div'); d.className = 'wlc';
