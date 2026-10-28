@@ -98,7 +98,7 @@ function install(Game) {
   // шли в замок, а он стал ничьим: торговцы везут груз назад (сразу на склад, как при отзыве), подкрепление возвращается
   const baseArrive = P.arrive;
   P.arrive = function arrive(c, a, t) {
-    const target = (a.mission === 'trade' || a.mission === 'reinforce') && this.castleAt(a.x, a.y);
+    const target = ((a.mission === 'trade' && !a.allyStore) || a.mission === 'reinforce') && this.castleAt(a.x, a.y); // взнос в кладовую альянса — не в замок
     if (target && target.owner !== c.owner && this.isNobody(target.owner)) {
       if (a.cargo) { for (const r of RES4) c.res[r] += a.cargo[r] || 0; a.cargo = null; }
       this.report(c.owner, `Поход в ${target.name} отменён`, [`Замок ${target.x}:${target.y} ничей — хозяин его забросил. ${a.mission === 'trade' ? 'Торговцы вернули груз на склад.' : 'Подкрепление возвращается домой.'}`], a.mission === 'trade' ? 'trade' : 'reinforce');

@@ -627,13 +627,14 @@ function install(Game, helpers) {
     return { total, away, free: Math.max(0, total - away), reserved: 0, carry: Math.round(UNIT[MERCHANT_ID].carry * lvl * b.tradeCarry), speed: Math.round(UNIT[MERCHANT_ID].speed * b.tradeSpeed * 10) / 10, level: lvl }; // как в оригинале: 20 ур. — 900 ед.; скорость — 60 полей/час
   };
   // «Передать»: торговцы везут ресурсы в замок; сколько торговцев — по грузу
-  P.sendTrade = function sendTrade(castle, { x, y, res }) {
+  // allyStore — id альянса: груз — в его кладовую (ally.js: везут к столице создателя альянса, по прибытии — allyStoreArrive)
+  P.sendTrade = function sendTrade(castle, { x, y, res, allyStore }) {
     this.tick(castle);
     const m = this.merchants(castle);
     if (!m.level) return { error: `В замке «${castle.name}» нет Рынка — ресурсы возят торговцы с Рынка. Постройте его или отправьте из замка, где Рынок есть.` };
     x = Math.round(Number(x)); y = Math.round(Number(y));
     if (!Number.isFinite(x) || !Number.isFinite(y)) return { error: 'Укажите координаты замка.' };
-    if (x === castle.x && y === castle.y) return { error: 'Это этот же замок.' };
+    if (x === castle.x && y === castle.y && !allyStore) return { error: 'Это этот же замок.' };
     const target = this.castleAt(x, y); if (!target) return { error: 'Торговцы везут ресурсы только в замок.' };
     const cargo = {}; let total = 0;
     for (const r of RES4) { const v = Math.max(0, Math.floor(Number((res || {})[r]) || 0)); if (castle.res[r] < v) return { error: 'Недостаточно ресурсов.' }; cargo[r] = v; total += v; }
@@ -643,8 +644,8 @@ function install(Game, helpers) {
     for (const r of RES4) castle.res[r] -= cargo[r];
     const own = target.owner === castle.owner ? OWN_TRADE : 1; // между своими замками — ещё втрое быстрее
     const units = { [MERCHANT_ID]: need }, sec = Math.min(TRADE_MAX, Math.max(5, Math.round(Math.hypot(x - castle.x, y - castle.y) / (m.speed * own * MARCH) * 3600 / SPEED))), now = Date.now(); // не дольше 10 минут в одну сторону
-    const army = { id: this.db.nextId++, units, general: false, mission: 'trade', x, y, depart: now, arrive: now + sec * 1000, sec, state: 'go', loot: null, cargo, squad: null, portal: false };
-    castle.armies.push(army); this.addStat(castle.owner, 'trades', 1); this.store.save();
+    const army = { id: this.db.nextId++, units, general: false, mission: 'trade', x, y, depart: now, arrive: now + sec * 1000, sec, state: 'go', loot: null, cargo, squad: null, portal: false, ...(allyStore ? { allyStore } : {}) };
+    castle.armies.push(army); if (!allyStore) this.addStat(castle.owner, 'trades', 1); this.store.save();
     return { army, sec, need };
   };
   P.ownerOf = function ownerOf(castle) { return this.userById(castle.owner); };
@@ -1761,6 +1762,7 @@ function install(Game, helpers) {
     const target = this.castleAt(a.x, a.y);
     const where = `${a.x}:${a.y}`;
     if (a.mission === 'trade') {
+      if (a.allyStore && this.allyStoreArrive) return this.allyStoreArrive(c, a, t); // взнос в кладовую альянса (ally.js)
       if (target) { this.tick(target); const cap = this.capacity(target); for (const r of RES4) target.res[r] = Math.max(target.res[r], Math.min(cap[r], target.res[r] + a.cargo[r])); }
       const to = target && this.ownerOf(target);
       this.report(c.owner, `Торговцы доставили ресурсы в ${target ? target.name : where}`, [`Груз: дерево ${a.cargo.wood}, камень ${a.cargo.stone}, железо ${a.cargo.iron}, еда ${a.cargo.food}`], 'trade');
@@ -2371,7 +2373,7 @@ function install(Game, helpers) {
     for (const c of Object.values(this.db.castles)) {
       if (c === castle || !c.armies) continue;
       for (const a of c.armies) {
-        if (a.state !== 'go' || a.x !== castle.x || a.y !== castle.y || a.mission === 'scout' || a.dung) continue;
+        if (a.state !== 'go' || a.x !== castle.x || a.y !== castle.y || a.mission === 'scout' || a.dung || a.allyStore) continue; // взнос в кладовую альянса едет не в этот замок
         const friendly = a.mission === 'trade' || a.mission === 'reinforce';
         if (!friendly && !watch) continue;
         const n = Object.values(a.units).reduce((q, k) => q + k, 0);

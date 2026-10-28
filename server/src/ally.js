@@ -14,6 +14,7 @@ const DIPLO = { ally: 'Союз', nap: 'Пакт о ненападении', war
 // (army.js, op award) и подарки участникам (social.js sendGift с ally). Цена медали из казны:
 const MEDAL_COST = { gold: 20, silver: 10, bronze: 5 };
 const RES4 = ['wood', 'stone', 'iron', 'food'];
+const RES_RU = { wood: 'дерево', stone: 'камень', iron: 'железо', food: 'еда' };
 const ALLY_AWAY_DAYS = 7; // в составе: не заходил дольше — «давно не заходил» (серая фигурка)
 const clean = (s, n) => String(s || '').trim().slice(0, n);
 
@@ -76,6 +77,24 @@ function install(Game) {
   P.allyFresh = function allyFresh(u, al, kind) {
     const seen = (u.allyRead || {})[kind] || 0;
     return (al[kind === 'mail' ? 'mails' : 'news'] || []).filter((x) => x.id > seen && (x.byId ? x.byId !== u.id : x.by !== u.login));
+  };
+  // куда торговцы везут взнос в кладовую альянса — столица создателя альянса
+  P.allyStoreCastle = function allyStoreCastle(al) { const lead = this.userById(al.leader); return (lead && this.castlesOf(lead)[0]) || null; };
+  // торговцы с взносом доехали (army.js arrive): ресурсы — в кладовую альянса и в её историю. Игрок уже не в этом альянсе
+  // (вышел, исключён, альянс распался) — груз сразу обратно на Склад, как при отзыве
+  P.allyStoreArrive = function allyStoreArrive(c, a, t) {
+    const u = this.ownerOf(c), al = (this.db.alliances || {})[a.allyStore], cargo = a.cargo || {};
+    const line = RES4.filter((r) => cargo[r]).map((r) => `${RES_RU[r]} ${cargo[r]}`).join(', ');
+    if (!al || !u || u.alliance !== al.id) {
+      for (const r of RES4) c.res[r] += cargo[r] || 0;
+      this.report(c.owner, 'Взнос в кладовую альянса не доставлен', [`Вы уже не в этом альянсе — торговцы вернули груз на Склад: ${line}.`], 'trade');
+    } else {
+      al.storage = al.storage || { wood: 0, stone: 0, iron: 0, food: 0 };
+      for (const r of RES4) al.storage[r] += cargo[r] || 0;
+      this.allyLog(al, `${u.login} внёс в кладовую: ${line}`, 'store', { op: '+', res: Object.fromEntries(RES4.filter((r) => cargo[r]).map((r) => [r, cargo[r]])), by: u.login });
+      this.report(c.owner, `Торговцы доставили ресурсы в кладовую альянса [${al.tag}]`, [`Груз: ${line}`], 'trade');
+    }
+    a.cargo = null; this.store.save(); return this.goBack(c, a, t);
   };
   // новость альянса целиком — с комментариями (окно «Новость»)
   P.allyNewsGet = function allyNewsGet(user, al, id) {
@@ -149,7 +168,7 @@ function install(Game) {
     const members = al.members.map((id) => { const m = this.userById(id); if (!m) return null;
       const t = this.allyTitle(al, id); return { id, login: m.login, rating: this.userRating(m), rep: m.reputation ?? START_REP, score: this.userRating(m) + (m.reputation ?? START_REP), medals: this.allyMedals(m), ...t,
         rights: id === al.leader ? Object.keys(RIGHTS) : ((al.ranks || {})[id] || {}).rights || [], ...(own ? { on: this.allyOnline(m, user), away: this.allyAway(m, user, now) } : {}) }; }).filter(Boolean).sort((a, b) => b.score - a.score);
-    const A = this.db.alliances || {};
+    const A = this.db.alliances || {}, sc = own ? this.allyStoreCastle(al) : null;
     // военные логи: каждое военное действие участников — нападение, оборона, разведка (своя и вражеская), подкрепления
     const reports = can('logs') ? (this.db.reports || []).filter((r) => !r.fwd && al.members.includes(r.owner) && ['battle', 'scout', 'reinforce'].includes(r.kind)).slice(-200).sort((x, y) => y.at - x.at) // новые сверху
       .map((r) => ({ id: r.id, login: (this.userById(r.owner) || {}).login, title: r.title, at: r.at, cat: this.warCat(r), line: (r.lines || [])[0] || '' })) : [];
@@ -160,6 +179,7 @@ function install(Game) {
       requests: can('invite') ? (al.requests || []).map((id) => { const m = this.userById(id); return m ? { id, login: m.login, rating: this.userRating(m) } : null; }).filter(Boolean) : [],
       invited: can('invite') ? Object.values(this.db.users).filter((u) => (u.invites || []).includes(al.id)).map((u) => u.login) : [],
       treasury: al.treasury || 0, medalCost: MEDAL_COST, storage: al.storage || { wood: 0, stone: 0, iron: 0, food: 0 },
+      storeAt: sc ? { x: sc.x, y: sc.y } : null, // куда торговцы везут взнос в кладовую (столица создателя)
       diplo: Object.entries(al.diplo || {}).map(([id, st]) => (A[id] ? { id: Number(id), tag: A[id].tag, name: A[id].name, status: st, statusName: DIPLO[st] } : null)).filter(Boolean),
       news: (al.news || []).slice().reverse().map((n) => ({ id: n.id, title: n.title, text: n.text, by: n.by, at: n.at, cmts: (n.comments || []).length })),
       // рассылки — только своим; seen — номер последней просмотренной (метка NEW), unread — сколько новых
@@ -241,7 +261,6 @@ function install(Game) {
         al.storage = al.storage || { wood: 0, stone: 0, iron: 0, food: 0 };
         const res = Object.fromEntries(RES4.map((r) => [r, Math.max(0, Math.floor(Number((m.res || {})[r]) || 0))]));
         if (!RES4.some((r) => res[r])) return { error: 'Укажите ресурсы.' };
-        const line = RES4.filter((r) => res[r]).map((r) => `${{ wood: 'дерево', stone: 'камень', iron: 'железо', food: 'еда' }[r]} ${res[r]}`).join(', ');
         const moved = Object.fromEntries(RES4.filter((r) => res[r]).map((r) => [r, res[r]])); // для истории кладовой
         if (m.to) {
           const e = need('treasury'); if (e) return e;
@@ -257,11 +276,12 @@ function install(Game) {
           this.allyLog(al, `${user.login} выдал из кладовой ${t.login}: ${gotLine}`, 'store', { op: '-', res: moved, by: user.login, to: t.login });
           return done(got < asked ? `Выдано из кладовой: ${t.login} — сколько влезло на Склады (${gotLine}), остальное осталось в кладовой.` : `Выдано из кладовой: ${t.login}.`);
         }
-        this.tick(castle);
-        for (const r of RES4) if (castle.res[r] < res[r]) return { error: 'В замке столько нет.' };
-        for (const r of RES4) { castle.res[r] -= res[r]; al.storage[r] += res[r]; }
-        this.allyLog(al, `${user.login} внёс в кладовую: ${line}`, 'store', { op: '+', res: moved, by: user.login });
-        return done('Ресурсы внесены в кладовую.');
+        // взнос (с 28.10; раньше — мгновенно и сколько угодно, это была ошибка): везут торговцы Рынка, сколько увезут свободные
+        // (как «Передать», army.js sendTrade), к столице создателя альянса; в кладовую и её историю — по прибытии (allyStoreArrive)
+        const dest = this.allyStoreCastle(al) || castle;
+        const r = this.sendTrade(castle, { x: dest.x, y: dest.y, res, allyStore: al.id }); if (r.error) return r;
+        const tm = `${Math.floor(r.sec / 3600)}:${String(Math.floor(r.sec / 60) % 60).padStart(2, '0')}:${String(r.sec % 60).padStart(2, '0')}`;
+        return { ok: true, msg: `Торговцы (${r.need}) везут ресурсы в кладовую альянса — доставка через ${tm}.` };
       }
       case 'diplo': {
         const e = need('diplo'); if (e) return e;

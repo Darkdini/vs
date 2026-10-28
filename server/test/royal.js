@@ -197,8 +197,10 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   const al = g.db.alliances[aid] = { id: aid, name: 'Store', tag: 'ST', leader: A.id, members: [A.id, B.id], created: Date.now(), treasury: 0, storage: { wood: 0, stone: 0, iron: 0, food: 0 },
     slog: [{ at: 1, text: 'stlead внёс в казну 1 500 монет' }, { at: 2, text: 'stlead выдал из кладовой stmemb: дерево 300, еда 50' }, { at: 3, text: 'что-то непонятное' }] };
   A.alliance = B.alliance = aid; B.gold = 100;
-  const cb = g.castleOf(B); g.tick(cb); cb.res.wood = Math.max(cb.res.wood, 500);
-  assert.ok(g.allyOp(B, cb, { op: 'store', res: { wood: 200 } }).ok && /не переводятся/.test(g.allyOp(B, cb, { op: 'gold', n: 40 }).error || '') && B.gold === 100, 'свои монеты в казну альянса не переводятся');
+  const cb = g.castleOf(B); g.mil(cb); g.maxOut(cb); g.tick(cb); cb.res.wood = Math.max(cb.res.wood, 500); // взнос везут торговцы — нужен Рынок
+  { const r = g.allyOp(B, cb, { op: 'store', res: { wood: 200 } }), a = cb.armies.find((x) => x.allyStore === aid);
+    assert.ok(r.ok && a && al.storage.wood === 0, 'взнос в пути'); g.arrive(cb, a, Date.now()); assert.strictEqual(al.storage.wood, 200, 'доехал — в кладовой'); }
+  assert.ok(/не переводятся/.test(g.allyOp(B, cb, { op: 'gold', n: 40 }).error || '') && B.gold === 100, 'свои монеты в казну альянса не переводятся');
   al.treasury = 40; g.allyLog(al, 'Администрация пополнила казну: 40 монет', 'store', { op: '+', gold: 40, by: 'Администрация', via: 'admin' }); // как admin.js allygold
   assert.ok(/нельзя выдать/.test(g.allyOp(A, g.castleOf(A), { op: 'gold', n: 15, to: 'stmemb' }).error || ''), 'казну игрокам не выдать');
   assert.ok(g.alliance(A, g.castleOf(A), { op: 'award', login: 'stmemb', kind: 'bronze' }).ok && al.treasury === 35, 'медаль — из казны (бронзовая — 5 монет)');
@@ -209,6 +211,34 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(!g.allyView(B, al).log.length && g.allyView(O, al).moves.length === 0, 'история кладовой — участникам (и без права «Логи»), чужим — нет');
   assert.ok(mv[2].via === 'admin' && mv[1].via === 'medal' && /бронзовая/.test(mv[1].what), 'в истории — кто пополнил казну (администрация) и на что потрачено (медаль)');
   console.log('✓ кладовая и казна: история пополнений и списаний — всем участникам, старые записи разобраны; свои монеты в казну не переводятся');
+}
+// кладовая альянса (с 28.10): взнос везут торговцы Рынка — сколько увезут свободные, к столице создателя альянса; в кладовую — по прибытии
+// (раньше — мгновенно и сколько угодно, по 90 000 за раз: это была ошибка)
+{
+  const mk = (login) => { const u = g.register({ login, password: '12345', race: 0 }).user; return [u, g.castleOf(u)]; };
+  const [L, cl] = mk('kvlead'), [M, cm] = mk('kvmemb'), [N, cn] = mk('kvnomkt');
+  g.db.alliances = g.db.alliances || {}; const aid = g.db.nextId++;
+  const al = g.db.alliances[aid] = { id: aid, name: 'Kladovaya', tag: 'KV', leader: L.id, members: [L.id, M.id, N.id], created: Date.now(), storage: { wood: 0, stone: 0, iron: 0, food: 0 } };
+  for (const u of [L, M, N]) u.alliance = aid;
+  for (const c of [cl, cm]) { g.mil(c); g.maxOut(c); g.tick(c); for (const r of ['wood', 'stone', 'iron', 'food']) c.res[r] = 90000; }
+  g.tick(cn); cn.res.wood = 1000;
+  const near = (v, x) => Math.abs(v - x) < 50; // пока идёт тест, Склады чуть пополняются добычей
+  assert.ok(/Рынк/.test(g.allyOp(N, cn, { op: 'store', res: { wood: 100 } }).error || ''), 'без Рынка — не внести');
+  const mc = g.merchants(cm);
+  assert.ok(/Нужно торговцев: \d+, свободных: 20/.test(g.allyOp(M, cm, { op: 'store', res: { wood: 90000 } }).error || '') && near(cm.res.wood, 90000), '90 000 за раз — нельзя: торговцы столько не увезут');
+  const r = g.allyOp(M, cm, { op: 'store', res: { wood: mc.carry * 20 } }), a = cm.armies.find((x) => x.allyStore === aid);
+  assert.ok(r.ok && /Торговцы \(20\) везут ресурсы в кладовую альянса/.test(r.msg) && a && near(cm.res.wood, 90000 - mc.carry * 20) && al.storage.wood === 0 && g.merchants(cm).free === 0,
+    'увезли сколько смогли все 20 торговцев; в кладовой — по прибытии');
+  assert.ok(a.x === cl.x && a.y === cl.y && !g.incoming(cl).some((x) => x.id === a.id), 'едут к столице создателя альянса (ему это не «армия к замку»)');
+  g.arrive(cm, a, Date.now());
+  { const mv = g.allyView(M, al).moves[0]; assert.ok(al.storage.wood === mc.carry * 20 && mv.op === '+' && mv.by === 'kvmemb' && mv.res.wood === mc.carry * 20, 'доехали — в кладовой и в её истории'); }
+  assert.ok(g.db.reports.some((x) => x.owner === M.id && /кладовую альянса \[KV\]/.test(x.title)), 'отчёт о доставке');
+  { const r2 = g.allyOp(L, cl, { op: 'store', res: { stone: 1000 } }), a2 = cl.armies.find((x) => x.allyStore === aid); assert.ok(r2.ok && a2 && a2.sec <= 6, 'создатель вносит из своей столицы — доставка сразу'); }
+  { cm.armies = cm.armies.filter((x) => !x.allyStore); g.tick(cm); const i0 = cm.res.iron, r3 = g.allyOp(M, cm, { op: 'store', res: { iron: 500 } }), a3 = cm.armies.find((x) => x.allyStore === aid);
+    assert.ok(r3.ok && a3 && near(cm.res.iron, i0 - 500));
+    assert.ok(g.alliance(M, cm, { op: 'leave' }).ok); g.arrive(cm, a3, Date.now());
+    assert.ok(near(cm.res.iron, i0) && al.storage.iron === 0 && g.db.reports.some((x) => x.owner === M.id && /не доставлен/.test(x.title)), 'вышел из альянса, пока торговцы в пути, — груз вернулся на Склад'); }
+  console.log('✓ кладовая альянса: взнос везут торговцы Рынка (груз по свободным торговцам, дорога к столице создателя), в кладовую — по прибытии; вышел из альянса — груз обратно');
 }
 // альянс: 5 мест за уровень Дипломатического центра главы, не больше 50
 {

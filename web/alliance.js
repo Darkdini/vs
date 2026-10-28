@@ -180,11 +180,19 @@ function allyGoldWin() {
     ${can('treasury') && a.members.length > 1 ? `${ribbon('Подарок из казны')}<form class="aform" data-aform="giftto">${who}<div class="center"><button class="pbtn">Выбрать подарок</button></div></form>` : ''}
     ${allyMovesHtml(a.moves.filter((e) => e.gold))}`;
 }
+// взнос в кладовую (сервер: ally.js op store): везут торговцы Рынка — сколько увезут свободные за поездку, к столице создателя альянса
+const allyStoreTime = (a) => { if (!a.storeAt) return '—'; const s = mktSec({ x: a.storeAt.x, y: a.storeAt.y }); return s ? `${fmtT(s)} <small>(обратно столько же)</small>` : 'сразу'; };
 function allyStoreWin() {
   const a = S.ally; if (!a) return loading('Кладовая');
-  const inputs = RES4.map((r) => `<label class="resin">${RES_IC[r]}<input name="${r}" type="number" min="0" placeholder="0"></label>`).join('');
+  const m = MY().merchants || { total: 0, free: 0, carry: 0 };
+  const inputs = RES4.map((r) => `<label class="resin">${RES_IC[r]}<input name="${r}" type="number" min="0" placeholder="0" data-astin></label>`).join('');
   return `${ribbon('Кладовая')}<div class="astock">${RES4.map((r) => `<span>${RES_IC[r]}<b>${fmtFull(a.storage[r] || 0)}</b></span>`).join('')}</div>
-    ${ribbon('Внести из замка')}<form class="aform" data-aform="store"><div class="resins">${inputs}</div><div class="center"><button class="pbtn">Внести</button></div></form>
+    ${ribbon('Внести из замка')}<div class="bwline small">Ресурсы везут торговцы Рынка к замку создателя альянса — за одну поездку столько, сколько увезут свободные торговцы.</div>
+    ${m.carry ? `<div class="bwline">Свободных торговцев: <b>${m.free}</b> из ${m.total} · каждый везёт <b>${fmtFull(m.carry)}</b> · за раз — до <b>${fmtFull(m.free * m.carry)}</b></div>`
+    : '<div class="bwline"><span class="bad">В этом замке нет Рынка — ресурсы в кладовую везут торговцы с Рынка.</span></div>'}
+    <form class="aform" data-aform="store"><div class="resins">${inputs}</div>
+      <div class="cinfo">Понадобится торговцев: <b id="astNeed">0</b> · доставка: <b>${allyStoreTime(a)}</b></div>
+      <div class="center"><button class="pbtn">Внести</button></div></form>
     ${can('treasury') ? `${ribbon('Выдать участнику')}<form class="aform" data-aform="storeto"><div class="combo"><select name="to">${a.members.map((m) => `<option>${esc(m.login)}</option>`).join('')}</select></div><div class="resins">${inputs}</div><div class="center"><button class="pbtn">Выдать</button></div></form>` : ''}
     ${allyMovesHtml(a.moves.filter((e) => e.res))}`;
 }
@@ -370,6 +378,13 @@ $('#sheetBody').addEventListener('click', (e) => {
   }
   if (d.areplyx !== undefined) { S.allyReplyTo = null; const q = t.closest('.fto'); if (q) q.remove(); return; } // написанное в поле остаётся
 });
+// взнос в кладовую: сколько торговцев понадобится — сразу при вводе
+$('#sheetBody').addEventListener('input', (e) => {
+  if (e.target.dataset.astin === undefined) return;
+  const f = e.target.form, m = MY().merchants || { free: 0, carry: 0 }, el = $('#astNeed'); if (!f || !el) return;
+  const total = RES4.reduce((s, r) => s + (Math.max(0, Math.floor(Number(f[r].value)) || 0)), 0), need = m.carry ? Math.ceil(total / m.carry) : 0;
+  el.textContent = need; el.classList.toggle('bad', need > m.free);
+});
 $('#sheetBody').addEventListener('change', (e) => { if (e.target.dataset.arank !== undefined) { S.allyRankFor = e.target.value; refreshSheet(); } if (e.target.dataset.aep !== undefined) { const pv = $('[data-aeppv]'); if (pv) pv.innerHTML = epImg(Number(e.target.value)); } });
 $('#sheetBody').addEventListener('submit', (e) => {
   const f = e.target, k = f.dataset.aform; if (!k) return;
@@ -377,7 +392,7 @@ $('#sheetBody').addEventListener('submit', (e) => {
   const v = (n) => (f[n] ? f[n].value : undefined), res = () => Object.fromEntries(RES4.map((r) => [r, Number(v(r)) || 0]));
   if (k === 'medalto') { const m = S.ally.members.find((x) => String(x.id) === v('to')); if (!m) return; send({ t: 'alliance', op: 'award', login: m.login, kind: v('kind'), text: v('text') }); return setTimeout(() => asend({ t: 'ally', op: 'get' }), 200); }
   if (k === 'giftto') { const m = S.ally.members.find((x) => String(x.id) === v('to')); if (!m) return; S.giftTo = { id: m.id, login: m.login }; S.giftAlly = true; S.giftCat = 'all'; S.giftNew = false; S.giftPage = 0; return openSheet(giftsWin); } // подарок из казны (ui3d.js)
-  if (k === 'store') { asend({ t: 'ally', op: 'store', res: res() }); f.reset(); return; }
+  if (k === 'store') return asend({ t: 'ally', op: 'store', res: res() }); // не вышло (мало торговцев) — числа остаются в полях; получилось — окно обновится
   if (k === 'storeto') return asend({ t: 'ally', op: 'store', res: res(), to: v('to') });
   const op = ALLY_FORMS[k]; if (!op) return;
   asend({ t: 'ally', op, tag: v('tag'), name: v('name'), desc: v('desc'), text: v('text'), title: v('title'), status: v('status'), topic: S.allyTopicId,
