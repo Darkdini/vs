@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /ws
+Disallow: /pk/
+Disallow: /avatar/
+
+Sitemap: https://middle-ages.ru/sitemap.xml

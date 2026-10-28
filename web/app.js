@@ -1641,8 +1641,10 @@ $('#authForm').login.addEventListener('input', (e) => { const saved = !!(S.creds
 connect();
 // помощник кэша (sw.js): картинки — из памяти телефона, после обновления — только изменившиеся (нужен https или localhost)
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) navigator.serviceWorker.register('sw.js').catch(() => {});
-// «Скачать на Android» — если APK лежит на сервере и игра открыта не в самом приложении
+// «Скачать на Android» — если APK лежит на сервере и игра открыта не в самом приложении;
+// в самом приложении не нужен и текст «Об игре» под формой входа (он для новичков с сайта и для поисковиков)
 if (!/WarKingsApp/.test(navigator.userAgent)) fetch('war-kings.apk', { method: 'HEAD' }).then((r) => { if (r.ok) $('#apkLink').classList.remove('hidden'); }).catch(() => {});
+else if ($('#auth .about')) $('#auth .about').remove();
 
 // ---------- имитация нажатия кнопок (профиль, альянс, меню) ----------
 // Плитка на мгновение «вдавливается», телефон слегка вибрирует, и только потом открывается окно —

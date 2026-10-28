@@ -19,7 +19,7 @@ const ADMIN_FILE = path.join(WEB_ROOT, 'admin.js');
 const WS_MAX = 512 * 1024; // аватар 256×256 (сжатые точки) — до ~400 КБ
 const WS_MAX_ANON = 16 * 1024; // до входа — только вход, регистрация, капча: большие сообщения не нужны (раньше и до входа принималось по 512 КБ)
 const WS_ANON_ALL = Number(process.env.WS_ANON_ALL) || 3000; // соединений без входа на весь сервер (защита памяти от наплыва с разных адресов)
-const MIME = { '.webmanifest': 'application/manifest+json', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.apk': 'application/vnd.android.package-archive', '.ogg': 'audio/ogg', '.mp3': 'audio/mpeg' };
+const MIME = { '.webmanifest': 'application/manifest+json', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.apk': 'application/vnd.android.package-archive', '.ogg': 'audio/ogg', '.mp3': 'audio/mpeg', '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml; charset=utf-8' }; // .txt, .xml — robots.txt и sitemap.xml для поисковиков
 
 // ---------- WebSocket ----------
 function wsAccept(req, socket) {

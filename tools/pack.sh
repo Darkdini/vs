@@ -51,5 +51,8 @@ PORT=18093
 PID=$!
 i=0; until curl -sf "http://127.0.0.1:$PORT/" > /dev/null; do i=$((i+1)); if [ $i -gt 40 ] || ! kill -0 $PID 2>/dev/null; then echo "ПАКЕТ НЕ ЗАПУСКАЕТСЯ:"; cat "$TMP/log"; exit 1; fi; sleep 0.25; done
 curl -sf "http://127.0.0.1:$PORT/g.js" > /dev/null || { echo "g.js не отдаётся"; exit 1; }
+# для поисковиков и соцсетей: robots.txt, карта сайта и превью (настоящим JPG — его WebP-копии в пакете быть не должно)
+curl -sf "http://127.0.0.1:$PORT/robots.txt" > /dev/null && curl -sf "http://127.0.0.1:$PORT/sitemap.xml" > /dev/null || { echo "robots.txt или sitemap.xml не отдаётся"; exit 1; }
+[ "$(curl -sf -H 'Accept: image/webp,*/*' -o /dev/null -w '%{content_type}' "http://127.0.0.1:$PORT/og-image.jpg")" = "image/jpeg" ] || { echo "og-image.jpg отдаётся не JPG"; exit 1; }
 pkill -P $PID 2>/dev/null || true
 echo "dist/game.zip собран и проверен: $(unzip -Z1 "$ROOT/dist/game.zip" | wc -l) файлов, версия $(cat "$G/VERSION")"

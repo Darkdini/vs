@@ -60,6 +60,20 @@ function client() {
     assert.ok(scripts.includes('castlehelp.js'), 'справка «Новые замки» подключена');
     for (const src of scripts) assert.ok((await fetch(`http://127.0.0.1:${WEB_PORT}/${src}`)).ok, `скрипт ${src} отдаётся`);
     console.log('✓ страница и скрипты отдаются');
+    // для поисковиков и соцсетей (28.10): описание, главный адрес и превью в странице, текст «Об игре», robots.txt и карта сайта
+    assert.match(html, /<meta name="description" content="[^"]{60,170}">/, 'описание страницы для поиска');
+    assert.match(html, /<link rel="canonical" href="https:\/\/middle-ages\.ru\/">/);
+    assert.match(html, /<meta property="og:image" content="https:\/\/middle-ages\.ru\/og-image\.jpg">/);
+    const ld = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);
+    assert.equal(ld['@graph'].find((x) => x['@type'] === 'VideoGame').offers.price, '0', 'разметка schema.org читается');
+    assert.match(html, /<h2 id="aboutH">Об игре/, 'текст «Об игре» в странице');
+    const rob = await fetch(`http://127.0.0.1:${WEB_PORT}/robots.txt`);
+    assert.ok(rob.ok && /^text\/plain/.test(rob.headers.get('content-type')) && /Sitemap: https:\/\/middle-ages\.ru\/sitemap\.xml/.test(await rob.text()), 'robots.txt');
+    const smap = await fetch(`http://127.0.0.1:${WEB_PORT}/sitemap.xml`);
+    assert.ok(smap.ok && /^application\/xml/.test(smap.headers.get('content-type')) && /<loc>https:\/\/middle-ages\.ru\/<\/loc>/.test(await smap.text()), 'sitemap.xml');
+    const og = await fetch(`http://127.0.0.1:${WEB_PORT}/og-image.jpg`, { headers: { Accept: 'image/webp,*/*' } });
+    assert.ok(og.ok && og.headers.get('content-type') === 'image/jpeg', 'превью — настоящий JPG');
+    console.log('✓ для поисковиков: описание, canonical, превью, schema.org, «Об игре», robots.txt, sitemap.xml');
 
     await a.open();
     a.send({ t: 'hello' });
