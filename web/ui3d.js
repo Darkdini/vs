@@ -694,7 +694,7 @@ const helpWin = () => `${ribbon('Справка')}<div class="mitems light">
   <button class="mitem" data-gamerules><img src="${GFX}menu/news.png" alt=""><span>Правила игры</span></button></div>`;
 const settingsWin = () => `${ribbon('Настройки')}<div class="pstats">Игрок: <b>${esc(S.st.user.login)}</b> · ${esc(S.st.user.raceName)}<br>Скорость мира ×${S.cat.speed}</div>
   <label class="cchk setchk"><input type="checkbox" data-showlvl ${S.showLvl ? 'checked' : ''}><i></i><img src="gfx3d/top/btn_lvl.png" alt=""> Показывать уровни зданий (замок и земли)</label>
-  <div class="mitems light"><button class="mitem" data-act="bug"><img src="${GFX}smallicon/soft_help.png" alt=""><span>Сообщить об ошибке</span></button>
+  <div class="mitems light"><button class="mitem" data-act="bug"><img src="${GFX}smallicon/hd/help.png" alt=""><span>Сообщить об ошибке</span></button>
   <button class="mitem" data-act="logout"><img src="${GFX}smallicon/softclose.png" alt=""><span>Выйти из игры</span></button></div>`;
 
 // ---------- сообщения сервера ----------

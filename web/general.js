@@ -57,11 +57,11 @@ function generalWin() {
       ${tile('data-herogear', `${GFX}hero/icon_gear.png" data-fb="${GS('swordred')}`, 'Снаряжение', MY().hero && MY().hero.gear.length ? MY().hero.gear.length : undefined)}
     </div>
     <div class="ptiles g3">
-      ${tile('data-genreset', `${G3}Gears/a1.png`, 'Сбросить очки', g.resets)}
-      ${tile('data-gendist', GS('upgrade'), 'Распределить')}
-      ${tile('data-genname', GS('softedit'), 'Переименовать')}
-      ${tile('data-genhelp', GS('soft_help'), 'Справка')}
-      ${tile('data-genkill', GS('l7day'), 'Убить')}
+      ${tile('data-genreset', GS('hd/reset'), 'Сбросить очки', g.resets)}
+      ${tile('data-gendist', GS('hd/points'), 'Распределить')}
+      ${tile('data-genname', GS('hd/pen'), 'Переименовать')}
+      ${tile('data-genhelp', GS('hd/help'), 'Справка')}
+      ${tile('data-genkill', GS('hd/kill'), 'Убить')}
       ${g.dead || g.rekind ? '' : tile('data-genrkopen', unitSrc(wu), 'Сменить воина')}
     </div>`;
 }

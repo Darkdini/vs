@@ -87,7 +87,7 @@ function allyManageWin() {
     ${aTile('data-aw="req"', AI('mail'), `Заявки и приглашения${a.requests.length ? ` (${a.requests.length})` : ''}`, !can('invite'))}
     ${aTile('data-aw="kick"', `${GFX}smallicon/destroy.png`, 'Исключить', !can('kick'))}
     ${aTile('data-aw="rights"', `${GFX}smallicon/status/f_gold.png`, 'Назначить права', !can('rights'))}
-    ${aTile('data-aw="descedit"', `${GFX}smallicon/softedit.png`, 'Изменить описание', !can('desc'))}
+    ${aTile('data-aw="descedit"', `${GFX}smallicon/hd/pen.png`, 'Изменить описание', !can('desc'))}
     ${aTile('data-aw="diplo"', AI('swords'), 'Дипломатия')}
     ${aTile('data-aleave', `${GFX}smallicon/destroy.png`, 'Покинуть Альянс')}
     ${aTile('data-aw="transfer"', `${GFX}smallicon/bonus_status/coronalgold.png`, 'Сместить Создателя')}

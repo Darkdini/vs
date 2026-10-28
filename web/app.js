@@ -749,7 +749,7 @@ function buildingSheet(def, lvl, ctx) {
   }
   if (ctx && lvl > 0) h += buildingFunctions(def, lvl); // функции здания (mil.js) — как в оригинале, над «Разрушить»
   if (ctx) h += `${lvl > 0 && def.id !== 0 && !q && !z ? `<button class="rbar" data-demolish="${ctx.view},${ctx.cell}"><img src="${GFX}smallicon/upgrade.png" alt=""> Снести</button>` : ''}
-    <button class="rbar" data-about="${def.id}"><img src="${GFX}smallicon/soft_help.png" alt=""> О здании</button>`;
+    <button class="rbar" data-about="${def.id}"><img src="${GFX}smallicon/hd/help.png" alt=""> О здании</button>`;
   return h;
 }
 
@@ -833,7 +833,7 @@ function letterSheet(l) {
 }
 
 function openCompose(to, subject = '') {
-  openSheet(() => `<div class="sh-head"><div class="big">${gimg('smallicon/softedit.png')}</div><h3>Новое письмо</h3></div>
+  openSheet(() => `<div class="sh-head"><div class="big">${gimg('smallicon/hd/pen.png')}</div><h3>Новое письмо</h3></div>
     <form class="stack" data-form="mail"><input name="to" placeholder="Кому (логин)" value="${esc(to)}" autocapitalize="none" required>
     <input name="subject" placeholder="Тема" value="${esc(subject)}"><textarea name="text" rows="6" placeholder="Текст" required></textarea>
     <button class="btn primary">Отправить</button></form>`);

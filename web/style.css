@@ -1387,7 +1387,7 @@ img[src*="/hd/"] { image-rendering: auto !important; }
 .ncard { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 8px 12px; border: 0; border-radius: 10px; color: #fff;
   background: linear-gradient(#b8724a, #6a3018); box-shadow: 0 2px 4px #0007, inset 0 1px 0 #fff4; text-shadow: 0 1px 1px #0009; }
 .ncard.new { background: linear-gradient(#8a4ab8, #40186a); }
-.ncard img { flex: none; width: 60px; height: 80px; object-fit: contain; }
+.ncard img { flex: none; width: 60px; height: 80px; object-fit: contain; image-rendering: auto; }
 .ncard span { display: grid; gap: 4px; font: 700 min(26px, 6vw)/1.15 var(--serif); }
 .ncard small { font: 400 min(22px, 5.2vw) var(--serif); color: #e6d0bc; }
 .ncard:active { filter: brightness(.9); transform: translateY(1px); }
@@ -2767,12 +2767,32 @@ img.artsp { filter: drop-shadow(0 0 4px #c89aff) drop-shadow(0 0 8px #6a3aff); }
   border-image: url(gfx/smallicon/btn_wood.png) 26 40 fill / 13px 20px / 0 stretch;
   color: #fbecc8; text-shadow: 0 1px 2px #000c; }
 .btn:active, .btn.small:active, #sheetBody .btn:not(.primary):not(.small):active, .iconbtn:active { border-image-source: url(gfx/smallicon/btn_wood2.png); background: none; }
-.btn.primary, .btn.primary.small, #sheetBody .btn.primary { border-image-source: url(gfx/smallicon/btn_gold.png); color: #2e1804; text-shadow: 0 1px 0 #fff3c0aa; }
-.btn.primary:active, .btn.primary.small:active { border-image-source: url(gfx/smallicon/btn_wood2.png); color: #fbecc8; text-shadow: 0 1px 2px #000c; }
-.btn.danger, .btn.small.danger, #sheetBody .btn.danger { border-image-source: url(gfx/smallicon/btn_red.png); background: none; color: #fff4e0; text-shadow: 0 1px 2px #000c; }
-.apdays .btn.on { border-image-source: url(gfx/smallicon/btn_gold.png); color: #2e1804; text-shadow: none; }
+/* главная и опасная — картинка задана целиком: старое правило «.btn.primary — button.png» (выше) сильнее общего «.btn»
+   и сбрасывало рамку-картинку, поэтому «Развить», «Отправить» и другие главные кнопки оставались плоскими оливковыми */
+.btn.primary, .btn.primary.small, #sheetBody .btn.primary { background: none; border: 1px solid transparent; box-shadow: none;
+  border-image: url(gfx/smallicon/btn_gold.png) 26 40 fill / 13px 20px / 0 stretch; color: #2e1804; text-shadow: 0 1px 0 #fff3c0aa; }
+.btn.primary:active, .btn.primary.small:active, #sheetBody .btn.primary:active { background: none; border-image-source: url(gfx/smallicon/btn_wood2.png); color: #fbecc8; text-shadow: 0 1px 2px #000c; }
+.btn.danger, .btn.small.danger, #sheetBody .btn.danger:not(.small) { background: none; border: 1px solid transparent; box-shadow: none;
+  border-image: url(gfx/smallicon/btn_red.png) 26 40 fill / 13px 20px / 0 stretch; color: #fff4e0; text-shadow: 0 1px 2px #000c; }
+.apdays .btn.on { background: none; box-shadow: none; border-image-source: url(gfx/smallicon/btn_gold.png); color: #2e1804; text-shadow: none; }
 .btn.small { min-height: 40px; padding: 6px 18px; font-size: 15px; line-height: 1.2; }
 .iconbtn { min-width: 40px; min-height: 40px; }
+/* полосы и мелкие кнопки окон — та же графика: .pbar, .pbtn, кнопки форума — дерево; .rbar (действия зданий, «Снести», «О здании») —
+   красная; золотые полосы, «Получить» в заданиях и «ОК» — золото; нажатая — тёмное дерево. Узоры по краям ~20 точек — текст от них отодвинут */
+.pbar, .rbar, .pbtn, .okbtn, .qbtn, .fbtns button { background: none; border: 1px solid transparent; border-radius: 0; box-shadow: none;
+  border-image: url(gfx/smallicon/btn_wood.png) 26 40 fill / 13px 20px / 0 stretch; color: #fbecc8; text-shadow: 0 1px 2px #000c; }
+.pbar, .rbar, .okbtn, .qbtn, .fbtns button { padding-left: 22px; padding-right: 22px; }
+.rbar { border-image-source: url(gfx/smallicon/btn_red.png); color: #fff4e0; }
+.pbtn { border-image-width: 10px 15px; padding-left: 16px; padding-right: 16px; }
+.pbtn.small, .pbtn.dfwd, .frbtns .pbtn { padding-left: 14px; padding-right: 14px; }
+.wsearch .pbtn.small, .simbtns .pbtn { padding-left: 12px; padding-right: 12px; }
+.pbar.asec { padding-left: 22px; }
+.pbar.paypack { padding-left: 20px; padding-right: 20px; }
+.pbar.rfgo { padding-left: 24px; padding-right: 24px; }
+#sheetBody .dctl .pbar { padding-left: 18px; padding-right: 18px; }
+.pbar.gold, .pbar.acbar.gold, .shbtns .pbar.gold, .pbar.dgclaim, .sttake .pbar, .cpop-ban .pbtn.cl-open, .okbtn, .qbtn {
+  background: none; border-image-source: url(gfx/smallicon/btn_gold.png); color: #2e1804; text-shadow: 0 1px 0 #fff3c0aa; }
+.pbtn:active, .okbtn:active, .qbtn:active, .fbtns button:active { border-image-source: url(gfx/smallicon/btn_wood2.png); color: #fbecc8; text-shadow: 0 1px 2px #000c; }
 .card.razing h4 { color: #a8200c; } /* снос здания */
 .card.razing .bar i { background: linear-gradient(90deg, #ff7a5a, #b01800); }
 /* «Алтарь» → Зона охоты (hunt.js) */

@@ -94,7 +94,7 @@ function armyWin(k) {
     ${a.castle ? `<div class="center"><button class="regroupbtn" data-regroup="${a.key}" aria-label="Переформировать"><img src="${G3}hq/regroup.png" alt="Переформировать"></button></div>`
     : `<div class="ptiles">${tile(`data-regroup="${a.key}"`, `${G3}hq/regroup.png`, 'Переформировать')}${tile(`data-campaign="${a.key}"`, ICO('swords'), 'В поход')}
       ${g && !g.dead && !g.away && !genHere(a) ? tile(`data-genhere="${a.key}"`, unitSrc(unitById(M().generalId)), 'Генерал сюда') : ''}
-      ${tile(`data-rename="${a.key}"`, `${GFX}smallicon/softedit.png`, 'Переименовать')}${tile(`data-disband="${a.key}"`, `${GFX}smallicon/destroy.png`, 'Распустить')}</div>`}`;
+      ${tile(`data-rename="${a.key}"`, `${GFX}smallicon/hd/pen.png`, 'Переименовать')}${tile(`data-disband="${a.key}"`, `${GFX}smallicon/destroy.png`, 'Распустить')}</div>`}`;
 }
 
 // ---------- Переформирование — как в оригинале: у каждого юнита поле (сколько перевести) и плашка со шлемом (сколько есть,
