@@ -3555,6 +3555,23 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.ok((tc.units[A.MERCHANT_ID] || 0) === (n0[A.MERCHANT_ID] || 0) && (tc.units[A.GENERAL_ID] || 0) === (n0[A.GENERAL_ID] || 0), 'торговцы и генерал не выдаются');
     console.log('✓ Админка → Войска: выдаются и особые воины (уникальные, нежить, снятые с найма), генерал и торговцы — нет');
   }
+  { // вход после отсутствия: лояльность за пропущенные дни — по прежнему времени входа. Было: время входа обновлялось раньше
+    // пересчёта, и все дни отсутствия шли как дни в игре (+50 за каждый) — игрок не заходил 14 дней и при входе получил +700
+    const { WebSession } = require('../src/web');
+    const back = (login, days, royal) => {
+      const x = g.register({ login, password: '12345', race: 0 }).user, now = Date.now();
+      x.royal = royal; x.royalAt = now - days * DAY - 3600000; x.lastSeen = x.royalAt + 1800000; // последний вход — days суток назад
+      const s = new WebSession(g, { destroyed: false, write() {} }, () => {}); s.ip = '127.0.0.1';
+      s.handle({ t: 'login', login, password: '12345' });
+      assert.ok(s.user === x && x.online && Date.now() - x.lastSeen < 60000, `${login}: вошёл`);
+      return x;
+    };
+    const a14 = back('rback14', 14, 170), a20 = back('rback20', 20, 1000), a3 = back('rback3', 3, 100);
+    assert.strictEqual(a14.royal, 170 + 7 * 50, 'не заходил 14 дней: +50 только за первые 7 суток, а не +700 за все 14');
+    assert.strictEqual(a20.royal, 1000 + 7 * 50 - 6 * 100, 'не заходил 20 дней: +350 за первые 7 суток, после 14-х — минус 100 в сутки');
+    assert.strictEqual(a3.royal, 100 + 3 * 50, 'не заходил 3 дня — +50 за каждый, как обычно');
+    console.log(`✓ Вход после отсутствия: лояльность — по прежнему времени входа (14 дней: 170 → ${a14.royal}, а не 870; 20 дней: 1000 → ${a20.royal})`);
+  }
   for (const f of tmpDbs) try { fs.unlinkSync(f); } catch {}
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });

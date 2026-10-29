@@ -310,6 +310,9 @@ const API = {
     if (!this.game.closedAllows(u)) { this.log(`вход ${u.login}: закрытый тест, не тестер`); return this.error('Идёт закрытое тестирование — вход только для тестеров.'); }
     if (!this.game.banExpired(u)) return this.error(u.banUntil ? `Аккаунт заблокирован модерацией до ${new Date(u.banUntil + 3 * 3600000).toISOString().slice(0, 16).replace('T', ' ')} (МСК). Причина: ${u.banWhy || '—'}` : 'Аккаунт заблокирован администрацией.');
     const prevSeen = u.lastSeen || 0, was = liveSession(u, this), prev = this.user !== u ? this.user : null; // was — уже в игре с другого устройства
+    // лояльность населения за дни отсутствия — по прежнему времени входа (royal.js: 7 дней — прирост стоп, 2 недели — падает, 3 — бунт);
+    // после обновления lastSeen все пропущенные дни засчитались бы как дни в игре (+50 за каждый)
+    this.game.royalTick(u);
     this.user = u; u.online = true; u.lastSeen = Date.now(); this.game.markActive(u);
     if (!was) allyPresenceCast(u, true);
     if (prev && !liveSession(prev)) { prev.online = false; prev.lastSeen = Date.now(); allyPresenceCast(prev, false); } // вход под другим игроком без выхода
