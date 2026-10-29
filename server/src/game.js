@@ -57,7 +57,7 @@ const meadowAt = (X, Y) => { if (!WOPEN) return true; const m = (a, n) => ((a % 
   const px = m((X + Y) * 31 + 31, WOPEN.W), py = m((Y - X) * 16 + 16, WOPEN.H), i = Math.floor(py / WOPEN.S) * WOPEN.w + Math.floor(px / WOPEN.S);
   return !!(WOPEN.b[i >> 3] & (128 >> (i & 7))); };     // новый замок — не ближе 2 клеток к другим замкам (между замками хотя бы одна пустая клетка)
 const SAVE_MS = Number(process.env.SAVE_MS || 10000); // автосохранение раз в 10 с (и при остановке)
-const DEMOLISH_SEC = Math.max(5, Math.round(1800 / SPEED)); // снос здания — 30 минут (castle.razing)
+const DEMOLISH_SEC = Math.max(5, Math.round(7200 / SPEED)); // снос здания — 2 часа (castle.razing), в замке — одно здание за раз
 const MAX_QUEUE = Number(process.env.MAX_QUEUE || 3); // оригинал: 3 стройки одновременно (премиум — 5)
 
 // ---------- рельеф «Земель» ----------
@@ -790,8 +790,8 @@ class Game {
     return { item };
   }
 
-  // «Снести»: через 30 минут здание убирается с клетки целиком (ресурсы не возвращаются); пока идёт снос, здание работает,
-  // снос можно отменить (demolishCancel). Ратушу снести нельзя.
+  // «Снести»: через 2 часа здание убирается с клетки целиком (ресурсы не возвращаются); пока идёт снос, здание работает,
+  // снос можно отменить (demolishCancel). В замке сносится одно здание за раз. Ратушу снести нельзя.
   demolish(castle, view, cell) {
     this.tick(castle);
     const size = GRID[view];
@@ -802,6 +802,8 @@ class Game {
     if (castle.queue.some((q) => q.view === view && q.cell === cell)) return { error: 'Здание сейчас строится.' };
     castle.razing = castle.razing || [];
     if (castle.razing.some((z) => z.view === view && z.cell === cell)) return { error: 'Здание уже сносится.' };
+    const busy = castle.razing[0]; // законченные сносы tick уже убрал — в списке только идущие
+    if (busy) return { error: `В замке сносится одно здание за раз: сейчас — «${C.BY_ID[busy.building].name}». Дождитесь конца сноса или отмените его.` };
     const now = Date.now(), z = { view, cell, building: b, level: castle.levels[view][cell], start: now, end: now + DEMOLISH_SEC * 1000 };
     castle.razing.push(z); this.store.save();
     return { ok: true, name: C.BY_ID[b].name, end: z.end, sec: DEMOLISH_SEC };

@@ -3461,19 +3461,22 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     process.env.LUCK = luck0 === undefined ? '' : luck0; if (luck0 === undefined) delete process.env.LUCK;
     console.log('✓ Резерв: до 25 000 воинов вне боя, при бунте 85% выходит на защиту, пока в резерве есть войска — замок не захватить');
   }
-  // снос здания — 30 минут: пока идёт, здание стоит и работает, можно отменить; потом исчезает
+  // снос здания — 2 часа: пока идёт, здание стоит и работает, можно отменить; потом исчезает. В замке — одно здание за раз
   {
     const u = g.register({ login: 'razeUser1', password: '12345', race: 0 }).user, c = g.castleOf(u); g.mil(c); g.maxOut(c);
     const cell = c.grid[0].indexOf(1); assert.ok(cell >= 0, 'есть Склад');
-    const r = g.demolish(c, 0, cell); const sec = Math.max(5, Math.round(1800 / (Number(process.env.SPEED) || 1)));
+    const r = g.demolish(c, 0, cell); const sec = Math.max(5, Math.round(7200 / (Number(process.env.SPEED) || 1)));
     assert.ok(r.ok && r.sec === sec && c.razing.length === 1 && c.grid[0][cell] === 1, 'снос начат, здание пока стоит');
     assert.ok(g.demolish(c, 0, cell).error && g.startBuild(c, 0, cell, 1).error, 'второй раз снести и развивать во время сноса нельзя');
+    const cell2 = c.grid[0].findIndex((b, i) => b > 0 && i !== cell && c.levels[0][i] > 0); // другое здание (не Ратуша)
+    { const e = g.demolish(c, 0, cell2).error || ''; assert.ok(/одно здание за раз/.test(e) && /Склад/.test(e) && c.razing.length === 1, 'пока сносится Склад, другое здание сносить нельзя: ' + e); }
     assert.ok(g.demolishCancel(c, 0, cell).ok && !c.razing.length && c.grid[0][cell] === 1, 'снос отменён — здание на месте');
     g.demolish(c, 0, cell); g.tick(c, Date.now() + (sec - 2) * 1000); assert.strictEqual(c.grid[0][cell], 1, 'до конца сноса здание стоит');
     const done = g.tick(c, Date.now() + (sec + 1) * 1000);
     assert.ok(c.grid[0][cell] === -1 && !c.razing.length && done.some((d) => d.raze), `через ${Math.round(sec / 60)} мин здание снесено`);
+    assert.ok(g.demolish(c, 0, cell2).ok && c.razing.length === 1 && g.demolishCancel(c, 0, cell2).ok, 'снос закончился — можно сносить следующее');
     assert.ok(/Ратушу снести нельзя/.test(g.demolish(c, 0, c.grid[0].indexOf(0)).error || ''), 'Ратушу снести нельзя');
-    console.log(`✓ Снос здания: ${Math.round(sec / 60)} мин, здание работает до конца сноса, снос можно отменить`);
+    console.log(`✓ Снос здания: ${sec >= 3600 ? `${sec / 3600} ч` : `${Math.round(sec / 60)} мин`}, в замке — одно здание за раз; здание работает до конца сноса, снос можно отменить`);
   }
   { // разведчик — самый быстрый воин своей расы
     const A = require('../src/army');

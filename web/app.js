@@ -142,7 +142,7 @@ function resNow(r) {
 // лимит строек: 3, с премиумом (и у админа) — 5, как на сервере
 const maxQueue = () => (S.st.user.admin || (S.st.user.premium || 0) > Date.now() ? 5 : S.cat.maxQueue);
 const queueAt = (view, cell) => S.st.castle.queue.find((q) => q.view === view && q.cell === cell);
-const razingAt = (view, cell) => (S.st.castle.razing || []).find((z) => z.view === view && z.cell === cell); // снос здания (30 минут)
+const razingAt = (view, cell) => (S.st.castle.razing || []).find((z) => z.view === view && z.cell === cell); // снос здания (2 часа, в замке — одно за раз)
 // можно ли строить: список причин, почему нельзя (пусто — можно)
 function blockers(def, level, view, cell) {
   const c = S.st.castle, out = [];
@@ -772,7 +772,9 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (t.dataset.about) return openSheet(() => aboutSheet(S.by[t.dataset.about]));
   if (t.dataset.demolishx) { const [view, cell] = t.dataset.demolishx.split(',').map(Number); return send({ t: 'demolish', view, cell, cancel: 1 }); }
   const [view, cell] = t.dataset.demolish.split(',').map(Number), def = S.by[S.st.castle.grid[view][cell]];
-  if (def && confirm(`Снести «${def.name}» ${S.st.castle.levels[view][cell]} ур.? Снос займёт 30 минут, потом здание исчезнет, ресурсы не вернутся. Пока идёт снос, его можно отменить.`)) send({ t: 'demolish', view, cell });
+  const busy = (S.st.castle.razing || []).find((z) => z.end > now()), bdef = busy && S.by[S.st.castle.grid[busy.view][busy.cell]]; // в замке сносится одно здание за раз
+  if (busy) return toast(`В замке сносится одно здание за раз: сейчас — «${bdef ? bdef.name : 'здание'}». Дождитесь конца сноса или отмените его.`, 'err');
+  if (def && confirm(`Снести «${def.name}» ${S.st.castle.levels[view][cell]} ур.? Снос займёт 2 часа, потом здание исчезнет, ресурсы не вернутся. Пока идёт снос, его можно отменить. В замке сносится одно здание за раз.`)) send({ t: 'demolish', view, cell });
 });
 
 
