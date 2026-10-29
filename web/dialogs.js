@@ -3,7 +3,7 @@
 // и «Диалог» — переписка с одним игроком по дням, поле ввода со смайлами, «Отправить», «Профиль», «История».
 // Сервер: dialogs / dialog / sendmail(dialog) / dialogclose в server/src/web.js.
 S.dlg = { list: null, page: 0, filter: 'all', with: null, msgs: null };
-function openDialogs() { S.dlg.list = null; S.dlg.menu = false; S.dlg.page = 0; S.dlg.stale = false; S.mailMenu = null; send({ t: 'dialogs', page: 0, filter: S.dlg.filter }); openSheet(dialogsWin); }
+function openDialogs() { S.dlg.list = null; S.dlg.menu = false; S.dlg.page = 0; S.dlg.stale = false; S.mailMenu = null; send({ t: 'dialogs', page: 0, filter: S.dlg.filter }); convListReq(); openSheet(dialogsWin); } // беседы — convs.js
 
 // Списки «Сообщения» и «Отчёты» (mil.js), как в оригинале: по 10 на страницу, стрелки листают; внизу слева — конверт,
 // нажали — меню действий со всем списком и «Закрыть» (тогда ◀ в списке нет — style.css). В отчёте и в диалоге — только ◀ и ✕
@@ -12,9 +12,10 @@ function mailPager(key, page, pages) {
   return `<div class="hnav">${b(0, '◀◀', page > 0)}${b(page - 1, '◀', page > 0)}<span>${page + 1}</span>${b(page + 1, '▶', page < pages - 1)}${b(pages - 1, '▶▶', page < pages - 1)}</div>`;
 }
 const MAIL_OPS = [['all', 'Удалить всё'], ['read', 'Удалить прочитанные'], ['new', 'Удалить новые'], ['readall', 'Отметить как прочитанные']];
-function mailMenuHtml(kind) { // kind: 'rep' — отчёты, 'dlg' — переписки
+function mailMenuHtml(kind) { // kind: 'rep' — отчёты, 'dlg' — переписки (у них первым — «Новая беседа», convs.js)
   if (S.mailMenu !== kind) return `<button class="mailset" data-mailmenu="${kind}" aria-label="Действия со списком"><img src="gfx3d/btn/mail.png" alt=""></button>`;
-  return `<div class="mailshade" data-mailmenu="close"></div><div class="mailmenu">${MAIL_OPS.map(([op, t]) => `<button data-mailop="${op}">${t}</button>`).join('')}</div>
+  const ops = kind === 'dlg' ? [['convnew', 'Новая беседа'], ...MAIL_OPS] : MAIL_OPS;
+  return `<div class="mailshade" data-mailmenu="close"></div><div class="mailmenu">${ops.map(([op, t]) => `<button data-mailop="${op}">${t}</button>`).join('')}</div>
     <div class="mailbar"><button data-mailmenu="close">Закрыть</button></div>`;
 }
 const MAIL_ASK = { rep: { all: 'Удалить все отчёты?', read: 'Удалить все прочитанные отчёты?', new: 'Удалить все новые (непрочитанные) отчёты?' },
@@ -25,6 +26,7 @@ $('#sheetBody').addEventListener('click', (e) => {
   if (d.mailmenu !== undefined) { S.mailMenu = d.mailmenu === 'close' ? null : d.mailmenu; return refreshSheet(); }
   const kind = S.mailMenu, op = d.mailop; if (!kind) return;
   S.mailMenu = null; refreshSheet();
+  if (op === 'convnew') return convNew();
   if (op !== 'readall' && !confirm(`${MAIL_ASK[kind][op]}${kind === 'dlg' ? ' У собеседников сообщения останутся.' : ''}`)) return;
   if (kind === 'rep') return send(op === 'readall' ? { t: 'repread', page: S.repPage } : { t: 'repdel', ids: op, page: S.repPage });
   return send({ t: 'msgbulk', op, page: S.dlg.page, filter: S.dlg.filter });
@@ -38,9 +40,9 @@ function dialogsWin() {
   const head = `${ribbon('Сообщения')}<div class="rkbar"><span><img src="${M3('msgs')}" alt=""> ${d.filter === 'unread' ? 'Непрочитанные' : 'Все'}</span><button data-dlgmenu>≡</button></div>
     ${d.menu ? `<div class="rkmenu"><button data-dlgf="all" class="${d.filter === 'all' ? 'on' : ''}"><img src="${M3('msgs')}" alt=""> Все</button><button data-dlgf="unread" class="${d.filter === 'unread' ? 'on' : ''}"><img src="${M3('new')}" alt=""> Непрочитанные</button></div>` : ''}`;
   if (!L) return `${head}<p class="parch-note">Загрузка…</p>${mailMenuHtml('dlg')}`;
-  if (d.stale) { d.stale = false; send({ t: 'dialogs', page: d.page, filter: d.filter }); } // вернулись из диалога — превью и счётчики свежие
+  if (d.stale) { d.stale = false; send({ t: 'dialogs', page: d.page, filter: d.filter }); convListReq(); } // вернулись из диалога или беседы — превью и счётчики свежие
   return `${head}${mailPager('dlgpg', L.page, L.pages)}
-    <div class="dlist">${lkRow()}${L.list.map((x) => `<button class="dcard ${x.unread ? 'new' : ''}" data-dlgopen="${x.id}">${dlgAva(x)}
+    <div class="dlist">${lkRow()}${L.page === 0 ? convRows() : ''}${L.list.map((x) => `<button class="dcard ${x.unread ? 'new' : ''}" data-dlgopen="${x.id}">${dlgAva(x)}
       <span class="dtx"><b>${esc(x.login)}</b><span>${x.unread ? '<img class="denv" src="gfx3d/rep/envnew.svg" alt=""> ' : x.mine ? '<small>Вы:</small> ' : ''}${smiles(esc(dlgCut(x.text)))}</span></span>
       ${x.unread ? `<i class="dcnt">${x.unread}</i>` : ''}</button>`).join('') || `<p class="parch-note">${d.filter === 'unread' ? 'Непрочитанных нет.' : 'Переписок пока нет — написать игроку можно из его профиля.'}</p>`}</div>
     ${mailMenuHtml('dlg')}`;
@@ -208,6 +210,6 @@ $('#sheetBody').addEventListener('click', (e) => {
   const v = e.target.closest('[data-dlgview]'); if (!v) return;
   const d = document.createElement('div'); d.className = 'picview'; d.innerHTML = `<img src="${esc(v.dataset.dlgview)}" alt=""><button type="button">✕</button>`;
   const exp = Number(v.dataset.exp) || 0; // открытое во весь экран фото закрывается само, когда истекут 3 часа
-  if (exp) setTimeout(() => { if (d.isConnected) { d.remove(); toast('Фото удалено — оно хранится 3 часа.'); if (S.sheets[S.sheets.length - 1] === dialogWin) refreshSheet(); } }, Math.max(0, exp - now()));
+  if (exp) setTimeout(() => { if (d.isConnected) { d.remove(); toast('Фото удалено — время его хранения вышло.'); if ([dialogWin, convWin].includes(S.sheets[S.sheets.length - 1])) refreshSheet(); } }, Math.max(0, exp - now()));
   d.addEventListener('click', () => d.remove()); document.body.appendChild(d);
 });

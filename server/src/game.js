@@ -950,6 +950,7 @@ require('./staff').install(Game); // «МАСТЕРА»: общение адми
 require('./hunt').install(Game);
 require('./trap').install(Game); // «Алтарь» → Зона охоты: Генералы бьют чудовищ стихий (hunt.js)
 require('./link').install(Game); // «СВЯЗЬ»: переписка игроков с мастерами игры (после staff.js)
+require('./convs').install(Game); // «Беседы» в «Сообщениях»: групповая переписка до 15 человек (фото — pics.js)
 require('./honors').install(Game); // медали в профиле («Первопроходец»): дополняет adminOp командами honor…
 require('./nobody').install(Game); // «Забросить замки» (админ): замки — ничьи, захват без столицы; обёртки над army.js, royal.js, friends.js — последним
 

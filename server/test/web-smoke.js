@@ -131,6 +131,28 @@ function client() {
     a.send({ t: 'read', id: mail.list[0].id });
     assert.equal((await a.expect('letter')).letter.text, 'Из браузера');
     console.log('✓ почта между игроками');
+    { // «Беседы» (convs.js, 29.10): создать, пригласить, вступить, сообщение вживую у того, у кого беседа открыта, выйти
+      a.send({ t: 'conv', op: 'create', title: 'Совет' });
+      const cv = (await a.expect('conv', (m) => m.data && m.data.title === 'Совет')).data;
+      a.send({ t: 'conv', op: 'invite', id: cv.id, login: 'Second' });
+      await a.expect('toast', (m) => /Приглашение отправлено/.test(m.msg));
+      await b.expect('state', (m) => m.convNew === 1);
+      b.send({ t: 'conv', op: 'list' }); const bl = (await b.expect('convs')).data;
+      assert.ok(bl.invites.length === 1 && bl.invites[0].from === 'Webby', 'у приглашённого — приглашение в списке');
+      b.send({ t: 'conv', op: 'answer', id: cv.id, yes: 1 });
+      const bv = (await b.expect('conv', (m) => m.data && m.data.id === cv.id)).data;
+      assert.ok(bv.members.length === 2 && !bv.own, 'Second вступил в беседу');
+      await a.expect('conv', (m) => m.live && m.data.members.length === 2); // у создателя окно открыто — участник появился сразу
+      a.send({ t: 'conv', op: 'post', id: cv.id, text: 'Привет :smile:' });
+      const live = await b.expect('conv', (m) => m.live && m.data.msgs.some((x) => x.text === 'Привет :smile:'));
+      const lm = live.data.msgs.find((x) => x.text === 'Привет :smile:'); assert.ok(live.data.people[lm.by].login === 'Webby' && !lm.mine, 'сообщение от Webby пришло вживую');
+      b.send({ t: 'conv', op: 'leave', id: cv.id });
+      await b.expect('conv', (m) => m.gone === cv.id);
+      await a.expect('conv', (m) => m.live && m.data.members.length === 1 && m.data.msgs.some((x) => /вышел/.test(x.text)));
+      a.send({ t: 'conv', op: 'delete', id: cv.id }); await a.expect('conv', (m) => m.gone === cv.id);
+      a.send({ t: 'conv', op: 'close' });
+      console.log('✓ беседы: создать, пригласить, вступить, сообщение вживую, выйти, удалить');
+    }
     { // конверт в списке «Сообщения»: отметить всё прочитанным, удалить прочитанные переписки — в ответ список той же страницы
       a.send({ t: 'msgbulk', op: 'readall', page: 0, filter: 'all' }); await a.expect('toast', (m) => /Новых сообщений нет|Прочитано сообщений/.test(m.msg));
       const d0 = await a.expect('dialogs'); assert.ok(d0.total >= 1 && d0.list.every((x) => !x.unread), 'всё прочитано, переписки на месте');

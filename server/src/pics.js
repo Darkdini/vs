@@ -5,22 +5,24 @@
 // ограничением размера, проверяет, что точек ровно ширина×высота, и сам собирает новый PNG — чужих байтов в нём нет.
 // Адрес картинки — случайный (128 бит): /pic/<id>.png, видят только участники переписки (ссылку больше никто не получает).
 // Фото в общем чате — только администратор: та же проверка и пересборка PNG, видят все игроки, живёт сутки.
+// Фото в беседе (convs.js) — любой участник, живёт 2 часа, адрес видят только участники беседы.
 
 const zlib = require('zlib');
 const crypto = require('crypto');
 const { encodePng } = require('./avatar');
 
 const LIFE_MS = 3 * 3600000, MAX_SIDE = 960, MAX_PART = 160 * 1024, MAX_PARTS = 14, MAX_TOTAL_MB = 250;
-const PER_DAY = 40, GAP_MS = 15000, CHAT_LIFE_MS = 24 * 3600000, CHAT_GAP_MS = 5000;
+const PER_DAY = 40, GAP_MS = 15000, CHAT_LIFE_MS = 24 * 3600000, CHAT_GAP_MS = 5000, CONV_LIFE_MS = 2 * 3600000;
 const PICS = new Map(); // id → { png, from, to, exp }
 let used = 0, loaded = false;
 const fs = require('fs'), path = require('path');
 const picDir = (g) => path.join(path.dirname(path.resolve(g.store.file)), 'pics');
 const picFile = (g, id) => (/^[0-9a-f]{32}$/.test(String(id)) ? path.join(picDir(g), `${id}.png`) : null);
+const convMsgs = (g) => Object.values((g.db.convs && g.db.convs.list) || {}).flatMap((c) => c.msgs); // сообщения бесед (convs.js)
 // после перезапуска: фото живых сообщений — снова в память из файлов
 const load = (g, now = Date.now()) => {
   if (loaded) return; loaded = true;
-  for (const m of [...(g.db.messages || []), ...(g.db.chat || [])]) if (m.pic && m.picExp > now && !PICS.has(m.pic)) { // фото писем и общего чата
+  for (const m of [...(g.db.messages || []), ...(g.db.chat || []), ...convMsgs(g)]) if (m.pic && m.picExp > now && !PICS.has(m.pic)) { // фото писем, общего чата и бесед
     try { const png = fs.readFileSync(picFile(g, m.pic)); PICS.set(m.pic, { png, from: m.from, to: m.to || 0, exp: m.picExp }); used += png.length; } catch { /* файла нет — sweep отметит */ }
   }
   try { for (const f of fs.readdirSync(picDir(g))) if (!PICS.has(f.slice(0, 32))) fs.unlinkSync(path.join(picDir(g), f)); } catch { /* папки ещё нет */ } // лишние и просроченные файлы
@@ -29,13 +31,15 @@ const load = (g, now = Date.now()) => {
 const sweep = (g, now = Date.now()) => {
   load(g, now);
   for (const [id, p] of PICS) if (p.exp <= now) { used -= p.png.length; PICS.delete(id); try { fs.unlinkSync(picFile(g, id)); } catch { /* уже нет */ } }
-  for (const m of [...(g.db.messages || []), ...(g.db.chat || [])]) if (m.pic && !PICS.has(m.pic)) { delete m.pic; m.picGone = true; }
+  for (const m of [...(g.db.messages || []), ...(g.db.chat || []), ...convMsgs(g)]) if (m.pic && !PICS.has(m.pic)) { delete m.pic; m.picGone = true; }
 };
 
 function install(Game) {
   const P = Game.prototype;
   P.picGet = function picGet(id) { load(this); const p = PICS.get(String(id)); return p && p.exp > Date.now() ? p : null; };
   P.picSweep = function picSweep(now) { sweep(this, now); };
+  // фото удалить сразу (беседа удалена или старые сообщения обрезаны — convs.js)
+  P.picDrop = function picDrop(id) { load(this); const p = PICS.get(String(id)); if (!p) return; used -= p.png.length; PICS.delete(String(id)); try { fs.unlinkSync(picFile(this, id)); } catch { /* уже нет */ } };
   // начало загрузки: проверки до приёма данных
   P.picBegin = function picBegin(user, toLogin, w, h, n) {
     const to = this.db.users[String(toLogin || '').trim()];
@@ -63,6 +67,19 @@ function install(Game) {
     if (used > MAX_TOTAL_MB * 1048576) return { error: 'Сервер сейчас занят фото — попробуйте через пару минут.' };
     return { ok: true, up: { chat: true, caption: String(caption || '').trim().slice(0, 200), w, h, n, parts: [], size: 0, at: now } };
   };
+  // фото в беседу (convs.js): участник, которому не запрещено писать; подпись необязательна
+  P.picBeginConv = function picBeginConv(user, convId, w, h, n, text) {
+    const ok = this.convCanPost ? this.convCanPost(user, convId) : { error: 'Беседа не найдена.' }; if (ok.error) return ok;
+    w = Math.floor(Number(w)); h = Math.floor(Number(h)); n = Math.floor(Number(n));
+    if (!(w >= 8 && h >= 8 && w <= MAX_SIDE && h <= MAX_SIDE) || !(n >= 1 && n <= MAX_PARTS)) return { error: 'Неверная картинка.' };
+    const now = Date.now();
+    user.picLog = (user.picLog || []).filter((t) => t > now - 86400000);
+    if (user.picLog.length >= PER_DAY) return { error: `Не больше ${PER_DAY} фото в сутки.` };
+    if (user.picLog.length && now - user.picLog[user.picLog.length - 1] < GAP_MS) return { error: 'Фото — не чаще раза в 15 секунд.' };
+    sweep(this, now);
+    if (used > MAX_TOTAL_MB * 1048576) return { error: 'Сервер сейчас занят фото — попробуйте через пару минут.' };
+    return { ok: true, up: { conv: ok.conv.id, text: String(text || '').slice(0, 200), w, h, n, parts: [], size: 0, at: now } };
+  };
   // часть данных; когда пришли все — распаковка, проверка, PNG, сообщение
   P.picPart = async function picPart(user, up, i, data) {
     i = Math.floor(Number(i));
@@ -85,6 +102,14 @@ function install(Game) {
       if (r.error) { PICS.delete(id); used -= png.length; try { fs.unlinkSync(picFile(this, id)); } catch { /* нет */ } return r; }
       return { ok: true, chat: r.msg };
     }
+    if (up.conv) { // беседа: сообщение участника с фото на 2 часа
+      PICS.set(id, { png, from: user.id, to: 0, conv: up.conv, exp: now + CONV_LIFE_MS }); used += png.length;
+      try { fs.mkdirSync(picDir(this), { recursive: true }); fs.writeFileSync(picFile(this, id), png); } catch (e) { console.error('фото на диск:', e.message); }
+      user.picLog = [...(user.picLog || []), now];
+      const r = this.convPostPic(user, up.conv, id, now + CONV_LIFE_MS, up.w, up.h, up.text);
+      if (r.error) { this.picDrop(id); return r; }
+      return { ok: true, conv: r.conv };
+    }
     PICS.set(id, { png, from: user.id, to: up.to, exp: now + LIFE_MS }); used += png.length;
     try { fs.mkdirSync(picDir(this), { recursive: true }); fs.writeFileSync(picFile(this, id), png); } catch (e) { console.error('фото на диск:', e.message); }
     user.picLog = [...(user.picLog || []), now];
@@ -95,4 +120,4 @@ function install(Game) {
   };
 }
 
-module.exports = { install, LIFE_MS, CHAT_LIFE_MS, MAX_SIDE, MAX_PART };
+module.exports = { install, LIFE_MS, CHAT_LIFE_MS, CONV_LIFE_MS, MAX_SIDE, MAX_PART };

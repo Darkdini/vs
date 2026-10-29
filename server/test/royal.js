@@ -3375,6 +3375,61 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     g.purgeUser(pl); assert.ok(!g.db.link.th[pl.id], 'игрок удалён — его переписка тоже');
     console.log('✓ СВЯЗЬ: переписка игрока с мастерами, скрин на 8 часов, свой отчёт копией (5 в сутки), ответ от «Мастер игры», «Решено», лимит 10 в сутки');
   }
+  // «Беседы» (convs.js, 29.10): до 15 человек; создать — с рейтингом 300; приглашает создатель, приглашённый соглашается сам;
+  // мат — звёздочками, запрет чата действует; фото на 2 часа — только участникам; выйти может любой, создатель — передаёт беседу
+  {
+    const zlib = require('zlib');
+    const reg = (l) => g.register({ login: l, password: '12345', race: 0 }).user;
+    const A = reg('cvAlex'), B = reg('cvBob'), C = reg('cvCid'), D = reg('cvDan'), O = reg('cvOut');
+    g.talkLow = talkLow0;
+    assert.ok(/рейтингом 300/.test(g.convCreate(D, 'Свои').error || ''), 'с рейтингом ниже 300 беседу не создать');
+    g.talkLow = () => false;
+    const cr = g.convCreate(A, '  Совет  королей '); assert.ok(cr.ok && cr.conv.title === 'Совет королей', `беседа создана: ${JSON.stringify(cr).slice(0, 160)}`);
+    const id = cr.conv.id;
+    assert.ok(g.convInvite(A, id, 'cvbob').ok, 'приглашение по нику (без учёта регистра)');
+    assert.ok(/не чаще|часто|Лимит/i.test(g.convInvite(A, id, 'cvCid').error || ''), 'приглашать — не чаще раза в секунду');
+    const tooOften0 = g.tooOften; g.tooOften = () => null; // дальше лимиты частоты не мешают
+    assert.ok(g.convInvite(A, id, 'cvCid').ok && g.convInvite(A, id, 'cvDan').ok, 'ещё приглашения');
+    assert.ok(/уже приглашён/.test(g.convInvite(A, id, 'cvBob').error || ''), 'повторно — нельзя');
+    assert.ok(g.convUnread(B) === 1 && g.convList(B).invites[0].from === 'cvAlex' && !g.convList(B).convs.length, 'приглашение — в списке и на конверте, в беседе ещё нет');
+    assert.ok(/не найдена/.test(g.convPost(B, id, 'я тут?').error || ''), 'до вступления писать нельзя');
+    assert.ok(g.convAnswer(B, id, true).ok && g.convAnswer(C, id, false).ok && g.convAnswer(D, id, true).ok, 'B и D вступили, C отказался');
+    assert.ok(g.convGet(id).members.length === 3 && !g.convGet(id).invites.length && g.convUnread(B) === 0, 'в беседе трое, старое — прочитано');
+    assert.ok(/только создатель/.test(g.convInvite(B, id, 'cvOut').error || ''), 'приглашает только создатель');
+    // чёрный список и «кто пишет мне» — как для личных сообщений
+    g.privacyOf(O).black.push(A.id); assert.ok(/ограничил/.test(g.convInvite(A, id, 'cvOut').error || ''), 'кто занёс в чёрный список — не пригласить'); g.privacyOf(O).black = [];
+    // сообщения: мат — звёздочками, у остальных — непрочитанное; запрет чата — и здесь
+    assert.ok(g.convPost(A, id, 'Привет, иди нахуй').ok && g.convGet(id).msgs.at(-1).text === 'Привет, иди ***', 'мат — звёздочками');
+    assert.ok(g.convUnread(B) === 1 && g.convUnread(D) === 1 && g.convUnread(A) === 0, 'у других — новое сообщение');
+    const v = g.convView(B, id); assert.ok(v.msgs.at(-1).text === 'Привет, иди ***' && v.people[A.id].login === 'cvAlex' && g.convUnread(B) === 0, 'открыл — прочитано');
+    B.chatBan = Date.now() + 60000; assert.ok(/запрещено писать/.test(g.convPost(B, id, 'а я?').error || ''), 'запрет чата — и в беседе'); delete B.chatBan;
+    // фото на 2 часа: видят участники, не участник — нет
+    const up = g.picBeginConv(B, id, 8, 8, 1, 'смотрите').up, z = zlib.deflateSync(Buffer.alloc(8 * 8 * 3, 120)).toString('base64');
+    const pr = await g.picPart(B, up, 0, z); const pm = g.convGet(id).msgs.at(-1);
+    assert.ok(pr.ok && pm.pic && pm.text === 'смотрите' && pm.picExp - Date.now() > 1.9 * 3600000 && pm.picExp - Date.now() <= 2 * 3600000 && g.picGet(pm.pic), 'фото в беседе — на 2 часа');
+    assert.ok(g.convPicSees(D, id) && !g.convPicSees(O, id) && g.picBeginConv(O, id, 8, 8, 1).error, 'фото — только участникам');
+    g.picSweep(Date.now() + 2 * 3600000 + 1000); assert.ok(!g.picGet(pm.pic) && g.convView(A, id).msgs.find((x) => x.id === pm.id).picGone, 'через 2 часа фото удалено');
+    // создатель: переименовать, исключить; участник — не может
+    assert.ok(/только создатель/.test(g.convRename(B, id, 'Моя').error || '') && g.convRename(A, id, 'Совет').ok && g.convGet(id).title === 'Совет', 'переименовать — создатель');
+    assert.ok(/только создатель/.test(g.convKick(B, id, D.id).error || '') && g.convKick(A, id, D.id).ok && !g.convGet(id).members.includes(D.id) && g.convView(D, id).error, 'исключить — создатель, исключённый не видит беседу');
+    // места: 15 вместе с приглашёнными
+    const many = Array.from({ length: 13 }, (_, i) => reg(`cvMany${i}`));
+    for (const u of many) assert.ok(g.convInvite(A, id, u.login).ok);
+    assert.ok(g.convGet(id).members.length + g.convGet(id).invites.length === 15 && /не больше 15/.test(g.convInvite(A, id, 'cvOut').error || ''), 'не больше 15 вместе с приглашёнными');
+    assert.ok(g.convCancel(A, id, many[0].id).ok && g.convInvite(A, id, 'cvOut').ok, 'отозвал приглашение — место освободилось');
+    // выйти может любой; вышел создатель — беседа переходит к тому, кто в ней дольше всех
+    assert.ok(g.convLeave(A, id).ok && g.convGet(id).owner === B.id && !g.convGet(id).members.includes(A.id), 'создатель вышел — беседа у B');
+    assert.ok(g.convDelete(A, id).error && g.convDelete(D, id).error, 'вышедший и исключённый беседу не удалят');
+    // своих бесед — не больше 5
+    for (let i = 0; i < 5; i++) assert.ok(g.convCreate(C, `c${i}`).ok);
+    assert.ok(/не больше 5/.test(g.convCreate(C, 'c5').error || ''), 'своих бесед — не больше 5');
+    // создатель удалил — у всех пропала; удалённый игрок — из всех бесед
+    assert.ok(g.convDelete(B, id).ok && !g.convGet(id), 'беседа удалена');
+    const id2 = g.convCreate(A, 'Вторая').conv.id; g.convInvite(A, id2, 'cvBob'); g.convAnswer(B, id2, true);
+    g.purgeUser(A); assert.ok(g.convGet(id2) && g.convGet(id2).owner === B.id && !g.convGet(id2).members.includes(A.id), 'игрок удалён — его беседа перешла к B');
+    g.tooOften = tooOften0;
+    console.log('✓ Беседы: до 15 человек, создать — с рейтингом 300, приглашает создатель, мат — звёздочками, фото на 2 часа только участникам, выйти может любой');
+  }
   // «Резерв»: до 25 000 воинов вне боя; при бунте 85% выходит в Замковую армию; пока в резерве есть войска, замок не захватить
   {
     const luck0 = process.env.LUCK; process.env.LUCK = '0';

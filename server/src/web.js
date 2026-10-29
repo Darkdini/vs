@@ -157,7 +157,7 @@ class WebSession {
         loyalty: Math.round(c.loyalty ?? 100), capital: this.game.isCapital(c),
       },
       castles: this.game.castlesOf(u).map((k, i) => ({ id: k.id, name: k.name, x: k.x, y: k.y, capital: i === 0, active: k.id === c.id, rating: this.game.rating(k), loyalty: Math.round(k.loyalty ?? 100) })),
-      nickPrice: Number(process.env.NICK_PRICE) || 100, msgColor: u.msgColor || 0, msgColors: require('./premium').MSG_COLORS, unread: (this.game.db.messages || []).filter((m) => m.to === u.id && !m.read).length + this.game.linkUnread(u), linkNew: this.game.linkUnread(u), newsUnread: this.game.newsUnread(u), newsFirst: this.game.newsFirst(u),
+      nickPrice: Number(process.env.NICK_PRICE) || 100, msgColor: u.msgColor || 0, msgColors: require('./premium').MSG_COLORS, unread: (this.game.db.messages || []).filter((m) => m.to === u.id && !m.read).length + this.game.linkUnread(u) + this.game.convUnread(u), linkNew: this.game.linkUnread(u), convNew: this.game.convUnread(u), newsUnread: this.game.newsUnread(u), newsFirst: this.game.newsFirst(u),
       moves: this.game.moveCounts(u),
     });
   }
@@ -226,6 +226,17 @@ function staffNotify(g, topic) {
     else if (topic > 0 && s.staffTopic === topic) { const o = g.staffOpen(s.user, topic); if (!o.error) s.send({ t: 'staff', view: 'topic', data: o, live: 1 }); else { s.staffTopic = 0; s.send({ t: 'staff', view: 'list', data: g.staffView(s.user) }); } }
     else if (s.staffTopic === 0) s.send({ t: 'staff', view: 'list', data: g.staffView(s.user), live: 1 });
     s.send({ t: 'staffnew', n: g.staffUnread(s.user) });
+  }
+}
+// «Беседы»: всем, кого касается (участники, приглашённые, исключённые), — свежее окно беседы, если оно открыто, и конверт
+function convPush(g, ids, convId, except) {
+  for (const s of WebSession.all || []) {
+    if (!s.user || s === except || !ids.includes(s.user.id)) continue;
+    if (s.convOpen === convId) {
+      const c = g.convGet(convId), v = c && c.members.includes(s.user.id) ? g.convView(s.user, convId) : null;
+      if (v && !v.error) s.send({ t: 'conv', data: v, live: 1 }); else { s.convOpen = 0; s.send({ t: 'conv', gone: convId }); }
+    }
+    s.pushState();
   }
 }
 // «СВЯЗЬ»: игроку — свежая переписка (если окно открыто) и счётчик на конверте
@@ -696,6 +707,46 @@ const API = {
     if (op !== 'publish') this.send({ t: 'news', view: 'list', data: g.newsList(u, 0), quiet: 1 });
   },
   dialogclose() { this.dialogWith = undefined; },
+  // «Беседы» (convs.js): list — мои беседы и приглашения; view — окно беседы (дальше — живые обновления); close — окно закрыто;
+  // create / post / invite / answer / leave / kick / cancel / rename / delete — действия. Кого касается — свежее окно (если открыто) и конверт
+  conv(m) {
+    const g = this.game, u = this.user, op = String(m.op || 'list'), id = Number(m.id) || 0;
+    if (op === 'list') return this.send({ t: 'convs', data: g.convList(u) });
+    if (op === 'close') { this.convOpen = 0; return; }
+    if (op === 'view') { const v = g.convView(u, id, m.more); if (v.error) return this.error(v.error); this.convOpen = id; this.send({ t: 'conv', data: v, keep: m.more ? 1 : 0 }); return this.pushState(); }
+    const before = g.convWho(g.convGet(id));
+    let r;
+    switch (op) {
+      case 'create': r = g.convCreate(u, m.title); break;
+      case 'post': r = g.convPost(u, id, m.text); break;
+      case 'invite': r = g.convInvite(u, id, m.login); break;
+      case 'answer': r = g.convAnswer(u, id, !!m.yes); break;
+      case 'leave': r = g.convLeave(u, id); break;
+      case 'kick': r = g.convKick(u, id, m.uid); break;
+      case 'cancel': r = g.convCancel(u, id, m.uid); break;
+      case 'rename': r = g.convRename(u, id, m.title); break;
+      case 'delete': r = g.convDelete(u, id); break;
+      default: return this.error('Неизвестное действие.');
+    }
+    if (r.error) return this.error(r.error);
+    if (r.msg) this.toast(r.msg);
+    const cid = r.conv ? r.conv.id : id;
+    if (r.conv && g.convGet(cid) && g.convGet(cid).members.includes(u.id)) { this.convOpen = cid; this.send({ t: 'conv', data: g.convView(u, cid) }); } // своё окно — свежее
+    else { if (this.convOpen === cid) this.convOpen = 0; this.send({ t: 'conv', gone: cid }); this.send({ t: 'convs', data: g.convList(u) }); } // вышел или удалил — к списку
+    convPush(g, [...new Set([...before, ...g.convWho(g.convGet(cid)), ...(r.was || []), ...(r.out ? [r.out] : [])])], cid, this);
+    this.pushState();
+  },
+  // фото в беседу (pics.js picBeginConv): begin → part… → сообщение с фото на 2 часа
+  async convpic(m) {
+    if (m.op === 'begin') { const r = this.game.picBeginConv(this.user, m.id, m.w, m.h, m.n, m.text); if (r.error) return this.error(r.error); this.convUp = r.up; return this.send({ t: 'convpicok', i: 0 }); }
+    if (m.op !== 'part' || !this.convUp) return this.error('Фото: начните отправку заново.');
+    const up = this.convUp, r = await this.game.picPart(this.user, up, m.i, m.data);
+    if (r.error) { this.convUp = null; return this.error(r.error); }
+    if (r.more) return this.send({ t: 'convpicok', i: up.parts.length });
+    this.convUp = null; this.send({ t: 'convpicok', done: true });
+    this.convOpen = up.conv; this.send({ t: 'conv', data: this.game.convView(this.user, up.conv) });
+    convPush(this.game, this.game.convWho(r.conv), up.conv, this);
+  },
   dialogs(m) {
     const me = this.user.id, by = new Map();
     for (const x of this.game.db.messages || []) {

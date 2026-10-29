@@ -253,7 +253,7 @@ function onMsg(m) {
       if (typeof gameLoading === 'function') gameLoading(); // заставка, пока грузится графика замка (loading.js)
       $('#auth').classList.add('hidden'); $('#game').classList.remove('hidden');
       break;
-    case 'state': onState(m); if (typeof warnCheck === 'function') warnCheck(); if (S.st && S.st.user && S.st.user.admin) loadAdmin(); if (typeof questBtn === 'function') questBtn(); if (typeof bossBtn === 'function') bossBtn(); if (typeof stashBtn === 'function') stashBtn(); if (typeof advBar === 'function') advBar(); if (typeof brankBadge === 'function') brankBadge(); break;
+    case 'state': onState(m); if (typeof warnCheck === 'function') warnCheck(); if (S.st && S.st.user && S.st.user.admin) loadAdmin(); if (typeof questBtn === 'function') questBtn(); if (typeof bossBtn === 'function') bossBtn(); if (typeof stashBtn === 'function') stashBtn(); if (typeof advBar === 'function') advBar(); if (typeof brankBadge === 'function') brankBadge(); if (typeof convState === 'function') convState(); break;
     case 'stash': S.stash = m.list; S.stashCastle = m.castle; refreshSheet(); break;
     case 'quests': S.quests = m.q; refreshSheet(); break;
     case 'qdone': questDone(m); break;
@@ -280,6 +280,7 @@ function onMsg(m) {
     case 'picok': picMsg(m); break;
     case 'staff': case 'staffnew': case 'staffpicok': staffMsg(m); break;
     case 'link': case 'linkpicok': case 'linkreps': linkMsg(m); break; // «СВЯЗЬ» игрока (link.js)
+    case 'convs': case 'conv': case 'convpicok': convMsg(m); break; // «Беседы» (convs.js)
     case 'newspicok': if (typeof newsPicMsg === 'function') newsPicMsg(m); else if (m.done === undefined) { /* ошибка загрузки — без админки */ } break;
     case 'avalikes': avaMsg(m); break;
     case 'chests': case 'chestres': chestsMsg(m); break;
@@ -667,8 +668,8 @@ function refreshSheet() {
   if (!S.sheets.length || document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName) && document.activeElement.type !== 'range') return;
   const sc = $('#sheetBody').scrollTop; showSheet(false); $('#sheetBody').scrollTop = sc;
 }
-function closeSheet() { if (!S.sheets.length) return; const w = S.sheets.pop(); if (w === dialogWin) send({ t: 'dialogclose' }); if (typeof coinWin !== 'undefined' && w === coinWin) send({ t: 'coinwin', open: 0 }); showSheet(true); popOverlay(); unselect(); }
-function closeAllSheets() { if (!S.sheets.length) return; if (S.sheets.includes(dialogWin)) send({ t: 'dialogclose' }); if (typeof coinWin !== 'undefined' && S.sheets.includes(coinWin)) send({ t: 'coinwin', open: 0 }); S.sheets = []; showSheet(); popOverlay(); unselect(); }
+function closeSheet() { if (!S.sheets.length) return; const w = S.sheets.pop(); if (w === dialogWin) send({ t: 'dialogclose' }); if (typeof convWin !== 'undefined' && w === convWin) send({ t: 'conv', op: 'close' }); if (typeof coinWin !== 'undefined' && w === coinWin) send({ t: 'coinwin', open: 0 }); showSheet(true); popOverlay(); unselect(); }
+function closeAllSheets() { if (!S.sheets.length) return; if (S.sheets.includes(dialogWin)) send({ t: 'dialogclose' }); if (typeof convWin !== 'undefined' && S.sheets.includes(convWin)) send({ t: 'conv', op: 'close' }); if (typeof coinWin !== 'undefined' && S.sheets.includes(coinWin)) send({ t: 'coinwin', open: 0 }); S.sheets = []; showSheet(); popOverlay(); unselect(); }
 // окно закрыто — снять подсветку клетки в замке и на землях
 function unselect() { if (!S.sheets.length && Iso.sel && Iso.sel.tab !== 'world') { Iso.sel = null; isoDraw(); } }
 $('#backdrop').addEventListener('click', closeAllSheets);
