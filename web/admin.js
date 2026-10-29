@@ -114,7 +114,7 @@ function adminHtml() {
         ${aAct('Новые замки', 'Полностью прокачанные замки рядом со столицей.', `${aNum('castles', 1, 'сколько')}${aBtn2('castles', 'Выдать', 'data-arg="castles:n" data-confirm="Выдать полные замки?"')}`)}
         ${aAct('Бунт в замке', 'Бунт в активном замке, 0–100% (100% — замок можно захватить).', `${aNum('loyalty', 0, '0–100')}${aBtn2('loyalty', 'Задать', 'data-arg="loyalty:value"')}`)}`)}
       ${aSec('⚔ Армия и генерал', `
-        ${aAct('Войска', 'Выбрать замок и сколько каких юнитов: юниты расы игрока и особые — уникальные, нежить, снятые с найма.', `<form class="chatform" data-aform="armyinfo"><input type="hidden" name="login" value="${esc(a.login || S.st.user.login)}"><button class="btn small primary">Открыть список</button></form>`)}
+        ${aAct('Войска', 'Выдать или забрать: выбрать замок и сколько каких юнитов — юниты расы игрока и особые (уникальные, нежить, снятые с найма).', `<form class="chatform" data-aform="armyinfo"><input type="hidden" name="login" value="${esc(a.login || S.st.user.login)}"><button class="btn small primary">Открыть список</button></form>`)}
         ${a.ga ? armyForm(a.ga) : ''}
         ${aAct('Убрать войска', 'Все войска в замках игрока исчезнут.', aBtn2('noarmy', 'Убрать', 'data-confirm="Убрать все войска?"', 'danger'))}
         ${aAct('Генерал', 'Генерал нужного уровня (1–500) в активном замке.', `${aNum('general', 100, 'уровень')}${aBtn2('general', 'Выдать', 'data-arg="general:level"')}`)}
@@ -153,15 +153,28 @@ function adminHtml() {
   };
   return head + T[tab]();
 }
-const gaUnit = (g) => (id) => { const u = unitById(id); return u ? `<label class="gaunit"><img src="${unitSrc(u, g.race)}" alt=""><span>${esc(u.name)}</span><input type="number" min="0" inputmode="numeric" name="u${id}" placeholder="0"></label>` : ''; };
+// «есть N» — дома в выбранном замке (замковая армия, «Резерв», отряды), «в походе M» — армии, ушедшие из него (сервер: admin.js armyinfo)
+const gaCastle = (g, id) => g.castles.find((c) => c.id === id) || g.castles[0] || { home: {}, away: {} };
+const gaCount = (c, id) => `есть ${fmtFull((c.home || {})[id] || 0)}${(c.away || {})[id] ? ` · в походе ${fmtFull(c.away[id])}` : ''}`;
+const gaUnit = (g, c) => (id) => { const u = unitById(id); return u ? `<label class="gaunit"><img src="${unitSrc(u, g.race)}" alt=""><span>${esc(u.name)}<small class="gahave" data-gah="${id}">${gaCount(c, id)}</small></span><input type="number" min="0" inputmode="numeric" name="u${id}" placeholder="0"></label>` : ''; };
+// сколько каких юнитов в полях формы (other — войска не из списка выдачи: их можно только забрать)
+const gaPicked = (g, f, ids = [...g.units, ...(g.special || []), ...(g.other || [])]) => {
+  const units = {}; for (const id of ids) { const i = f[`u${id}`], v = i ? Math.floor(Number(i.value)) : 0; if (v > 0) units[id] = v; } return units;
+};
 function armyForm(g) {
-  return `<form data-aform="givearmy" class="acard2"><p class="small">${esc(g.login)} · раса <b>${esc(g.raceName)}</b>. Пустое поле — не выдавать.</p>
-    <div class="arow"><span>Замок:</span><select name="castle">${g.castles.map((c) => `<option value="${c.id}">${esc(c.name)} (${c.x}:${c.y})${c.capital ? ' — столица' : ''}</option>`).join('')}</select></div>
-    <div class="gaunits gamain">${g.units.map(gaUnit(g)).join('')}</div>
+  const c = gaCastle(g, S.adm.gaCastle); // выбранный замок помнится, пока открыт список (после «Выдать» / «Забрать» список обновляется)
+  return `<form data-aform="givearmy" class="acard2"><p class="small">${esc(g.login)} · раса <b>${esc(g.raceName)}</b>. Пустое поле — не трогать.</p>
+    <div class="arow"><span>Замок:</span><select name="castle">${g.castles.map((k) => `<option value="${k.id}"${k.id === c.id ? ' selected' : ''}>${esc(k.name)} (${k.x}:${k.y})${k.capital ? ' — столица' : ''}</option>`).join('')}</select></div>
+    <div class="gaunits gamain">${g.units.map(gaUnit(g, c)).join('')}</div>
     ${(g.special || []).length ? `<p class="small gasub">Особые — не тренируются: уникальные воины заданий, нежить из сундуков, снятые с найма.</p>
-    <div class="gaunits">${g.special.map(gaUnit(g)).join('')}</div>` : ''}
+    <div class="gaunits">${g.special.map(gaUnit(g, c)).join('')}</div>` : ''}
+    ${(g.other || []).length ? `<p class="small gasub">Другие войска в замках игрока (например, завербованные в Темнице) — их можно только забрать.</p>
+    <div class="gaunits">${g.other.map(gaUnit(g, c)).join('')}</div>` : ''}
     <div class="gabtns"><button type="button" class="btn small" data-gafill="100">обычным по 100</button><button type="button" class="btn small" data-gafill="1000">обычным по 1000</button><button type="button" class="btn small" data-gafill="">очистить</button></div>
-    <button class="btn primary" style="width:100%;margin-top:8px">Выдать войска</button></form>`;
+    <div class="gabtns"><button type="button" class="btn small" data-gafill="all">всё, что есть в замке</button></div>
+    <button class="btn primary" style="width:100%;margin-top:8px">Выдать войска</button>
+    <button type="button" class="btn danger" data-gatake style="width:100%;margin-top:6px">Забрать войска</button>
+    <p class="small">Забираются войска из замковой армии, «Резерва» и отрядов выбранного замка; армии в походе — когда вернутся. Генерал и торговцы не забираются. Игроку придёт сообщение.</p></form>`;
 }
 // «Мульты»: только «один телефон — несколько аккаунтов» (у каждого телефона в игре свой номер) и подсказки «то же железо и та же сеть»;
 // общий Wi‑Fi и мобильный интернет мультом не считаются. «Не мульт» скрывает группу, пока в ней не появится новый аккаунт
@@ -320,12 +333,28 @@ $('#sheetBody').addEventListener('input', (e) => {
   if (n === 'login') S.adm.login = e.target.value.trim();
 });
 $('#sheetBody').addEventListener('change', (e) => {
+  if (e.target.matches('form[data-aform="givearmy"] select[name="castle"]') && S.adm.ga) { // Войска: другой замок — его «есть N», введённое остаётся
+    S.adm.gaCastle = Number(e.target.value); const c = gaCastle(S.adm.ga, S.adm.gaCastle);
+    $$('[data-gah]').forEach((el) => { el.textContent = gaCount(c, el.dataset.gah); }); return;
+  }
   const n = e.target.dataset.an; if (!n) return;
   if (n === 'all') S.adm.all = e.target.checked;
   if (n === 'login') { S.adm.player = null; refreshSheet(); }
 });
 $('#sheetBody').addEventListener('click', (e) => {
-  const gf = e.target.closest('[data-gafill]'); if (gf) { $$(gf.dataset.gafill ? '.gamain .gaunit input' : '.gaunit input').forEach((i) => { i.value = gf.dataset.gafill; }); return; } // «обычным по N» — особым вручную
+  const gf = e.target.closest('[data-gafill]'); if (gf) { // «обычным по N» — особым вручную; «всё, что есть в замке» — для «Забрать»
+    const v = gf.dataset.gafill, g = S.adm.ga, f = gf.closest('form');
+    if (v === 'all') { if (g && f) { const c = gaCastle(g, Number(f.castle.value)); $$('.gaunit input').forEach((i) => { i.value = (c.home || {})[i.name.slice(1)] || ''; }); } return; }
+    $$(v ? '.gamain .gaunit input' : '.gaunit input').forEach((i) => { i.value = v; }); return;
+  }
+  const gt = e.target.closest('[data-gatake]'); if (gt) { // «Забрать войска» — те же поля, что для выдачи
+    const g = S.adm.ga, f = gt.closest('form'); if (!g || !f) return;
+    const units = gaPicked(g, f), c = gaCastle(g, Number(f.castle.value));
+    if (!Object.keys(units).length) return toast('Укажите количество хотя бы для одного юнита.', 'err');
+    if (!confirm(`Забрать войска у игрока ${g.login}${c.name ? ` из замка «${c.name}»` : ''}?`)) return;
+    send({ t: 'admin', op: 'takearmy', login: g.login, castle: c.id, units });
+    return send({ t: 'admin', op: 'armyinfo', login: g.login }); // обновить «есть N»
+  }
   const pd = e.target.closest('[data-apdays]'); if (pd) { S.adm.premDays = Number(pd.dataset.apdays); const f = pd.closest('form'); f.days.value = S.adm.premDays; f.querySelectorAll('[data-apdays]').forEach((x) => x.classList.toggle('on', x === pd)); return; } // «Премиум всем»: срок кнопкой
   const sm = e.target.closest('[data-asmod]'); if (sm) { if (!confirm(`Снять ${sm.dataset.asmod} со старших модераторов? Обычным модератором он останется.`)) return; send({ t: 'admin', op: 'smod', login: sm.dataset.asmod, on: 0 }); return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
   const mq = e.target.closest('[data-amodreq]'); if (mq) { const ok = mq.dataset.ok === '1'; if (!confirm(ok ? 'Принять заявку — назначить игрока модератором?' : 'Отклонить заявку?')) return; send({ t: 'admin', op: 'modreq', id: Number(mq.dataset.amodreq), ok: ok ? 1 : 0 }); return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }
@@ -390,10 +419,11 @@ $('#sheetBody').addEventListener('submit', (e) => {
   if (k === 'armyinfo') { const l = f.login.value.trim(); if (!l) return; S.adm.ga = null; return send({ t: 'admin', op: 'armyinfo', login: l }); }
   if (k === 'givearmy') {
     const g = S.adm.ga; if (!g) return;
-    const units = {}; for (const id of [...g.units, ...(g.special || [])]) { const v = Number(f[`u${id}`].value); if (v > 0) units[id] = v; }
+    const units = gaPicked(g, f, [...g.units, ...(g.special || [])]); // «другие» (не из списка выдачи) — только забрать
     if (!Object.keys(units).length) return toast('Укажите количество хотя бы для одного юнита.', 'err');
     if (!confirm(`Выдать войска игроку ${g.login}?`)) return;
-    return send({ t: 'admin', op: 'givearmy', login: g.login, castle: Number(f.castle.value), units });
+    send({ t: 'admin', op: 'givearmy', login: g.login, castle: Number(f.castle.value), units });
+    return send({ t: 'admin', op: 'armyinfo', login: g.login }); // обновить «есть N»
   }
   if (k === 'givecastle') { const l = f.login.value.trim(), n = Math.max(1, Number(f.n.value) || 1); if (!l) return; if (!confirm(`Выдать игроку ${l} полных замков: ${n}?`)) return; return send({ t: 'admin', op: 'castles', login: l, n }); }
   if (k === 'addsmod') { const l = f.login.value.trim(); if (!l || !confirm(`Назначить ${l} старшим модератором?`)) return; send({ t: 'admin', op: 'smod', login: l, on: 1 }); f.login.value = ''; return setTimeout(() => send({ t: 'admin', op: 'mods' }), 300); }

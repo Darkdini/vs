@@ -243,10 +243,23 @@ function install(Game) {
       }
       // выдать армию игроку по нику: юниты его расы и общие, и особые тоже (без генерала и торговцев — giveable), в выбранный замок (по умолчанию — столица)
       case 'armyinfo': {
-        const list = giveable(target.race);
+        const list = giveable(target.race), give = new Set(list.map((u) => u.id)), other = new Set();
+        // сколько каких войск в каждом замке — для «Забрать войска»: дома (замковая армия, «Резерв», отряды) и в походе;
+        // other — войска в замках не из списка выдачи (например, завербованные в Темнице) — их тоже можно забрать
+        const count = (into, units) => {
+          for (const [id, n] of Object.entries(units || {})) {
+            const k = Number(id); if (!(n > 0) || !UNIT[k] || k === GENERAL_ID || k === MERCHANT_ID) continue;
+            into[k] = (into[k] || 0) + n; if (!give.has(k)) other.add(k);
+          }
+        };
+        const castles = this.castlesOf(target).map((c, i) => {
+          this.mil(c); const home = {}, away = {};
+          for (const u of [c.units, c.reserve, ...c.squads.map((q) => q.units)]) count(home, u);
+          for (const a of c.armies) count(away, a.units);
+          return { id: c.id, name: c.name, x: c.x, y: c.y, capital: i === 0, home, away };
+        });
         data = { login: target.login, race: target.race, raceName: C.RACE_NAMES[target.race] || target.race,
-          units: list.filter((u) => !u.notrain).map((u) => u.id), special: list.filter((u) => u.notrain).map((u) => u.id),
-          castles: this.castlesOf(target).map((c, i) => ({ id: c.id, name: c.name, x: c.x, y: c.y, capital: i === 0 })) };
+          units: list.filter((u) => !u.notrain).map((u) => u.id), special: list.filter((u) => u.notrain).map((u) => u.id), other: [...other], castles };
         break;
       }
       // «👁 Осмотр»: по нику (arg.login) или по клетке карты (arg.x, arg.y — чей там замок); arg.castle — какой замок показать первым
@@ -273,6 +286,33 @@ function install(Game) {
         if (!got.length) return { error: 'Укажите количество хотя бы для одного юнита.' };
         msg = `${target.login} (${c.name}): ${got.join(', ')}.`;
         if (target !== user) this.event(target.id, `Администрация выдала войска в замок «${c.name}»: ${got.join(', ')}.`);
+        break;
+      }
+      // забрать войска (например, выданные): из замковой армии, затем из «Резерва» и отрядов замка; войска в походе не трогаются —
+      // их можно забрать, когда вернутся. Генерал и торговцы не забираются
+      case 'takearmy': {
+        const c = this.castlesOf(target).find((k) => k.id === Number(arg.castle)) || this.castlesOf(target)[0];
+        if (!c) return { error: 'У игрока нет замков.' };
+        this.mil(c);
+        const got = [], short = [], touched = new Set();
+        for (const [id, v] of Object.entries(arg.units && typeof arg.units === 'object' ? arg.units : {})) {
+          const want = Math.floor(Number(v)), uid = Number(id);
+          if (!UNIT[uid] || uid === GENERAL_ID || uid === MERCHANT_ID || !Number.isFinite(want) || want <= 0) continue;
+          let left = want;
+          for (const src of [c.units, c.reserve, ...c.squads.map((q) => q.units)]) {
+            const k = Math.min(left, src[uid] || 0); if (k <= 0) continue;
+            src[uid] -= k; if (!src[uid]) delete src[uid]; left -= k; touched.add(src);
+            if (!left) break;
+          }
+          const took = want - left, away = c.armies.reduce((s, a) => s + ((a.units || {})[uid] || 0), 0);
+          if (took) got.push(`${UNIT[uid].name} ×${took}`);
+          if (left) short.push(`${UNIT[uid].name} — в замке ${took ? `было только ${took}` : 'нет'}${away ? `, в походе ${away}` : ''}`);
+        }
+        const g = c.general; // опустевший отряд распускается (как при переводе войск), если в нём не стоит генерал
+        c.squads = c.squads.filter((q) => !touched.has(q.units) || Object.keys(q.units).length || (g && g.squad === q.id));
+        if (!got.length) return { error: short.length ? `Забирать нечего: ${short.join('; ')}.` : 'Укажите количество хотя бы для одного юнита.' };
+        msg = `${target.login} (${c.name}): забрано ${got.join(', ')}.${short.length ? ` Не хватило: ${short.join('; ')}.` : ''}`;
+        if (target !== user) this.event(target.id, `Администрация забрала войска из замка «${c.name}»: ${got.join(', ')}.`);
         break;
       }
       case 'noarmy': for (const c of castles) { this.mil(c); c.units = {}; } msg = 'Войска убраны.'; break;

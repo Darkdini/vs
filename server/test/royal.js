@@ -3555,6 +3555,26 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.ok((tc.units[A.MERCHANT_ID] || 0) === (n0[A.MERCHANT_ID] || 0) && (tc.units[A.GENERAL_ID] || 0) === (n0[A.GENERAL_ID] || 0), 'торговцы и генерал не выдаются');
     console.log('✓ Админка → Войска: выдаются и особые воины (уникальные, нежить, снятые с найма), генерал и торговцы — нет');
   }
+  { // админка → Войска → «Забрать войска»: из замковой армии, затем «Резерва» и отрядов; в походе — не трогаются; генерал и торговцы — нет
+    const A = require('../src/army'), adm = Object.values(g.db.users).find((x) => x.admin) || g.ensureAdmin('secretpass');
+    const tu = g.register({ login: 'takearm', password: '12345', race: 0 }).user, tc = g.castleOf(tu); g.mil(tc);
+    const [u1, u2] = g.adminOp(adm, 'armyinfo', { login: tu.login }).data.units, rec = 207; // 207 — эльфийский Лучник: у людей его нет в списке выдачи (так бывает с завербованными в Темнице)
+    const sq = { id: g.db.nextId++, name: 'Отряд', units: { [u1]: 20 } }, march = { id: g.db.nextId++, units: { [u1]: 40 }, mission: 'attack', state: 'go', x: 0, y: 0, depart: Date.now(), arrive: Date.now() + 1e9 };
+    Object.assign(tc, { units: { [u1]: 100, [u2]: 50, [rec]: 7 }, reserve: { [u1]: 30 } }); tc.squads.push(sq); tc.armies.push(march);
+    const info = g.adminOp(adm, 'armyinfo', { login: tu.login }).data, ci = info.castles.find((x) => x.id === tc.id);
+    assert.ok(ci.home[u1] === 150 && ci.away[u1] === 40 && ci.home[u2] === 50 && info.other.includes(rec) && !info.units.includes(rec), 'список: дома 100 + резерв 30 + отряд 20, в походе 40; завербованные — в «других»: ' + JSON.stringify(ci));
+    g.drainEvents();
+    let r = g.adminOp(adm, 'takearmy', { login: tu.login, castle: tc.id, units: { [u1]: 140, [u2]: 10, [rec]: 7, [A.GENERAL_ID]: 1, [A.MERCHANT_ID]: 5 } });
+    assert.ok(r.ok && !tc.units[u1] && !tc.reserve[u1] && sq.units[u1] === 10 && tc.units[u2] === 40 && !tc.units[rec] && march.units[u1] === 40, 'забрано 140: замок 100, резерв 30, из отряда 10; в походе не тронуто: ' + r.msg);
+    assert.ok(g.drainEvents().some((e) => e.userId === tu.id && /Администрация забрала войска/.test(e.msg)), 'игроку — сообщение');
+    r = g.adminOp(adm, 'takearmy', { login: tu.login, castle: tc.id, units: { [u1]: 50 } });
+    assert.ok(r.ok && /было только 10, в походе 40/.test(r.msg) && !tc.squads.includes(sq), 'взято сколько было, опустевший отряд распущен: ' + r.msg);
+    r = g.adminOp(adm, 'takearmy', { login: tu.login, castle: tc.id, units: { [u1]: 5 } });
+    assert.ok(r.error && /Забирать нечего/.test(r.error) && /в походе 40/.test(r.error), 'дома нет — ничего не забрано: ' + r.error);
+    assert.ok(g.adminOp(adm, 'takearmy', { login: tu.login, castle: tc.id, units: { [A.GENERAL_ID]: 1 } }).error, 'генерал не забирается');
+    tc.armies = tc.armies.filter((a) => a !== march);
+    console.log('✓ Админка → Войска → «Забрать войска»: из замка, резерва и отрядов, в походе — нет; игроку сообщение');
+  }
   { // вход после отсутствия: лояльность за пропущенные дни — по прежнему времени входа. Было: время входа обновлялось раньше
     // пересчёта, и все дни отсутствия шли как дни в игре (+50 за каждый) — игрок не заходил 14 дней и при входе получил +700
     const { WebSession } = require('../src/web');

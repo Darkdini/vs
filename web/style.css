@@ -1304,6 +1304,7 @@ button.fpopt { cursor: pointer; } button.fpopt:active { filter: brightness(.94);
 .gaunit input { width: 100%; min-width: 0; height: 30px; font-size: 16px; padding: 0 6px; }
 .gabtns { display: flex; gap: 6px; margin-top: 8px; } .gabtns .btn { flex: 1; }
 .gasub { margin: 10px 0 4px; } /* админка → Войска: подпись над особыми */
+.gaunit .gahave { display: block; font-size: 12px; line-height: 1.2; color: #6a4a1a; } /* админка → Войска: сколько есть в выбранном замке */
 /* чат: новые сообщения всегда внизу и видны сразу — лента «прилипает» к низу (порядок в разметке обратный) */
 #sheetBody .chatlist { display: flex; flex-direction: column-reverse; }
 img[src*="/hd/"] { image-rendering: auto !important; }
