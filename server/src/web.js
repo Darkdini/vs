@@ -511,6 +511,7 @@ const API = {
       this.toast(r.msg); this.send({ t: 'brank', data: this.game.brView(this.user, this.user) }); return this.pushState();
     }
     if (m.op === 'top') return this.send({ t: 'brtop', data: this.game.brTop(this.user, m.page) }); // вкладка «Топ»: рейтинг по боевому рангу
+    if (m.op === 'hist') return this.send({ t: 'brhist', data: this.game.brHistoryView() }); // «Топ» → «Прошлые сезоны»: топ-10 каждого сезона
     const u = this.game.userById(Number(m.id) || this.user.id); if (!u) return this.error('Игрок не найден.'); this.send({ t: 'brank', data: this.game.brView(this.user, u) });
   },
   // ---- «Приватность» (server/src/privacy.js) ----

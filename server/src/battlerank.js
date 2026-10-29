@@ -5,7 +5,10 @@
 // без очков: это считает army.js (rankPop). Если противник слабее больше чем на 5 рангов — очков меньше (за избиение новичков ранг
 // почти не растёт); повторные бои с тем же игроком за сутки — каждый следующий вдвое меньше (против «качания» ранга вдвоём).
 // Ранг растёт сразу, как набраны очки (звание видно в профиле и на значке); за каждый новый ранг — сундук с наградой:
-// игрок забирает его сам в окне «Боевой ранг» (армия, ресурсы и опыт генерала — в Кладовую).
+// игрок забирает его сам в окне «Боевой ранг» (армия, ресурсы и опыт генерала — в Кладовую). На первом ранге каждого нового
+// звания (7, 13, 19, …) — сундук звания: сверх обычного руны, а со звания «Чемпион» — нежить и артефакты (TITLE_PRIZE).
+// Сезоны (с 29.10): раз в календарный месяц админ начинает новый сезон — у всех ранги и очки с нуля, сундуки за ранги можно
+// получить снова; несобранные сундуки уходят в Кладовую, лучший ранг остаётся рекордом, топ-10 — в «Прошлых сезонах».
 // Пока ранг держится — постоянный бонус: урон и защита воинов до +10% (с 21.10; было до +20% — по решению владельца),
 // прирост ресурсов до +30% (на Легенде 5★).
 
@@ -21,6 +24,10 @@ const N = NEED.length, MAX_ATK = 0.10, MAX_PROD = 0.30, NPC_K = 0.5;
 // PTS_K: очки за бой — пятая часть населения погибших (до 20.10 — всё население: ранг рос слишком быстро)
 const PTS_K = 0.2, START_MAX = 11, DAY = 86400000;
 const fmtN = (n) => Number(n).toLocaleString('ru-RU'); // 8 400, 14 000
+// сезоны — по календарным месяцам Москвы
+const MSK = 3 * 3600000, monthMsk = (t) => new Date(t + MSK).toISOString().slice(0, 7);
+const nextMonthMsk = (t) => { const d = new Date(t + MSK); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1) - MSK; };
+const fmtDay = (t) => new Date(t + MSK).toISOString().slice(0, 10).split('-').reverse().join('.'); // 01.11.2026
 
 const rankIdx = (pts) => { let i = -1; while (i + 1 < N && pts >= NEED[i + 1]) i++; return i; }; // -1 — ещё без ранга
 const rankInfo = (i) => (i < 0 ? { idx: -1, title: 'Без ранга', icon: 1, stars: 0 } : { idx: i, title: TITLES[Math.floor(i / 6)], icon: Math.floor(i / 6) + 1, stars: i % 6 });
@@ -29,7 +36,20 @@ const bonusAt = (i) => { const f = i < 0 ? 0 : (i + 1) / N; return { atk: +(MAX_
 // из сундуков росла в разы быстрее обучения — по решению владельца в 10 раз меньше), ресурсы по 250 × номер ранга
 // и опыт генерала 50 × номер ранга — за каждый ранг (было 100 × номер — вдвое меньше по решению владельца;
 // ещё раньше, до 20.10, опыт давали только на новом звании: 50 × номер звания)
-const prizeAt = (i) => { const n = i + 1; return { army: 15 * n, res: 250 * n, exp: 50 * n }; };
+// сундук звания — на первом ранге каждого нового звания (7. Рекрут, 13. Боец, … 73. Легенда): сверх обычной награды руны,
+// нежить (320 Скелет-латник, 321 Рыцарь смерти, 322 Лич, 323 Костяной дракон) и артефакты: 0 — обычный, 1 — редкий, 2 — легендарный.
+// Ключ — номер звания (2 — Рекрут … 13 — Легенда). Картинка сундука в таблице — богаче с каждым званием (gfx/shop/chest2…7)
+const TITLE_PRIZE = {
+  2: { runes: 3 }, 3: { runes: 5 }, 4: { runes: 8, arts: [0] },
+  5: { runes: 10, units: { 320: 5 }, arts: [0] }, 6: { runes: 12, units: { 320: 10 }, arts: [1] },
+  7: { runes: 15, units: { 321: 5 }, arts: [1] }, 8: { runes: 20, units: { 321: 10, 322: 5 }, arts: [1] },
+  9: { runes: 25, units: { 322: 10 }, arts: [2] }, 10: { runes: 30, units: { 323: 1 }, arts: [2] },
+  11: { runes: 35, units: { 323: 2 }, arts: [2] }, 12: { runes: 40, units: { 323: 3 }, arts: [2, 2] },
+  13: { runes: 50, units: { 323: 5 }, arts: [2, 2] },
+};
+const titleAt = (i) => (i > 0 && i % 6 === 0 ? TITLE_PRIZE[i / 6 + 1] || null : null); // i — индекс ранга (0 — 1-й ранг)
+const chestImg = (i) => (titleAt(i) ? `shop/chest${Math.min(7, Math.floor((i / 6 + 1) / 2) + 1)}.png` : 'quest/chest.png');
+const prizeAt = (i) => { const n = i + 1; return { army: 15 * n, res: 250 * n, exp: 50 * n, title: titleAt(i), chest: chestImg(i) }; };
 // воины награды: первая пехота с атакой, первая конница (не разведчик) и первый маг расы
 const prizeUnits = (race) => {
   const list = require('./army').unitsForRace(race).filter((x) => !x.quest);
@@ -53,19 +73,43 @@ function install(Game) {
   P.brChests = function brChests(u) { const b = this.brOf(u); return Math.max(0, rankIdx(b.pts) - b.claimed); };
   // награда ранга → в Кладовую: армия поровну пехота / конница / маги расы игрока, ресурсы, опыт
   P.brPrize = function brPrize(u, i) {
-    const p = prizeAt(i), units = {}, ids = prizeUnits(u.race);
+    const p = prizeAt(i), units = {}, ids = prizeUnits(u.race), t = p.title || {};
     ids.forEach((id, k) => { units[id] = Math.floor(p.army / ids.length) + (k < p.army % ids.length ? 1 : 0); });
-    return { army: p.army, res: p.res, exp: p.exp, rw: { wood: p.res, stone: p.res, iron: p.res, food: p.res, units, exp: p.exp } };
+    for (const [id, n] of Object.entries(t.units || {})) units[id] = (units[id] || 0) + n; // нежить сундука звания
+    return { army: p.army, res: p.res, exp: p.exp, runes: t.runes || 0, arts: t.arts || [], undead: t.units || {}, rw: { wood: p.res, stone: p.res, iron: p.res, food: p.res, units, exp: p.exp } };
+  };
+  // руны сундука звания: n штук, вид каждой случайный (как в сундуках «Сокровищ»)
+  const giveRunes = (g, u, n) => {
+    const { RUNE_KEYS } = require('./runes'), have = g.runesOf(u);
+    for (let j = 0; j < n; j++) { const k = RUNE_KEYS[Math.floor(Math.random() * RUNE_KEYS.length)]; have[k] = (have[k] || 0) + 1; }
+    return `${n} ${require('./words').plural(n, 'руна', 'руны', 'рун')}`;
+  };
+  // артефакт сундука звания — в Сокровищницу столицы; полна — разбит на осколки: ресурсы в Кладовую (как в сундуках «Сокровищ»)
+  const giveArt = (g, u, rarity) => {
+    const Ar = require('./army'), cap = g.castlesOf(u)[0], type = Ar.ART_BASIC[Math.floor(Math.random() * Ar.ART_BASIC.length)];
+    const name = `«${Ar.ART_TYPES[type].name}» (${Ar.RARITY[rarity].name})`;
+    if (cap) g.mil(cap);
+    if (cap && cap.artifacts.length < g.bonus(cap).artStore) { cap.artifacts.push({ id: g.db.nextId++, type, rarity, active: false, found: Date.now() }); return `артефакт ${name} — в Сокровищнице`; }
+    const k = Ar.ART_BREAK[rarity]; g.stashAdd(u, { wood: k, stone: k, iron: k, food: k });
+    return `артефакт ${name} разбит на осколки (Сокровищница полна): по ${fmtN(k)} каждого ресурса — в Кладовую`;
   };
   // забрать сундуки наград: upto — до какого ранга (по умолчанию все открытые); награды — в Кладовую
   P.brClaim = function brClaim(u, upto) {
     const b = this.brOf(u), to = rankIdx(b.pts), last = Math.min(to, Number.isInteger(upto) ? upto : to);
     if (last <= b.claimed) return { error: to > b.claimed ? 'Сначала заберите награды за прежние ранги.' : 'Новых наград нет — повышайте ранг в боях.' };
-    let army = 0, res = 0, exp = 0;
-    for (let i = b.claimed + 1; i <= last; i++) { const p = this.brPrize(u, i); this.stashAdd(u, p.rw); army += p.army; res += p.res; exp += p.exp; }
+    let army = 0, res = 0, exp = 0; const extra = []; // сундуки званий: руны, нежить, артефакты
+    for (let i = b.claimed + 1; i <= last; i++) {
+      const p = this.brPrize(u, i); this.stashAdd(u, p.rw); army += p.army; res += p.res; exp += p.exp;
+      if (!titleAt(i)) continue;
+      const got = [], AU = require('./army').UNIT;
+      if (p.runes) got.push(giveRunes(this, u, p.runes));
+      for (const [id, k] of Object.entries(p.undead)) got.push(`${AU[id].name} ×${fmtN(k)}`);
+      for (const r of p.arts) got.push(giveArt(this, u, r));
+      extra.push(`Сундук звания «${TITLES[Math.floor(i / 6)]}»: ${got.join(', ')}.`);
+    }
     const n = last - b.claimed; b.claimed = last; this.store.save();
     const inf = rankInfo(last);
-    return { ok: true, msg: `${n > 1 ? `Награды за ${n} ${require('./words').plural(n, 'ранг', 'ранга', 'рангов')}` : `Награда за ранг ${last + 1}. ${inf.title}`} — в Кладовой: армия ${fmtN(army)}, ресурсы по ${fmtN(res)}${exp ? `, опыт генерала +${fmtN(exp)}` : ''}.` };
+    return { ok: true, msg: `${n > 1 ? `Награды за ${n} ${require('./words').plural(n, 'ранг', 'ранга', 'рангов')}` : `Награда за ранг ${last + 1}. ${inf.title}`} — в Кладовой: армия ${fmtN(army)}, ресурсы по ${fmtN(res)}${exp ? `, опыт генерала +${fmtN(exp)}` : ''}.${extra.length ? ` ${extra.join(' ')}` : ''}` };
   };
   P.brRank = function brRank(u) { return u && !u.admin ? rankIdx(this.brOf(u).pts) : -1; }; // ранг — сразу по очкам; у Советника (админа) ранга нет — и бонуса тоже
   P.brBonus = function brBonus(u) { return bonusAt(u ? this.brRank(u) : -1); };
@@ -86,19 +130,75 @@ function install(Game) {
     if (now > was && this.event) { const inf = rankInfo(now); this.event(u.id, `⚔ Боевой ранг повышен: ${now + 1}. ${inf.title} ${'★'.repeat(inf.stars) || '☆'}! Заберите сундук с наградой в окне «Боевой ранг».`); }
   };
   P.brView = function brView(viewer, u) {
-    const b = this.brOf(u), i = rankIdx(b.pts), cur = rankInfo(i), next = i + 1 < N ? NEED[i + 1] : null, prev = i >= 0 ? NEED[i] : 0, self = viewer.id === u.id;
+    const b = this.brOf(u), i = rankIdx(b.pts), cur = rankInfo(i), next = i + 1 < N ? NEED[i + 1] : null, prev = i >= 0 ? NEED[i] : 0, self = viewer.id === u.id, s = this.brSeason();
+    // рекорд — лучший ранг за все сезоны (в прошлом сезоне или нынешний, если он выше)
+    const best = b.best && b.best.idx >= i ? { ...rankInfo(b.best.idx), season: b.best.season } : i >= 0 ? { ...rankInfo(i), season: s.n } : null;
     return { login: u.login, self, pts: b.pts, ...cur, next, prev, bonus: bonusAt(i), titles: TITLES, claimed: b.claimed, chests: self ? Math.max(0, i - b.claimed) : 0, units: prizeUnits(u.race),
+      season: { n: s.n, start: s.start }, best,
       table: NEED.map((need, k) => ({ ...rankInfo(k), need, prize: prizeAt(k), bonus: bonusAt(k) })) };
   };
   // вкладка «Топ»: игроки по очкам ранга (больше очков — выше), по 10 на страницу; без ботов, Советника (админ) и заблокированных;
   // me — место смотрящего (0 — ещё нет очков). Список пересчитывается не чаще раза в 15 с
+  P.brRanked = function brRanked() {
+    return Object.values(this.db.users).filter((u) => u.br && !u.bot && !u.admin && !u.banned)
+      .map((u) => ({ u, pts: this.brOf(u).pts })).filter((x) => x.pts > 0).sort((a, b) => b.pts - a.pts || a.u.id - b.u.id);
+  };
   P.brTop = function brTop(viewer, page) {
-    const all = this.cached('brtop', 15000, () => Object.values(this.db.users).filter((u) => u.br && !u.bot && !u.admin && !u.banned)
-      .map((u) => ({ u, pts: this.brOf(u).pts })).filter((x) => x.pts > 0).sort((a, b) => b.pts - a.pts || a.u.id - b.u.id));
+    const all = this.cached('brtop', 15000, () => this.brRanked()), s = this.brSeason();
     const pages = Math.max(1, Math.ceil(all.length / 10)), pg = Math.min(Math.max(0, Math.floor(Number(page)) || 0), pages - 1);
-    return { page: pg, pages, total: all.length, me: all.findIndex((x) => x.u.id === viewer.id) + 1,
+    return { page: pg, pages, total: all.length, me: all.findIndex((x) => x.u.id === viewer.id) + 1, season: { n: s.n, start: s.start }, hist: (this.db.brHistory || []).length,
       list: all.slice(pg * 10, pg * 10 + 10).map(({ u, pts }, k) => ({ place: pg * 10 + k + 1, id: u.id, login: u.login, pts, ...rankInfo(rankIdx(pts)) })) };
+  };
+
+  // ----- сезоны: раз в календарный месяц (по Москве) админ подводит итоги и начинает новый сезон -----
+  P.brSeason = function brSeason() { if (!this.db.brSeason) this.db.brSeason = { n: 1, start: Date.now(), resetAt: 0 }; return this.db.brSeason; };
+  // 0 — новый сезон начать можно; иначе — время, с которого можно (1-е число следующего месяца по Москве)
+  P.brSeasonWait = function brSeasonWait(now = Date.now()) { const s = this.brSeason(); return !s.resetAt || monthMsk(s.resetAt) !== monthMsk(now) ? 0 : nextMonthMsk(s.resetAt); };
+  // новый сезон: несобранные сундуки за ранги — в Кладовую (письмом — что пришло), лучший ранг — рекорд (b.best), топ-10 — в историю;
+  // у всех очки и ранги с нуля, сундуки за ранги можно получить снова, бонус ранга — тоже с нуля
+  P.brSeasonNew = function brSeasonNew(now = Date.now()) {
+    const s = this.brSeason(), wait = this.brSeasonWait(now);
+    if (wait) return { error: `Новый сезон в этом месяце уже начат (${fmtDay(s.resetAt)}). Следующий — с ${fmtDay(wait)}.` };
+    const top = this.brRanked().slice(0, 10).map(({ u, pts }, k) => ({ place: k + 1, id: u.id, login: u.login, pts, ...rankInfo(rankIdx(pts)) }));
+    const from = this.adminUser ? this.adminUser() : null;
+    let players = 0, delivered = 0;
+    for (const u of Object.values(this.db.users)) {
+      if (u.bot || u.admin || u.nobody) continue;
+      const b = this.brOf(u), i = rankIdx(b.pts);
+      if (i > b.claimed) {
+        const r = this.brClaim(u);
+        if (r.ok) { delivered++; if (from) this.sendMail(from, u.login, 'Боевой ранг: новый сезон', `Сезон ${s.n} боевого ранга закончен — ранги начинаются заново.\n\nНесобранные награды за ранги уже в Кладовой:\n${r.msg}`); }
+      }
+      if (i >= 0 && (!b.best || i > b.best.idx)) b.best = { idx: i, season: s.n, at: now };
+      if (b.pts > 0) players++;
+      b.pts = 0; b.claimed = -1; delete b.foes;
+      if (this.event) this.event(u.id, `⚔ Начался ${s.n + 1}-й сезон боевого ранга: у всех ранги с нуля, сундуки за ранги — снова. В бой!`);
+    }
+    (this.db.brHistory = this.db.brHistory || []).push({ n: s.n, start: s.start, end: now, players, top });
+    if (this.db.brHistory.length > 24) this.db.brHistory.shift();
+    this.db.brSeason = { n: s.n + 1, start: now, resetAt: now };
+    this.cache = {}; this.store.save();
+    return { ok: true, n: s.n, players, delivered, top };
+  };
+  // «Прошлые сезоны» во вкладке «Топ»: топ-10 каждого (новые сверху)
+  P.brHistoryView = function brHistoryView() { return (this.db.brHistory || []).slice().reverse(); };
+  // админка → «Мир» → «Боевой ранг: сезоны»
+  P.brSeasonAdmin = function brSeasonAdmin(now = Date.now()) {
+    const s = this.brSeason(), all = this.brRanked();
+    const wait = this.brSeasonWait(now);
+    return { n: s.n, start: s.start, resetAt: s.resetAt, wait, waitDay: wait ? fmtDay(wait) : '', players: all.length, // waitDay — дата по Москве
+      top: all.slice(0, 3).map(({ u, pts }, k) => ({ place: k + 1, login: u.login, pts, ...rankInfo(rankIdx(pts)) })) };
+  };
+  const prevOp = P.adminOp;
+  P.adminOp = function adminOp(user, op, arg = {}) {
+    if (op !== 'brseason' && op !== 'brseasonnew') return prevOp.call(this, user, op, arg);
+    if (!user || !user.admin) return { error: 'Нет прав.' };
+    if (op === 'brseasonnew') {
+      const r = this.brSeasonNew(); if (r.error) return r;
+      return { ok: true, data: { ...this.brSeasonAdmin(), msg: `Сезон ${r.n} подведён: в рейтинге было ${r.players}, несобранные сундуки отданы в Кладовую ${r.delivered} ${require('./words').plural(r.delivered, 'игроку', 'игрокам', 'игрокам')}. Начат сезон ${r.n + 1}.` } };
+    }
+    return { ok: true, data: this.brSeasonAdmin() };
   };
 }
 
-module.exports = { install, TITLES, NEED, rankIdx, rankInfo, bonusAt, prizeAt };
+module.exports = { install, TITLES, NEED, TITLE_PRIZE, rankIdx, rankInfo, bonusAt, prizeAt };

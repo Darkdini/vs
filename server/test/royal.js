@@ -2242,7 +2242,9 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   const v = g.brView(A, A); assert.ok(v.table.length === 78 && v.title && v.next && v.chests === 0 && v.claimed === r, 'окно ранга');
   assert.ok(g.brView(Bq, A).chests === 0, 'чужие сундуки не видны');
   assert.strictEqual(BR.rankInfo(77).title, 'Легенда'); assert.ok(BR.bonusAt(77).atk === 0.1 && BR.bonusAt(77).prod === 0.3, 'Легенда 5★: урон и защита +10% (было +20%), прирост +30%');
-  assert.deepStrictEqual(BR.prizeAt(6), { army: 105, res: 1750, exp: 350 }, 'ранг 7 — армия 105, ресурсы по 1 750, опыт генерала 350');
+  assert.deepStrictEqual(BR.prizeAt(6), { army: 105, res: 1750, exp: 350, title: { runes: 3 }, chest: 'shop/chest2.png' }, 'ранг 7 — армия 105, ресурсы по 1 750, опыт генерала 350 и сундук звания «Рекрут»: 3 руны');
+  assert.ok(BR.prizeAt(5).title === null && BR.prizeAt(5).chest === 'quest/chest.png' && BR.prizeAt(0).title === null, 'обычные ранги — обычный сундук');
+  assert.ok(BR.prizeAt(24).title.units[320] === 5 && BR.prizeAt(24).title.arts[0] === 0 && BR.prizeAt(72).chest === 'shop/chest7.png' && BR.prizeAt(72).title.units[323] === 5, 'Чемпион — Скелет-латники и артефакт, Легенда — Костяные драконы, сундук «Сокровище Дракона»');
   assert.ok(Array.from({ length: 30 }, (_, i) => BR.prizeAt(i).army).reduce((a, n) => a + n, 0) === 6975, 'армия за ранги 1–30 — 6 975 (было 69 750)');
   assert.ok(BR.prizeAt(0).exp === 50 && BR.prizeAt(1).exp === 100 && BR.prizeAt(77).exp === 3900, 'опыт генерала — за каждый ранг: 50 × номер ранга');
   // пороги — прежние (таблица как в оригинале); очки недолгих порогов-сумм 20.10 (v4) — назад без потери ранга
@@ -3557,6 +3559,33 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.ok(r.ok && tc.units[uq.id] === 5 && tc.units[320] === 2, 'выданы уникальный и нежить: ' + JSON.stringify(r));
     assert.ok((tc.units[A.MERCHANT_ID] || 0) === (n0[A.MERCHANT_ID] || 0) && (tc.units[A.GENERAL_ID] || 0) === (n0[A.GENERAL_ID] || 0), 'торговцы и генерал не выдаются');
     console.log('✓ Админка → Войска: выдаются и особые воины (уникальные, нежить, снятые с найма), генерал и торговцы — нет');
+  }
+  { // Боевой ранг: сундуки званий (руны, артефакт) и сезоны — раз в календарный месяц админ начинает новый: ранги у всех с нуля
+    const BR = require('../src/battlerank'), adm = Object.values(g.db.users).find((x) => x.admin) || g.ensureAdmin('secretpass');
+    const reg = (login) => { const x = g.register({ login, password: '12345', race: 0 }).user; x.br = undefined; g.brOf(x); return x; };
+    const runeSum = (x) => Object.values(g.runesOf(x)).reduce((a, n) => a + n, 0), stUnits = (x) => Object.values(g.stashOf(x).units || {}).reduce((a, n) => a + n, 0);
+    const T = reg('brTit1'); T.br.pts = BR.NEED[18]; const r0 = runeSum(T), cap = g.castlesOf(T)[0]; g.mil(cap); const a0 = cap.artifacts.length;
+    const cl = g.brClaim(T);
+    assert.ok(cl.ok && /Сундук звания «Рекрут»/.test(cl.msg) && /«Боец»/.test(cl.msg) && /«Воин»: 8 рун, артефакт «/.test(cl.msg), cl.msg || cl.error);
+    assert.strictEqual(runeSum(T) - r0, 3 + 5 + 8, 'руны сундуков званий: Рекрут 3, Боец 5, Воин 8');
+    assert.ok(cap.artifacts.length === a0 + 1 || /осколки/.test(cl.msg), 'артефакт «Воина» — в Сокровищницу (полна — осколки)');
+    // сезон: SA — лидер (сундуки забраны), SB — ранг 9, забрал только 3 сундука
+    const SA = reg('brSeaA'), SB = reg('brSeaB'); SA.br.pts = BR.NEED[70]; SA.br.claimed = 70; SB.br.pts = BR.NEED[8]; SB.br.claimed = 2;
+    g.db.brSeason = { n: 7, start: Date.now() - 20 * DAY, resetAt: 0 }; const u0 = stUnits(SB), m0 = (g.db.messages || []).length;
+    assert.ok(g.adminOp(SA, 'brseasonnew', {}).error, 'не админ — нельзя');
+    const rs = g.adminOp(adm, 'brseasonnew', {});
+    assert.ok(rs.ok && /Сезон 7 подведён/.test(rs.data.msg) && rs.data.n === 8 && rs.data.wait > Date.now(), JSON.stringify(rs).slice(0, 300));
+    assert.ok(SA.br.pts === 0 && SA.br.claimed === -1 && SA.br.best.idx === 70 && SA.br.best.season === 7 && g.brRank(SA) === -1 && g.brBonus(SA).atk === 0, 'у лидера — с нуля, рекорд: 71-й ранг в 7-м сезоне');
+    assert.ok(SB.br.pts === 0 && stUnits(SB) - u0 === [3, 4, 5, 6, 7, 8].reduce((a, i) => a + 15 * (i + 1), 0), 'несобранные сундуки (ранги 4–9) — в Кладовую');
+    assert.ok((g.db.messages || []).slice(m0).some((x) => x.to === SB.id && /новый сезон/.test(x.subject || '')), 'письмо — что пришло в Кладовую');
+    const h = g.db.brHistory[g.db.brHistory.length - 1];
+    assert.ok(h.n === 7 && h.top[0].login === 'brSeaA' && h.top.length <= 10 && g.brHistoryView()[0].n === 7, 'итоги сезона 7 — в «Прошлых сезонах», лидер первый');
+    assert.ok(/уже начат/.test(g.adminOp(adm, 'brseasonnew', {}).error || ''), 'второй раз в том же месяце — нельзя');
+    const v = g.brView(SA, SA), tp = g.brTop(SA, 0);
+    assert.ok(v.season.n === 8 && v.best.idx === 70 && v.best.season === 7 && tp.season.n === 8 && tp.hist >= 1 && tp.total === 0, 'окно ранга: сезон 8, рекорд; «Топ» пуст');
+    g.brAdd(SA.id, 1000, null); assert.ok(g.brRank(SA) >= 0 && g.brChests(SA) > 0, 'в новом сезоне ранг растёт заново, сундуки — снова');
+    g.db.brSeason.resetAt = Date.now() - 40 * DAY; assert.strictEqual(g.brSeasonWait(), 0, 'в следующем месяце — можно');
+    console.log('✓ Боевой ранг: сундуки званий (руны, артефакты, нежить), сезоны — новый раз в месяц: ранги с нуля, несобранное — в Кладовую, рекорд, прошлые сезоны');
   }
   { // админка → Войска → «Забрать войска»: из замковой армии, затем «Резерва» и отрядов; в походе — не трогаются; генерал и торговцы — нет
     const A = require('../src/army'), adm = Object.values(g.db.users).find((x) => x.admin) || g.ensureAdmin('secretpass');

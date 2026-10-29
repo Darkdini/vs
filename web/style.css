@@ -2239,6 +2239,8 @@ img.artr2 { filter: drop-shadow(0 0 3px #ffd34a) drop-shadow(0 0 7px #ff8a1a); }
 .brtable .brbox { width: 24px; }
 .brtable > div.ready .brbox { filter: drop-shadow(0 0 4px #ffd84a) drop-shadow(0 0 2px #ffd84a); animation: brglow 1.2s ease-in-out infinite alternate; } /* сундук ждёт — светится */
 .brtable > div.got .brbox { opacity: .4; } /* награда забрана */
+.brtable .brbox.tch { width: 30px; margin: -3px -2px; } /* сундук звания — богаче с каждым званием (gfx/shop/chest2…7) */
+.brseas { margin: 2px 0 6px; text-align: center; font: min(17px, 4.2vw) var(--serif); color: #5a3410; } /* «Топ»: сезон и прошлые сезоны */
 @keyframes brglow { from { transform: scale(1); } to { transform: scale(1.18); } }
 #btnRank .brdot { position: absolute; top: -2px; right: -4px; width: 11px; height: 11px; border-radius: 50%; background: #e02020; border: 2px solid #fff3; }
 .brclaim > img { width: 58px; }

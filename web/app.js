@@ -293,6 +293,7 @@ function onMsg(m) {
     case 'hunt': huntMsg(m); break; // Алтарь → Зона охоты (hunt.js)
     case 'trap': trapMsg(m); break; // Капкан и Темница (trap.js)
     case 'brtop': brTopMsg(m); break;
+    case 'brhist': brHistMsg(m); break;
     case 'zags': case 'zprops': case 'zpairs': case 'zpair': case 'zdone': zagsMsg(m); break;
     case 'news': newsMsg(m); break;
     case 'shop': shopMsg(m); break;

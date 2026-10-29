@@ -28,7 +28,12 @@ function client() {
   const inbox = []; const waiters = [];
   const opened = new Promise((r) => { ws.onopen = r; }); // подписываемся сразу, иначе событие можно пропустить
   let isClosed = false; ws.onclose = () => { isClosed = true; };
-  ws.onmessage = (e) => { const m = JSON.parse(e.data); if (process.env.DBG && (m.t === 'toast' || m.t === 'error')) console.log('  <', m.t, m.msg); inbox.push(m); flush(); };
+  const said = []; // последние всплывающие сообщения и ошибки — в текст ошибки, если ожидание не дождалось (чем объяснить случайный сбой)
+  ws.onmessage = (e) => {
+    const m = JSON.parse(e.data); if (process.env.DBG && (m.t === 'toast' || m.t === 'error')) console.log('  <', m.t, m.msg);
+    if (m.t === 'toast' || m.t === 'error') { said.push(`${m.t}: ${m.msg}`); if (said.length > 6) said.shift(); }
+    inbox.push(m); flush();
+  };
   function flush() {
     for (const w of [...waiters]) {
       const i = inbox.findIndex(w.pred);
@@ -41,7 +46,7 @@ function client() {
     expect: (t, pred = () => true) => new Promise((resolve, reject) => {
       const w = { pred: (m) => m.t === t && pred(m), resolve }; waiters.push(w); flush();
       // не дождались — ожидание снимается, иначе оно «съест» следующее такое сообщение (например, проигравшее в Promise.race)
-      setTimeout(() => { const i = waiters.indexOf(w); if (i >= 0) waiters.splice(i, 1); reject(new Error(`timeout waiting ${t}`)); }, 5000);
+      setTimeout(() => { const i = waiters.indexOf(w); if (i >= 0) { waiters.splice(i, 1); reject(new Error(`timeout waiting ${t}${said.length ? ` (последнее: ${said.join(' | ')})` : ''}`)); } }, 5000);
     }),
     close: () => ws.close(),
     closed: () => isClosed,
