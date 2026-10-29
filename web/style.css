@@ -1304,6 +1304,24 @@ button.fpopt { cursor: pointer; } button.fpopt:active { filter: brightness(.94);
 .gaunit input { width: 100%; min-width: 0; height: 30px; font-size: 16px; padding: 0 6px; }
 .gabtns { display: flex; gap: 6px; margin-top: 8px; } .gabtns .btn { flex: 1; }
 .gasub { margin: 10px 0 4px; } /* админка → Войска: подпись над особыми */
+/* «Кладоискатель» (dig.js): поле 5×5 — закрытые клетки — холмики земли, открытые — находка или ловушка */
+.digf { display: grid; gap: 6px; max-width: 380px; margin: 8px auto; }
+.digc { aspect-ratio: 1; display: grid; place-items: center; padding: 0; border: 2px solid #6b4220; border-radius: 10px;
+  background: radial-gradient(ellipse at 50% 62%, #a8763f 0%, #7d5027 55%, #583515 100%); box-shadow: inset 0 -4px 0 #0003, 0 2px 3px #0005; }
+.digc.shut:not(:disabled) { cursor: pointer; }
+.digc.shut:not(:disabled):active { transform: scale(.94); }
+.digc.shut:disabled { opacity: .6; }
+.digc.open, .digc.seen { background: radial-gradient(ellipse at 50% 55%, #f0dcaa 0%, #d0aa70 70%, #a9844e 100%); border-color: #8a5a2a; box-shadow: inset 0 3px 6px #0004; }
+.digc.seen { opacity: .45; } /* после конца игры — что было под нераскопанными клетками */
+.digc img { width: 74%; height: 74%; object-fit: contain; }
+.digc.k-trap.open { background: radial-gradient(#d04a36, #6a1a10); }
+.digc.k-klad.open img { width: 92%; height: 92%; filter: drop-shadow(0 0 6px #ffd84a); }
+.digc.boom { animation: digboom .5s ease-out; }
+.digc.digging { animation: digshake .35s linear infinite; }
+@keyframes digshake { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-5deg); } 75% { transform: rotate(5deg); } }
+@keyframes digboom { from { transform: scale(1.35); } to { transform: scale(1); } }
+.digst { margin: 4px 0; text-align: center; font: min(18px, 4.4vw) var(--serif); color: #3a1c08; }
+.digbag { margin: 6px 0; padding: 6px 10px; border: 1px solid #b07a3a; border-radius: 8px; background: #fff6; font: min(16px, 4vw) var(--serif); color: #3a1c08; }
 .gaunit .gahave { display: block; font-size: 12px; line-height: 1.2; color: #6a4a1a; } /* админка → Войска: сколько есть в выбранном замке */
 /* чат: новые сообщения всегда внизу и видны сразу — лента «прилипает» к низу (порядок в разметке обратный) */
 #sheetBody .chatlist { display: flex; flex-direction: column-reverse; }

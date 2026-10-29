@@ -939,6 +939,7 @@ require('./pics').install(Game);
 require('./zags').install(Game);
 require('./dungeon').install(Game); // Подземелье: лагеря археологов, раскопки и кража артефактов
 require('./chests').install(Game);
+require('./dig').install(Game); // «Кладоискатель» (меню «Игры»): поле 5×5 — клады и ловушки
 require('./coin').install(Game);
 require('./market').install(Game);
 require('./privacy').install(Game);

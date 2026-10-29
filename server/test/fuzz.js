@@ -28,7 +28,7 @@ const EVIL = [-1, -1e9, 1e300, 0.5, '-5', '1e400', 'Infinity', 'NaN', null, true
   const st0 = A.last.state; if (!st0) throw new Error('no state');
   const victimId = (Object.values(JSON.parse(fs.readFileSync(DB))).users || {}).victim;
   const base = {
-    build: { view: 0, cell: 5, building: 3 }, demolish: { view: 0, cell: 5 }, switch: { id: 1 }, ritual: { id: 'x' }, forge: { unit: 200, kind: 'a' }, festival: { id: 1 },
+    build: { view: 0, cell: 5, building: 3 }, demolish: { view: 0, cell: 5 }, dig: { op: 'dig', cell: 3 }, switch: { id: 1 }, ritual: { id: 'x' }, forge: { unit: 200, kind: 'a' }, festival: { id: 1 },
     world: { cx: 500, cy: 500 }, gift: { to: 2, gift: 1, text: 'hi' }, profile: { id: 2 }, rep: { id: 2, coins: 1 }, friend: { op: 'add', id: 2 }, search: { q: 'a' }, notes: { text: 'n' }, about: { text: 'a' },
     chat: { text: 'hi' }, premium: { days: 14, to: '' }, chatmod: { op: 'del', id: 1, login: 'victim', hours: 1 }, ratings: { kind: 'castles' }, mail: { folder: 0 }, read: { id: 1 },
     sendmail: { to: 'victim', subject: 's', text: 't' }, train: { unit: 200, count: 1 }, send: { units: { 200: 1 }, x: 510, y: 510, mission: 'attack', res: { wood: 1 }, from: '', at: 0 },

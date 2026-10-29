@@ -555,6 +555,14 @@ const API = {
     this.send({ t: 'chestres', res: r }); this.pushState();
     if (r.chat) for (const s of WebSession.all || []) if (s.user && s.sendChat) s.sendChat(r.chat);
   },
+  // ---- «Кладоискатель» (server/src/dig.js): op start — новая игра, dig — копнуть клетку m.cell, take — забрать добычу ----
+  dig(m) {
+    const g = this.game, r = m.op === 'start' ? g.digStart(this.user) : m.op === 'dig' ? g.digCell(this.user, m.cell) : m.op === 'take' ? g.digTake(this.user) : { state: g.digState(this.user) };
+    if (r.error) { this.error(r.error); return this.send({ t: 'dig', data: g.digState(this.user) }); }
+    this.send({ t: 'dig', data: r.state, msg: r.note ? r.msg : '', kind: r.kind || '' });
+    if (r.state.game && r.state.game.taken) this.pushState(); // добыча в Кладовой — значок Кладовой обновится
+    if (r.chat) for (const s of WebSession.all || []) if (s.user && s.sendChat) s.sendChat(r.chat);
+  },
   // ---- ЗАГС (server/src/zags.js) ----
   zags() { this.send({ t: 'zags', home: this.game.zagsHome(this.user) }); },
   zprops() { this.send({ t: 'zprops', data: this.game.proposals(this.user) }); },

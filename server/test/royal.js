@@ -3560,6 +3560,38 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.ok((tc.units[A.MERCHANT_ID] || 0) === (n0[A.MERCHANT_ID] || 0) && (tc.units[A.GENERAL_ID] || 0) === (n0[A.GENERAL_ID] || 0), 'торговцы и генерал не выдаются');
     console.log('✓ Админка → Войска: выдаются и особые воины (уникальные, нежить, снятые с найма), генерал и торговцы — нет');
   }
+  { // «Кладоискатель»: поле 5×5 — 5 ловушек и клад; копать — находки в добыче, ловушка — добыча сгорает, «Забрать» — в Кладовую
+    const D = require('../src/dig'), K = g.register({ login: 'digger1', password: '12345', race: 0 }).user;
+    const stashSum = () => { const st = g.stashOf(K); return ['wood', 'stone', 'iron', 'food'].reduce((a, r) => a + (st.res[r] || 0), 0) + (st.exp || 0); };
+    const runes = () => Object.values(g.runesOf(K)).reduce((a, n) => a + n, 0), gam0 = (g.mstats(K).gamble || 0);
+    assert.ok(g.digState(K).left === D.TRIES && !g.digState(K).game, 'до первой игры — 3 попытки, поля нет');
+    assert.ok(/Начните новую игру/.test(g.digCell(K, 0).error || '') && /Начните/.test(g.digTake(K).error || ''), 'без игры копать и забирать нельзя');
+    let r = g.digStart(K); const gm = K.dig.game, kinds = gm.cells.map((c) => c.kind);
+    assert.ok(r.ok && r.state.left === D.TRIES - 1 && kinds.length === 25 && kinds.filter((k) => k === 'trap').length === 5 && kinds.filter((k) => k === 'klad').length === 1, 'новая игра: 25 клеток, 5 ловушек, 1 клад');
+    assert.ok(r.state.game.cells.every((c) => c === null), 'клиенту не видно, что под закрытыми клетками');
+    assert.ok(/уже идёт/.test(g.digStart(K).error || '') && K.dig.used === 1, 'вторую игру поверх начатой не начать');
+    assert.ok(/Добычи пока нет/.test(g.digTake(K).error || ''), 'пустую добычу не забрать');
+    const safe = kinds.map((k, i) => (k !== 'trap' ? i : -1)).filter((i) => i >= 0), traps = kinds.map((k, i) => (k === 'trap' ? i : -1)).filter((i) => i >= 0);
+    r = g.digCell(K, safe[0]); assert.ok(r.ok && r.state.game.bag.length === 1 && r.state.game.cells[safe[0]].open && r.state.game.cells[safe[1]] === null, 'находка — в добычу, остальное закрыто');
+    assert.ok(/уже копали/.test(g.digCell(K, safe[0]).error || '') && g.digCell(K, 99).error, 'дважды одну клетку и чужую — нельзя');
+    const s0 = stashSum(), r0 = runes(); g.digCell(K, safe[1]);
+    r = g.digCell(K, traps[0]);
+    assert.ok(r.ok && r.kind === 'trap' && r.note && r.state.game.lost && /сгорела/.test(r.msg) && stashSum() === s0 && runes() === r0, 'ловушка: игра окончена, добыча сгорела');
+    assert.ok(r.state.game.cells.every((c) => c), 'после конца игры видно всё поле');
+    // вторая игра: копаем две безопасные и забираем
+    r = g.digStart(K); const k2 = K.dig.game.cells.map((c) => c.kind), sf = k2.map((k, i) => (k !== 'trap' ? i : -1)).filter((i) => i >= 0);
+    g.digCell(K, sf[0]); g.digCell(K, sf[1]); const want = [sf[0], sf[1]].map((i) => K.dig.game.cells[i]);
+    const add = want.reduce((a, c) => a + Object.values(c.rw || {}).reduce((x, v) => x + v, 0), 0), addRunes = want.reduce((a, c) => a + (c.runes || 0), 0);
+    r = g.digTake(K); assert.ok(r.ok && r.note && r.state.game.taken && stashSum() - s0 === add && runes() - r0 === addRunes, `«Забрать»: добыча (${add}) — в Кладовую`);
+    // третья игра: раскопать все безопасные клетки — добыча забирается сама, клад — в чате
+    g.digStart(K); const k3 = K.dig.game.cells.map((c) => c.kind); let last;
+    k3.forEach((k, i) => { if (k !== 'trap') last = g.digCell(K, i); });
+    assert.ok(last.ok && last.state.game.taken && /всё поле/.test(last.msg) && last.chat && /клад/.test(last.chat.text) && g.db.chat[g.db.chat.length - 1] === last.chat, 'всё поле раскопано — добыча сама в Кладовую, клад объявлен в чате');
+    assert.ok(/закончились/.test(g.digStart(K).error || '') && g.digState(K).left === 0, 'три игры в сутки');
+    assert.strictEqual((g.mstats(K).gamble || 0) - gam0, 3, 'каждая игра — очко в Зал Славы «Азарт»');
+    K.dig.day = '2000-01-01'; assert.strictEqual(g.digState(K).left, D.TRIES, 'новый день — снова 3 игры');
+    console.log('✓ «Кладоискатель»: 5 ловушек и клад на поле 5×5, поле скрыто от клиента, ловушка — добыча сгорает, «Забрать» — в Кладовую, 3 игры в сутки');
+  }
   { // Боевой ранг: сундуки званий (руны, артефакт) и сезоны — раз в календарный месяц админ начинает новый: ранги у всех с нуля
     const BR = require('../src/battlerank'), adm = Object.values(g.db.users).find((x) => x.admin) || g.ensureAdmin('secretpass');
     const reg = (login) => { const x = g.register({ login, password: '12345', race: 0 }).user; x.br = undefined; g.brOf(x); return x; };

@@ -66,6 +66,7 @@ const MENUS = {
   ] },
   games: { label: 'Игры', icon: 'menu2/games.png', items: () => [
     ['Сундучки', M3('chests'), () => openChests()],
+    ['Кладо\u00adискатель', M3('archaeology'), () => openDig()], // мягкий перенос: в плитке — «Кладо-» / «искатель»
     ['Орел-решка', 'coin/stack.png', () => openCoin()],
   ] },
   info: { label: 'Инфо', icon: 'menu2/info.png', items: () => [

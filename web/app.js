@@ -284,6 +284,7 @@ function onMsg(m) {
     case 'newspicok': if (typeof newsPicMsg === 'function') newsPicMsg(m); else if (m.done === undefined) { /* ошибка загрузки — без админки */ } break;
     case 'avalikes': avaMsg(m); break;
     case 'chests': case 'chestres': chestsMsg(m); break;
+    case 'dig': digMsg(m); break;
     case 'coin': case 'coinres': coinMsg(m); break;
     case 'market': case 'marketdone': marketMsg(m); break;
     case 'privacy': privacyMsg(m); break;

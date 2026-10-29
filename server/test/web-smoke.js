@@ -120,6 +120,16 @@ function client() {
     assert.ok(w.objects.some((o) => o.kind === 'castle' && o.owner === 'Webby'));
     console.log('✓ карта мира, объектов:', w.objects.length);
 
+    // «Кладоискатель»: поле скрыто от клиента, новая игра — минус попытка, копнуть клетку — она открыта
+    a.send({ t: 'dig' }); const d0 = (await a.expect('dig')).data;
+    assert.ok(d0.left === 3 && d0.size === 5 && !d0.game, 'до игры — 3 попытки');
+    a.send({ t: 'dig', op: 'start' }); const d1 = (await a.expect('dig')).data;
+    assert.ok(d1.left === 2 && d1.game && d1.game.cells.length === 25 && d1.game.cells.every((c) => c === null), 'новая игра: под клетками ничего не видно');
+    a.send({ t: 'dig', op: 'dig', cell: 12 }); const d2 = (await a.expect('dig')).data;
+    assert.ok(d2.game.cells[12] && d2.game.cells[12].open && d2.game.cells.filter(Boolean).length >= 1, 'копнули клетку — она открыта');
+    if (!d2.game.over) { a.send({ t: 'dig', op: 'take' }); const d3 = await a.expect('dig'); assert.ok(d3.data.game.taken && /Кладовой/.test(d3.msg), 'добыча — в Кладовую'); }
+    console.log('✓ «Кладоискатель»: поле скрыто, игра, раскопка, добыча');
+
     await b.open();
     b.send({ t: 'register', login: 'Second', password: 'pass2', race: '0' });
     await b.expect('registered');
