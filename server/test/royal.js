@@ -637,7 +637,7 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
 // закрыть чат на 5/10/15/30 минут — пишут только модераторы и админ, по таймеру открывается сам
 {
   const R = require('../src/rules'), adm = Object.values(g.db.users).find((x) => x.admin);
-  assert.ok(R.RULES.length === 18 && R.ruleLabel(2) === 'п. 2 — Оскорбление игроков' && !R.ruleLabel(0) && !R.ruleLabel(19) && R.RULES.every((r) => r.short && r.text), 'правила игры: 18 пунктов');
+  assert.ok(R.RULES.length === 19 && R.ruleLabel(2) === 'п. 2 — Оскорбление игроков' && R.ruleLabel(19) === 'п. 19 — Споры в общем чате' && !R.ruleLabel(0) && !R.ruleLabel(20) && R.RULES.every((r) => r.short && r.text), 'правила игры: 19 пунктов, споры в общем чате — 19-й');
   const [md, p1, p2] = ['cm_mod1', 'cm_pl01', 'cm_pl02'].map((l) => g.register({ login: l, password: '12345', race: 0 }).user); md.mod = true;
   assert.ok(g.chatWarn(p1, 'cm_pl02', 2).error, 'игрок не предупреждает');
   assert.ok(/пункт правил/.test(g.chatWarn(md, 'cm_pl01', 0).error || '') && /пункт правил/.test(g.chatWarn(md, 'cm_pl01', '__proto__').error || ''), 'без пункта правил — нельзя');
