@@ -1,8 +1,8 @@
 'use strict';
 // «СВЯЗЬ» — переписка игрока с мастерами игры (админ и тестеры), как личные сообщения.
 // У игрока: «Сообщения» → строка «📮 СВЯЗЬ — Мастер игры» всегда сверху (её нельзя удалить); он пишет жалобу или вопрос
-// и может приложить скрин — скрин живёт 8 часов, потом удаляется с сервера. «Сообщить об ошибке» и «Пожаловаться» в чате
-// попадают сюда же. Ответ мастера приходит игроку сообщением от «Мастер игры» — ник мастера игрок не видит.
+// и может приложить скрин — скрин живёт 8 часов, потом удаляется с сервера, — или свой отчёт (копией: игрок удалит отчёт —
+// у мастеров он останется). «Сообщить об ошибке» и «Пожаловаться» в чате попадают сюда же. Ответ мастера приходит игроку сообщением от «Мастер игры» — ник мастера игрок не видит.
 // У мастеров: МАСТЕРА → «СВЯЗЬ» — список переписок (сверху ждущие ответа), ответ, «✔ Решено»; кто ответил — видят только мастера.
 // Скрин — как фото в «МАСТЕРАХ» (staff.js): браузер присылает сжатые цвета точек, сервер сам собирает PNG.
 const crypto = require('crypto');
@@ -10,7 +10,7 @@ const fs = require('fs'), path = require('path');
 const { assemblePng, PIC_SIDE, PIC_PART } = require('./staff');
 
 const PIC_LIFE = 8 * 3600000, PIC_PARTS = 24, TEXT_MAX = 2000, MSGS_KEEP = 300, SHOW = 100;
-const DAY_MSGS = 10, DAY_PICS = 5, DAY = 86400000;
+const DAY_MSGS = 10, DAY_PICS = 5, DAY_REPS = 5, REPS_KEEP = 30, DAY = 86400000;
 const MASTER = 'Мастер игры';
 
 function install(Game) {
@@ -18,7 +18,8 @@ function install(Game) {
   const clean = (s, n) => String(s || '').replace(/[\u0000-\u0008\u000b-\u001f]/g, '').trim().slice(0, n);
   const login = (g, id) => (g.userById(id) || {}).login || '—';
 
-  // db.link = { next, th: { [id игрока]: { msgs: [{ id, by, m (ответ мастера), at, text, pic, picExp, w, h, picGone }], wait, at, readP } } }
+  // db.link = { next, th: { [id игрока]: { msgs: [{ id, by, m (ответ мастера), at, text, pic, picExp, w, h, picGone, rep }], wait, at, readP } } }
+  // rep — копия отчёта { id, kind, title, at, lines, data, from }; у старых (сверх REPS_KEEP в переписке) — только { title, at, gone }
   P.linkDb = function linkDb() {
     const L = (this.db.link = this.db.link || { next: 1, th: {} });
     if (this.db.bugs) { // жалобы прежней «СВЯЗИ» (db.bugs) → переписки
@@ -50,21 +51,43 @@ function install(Game) {
   const push = (g, uid, msg) => {
     const th = g.linkThread(uid); th.msgs.push(msg); th.at = msg.at;
     if (th.msgs.length > MSGS_KEEP) for (const m of th.msgs.splice(0, th.msgs.length - MSGS_KEEP)) dropPic(g, m);
+    // копии отчётов — только у последних REPS_KEEP сообщений с отчётом, у старых остаётся название (база не растёт без конца)
+    const reps = th.msgs.filter((m) => m.rep && !m.rep.gone);
+    for (const m of reps.slice(0, Math.max(0, reps.length - REPS_KEEP))) m.rep = { title: m.rep.title, at: m.rep.at, gone: true };
     return th;
   };
   // лимит игрока: не больше 10 сообщений (и 5 скринов) в сутки
   const dayLeft = (u, key, max, now) => { u[key] = (u[key] || []).filter((x) => x > now - DAY); return u[key].length < max; };
   // порог рейтинга (social.js talkLow) — кроме ответа мастеру, который уже написал игроку
   P.linkLow = function linkLow(u) { const th = this.linkDb().th[u.id]; return !!(this.talkLow && this.talkLow(u)) && !(th && th.msgs.some((x) => x.m)); };
-  P.linkPost = function linkPost(u, text) {
+  // repId — свой отчёт (не пересланный) к сообщению: мастерам уходит его копия, текст тогда можно не писать
+  P.linkPost = function linkPost(u, text, repId) {
     if (!u || u.bot) return { error: 'Нельзя.' };
-    text = clean(text, TEXT_MAX); if (!text) return { error: 'Напишите, что случилось.' };
+    text = clean(text, TEXT_MAX);
+    const r = repId ? (this.db.reports || []).find((y) => y.id === Number(repId) && y.owner === u.id && !y.fwd) : null;
+    if (repId && !r) return { error: 'Отчёт не найден — возможно, он уже удалён.' };
+    if (!text && !r) return { error: 'Напишите, что случилось.' };
     const now = Date.now(); this.linkDb();
     if (this.linkLow(u)) return { error: this.talkLowMsg(u, 'Писать мастерам и сообщать об ошибках') };
     if (!dayLeft(u, 'linkLog', DAY_MSGS, now)) return { error: `В «СВЯЗЬ» — не больше ${DAY_MSGS} сообщений в сутки. Мастера ответят на уже присланное.` };
-    u.linkLog.push(now);
-    const th = push(this, u.id, { id: this.db.link.next++, by: u.id, at: now, text }); th.wait = true;
+    if (r && !dayLeft(u, 'linkReps', DAY_REPS, now)) return { error: `Не больше ${DAY_REPS} отчётов в сутки.` };
+    u.linkLog.push(now); if (r) u.linkReps.push(now);
+    const msg = { id: this.db.link.next++, by: u.id, at: now, text };
+    if (r) msg.rep = JSON.parse(JSON.stringify({ id: r.id, kind: r.kind, title: r.title, at: r.at, lines: r.lines, data: r.data, from: r.from }));
+    const th = push(this, u.id, msg); th.wait = true;
     this.store.save(); return { ok: true };
+  };
+  // выбор отчёта для сообщения: последние свои отчёты, как в списке «Отчёты» (без пересланных)
+  P.linkRepList = function linkRepList(u) { return this.reportsOf(u.id).map((r) => ({ id: r.id, at: r.at, title: r.title, tone: this.reportTone(r) })); };
+  // копия отчёта из переписки (mid — номер сообщения) — игроку, приложившему его, и мастерам; открывается как обычный отчёт
+  P.linkRepGet = function linkRepGet(u, mid) {
+    if (!u) return null;
+    for (const [uid, th] of Object.entries(this.linkDb().th)) {
+      const m = th.msgs.find((x) => x.id === Number(mid)); if (!m) continue;
+      if (!m.rep || m.rep.gone || (Number(uid) !== u.id && !this.staffOk(u))) return null;
+      return { ...JSON.parse(JSON.stringify(m.rep)), id: 0, lk: true };
+    }
+    return null;
   };
   P.linkPicBegin = function linkPicBegin(u, w, h, n, text) {
     if (!u || u.bot) return { error: 'Нельзя.' };
@@ -107,7 +130,7 @@ function install(Game) {
   };
 
   const out = (m, staff, g) => ({ id: m.id, master: !!m.m, at: m.at, text: m.text || '', by: m.m ? (staff ? login(g, m.by) : MASTER) : null,
-    pic: m.pic && m.picExp > Date.now() ? m.pic : null, picExp: m.pic ? m.picExp : 0, picGone: !!m.picGone });
+    pic: m.pic && m.picExp > Date.now() ? m.pic : null, picExp: m.pic ? m.picExp : 0, picGone: !!m.picGone, rep: m.rep ? { title: m.rep.title, gone: !!m.rep.gone } : null });
   // игрок: своя переписка; открыл — ответы мастеров прочитаны
   P.linkMine = function linkMine(u) {
     const th = this.linkDb().th[u.id], msgs = th ? th.msgs : [];
@@ -122,7 +145,7 @@ function install(Game) {
     return Object.entries(this.linkDb().th).filter(([, t]) => t.msgs.length).map(([uid, t]) => {
       const last = t.msgs[t.msgs.length - 1];
       return { uid: Number(uid), login: login(this, Number(uid)), gone: !this.userById(Number(uid)), wait: !!t.wait, at: t.at, n: t.msgs.length,
-        last: { master: !!last.m, text: last.pic || last.picGone ? `📷 ${last.text || 'Скрин'}` : last.text } };
+        last: { master: !!last.m, text: last.rep ? `📜 ${last.text || `Отчёт: ${last.rep.title}`}` : last.pic || last.picGone ? `📷 ${last.text || 'Скрин'}` : last.text } };
     }).sort((a, b) => (b.wait - a.wait) || b.at - a.at);
   };
   P.linkOpen = function linkOpen(uid) {

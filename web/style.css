@@ -2753,6 +2753,7 @@ img.artsp { filter: drop-shadow(0 0 4px #c89aff) drop-shadow(0 0 8px #6a3aff); }
 .lkava { font-size: 32px; background: #3a1e08; }
 .sfmsg.lkmaster { border-left: 3px solid #c8a24a; }
 .lknote { margin: 4px 2px 8px; }
+.lkrepw { margin-top: 5px; } /* отчёт в «СВЯЗИ» (link.js): «✉ Отчёт» и кнопка-название — как пересланный отчёт в личных сообщениях */
 /* «Резерв» в Военном штабе (armies.js) */
 /* строки армий в «Армиях в замке» — карточки как в оригинале */
 .armcard { display: flex; align-items: center; gap: 10px; width: 100%; margin: 6px 0; padding: 8px 10px; border: 1px solid #b08a5a; border-radius: 8px;

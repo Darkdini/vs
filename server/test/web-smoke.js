@@ -205,6 +205,26 @@ function client() {
     const rep = (await adm.expect('report')).report;
     assert.ok(rep.lines.some((l) => /Добыча/.test(l)));
     console.log('✓ набег на игрока с генералом, отчёты у обеих сторон:', rep.lines[4]);
+    // «Сообщить об ошибке» (СВЯЗЬ) с отчётом (29.10): свои отчёты на выбор, сообщение с копией, копия открывается как отчёт
+    a.send({ t: 'link', op: 'reps' });
+    const defRep = (await a.expect('linkreps')).list.find((x) => /Оборона от Советник/.test(x.title));
+    assert.ok(defRep, 'на выбор — свой отчёт об обороне');
+    a.send({ t: 'link', op: 'post', text: 'Странный бой', rep: defRep.id });
+    const lm = (await a.expect('link', (m) => m.data.msgs.some((x) => x.rep))).data.msgs.find((x) => x.rep);
+    assert.ok(lm.rep.title === defRep.title && lm.text === 'Странный бой' && !lm.rep.data, 'в переписке — название отчёта');
+    a.send({ t: 'link', op: 'rep', mid: lm.id });
+    const lrep = (await a.expect('report', (m) => m.report.lk)).report;
+    assert.ok(lrep.title === defRep.title && lrep.lines.length > 0, 'копия отчёта открывается как отчёт');
+    a.send({ t: 'link', op: 'leave' });
+    // мастер (админ): переписка с отчётом в списке, та же копия открывается; «Решено» — счётчик у мастеров прежний (для «МАСТЕРОВ» ниже)
+    adm.send({ t: 'staff', op: 'link' });
+    const lth = (await adm.expect('staff', (m) => m.view === 'link')).data.find((x) => x.login === 'Webby');
+    assert.ok(lth && lth.wait && /^📜 Странный бой/.test(lth.last.text), 'у мастеров — переписка с отчётом');
+    adm.send({ t: 'link', op: 'rep', mid: lm.id });
+    assert.ok((await adm.expect('report', (m) => m.report.lk)).report.title === defRep.title, 'мастер открывает ту же копию');
+    adm.send({ t: 'staff', op: 'linksolve', uid: lth.uid }); await adm.expect('toast', (m) => /решено/.test(m.msg));
+    adm.send({ t: 'staff', op: 'leave' });
+    console.log('✓ «Сообщить об ошибке»: свой отчёт к сообщению, копия открывается как отчёт — у игрока и у мастера');
 
     adm.send({ t: 'exchange', from: 'wood', to: 'iron', amount: 1000 });
     await adm.expect('toast', (m) => /Обмен/.test(m.msg));

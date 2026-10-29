@@ -279,7 +279,7 @@ function onMsg(m) {
     case 'dialogs': case 'dialog': case 'dialoghist': dialogsMsg(m); break;
     case 'picok': picMsg(m); break;
     case 'staff': case 'staffnew': case 'staffpicok': staffMsg(m); break;
-    case 'link': case 'linkpicok': linkMsg(m); break; // «СВЯЗЬ» игрока (link.js)
+    case 'link': case 'linkpicok': case 'linkreps': linkMsg(m); break; // «СВЯЗЬ» игрока (link.js)
     case 'newspicok': if (typeof newsPicMsg === 'function') newsPicMsg(m); else if (m.done === undefined) { /* ошибка загрузки — без админки */ } break;
     case 'avalikes': avaMsg(m); break;
     case 'chests': case 'chestres': chestsMsg(m); break;

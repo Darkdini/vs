@@ -6,7 +6,10 @@ process.env.NEWBIE_PREMIUM_DAYS = process.env.NEWBIE_PREMIUM_DAYS ?? '0'; // и 
 process.env.GRANT_MIN_DAYS = process.env.GRANT_MIN_DAYS ?? '0'; // раздачи админа «всем» — и свежим тестовым аккаунтам (правило 3 дней — отдельно)
 process.env.LUCK = '0';
 const os = require('os'), path = require('path'), fs = require('fs');
-const DB = path.join(os.tmpdir(), `royal-${process.pid}.json`);
+// базы проверок — в папке временных файлов по номеру процесса; номер может совпасть с прошлым прогоном (упавшим — его база осталась),
+// поэтому база всегда начинается с чистого листа, а в конце удаляется
+const tmpDbs = [], tmpDb = (tag) => { const f = path.join(os.tmpdir(), `royal-${tag}${process.pid}.json`); try { fs.unlinkSync(f); } catch {} tmpDbs.push(f); return f; };
+const DB = tmpDb('');
 const { Game, Store } = require('../src/game');
 const g = new Game(new Store(DB));
 const chatLow0 = g.chatLow; g.chatLow = () => false; // порог входа в чат (рейтинг 100) проверяется отдельно — ниже, «Порог чата»
@@ -968,7 +971,7 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
   assert.ok(/минимум 5/.test(g.register({ login: 'short', password: '1234', nick: 'Shorty', race: 0 }).error), 'пароль короче 5 — нельзя');
   { // ник: только английские буквы и цифры; мат, оскорбления (и с цифрами вместо букв) и «админские» ники — нельзя
     // (свой отдельный мир — лишние игроки не сдвигают замки следующих проверок)
-    const NDB = path.join(os.tmpdir(), `royal-nick-${process.pid}.json`), gn = new Game(new Store(NDB));
+    const NDB = tmpDb('nick-'), gn = new Game(new Store(NDB));
     let nkN = 0; const reg = (nick) => gn.register({ login: `nk_${nick.toLowerCase().replace(/[^a-z0-9]/g, '')}x${1000 + ++nkN}` /* номер, а не случайные буквы: из них могло сложиться запрещённое слово */, password: '12345', nick, race: 0 });
     assert.ok(/английские буквы/.test(reg('Иван').error), 'русские буквы в нике — нельзя');
     for (const n of ['Admin', 'Adm1n', 'Moderator', 'Sovetnik', 'Support']) assert.ok(/администрации/.test(reg(n).error), `«${n}» — похоже на администрацию`);
@@ -1089,7 +1092,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
 }
 { // удаление игрока админом: игрок убирается отовсюду и ничего не падает; чужое подкрепление из его замка идёт домой
   // (свой отдельный мир — лишние игроки не сдвигают замки следующих проверок)
-  const DDB = path.join(os.tmpdir(), `royal-del-${process.pid}.json`), g = new Game(new Store(DDB)); g.ensureAdmin();
+  const DDB = tmpDb('del-'), g = new Game(new Store(DDB)); g.ensureAdmin();
   const adm = g.adminUser(), reg = (l) => g.register({ login: l, password: '12345', race: 1 }).user;
   const P1 = reg('purgeA1'), P2 = reg('purgeB1'), c1 = g.castleOf(P1), c2 = g.castleOf(P2); g.mil(c1); g.mil(c2);
   P1.friends = [P2.id]; P2.friends = [P1.id]; P1.friendIn = [P2.id]; g.privacyOf(P1).black.push(P2.id);
@@ -2672,7 +2675,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     console.log('✓ Золото всем:', r.msg);
   }
   { // переписка, как в оригинале: «История» по страницам, «Изменить» — удалить отмеченное / разговор (только у себя), «Переслать»
-    const MDB = path.join(os.tmpdir(), `royal-msg-${process.pid}.json`), g = new Game(new Store(MDB));
+    const MDB = tmpDb('msg-'), g = new Game(new Store(MDB));
     const reg = (l) => g.register({ login: l, password: '12345', race: 0 }).user, a = reg('msgA1'), b = reg('msgB1'), c = reg('msgC1');
     for (let i = 0; i < 25; i++) g.sendMail(i % 2 ? b : a, i % 2 ? a.login : b.login, 'Сообщение', `текст ${i}`);
     const ab = () => g.db.messages.filter((x) => (x.from === a.id && x.to === b.id) || (x.from === b.id && x.to === a.id));
@@ -2697,7 +2700,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   }
   { // медаль «Первопроходец» (honors.js): вручает только админ — по никам через запятую или всем тестерам; видна в профиле, можно забрать
     // (свой отдельный мир — лишние игроки не сдвигают замки следующих проверок)
-    const HDB = path.join(os.tmpdir(), `royal-hon-${process.pid}.json`), g = new Game(new Store(HDB)); g.ensureAdmin();
+    const HDB = tmpDb('hon-'), g = new Game(new Store(HDB)); g.ensureAdmin();
     const adm = g.adminUser();
     const t1 = g.register({ login: 'honTest1', password: '12345', race: 0 }).user, t2 = g.register({ login: 'honTest2', password: '12345', race: 0 }).user;
     const pl = g.register({ login: 'honPlayer', password: '12345', race: 0 }).user; t1.tester = t2.tester = true;
@@ -3348,10 +3351,29 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.ok(g.linkOpen(pl.id).msgs.at(-1).by === 'linkTester', 'мастера видят, кто ответил');
     assert.ok(g.staffOp(ms, { op: 'linksolve', uid: pl.id }).ok && g.linkNew() === 1 && g.staffOp(ms, { op: 'linksolve', uid: pl.id }).ok && g.linkNew() === 0, '«Решено» и обратно');
     g.linkPost(pl, 'спасибо'); assert.ok(g.linkNew() === 1, 'игрок написал снова — переписка опять ждёт ответа');
+    // отчёт к сообщению (29.10): свой — копией (удалил — у мастеров остался), чужой — нельзя; открывают игрок и мастера; 5 в сутки, копий — 30
+    g.report(pl.id, 'Нападение на замок Злодея', ['Победа'], 'battle', { type: 'battle', ok: true }); g.report(other.id, 'Чужой отчёт', ['x'], 'battle');
+    const myRep = g.linkRepList(pl)[0], foreign = g.db.reports.find((x) => x.owner === other.id && x.title === 'Чужой отчёт');
+    assert.ok(myRep && myRep.title === 'Нападение на замок Злодея' && !g.linkRepList(pl).some((x) => x.id === foreign.id), 'на выбор — только свои отчёты');
+    assert.ok(/не найден/.test(g.linkPost(pl, 'чужой', foreign.id).error || '') && /не найден/.test(g.linkPost(pl, 'нет такого', 'abc').error || ''), 'чужой или несуществующий отчёт не приложить');
+    assert.ok(g.linkPost(pl, '', myRep.id).ok, 'отчёт без текста — можно');
+    const rm = g.linkOpen(pl.id).msgs.at(-1);
+    assert.ok(rm.rep && rm.rep.title === myRep.title && !rm.rep.gone && !('data' in rm.rep) && /^📜 Отчёт: Нападение/.test(g.linkList()[0].last.text), 'в переписке — название отчёта, сам он — по нажатию');
+    g.reportDelete(pl, [myRep.id]); assert.ok(!g.linkRepList(pl).some((x) => x.id === myRep.id), 'игрок удалил отчёт');
+    const full = g.linkRepGet(ms, rm.id);
+    assert.ok(full && full.lk && full.title === myRep.title && full.data.type === 'battle' && full.lines[0] === 'Победа', 'мастер открывает копию, хотя отчёт удалён');
+    assert.ok(g.linkRepGet(pl, rm.id) && !g.linkRepGet(other, rm.id) && !g.linkRepGet(ms, 999999), 'копию видит и сам игрок, чужой игрок — нет');
+    g.report(pl.id, 'Разведка', ['ok'], 'scout'); const rep2 = g.linkRepList(pl)[0].id;
+    pl.linkLog = []; pl.linkReps = [];
+    for (let i = 0; i < 5; i++) assert.ok(g.linkPost(pl, `отчёт ${i}`, rep2).ok);
+    assert.ok(/не больше 5 отчётов/i.test(g.linkPost(pl, 'шестой', rep2).error || ''), 'не больше 5 отчётов в сутки');
+    for (let i = 0; i < 31; i++) { pl.linkLog = []; pl.linkReps = []; g.linkPost(pl, `r${i}`, rep2); }
+    const withRep = g.db.link.th[pl.id].msgs.filter((x) => x.rep);
+    assert.ok(withRep.filter((x) => !x.rep.gone).length === 30 && withRep.some((x) => x.rep.gone && x.rep.title) && g.linkOpen(pl.id).msgs.some((x) => x.rep && x.rep.gone), 'копий отчётов в переписке — не больше 30, у старых остаётся название');
     for (let i = 0; i < 20; i++) g.linkPost(pl, `флуд ${i}`); assert.ok(g.linkPost(pl, 'ещё').error && pl.linkLog.length === 10, 'не больше 10 сообщений в сутки');
     const v = g.staffView(ms); assert.ok(v.link && v.link.all === 1 && !v.topics.some((t) => /СВЯЗЬ/.test(t.title)), '«СВЯЗЬ» — не тема, удалить её нельзя');
     g.purgeUser(pl); assert.ok(!g.db.link.th[pl.id], 'игрок удалён — его переписка тоже');
-    console.log('✓ СВЯЗЬ: переписка игрока с мастерами, скрин на 8 часов, ответ от «Мастер игры», «Решено», лимит 10 в сутки');
+    console.log('✓ СВЯЗЬ: переписка игрока с мастерами, скрин на 8 часов, свой отчёт копией (5 в сутки), ответ от «Мастер игры», «Решено», лимит 10 в сутки');
   }
   // «Резерв»: до 25 000 воинов вне боя; при бунте 85% выходит в Замковую армию; пока в резерве есть войска, замок не захватить
   {
@@ -3478,7 +3500,7 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
     assert.ok((tc.units[A.MERCHANT_ID] || 0) === (n0[A.MERCHANT_ID] || 0) && (tc.units[A.GENERAL_ID] || 0) === (n0[A.GENERAL_ID] || 0), 'торговцы и генерал не выдаются');
     console.log('✓ Админка → Войска: выдаются и особые воины (уникальные, нежить, снятые с найма), генерал и торговцы — нет');
   }
-  try { fs.unlinkSync(DB); } catch {}
+  for (const f of tmpDbs) try { fs.unlinkSync(f); } catch {}
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });
 

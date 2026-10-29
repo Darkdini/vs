@@ -776,11 +776,14 @@ const API = {
     staffNotify(g, r.link ? -1 : r.topic || r.gone);
     if (r.link) linkPush(g, r.link);
   },
-  // «СВЯЗЬ» игрока (link.js): view — переписка (ответы мастеров прочитаны); post — сообщение; leave — окно закрыто
+  // «СВЯЗЬ» игрока (link.js): view — переписка (ответы мастеров прочитаны); post — сообщение (rep — свой отчёт к нему); leave — окно закрыто;
+  // reps — свои отчёты на выбор; rep — копия отчёта из переписки (mid — номер сообщения): игроку и мастерам, открывается как отчёт
   link(m) {
     const g = this.game, op = String(m.op || '');
     if (op === 'leave') { this.linkMine = false; return; }
-    if (op === 'post') { const r = g.linkPost(this.user, m.text); if (r.error) return this.error(r.error); staffNotify(g, -1); }
+    if (op === 'reps') return this.send({ t: 'linkreps', list: g.linkRepList(this.user) });
+    if (op === 'rep') { const r = g.linkRepGet(this.user, m.mid); return r ? this.send({ t: 'report', report: r }) : this.error('Отчёт не найден.'); }
+    if (op === 'post') { const r = g.linkPost(this.user, m.text, m.rep); if (r.error) return this.error(r.error); staffNotify(g, -1); }
     else if (op !== 'view') return;
     this.linkMine = true; this.send({ t: 'link', data: g.linkMine(this.user) }); this.pushState();
   },
