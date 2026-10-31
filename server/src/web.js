@@ -1001,6 +1001,7 @@ const API = {
     if (r.data) this.send({ t: 'admininfo', op: m.op, data: r.data });
     else this.toast(r.msg || 'Готово.');
     if (m.op === 'chat' && r.data) for (const s of WebSession.all || []) if (s.user && s.sendChat) s.sendChat(r.data);
+    if (m.op === 'wipearmies' && !r.error) for (const s of WebSession.all || []) if (s.user && s.castle) s.pushState(); /* обнуление армий — всем онлайн свежее состояние */
     if (m.op === 'banmany' || m.op === 'devban') for (const s of WebSession.all || []) if (s.user && !s.user.admin && (s.user.banned || this.game.devBanned(s.dev))) s.socket.destroy();
     if (String(m.op || '').startsWith('test')) for (const s of WebSession.all || []) if (s.user && (!this.game.closedAllows(s.user) || s.user.id === r.kick)) { s.error('Идёт закрытое тестирование — вход только для тестеров.'); s.socket.destroy(); }
     // технические работы: игроков — из игры (у них заглушка), у открытых экранов входа заглушка появляется или исчезает сразу

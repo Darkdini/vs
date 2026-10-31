@@ -138,7 +138,7 @@ function adminHtml() {
       <form class="chatform" data-aform="addmod"><input name="login" placeholder="Ник игрока" autocapitalize="none" required><button class="btn primary small">Назначить</button></form>`)}
       ${aSec('👥 Мульты', multiHtml(a.multis))}
       ${aSec('📮 Жалобы и сообщения об ошибках', `<p class="small">Жалобы из чата и «Сообщить об ошибке» теперь в разделе МАСТЕРА → «СВЯЗЬ»: там на них отвечают, игроку приходит отчёт.</p><button class="pbar" data-admlink>Открыть «СВЯЗЬ»</button>`)}`,
-    world: () => `${aSec('📰 Новость', `<p class="small">Всем придёт фиолетовый конверт в верхней панели; новость останется в «Инфо → Новости».</p>${newsPubForm()}`)}
+    world: () => `${admWipeHtml()}${aSec('📰 Новость', `<p class="small">Всем придёт фиолетовый конверт в верхней панели; новость останется в «Инфо → Новости».</p>${newsPubForm()}`)}
       ${BATTLE_SEC()}
       ${BRSEASON_SEC()}
       ${GOLD_ALL()}
@@ -588,6 +588,18 @@ function ipBanListHtml(bans) {
   const head = `<p class="small">${q ? `Найдено: <b>${list.length}</b> из ${bans.length}` : `Всего: <b>${bans.length}</b>`}${list.length > shown.length ? ` · показаны первые ${shown.length} — уточните поиск` : ''}</p>`;
   return bans.length ? `${head}${shown.map((b) => `<div class="srow"><span><b>${esc(b.ip)}</b> · ${fmtDate(b.at)}${b.until ? ` · до ${fmtDate(b.until)}` : ''}${b.why ? ` · ${esc(b.why)}` : ''}</span><button class="btn small" data-ipunban="${esc(b.ip)}">Снять</button></div>`).join('')}${q && !list.length ? '<p class="parch-note">Такого адреса среди заблокированных нет.</p>' : ''}` : '<p class="small">Нет.</p>';
 }
+// «Обнуление армий» у всех игроков (server wipe.js): разовое действие — со словом ОБНУЛИТЬ и копией базы перед ним
+function admWipeHtml() {
+  return aSec('⚠️ Обнуление армий (у всех)', `<p class="small">У <b>всех</b> игроков, и у Вас тоже: ни одного воина — замковая армия, «Резерв», отряды, походы и подкрепления, тренировка (отменится, ресурсы — в Кладовую), Лазарет, Кладовая, Темница, Подземелье. Генерал — снова <b>1 уровня</b> (опыт, очки и умения с нуля), имя и <b>всё снаряжение остаются</b>.</p>
+    <p class="small">Не трогается: здания, ресурсы, монеты, рейтинг, науки, руны, артефакты, Оружейная, боевые ранги, торговцы и караваны. Перед обнулением сервер сам делает копию базы. Каждому игроку придёт уведомление.</p>
+    <button class="btn small danger" data-awipe>Обнулить армии у всех</button>`);
+}
+$('#sheetBody').addEventListener('click', (e) => {
+  if (!e.target.closest('[data-awipe]')) return;
+  const w = prompt('Обнулить армии и генералов у ВСЕХ игроков? Отменить нельзя (только вернуть копию базы на сервере). Впишите слово ОБНУЛИТЬ:', '');
+  if (w === null) return; if (w.trim().toUpperCase() !== 'ОБНУЛИТЬ') return toast('Слово не совпало — ничего не обнулено.', 'err');
+  send({ t: 'admin', op: 'wipearmies', confirm: w.trim() });
+});
 // ---------- 🔒 Безопасность (server/src/secwatch.js): подозрительные IP — подбор паролей, поиск дыр, флуд ----------
 function admSecHtml(d) {
   const intro = '<p class="small">Адреса, с которых было подозрительное: подбор паролей (особенно к Вашему аккаунту), поиск уязвимостей на сайте (.php, .env, wp-admin, обход папок), попытки отправить файл, флуд, подделанные запросы. Красные — свежие с прошлого просмотра. Вход на сам сервер (SSH) сюда не попадает — его смотрят командой <code>lastb</code>.</p><p class="small"><b>Автоблок:</b> 3 запроса «поиск дыр» или «отправка файла» с одного адреса — IP закрывается сам на 30 дней. Адреса, с которых уже заходили игроки, автоблок не трогает.</p>';

@@ -950,8 +950,9 @@ require('./runes').install(Game);
 require('./boss').install(Game);
 require('./closedtest').install(Game);
 require('./staff').install(Game); // «МАСТЕРА»: общение админа и тестеров // после admin.js: дополняет adminOp командами test…
-require('./hunt').install(Game);
-require('./trap').install(Game); // «Алтарь» → Зона охоты: Генералы бьют чудовищ стихий (hunt.js)
+require('./hunt').install(Game); // «Алтарь» → Зона охоты: Генералы бьют чудовищ стихий (hunt.js)
+require('./trap').install(Game); // «Капкан» и Темница (trap.js)
+require('./wipe').install(Game); // «Обнуление армий» у всех — разовое действие админа (wipe.js)
 require('./link').install(Game); // «СВЯЗЬ»: переписка игроков с мастерами игры (после staff.js)
 require('./convs').install(Game); // «Беседы» в «Сообщениях»: групповая переписка до 15 человек (фото — pics.js)
 require('./honors').install(Game); // медали в профиле («Первопроходец»): дополняет adminOp командами honor…

@@ -637,7 +637,7 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
 // закрыть чат на 5/10/15/30 минут — пишут только модераторы и админ, по таймеру открывается сам
 {
   const R = require('../src/rules'), adm = Object.values(g.db.users).find((x) => x.admin);
-  assert.ok(R.RULES.length === 19 && R.ruleLabel(2) === 'п. 2 — Оскорбление игроков' && R.ruleLabel(19) === 'п. 19 — Споры в общем чате' && !R.ruleLabel(0) && !R.ruleLabel(20) && R.RULES.every((r) => r.short && r.text), 'правила игры: 19 пунктов, споры в общем чате — 19-й');
+  assert.ok(R.RULES.length === 20 && R.ruleLabel(20) === 'п. 20 — Призывы уйти из игры' && R.ruleLabel(2) === 'п. 2 — Оскорбление игроков' && R.ruleLabel(19) === 'п. 19 — Споры в общем чате' && !R.ruleLabel(0) && !R.ruleLabel(21) && R.RULES.every((r) => r.short && r.text), 'правила игры: 20 пунктов, споры в общем чате — 19-й, призывы уйти из игры — 20-й');
   const [md, p1, p2] = ['cm_mod1', 'cm_pl01', 'cm_pl02'].map((l) => g.register({ login: l, password: '12345', race: 0 }).user); md.mod = true;
   assert.ok(g.chatWarn(p1, 'cm_pl02', 2).error, 'игрок не предупреждает');
   assert.ok(/пункт правил/.test(g.chatWarn(md, 'cm_pl01', 0).error || '') && /пункт правил/.test(g.chatWarn(md, 'cm_pl01', '__proto__').error || ''), 'без пункта правил — нельзя');
@@ -661,6 +661,25 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
     g.mil(lc); g.maxOut(lc); lowU.chatAt = 0; lowU.rate = {}; const okp = g.chatPost(lowU, 'привет всем'); assert.ok(g.userRating(lowU) >= 100 && !/рейтингом/.test(okp.error || ''), 'набрал 100 рейтинга — пишет: ' + JSON.stringify(okp.error || 'ok'));
     const m2 = g.register({ login: 'chatLowMod', password: '12345', race: 0 }).user; m2.mod = true; assert.ok(!g.chatLow(m2), 'модератор — без порога');
     g.chatLow = () => false; console.log('✓ Порог чата: писать в общий чат — с рейтингом 100, модераторы и админ — всегда'); }
+  { // Обнуление армий у всех (wipe.js): ни одного воина нигде, генерал 1 ур. со своим снаряжением; остальное — как было
+    const mk = (login) => { const u = g.register({ login, password: '12345', race: 0 }).user, c = g.castleOf(u); g.mil(c); g.maxOut(c); return [u, c]; };
+    const [W1, w1] = mk('wipeOne1'), [W2, w2] = mk('wipeTwo1'), adm = Object.values(g.db.users).find((u) => u.admin);
+    w1.general = g.newGeneral(w1, 40); const eqIt = { id: g.db.nextId++, slot: 'weapon', r: 3, plus: 1 }; w1.general.eq = { weapon: eqIt }; w1.general.tal = { a1: 2 };
+    const dead = g.newGeneral(w1, 10); dead.dead = true; const deadEq = { id: g.db.nextId++, slot: 'helm', r: 1, plus: 0 }; dead.eq = { helm: deadEq }; w1.deadGenerals = [dead];
+    w1.units = { 200: 500 }; w1.reserve = { 201: 300 }; w1.squads = [{ id: 1, name: 'Отряд', units: { 202: 10 } }]; w1.wounded = { 200: 40 }; w1.healing = [{ unit: 200, count: 5, done: 1 }];
+    w1.training = [{ id: g.db.nextId++, unit: 200, building: 3, count: 10, done: 4, each: 1000, start: Date.now() }];
+    g.stashOf(W1).units = { 200: 9 }; w1.prison = { units: { 207: 100 }, from: W2.id, login: 'wipeTwo1', at: Date.now(), until: Date.now() + 1e7 };
+    w2.units = { 200: 50 }; const go = g.sendArmy(w2, { units: { 200: 50 }, x: w1.x, y: w1.y, mission: 'attack' }); assert.ok(go.army, go.error);
+    const res0 = { ...w1.res }, gold0 = W1.gold, rating0 = g.rating(w1), wood0 = g.stashOf(W1).res.wood || 0;
+    assert.ok(/ОБНУЛИТЬ/.test(g.adminOp(adm, 'wipearmies', {}).error || '') && w1.units[200] === 500, 'без слова-подтверждения — ничего не происходит');
+    const r = g.adminOp(adm, 'wipearmies', { confirm: 'обнулить' }); assert.ok(r.ok, r.error);
+    const left = (c) => { const t = (o) => Object.entries(o || {}).reduce((q, [id, n]) => q + (Number(id) === 221 ? 0 : n), 0); return t(c.units) + t(c.reserve) + c.squads.reduce((q, x) => q + t(x.units), 0) + c.armies.reduce((q, a) => q + t(a.units), 0) + t(c.wounded) + (c.healing || []).length + (c.training || []).length; };
+    assert.ok(left(w1) === 0 && left(w2) === 0 && !w2.armies.length && !Object.keys(g.stashOf(W1).units).length && !w1.prison, 'ни одного воина: замок, Резерв, отряды, походы, Лазарет, тренировка, Кладовая, Темница');
+    assert.ok(w1.general && w1.general.level === 1 && !w1.general.exp && !Object.keys(w1.general.tal || {}).length && w1.general.eq.weapon === eqIt && !w1.deadGenerals.length, 'генерал 1 уровня, снаряжение на нём осталось');
+    assert.ok(g.heroGear(w1).includes(deadEq), 'снаряжение павшего генерала — в Оружейной');
+    assert.ok(Object.keys(res0).every((k) => w1.res[k] >= res0[k] - 1) && W1.gold === gold0 && g.rating(w1) === rating0, 'ресурсы, монеты, рейтинг — как были');
+    assert.ok((g.stashOf(W1).res.wood || 0) - wood0 === 6 * require('../src/army').UNIT[200].cost.wood, 'за отменённую тренировку (6 воинов) — ресурсы в Кладовой');
+    console.log(`✓ Обнуление армий: у всех ни одного воина, генерал 1 ур. со снаряжением, ресурсы и постройки на месте (${r.msg})`); }
   { // Порог 300: комментарии к новостям и «Сообщить об ошибке» / жалобы — с рейтингом 300; ответить мастеру, который написал, — можно всегда
     g.talkLow = talkLow0; const lo = g.register({ login: 'talkLow1', password: '12345', race: 0 }).user, lc = g.castleOf(lo);
     assert.ok(g.userRating(lo) < 300 && /рейтингом 300/.test(g.linkPost(lo, 'ошибка').error || ''), 'новичок мастерам не пишет');

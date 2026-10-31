@@ -316,6 +316,12 @@ function install(Game) {
         break;
       }
       case 'noarmy': for (const c of castles) { this.mil(c); c.units = {}; } msg = 'Войска убраны.'; break;
+      // «Обнуление армий» у всех игроков (wipe.js) — только со словом-подтверждением; перед этим — копия базы
+      case 'wipearmies': {
+        if (String(arg.confirm || '').trim().toUpperCase() !== 'ОБНУЛИТЬ') return { error: 'Для обнуления впишите слово ОБНУЛИТЬ.' };
+        const r = this.wipeArmies(user, now);
+        msg = `Обнулено: воинов ${r.units.toLocaleString('ru-RU')}, генералов на 1 уровень — ${r.gens}, игроков — ${r.players}.${r.backup ? ' Копия базы перед обнулением сохранена.' : ''}`; break;
+      }
       case 'general': {
         const lvl = Math.max(1, Math.min(GEN.maxLevel, num(arg.level, 100)));
         // генерал один на королевство: уровень — тому, что есть (в любом замке игрока), иначе новый — в первом замке
