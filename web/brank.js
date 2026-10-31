@@ -6,7 +6,9 @@
 S.brank = null; S.brTab = 'prog';
 const BR_IMG = (icon) => `${GFX}rank/r${Math.max(1, Math.min(13, icon || 1))}.png`;
 const brStars = (n, cls = '') => `<span class="brstars ${cls}">${Array.from({ length: 5 }, (_, i) => `<img src="${GFX}rank/star_${i < n ? 'on' : 'off'}.png" alt="">`).join('')}</span>`;
-function openBrank(id) { S.brank = null; S.brTab = 'prog'; send({ t: 'brank', id }); openSheet(brankWin); }
+const brOffWin = () => `${ribbon('Боевой ранг')}<div class="parch-note">⚙ Идут технические работы.<br>Боевой ранг скоро вернётся — следите за новостями игры.</div>`;
+function openBrank(id) { if (S.st.user.brOff && !S.st.user.admin) return openSheet(brOffWin); /* ранг выключен админом */
+  S.brank = null; S.brTab = 'prog'; send({ t: 'brank', id }); openSheet(brankWin); }
 function brankWin() {
   const b = S.brank;
   const tabs = `<div class="coin-tabs br4">${[['prog', 'Прогресс'], ['table', 'Таблица уровней'], ['top', '🏆 Топ'], ['help', '❓ Справка']].map(([k, t]) => `<button class="${S.brTab === k ? 'on' : ''}" data-brtab="${k}">${t}</button>`).join('')}</div>`;

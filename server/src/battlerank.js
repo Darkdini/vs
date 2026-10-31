@@ -95,6 +95,7 @@ function install(Game) {
   };
   // забрать сундуки наград: upto — до какого ранга (по умолчанию все открытые); награды — в Кладовую
   P.brClaim = function brClaim(u, upto) {
+    if (this.db.brOff && !u.admin) return { error: 'Боевой ранг: идут технические работы.' };
     const b = this.brOf(u), to = rankIdx(b.pts), last = Math.min(to, Number.isInteger(upto) ? upto : to);
     if (last <= b.claimed) return { error: to > b.claimed ? 'Сначала заберите награды за прежние ранги.' : 'Новых наград нет — повышайте ранг в боях.' };
     let army = 0, res = 0, exp = 0; const extra = []; // сундуки званий: руны, нежить, артефакты
@@ -116,6 +117,7 @@ function install(Game) {
   // очки за бой: who — кто получает, vs — противник (null для лагеря разбойников). С тем же игроком за сутки (b.foes — когда
   // были бои) каждый следующий бой вдвое меньше: второй — половина, третий — четверть (как опыт генерала, army.js battleExp)
   P.brAdd = function brAdd(whoId, pts, vsId, time = Date.now()) {
+    if (this.db.brOff) return; /* боевой ранг выключен админом («технические работы») — очки не идут */
     const u = this.userById(whoId); if (!u || u.bot || u.admin || !(pts > 0)) return; // Советник (админ) ранга не набирает
     const b = this.brOf(u), was = rankIdx(b.pts);
     let k = PTS_K * (vsId === null ? NPC_K : 1);
@@ -186,13 +188,17 @@ function install(Game) {
   P.brSeasonAdmin = function brSeasonAdmin(now = Date.now()) {
     const s = this.brSeason(), all = this.brRanked();
     const wait = this.brSeasonWait(now);
-    return { n: s.n, start: s.start, resetAt: s.resetAt, wait, waitDay: wait ? fmtDay(wait) : '', players: all.length, // waitDay — дата по Москве
+    return { off: !!this.db.brOff, n: s.n, start: s.start, resetAt: s.resetAt, wait, waitDay: wait ? fmtDay(wait) : '', players: all.length, // waitDay — дата по Москве
       top: all.slice(0, 3).map(({ u, pts }, k) => ({ place: k + 1, login: u.login, pts, ...rankInfo(rankIdx(pts)) })) };
   };
   const prevOp = P.adminOp;
   P.adminOp = function adminOp(user, op, arg = {}) {
-    if (op !== 'brseason' && op !== 'brseasonnew') return prevOp.call(this, user, op, arg);
+    if (op !== 'brseason' && op !== 'brseasonnew' && op !== 'brtoggle') return prevOp.call(this, user, op, arg);
     if (!user || !user.admin) return { error: 'Нет прав.' };
+    if (op === 'brtoggle') { // выключить / включить боевой ранг: выключен — очки не идут, сундуки не выдаются, игрокам — «технические работы»
+      this.db.brOff = !this.db.brOff; this.store.save();
+      return { ok: true, msg: this.db.brOff ? 'Боевой ранг выключен: очки не начисляются, игроки видят «технические работы».' : 'Боевой ранг снова включён.', data: this.brSeasonAdmin() };
+    }
     if (op === 'brseasonnew') {
       const r = this.brSeasonNew(); if (r.error) return r;
       return { ok: true, data: { ...this.brSeasonAdmin(), msg: `Сезон ${r.n} подведён: в рейтинге было ${r.players}, несобранные сундуки отданы в Кладовую ${r.delivered} ${require('./words').plural(r.delivered, 'игроку', 'игрокам', 'игрокам')}. Начат сезон ${r.n + 1}.` } };

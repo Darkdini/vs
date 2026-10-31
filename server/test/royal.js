@@ -2251,6 +2251,11 @@ assert.ok(pl.race === 'orcs' && !pc.units[hum.id] && pc.units[all.id] === 3, 'ю
   A.br = undefined; g.brOf(A);
   g.brAdd(A.id, 400, Bq.id); assert.ok(A.br.pts === 80 && g.brRank(A) === BR.rankIdx(80), 'очки — пятая часть населения погибших, ранг вырос сразу');
   g.brAdd(A.id, 400, null); assert.strictEqual(A.br.pts, 120, 'лагерь — ещё вдвое меньше');
+  { // админ выключил боевой ранг («технические работы»): очки не идут, сундуки не выдаются; включил — снова идут
+    const adm = Object.values(g.db.users).find((u) => u.admin), p0 = A.br.pts;
+    assert.ok(g.adminOp(adm, 'brtoggle').ok && g.db.brOff && g.brSeasonAdmin().off, 'выключен');
+    g.brAdd(A.id, 400, null); assert.ok(A.br.pts === p0 && /технические работы/.test(g.brClaim(A).error || ''), 'выключен — очки не идут, сундуки не выдаются');
+    assert.ok(g.adminOp(adm, 'brtoggle').ok && !g.db.brOff, 'включён снова'); g.brAdd(A.id, 400, null); assert.ok(A.br.pts > p0, 'включён — очки идут'); A.br.pts = p0; }
   const r = BR.rankIdx(120), units = () => Object.values(g.stashOf(A).units || {}).reduce((a, n) => a + n, 0), u0 = units(), e0 = g.stashOf(A).exp || 0;
   assert.ok(g.brRank(A) === r && g.brChests(A) === r + 1 && g.profileOf(A, A).brank.idx === r, `ранг ${r + 1} сразу, в профиле — новое звание, сундуков — ${r + 1}`);
   assert.ok(g.brClaim(A, 0).ok && g.brChests(A) === r && units() === u0 + 15, 'сундук 1-го ранга: 15 воинов — в Кладовую (в 10 раз меньше прежнего)');

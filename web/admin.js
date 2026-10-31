@@ -41,6 +41,8 @@ const BRSEASON_SEC = () => {
   const d = S.adm.brs, title = '⚔ Боевой ранг: сезоны';
   if (!d) { if (!S.adm.brsAsked) { S.adm.brsAsked = true; send({ t: 'admin', op: 'brseason' }); } return aSec(title, '<p class="small">Загрузка…</p>'); }
   return aSec(title, `${d.msg ? `<div class="smnote ok">✔ ${esc(d.msg)}</div>` : ''}
+    <p class="small">Сейчас боевой ранг: <b>${d.off ? '⛔ выключен — очки не идут, игроки видят «Идут технические работы»' : '✅ включён'}</b></p>
+    ${aBtn2('brtoggle', d.off ? 'Включить боевой ранг' : 'Выключить боевой ранг (технические работы)', d.off ? '' : 'data-confirm="Выключить боевой ранг? Очки перестанут начисляться, игроки увидят «Идут технические работы»."', d.off ? '' : 'danger')}
     <p class="small">Идёт сезон <b>${d.n}</b> — с ${fmtDay(d.start)}. В рейтинге игроков: <b>${fmtFull(d.players)}</b>.${d.top.length ? `<br>Лидеры: ${d.top.map((x) => `${x.place}. <b>${esc(x.login)}</b> — ${x.idx + 1}. ${esc(x.title)} (${fmtFull(x.pts)})`).join('; ')}.` : ''}</p>
     <p class="small">Новый сезон: у всех игроков ранги и очки с нуля (и бонус ранга), сундуки за ранги можно получить снова. Несобранные сундуки уйдут игрокам в Кладовую (придёт письмо), лучший ранг останется рекордом, лучшие 10 — в «Топ» → «Прошлые сезоны». Начать можно раз в календарный месяц.</p>
     ${d.wait ? `<p class="small">Следующий сезон можно начать с <b>${esc(d.waitDay)}</b> (по Москве).</p>` : aBtn2('brseasonnew', 'Подвести итоги и начать новый сезон', 'data-confirm="Начать новый сезон боевого ранга? У всех игроков ранги и очки начнутся с нуля."', 'danger')}`);
@@ -482,7 +484,7 @@ milMsg = function (m) { // eslint-disable-line no-global-assign
     if (m.op === 'maint') S.adm.maint = m.data;
     if (m.op === 'battlecmp') S.adm.battle = { ...(S.adm.battle || {}), cmp: m.data.cmp };
     if (m.op === 'nobodyview') S.adm.nobody = m.data;
-    if (m.op === 'brseason' || m.op === 'brseasonnew') S.adm.brs = m.data;
+    if (m.op === 'brseason' || m.op === 'brseasonnew' || m.op === 'brtoggle') S.adm.brs = m.data;
     return refreshSheet();
   }
   prevMil2(m);

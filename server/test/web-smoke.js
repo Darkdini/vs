@@ -282,7 +282,7 @@ function client() {
     a.send({ t: 'alliance', op: 'accept', id: inv.id });
     await a.expect('state', (m) => m.castle.mil.alliance && m.castle.mil.alliance.tag === 'KRL' && !m.castle.mil.invites.length);
     adm.send({ t: 'alliance', op: 'kick', login: 'Webby' });
-    await a.expect('state', (m) => !m.castle.mil.alliance);
+    await a.expect('toast', (m) => /исключили из альянса/.test(m.msg)); /* ждём само исключение: прежнее «состояние без альянса» могло остаться в очереди — заявка уходила раньше */
     a.send({ t: 'alliance', op: 'request', id: inv.id });
     await a.expect('toast', (m) => /Заявка отправлена в \[KRL\]/.test(m.msg));
     adm.send({ t: 'sync' });
