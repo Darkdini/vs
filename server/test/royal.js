@@ -666,20 +666,21 @@ console.log(`✓ Кузница: атака Мечника +1 (сила арми
     const [W1, w1] = mk('wipeOne1'), [W2, w2] = mk('wipeTwo1'), adm = Object.values(g.db.users).find((u) => u.admin);
     w1.general = g.newGeneral(w1, 40); const eqIt = { id: g.db.nextId++, slot: 'weapon', r: 3, plus: 1 }; w1.general.eq = { weapon: eqIt }; w1.general.tal = { a1: 2 };
     const dead = g.newGeneral(w1, 10); dead.dead = true; const deadEq = { id: g.db.nextId++, slot: 'helm', r: 1, plus: 0 }; dead.eq = { helm: deadEq }; w1.deadGenerals = [dead];
-    w1.units = { 200: 500 }; w1.reserve = { 201: 300 }; w1.squads = [{ id: 1, name: 'Отряд', units: { 202: 10 } }]; w1.wounded = { 200: 40 }; w1.healing = [{ unit: 200, count: 5, done: 1 }];
+    w1.units = { 200: 500, 233: 3, 224: 12 }; w1.reserve = { 201: 300, 233: 2 }; w1.squads = [{ id: 1, name: 'Отряд', units: { 202: 10 } }]; w1.wounded = { 200: 40 }; w1.healing = [{ unit: 200, count: 5, done: 1 }];
     w1.training = [{ id: g.db.nextId++, unit: 200, building: 3, count: 10, done: 4, each: 1000, start: Date.now() }];
-    g.stashOf(W1).units = { 200: 9 }; w1.prison = { units: { 207: 100 }, from: W2.id, login: 'wipeTwo1', at: Date.now(), until: Date.now() + 1e7 };
+    g.stashOf(W1).units = { 200: 9, 224: 5 }; w1.prison = { units: { 207: 100 }, from: W2.id, login: 'wipeTwo1', at: Date.now(), until: Date.now() + 1e7 };
     w2.units = { 200: 50 }; const go = g.sendArmy(w2, { units: { 200: 50 }, x: w1.x, y: w1.y, mission: 'attack' }); assert.ok(go.army, go.error);
     const res0 = { ...w1.res }, gold0 = W1.gold, rating0 = g.rating(w1), wood0 = g.stashOf(W1).res.wood || 0;
     assert.ok(/ОБНУЛИТЬ/.test(g.adminOp(adm, 'wipearmies', {}).error || '') && w1.units[200] === 500, 'без слова-подтверждения — ничего не происходит');
     const r = g.adminOp(adm, 'wipearmies', { confirm: 'обнулить' }); assert.ok(r.ok, r.error);
-    const left = (c) => { const t = (o) => Object.entries(o || {}).reduce((q, [id, n]) => q + (Number(id) === 221 ? 0 : n), 0); return t(c.units) + t(c.reserve) + c.squads.reduce((q, x) => q + t(x.units), 0) + c.armies.reduce((q, a) => q + t(a.units), 0) + t(c.wounded) + (c.healing || []).length + (c.training || []).length; };
-    assert.ok(left(w1) === 0 && left(w2) === 0 && !w2.armies.length && !Object.keys(g.stashOf(W1).units).length && !w1.prison, 'ни одного воина: замок, Резерв, отряды, походы, Лазарет, тренировка, Кладовая, Темница');
+    const left = (c) => { const t = (o) => Object.entries(o || {}).reduce((q, [id, n]) => q + ([221, 224, 233].includes(Number(id)) ? 0 : n), 0); return t(c.units) + t(c.reserve) + c.squads.reduce((q, x) => q + t(x.units), 0) + c.armies.reduce((q, a) => q + t(a.units), 0) + t(c.wounded) + (c.healing || []).length + (c.training || []).length; };
+    assert.ok(left(w1) === 0 && left(w2) === 0 && !w2.armies.length && JSON.stringify(g.stashOf(W1).units) === '{"224":5}' && !w1.prison, 'ни одного воина: замок, Резерв, отряды, походы, Лазарет, тренировка, Кладовая, Темница');
+    assert.ok(w1.units[233] === 5 && w1.units[224] === 12 && Object.keys(w1.units).length === 2, 'бунтари и путешественники остались (из Резерва — в замковой армии): ' + JSON.stringify(w1.units));
     assert.ok(w1.general && w1.general.level === 1 && !w1.general.exp && !Object.keys(w1.general.tal || {}).length && w1.general.eq.weapon === eqIt && !w1.deadGenerals.length, 'генерал 1 уровня, снаряжение на нём осталось');
     assert.ok(g.heroGear(w1).includes(deadEq), 'снаряжение павшего генерала — в Оружейной');
     assert.ok(Object.keys(res0).every((k) => w1.res[k] >= res0[k] - 1) && W1.gold === gold0 && g.rating(w1) === rating0, 'ресурсы, монеты, рейтинг — как были');
     assert.ok((g.stashOf(W1).res.wood || 0) - wood0 === 6 * require('../src/army').UNIT[200].cost.wood, 'за отменённую тренировку (6 воинов) — ресурсы в Кладовой');
-    console.log(`✓ Обнуление армий: у всех ни одного воина, генерал 1 ур. со снаряжением, ресурсы и постройки на месте (${r.msg})`); }
+    console.log(`✓ Обнуление армий: у всех только бунтари и путешественники, генерал 1 ур. со снаряжением, ресурсы и постройки на месте (${r.msg})`); }
   { // Порог 300: комментарии к новостям и «Сообщить об ошибке» / жалобы — с рейтингом 300; ответить мастеру, который написал, — можно всегда
     g.talkLow = talkLow0; const lo = g.register({ login: 'talkLow1', password: '12345', race: 0 }).user, lc = g.castleOf(lo);
     assert.ok(g.userRating(lo) < 300 && /рейтингом 300/.test(g.linkPost(lo, 'ошибка').error || ''), 'новичок мастерам не пишет');
